@@ -98,6 +98,7 @@ class AvmFlavor {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 350;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -110,6 +111,8 @@ class AvmFlavor {
 >>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
 =======
 >>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
+=======
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 344;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -215,7 +218,17 @@ class AvmFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = 404;
 >>>>>>> 641cfcb7d5 (6542: fix conflicts after rebase)
 >>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
+<<<<<<< HEAD
 >>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 345;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 411;
+>>>>>>> a79671b8aa (6542: rebase on top of sha256 compression)
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,

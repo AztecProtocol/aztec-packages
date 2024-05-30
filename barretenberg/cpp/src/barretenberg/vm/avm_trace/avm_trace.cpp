@@ -2027,13 +2027,6 @@ void AvmTraceBuilder::write_slice_to_memory(uint8_t space_id,
                                             AvmMemoryTag w_tag,
                                             FF internal_return_ptr,
                                             std::vector<FF> const& slice)
-void AvmTraceBuilder::write_slice_to_memory(uint8_t space_id,
-                                            uint32_t clk,
-                                            uint32_t dst_offset,
-                                            AvmMemoryTag r_tag,
-                                            AvmMemoryTag w_tag,
-                                            FF internal_return_ptr,
-                                            std::vector<FF> const& slice)
 {
     // We have 4 registers that we are able to use to write to memory within a single main trace row
     auto register_order = std::array{ IntermRegister::IA, IntermRegister::IB, IntermRegister::IC, IntermRegister::ID };
@@ -2153,6 +2146,7 @@ uint32_t AvmTraceBuilder::read_slice_to_memory(uint8_t space_id,
     }
     return num_main_rows;
 }
+
 /**
  * @brief To_Radix_LE with direct or indirect memory access.
  *
@@ -2258,7 +2252,7 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
 {
 
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
-    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
@@ -2271,6 +2265,9 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         call_ptr, clk, IntermRegister::IB, res.direct_b_offset, AvmMemoryTag::U32, AvmMemoryTag::U32);
     auto read_c = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IC, res.direct_c_offset, AvmMemoryTag::U32, AvmMemoryTag::U32);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SHA256COMPRESSION);
 
     // Since the above adds mem_reads in the mem_trace_builder at clk, we need to follow up resolving the reads in the
     // main trace at the same clk cycle to preserve the cross-table permutation
@@ -3010,11 +3007,10 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // 2**16 long)
     size_t const lookup_table_size = (bin_trace_size > 0 && range_check_required) ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,       main_trace_size,       alu_trace_size,
-                                            range_check_size, conv_trace_size,
-                                  lookup_table_size,         sha256_trace_size,
-                                         poseidon2_trace_size, pedersen_trace_size,  gas_trace_size + 1,     KERNEL_INPUTS_LENGTH, KERNEL_OUTPUTS_LENGTH,
-                                        min_trace_size, GAS_COST_TABLE.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size,    alu_trace_size,
+                                        range_check_size,      conv_trace_size,    lookup_table_size,
+                                        sha256_trace_size,  poseidon2_trace_size, pedersen_trace_size,  gas_trace_size + 1, KERNEL_INPUTS_LENGTH,
+                                        KERNEL_OUTPUTS_LENGTH, min_trace_size,     GAS_COST_TABLE.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the

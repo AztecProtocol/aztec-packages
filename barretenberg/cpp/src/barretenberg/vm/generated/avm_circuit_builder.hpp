@@ -535,6 +535,7 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 414;
     static constexpr size_t num_polys = 352;
 =======
@@ -555,6 +556,8 @@ class AvmCircuitBuilder {
 =======
 >>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
 <<<<<<< HEAD
+=======
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
     static constexpr size_t num_fixed_columns = 398;
     static constexpr size_t num_polys = 336;
 =======
@@ -585,11 +588,14 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 >>>>>>> 56d3b16388 (feat: simple gas decrement test)
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
 <<<<<<< HEAD
 >>>>>>> 2e4d449258 (feat: simple gas decrement test)
 =======
 =======
+=======
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
 =======
 =======
 =======
@@ -600,11 +606,14 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 >>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
 <<<<<<< HEAD
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
 =======
 =======
+=======
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
 =======
 =======
     static constexpr size_t num_fixed_columns = 405;
@@ -612,17 +621,23 @@ class AvmCircuitBuilder {
 >>>>>>> 529d3ad9ef (6542: rebase on master and fix kernel output)
 >>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
 >>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
 =======
 =======
 =======
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
+=======
     static constexpr size_t num_fixed_columns = 404;
     static constexpr size_t num_polys = 340;
 >>>>>>> 641cfcb7d5 (6542: fix conflicts after rebase)
+<<<<<<< HEAD
 >>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
 >>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
+=======
+>>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }

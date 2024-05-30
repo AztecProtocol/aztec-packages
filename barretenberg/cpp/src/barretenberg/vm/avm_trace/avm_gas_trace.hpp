@@ -102,10 +102,12 @@ static const inline std::unordered_map<OpCode, GasTableEntry> GAS_COST_TABLE = {
     // Conversions
     { OpCode::TORADIXLE, temp_default_gas_entry },
 
+    // Future Gadgets -- pending changes in noir
+    { OpCode::SHA256COMPRESSION, temp_default_gas_entry },
+
     // Sentinel
     // LAST_OPCODE_SENTINEL,
 };
-
 class AvmGasTraceBuilder {
   public:
     struct GasTraceEntry {
