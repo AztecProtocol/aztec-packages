@@ -60,17 +60,16 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using ZeroMorph = ::bb::ZeroMorphVerifier_<PCS>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    // transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript->load_proof(stdlib_proof);
 
     // TODO(github.com/AztecProtocol/barretenberg/issues/985): Normally, the ECCVM verifier would have run
     // before the translator and there will already by data in the transcript that can be hash to get the batching
     // challenge. Once this is implemented the hack can be removed.
-    transcript->template receive_from_prover<BF>("init");
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
-
+    info(batching_challenge_v.get_value());
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
