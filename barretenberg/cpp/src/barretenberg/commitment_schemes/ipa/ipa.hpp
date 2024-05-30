@@ -375,7 +375,7 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            if (round_challenges[i].is_zero()) { // ???
+            if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
             round_challenges_inv[i] = round_challenges[i].invert();
@@ -489,20 +489,12 @@ template <typename Curve_> class IPA {
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto builder = generator_challenge.get_context();
 
-        // if (generator_challenge.is_zero()) {
-        //     throw_or_abort("The generator challenge can't be zero");
-        // }
-
         Commitment aux_generator = Commitment::one(builder) * generator_challenge;
 
         const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
-        info("opening claim as bigfield", opening_claim.opening_pair.evaluation.get_value());
-        GroupElement aux = aux_generator * opening_claim.opening_pair.evaluation;
-        info("point", aux.get_value());
-        info("is point on curve", aux.get_value().on_curve());
-        GroupElement C_prime = opening_claim.commitment + aux;
+        GroupElement C_prime = opening_claim.commitment + aux_generator * opening_claim.opening_pair.evaluation;
 
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
@@ -517,9 +509,7 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            // if (round_challenges[i].is_zero()) { // ???
-            //     throw_or_abort("Round challenges can't be zero");
-            // }
+
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -542,7 +532,6 @@ template <typename Curve_> class IPA {
         Fr one = Fr::one();
         Fr b_zero = one;
         for (size_t i = 0; i < log_poly_degree; i++) {
-            // auto exponent = typename Curve::BaseField(2).pow(i);
             uint32_t exponent = 1 << i;
             b_zero *= one + (round_challenges_inv[log_poly_degree - 1 - i] *
                              opening_claim.opening_pair.challenge.pow(exponent));
@@ -590,8 +579,6 @@ template <typename Curve_> class IPA {
 
         // Step 11.
         // Check if C_right == C₀
-        info("C_zero ", C_zero.get_value());
-        info("right hand side ", right_hand_side.get_value());
         C_zero.assert_equal(right_hand_side);
         return (C_zero.get_value() == right_hand_side.get_value());
     }

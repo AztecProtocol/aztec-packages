@@ -33,7 +33,6 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
 void ECCVMProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    info("circuit size", circuit_size);
     transcript->send_to_verifier("circuit_size", circuit_size);
 }
 
@@ -45,20 +44,9 @@ void ECCVMProver::execute_wire_commitments_round()
 {
     auto wire_polys = key->polynomials.get_wires();
     auto labels = commitment_labels.get_wires();
-    info("in prover");
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-
-        auto comm = commitment_key->commit(wire_polys[idx]);
-        if (!comm.on_curve()) {
-            info("something not on curve in prover");
-            info(labels[idx], " ", comm);
-        }
-        transcript->send_to_verifier(labels[idx], comm);
-        if (idx == 73 || idx == 76 || idx == 77 || idx == 81 || idx == 83) {
-            info(labels[idx], comm);
-        }
+        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
     }
-    info("out of prover");
 }
 
 /**

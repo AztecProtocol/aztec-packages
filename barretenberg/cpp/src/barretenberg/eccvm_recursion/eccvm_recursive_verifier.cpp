@@ -30,6 +30,9 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const auto circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1017): This is a hack to ensure zero commitments
+        // are still on curve as the transcript doesn't currently support a point at infinity representation for
+        // cycle_group
         if (!comm.get_value().on_curve()) {
             comm.set_point_at_infinity(true);
         }
