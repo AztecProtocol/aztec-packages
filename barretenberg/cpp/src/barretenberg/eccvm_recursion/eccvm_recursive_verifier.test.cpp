@@ -1,6 +1,9 @@
 #include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_prover.hpp"
+#include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -122,6 +125,54 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), true) << outer_circuit.err();
     }
+
+    static void test_full()
+    {
+        InnerBuilder eccvm_builder = generate_circuit(&engine);
+        InnerProver eccvm_prover(eccvm_builder);
+        auto eccvm_proof = eccvm_prover.construct_proof();
+        auto eccvm_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(eccvm_prover.key);
+
+        using TranslatorFlavor = TranslatorRecursiveFlavor_<OuterBuilder>;
+        using TranslatorBuilder = TranslatorFlavor::NativeFlavor::CircuitBuilder;
+        using TranslatorProver = TranslatorProver;
+        using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
+        using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
+        using BF = TranslatorFlavor::BF;
+
+        TranslatorBuilder translator_builder{ eccvm_prover.translation_batching_challenge_v,
+                                              eccvm_prover.evaluation_challenge_x,
+                                              eccvm_builder.op_queue };
+        TranslatorProver translator_prover{ translator_builder, eccvm_prover.transcript };
+        auto translator_proof = translator_prover.construct_proof();
+        auto translator_verification_key =
+            std::make_shared<typename TranslatorFlavor::NativeFlavor::VerificationKey>(translator_prover.key);
+
+        OuterBuilder outer_circuit;
+
+        RecursiveVerifier eccvm_verifier{ &outer_circuit, eccvm_verification_key };
+        eccvm_verifier.verify_proof(eccvm_proof);
+
+        TranslatorVerifier translator_verifier{ &outer_circuit,
+                                                translator_verification_key,
+                                                eccvm_verifier.transcript };
+        translator_verifier.verify_proof(translator_proof);
+
+        // WORKTODO: where should we do this conversion?
+        auto native_translation_evaluations = eccvm_prover.translation_evaluations;
+        auto translation_evaluations =
+            TranslationEvaluations{ BF::from_witness(&outer_circuit, native_translation_evaluations.op),
+                                    BF::from_witness(&outer_circuit, native_translation_evaluations.Px),
+                                    BF::from_witness(&outer_circuit, native_translation_evaluations.Py),
+                                    BF::from_witness(&outer_circuit, native_translation_evaluations.z1),
+                                    BF::from_witness(&outer_circuit, native_translation_evaluations.z2)
+
+            };
+        translator_verifier.verify_translation(translation_evaluations);
+
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+    }
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -135,5 +186,10 @@ TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerification)
 TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_failure();
+};
+
+TYPED_TEST(ECCVMRecursiveTests, Full)
+{
+    TestFixture::test_full();
 };
 } // namespace bb

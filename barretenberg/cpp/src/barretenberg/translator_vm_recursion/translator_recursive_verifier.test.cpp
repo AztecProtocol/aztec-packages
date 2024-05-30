@@ -64,7 +64,6 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         auto fake_inital_proof = prover_transcript->export_proof();
         InnerBF translation_batching_challenge =
             prover_transcript->template get_challenge<InnerBF>("Translation:batching_challenge");
-        info(translation_batching_challenge);
         InnerBF translation_evaluation_challenge = InnerBF::random_element();
 
         auto circuit_builder = InnerBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
@@ -73,19 +72,15 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         InnerProver prover{ circuit_builder, prover_transcript };
         auto proof = prover.construct_proof();
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/985): Insert the proof that serves as the content
-        // neeeded by the Translator\ verifier in the ECCVM proof. Unlike the native verifier where we can directly pass
-        // a transcript initialised with the correct information, in the recursive scenario the transcript is a circuit
-        // primitives that is initialised from the proof so we need the batching challenge contained in the proof.
-        // proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
-
         OuterBuilder outer_circuit;
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
+
+        // Mock a previous verifier that would in reality be ECCVM recursive verifier
         StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&outer_circuit, fake_inital_proof);
         auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
         transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
-        RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.transcript = transcript;
+
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
+        RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
         auto pairing_points = verifier.verify_proof(proof);
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
 

@@ -11,8 +11,11 @@ namespace bb {
 
 template <typename Flavor>
 TranslatorRecursiveVerifier_<Flavor>::TranslatorRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    Builder* builder,
+    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , transcript(transcript)
     , builder(builder)
 {}
 
@@ -62,14 +65,10 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    // transcript = std::make_shared<Transcript>(stdlib_proof);
     transcript->load_proof(stdlib_proof);
 
-    // TODO(github.com/AztecProtocol/barretenberg/issues/985): Normally, the ECCVM verifier would have run
-    // before the translator and there will already by data in the transcript that can be hash to get the batching
-    // challenge. Once this is implemented the hack can be removed.
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
-    info(batching_challenge_v.get_value());
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -124,7 +123,6 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     return pairing_points;
 }
 
-// this we verify outside translator
 template <typename Flavor>
 bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<typename Flavor::BF, typename Flavor::FF>& translation_evaluations)
@@ -151,7 +149,7 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
         // multiply by x here to deal with shift
         eccvm_opening.assert_equal(x * accumulated_result);
-        return true;
+        return (eccvm_opening.get_value() == (x * accumulated_result).get_value());
     };
 
     bool is_value_reconstructed =
