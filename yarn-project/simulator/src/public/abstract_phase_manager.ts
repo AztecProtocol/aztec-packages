@@ -51,6 +51,7 @@ import {
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -433,6 +434,11 @@ export abstract class AbstractPhaseManager {
         result.nullifierNonExistentReadRequests,
         ReadRequest.empty(),
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+      ),
+      l1ToL2MsgReadRequests: padArrayEnd(
+        result.l1ToL2MsgReadRequests,
+        ReadRequest.empty(),
+        MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
       ),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
