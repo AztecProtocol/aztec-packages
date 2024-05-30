@@ -34,7 +34,11 @@ Once these have been installed, to start the sandbox, run:
 aztec-sandbox
 ```
 
+<<<<<<< HEAD
 ### Have fun
+=======
+### Have fun!
+>>>>>>> 807db728b3 (chore(docs): moving tutorials and quick starts around, spinning off codespaces page)
 
 **Congratulations, you have just installed and run the Aztec Sandbox!**
 
@@ -64,6 +68,7 @@ aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions]
 
 Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](../aztec/concepts/pxe/index.md)/
 
+<<<<<<< HEAD
 ## Update the sandbox
 
 To update the sandbox, you can just run:
@@ -72,6 +77,8 @@ To update the sandbox, you can just run:
 aztec-up
 ```
 
+=======
+>>>>>>> 807db728b3 (chore(docs): moving tutorials and quick starts around, spinning off codespaces page)
 ## Next steps
 
 Visit the [sandbox reference](../reference/sandbox_reference/index.md) for more info on which environment variables you can set, which cheat codes you can use, and learn about what exactly is the Aztec Sandbox.
