@@ -221,16 +221,22 @@ pub fn export_fn_abi(
 /// ```
 ///
 /// This will allow developers to access their contract' storage struct in unconstrained functions
-pub fn transform_unconstrained(func: &mut NoirFunction, storage_struct_name: String) {   
+pub fn transform_unconstrained(func: &mut NoirFunction, storage_struct_name: String) {
     // let context = UnconstrainedContext::new();
     let let_context = assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_dep!("aztec", "context", "unconstrained_context", "UnconstrainedContext", "new")),
-            vec![],                                                                      
+            variable_path(chained_dep!(
+                "aztec",
+                "context",
+                "unconstrained_context",
+                "UnconstrainedContext",
+                "new"
+            )),
+            vec![],
         ),
     );
-    
+
     // We inject the statements at the beginning, in reverse order.
     func.def.body.statements.insert(0, abstract_storage(storage_struct_name, true));
     func.def.body.statements.insert(0, let_context);
@@ -627,11 +633,8 @@ fn abstract_return_values(func: &NoirFunction) -> Result<Option<Vec<Statement>>,
 ///   let storage = Storage::init(context);
 /// }
 fn abstract_storage(storage_struct_name: String, unconstrained: bool) -> Statement {
-    let context_expr = if unconstrained {
-        variable("context")
-    } else {
-        mutable_reference("context")
-    };
+    let context_expr =
+        if unconstrained { variable("context") } else { mutable_reference("context") };
 
     assignment(
         "storage", // Assigned to
