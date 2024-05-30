@@ -20,6 +20,7 @@ import {
   type KernelCircuitPublicInputs,
   L2ToL1Message,
   LogHash,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -51,7 +52,6 @@ import {
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
-  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';

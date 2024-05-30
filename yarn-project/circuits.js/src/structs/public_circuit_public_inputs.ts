@@ -14,8 +14,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   GeneratorIndex,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,

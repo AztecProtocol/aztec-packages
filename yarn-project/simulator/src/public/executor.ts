@@ -211,7 +211,7 @@ async function executePublicFunctionAcvm(
   const noteHashReadRequests = noteHashReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
-  const l1ToL2MsgReadRequests =  l1ToL2MsgReadRequestsPadded.filter(v => !v.isEmpty());
+  const l1ToL2MsgReadRequests = l1ToL2MsgReadRequestsPadded.filter(v => !v.isEmpty());
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());

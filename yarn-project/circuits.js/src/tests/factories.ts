@@ -42,6 +42,7 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -134,7 +135,6 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
   packBytecode,
-  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
