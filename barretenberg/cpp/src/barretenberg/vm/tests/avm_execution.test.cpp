@@ -1135,7 +1135,7 @@ TEST_F(AvmExecutionTests, keccakOpCode)
     validate_trace(std::move(trace));
 }
 
-// Positive test with Keccak.
+// Positive test with Pedersen.
 TEST_F(AvmExecutionTests, pedersenHashOpCode)
 {
 
