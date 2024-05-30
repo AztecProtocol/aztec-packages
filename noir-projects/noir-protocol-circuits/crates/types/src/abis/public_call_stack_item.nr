@@ -50,7 +50,7 @@ mod tests {
         abis::{
         function_data::FunctionData, function_selector::FunctionSelector, note_hash::NoteHash,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
-        public_call_stack_item::PublicCallStackItem, side_effect::SideEffect
+        public_call_stack_item::PublicCallStackItem
     },
         address::AztecAddress, constants::GENERATOR_INDEX__CALL_STACK_ITEM, traits::Hash
     };
@@ -69,7 +69,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x11998b1d33b8ba1c8fa7a6c2f5bc76b31bbaa80400554465c335ba31559ac1f9;
+        let test_data_call_stack_item_request_hash = 0x2e8e08091cc52f5177715b2cf03e0a14741fb89862232acade59eb107b64d71b;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
@@ -87,7 +87,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x2b7f8b68d96d0011ecc576459899e9451fbd880568ccc7a071d9cf04e59abb65;
+        let test_data_call_stack_item_hash = 0x10ed3d5ca5eb90d5c1b5ea35b3b71016b34618352d1acf7083878aa106d33577;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }
