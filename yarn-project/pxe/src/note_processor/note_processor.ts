@@ -153,21 +153,21 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const { notePayload: incomingNotePayload } = TaggedNote.decryptAsIncoming(log.data, ivskM)!;
-            const { notePayload: outgoingNotePayload } = TaggedNote.decryptAsOutgoing(log.data, ovskM)!;
+            const incomingTaggedNote = TaggedNote.decryptAsIncoming(log.data, ivskM)!;
+            const outgoingTaggedNote = TaggedNote.decryptAsOutgoing(log.data, ovskM)!;
 
-            if (incomingNotePayload || outgoingNotePayload) {
-              if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
+            if (incomingTaggedNote || outgoingTaggedNote) {
+              if (incomingTaggedNote && outgoingTaggedNote && !incomingTaggedNote.notePayload.equals(outgoingTaggedNote.notePayload)) {
                 throw new Error('Incoming and outgoing note payloads do not match.');
               }
 
-              const payload = incomingNotePayload || outgoingNotePayload;
+              const payload = incomingTaggedNote.notePayload || outgoingTaggedNote.notePayload;
 
               const txHash = block.body.txEffects[indexOfTxInABlock].txHash;
               const { incomingNote, outgoingNote, incomingDeferredNote } = await produceNoteDaos(
                 this.simulator,
-                incomingNotePayload ? this.ivpkM : undefined,
-                outgoingNotePayload ? this.ovpkM : undefined,
+                incomingTaggedNote ? this.ivpkM : undefined,
+                outgoingTaggedNote ? this.ovpkM : undefined,
                 payload,
                 txHash,
                 newNoteHashes,
