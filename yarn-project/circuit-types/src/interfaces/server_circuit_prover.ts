@@ -90,6 +90,7 @@ export interface ServerCircuitProver {
 
   getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
+    signal?: AbortSignal,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
 }
 

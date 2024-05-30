@@ -221,50 +221,60 @@ export class ProvingOrchestrator {
     }
 
     logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
-    const paddingTx = makeEmptyProcessedTx(
+    // Make an empty padding transaction
+    // Insert it into the tree the required number of times to get all of the
+    // base rollup inputs
+    // Then enqueue the proving of all the transactions
+    const unprovenPaddingTx = makeEmptyProcessedTx(
       this.initialHeader ?? (await this.db.buildInitialHeader()),
       this.provingState.globalVariables.chainId,
       this.provingState.globalVariables.version,
     );
     const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
     for (let i = 0; i < paddingTxCount; i++) {
-      const [inputs, snapshot] = await this.prepareTransaction(paddingTx, this.provingState);
+      const [inputs, snapshot] = await this.prepareTransaction(unprovenPaddingTx, this.provingState);
       const txInput = {
         inputs,
         snapshot,
       };
       txInputs.push(txInput);
     }
-    this.enqueuePaddingTxs(this.provingState, txInputs);
+
+    // Now enqueue the proving
+    this.enqueuePaddingTxs(this.provingState, txInputs, unprovenPaddingTx);
   }
 
+  // Enqueues the proving of the required padding transactions
+  // If the fully proven padding transaction is not available, this will first be proven
   private enqueuePaddingTxs(
     provingState: ProvingState,
     txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }>,
+    unprovenPaddingTx: ProcessedTx,
   ) {
-    if (!this.paddingTx) {
-      this.deferredProving(
-        provingState,
-        async signal =>
-          this.prover.getEmptyPrivateKernelProof(
-            {
-              // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
-              // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
-              // we'd have to clear out the paddingTx here and regenerate it when they do.
-              chainId: provingState.globalVariables.chainId,
-              version: provingState.globalVariables.version,
-              header: await this.db.buildInitialHeader(),
-            },
-            signal,
-          ),
-        result => {
-          this.paddingTx = makePaddingProcessedTx(result);
-          this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
-        },
-      );
+    if (this.paddingTx) {
+      // We already have the padding transaction
+      this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
       return;
     }
-    this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
+    this.deferredProving(
+      provingState,
+      signal =>
+        this.prover.getEmptyPrivateKernelProof(
+          {
+            // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
+            // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
+            // we'd have to clear out the paddingTx here and regenerate it when they do.
+            chainId: unprovenPaddingTx.data.constants.globalVariables.chainId,
+            version: unprovenPaddingTx.data.constants.globalVariables.version,
+            header: unprovenPaddingTx.data.constants.historicalHeader,
+          },
+          signal,
+        ),
+      result => {
+        this.paddingTx = makePaddingProcessedTx(result);
+        this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
+      },
+    );
   }
 
   private provePaddingTransactions(
