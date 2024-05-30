@@ -71,7 +71,7 @@
         // to the default value "clangd".
         //
         "clangd.path": "clangd-16",
-        // We should disable automatic inclusion of headers unless we decif6de to follow "WhyIWYU".
+        // We should disable automatic inclusion of headers unless we decide to follow "WhyIWYU".
         "clangd.arguments": [
             "-header-insertion=never"
         ],
