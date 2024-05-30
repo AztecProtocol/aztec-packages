@@ -1172,7 +1172,7 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
                                "00000005"                     // length offset (direct)
                                + to_hex(OpCode::RETURN) +     // opcode RETURN
                                "00"                           // Indirect flag
-                               "00000003"                     // ret offset 256
+                               "00000003"                     // ret offset 3
                                "00000001";                    // ret size 32
 
     auto bytecode = hex_to_bytes(bytecode_hex);
