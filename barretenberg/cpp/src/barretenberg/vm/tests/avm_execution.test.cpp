@@ -769,7 +769,9 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     std::vector<FF> expected_output = { 1862536192, 526086805, 2067405084,    593147560,
                                         726610467,  813867028, 4091010797ULL, 3974542186ULL };
 
-    auto trace = Execution::gen_trace(instructions, returndata);
+    std::vector<FF> calldata = std::vector<FF>();
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the Sha256Compression selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sha256 == 1; });
@@ -859,7 +861,9 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata);
+    std::vector<FF> calldata = std::vector<FF>();
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the sha256 selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sha256 == 1; });
@@ -940,7 +944,8 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
         FF(std::string("0x0cbea457c91c22c6c31fd89afd2541efc2edf31736b9f721e823b2165c90fd41"))
     };
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata);
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the poseidon2 selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_poseidon2 == 1; });
@@ -1033,8 +1038,10 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
                                         VariantWith<uint32_t>(37)))));
     //
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata);
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the keccak selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_keccak == 1; });
@@ -1114,8 +1121,10 @@ TEST_F(AvmExecutionTests, keccakOpCode)
                                         VariantWith<uint32_t>(37)))));
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata);
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the keccak selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_keccak == 1; });
