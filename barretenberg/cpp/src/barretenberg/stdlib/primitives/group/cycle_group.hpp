@@ -105,9 +105,7 @@ template <typename Builder> class cycle_group {
         }
         void validate_scalar_is_in_field() const;
 
-        // This is a HACK!!
-        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& value)
-            : cycle_scalar(ScalarField((value.get_value() % uint512_t(ScalarField::modulus)).lo)){};
+        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& _value);
     };
 
     /**
@@ -175,6 +173,7 @@ template <typename Builder> class cycle_group {
     cycle_group(Builder* _context = nullptr);
     cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
     cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
+    cycle_group(Builder* _context, const AffineElement& _in);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
