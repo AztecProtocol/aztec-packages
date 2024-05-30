@@ -25,16 +25,16 @@ namespace avm_kernel(256);
     pol commit side_effect_counter;
 
     // FIXED INDEXES
+    pol START_NULLIFIER_EXISTS_OFFSET = 8;
+    pol START_SLOAD_WRITE_OFFSET = 28;
+    pol START_SSTORE_WRITE_OFFSET = 32;
     pol START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
     pol START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
-    pol START_NULLIFIER_EXISTS_OFFSET = 8;
     pol START_EMIT_NULLIFIER_WRITE_OFFSET = 12;
     pol START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 16;
     pol START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 20;
     pol START_EMIT_L2_TO_l1_MSG = 24;
 
-    pol START_SLOAD_WRITE_OFFSET = 28;
-    pol START_SSTORE_WRITE_OFFSET = 32;
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6465): Must constrain write_offset counters to be less than side effect MAX
     // Current write offsets for each opcode

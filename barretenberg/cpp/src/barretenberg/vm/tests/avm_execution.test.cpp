@@ -885,6 +885,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                         VariantWith<uint32_t>(35)))));
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
     // Test vector output taken from noir black_box_solver
     // Uint32Array.from([1862536192, 526086805, 2067405084, 593147560, 726610467, 813867028,
@@ -892,7 +893,6 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     std::vector<FF> expected_output = { 1862536192, 526086805, 2067405084,    593147560,
                                         726610467,  813867028, 4091010797ULL, 3974542186ULL };
 
-    std::vector<FF> calldata = std::vector<FF>();
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the Sha256Compression selector
@@ -1059,6 +1059,7 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata = std::vector<FF>();
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     std::vector<FF> expected_output = {
         FF(std::string("0x2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95")),
         FF(std::string("0x0c01fa1b8d0748becafbe452c0cb0231c38224ea824554c9362518eebdd5701f")),
@@ -1591,9 +1592,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // Craft public inputs object - in this case all return values are known to be a fixed value 1
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-    size_t public_inputs_emit_note_hash_offset =
-
-        auto trace = Execution::gen_trace(instructions);
+    auto trace = Execution::gen_trace(instructions);
 
     // CHECK EMIT NOTE HASH
     // Check output data + side effect counters have been set correctly
