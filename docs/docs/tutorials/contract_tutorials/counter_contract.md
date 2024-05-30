@@ -1,5 +1,5 @@
 ---
-title: Counter Contract Tutorial
+title: Counter Contract
 sidebar_position: 0
 ---
 
