@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717062545546,
+  "lastUpdate": 1717064363750,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -4840,6 +4840,78 @@ window.BENCHMARK_DATA = {
             "value": 177984905,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 177984905 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4feb8027548cd0a7da56c68ad1af0a0be16bdc5",
+          "message": "feat: pow method for bigfield (#6725)\n\nAdds an exponentiation method for bigfield. The exponent is taken to be\r\na `field_t` since the exponents are limited to 32 bits anyway. Added\r\nextra method to perform `pow` with a uint32_t that is converted into\r\nfield_t witness underneath\r\n\r\n---------\r\n\r\nCo-authored-by: maramihali <mara@aztecprotocol.com>",
+          "timestamp": "2024-05-30T10:06:33Z",
+          "tree_id": "8165b6b17ddcdc5f94411b87f155646542ec14b2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e4feb8027548cd0a7da56c68ad1af0a0be16bdc5"
+        },
+        "date": 1717064362426,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15448.368322000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10790.982741 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5539.945078999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5109.107569 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48891.832286,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48891833000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16899.220728,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16899221000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5168105473,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5168105473 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198741067,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198741067 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4278356367,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4278356367 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163420911,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163420911 ns\nthreads: 1"
           }
         ]
       }
