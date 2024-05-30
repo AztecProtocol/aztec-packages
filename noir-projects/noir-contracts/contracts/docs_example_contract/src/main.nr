@@ -247,16 +247,16 @@ contract DocsExample {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
 
-        // docs:start:state_vars-PrivateMutableGet
-        let card = storage.legendary_card.get_note(GrumpkinPoint::zero(), GrumpkinPoint::zero());
-        // docs:end:state_vars-PrivateMutableGet
-
-        let points = card.points + 1;
-
         let header = context.get_header();
         let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
         let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
         let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
+
+        // docs:start:state_vars-PrivateMutableGet
+        let card = storage.legendary_card.get_note(msg_sender_ovpk_m, msg_sender_ivpk_m);
+        // docs:end:state_vars-PrivateMutableGet
+
+        let points = card.points + 1;
 
         let mut new_card = CardNote::new(points, card.randomness, msg_sender_npk_m_hash);
         // docs:start:state_vars-PrivateMutableReplace
