@@ -1,41 +1,19 @@
-import { createAccounts } from '@aztec/accounts/testing';
-import { type AccountWallet, AztecAddress, Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
-import { EscrowableTokenContract } from '@aztec/noir-contracts.js';
+import { AztecAddress, Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { setupPXEService } from '../fixtures/utils.js';
 import { EscrowTokenContractTest, toAddressOption } from './escrowable_token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
-  const walletGroup2: AccountWallet[] = [];
   let teardownB: () => Promise<void>;
 
   const t = new EscrowTokenContractTest('transfer_private');
-  let { asset, accounts, tokenSim, wallets, badAccount, aztecNode } = t;
+  let { asset, accounts, tokenSim, wallets, badAccount } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, accounts, tokenSim, wallets, badAccount, aztecNode } = t);
-
-    // We need a fresh PXE
-    {
-      const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
-      teardownB = _teardown;
-      const freshAccounts = await createAccounts(pxeB, 1);
-      walletGroup2.push(freshAccounts[0]);
-
-      await wallets[0].registerRecipient(walletGroup2[0].getCompleteAddress());
-      await walletGroup2[0].registerRecipient(wallets[0].getCompleteAddress());
-
-      await pxeB.registerContract({
-        artifact: EscrowableTokenContract.artifact,
-        instance: asset.instance,
-      });
-
-      tokenSim.addAccount(walletGroup2[0].getAddress());
-    }
+    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
   });
 
   afterAll(async () => {

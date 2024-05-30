@@ -5,18 +5,18 @@ mod types;
  * Escrowable Token (partial implementation)
  * 
  * The following is a partial implementation of an escrowable token.
- * Partial in the sense that it do not (yet) support all the features of a full token, but just
+ * Partial in the sense that it does not (yet) support all the features of a full token, but just
  * enough to showcase some of the oddities of escrowing.
  *
  * Escrowable here being that the "owner" of a "balance" might be different from the actor
  * who is actually able to use the funds.
  * 
- * In public state, example on this is uniswap most other contracts. The contract escrow funds
- * for some duration of time (potentially transient to just one tx), and within that period 
+ * In public state, most contracts will escrow funds, one example on this is uniswap. 
+ * The contract escrow funds for some duration of time (potentially transient to just one tx), and within that period 
  * it defines the rules for how it is spend (still following the tokens own rules).
  * 
  * This is all good and dandy, but when moving to private state, this becomes significantly more tricky.
- * Recall in private you have both an "owner" as specified by the business logic, but also a actor
+ * Recall in private you have both an "owner" as specified by the business logic, but also an actor
  * that is able to produce the nullifier.
  * 
  * To clarify, when I'm saying `owner` I'm referring to the address in the `balances`, e.g., 
@@ -26,15 +26,15 @@ mod types;
  * However, if escrowing, this might no longer be the case. 
  *
  * An example would be a `vault` such as the `SimpleEscrow` contract. 
- * The contract "owns" the tokens, but it don't have any nullifier keys itself, and rely on `alice` to provide them.
+ * The contract "owns" the tokens, but it doesn't have any nullifier keys itself, and relies on `alice` to provide them.
  * Since the notes need to specify a nullifier public masterkey hash `npk_m_hash` to ensure that notes cannot
  * be double spent, we need to support the case where `vault` is the `owner` but `alice`s keys are used for `npk_m_hash`
  * 
  * Furthermore, to support the `incoming` and `outgoing` logs, we need to provie values for these. Note that 
- * want to use the address that maps to `npk_m_hash` for the `ivpk` as well, since we want to ensure that the 
- * actor that can nullify the note, will also learn about the notes existence - otherwise it don't matter much.
+ * we want to use the address that maps to `npk_m_hash` for the `ivpk` as well, since we want to ensure that the 
+ * actor that can nullify the note, will also learn about the notes existence - otherwise it doesn't matter much.
  * 
- * The address mapping to `ovpk` is a bit more tricky, since it don't necessarily match any of the other addresses.
+ * The address mapping to `ovpk` is a bit more tricky, since it doesn't necessarily match any of the other addresses.
  * In most "direct" user to user transfers, it will belong to the `msg_sender`, but for escrowing, it might be someone
  * else. It needs to be provided.
  *
