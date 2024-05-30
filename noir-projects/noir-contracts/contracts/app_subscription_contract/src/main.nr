@@ -37,16 +37,17 @@ contract AppSubscription {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(GrumpkinPoint::zero(), GrumpkinPoint::zero());
-        assert(note.remaining_txs as u64 > 0, "you're out of txs");
-
-        note.remaining_txs -= 1;
-
         let header = context.get_header();
         // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
         // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
         let subscriber_ovpk_m = header.get_ovpk_m(&mut context, user_address);
         let subscriber_ivpk_m = header.get_ivpk_m(&mut context, user_address);
+
+        let mut note = storage.subscriptions.at(user_address).get_note(subscriber_ovpk_m, subscriber_ivpk_m);
+        assert(note.remaining_txs as u64 > 0, "you're out of txs");
+
+        note.remaining_txs -= 1;
+
         storage.subscriptions.at(user_address).replace(&mut note, subscriber_ovpk_m, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
