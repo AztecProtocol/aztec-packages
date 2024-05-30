@@ -37,6 +37,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                const bool can_overflow,
                                const size_t maximum_bitlength)
 {
+    info("here");
     ASSERT((can_overflow == true && maximum_bitlength == 0) ||
            (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
 

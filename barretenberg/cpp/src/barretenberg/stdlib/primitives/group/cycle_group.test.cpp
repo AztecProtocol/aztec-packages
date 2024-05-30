@@ -641,19 +641,21 @@ TYPED_TEST(CycleGroupTest, TestOne)
  * preserves the same value until we implement a smarter function.
  *
  */
-TYPED_TEST(CycleGroupTest, TestBigfieldFqConversion)
+TYPED_TEST(CycleGroupTest, TestConversionFromBigfield)
 {
     STDLIB_TYPE_ALIASES
     using FF = typename Curve::ScalarField;
     using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
-
+    Builder builder;
     auto elt = FF::random_element(&engine);
-    FF_ct big_elt(elt);
+    FF_ct big_elt(&builder, elt);
     cycle_scalar_ct scalar_from_big(big_elt);
     EXPECT_EQ(elt, scalar_from_big.get_value());
 
     cycle_scalar_ct scalar_from_elt = (elt);
     EXPECT_EQ(elt, scalar_from_elt.get_value());
+
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)

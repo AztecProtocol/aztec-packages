@@ -106,8 +106,22 @@ template <typename Builder> class cycle_group {
         void validate_scalar_is_in_field() const;
 
         // This is a HACK!!
-        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& value)
-            : cycle_scalar(ScalarField((value.get_value() % uint512_t(ScalarField::modulus)).lo)){};
+        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& _value)
+        // : cycle_scalar(ScalarField((value.get_value() % uint512_t(ScalarField::modulus)).lo))
+        {
+            auto* ctx = get_context() ? get_context() : _value.get_context();
+            using bigfield_t = stdlib::bigfield<Builder, typename ScalarField::Params>;
+            const uint256_t value((_value.get_value() % uint512_t(ScalarField::modulus)).lo);
+            const uint256_t lo_v = value.slice(0, LO_BITS);
+            const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
+            lo = lo_v;
+            hi = hi_v;
+            // N.B. to be able to call assert equal, these cannot be constants
+            bigfield_t lo_big = bigfield_t(witness_t(ctx, lo_v), witness_t(ctx, 0));
+            bigfield_t hi_big = bigfield_t(witness_t(ctx, hi_v), witness_t(ctx, 0));
+            bigfield_t res = lo_big + hi_big * bigfield_t((uint256_t(1) << LO_BITS));
+            _value.assert_equal(res);
+        };
     };
 
     /**
