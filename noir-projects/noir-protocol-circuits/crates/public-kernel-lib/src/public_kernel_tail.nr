@@ -329,8 +329,8 @@ mod tests {
             for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
                 if i < array_length {
                     deduped_public_data_update_requests_runs[i] = 1;
-                    sorted_public_data_update_requests_indexes[i] = i;
                 }
+                sorted_public_data_update_requests_indexes[i] = i;
             }
 
             let combine_hints = CombineHints {

@@ -78,11 +78,23 @@ export function sortByPositionThenCounter<T extends Ordered & Positioned & IsEmp
   return genericSort(arr, compareByPositionThenCounter, ascending);
 }
 
+export interface SortOptions {
+  ascending: boolean;
+  // If you're using this in the circuits, and checking via `assert_sorted`, then you should use 'sorted'.
+  // If you're using this in the circuits, and checking via `check_permutation`, then you should use 'original'.
+  hintIndexesBy: 'original' | 'sorted';
+}
+
+const defaultSortOptions: SortOptions = {
+  ascending: true,
+  hintIndexesBy: 'sorted',
+};
+
 export function sortAndGetSortedHints<T extends IsEmpty, N extends number>(
   arr: Tuple<T, N>,
   compareFn: (a: T, b: T) => number,
   length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
-  ascending: boolean = true,
+  { ascending = true, hintIndexesBy = 'sorted' }: SortOptions,
 ): [Tuple<T, N>, Tuple<number, N>] {
   const itemsWithIndexes = arr.map((item, i) => ({
     item,
@@ -94,11 +106,19 @@ export function sortAndGetSortedHints<T extends IsEmpty, N extends number>(
   const items = sorted.map(({ item }) => item) as Tuple<T, N>;
 
   const indexHints = makeTuple(length, () => 0);
-  sorted.forEach(({ originalIndex }, i) => {
-    if (!items[i].isEmpty()) {
-      indexHints[originalIndex] = i;
-    }
-  });
+  if (hintIndexesBy === 'sorted') {
+    sorted.forEach(({ originalIndex }, i) => {
+      if (!items[i].isEmpty()) {
+        indexHints[originalIndex] = i;
+      }
+    });
+  } else {
+    sorted.forEach(({ originalIndex }, i) => {
+      if (!items[i].isEmpty()) {
+        indexHints[i] = originalIndex;
+      }
+    });
+  }
 
   return [items, indexHints];
 }
@@ -106,17 +126,17 @@ export function sortAndGetSortedHints<T extends IsEmpty, N extends number>(
 export function sortByCounterGetSortedHints<T extends Ordered & IsEmpty, N extends number>(
   arr: Tuple<T, N>,
   length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
-  ascending: boolean = true,
+  options: SortOptions = defaultSortOptions,
 ): [Tuple<T, N>, Tuple<number, N>] {
-  return sortAndGetSortedHints(arr, compareByCounter, length, ascending);
+  return sortAndGetSortedHints(arr, compareByCounter, length, options);
 }
 
 export function sortByPositionThenCounterGetSortedHints<T extends Ordered & Positioned & IsEmpty, N extends number>(
   arr: Tuple<T, N>,
   length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
-  ascending: boolean = true,
+  options: SortOptions = defaultSortOptions,
 ): [Tuple<T, N>, Tuple<number, N>] {
-  return sortAndGetSortedHints(arr, compareByPositionThenCounter, length, ascending);
+  return sortAndGetSortedHints(arr, compareByPositionThenCounter, length, options);
 }
 
 /**

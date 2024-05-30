@@ -10,10 +10,7 @@ use crate::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
     MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{
-    arrays::{array_merge, assert_sorted_array, assert_deduped_array, check_padded_permutation},
-    reader::Reader
-},
+    utils::{arrays::{array_merge, assert_sorted_array, assert_deduped_array, check_permutation}, reader::Reader},
     traits::{Empty, Serialize, Deserialize}
 };
 
@@ -74,7 +71,7 @@ impl CombinedAccumulatedData {
         );
 
         // Just check a permutation here...
-        check_padded_permutation(
+        check_permutation(
             merged_public_data_update_requests,
             combine_hints.sorted_public_data_update_requests,
             combine_hints.sorted_public_data_update_requests_indexes

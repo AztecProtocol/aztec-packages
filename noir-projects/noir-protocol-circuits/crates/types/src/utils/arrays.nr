@@ -156,26 +156,6 @@ pub fn check_permutation<T, N>(
     }
 }
 
-pub fn check_padded_permutation<T, N>(
-    original_array: [T; N],
-    permuted_array: [T; N],
-    original_indexes: [u64; N]
-) where T: Eq + Empty {
-    let mut seen_empty = false;
-    for i in 0..N {
-        let original_value = original_array[i];
-        if is_empty(original_value) {
-            seen_empty = true;
-            assert(is_empty(permuted_array[i]), "Empty values must not be mixed with sorted values");
-        } else {
-            assert(!seen_empty, "Empty values must be padded to the right");
-
-            let index = original_indexes[i];
-            assert(permuted_array[index].eq(original_value), "Invalid index");
-        }
-    }
-}
-
 pub fn assert_sorted_array<T, N, Env>(
     original_array: [T; N],
     sorted_array: [T; N],

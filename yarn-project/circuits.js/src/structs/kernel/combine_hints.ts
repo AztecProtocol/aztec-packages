@@ -110,8 +110,19 @@ export class CombineHints {
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
+    // Since we're using `check_permutation` in the circuit, we need index hints based on the original array.
     const [sortedPublicDataUpdateRequests, sortedPublicDataUpdateRequestsIndexes] =
-      sortByPositionThenCounterGetSortedHints(publicDataUpdateRequests, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+      sortByPositionThenCounterGetSortedHints(publicDataUpdateRequests, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, {
+        ascending: true,
+        hintIndexesBy: 'original',
+      });
+
+    // further, we need to fill in the rest of the hints with an identity mapping
+    for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+      if (publicDataUpdateRequests[i].isEmpty()) {
+        sortedPublicDataUpdateRequestsIndexes[i] = i;
+      }
+    }
 
     const [dedupedPublicDataUpdateRequests, dedupedPublicDataUpdateRequestsRuns] = deduplicateSortedArray(
       sortedPublicDataUpdateRequests,
