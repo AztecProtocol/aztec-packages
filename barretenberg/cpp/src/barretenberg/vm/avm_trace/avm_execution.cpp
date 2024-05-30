@@ -158,7 +158,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
+    info("before convert public inputs");
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
+    info("after convert public inputs");
     AvmTraceBuilder trace_builder(public_inputs);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
