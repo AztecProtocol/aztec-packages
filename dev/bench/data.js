@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717086541315,
+  "lastUpdate": 1717086843882,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -6752,6 +6752,78 @@ window.BENCHMARK_DATA = {
             "value": 163497411,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163497411 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "69d90c409fc10020cd65e5078a3777545ecc1c85",
+          "message": "chore: add l1 to l2 msg read requests to public circuit public inputs (#6762)",
+          "timestamp": "2024-05-30T16:25:57Z",
+          "tree_id": "25f08be18b9eb66b32625d969201dadf8675454a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/69d90c409fc10020cd65e5078a3777545ecc1c85"
+        },
+        "date": 1717086842409,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15360.495361999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10653.754252 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5487.291552999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5074.663667 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48877.075132000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48877076000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17058.024916000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17058024000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5121785638,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5121785638 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195870916,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195870916 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4251896582,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4251896582 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164606012,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164606012 ns\nthreads: 1"
           }
         ]
       }
