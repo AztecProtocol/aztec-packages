@@ -112,6 +112,10 @@
     [[maybe_unused]] auto avm_conversion_num_limbs = View(new_term.avm_conversion_num_limbs);                          \
     [[maybe_unused]] auto avm_conversion_radix = View(new_term.avm_conversion_radix);                                  \
     [[maybe_unused]] auto avm_conversion_to_radix_le_sel = View(new_term.avm_conversion_to_radix_le_sel);              \
+    [[maybe_unused]] auto avm_keccakf1600_clk = View(new_term.avm_keccakf1600_clk);                                    \
+    [[maybe_unused]] auto avm_keccakf1600_input = View(new_term.avm_keccakf1600_input);                                \
+    [[maybe_unused]] auto avm_keccakf1600_keccakf1600_sel = View(new_term.avm_keccakf1600_keccakf1600_sel);            \
+    [[maybe_unused]] auto avm_keccakf1600_output = View(new_term.avm_keccakf1600_output);                              \
     [[maybe_unused]] auto avm_kernel_emit_l2_to_l1_msg_write_offset =                                                  \
         View(new_term.avm_kernel_emit_l2_to_l1_msg_write_offset);                                                      \
     [[maybe_unused]] auto avm_kernel_emit_note_hash_write_offset =                                                     \
@@ -204,6 +208,7 @@
     [[maybe_unused]] auto avm_main_sel_op_fdiv = View(new_term.avm_main_sel_op_fdiv);                                  \
     [[maybe_unused]] auto avm_main_sel_op_fee_per_da_gas = View(new_term.avm_main_sel_op_fee_per_da_gas);              \
     [[maybe_unused]] auto avm_main_sel_op_fee_per_l2_gas = View(new_term.avm_main_sel_op_fee_per_l2_gas);              \
+    [[maybe_unused]] auto avm_main_sel_op_keccak = View(new_term.avm_main_sel_op_keccak);                              \
     [[maybe_unused]] auto avm_main_sel_op_l1_to_l2_msg_exists = View(new_term.avm_main_sel_op_l1_to_l2_msg_exists);    \
     [[maybe_unused]] auto avm_main_sel_op_lt = View(new_term.avm_main_sel_op_lt);                                      \
     [[maybe_unused]] auto avm_main_sel_op_lte = View(new_term.avm_main_sel_op_lte);                                    \
@@ -212,8 +217,10 @@
     [[maybe_unused]] auto avm_main_sel_op_note_hash_exists = View(new_term.avm_main_sel_op_note_hash_exists);          \
     [[maybe_unused]] auto avm_main_sel_op_nullifier_exists = View(new_term.avm_main_sel_op_nullifier_exists);          \
     [[maybe_unused]] auto avm_main_sel_op_or = View(new_term.avm_main_sel_op_or);                                      \
+    [[maybe_unused]] auto avm_main_sel_op_poseidon2 = View(new_term.avm_main_sel_op_poseidon2);                        \
     [[maybe_unused]] auto avm_main_sel_op_radix_le = View(new_term.avm_main_sel_op_radix_le);                          \
     [[maybe_unused]] auto avm_main_sel_op_sender = View(new_term.avm_main_sel_op_sender);                              \
+    [[maybe_unused]] auto avm_main_sel_op_sha256 = View(new_term.avm_main_sel_op_sha256);                              \
     [[maybe_unused]] auto avm_main_sel_op_shl = View(new_term.avm_main_sel_op_shl);                                    \
     [[maybe_unused]] auto avm_main_sel_op_shr = View(new_term.avm_main_sel_op_shr);                                    \
     [[maybe_unused]] auto avm_main_sel_op_sload = View(new_term.avm_main_sel_op_sload);                                \
@@ -260,9 +267,20 @@
     [[maybe_unused]] auto avm_mem_tsp = View(new_term.avm_mem_tsp);                                                    \
     [[maybe_unused]] auto avm_mem_val = View(new_term.avm_mem_val);                                                    \
     [[maybe_unused]] auto avm_mem_w_in_tag = View(new_term.avm_mem_w_in_tag);                                          \
+    [[maybe_unused]] auto avm_poseidon2_clk = View(new_term.avm_poseidon2_clk);                                        \
+    [[maybe_unused]] auto avm_poseidon2_input = View(new_term.avm_poseidon2_input);                                    \
+    [[maybe_unused]] auto avm_poseidon2_output = View(new_term.avm_poseidon2_output);                                  \
+    [[maybe_unused]] auto avm_poseidon2_poseidon_perm_sel = View(new_term.avm_poseidon2_poseidon_perm_sel);            \
+    [[maybe_unused]] auto avm_sha256_clk = View(new_term.avm_sha256_clk);                                              \
+    [[maybe_unused]] auto avm_sha256_input = View(new_term.avm_sha256_input);                                          \
+    [[maybe_unused]] auto avm_sha256_output = View(new_term.avm_sha256_output);                                        \
+    [[maybe_unused]] auto avm_sha256_sha256_compression_sel = View(new_term.avm_sha256_sha256_compression_sel);        \
+    [[maybe_unused]] auto avm_sha256_state = View(new_term.avm_sha256_state);                                          \
     [[maybe_unused]] auto perm_main_alu = View(new_term.perm_main_alu);                                                \
     [[maybe_unused]] auto perm_main_bin = View(new_term.perm_main_bin);                                                \
     [[maybe_unused]] auto perm_main_conv = View(new_term.perm_main_conv);                                              \
+    [[maybe_unused]] auto perm_main_sha256 = View(new_term.perm_main_sha256);                                          \
+    [[maybe_unused]] auto perm_main_pos2_perm = View(new_term.perm_main_pos2_perm);                                    \
     [[maybe_unused]] auto perm_main_mem_a = View(new_term.perm_main_mem_a);                                            \
     [[maybe_unused]] auto perm_main_mem_b = View(new_term.perm_main_mem_b);                                            \
     [[maybe_unused]] auto perm_main_mem_c = View(new_term.perm_main_mem_c);                                            \

@@ -104,14 +104,24 @@ template <typename Builder> class cycle_group {
             return _use_bn254_scalar_field_for_primality_test;
         }
         void validate_scalar_is_in_field() const;
-        static cycle_scalar from_bigfield(const stdlib::bigfield<Builder, bb::Bn254FqParams>& value)
+
+        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& _value)
         {
-
-            auto val = bb::fq((value.get_value() % uint512_t(bb::fq::modulus)).lo);
-            return cycle_scalar(val);
+            using bigfield_t = stdlib::bigfield<Builder, typename ScalarField::Params>;
+            const uint256_t value((_value.get_value() % uint512_t(ScalarField::modulus)).lo);
+            const uint256_t lo_v = value.slice(0, LO_BITS);
+            const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
+            lo = lo_v;
+            hi = hi_v;
+            if (!_value.is_constant()) {
+                auto* ctx = get_context() ? get_context() : _value.get_context();
+                // N.B. to be able to call assert equal, these cannot be constants
+                bigfield_t lo_big = bigfield_t(witness_t(ctx, lo_v), witness_t(ctx, 0));
+                bigfield_t hi_big = bigfield_t(witness_t(ctx, hi_v), witness_t(ctx, 0));
+                bigfield_t res = lo_big + hi_big * bigfield_t((uint256_t(1) << LO_BITS));
+                _value.assert_equal(res);
+            }
         };
-
-        // This is a HACK!!
     };
 
     /**
@@ -213,9 +223,8 @@ template <typename Builder> class cycle_group {
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
-            cycle_scalars.emplace_back(cycle_scalar::from_bigfield(scalar));
+            cycle_scalars.emplace_back(scalar);
         }
-
         return batch_mul(base_points, cycle_scalars, context);
     }
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
