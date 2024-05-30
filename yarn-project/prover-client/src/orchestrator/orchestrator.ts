@@ -98,7 +98,6 @@ export class ProvingOrchestrator {
    * @param numTxs - The total number of transactions in the block. Must be a power of 2
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
-   * @param emptyTx - The instance of an empty transaction to be used to pad this block
    * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
@@ -106,7 +105,6 @@ export class ProvingOrchestrator {
     numTxs: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
-    emptyTx: ProcessedTx,
     verificationKeys: VerificationKeys,
   ): Promise<ProvingTicket> {
     // Check that the length of the array of txs is a power of two
@@ -162,7 +160,6 @@ export class ProvingOrchestrator {
       globalVariables,
       l1ToL2MessagesPadded,
       baseParityInputs.length,
-      emptyTx,
       messageTreeSnapshot,
       newL1ToL2MessageTreeRootSiblingPath,
       verificationKeys,
@@ -217,9 +214,12 @@ export class ProvingOrchestrator {
     logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
     if (!this.paddingTx) {
       const emptyKernel = await this.prover.getEmptyPrivateKernelProof({
+        // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
+        // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
+        // we'd have to clear out the paddingTx here and regenerate it when they do.
         chainId: this.provingState.globalVariables.chainId,
         version: this.provingState.globalVariables.version,
-        header: this.provingState.emptyTx.data.constants.historicalHeader,
+        header: await this.db.buildInitialHeader(),
       });
       this.paddingTx = makePaddingProcessedTx(emptyKernel);
     }

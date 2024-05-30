@@ -42,7 +42,7 @@ describe('prover/orchestrator/public-functions', () => {
           numTransactions,
           context.globalVariables,
           [],
-          await makeEmptyProcessedTestTx(context.actualDb),
+
           getMockVerificationKeys(),
         );
 

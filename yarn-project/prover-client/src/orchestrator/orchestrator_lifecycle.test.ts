@@ -52,7 +52,7 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals1,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
         getMockVerificationKeys(),
       );
 
@@ -76,7 +76,7 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals2,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
         getMockVerificationKeys(),
       );
 
@@ -110,7 +110,7 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals1,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
         getMockVerificationKeys(),
       );
 
@@ -122,7 +122,7 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals2,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
         getMockVerificationKeys(),
       );
 
@@ -155,7 +155,7 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         makeGlobalVariables(1),
         [],
-        await makeEmptyProcessedTestTx(context.actualDb),
+
         getMockVerificationKeys(),
       );
 
