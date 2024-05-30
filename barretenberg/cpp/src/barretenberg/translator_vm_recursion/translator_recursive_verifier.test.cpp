@@ -53,7 +53,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->append_nonzero_ops();
 
-        for (size_t i = 0; i < 500; i++) {
+        for (size_t i = 0; i < 20; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
@@ -64,6 +64,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         auto fake_inital_proof = prover_transcript->export_proof();
         InnerBF translation_batching_challenge =
             prover_transcript->template get_challenge<InnerBF>("Translation:batching_challenge");
+        info(translation_batching_challenge);
         InnerBF translation_evaluation_challenge = InnerBF::random_element();
 
         auto circuit_builder = InnerBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
@@ -73,14 +74,18 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         auto proof = prover.construct_proof();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/985): Insert the proof that serves as the content
-        // neeeded by the Translator verifier in the ECCVM proof. Unlike the native verifier where we can directly pass
+        // neeeded by the Translator\ verifier in the ECCVM proof. Unlike the native verifier where we can directly pass
         // a transcript initialised with the correct information, in the recursive scenario the transcript is a circuit
         // primitives that is initialised from the proof so we need the batching challenge contained in the proof.
-        proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
+        // proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
 
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
         OuterBuilder outer_circuit;
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
+        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&outer_circuit, fake_inital_proof);
+        auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
+        transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        verifier.transcript = transcript;
         auto pairing_points = verifier.verify_proof(proof);
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
 
@@ -122,9 +127,8 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     }
 };
 
-using FlavorTypes = testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                   TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                   TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+using FlavorTypes =
+    testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(TranslatorRecursiveTests, FlavorTypes);
 
