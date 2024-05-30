@@ -88,6 +88,49 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut note, true, owner_ivpk_m);
     }
 
+    // Nested/inner function to create and insert a note
+    // TESTING: inserts a static randomness value to test notes with
+    // the same inner note hash are dealt with correctly
+    #[aztec(private)]
+    fn insert_note_static_randomness(amount: Field, owner: AztecAddress) {
+        let mut owner_balance = storage.balances.at(owner);
+
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+        note.randomness = 2;
+
+        // Insert note
+        owner_balance.insert(&mut note, true, owner_ivpk_m);
+    }
+
+    // Nested/inner function to create and insert a note
+    // then emit another note log for the same note
+    #[aztec(private)]
+    fn insert_note_extra_emit(amount: Field, owner: AztecAddress) {
+        let mut owner_balance = storage.balances.at(owner);
+
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+
+        // Insert note
+        owner_balance.insert(&mut note, true, owner_ivpk_m);
+
+        // Emit note again
+        context.encrypt_and_emit_note(
+            context.this_address(),
+            note.get_header().storage_slot,
+            ValueNote::get_note_type_id(),
+            owner_ivpk_m,
+            note
+        );
+    }
+
     // Nested/inner function to get a note and confirm it matches the expected value
     #[aztec(private)]
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
