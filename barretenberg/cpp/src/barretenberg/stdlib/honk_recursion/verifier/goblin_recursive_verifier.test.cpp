@@ -1,18 +1,7 @@
+#include "barretenberg/stdlib/honk_recursion/verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-// #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
-// #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-// #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
-// #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-// #include "barretenberg/stdlib/honk_recursion/verifier/decider_recursive_verifier.hpp"
-// #include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
-// #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/honk_recursion/verifier/goblin_recursive_verifier.hpp"
-// #include "barretenberg/sumcheck/instance/instances.hpp"
-// #include "barretenberg/ultra_honk/decider_prover.hpp"
-// #include "barretenberg/ultra_honk/ultra_prover.hpp"
-// #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifierTests : public testing::Test {
@@ -40,6 +29,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         GoblinVerifier::VerifierInput verfier_input;
     };
 
+    /**
+     * @brief Create a goblin proof and the VM verification keys needed by the goblin recursive verifier
+     *
+     * @return ProverOutput
+     */
     ProverOutput create_goblin_prover_output()
     {
         GoblinProver goblin;
@@ -59,7 +53,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 };
 
 /**
- * @brief Ensure the Goblin proof can be natively verified
+ * @brief Ensure the Goblin proof produced by the test method can be natively verified
  *
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
@@ -71,12 +65,16 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
     EXPECT_TRUE(verifier.verify(proof));
 }
 
+/**
+ * @brief Construct and check a goblin recursive verification circuit
+ *
+ */
 TEST_F(GoblinRecursiveVerifierTests, Basic)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
     Builder builder;
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input.translator_verification_key };
+    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     verifier.verify(proof);
 
     EXPECT_EQ(builder.failed(), false) << builder.err();

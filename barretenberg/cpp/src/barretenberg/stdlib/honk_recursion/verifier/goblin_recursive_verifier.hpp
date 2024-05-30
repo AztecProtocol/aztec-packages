@@ -1,10 +1,5 @@
 #pragma once
-// #include "barretenberg/flavor/flavor.hpp"
-// #include "barretenberg/honk/proof_system/types/proof.hpp"
-// #include "barretenberg/protogalaxy/folding_result.hpp"
-// #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
-// #include "barretenberg/stdlib/honk_recursion/verifier/recursive_instances.hpp"
-// #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
+#include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
@@ -13,27 +8,36 @@ namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifier {
   public:
     using Builder = UltraCircuitBuilder; // Goblin rec verifier will have Ultra arithmetization
-    using TranslatorFlavor = TranslatorRecursiveFlavor_<Builder>;
-    using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
+
     using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
 
+    using TranslatorFlavor = TranslatorRecursiveFlavor_<Builder>;
+    using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
+    using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
+    using BF = TranslatorFlavor::BF;
+
+    using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
+    using ECCVMVerifier = ECCVMRecursiveVerifier_<ECCVMFlavor>;
+
+    // ECCVM and Translator verification keys
     using VerifierInput = GoblinVerifier::VerifierInput;
 
-    using NativeTranslatorVK = TranslatorFlavor::NativeVerificationKey;
-    using TranslatorVK = TranslatorVerifier::VerificationKey;
+    GoblinRecursiveVerifier(Builder* builder, VerifierInput& verification_keys)
+        : builder(builder)
+        , verification_keys(verification_keys){};
 
-    GoblinRecursiveVerifier(Builder* builder, std::shared_ptr<NativeTranslatorVK> translator_vk)
-        : merge_verifier(builder)
-        , translator_verifier(builder, translator_vk){
-            // (void)builder;
-        };
-
+    /**
+     * @brief Construct a Goblin recursive verifier circuit
+     * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
+     * WORKTODO: point aggregation is not handled here. Need to aggregate and return the pairing points from
+     * Merge/Translator plus deal with the IPA accumulator
+     *
+     */
     void verify(GoblinProof&);
 
   private:
-    // Builder* builder;
-    MergeVerifier merge_verifier;
-    TranslatorVerifier translator_verifier;
+    Builder* builder;
+    VerifierInput verification_keys; // ECCVM and Translator verification keys
 
   public:
 };

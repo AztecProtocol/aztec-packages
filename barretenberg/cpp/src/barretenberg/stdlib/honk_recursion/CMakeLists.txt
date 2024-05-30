@@ -8,4 +8,5 @@ barretenberg_module(
     protogalaxy
     goblin
     translator_vm_recursion
+    eccvm_recursion
 )
