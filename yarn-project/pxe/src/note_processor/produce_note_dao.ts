@@ -1,9 +1,11 @@
 import { type L1NotePayload, type TxHash } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { type AcirSimulator } from '@aztec/simulator';
+import { ContractNotFoundError, type AcirSimulator } from '@aztec/simulator';
 
 import { NoteDao } from '../database/note_dao.js';
+import { Logger } from '@aztec/foundation/log';
+import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 
 /**
  * Decodes a note from a transaction that we know was intended for us.
@@ -11,7 +13,8 @@ import { NoteDao } from '../database/note_dao.js';
  * Accepts a set of excluded indices, which are indices that have been assigned a note in the same tx.
  * Inserts the index of the note into the excludedIndices set if the note is successfully decoded.
  *
- * @param publicKey - The public counterpart to the private key to be used in note decryption.
+ * @param ivpkM - The public counterpart to the secret key to be used in the decryption of incoming note logs.
+ * @param ovpkM - The public counterpart to the secret key to be used in the decryption of outgoing note logs.
  * @param payload - An instance of l1NotePayload.
  * @param txHash - The hash of the transaction that created the note. Equivalent to the first nullifier of the transaction.
  * @param newNoteHashes - New note hashes in this transaction, one of which belongs to this note.
@@ -20,36 +23,104 @@ import { NoteDao } from '../database/note_dao.js';
  * @param simulator - An instance of AcirSimulator.
  * @returns an instance of NoteDao, or throws. inserts the index of the note into the excludedIndices set.
  */
-export async function produceNoteDao(
+export async function produceNoteDaos(
   simulator: AcirSimulator,
-  publicKey: PublicKey,
+  ivpkM: PublicKey | undefined,
+  ovpkM: PublicKey | undefined,
   payload: L1NotePayload,
   txHash: TxHash,
   newNoteHashes: Fr[],
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
-): Promise<NoteDao> {
-  const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
-    simulator,
-    newNoteHashes,
-    txHash,
-    payload,
-    excludedIndices,
-  );
-  const index = BigInt(dataStartIndexForTx + commitmentIndex);
-  excludedIndices?.add(commitmentIndex);
-  return new NoteDao(
-    payload.note,
-    payload.contractAddress,
-    payload.storageSlot,
-    payload.noteTypeId,
-    txHash,
-    nonce,
-    innerNoteHash,
-    siloedNullifier,
-    index,
-    publicKey,
-  );
+  log: Logger,
+) {
+  if (!ivpkM && !ovpkM) {
+    throw new Error('Both ivpkM and ovpkM are undefined. Cannot create note.');
+  }
+
+  let incomingNoteDao: NoteDao | undefined;
+  let outgoingNoteDao: NoteDao | undefined;
+
+  let incomingDeferredNoteDao: DeferredNoteDao | undefined;
+  let outgoingDeferredNoteDao: DeferredNoteDao | undefined;
+
+  try {
+    const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+      simulator,
+      newNoteHashes,
+      txHash,
+      payload,
+      excludedIndices,
+    );
+    const index = BigInt(dataStartIndexForTx + commitmentIndex);
+    excludedIndices?.add(commitmentIndex);
+    if (ivpkM) {
+      incomingNoteDao = new NoteDao(
+        payload.note,
+        payload.contractAddress,
+        payload.storageSlot,
+        payload.noteTypeId,
+        txHash,
+        nonce,
+        innerNoteHash,
+        siloedNullifier,
+        index,
+        ivpkM,
+      );
+    }
+    if (ovpkM) {
+      outgoingNoteDao = new NoteDao(
+        payload.note,
+        payload.contractAddress,
+        payload.storageSlot,
+        payload.noteTypeId,
+        txHash,
+        nonce,
+        innerNoteHash,
+        siloedNullifier,
+        index,
+        ovpkM,
+      );
+    }
+  } catch (e) {
+    if (e instanceof ContractNotFoundError) {
+      log.warn(e.message);
+
+      if (ivpkM) {
+        incomingDeferredNoteDao = new DeferredNoteDao(
+          ivpkM,
+          payload.note,
+          payload.contractAddress,
+          payload.storageSlot,
+          payload.noteTypeId,
+          txHash,
+          newNoteHashes,
+          dataStartIndexForTx,
+        );
+      }
+      if (ovpkM) {
+        outgoingDeferredNoteDao = new DeferredNoteDao(
+          ovpkM,
+          payload.note,
+          payload.contractAddress,
+          payload.storageSlot,
+          payload.noteTypeId,
+          txHash,
+          newNoteHashes,
+          dataStartIndexForTx,
+        );
+      }
+    } else {
+      log.error(`Could not process note because of "${e}". Discarding note...`);
+    }
+  }
+
+  return {
+    incomingNoteDao,
+    outgoingNoteDao,
+    incomingDeferredNoteDao,
+    outgoingDeferredNoteDao,
+  };
 }
 
 /**

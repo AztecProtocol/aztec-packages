@@ -208,4 +208,13 @@ export class L1NotePayload {
       incomingBody.noteTypeId,
     );
   }
+
+  public equals(other: L1NotePayload) {
+    return (
+      this.note.equals(other.note) &&
+      this.contractAddress.equals(other.contractAddress) &&
+      this.storageSlot.equals(other.storageSlot) &&
+      this.noteTypeId.equals(other.noteTypeId)
+    );
+  }
 }
