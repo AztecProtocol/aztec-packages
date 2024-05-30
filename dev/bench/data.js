@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717104915125,
+  "lastUpdate": 1717106819394,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -7916,6 +7916,78 @@ window.BENCHMARK_DATA = {
             "value": 164899958,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164899958 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7ce4cbef78ac0da590fbbad184219038ffa5afd9",
+          "message": "feat: enable honk_recursion through acir (#6719)\n\nWe want to be able to verify honk proofs without adding a new opcode.\r\nThe workaround that this PR introduces is adding a flag that determines\r\nwhether to create a plonk vs a honk recursion constraint based on which\r\nproof system we're using to prove. If we are using ultra honk, we will\r\ngenerate a honk recursion constraint and the same for plonk.\r\n\r\nThis will need to be reverted after the offsite:\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1013.\r\n\r\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-05-30T17:53:20-04:00",
+          "tree_id": "834218c932bdd8e51769f23de01c8c522e5f8294",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7ce4cbef78ac0da590fbbad184219038ffa5afd9"
+        },
+        "date": 1717106818545,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15397.251925000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10711.910593 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5526.643597999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5204.3325939999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49453.329476,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49453331000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17039.674889000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17039675000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5185947927,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5185947927 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196795184,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 196795184 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4257277752,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4257277752 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165766597,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165766597 ns\nthreads: 1"
           }
         ]
       }
