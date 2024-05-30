@@ -16,6 +16,7 @@
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
 #include "barretenberg/relations/generated/avm/avm_conversion.hpp"
+#include "barretenberg/relations/generated/avm/avm_keccakf1600.hpp"
 #include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
@@ -69,7 +70,6 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
-#include "barretenberg/relations/generated/avm/perm_main_sha256.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -91,16 +91,15 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 340;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 344;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 404;
+    static constexpr size_t NUM_ALL_ENTITIES = 408;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
                                              perm_main_conv_relation<FF>,
-                                             perm_main_sha256_relation<FF>,
                                              perm_main_pos2_perm_relation<FF>,
                                              perm_main_mem_a_relation<FF>,
                                              perm_main_mem_b_relation<FF>,
@@ -150,6 +149,7 @@ class AvmFlavor {
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
                                  Avm_vm::avm_conversion<FF>,
+                                 Avm_vm::avm_keccakf1600<FF>,
                                  Avm_vm::avm_kernel<FF>,
                                  Avm_vm::avm_main<FF>,
                                  Avm_vm::avm_mem<FF>,
@@ -158,7 +158,6 @@ class AvmFlavor {
                                  perm_main_alu_relation<FF>,
                                  perm_main_bin_relation<FF>,
                                  perm_main_conv_relation<FF>,
-                                 perm_main_sha256_relation<FF>,
                                  perm_main_pos2_perm_relation<FF>,
                                  perm_main_mem_a_relation<FF>,
                                  perm_main_mem_b_relation<FF>,
@@ -345,6 +344,10 @@ class AvmFlavor {
                               avm_conversion_num_limbs,
                               avm_conversion_radix,
                               avm_conversion_to_radix_le_sel,
+                              avm_keccakf1600_clk,
+                              avm_keccakf1600_input,
+                              avm_keccakf1600_keccakf1600_sel,
+                              avm_keccakf1600_output,
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
@@ -425,6 +428,7 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
+                              avm_main_sel_op_keccak,
                               avm_main_sel_op_l1_to_l2_msg_exists,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
@@ -495,7 +499,6 @@ class AvmFlavor {
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
-                              perm_main_sha256,
                               perm_main_pos2_perm,
                               perm_main_mem_a,
                               perm_main_mem_b,
@@ -688,6 +691,10 @@ class AvmFlavor {
                      avm_conversion_num_limbs,
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
+                     avm_keccakf1600_clk,
+                     avm_keccakf1600_input,
+                     avm_keccakf1600_keccakf1600_sel,
+                     avm_keccakf1600_output,
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -768,6 +775,7 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
@@ -838,7 +846,6 @@ class AvmFlavor {
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
-                     perm_main_sha256,
                      perm_main_pos2_perm,
                      perm_main_mem_a,
                      perm_main_mem_b,
@@ -1036,6 +1043,10 @@ class AvmFlavor {
                               avm_conversion_num_limbs,
                               avm_conversion_radix,
                               avm_conversion_to_radix_le_sel,
+                              avm_keccakf1600_clk,
+                              avm_keccakf1600_input,
+                              avm_keccakf1600_keccakf1600_sel,
+                              avm_keccakf1600_output,
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
@@ -1116,6 +1127,7 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
+                              avm_main_sel_op_keccak,
                               avm_main_sel_op_l1_to_l2_msg_exists,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
@@ -1186,7 +1198,6 @@ class AvmFlavor {
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
-                              perm_main_sha256,
                               perm_main_pos2_perm,
                               perm_main_mem_a,
                               perm_main_mem_b,
@@ -1443,6 +1454,10 @@ class AvmFlavor {
                      avm_conversion_num_limbs,
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
+                     avm_keccakf1600_clk,
+                     avm_keccakf1600_input,
+                     avm_keccakf1600_keccakf1600_sel,
+                     avm_keccakf1600_output,
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -1523,6 +1538,7 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
@@ -1593,7 +1609,6 @@ class AvmFlavor {
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
-                     perm_main_sha256,
                      perm_main_pos2_perm,
                      perm_main_mem_a,
                      perm_main_mem_b,
@@ -1850,6 +1865,10 @@ class AvmFlavor {
                      avm_conversion_num_limbs,
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
+                     avm_keccakf1600_clk,
+                     avm_keccakf1600_input,
+                     avm_keccakf1600_keccakf1600_sel,
+                     avm_keccakf1600_output,
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -1930,6 +1949,7 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
@@ -2000,7 +2020,6 @@ class AvmFlavor {
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
-                     perm_main_sha256,
                      perm_main_pos2_perm,
                      perm_main_mem_a,
                      perm_main_mem_b,
@@ -2299,8 +2318,6 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_sha256_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_pos2_perm_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
@@ -2597,6 +2614,10 @@ class AvmFlavor {
             Base::avm_conversion_num_limbs = "AVM_CONVERSION_NUM_LIMBS";
             Base::avm_conversion_radix = "AVM_CONVERSION_RADIX";
             Base::avm_conversion_to_radix_le_sel = "AVM_CONVERSION_TO_RADIX_LE_SEL";
+            Base::avm_keccakf1600_clk = "AVM_KECCAKF1600_CLK";
+            Base::avm_keccakf1600_input = "AVM_KECCAKF1600_INPUT";
+            Base::avm_keccakf1600_keccakf1600_sel = "AVM_KECCAKF1600_KECCAKF1600_SEL";
+            Base::avm_keccakf1600_output = "AVM_KECCAKF1600_OUTPUT";
             Base::avm_kernel_emit_l2_to_l1_msg_write_offset = "AVM_KERNEL_EMIT_L2_TO_L1_MSG_WRITE_OFFSET";
             Base::avm_kernel_emit_note_hash_write_offset = "AVM_KERNEL_EMIT_NOTE_HASH_WRITE_OFFSET";
             Base::avm_kernel_emit_nullifier_write_offset = "AVM_KERNEL_EMIT_NULLIFIER_WRITE_OFFSET";
@@ -2678,6 +2699,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_fdiv = "AVM_MAIN_SEL_OP_FDIV";
             Base::avm_main_sel_op_fee_per_da_gas = "AVM_MAIN_SEL_OP_FEE_PER_DA_GAS";
             Base::avm_main_sel_op_fee_per_l2_gas = "AVM_MAIN_SEL_OP_FEE_PER_L2_GAS";
+            Base::avm_main_sel_op_keccak = "AVM_MAIN_SEL_OP_KECCAK";
             Base::avm_main_sel_op_l1_to_l2_msg_exists = "AVM_MAIN_SEL_OP_L1_TO_L2_MSG_EXISTS";
             Base::avm_main_sel_op_lt = "AVM_MAIN_SEL_OP_LT";
             Base::avm_main_sel_op_lte = "AVM_MAIN_SEL_OP_LTE";
@@ -2748,7 +2770,6 @@ class AvmFlavor {
             Base::perm_main_alu = "PERM_MAIN_ALU";
             Base::perm_main_bin = "PERM_MAIN_BIN";
             Base::perm_main_conv = "PERM_MAIN_CONV";
-            Base::perm_main_sha256 = "PERM_MAIN_SHA256";
             Base::perm_main_pos2_perm = "PERM_MAIN_POS2_PERM";
             Base::perm_main_mem_a = "PERM_MAIN_MEM_A";
             Base::perm_main_mem_b = "PERM_MAIN_MEM_B";
@@ -2957,6 +2978,10 @@ class AvmFlavor {
         Commitment avm_conversion_num_limbs;
         Commitment avm_conversion_radix;
         Commitment avm_conversion_to_radix_le_sel;
+        Commitment avm_keccakf1600_clk;
+        Commitment avm_keccakf1600_input;
+        Commitment avm_keccakf1600_keccakf1600_sel;
+        Commitment avm_keccakf1600_output;
         Commitment avm_kernel_emit_l2_to_l1_msg_write_offset;
         Commitment avm_kernel_emit_note_hash_write_offset;
         Commitment avm_kernel_emit_nullifier_write_offset;
@@ -3037,6 +3062,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_fdiv;
         Commitment avm_main_sel_op_fee_per_da_gas;
         Commitment avm_main_sel_op_fee_per_l2_gas;
+        Commitment avm_main_sel_op_keccak;
         Commitment avm_main_sel_op_l1_to_l2_msg_exists;
         Commitment avm_main_sel_op_lt;
         Commitment avm_main_sel_op_lte;
@@ -3107,7 +3133,6 @@ class AvmFlavor {
         Commitment perm_main_alu;
         Commitment perm_main_bin;
         Commitment perm_main_conv;
-        Commitment perm_main_sha256;
         Commitment perm_main_pos2_perm;
         Commitment perm_main_mem_a;
         Commitment perm_main_mem_b;
@@ -3317,6 +3342,10 @@ class AvmFlavor {
             avm_conversion_num_limbs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_conversion_radix = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_conversion_to_radix_le_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_keccakf1600_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_keccakf1600_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_keccakf1600_keccakf1600_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_keccakf1600_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_l2_to_l1_msg_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_note_hash_write_offset =
@@ -3412,6 +3441,7 @@ class AvmFlavor {
             avm_main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_keccak = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_l1_to_l2_msg_exists =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3486,7 +3516,6 @@ class AvmFlavor {
             perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_sha256 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_pos2_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3699,6 +3728,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_conversion_num_limbs, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_conversion_radix, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_conversion_to_radix_le_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_keccakf1600_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_keccakf1600_input, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_keccakf1600_keccakf1600_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_keccakf1600_output, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_note_hash_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_nullifier_write_offset, Transcript::proof_data);
@@ -3779,6 +3812,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_da_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l2_gas, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_keccak, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_l1_to_l2_msg_exists, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lte, Transcript::proof_data);
@@ -3849,7 +3883,6 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_sha256, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_pos2_perm, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_b, Transcript::proof_data);
