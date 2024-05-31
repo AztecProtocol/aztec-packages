@@ -301,7 +301,7 @@ jobs:
         run: earthly-ci --no-output ./+test
 
   noir-build-acir-tests:
-    needs: [build, changes]
+    needs: [setup, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
