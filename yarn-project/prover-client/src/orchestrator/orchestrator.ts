@@ -279,10 +279,11 @@ export class ProvingOrchestrator {
 
   private provePaddingTransactions(
     txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }>,
-    paddingTx: ProcessedTx,
+    paddingTx: ProcessedTx & { verificationKey: VerificationKeyData },
     provingState: ProvingState,
   ) {
     for (let i = 0; i < txInputs.length; i++) {
+      txInputs[i].inputs.kernelData.vk = paddingTx.verificationKey;
       this.enqueueFirstProof(txInputs[i].inputs, txInputs[i].snapshot, paddingTx, provingState);
     }
   }
