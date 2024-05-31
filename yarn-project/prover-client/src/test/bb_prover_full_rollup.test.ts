@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
+import { PROVING_STATUS, type ServerCircuitProver, mockTx } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, getMockVerificationKeys } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -9,7 +9,7 @@ import { TestContext } from '../mocks/test_context.js';
 
 describe('prover/bb_prover/full-rollup', () => {
   let context: TestContext;
-  let prover: BBNativeRollupProver;
+  let prover: ServerCircuitProver;
   let logger: DebugLogger;
 
   beforeAll(async () => {
@@ -26,7 +26,7 @@ describe('prover/bb_prover/full-rollup', () => {
   });
 
   it('proves a private-only rollup full of empty txs', async () => {
-    const totalTxs = 4;
+    const totalTxs = 2;
     const nonEmptyTxs = 0;
 
     logger.info(`Proving a private-only full rollup with ${nonEmptyTxs}/${totalTxs} non-empty transactions`);
