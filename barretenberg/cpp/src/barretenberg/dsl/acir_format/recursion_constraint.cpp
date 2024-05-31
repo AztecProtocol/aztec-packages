@@ -1,4 +1,5 @@
 #include "recursion_constraint.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
@@ -8,6 +9,10 @@
 using namespace bb;
 
 namespace acir_format {
+
+using Composer = plonk::UltraComposer;
+using bn254 = bb::stdlib::bn254<Builder>;
+using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
 using namespace bb::plonk;
 

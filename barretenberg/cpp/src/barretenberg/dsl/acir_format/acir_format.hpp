@@ -63,7 +63,7 @@ struct AcirFormat {
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    std::vector<poly_triple_<curve::BN254::ScalarField>,
+    std::vector<poly_triple_<bb::curve::BN254::ScalarField>,
                 ContainerSlabAllocator<poly_triple_<curve::BN254::ScalarField>>>
         poly_triple_constraints;
     std::vector<mul_quad_<curve::BN254::ScalarField>, ContainerSlabAllocator<mul_quad_<curve::BN254::ScalarField>>>
