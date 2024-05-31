@@ -29,12 +29,7 @@ export class DummyProver implements ProverClient {
     return Promise.resolve(new DummyProver());
   }
 
-  startNewBlock(
-    _numTxs: number,
-    _globalVariables: GlobalVariables,
-    _newL1ToL2Messages: Fr[],
-    _emptyTx: ProcessedTx,
-  ): Promise<ProvingTicket> {
+  startNewBlock(_numTxs: number, _globalVariables: GlobalVariables, _newL1ToL2Messages: Fr[]): Promise<ProvingTicket> {
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
