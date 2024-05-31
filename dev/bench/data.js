@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717180907998,
+  "lastUpdate": 1717182784296,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -11408,6 +11408,78 @@ window.BENCHMARK_DATA = {
             "value": 163157682,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163157682 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6e363ec51164af8118d8676cdf153a3699909314",
+          "message": "feat: cycle scalar <> bigfield interactions (#6744)\n\nAdds missing methods in cycle_group and cycle_scalar required for the\r\nPCS in the ECCVM recursive verifier. As a summary, we add missing\r\ncycle_group constructors, a cycle group representation of `one`, a naive\r\nmethod to convert bigfield to cycle_scalar (but that adds constraints)\r\nand unify the `batch_mul` interface with the others present in our\r\ncodebase (i.e. swap points and scalars).\r\n\r\n---------\r\n\r\nCo-authored-by: codygunton <codygunton@gmail.com>",
+          "timestamp": "2024-05-31T19:02:54Z",
+          "tree_id": "5b772be688b1a53640ea96eeba44250e8ce54d4f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6e363ec51164af8118d8676cdf153a3699909314"
+        },
+        "date": 1717182783458,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15503.240785999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10925.805933 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5596.51651,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5233.19065 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49660.450451,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49660452000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17017.348379000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17017349000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5120660427,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5120660427 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200752459,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200752459 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4241457607,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4241457607 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163503951,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163503951 ns\nthreads: 1"
           }
         ]
       }
