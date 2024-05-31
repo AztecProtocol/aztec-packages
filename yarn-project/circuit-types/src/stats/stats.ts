@@ -78,7 +78,10 @@ export type CircuitName =
   | 'public-kernel-setup'
   | 'public-kernel-app-logic'
   | 'public-kernel-teardown'
-  | 'public-kernel-tail';
+  | 'public-kernel-tail'
+  | 'avm-circuit'
+  | 'empty-nested'
+  | 'private-kernel-empty';
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
