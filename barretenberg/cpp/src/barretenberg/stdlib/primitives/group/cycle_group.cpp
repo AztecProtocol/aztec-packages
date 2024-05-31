@@ -567,8 +567,8 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(con
         lo = witness_t(in.get_context(), lo_v);
         hi = witness_t(in.get_context(), hi_v);
         (lo + hi * shift).assert_equal(in);
-        // TODO(): ensure lo and hi are in bb::fr modulus not bb::fq modulus otherwise we could have two representations
-        // for in
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1022): ensure lo and hi are in bb::fr modulus not
+        // bb::fq modulus otherwise we could have two representations for in
         validate_scalar_is_in_field();
     }
 }
