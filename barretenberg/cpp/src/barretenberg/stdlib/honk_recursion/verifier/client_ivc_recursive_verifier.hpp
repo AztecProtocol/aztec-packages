@@ -8,19 +8,26 @@ class ClientIVCRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                   // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>; // The verifier algorithms are Mega
     using RecursiveVerifierInstances = RecursiveVerifierInstances_<RecursiveFlavor, 2>;
-
-    Builder* builder;
-
-  public:
     using DeciderVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using FoldingVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using GoblinVerifier = GoblinRecursiveVerifier;
+
+  public:
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
     using GoblinVerifierInput = GoblinVerifier::VerifierInput;
+    struct VerifierInput {
+        FoldVerifierInput fold_input;
+        GoblinVerifierInput goblin_input;
+    };
 
-    ClientIVCRecursiveVerifier(Builder* builder)
-        : builder(builder){};
+    ClientIVCRecursiveVerifier(Builder* builder, VerifierInput& verifier_input)
+        : builder(builder)
+        , verifier_input(verifier_input){};
 
-    void verify(const ClientIVC::Proof&, FoldVerifierInput&, GoblinVerifierInput&);
+    void verify(const ClientIVC::Proof&);
+
+  private:
+    Builder* builder;
+    VerifierInput verifier_input;
 };
 } // namespace bb::stdlib::recursion::honk
