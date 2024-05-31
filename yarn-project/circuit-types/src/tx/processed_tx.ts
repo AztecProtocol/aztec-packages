@@ -15,11 +15,13 @@ import {
   type GasFees,
   type Header,
   KernelCircuitPublicInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type PublicDataUpdateRequest,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
+  type RecursiveProof,
   type VerificationKeyData,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -152,13 +154,18 @@ export function makeProcessedTx(
   };
 }
 
+export type PaddingProcessedTx = ProcessedTx & {
+  verificationKey: VerificationKeyData;
+  recursiveProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+};
+
 /**
  * Makes a padding empty tx with a valid proof.
  * @returns A valid padding processed tx.
  */
 export function makePaddingProcessedTx(
   kernelOutput: PublicInputsAndProof<KernelCircuitPublicInputs>,
-): ProcessedTx & { verificationKey: VerificationKeyData } {
+): PaddingProcessedTx {
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
@@ -173,6 +180,7 @@ export function makePaddingProcessedTx(
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
     verificationKey: kernelOutput.verificationKey,
+    recursiveProof: kernelOutput.proof,
   };
 }
 

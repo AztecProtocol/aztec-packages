@@ -2,6 +2,7 @@ import {
   Body,
   L2Block,
   MerkleTreeId,
+  type PaddingProcessedTx,
   type ProcessedTx,
   PublicKernelType,
   type TxEffect,
@@ -91,7 +92,7 @@ const KernelTypesWithoutFunctions: Set<PublicKernelType> = new Set<PublicKernelT
 export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
-  private paddingTx: (ProcessedTx & { verificationKey: VerificationKeyData }) | undefined = undefined;
+  private paddingTx: PaddingProcessedTx | undefined = undefined;
   private initialHeader: Header | undefined = undefined;
 
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
@@ -279,11 +280,12 @@ export class ProvingOrchestrator {
 
   private provePaddingTransactions(
     txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }>,
-    paddingTx: ProcessedTx & { verificationKey: VerificationKeyData },
+    paddingTx: PaddingProcessedTx,
     provingState: ProvingState,
   ) {
     for (let i = 0; i < txInputs.length; i++) {
       txInputs[i].inputs.kernelData.vk = paddingTx.verificationKey;
+      txInputs[i].inputs.kernelData.proof = paddingTx.recursiveProof;
       this.enqueueFirstProof(txInputs[i].inputs, txInputs[i].snapshot, paddingTx, provingState);
     }
   }
