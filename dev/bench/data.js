@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717163601480,
+  "lastUpdate": 1717163709732,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -9904,6 +9904,78 @@ window.BENCHMARK_DATA = {
             "value": 162949374,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162949374 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f8a9452103c154062748e5ef3351c2cb8825c886",
+          "message": "chore(avm): better error msgs and some cpp nits (#6796)\n\nFirst pass at unwinding headers as well.\n\nPolicy:\n* Include as little as possible in .hpp files. Only enough for the types of what is there. Include the rest in the cpp.\n* Include always what you use. \n* Do not depend on transitive includes (only exception: in the .cpp file you can assume the includes of your own .hpp file)\n* Use full path.",
+          "timestamp": "2024-05-31T14:36:54+01:00",
+          "tree_id": "235f77056e1c53a64ce0e39b3f24d5690ee8f01c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f8a9452103c154062748e5ef3351c2cb8825c886"
+        },
+        "date": 1717163708980,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15452.814748000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10806.925565000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5526.068173000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5169.130154000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49209.747471,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49209749000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17146.920881,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17146921000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5215838761,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5215838761 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201454654,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201454654 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4327489217,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4327489217 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165451263,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165451263 ns\nthreads: 1"
           }
         ]
       }
