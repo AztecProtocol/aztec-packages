@@ -598,7 +598,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     auto witness = get_witness(witnessPath);
 
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
@@ -673,7 +673,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {});
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {}, honk_recursion);
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
@@ -815,7 +815,6 @@ int main(int argc, char* argv[])
     try {
         std::vector<std::string> args(argv + 1, argv + argc);
         verbose = flag_present(args, "-v") || flag_present(args, "--verbose");
-
         if (args.empty()) {
             std::cerr << "No command provided.\n";
             return 1;
@@ -828,11 +827,7 @@ int main(int argc, char* argv[])
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
         std::string pk_path = get_option(args, "-r", "./target/pk");
-        std::string honk_recursion_str = get_option(args, "-h", "false");
-        bool honk_recursion = false;
-        if (honk_recursion_str == "true") {
-            honk_recursion = true;
-        }
+        bool honk_recursion = flag_present(args, "-h");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         // Skip CRS initialization for any command which doesn't require the CRS.
