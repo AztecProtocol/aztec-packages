@@ -53,7 +53,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->append_nonzero_ops();
 
-        for (size_t i = 0; i < 20; i++) {
+        for (size_t i = 0; i < 500; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
@@ -74,7 +74,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         OuterBuilder outer_circuit;
 
-        // Mock a previous verifier that would in reality be ECCVM recursive verifier
+        // Mock a previous verifier that would in reality be the ECCVM recursive verifier
         StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&outer_circuit, fake_inital_proof);
         auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
         transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");

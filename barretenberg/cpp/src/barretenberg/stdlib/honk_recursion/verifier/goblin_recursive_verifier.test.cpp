@@ -2,6 +2,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifierTests : public testing::Test {
@@ -9,6 +11,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using Builder = GoblinRecursiveVerifier::Builder;
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+
+    using OuterFlavor = UltraFlavor;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     static void SetUpTestSuite()
     {
@@ -77,9 +84,23 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     verifier.verify(proof);
 
+    info("Recursive Verifier: num gates = ", builder.num_gates);
+
     EXPECT_EQ(builder.failed(), false) << builder.err();
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Construct and verify a proof for the Goblin Recursive Verifier circuit
+    {
+        auto instance = std::make_shared<OuterProverInstance>(builder);
+        OuterProver prover(instance);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+        OuterVerifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+
+        ASSERT(verified);
+    }
 }
 
 } // namespace bb::stdlib::recursion::honk

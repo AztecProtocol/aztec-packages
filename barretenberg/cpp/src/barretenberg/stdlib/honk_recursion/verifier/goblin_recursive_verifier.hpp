@@ -7,14 +7,14 @@
 namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifier {
   public:
-    using Builder = UltraCircuitBuilder; // Goblin rec verifier will have Ultra arithmetization
-
+    // Goblin Recursive Verifier circuit is using Ultra arithmetisation
+    using Builder = UltraCircuitBuilder;
     using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
 
     using TranslatorFlavor = TranslatorRecursiveFlavor_<Builder>;
     using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
-    using BF = TranslatorFlavor::BF;
+    using TranslatorBF = TranslatorFlavor::BF;
 
     using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
     using ECCVMVerifier = ECCVMRecursiveVerifier_<ECCVMFlavor>;
@@ -29,17 +29,17 @@ class GoblinRecursiveVerifier {
     /**
      * @brief Construct a Goblin recursive verifier circuit
      * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
-     * WORKTODO: point aggregation is not handled here. Need to aggregate and return the pairing points from
-     * Merge/Translator plus deal with the IPA accumulator
+     * @todohttps://github.com/AztecProtocol/barretenberg/issues/1021): The values returned by the recursive verifiers
+     * are not aggregated here. We need to aggregate and return the pairing points from Merge/Translator plus deal with
+     * the IPA accumulator from ECCVM.
      *
+     * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */
     void verify(GoblinProof&);
 
   private:
     Builder* builder;
     VerifierInput verification_keys; // ECCVM and Translator verification keys
-
-  public:
 };
 
 } // namespace bb::stdlib::recursion::honk
