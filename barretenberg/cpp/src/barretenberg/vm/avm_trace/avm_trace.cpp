@@ -1404,7 +1404,7 @@ void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t write_offset)
     // Get the data value from the execution_hints
     // TODO: for now the hints are being offset by the offset - this will NOT fly, but i struggled to get the hash
     // working for FF
-    FF value = execution_hints.storage_values.at(write_offset);
+    FF value = execution_hints.storage_values.at(slot_read.val);
     // TODO: throw error if the hint does not exist
 
     Row row = create_sload(clk, write_offset, value, slot_read.val, slot_offset);
