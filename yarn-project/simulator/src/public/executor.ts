@@ -164,6 +164,7 @@ async function executePublicFunctionAcvm(
     return {
       execution,
       returnValues: [],
+      noteHashReadRequests: [],
       newNoteHashes: [],
       newL2ToL1Messages: [],
       // TODO (side effects) get these values in the revert case from the vm
@@ -172,6 +173,7 @@ async function executePublicFunctionAcvm(
       newNullifiers: [],
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],
+      l1ToL2MsgReadRequests: [],
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
@@ -193,8 +195,10 @@ async function executePublicFunctionAcvm(
   const returnWitness = witnessMapToFields(returnWitnessMap);
   const {
     returnsHash,
+    noteHashReadRequests: noteHashReadRequestsPadded,
     nullifierReadRequests: nullifierReadRequestsPadded,
     nullifierNonExistentReadRequests: nullifierNonExistentReadRequestsPadded,
+    l1ToL2MsgReadRequests: l1ToL2MsgReadRequestsPadded,
     newL2ToL1Msgs,
     newNoteHashes: newNoteHashesPadded,
     newNullifiers: newNullifiersPadded,
@@ -204,8 +208,10 @@ async function executePublicFunctionAcvm(
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
+  const noteHashReadRequests = noteHashReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
+  const l1ToL2MsgReadRequests = l1ToL2MsgReadRequestsPadded.filter(v => !v.isEmpty());
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
@@ -234,6 +240,7 @@ async function executePublicFunctionAcvm(
 
   return {
     execution,
+    noteHashReadRequests,
     newNoteHashes,
     newL2ToL1Messages,
     newNullifiers,
@@ -241,6 +248,7 @@ async function executePublicFunctionAcvm(
     endSideEffectCounter,
     nullifierReadRequests,
     nullifierNonExistentReadRequests,
+    l1ToL2MsgReadRequests,
     contractStorageReads,
     contractStorageUpdateRequests,
     returnValues,
