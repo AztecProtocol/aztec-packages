@@ -54,23 +54,28 @@ contract EscrowableToken {
 
     use dep::aztec::{
         hash::compute_secret_hash,
-        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress}
+        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, SharedMutable, PrivateSet, AztecAddress}
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
-    use crate::types::{token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
-    use crate::types::option_address::AztecAddressOption;
+    use crate::types::{
+        token_note::TokenNote, balances_map::BalancesMap, option_address::AztecAddressOption,
+        transparent_note::TransparentNote, roles::UserFlags
+    };
+
+    global CHANGE_ROLES_DELAY_BLOCKS = 2;
 
     #[aztec(storage)]
     struct Storage {
-        admin: SharedImmutable<AztecAddress>,
         symbol: SharedImmutable<FieldCompressedString>,
         name: SharedImmutable<FieldCompressedString>,
         decimals: SharedImmutable<u8>,
         balances: BalancesMap<TokenNote>,
         public_balances: Map<AztecAddress, PublicMutable<U128>>,
         total_supply: PublicMutable<U128>,
+        pending_shields: PrivateSet<TransparentNote>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
     }
 
     /**
@@ -85,10 +90,20 @@ contract EscrowableToken {
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
         assert(!admin.is_zero(), "invalid admin");
-        storage.admin.initialize(admin);
         storage.name.initialize(FieldCompressedString::from_string(name));
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
+
+        let admin_roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false };
+        storage.roles.at(admin).schedule_value_change(admin_roles);
+    }
+
+    #[aztec(public)]
+    fn update_roles(user: AztecAddress, roles: UserFlags) {
+        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+        assert(caller_roles.is_admin, "caller is not admin");
+
+        storage.roles.at(user).schedule_value_change(roles);
     }
 
     /**
@@ -101,7 +116,12 @@ contract EscrowableToken {
      */
     #[aztec(public)]
     fn mint_public(to: AztecAddress, amount: Field) {
-        assert(storage.admin.read_public() == context.msg_sender(), "caller is not admin");
+        let to_roles = storage.roles.at(to).get_current_value_in_public();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
+        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+        assert(caller_roles.is_minter, "caller is not minter");
+
         let amount = U128::from_integer(amount);
         let new_balance = storage.public_balances.at(to).read().add(amount);
         let supply = storage.total_supply.read().add(amount);
@@ -123,6 +143,11 @@ contract EscrowableToken {
      */
     #[aztec(public)]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+        let from_roles = storage.roles.at(from).get_current_value_in_public();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+        let to_roles = storage.roles.at(to).get_current_value_in_public();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
@@ -149,6 +174,9 @@ contract EscrowableToken {
      */
     #[aztec(public)]
     fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
+        let from_roles = storage.roles.at(from).get_current_value_in_public();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
@@ -180,7 +208,10 @@ contract EscrowableToken {
         incoming_viewer_and_nullifier: AztecAddressOption,
         outgoing_viewer: AztecAddressOption
     ) {
-        assert(storage.admin.read_private() == context.msg_sender(), "caller is not admin");
+        let from_roles = storage.roles.at(context.msg_sender()).get_current_value_in_private();
+        assert(from_roles.is_minter, "caller is not minter");
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         EscrowableToken::at(context.this_address())._increase_total_supply(amount).enqueue(&mut context);
 
@@ -217,6 +248,11 @@ contract EscrowableToken {
         incoming_viewer_and_nullifier: AztecAddressOption,
         outgoing_viewer: AztecAddressOption
     ) {
+        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -224,7 +260,12 @@ contract EscrowableToken {
         }
         EscrowableToken::at(context.this_address())._reduce_public_balance(from, amount).enqueue(&mut context);
         let amount = U128::from_integer(amount);
-        storage.balances.add(to, amount, incoming_viewer_and_nullifier.unwrap_or(to), outgoing_viewer.unwrap_or(from));
+        storage.balances.add(
+            to,
+            amount,
+            incoming_viewer_and_nullifier.unwrap_or(to),
+            outgoing_viewer.unwrap_or(from)
+        );
     }
 
     /**
@@ -249,6 +290,11 @@ contract EscrowableToken {
         change_incoming_viewer_and_nullifier: AztecAddressOption,
         outgoing_viewer: AztecAddressOption
     ) {
+        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -288,6 +334,11 @@ contract EscrowableToken {
         to_incoming_viewer_and_nullifier: AztecAddressOption,
         outgoing_viewer: AztecAddressOption
     ) {
+        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -296,8 +347,18 @@ contract EscrowableToken {
 
         let amount = U128::from_integer(amount);
 
-        storage.balances.sub(from, amount, change_incoming_viewer_and_nullifier.unwrap_or(from), outgoing_viewer.unwrap_or(from));
-        storage.balances.add(to, amount, to_incoming_viewer_and_nullifier.unwrap_or(to), outgoing_viewer.unwrap_or(from));
+        storage.balances.sub(
+            from,
+            amount,
+            change_incoming_viewer_and_nullifier.unwrap_or(from),
+            outgoing_viewer.unwrap_or(from)
+        );
+        storage.balances.add(
+            to,
+            amount,
+            to_incoming_viewer_and_nullifier.unwrap_or(to),
+            outgoing_viewer.unwrap_or(from)
+        );
     }
 
     /**
@@ -320,6 +381,9 @@ contract EscrowableToken {
         change_incoming_viewer_and_nullifier: AztecAddressOption,
         outgoing_viewer: AztecAddressOption
     ) {
+        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -336,18 +400,89 @@ contract EscrowableToken {
         EscrowableToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
+    /**
+     * Reduce the public balance of `from` and creates a `pending_note` of `amount` and `secret_hash`
+     * 
+     * Only callable by the `from` address or someone with an authwit created by `from`.
+     * Using the nonce for authwit uniqueness.
+     * 
+     * @param from: The address to shield from
+     * @param amount: The amount to shield
+     * @param secret_hash: The hash of the secret needed to redeem the pending shield
+     * @param nonce: The nonce of the shield - 0 if not using authwit
+     */
+    #[aztec(public)]
+    fn shield_from_public(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
+        let from_roles = storage.roles.at(from).get_current_value_in_public();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit_public(&mut context, from);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
+
+        let pending_shields = storage.pending_shields;
+        let mut note = TransparentNote::new(amount.to_field(), secret_hash);
+
+        storage.public_balances.at(from).write(from_balance);
+        pending_shields.insert_from_public(&mut note);
+    }
+
+    /**
+     * Redeems a pending shield, and increases the private balance of `to` by `amount`.
+     * 
+     * Requires knowledge of the `secret` used to create the `secret_hash` of the pending shield. 
+     *
+     * @param to: The address to to receive the shielded amount
+     * @param amount: The amount shielded
+     * @param secret: The secret that hashes to `secret_hash` of a pending shield
+     * @param incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
+     * @param outgoing_viewer: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
+     */
+    #[aztec(private)]
+    fn redeem_shield(
+        to: AztecAddress,
+        amount: Field,
+        secret: Field,
+        incoming_viewer_and_nullifier: AztecAddressOption,
+        outgoing_viewer: AztecAddressOption
+    ) {
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
+        let pending_shields = storage.pending_shields;
+        let secret_hash = compute_secret_hash(secret);
+        // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
+        // stored in field with index 1 (select(1, secret_hash)).
+        let mut options = NoteGetterOptions::new();
+        options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
+            TransparentNote::properties().secret_hash,
+            secret_hash,
+            Option::none()
+        ).set_limit(1);
+        let notes = pending_shields.get_notes(options);
+        let note = notes[0].unwrap_unchecked();
+
+        pending_shields.remove(note);
+
+        storage.balances.add(
+            to,
+            U128::from_integer(amount),
+            incoming_viewer_and_nullifier.unwrap_or(to),
+            outgoing_viewer.unwrap_or(context.msg_sender())
+        );
+    }
+
     /// Getters /// 
 
     #[aztec(public)]
     #[aztec(view)]
-    fn public_get_admin() -> pub AztecAddress {
-        storage.admin.read_public()
-    }
-
-    #[aztec(private)]
-    #[aztec(view)]
-    fn private_get_admin() -> pub AztecAddress {
-        storage.admin.read_private()
+    fn get_roles(user: AztecAddress) -> UserFlags {
+        storage.roles.at(user).get_current_value_in_public()
     }
 
     #[aztec(public)]

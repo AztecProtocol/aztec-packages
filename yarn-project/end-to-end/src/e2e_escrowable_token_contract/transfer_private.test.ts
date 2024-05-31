@@ -4,8 +4,6 @@ import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { EscrowTokenContractTest, toAddressOption } from './escrowable_token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
-  let teardownB: () => Promise<void>;
-
   const t = new EscrowTokenContractTest('transfer_private');
   let { asset, accounts, tokenSim, wallets, badAccount } = t;
 
@@ -18,7 +16,6 @@ describe('e2e_token_contract transfer private', () => {
 
   afterAll(async () => {
     await t.teardown();
-    await teardownB();
   });
 
   afterEach(async () => {
@@ -72,6 +69,7 @@ describe('e2e_token_contract transfer private', () => {
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       // docs:start:authwit_transfer_example
+      // docs:start:authwit_computeAuthWitMessageHash
       const action = asset
         .withWallet(wallets[1])
         .methods.transfer(
@@ -83,9 +81,17 @@ describe('e2e_token_contract transfer private', () => {
           toAddressOption(),
           toAddressOption(),
         );
+      // docs:end:authwit_computeAuthWitMessageHash
+      // docs:start:create_authwit
 
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+      // docs:end:create_authwit
+      // docs:start:add_authwit
+
       await wallets[1].addAuthWitness(witness);
+      // docs:end:add_authwit
+      // docs:end:authwit_transfer_example
+
       expect(await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action })).toEqual(
         {
           isValidInPrivate: true,

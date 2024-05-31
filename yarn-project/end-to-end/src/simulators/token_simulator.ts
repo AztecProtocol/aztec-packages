@@ -30,6 +30,11 @@ export class TokenSimulator {
     this.totalSupply += amount;
   }
 
+  public mintAndRedeemPrivate(to: AztecAddress, amount: bigint) {
+    this.mintPrivate(amount);
+    this.redeemShield(to, amount);
+  }
+
   public mintPublic(to: AztecAddress, amount: bigint) {
     this.totalSupply += amount;
     const value = this.balancePublic.get(to.toString()) || 0n;
@@ -63,6 +68,11 @@ export class TokenSimulator {
   public redeemShield(to: AztecAddress, amount: bigint) {
     const toBalance = this.balancesPrivate.get(to.toString()) || 0n;
     this.balancesPrivate.set(to.toString(), toBalance + amount);
+  }
+
+  public shieldAndRedeem(from: AztecAddress, to: AztecAddress, amount: bigint) {
+    this.shield(from, amount);
+    this.redeemShield(to, amount);
   }
 
   public unshield(from: AztecAddress, to: AztecAddress, amount: bigint) {

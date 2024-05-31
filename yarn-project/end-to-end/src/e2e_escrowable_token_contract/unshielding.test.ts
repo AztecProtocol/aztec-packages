@@ -1,10 +1,10 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
+import { EscrowTokenContractTest, toAddressOption } from './escrowable_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract unshielding', () => {
-  const t = new BlacklistTokenContractTest('unshielding');
+  const t = new EscrowTokenContractTest('unshielding');
   let { asset, tokenSim, wallets, blacklisted } = t;
 
   beforeAll(async () => {
@@ -29,7 +29,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     const amount = balancePriv / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    await asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).send().wait();
+    await asset.methods
+      .unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0, toAddressOption(), toAddressOption())
+      .send()
+      .wait();
 
     tokenSim.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount);
   });
@@ -43,7 +46,14 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset
       .withWallet(wallets[1])
-      .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+      .methods.unshield(
+        wallets[0].getAddress(),
+        wallets[1].getAddress(),
+        amount,
+        nonce,
+        toAddressOption(),
+        toAddressOption(),
+      );
 
     // Both wallets are connected to same node and PXE so we could just insert directly
     // But doing it in two actions to show the flow.
@@ -56,10 +66,16 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
-      .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
+      .methods.unshield(
+        wallets[0].getAddress(),
+        wallets[1].getAddress(),
+        amount,
+        nonce,
+        toAddressOption(),
+        toAddressOption(),
+      )
       .send();
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-    // @todo @LHerskind This error is weird?
   });
 
   describe('failure cases', () => {
@@ -69,7 +85,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
-        asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).prove(),
+        asset.methods
+          .unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0, toAddressOption(), toAddressOption())
+          .prove(),
       ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
@@ -79,7 +97,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
-        asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 1).prove(),
+        asset.methods
+          .unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 1, toAddressOption(), toAddressOption())
+          .prove(),
       ).rejects.toThrow('Assertion failed: invalid nonce');
     });
 
@@ -92,7 +112,14 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.unshield(
+          wallets[0].getAddress(),
+          wallets[1].getAddress(),
+          amount,
+          nonce,
+          toAddressOption(),
+          toAddressOption(),
+        );
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
@@ -111,7 +138,14 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[2])
-        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.unshield(
+          wallets[0].getAddress(),
+          wallets[1].getAddress(),
+          amount,
+          nonce,
+          toAddressOption(),
+          toAddressOption(),
+        );
       const expectedMessageHash = computeAuthWitMessageHash(
         wallets[2].getAddress(),
         wallets[0].getChainId(),
@@ -131,13 +165,17 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
     it('unshield from blacklisted account', async () => {
       await expect(
-        asset.methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
+        asset.methods
+          .unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0, toAddressOption(), toAddressOption())
+          .prove(),
       ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
     });
 
     it('unshield to blacklisted account', async () => {
       await expect(
-        asset.methods.unshield(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).prove(),
+        asset.methods
+          .unshield(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0, toAddressOption(), toAddressOption())
+          .prove(),
       ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
     });
   });

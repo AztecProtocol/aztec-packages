@@ -1,9 +1,9 @@
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/circuits.js';
 
-import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_test.js';
+import { EscrowTokenContractTest, Role } from './escrowable_token_contract_test.js';
 
-describe('e2e_blacklist_token_contract access control', () => {
-  const t = new BlacklistTokenContractTest('access_control');
+describe('e2e_escrowable_token_contract access control', () => {
+  const t = new EscrowTokenContractTest('access_control');
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -35,7 +35,7 @@ describe('e2e_blacklist_token_contract access control', () => {
     const adminRole = new Role().withAdmin();
     await t.asset
       .withWallet(t.admin)
-      .methods.update_roles(t.other.getAddress(), adminRole.toNoirStruct())
+      .methods.update_roles(t.wallets[1].getAddress(), adminRole.toNoirStruct())
       .send()
       .wait();
 

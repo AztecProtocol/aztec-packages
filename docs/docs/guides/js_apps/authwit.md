@@ -47,7 +47,7 @@ When creating an authwit, you will need to pass the authwit giver, the authwit r
 
 You can define the action like this:
 
-#include_code authwit_computeAuthWitMessageHash yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
+#include_code authwit_computeAuthWitMessageHash yarn-project/end-to-end/src/e2e_escrowable_token_contract/transfer_private.test.ts typescript
 
 In this example,
 
@@ -68,9 +68,9 @@ Then create the outer hash by hashing the inner hash with the authwit receiver a
 
 ## Create the authwit
 
-There are slightly different interfaces depending on whether your contract is checking the authwit in private or public. 
+There are slightly different interfaces depending on whether your contract is checking the authwit in private or public.
 
-Public authwits are stored in the account contract and batched with the authwit action call, so a user must send a transaction to update their account contract, authorizing an action before the authorized contract's public call will succeed. 
+Public authwits are stored in the account contract and batched with the authwit action call, so a user must send a transaction to update their account contract, authorizing an action before the authorized contract's public call will succeed.
 
 Private execution uses oracles and are executed locally by the PXE, so the authwit needs to be created by the authwit giver and then added to the authwit receiver's PXE.
 
@@ -80,7 +80,7 @@ This is expected to be used alongside [private authwits in Aztec.nr contract](..
 
 Create a private authwit like this:
 
-#include_code create_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
+#include_code create_authwit yarn-project/end-to-end/src/e2e_escrowable_token_contract/transfer_private.test.ts typescript
 
 In this example,
 
@@ -94,7 +94,7 @@ If you created an artbitrary message, you can create the authwit by replacing th
 
 Then add it to the wallet of the authwit receiver (the caller of the function):
 
-#include_code add_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
+#include_code add_authwit yarn-project/end-to-end/src/e2e_escrowable_token_contract/transfer_private.test.ts typescript
 
 ### Public
 
@@ -102,7 +102,7 @@ This is expected to be used alongside [public authwits in Aztec.nr contract](../
 
 Set a public authwit like this:
 
-#include_code set_public_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts typescript
+#include_code set_public_authwit yarn-project/end-to-end/src/e2e_escrowable_token_contract/transfer_public.test.ts typescript
 
 Remember it is a transaction and calls a method in the account contract. In this example,
 

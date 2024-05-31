@@ -5,6 +5,10 @@ import {
   type AztecNode,
   type CompleteAddress,
   type DebugLogger,
+  ExtendedNote,
+  Fr,
+  Note,
+  type TxHash,
   createDebugLogger,
 } from '@aztec/aztec.js';
 import { DocsExampleContract, EscrowableTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
@@ -29,10 +33,38 @@ export const toAddressOption = (addr: AztecAddress | undefined = undefined) => {
   return { address_option: { _is_some: true, _value: addr } };
 };
 
+export class Role {
+  private isAdmin = false;
+  private isMinter = false;
+  private isBlacklisted = false;
+
+  withAdmin() {
+    this.isAdmin = true;
+    return this;
+  }
+
+  withMinter() {
+    this.isMinter = true;
+    return this;
+  }
+
+  withBlacklisted() {
+    this.isBlacklisted = true;
+    return this;
+  }
+
+  toNoirStruct() {
+    // We need to use lowercase identifiers as those are what the noir interface expects
+    // eslint-disable-next-line camelcase
+    return { is_admin: this.isAdmin, is_minter: this.isMinter, is_blacklisted: this.isBlacklisted };
+  }
+}
+
 export class EscrowTokenContractTest {
   static TOKEN_NAME = 'Aztec Token';
   static TOKEN_SYMBOL = 'AZT';
   static TOKEN_DECIMALS = 18n;
+  static DELAY = 2;
   private snapshotManager: ISnapshotManager;
   logger: DebugLogger;
   wallets: AccountWallet[] = [];
@@ -41,11 +73,36 @@ export class EscrowTokenContractTest {
   tokenSim!: TokenSimulator;
   badAccount!: DocsExampleContract;
 
+  admin!: AccountWallet;
+  other!: AccountWallet;
+  blacklisted!: AccountWallet;
+
   aztecNode!: AztecNode;
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_escrowable_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_escrowable_token_contract/${testName}`, dataPath);
+  }
+
+  async mineBlocks(amount: number = EscrowTokenContractTest.DELAY) {
+    this.logger.verbose(`Mining ${amount} blocks... ${await this.aztecNode.getBlockNumber()}`);
+    for (let i = 0; i < amount; ++i) {
+      await this.asset.methods.total_supply().send().wait();
+    }
+    this.logger.verbose(`Mining ${amount} blocks... successfully... ${await this.aztecNode.getBlockNumber()}`);
+  }
+
+  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
+    const note = new Note([new Fr(amount), secretHash]);
+    const extendedNote = new ExtendedNote(
+      note,
+      this.accounts[accountIndex].address,
+      this.asset.address,
+      EscrowableTokenContract.storage.pending_shields.slot,
+      EscrowableTokenContract.notes.TransparentNote.id,
+      txHash,
+    );
+    await this.wallets[accountIndex].addNote(extendedNote);
   }
 
   /**
@@ -63,6 +120,9 @@ export class EscrowTokenContractTest {
       async ({ accountKeys }, { pxe, aztecNode }) => {
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.admin = this.wallets[0];
+        this.other = this.wallets[1];
+        this.blacklisted = this.wallets[2];
         this.accounts = await pxe.getRegisteredAccounts();
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         this.aztecNode = aztecNode;
@@ -110,7 +170,9 @@ export class EscrowTokenContractTest {
         this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
-        expect(await this.asset.methods.public_get_admin().simulate()).toEqual(this.accounts[0].address);
+        expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
+          new Role().withAdmin().toNoirStruct(),
+        );
       },
     );
   }
@@ -136,12 +198,33 @@ export class EscrowTokenContractTest {
         const { asset, accounts } = this;
         const amount = 10000n;
 
+        const adminMinterRole = new Role().withAdmin().withMinter();
+        await this.asset
+          .withWallet(this.admin)
+          .methods.update_roles(this.admin.getAddress(), adminMinterRole.toNoirStruct())
+          .send()
+          .wait();
+
+        const blacklistRole = new Role().withBlacklisted();
+        await this.asset
+          .withWallet(this.admin)
+          .methods.update_roles(this.blacklisted.getAddress(), blacklistRole.toNoirStruct())
+          .send()
+          .wait();
+
+        await this.mineBlocks(); // This gets us past the block of change
+
+        expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
+          adminMinterRole.toNoirStruct(),
+        );
+
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.withWallet(this.admin).methods.mint_public(accounts[0].address, amount).send().wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
-        await asset.methods
-          .mint_private(accounts[0].address, amount, toAddressOption(), toAddressOption())
+        await asset
+          .withWallet(this.admin)
+          .methods.mint_private(accounts[0].address, amount, toAddressOption(), toAddressOption())
           .send()
           .wait();
 

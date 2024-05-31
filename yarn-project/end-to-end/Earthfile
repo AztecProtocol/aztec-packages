@@ -67,9 +67,6 @@ e2e-authwit:
 e2e-avm-simulator:
   DO +E2E_TEST --test=./src/e2e_avm_simulator.test.ts
 
-e2e-blacklist-token-contract:
-  DO +E2E_TEST --test=./src/e2e_blacklist_token_contract
-
 e2e-block-building:
   DO +E2E_TEST --test=./src/e2e_block_building.test.ts
 

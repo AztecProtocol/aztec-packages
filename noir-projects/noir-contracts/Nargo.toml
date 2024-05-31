@@ -38,7 +38,6 @@ members = [
     "contracts/stateful_test_contract",
     "contracts/test_contract",
     "contracts/token_contract",
-    "contracts/token_blacklist_contract",
     "contracts/token_bridge_contract",
     "contracts/uniswap_contract",
     "contracts/multi_call_entrypoint_contract",

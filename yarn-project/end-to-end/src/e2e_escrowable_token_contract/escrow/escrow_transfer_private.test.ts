@@ -2,10 +2,10 @@ import { createAccounts } from '@aztec/accounts/testing';
 import { type AccountWallet, AztecAddress, Fr, retryUntil } from '@aztec/aztec.js';
 import { EscrowableTokenContract, SimpleEscrowContract } from '@aztec/noir-contracts.js';
 
-import { setupPXEService } from '../fixtures/utils.js';
-import { EscrowTokenContractTest, toAddressOption } from './escrowable_token_contract_test.js';
+import { setupPXEService } from '../../fixtures/utils.js';
+import { EscrowTokenContractTest, toAddressOption } from '../escrowable_token_contract_test.js';
 
-describe('e2e_token_contract transfer private', () => {
+describe('e2e_escrowable_token_contract escrow transfer private', () => {
   const walletGroup2: AccountWallet[] = [];
   let teardownB: () => Promise<void>;
 

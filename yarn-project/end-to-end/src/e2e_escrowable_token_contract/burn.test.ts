@@ -1,10 +1,10 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
-import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
+import { EscrowTokenContractTest, toAddressOption } from './escrowable_token_contract_test.js';
 
-describe('e2e_blacklist_token_contract burn', () => {
-  const t = new BlacklistTokenContractTest('burn');
+describe('e2e_escrowable_token_contract burn', () => {
+  const t = new EscrowTokenContractTest('burn');
   let { asset, tokenSim, wallets, blacklisted } = t;
 
   beforeAll(async () => {
@@ -123,7 +123,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      await asset.methods.burn(wallets[0].getAddress(), amount, 0).send().wait();
+      await asset.methods.burn(wallets[0].getAddress(), amount, 0, toAddressOption(), toAddressOption()).send().wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
     });
 
@@ -134,18 +134,27 @@ describe('e2e_blacklist_token_contract burn', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
+      const action = asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce, toAddressOption(), toAddressOption());
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[1].addAuthWitness(witness);
 
-      await asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send().wait();
+      await asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce, toAddressOption(), toAddressOption())
+        .send()
+        .wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
 
       // Perform the transfer again, should fail
-      const txReplay = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send();
+      const txReplay = asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce, toAddressOption(), toAddressOption())
+        .send();
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
@@ -154,18 +163,18 @@ describe('e2e_blacklist_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 0).prove()).rejects.toThrow(
-          'Assertion failed: Balance too low',
-        );
+        await expect(
+          asset.methods.burn(wallets[0].getAddress(), amount, 0, toAddressOption(), toAddressOption()).prove(),
+        ).rejects.toThrow('Assertion failed: Balance too low');
       });
 
       it('burn on behalf of self with non-zero nonce', async () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).prove()).rejects.toThrow(
-          'Assertion failed: invalid nonce',
-        );
+        await expect(
+          asset.methods.burn(wallets[0].getAddress(), amount, 1, toAddressOption(), toAddressOption()).prove(),
+        ).rejects.toThrow('Assertion failed: invalid nonce');
       });
 
       it('burn more than balance on behalf of other', async () => {
@@ -175,7 +184,9 @@ describe('e2e_blacklist_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
+        const action = asset
+          .withWallet(wallets[1])
+          .methods.burn(wallets[0].getAddress(), amount, nonce, toAddressOption(), toAddressOption());
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
@@ -192,7 +203,9 @@ describe('e2e_blacklist_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
+        const action = asset
+          .withWallet(wallets[1])
+          .methods.burn(wallets[0].getAddress(), amount, nonce, toAddressOption(), toAddressOption());
         const messageHash = computeAuthWitMessageHash(
           wallets[1].getAddress(),
           wallets[0].getChainId(),
@@ -210,7 +223,9 @@ describe('e2e_blacklist_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
+        const action = asset
+          .withWallet(wallets[2])
+          .methods.burn(wallets[0].getAddress(), amount, nonce, toAddressOption(), toAddressOption());
         const expectedMessageHash = computeAuthWitMessageHash(
           wallets[2].getAddress(),
           wallets[0].getChainId(),
@@ -227,9 +242,9 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
-        );
+        await expect(
+          asset.methods.burn(blacklisted.getAddress(), 1n, 0, toAddressOption(), toAddressOption()).prove(),
+        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
     });
   });
