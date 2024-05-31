@@ -672,7 +672,8 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
-
+    info(other.get_value());
+    info((*this).get_value());
     if (is_constant() && other.is_constant()) {
         return (get_value() == other.get_value());
     }
@@ -693,6 +694,8 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
 
     const field_t t1 = r.madd(-x + 1, x);
     const field_t t2 = diff.madd(t1, r - 1);
+    info(t1.get_value());
+    info(t2.get_value());
     t2.assert_equal(0);
 
     return result;

@@ -75,8 +75,8 @@ cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
  */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(const AffineElement& _in)
-    : x(_in.x)
-    , y(_in.y)
+    : x(_in.is_point_at_infinity() ? 0 : _in.x)
+    , y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
     , _is_constant(true)
     , context(nullptr)
