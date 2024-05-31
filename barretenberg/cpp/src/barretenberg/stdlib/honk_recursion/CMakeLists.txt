@@ -9,4 +9,5 @@ barretenberg_module(
     goblin
     translator_vm_recursion
     eccvm_recursion
+    client_ivc
 )
