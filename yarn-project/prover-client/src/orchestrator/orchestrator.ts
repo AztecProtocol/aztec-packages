@@ -98,11 +98,10 @@ export class ProvingOrchestrator {
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
   /**
-   * Resets the orchestrator's cached data.
+   * Resets the orchestrator's cached padding tx.
    */
   public reset() {
     this.paddingTx = undefined;
-    this.initialHeader = undefined;
   }
 
   /**
