@@ -1516,7 +1516,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sstore == 1; });
     EXPECT_EQ(sstore_row->avm_main_ia, 42); // Read value
     EXPECT_EQ(sstore_row->avm_main_ib, 9);  // Storage slot
-    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 0);
+    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 1);
 
     // Get the row of the first note hash out
     uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
