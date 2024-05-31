@@ -65,10 +65,10 @@ library Constants {
   uint256 internal constant NOTE_HASH_SUBTREE_HEIGHT = 6;
   uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 26;
   uint256 internal constant NULLIFIER_SUBTREE_HEIGHT = 6;
-  uint256 internal constant PUBLIC_DATA_SUBTREE_HEIGHT = 5;
+  uint256 internal constant PUBLIC_DATA_SUBTREE_HEIGHT = 7;
   uint256 internal constant ARCHIVE_HEIGHT = 16;
   uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 14;
-  uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 35;
+  uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 33;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
