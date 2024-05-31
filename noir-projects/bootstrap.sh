@@ -35,7 +35,7 @@ case "$(uname)" in
 esac
 # This value may be too low.
 # If builds fail with an amount of free memory greater than this value then it should be increased.
-MIN_PARALLEL_BUILD_MEMORY=32854492
+MIN_PARALLEL_BUILD_MEMORY=65708984
 
 if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
   echo "System does not have enough memory for parallel builds, falling back to sequential"
