@@ -50,7 +50,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
-        // Nullify the storage slot.
+        // Nullify the storage slot - since we always push the same nullifier, this can only be done once, as further
+        // attempts to do it will result in the transaction being reverted by the sequencer.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_new_nullifier(nullifier, 0);
 
@@ -60,8 +61,10 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
     // docs:start:get_note
     pub fn get_note<N, M>(self) -> Note where Note: NoteInterface<N, M> {
-        let storage_slot = self.storage_slot;
-        get_note(self.context, storage_slot)
+        // We do not need to check for initialization because we'll only be able to read a note and prove its inclusion
+        // if one was actually created, and this can be done during initialization. Therefore, a successful read implies
+        // initialization.
+        get_note(self.context, self.storage_slot)
     }
     // docs:end:get_note
 }
@@ -77,8 +80,8 @@ impl<Note> PrivateImmutable<Note, ()> {
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
     unconstrained pub fn view_note<N, M>(self) -> Note  where Note: NoteInterface<N, M> {
-        let mut options = NoteViewerOptions::new();
-        view_notes(self.storage_slot, options.set_limit(1))[0].unwrap()
+        let options = NoteViewerOptions::new();
+        view_notes(self.storage_slot, options)[0].unwrap()
     }
     // docs:end:view_note
 }
