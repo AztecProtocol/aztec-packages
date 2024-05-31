@@ -20,6 +20,7 @@ import {
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
+  type VerificationKeyData,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 
@@ -155,7 +156,9 @@ export function makeProcessedTx(
  * Makes a padding empty tx with a valid proof.
  * @returns A valid padding processed tx.
  */
-export function makePaddingProcessedTx(kernelOutput: PublicInputsAndProof<KernelCircuitPublicInputs>): ProcessedTx {
+export function makePaddingProcessedTx(
+  kernelOutput: PublicInputsAndProof<KernelCircuitPublicInputs>,
+): ProcessedTx & { verificationKey: VerificationKeyData } {
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
@@ -169,6 +172,7 @@ export function makePaddingProcessedTx(kernelOutput: PublicInputsAndProof<Kernel
     publicKernelRequests: [],
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
+    verificationKey: kernelOutput.verificationKey,
   };
 }
 

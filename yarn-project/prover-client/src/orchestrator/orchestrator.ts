@@ -91,7 +91,7 @@ const KernelTypesWithoutFunctions: Set<PublicKernelType> = new Set<PublicKernelT
 export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
-  private paddingTx: ProcessedTx | undefined = undefined;
+  private paddingTx: (ProcessedTx & { verificationKey: VerificationKeyData }) | undefined = undefined;
   private initialHeader: Header | undefined = undefined;
 
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
@@ -368,10 +368,15 @@ export class ProvingOrchestrator {
    * @param tx - The transaction whose proving we wish to commence
    * @param provingState - The proving state being worked on
    */
-  private async prepareTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    // Pass the private kernel tail vk here as the previous one.
+  private async prepareTransaction(
+    tx: ProcessedTx & { verificationKey?: VerificationKeyData },
+    provingState: ProvingState,
+  ) {
+    // Pass the private kernel tail vk here as the previous one, or the empty kernel if attached to the tx.
     // If there are public functions then this key will be overwritten once the public tail has been proven
-    const previousKernelVerificationKey = provingState.privateKernelVerificationKeys.privateKernelCircuit;
+    const vks = provingState.privateKernelVerificationKeys;
+    const previousKernelVerificationKey = tx.verificationKey ?? vks.privateKernelCircuit;
+
     const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
     if (!txInputs) {
       // This should not be possible
