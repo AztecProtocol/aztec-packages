@@ -98,6 +98,14 @@ export class ProvingOrchestrator {
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
   /**
+   * Resets the orchestrator's cached data.
+   */
+  public reset() {
+    this.paddingTx = undefined;
+    this.initialHeader = undefined;
+  }
+
+  /**
    * Starts off a new block
    * @param numTxs - The total number of transactions in the block. Must be a power of 2
    * @param globalVariables - The global variables for the block
@@ -254,9 +262,11 @@ export class ProvingOrchestrator {
   ) {
     if (this.paddingTx) {
       // We already have the padding transaction
+      logger.debug(`Enqueuing ${txInputs.length} padding transactions using existing padding tx`);
       this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
       return;
     }
+    logger.debug(`Enqueuing deferred proving for padding txs to enqueue ${txInputs.length} paddings`);
     this.deferredProving(
       provingState,
       signal =>
@@ -272,6 +282,7 @@ export class ProvingOrchestrator {
           signal,
         ),
       result => {
+        logger.debug(`Completed proof for padding tx, now enqueuing ${txInputs.length} padding txs`);
         this.paddingTx = makePaddingProcessedTx(result);
         this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
       },
@@ -564,10 +575,17 @@ export class ProvingOrchestrator {
       return;
     }
 
+    logger.debug(
+      `Enqueuing deferred proving base rollup${
+        tx.processedTx.isEmpty ? ' with padding tx' : ''
+      } for ${tx.processedTx.hash.toString()}`,
+    );
+
     this.deferredProving(
       provingState,
       signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
       result => {
+        logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
         validatePartialState(result.inputs.end, tx.treeSnapshots);
         const currentLevel = provingState.numMergeLevels + 1n;
         this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [

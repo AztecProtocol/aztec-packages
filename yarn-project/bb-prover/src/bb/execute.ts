@@ -591,8 +591,8 @@ async function fsCache<T>(
   } else {
     try {
       run = !expectedCacheKey.equals(await fs.readFile(cacheFilePath));
-    } catch (err) {
-      if (err && err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+    } catch (err: any) {
+      if (err && 'code' in err && err.code === 'ENOENT') {
         // cache file doesn't exist, swallow error and run
         run = true;
       } else {
