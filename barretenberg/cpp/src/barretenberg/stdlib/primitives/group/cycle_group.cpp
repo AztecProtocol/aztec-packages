@@ -75,8 +75,8 @@ cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
  */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(const AffineElement& _in)
-    : x(_in.x)
-    , y(_in.y)
+    : x(_in.is_point_at_infinity() ? 0 : _in.x)
+    , y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
     , _is_constant(true)
     , context(nullptr)
@@ -567,6 +567,9 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(con
         lo = witness_t(in.get_context(), lo_v);
         hi = witness_t(in.get_context(), hi_v);
         (lo + hi * shift).assert_equal(in);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1022): ensure lo and hi are in bb::fr modulus not
+        // bb::fq modulus otherwise we could have two representations for in
+        validate_scalar_is_in_field();
     }
 }
 
@@ -663,10 +666,13 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
     } else {
         lo = witness_t(ctx, value_lo);
         hi = witness_t(ctx, value_hi);
-        BigScalarField lo_big(lo, witness_t(ctx, 0));
-        BigScalarField hi_big(hi, witness_t(ctx, 0));
+        field_t zero = field_t(0);
+        zero.convert_constant_to_fixed_witness(ctx);
+        BigScalarField lo_big(lo, zero);
+        BigScalarField hi_big(hi, zero);
         BigScalarField res = lo_big + hi_big * BigScalarField((uint256_t(1) << LO_BITS));
         scalar.assert_equal(res);
+        validate_scalar_is_in_field();
     }
 };
 

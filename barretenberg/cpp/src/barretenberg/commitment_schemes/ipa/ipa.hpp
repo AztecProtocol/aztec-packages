@@ -500,9 +500,18 @@ template <typename Curve_> class IPA {
         Commitment aux_generator = Commitment::one(builder) * generator_challenge;
 
         const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
+
+        auto aux = aux_generator * opening_claim.opening_pair.evaluation;
+        info("aux ", aux.get_value(), " on curve ", aux.get_value().on_curve());
+        info("is  point at infinity ", aux.is_point_at_infinity());
+        info("opening claim comm ",
+             opening_claim.commitment.get_value(),
+             " on curve ",
+             opening_claim.commitment.get_value().on_curve());
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
-        GroupElement C_prime = opening_claim.commitment + aux_generator * opening_claim.opening_pair.evaluation;
+        info("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEJEJHLJBLJBLJBLB");
+        GroupElement C_prime = opening_claim.commitment + aux;
 
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
