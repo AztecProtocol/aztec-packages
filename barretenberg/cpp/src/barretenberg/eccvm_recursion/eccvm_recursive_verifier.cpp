@@ -33,7 +33,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1017): This is a hack to ensure zero commitments
         // are still on curve as the transcript doesn't currently support a point at infinity representation for
         // cycle_group
-        if (!comm.get_value().on_curve()) {
+        if (!comm.get_value().on_curve() && (comm.x == 1 << 255).get_value() && (comm.y == 0).get_value()) {
             comm.set_point_at_infinity(true);
         }
     }
