@@ -1,4 +1,5 @@
 export * from '@aztec/foundation/eth-address';
+export * from './avm/avm.js';
 export * from './call_context.js';
 export * from './call_request.js';
 export * from './caller_context.js';
@@ -17,6 +18,7 @@ export * from './header.js';
 export * from './kernel/combine_hints.js';
 export * from './kernel/combined_accumulated_data.js';
 export * from './kernel/combined_constant_data.js';
+export * from './kernel/private_kernel_empty_inputs.js';
 export * from './kernel/kernel_circuit_public_inputs.js';
 export * from './kernel/kernel_data.js';
 export * from './kernel/private_accumulated_data.js';

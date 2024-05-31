@@ -1,7 +1,8 @@
-#include "avm_execution.hpp"
+#include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_instructions.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
@@ -11,6 +12,7 @@
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -22,6 +24,18 @@
 using namespace bb;
 
 namespace bb::avm_trace {
+
+/**
+ * @brief Temporary routine to generate default public inputs (gas values) until we get
+ *        proper integration of public inputs.
+ */
+std::vector<FF> Execution::getDefaultPublicInputs()
+{
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+    public_inputs_vec.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000000000;
+    public_inputs_vec.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000000000;
+    return public_inputs_vec;
+}
 
 /**
  * @brief Run the bytecode, generate the corresponding execution trace and prove the correctness
@@ -36,7 +50,8 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
                                                                    std::vector<FF> const& calldata)
 {
     auto instructions = Deserialization::parse(bytecode);
-    auto trace = gen_trace(instructions, calldata);
+    std::vector<FF> returndata{};
+    auto trace = gen_trace(instructions, returndata, calldata, getDefaultPublicInputs());
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
@@ -46,22 +61,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto proof = prover.construct_proof();
     // TODO(#4887): Might need to return PCS vk when full verify is supported
     return std::make_tuple(*verifier.key, proof);
-}
-
-bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
-{
-    auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
-    AvmVerifier verifier(verification_key);
-
-    // todo: not needed for now until we verify the PCS/pairing of the proof
-    // auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size,
-    // crs_factory_);
-    // output_state.pcs_verification_key = std::move(pcs_verification_key);
-
-    // TODO: We hardcode public inputs for now
-    VmPublicInputs public_inputs = {};
-    std::vector<std::vector<FF>> public_inputs_vec = copy_public_inputs_columns(public_inputs);
-    return verifier.verify_proof(proof, public_inputs_vec);
 }
 
 /**
@@ -74,7 +73,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @param public_inputs_vec
  * @return VmPublicInputs
  */
-VmPublicInputs convert_public_inputs(std::vector<FF> const& public_inputs_vec)
+VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_inputs_vec)
 {
     VmPublicInputs public_inputs = {};
 
@@ -109,7 +108,26 @@ VmPublicInputs convert_public_inputs(std::vector<FF> const& public_inputs_vec)
     // Transaction fee
     kernel_inputs[TRANSACTION_FEE_SELECTOR] = public_inputs_vec[TRANSACTION_FEE_OFFSET];
 
+    kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = public_inputs_vec[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET];
+    kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = public_inputs_vec[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET];
+
     return public_inputs;
+}
+
+bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
+{
+    auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
+    AvmVerifier verifier(verification_key);
+
+    // todo: not needed for now until we verify the PCS/pairing of the proof
+    // auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size,
+    // crs_factory_);
+    // output_state.pcs_verification_key = std::move(pcs_verification_key);
+
+    // TODO: We hardcode public inputs for now
+    VmPublicInputs public_inputs = convert_public_inputs(getDefaultPublicInputs());
+    std::vector<std::vector<FF>> public_inputs_vec = copy_public_inputs_columns(public_inputs);
+    return verifier.verify_proof(proof, public_inputs_vec);
 }
 
 /**
@@ -422,6 +440,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                          std::get<uint32_t>(inst.operands.at(2)),
                                          std::get<uint32_t>(inst.operands.at(3)));
 
+            break;
+        case OpCode::PEDERSEN:
+            trace_builder.op_pedersen_hash(std::get<uint8_t>(inst.operands.at(0)),
+                                           std::get<uint32_t>(inst.operands.at(1)),
+                                           std::get<uint32_t>(inst.operands.at(2)),
+                                           std::get<uint32_t>(inst.operands.at(3)),
+                                           std::get<uint32_t>(inst.operands.at(4)));
             break;
         default:
             throw_or_abort("Don't know how to execute opcode " + to_hex(inst.op_code) + " at pc " + std::to_string(pc) +
