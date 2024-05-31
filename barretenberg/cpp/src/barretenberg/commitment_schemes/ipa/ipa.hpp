@@ -486,11 +486,15 @@ template <typename Curve_> class IPA {
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        const auto poly_length = static_cast<uint32_t>(
-            transcript->template receive_from_prover<typename Curve::BaseField>("IPA:poly_degree_plus_1")
-                .get_value()); // note this is base field because this is a uint32_t, which should map
-                               // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                               // Grumpkin
+        auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
+            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
+                                       // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
+                                       // Grumpkin
+
+        // Ensure polynomial length cannot be changed from it's genuine value
+        poly_length_var.fix_witness();
+
+        const uint32_t poly_length = static_cast<uint32_t>(poly_length_var.get_value());
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -501,17 +505,9 @@ template <typename Curve_> class IPA {
 
         const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
 
-        auto aux = aux_generator * opening_claim.opening_pair.evaluation;
-        info("aux ", aux.get_value(), " on curve ", aux.get_value().on_curve());
-        info("is  point at infinity ", aux.is_point_at_infinity());
-        info("opening claim comm ",
-             opening_claim.commitment.get_value(),
-             " on curve ",
-             opening_claim.commitment.get_value().on_curve());
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
-        info("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEJEJHLJBLJBLJBLB");
-        GroupElement C_prime = opening_claim.commitment + aux;
+        GroupElement C_prime = opening_claim.commitment + aux_generator * opening_claim.opening_pair.evaluation;
 
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
@@ -556,6 +552,8 @@ template <typename Curve_> class IPA {
         // Construct vector s
         std::vector<Fr> s_vec(poly_length);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
+        // O(nlogn). This can be optimized to be linear by computing a tree of products.
         for (size_t i = 0; i < poly_length; i++) {
             Fr s_vec_scalar = Fr(1);
             for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
@@ -569,6 +567,8 @@ template <typename Curve_> class IPA {
         }
 
         auto srs_elements = vk->get_monomial_points();
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1023): Unify the two batch_muls
 
         // Step 8.
         // Compute G₀

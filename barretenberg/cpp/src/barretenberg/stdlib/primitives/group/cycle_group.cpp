@@ -70,6 +70,7 @@ cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
  * @note This produces a circuit-constant object i.e. known at compile-time, no constraints.
  *       If `_in` is not fixed for a given circuit, use `from_witness` instead
  *
+ * @details ensures the representation of point at infinity is consistent
  * @tparam Builder
  * @param _in
  */
