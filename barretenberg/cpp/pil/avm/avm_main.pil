@@ -381,6 +381,8 @@ namespace avm_main(256);
     #[PC_JUMPI]
     sel_jumpi * ((1 - id_zero) * (pc' - ia) + id_zero * (pc' - pc - 1)) = 0;
 
+    // TODO: Consolidation with #[PC_JUMP] and sel_internal_call * (pc' - ia) = 0; sel_internal_return * (pc' - ia) = 0;
+
     //===== INTERNAL_CALL ======================================================
     // - The program counter in the next row should be equal to the value loaded from the ia register
     // - We then write the return location (pc + 1) into the call stack (in memory)
