@@ -125,16 +125,15 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
 // 1 field for transaction fee
 // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
 // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-// 2 l2 -> l1 messages -> 2 fields
+// MAX_NEW_L2_TO_L1_MSGS_PER_TX fields for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
-// 1 contract deployments -> 3 fields
 // 1 note encrypted logs length --> 1 field
 // 1 encrypted logs length --> 1 field
 // 1 unencrypted logs length --> 1 field
-// 1 note logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! 
+// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! 
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!  
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + MAX_NEW_L2_TO_L1_MSGS_PER_TX + 3 + NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
@@ -198,29 +197,30 @@ pub fn compute_tx_effects_hash(
     }
     offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
+    // NOTE ENCRYPTED LOGS LENGTH
     tx_effects_hash_input[offset] = note_logs_length;
-
     offset += 1;
 
+    // ENCRYPTED LOGS LENGTH
     tx_effects_hash_input[offset] = encrypted_logs_length;
-
     offset += 1;
 
+    // UNENCRYPTED LOGS LENGTH
     tx_effects_hash_input[offset] = unencrypted_logs_length;
-
     offset += 1;
 
+    // NOTE ENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = note_encrypted_logs_hash;
-
     offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
 
+    // ENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = encrypted_logs_hash;
-
     offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
 
+    // UNENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = unencrypted_logs_hash;
-
     offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+
     assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
 
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
