@@ -28,7 +28,8 @@ void GoblinRecursiveVerifier::verify(GoblinProof& proof)
         };
     translator_verifier.verify_translation(translation_evaluations);
 
-    // WORKTODO: Perform recursive merge verification once it works with Ultra arithmetization (fingers crossed)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1024): Perform recursive merge verification once it
+    // works with Ultra arithmetization
     // MergeVerifier merge_verified{ builder };
     // [[maybe_unused]] auto merge_pairing_points = merge_verifier.verify_proof(proof.merge_proof);
 }

@@ -88,9 +88,10 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 };
 
 // Run the recursive verifier tests with Ultra and Mega builders
-using Builders = testing::Types<MegaCircuitBuilder>;
-// WORKTODO: Ultra fails, possibly due to repeated points in batch mul?
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1024): Ultra fails, possibly due to repeated points in
+// batch mul?
 // using Builders = testing::Types<MegaCircuitBuilder, UltraCircuitBuilder>;
+using Builders = testing::Types<MegaCircuitBuilder>;
 
 TYPED_TEST_SUITE(RecursiveMergeVerifierTest, Builders);
 
