@@ -4,7 +4,6 @@ use dep::types::{
     hash::accumulate_sha256,
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
@@ -127,13 +126,15 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
 // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
 // MAX_NEW_L2_TO_L1_MSGS_PER_TX fields for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
-// 1 note encrypted logs length --> 1 field
-// 1 encrypted logs length --> 1 field
-// 1 unencrypted logs length --> 1 field
-// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! 
-// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!  
-// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+//                                          __
+// 1 note encrypted logs length --> 1 field   |
+// 1 encrypted logs length --> 1 field        | -> 3 types of logs - 3 fields for its lengths
+// 1 unencrypted logs length --> 1 field    __|
+//                                                                                                                                   __
+// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
+// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
+// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
+global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
@@ -211,15 +212,15 @@ pub fn compute_tx_effects_hash(
 
     // NOTE ENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = note_encrypted_logs_hash;
-    offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
+    offset += 1;
 
     // ENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = encrypted_logs_hash;
-    offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
+    offset += 1;
 
     // UNENCRYPTED LOGS HASH
     tx_effects_hash_input[offset] = unencrypted_logs_hash;
-    offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+    offset += 1;
 
     assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
 
@@ -247,18 +248,13 @@ fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [Publ
 
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
-    // 1 for revert_code
-    // 1 for transaction_fee
-    // 2 for logs lengths
-    let expected_size = 1
-        + 1
+    let expected_size = 1 // revert code
+        + 1 // transaction fee
         + MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
-        + 3
-        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
-        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+        + 3 // logs lengths
+        + 3; // logs hashes
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");
 }
