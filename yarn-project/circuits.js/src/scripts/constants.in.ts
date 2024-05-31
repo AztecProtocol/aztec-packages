@@ -24,6 +24,8 @@ const CPP_CONSTANTS = [
   'PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH',
   'READ_REQUEST_LENGTH',
   'MAX_NULLIFIER_READ_REQUESTS_PER_CALL',
+  'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
+  'MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL',
   'MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL',
   'CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
@@ -145,6 +147,7 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 #pragma once
+
 #include <cstddef>
 
 ${processConstantsCpp(constants)}
