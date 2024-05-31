@@ -28,3 +28,11 @@ jobs:
 
       - timeout-minutes: 25
         run: earthly-ci --no-output ./docs/+deploy-prod --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+
+  pdf:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: generate pdf
+        run: npx docusaurus-prince-pdf -u http://docs.aztec.network/protocol-specs/intro --dest ./docs/pdf -o protocol-specs
+        timeout-minutes: 4
