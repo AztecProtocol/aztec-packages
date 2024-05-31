@@ -33,17 +33,19 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
     acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name,
-                                                                        bool honk_recursion)
+                                                                        bool honk_recursion = false)
     {
-        std::string base_path =
-            "../../../noir/noir-repo/test_programs/execution_success/" + test_program_name + "/target";
+        // std::string base_path =
+        //     "../../../noir/noir-repo/test_programs/execution_success/" + test_program_name + "/target";
+        std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
         std::string witness_path = base_path + "/witness.gz";
 
         return acir_format::get_acir_program_stack(bytecode_path, witness_path, honk_recursion);
     }
 
-    acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name, bool honk_recursion)
+    acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name,
+                                                             bool honk_recursion = false)
     {
         auto program_stack = get_program_stack_data_from_test_file(test_program_name, honk_recursion);
         ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
