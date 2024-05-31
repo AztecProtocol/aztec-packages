@@ -331,7 +331,6 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_jumpi_opcode(uint
         .m_tag = cond_mem_entry.tag,
         .r_in_tag = cond_mem_entry.tag,
         .w_in_tag = cond_mem_entry.tag,
-        .m_sel_cmov = true,
     });
 
     return cond_mem_entry;
