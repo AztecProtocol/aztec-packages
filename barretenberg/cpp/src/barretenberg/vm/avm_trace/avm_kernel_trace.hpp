@@ -100,17 +100,26 @@ class AvmKernelTraceBuilder {
     void op_sload(uint32_t clk, const FF& slot, const FF& value);
     void op_sstore(uint32_t clk, const FF& slot, const FF& value);
 
-    // Temp: these are temporary offsets
+    // TODO: Move into constants.hpp?
     static const uint32_t START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
-    static const uint32_t START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
-    static const uint32_t START_NULLIFIER_EXISTS_OFFSET = 8;
-    static const uint32_t START_EMIT_NULLIFIER_WRITE_OFFSET = 12;
-    static const uint32_t START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 16;
-    static const uint32_t START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 20;
-    static const uint32_t START_L2_TO_L1_MSG_WRITE_OFFSET = 24;
+    static const uint32_t START_NULLIFIER_EXISTS_OFFSET =
+        START_NOTE_HASH_EXISTS_WRITE_OFFSET + MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
+    static const uint32_t START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET =
+        START_NULLIFIER_EXISTS_OFFSET + (2 * MAX_NULLIFIER_READ_REQUESTS_PER_CALL);
 
-    static const uint32_t START_SLOAD_WRITE_OFFSET = 28;
-    static const uint32_t START_SSTORE_WRITE_OFFSET = 32;
+    static const uint32_t START_SLOAD_WRITE_OFFSET =
+        START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL;
+    static const uint32_t START_SSTORE_WRITE_OFFSET =
+        START_SLOAD_WRITE_OFFSET + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
+
+    static const uint32_t START_EMIT_NOTE_HASH_WRITE_OFFSET =
+        START_SSTORE_WRITE_OFFSET + MAX_PUBLIC_DATA_READS_PER_CALL;
+    static const uint32_t START_EMIT_NULLIFIER_WRITE_OFFSET =
+        START_EMIT_NOTE_HASH_WRITE_OFFSET + MAX_NEW_NOTE_HASHES_PER_CALL;
+    static const uint32_t START_L2_TO_L1_MSG_WRITE_OFFSET =
+        START_EMIT_NULLIFIER_WRITE_OFFSET + MAX_NEW_NULLIFIERS_PER_CALL;
+    static const uint32_t START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET =
+        START_L2_TO_L1_MSG_WRITE_OFFSET + MAX_NEW_L2_TO_L1_MSGS_PER_CALL;
 
   private:
     std::vector<KernelTraceEntry> kernel_trace;
