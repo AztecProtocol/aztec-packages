@@ -41,6 +41,7 @@ export async function deployUltraVerifier(
         enabled: true,
         runs: 200,
       },
+      evmVersion: 'paris',
       outputSelection: {
         '*': {
           '*': ['evm.bytecode.object', 'abi'],
