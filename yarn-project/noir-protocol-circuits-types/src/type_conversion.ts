@@ -1774,6 +1774,14 @@ export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsN
       combineHints.sortedPublicDataUpdateRequestsIndexes,
       mapNumberToNoir,
     ),
+    deduped_public_data_update_requests: mapTuple(
+      combineHints.dedupedPublicDataUpdateRequests,
+      mapPublicDataUpdateRequestToNoir,
+    ),
+    deduped_public_data_update_requests_runs: mapTuple(
+      combineHints.dedupedPublicDataUpdateRequestsRuns,
+      mapNumberToNoir,
+    ),
   };
 }
 
@@ -1905,8 +1913,10 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     returns_hash: mapFieldToNoir(publicInputs.returnsHash),
+    note_hash_read_requests: mapTuple(publicInputs.noteHashReadRequests, mapReadRequestToNoir),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
+    l1_to_l2_msg_read_requests: mapTuple(publicInputs.l1ToL2MsgReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
