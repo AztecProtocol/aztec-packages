@@ -5,6 +5,8 @@
 #include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
+using namespace bb;
+
 namespace acir_format {
 
 using namespace bb::plonk;

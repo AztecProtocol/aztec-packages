@@ -6,7 +6,7 @@ namespace acir_format {
 using namespace bb::plonk;
 
 template <typename Builder>
-secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affine_element& input)
+secp256k1::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affine_element& input)
 {
     uint256_t x_u256(input.x);
     uint256_t y_u256(input.y);
