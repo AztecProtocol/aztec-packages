@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717174849354,
+  "lastUpdate": 1717175118554,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -10792,6 +10792,78 @@ window.BENCHMARK_DATA = {
             "value": 163651920,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163651920 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "64d4ba9e57dabf7786dfb6369afbe17545a0bc2b",
+          "message": "feat(avm): JUMPI opcode in AVM circuit (#6800)\n\nResolves #6795",
+          "timestamp": "2024-05-31T16:55:36Z",
+          "tree_id": "78b1ed33eb932dbc5b6d7afb7b4c9bcd450dd27f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/64d4ba9e57dabf7786dfb6369afbe17545a0bc2b"
+        },
+        "date": 1717175117325,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15439.878727999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10717.214150000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5500.330568999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5095.233890000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49318.16263900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49318164000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16932.671301000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16932672000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5296571716,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5296571716 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197949586,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197949586 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4308001181,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4308001181 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166783378,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166783378 ns\nthreads: 1"
           }
         ]
       }
