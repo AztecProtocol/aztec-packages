@@ -16,7 +16,11 @@ touch cross_chain_test_harness.ts
 
 In `cross_chain_test_harness.ts`, add:
 
+```ts raw
+import { expect } from '@jest/globals'
 #include_code cross_chain_test_harness /yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts typescript
+
+```
 
 This
 
@@ -35,27 +39,31 @@ We will write two tests:
 Open `cross_chain_messaging.test.ts` and paste the initial description of the test:
 
 ```typescript
-import { expect, jest} from '@jest/globals'
-import { AccountWallet, AztecAddress, DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { describe, beforeEach, expect, jest, it} from '@jest/globals'
+import { AccountWallet, AztecAddress, type DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor } from '@aztec/aztec.js';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { TokenBridgeContract } from './fixtures/TokenBridge.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 
-import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
+import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { mnemonicToAccount } from 'viem/accounts';
-import { createPublicClient, createWalletClient, http } from 'viem';
+import { createPublicClient, createWalletClient, http, toFunctionSelector } from 'viem';
 import { foundry } from 'viem/chains';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const hdAccount = mnemonicToAccount(MNEMONIC);
 const aztecNode = createAztecNodeClient(PXE_URL);
+export const NO_L1_TO_L2_MSG_ERROR =
+  /No non-nullified L1 to L2 message found for message hash|Tried to consume nonexistent L1-to-L2 message/;
 
 describe('e2e_cross_chain_messaging', () => {
   jest.setTimeout(90_000);
 
   let logger: DebugLogger;
+  let wallets: AccountWallet[];
   let user1Wallet: AccountWallet;
   let user2Wallet: AccountWallet;
   let ethAccount: EthAddress;
@@ -98,7 +106,6 @@ describe('e2e_cross_chain_messaging', () => {
     outbox = crossChainTestHarness.outbox;
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
-    logger = logger;
     logger('Successfully deployed contracts and initialized portal');
   });
 ```
@@ -107,11 +114,18 @@ This fetches the wallets from the sandbox and deploys our cross chain harness on
 
 ## Private flow test
 
+Paste the private flow test below the setup:
+
 #include_code e2e_private_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging.test.ts typescript
 
 ## Public flow test
 
+Paste the public flow below the private flow:
+
+```ts raw
 #include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging/deposits.test.ts typescript
+})
+```
 
 ## Running the test
 
