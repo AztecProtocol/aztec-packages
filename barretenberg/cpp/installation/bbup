@@ -4,13 +4,18 @@ set -e
 BB_HOME=${BB_HOME-"$HOME/.bb"}
 
 main() {
+  need_cmd git
   need_cmd curl
-
+  
   while [[ $1 ]]; do
     case $1 in
       --)               shift; break;;
-
       -v|--version)     shift; BBUP_VERSION=$1;;
+      -b|--branch)      shift; BBUP_BRANCH=$1;;
+      -P|--pr)          shift; BBUP_PR=$1;;
+      -C|--commit)      shift; BBUP_COMMIT=$1;;
+      -r|--repo)        shift; BBUP_REPO=$1;;
+      -p|--path)        shift; BBUP_LOCAL_REPO=$1;;
       -h|--help)
         usage
         exit 0
@@ -20,67 +25,111 @@ main() {
     esac; shift
   done
 
-  if [ -z "$BBUP_VERSION" ]; then
-    err "--version option is required"
+  if [ -n "$BBUP_PR" ]; then
+    if [ -z "$BBUP_BRANCH" ]; then
+      BBUP_BRANCH="refs/pull/$BBUP_PR/head"
+    else
+      err "can't use --pr and --branch at the same time"
+    fi
   fi
 
-  BBUP_REPO=AztecProtocol/aztec-packages
+  if [[ -n "$BBUP_LOCAL_REPO" ]]; then
 
-  PLATFORM="$(uname -s)"
-  case $PLATFORM in
-    Linux)
-      PLATFORM="linux-gnu"
-      ;;
-    Darwin)
-      PLATFORM="apple-darwin"
-      ;;
-    *)
-      err "unsupported platform: $PLATFORM"
-      ;;
-  esac
+    if [ -n "$BBUP_REPO" ] || [ -n "$BBUP_BRANCH" ] || [ -n "$BBUP_VERSION" ]; then
+      warn "--branch, --version, and --repo arguments are ignored during local install"
+    fi
 
-  # Fetch system's architecture.
-  ARCHITECTURE="$(uname -m)"
+    say "installing from $BBUP_LOCAL_REPO"
+    cd $BBUP_LOCAL_REPO/barretenberg/cpp
+    ensure ./bootstrap.sh
+    ensure cmake --install build
 
-  # Align ARM naming for release fetching.
-  if [ "${ARCHITECTURE}" = "arm64" ]; then
-    ARCHITECTURE="aarch64" # Align release naming.
+    rm -f "$BB_HOME/bb"
+    ensure mv "$PWD/build/bin/bb" "$BB_HOME/bb"
+
+    say "done"
+    exit 0
   fi
 
-  # Reject unsupported architectures.
-  if [ "${ARCHITECTURE}" != "x86_64" ] && [ "${ARCHITECTURE}" != "aarch64" ]; then
-    err "unsupported architecure: $ARCHITECTURE-$PLATFORM"
+  BBUP_REPO=${BBUP_REPO-AztecProtocol/aztec-packages}
+  if [[ "$BBUP_REPO" == "AztecProtocol/aztec-packages" && -z "$BBUP_BRANCH" && -z "$BBUP_COMMIT" ]]; then
+    PLATFORM="$(uname -s)"
+    case $PLATFORM in
+      Linux) PLATFORM="linux-gnu";;
+      Darwin) PLATFORM="apple-darwin";;
+      *) err "unsupported platform: $PLATFORM";;
+    esac
+
+    ARCHITECTURE="$(uname -m)"
+    if [ "${ARCHITECTURE}" = "arm64" ]; then
+      ARCHITECTURE="aarch64"
+    fi
+    if [ "${ARCHITECTURE}" != "x86_64" ] && [ "${ARCHITECTURE}" != "aarch64" ]; then
+      err "unsupported architecture: $ARCHITECTURE-$PLATFORM"
+    fi
+
+    if [ -z "$BBUP_VERSION" ]; then
+      say "installing bb (latest stable)"
+      RELEASE_URL="https://github.com/${BBUP_REPO}/releases/latest/download"
+    else
+      BBUP_VERSION=${BBUP_VERSION-latest}
+      BBUP_TAG=$BBUP_VERSION
+      if [[ "$BBUP_VERSION" == [[:digit:]]* ]]; then
+        BBUP_VERSION="v${BBUP_VERSION}"
+        BBUP_TAG="aztec-packages-${BBUP_VERSION}"
+      fi
+      say "installing bb (version ${BBUP_VERSION} with tag ${BBUP_TAG})"
+      RELEASE_URL="https://github.com/${BBUP_REPO}/releases/download/${BBUP_TAG}"
+    fi
+    BIN_TARBALL_URL="${RELEASE_URL}/barretenberg-${ARCHITECTURE}-${PLATFORM}.tar.gz"
+
+    say "downloading latest bb to '$BB_HOME'"
+    ensure mkdir -p "$BB_HOME"
+    ensure curl -# -L $BIN_TARBALL_URL | tar -xzC $BB_HOME
+  else
+    BBUP_BRANCH=${BBUP_BRANCH-master}
+    REPO_PATH="${BB_HOME}/${BBUP_REPO}"
+
+    if [ ! -d $REPO_PATH ]; then
+      IFS="/" read -ra AUTHOR <<<"$BBUP_REPO"
+      ensure mkdir -p "$BB_HOME/$AUTHOR"
+      cd "$BB_HOME/$AUTHOR"
+      ensure git clone https://github.com/${BBUP_REPO}
+    fi
+    cd $REPO_PATH
+    ensure git fetch origin ${BBUP_BRANCH}:remotes/origin/${BBUP_BRANCH}
+    ensure git checkout origin/${BBUP_BRANCH}
+    if [ ! -z $BBUP_COMMIT ]; then
+      say "installing at commit ${BBUP_COMMIT}"
+      ensure git checkout ${BBUP_COMMIT}
+    fi
+
+    cd barretenberg/cpp
+
+    ensure ./bootstrap.sh
+    ensure cmake --install build
+
+    rm -f "$BB_HOME/bb"
+    ensure mv "$PWD/build/bin/bb" "$BB_HOME/bb"
   fi
-
-  BBUP_TAG=$BBUP_VERSION
-  # Normalize versions (handle channels, versions without v prefix)
-  if [[ "$BBUP_VERSION" == [[:digit:]]* ]]; then
-    # Add v prefix
-    BBUP_VERSION="v${BBUP_VERSION}"
-    BBUP_TAG="aztec-packages-${BBUP_VERSION}"
-  fi
-
-  say "installing bb (version ${BBUP_VERSION} with tag ${BBUP_TAG})"
-
-  RELEASE_URL="https://github.com/${BBUP_REPO}/releases/download/${BBUP_TAG}"
-  BIN_TARBALL_URL="${RELEASE_URL}/barretenberg-${ARCHITECTURE}-${PLATFORM}.tar.gz"
-
-  # Download the binary's tarball and unpack it into the .bb directory.
-  say "downloading bb to '$BB_HOME'"
-  ensure curl -# -L $BIN_TARBALL_URL | tar -xzC $BB_HOME
 
   say "done"
 }
 
 usage() {
   cat 1>&2 <<EOF
-The installer for bb.
+The installer for barretenberg.
 Update or revert to a specific bb version with ease.
 USAGE:
-    bb <OPTIONS>
+    bbup <OPTIONS>
 OPTIONS:
     -h, --help      Print help information
-    -v, --version   Install a specific version (required)
+    -v, --version   Install a specific version
+    -b, --branch    Install a specific branch
+    -P, --pr        Install a specific Pull Request
+    -C, --commit    Install a specific commit
+    -r, --repo      Install from a remote GitHub repo (uses default branch if no other options are set)
+    -p, --path      Install a local repository
 EOF
 }
 
@@ -107,9 +156,6 @@ check_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
-# Run a command that should never fail. If the command fails execution
-# will immediately terminate with an error showing the failing
-# command.
 ensure() {
   if ! "$@"; then err "command failed: $*"; fi
 }
