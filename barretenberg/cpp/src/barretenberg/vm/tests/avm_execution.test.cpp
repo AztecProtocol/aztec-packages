@@ -1639,82 +1639,78 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
 TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
 {
     // Sload from a value that has not previously been written to will require a hint to process
-    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode Set
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
                                "00"                  // Indirect flag
                                "03"                  // U32
-                               "00000001"            // value 1
+                               "00000009"            // value 9
                                "00000001"            // dst_offset 1
                                // Cast set to field
-                               + to_hex(OpCode::CAST) +               // opcode CAST
-                               "00"                                   // Indirect flag
-                               "06"                                   // tag field
-                               "00000001"                             // dst 1
-                               "00000001"                             // dst 1
-                               + to_hex(OpCode::EMITNOTEHASH) +       // opcode EMITNOTEHASH
-                               "00"                                   // Indirect flag
-                               "00000001"                             // src offset 1
-                               + to_hex(OpCode::EMITNULLIFIER) +      // opcode EMITNOTEHASH
-                               "00"                                   // Indirect flag
-                               "00000001"                             // src offset 1
-                               + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITNOTEHASH
-                               "00"                                   // Indirect flag
-                               "00000001"                             // src offset 1
-                               + to_hex(OpCode::RETURN) +             // opcode RETURN
-                               "00"                                   // Indirect flag
-                               "00000000"                             // ret offset 0
-                               "00000000";                            // ret size 0
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // write storage value to offset 2
+                               + to_hex(OpCode::SSTORE) + // opcode SSTORE
+                               "00"                       // Indirect flag
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // value write offset 2
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
     // 2 instructions
-    ASSERT_THAT(instructions, SizeIs(6));
+    ASSERT_THAT(instructions, SizeIs(5));
 
     std::vector<FF> calldata = {};
-    std::vector<FF> reutrndata = {};
+    std::vector<FF> returndata = {};
 
     // Craft public inputs object - in this case all return values are known to be a fixed value 1
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-    auto trace = Execution::gen_trace(instructions);
+    // Generate Hint for Sload operation
+    ExecutionHints execution_hints = {};
+    execution_hints.storage_values[FF(9)] = FF(42); // Slot 9 = value 42
 
-    // CHECK EMIT NOTE HASH
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK SLOAD
     // Check output data + side effect counters have been set correctly
-    auto emit_note_hash_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_note_hash == 1; });
-    EXPECT_EQ(emit_note_hash_row->avm_main_ia, 1);
-    EXPECT_EQ(emit_note_hash_row->avm_kernel_side_effect_counter, 0);
+    auto sload_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 0);
 
     // Get the row of the first note hash out
-    uint32_t emit_note_hash_out_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
-    auto emit_note_hash_kernel_out_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_note_hash_out_offset; });
-    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    auto sload_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
 
-    // CHECK EMIT NULLIFIER
-    auto emit_nullifier_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_nullifier == 1; });
-    EXPECT_EQ(emit_nullifier_row->avm_main_ia, 1);
-    EXPECT_EQ(emit_nullifier_row->avm_kernel_side_effect_counter, 1);
+    // CHECK SSTORE
+    auto sstore_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sstore == 1; });
+    EXPECT_EQ(sstore_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sstore_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 0);
 
-    uint32_t emit_nullifier_out_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET;
-    auto emit_nullifier_kernel_out_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_nullifier_out_offset; });
-    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-
-    // CHECK EMIT UNENCRYPTED LOG
-    auto emit_log_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_unencrypted_log == 1; });
-    EXPECT_EQ(emit_log_row->avm_main_ia, 1);
-    EXPECT_EQ(emit_log_row->avm_kernel_side_effect_counter, 2);
-
-    uint32_t emit_log_out_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
-    auto emit_log_kernel_out_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_log_out_offset; });
-    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
+    // Get the row of the first note hash out
+    uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+    auto sstore_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
 
     validate_trace(std::move(trace));
 }

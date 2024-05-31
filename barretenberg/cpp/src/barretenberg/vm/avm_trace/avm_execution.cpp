@@ -47,11 +47,15 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  * @return The verifier key and zk proof of the execution.
  */
 std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<uint8_t> const& bytecode,
-                                                                   std::vector<FF> const& calldata)
+                                                                   std::vector<FF> const& calldata,
+                                                                   std::vector<FF> const& public_inputs_vec,
+                                                                   ExecutionHints const& execution_hints)
 {
+    info("silence warning: ", public_inputs_vec[0]);
+
     auto instructions = Deserialization::parse(bytecode);
     std::vector<FF> returndata{};
-    auto trace = gen_trace(instructions, returndata, calldata, getDefaultPublicInputs());
+    auto trace = gen_trace(instructions, returndata, calldata, getDefaultPublicInputs(), execution_hints);
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
@@ -73,10 +77,11 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
  */
 std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs)
+                                      std::vector<FF> const& public_inputs,
+                                      ExecutionHints const& execution_hints)
 {
     std::vector<FF> returndata{};
-    return gen_trace(instructions, returndata, calldata, public_inputs);
+    return gen_trace(instructions, returndata, calldata, public_inputs, execution_hints);
 }
 
 /**
@@ -177,9 +182,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
-    info("before convert public inputs");
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    info("after convert public inputs");
     AvmTraceBuilder trace_builder(public_inputs, execution_hints);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
@@ -191,9 +194,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
         // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
-        info("opcode: ", static_cast<uint32_t>(inst.op_code));
         switch (inst.op_code) {
-
             // Compute
             // Compute - Arithmetic
         case OpCode::ADD:
@@ -356,6 +357,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::EMITNULLIFIER:
             trace_builder.op_emit_nullifier(std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::SLOAD:
+            trace_builder.op_sload(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            break;
+        case OpCode::SSTORE:
+            trace_builder.op_sstore(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::L1TOL2MSGEXISTS:
             trace_builder.op_l1_to_l2_msg_exists(std::get<uint32_t>(inst.operands.at(1)),

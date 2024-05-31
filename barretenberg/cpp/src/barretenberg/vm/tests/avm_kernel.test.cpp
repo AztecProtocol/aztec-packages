@@ -765,7 +765,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
 
     // Provide a hint for sload value slot
     ExecutionHints execution_hints;
-    execution_hints.storage_values[value_offset] = value;
+    execution_hints.storage_values[FF(slot)] = FF(value);
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(slot), slot_offset, AvmMemoryTag::FF);
@@ -779,6 +779,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
         // Check the outputs of the trace
         uint32_t output_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
 
+        // TODO: unify this with the existing metadata checking thing - it should not be different
         expect_output_table_row_with_metadata_hint(
             row,
             /*kernel_in_offset=*/output_offset,

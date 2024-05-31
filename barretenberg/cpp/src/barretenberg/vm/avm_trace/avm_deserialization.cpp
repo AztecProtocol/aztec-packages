@@ -59,6 +59,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::EMITNOTEHASH, getter_format },  // TODO: new format for these
     { OpCode::EMITNULLIFIER, getter_format }, // TODO: new format for these
     { OpCode::EMITUNENCRYPTEDLOG, getter_format },
+    { OpCode::SLOAD, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SSTORE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // CONTRACTCALLDEPTH, -- not in simulator
     // Execution Environment - Globals
     { OpCode::CHAINID, getter_format },
