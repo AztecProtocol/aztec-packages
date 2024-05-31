@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717158246563,
+  "lastUpdate": 1717158255451,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -9420,6 +9420,78 @@ window.BENCHMARK_DATA = {
             "value": 164979726,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164979726 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b88ae0a4b8aa1b738f930a8af564ac43be76f5b",
+          "message": "feat(avm): in vm static gas accounting (#6542)\n\n## Overview\r\nhttps://hackmd.io/zOxxT5bGTPmDWdalw0BkEw\r\n\r\n### TODO\r\n- Account for operations that span multiple rows - will likely require a\r\ncolumn, opcode_step_start that will execute the gas transition start -\r\ncurrently capture by opcode_active\r\n- Different gas cost for each opcode that matches what is used in the\r\nsimualator see\r\n[yarn-project/simulator/src/avm/avm_gas.ts](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/simulator/src/avm/avm_gas.ts)\r\n- flag for when the gas left underflows\r\n\r\n### For follow up prs\r\n- Constrain gas start and gas end are the same as provided in the kernel\r\ncircuit public inputs (separate pr)\r\n- Dynamic gas costs, will require more table columns\r\n\r\n---------\r\n\r\nCo-authored-by: jeanmon <jean@aztecprotocol.com>",
+          "timestamp": "2024-05-31T12:11:49Z",
+          "tree_id": "13b8ce056a7c0118f99fab71b2e467915892286e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6b88ae0a4b8aa1b738f930a8af564ac43be76f5b"
+        },
+        "date": 1717158254525,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15350.540107,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10647.543561 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5470.185148000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5076.873021 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49012.551503,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49012553000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16833.064432,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16833065000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5172233443,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5172233443 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200117918,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200117918 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4279595840,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4279595840 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163924605,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163924605 ns\nthreads: 1"
           }
         ]
       }
