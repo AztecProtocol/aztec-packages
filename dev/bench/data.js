@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717163311516,
+  "lastUpdate": 1717163601480,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -9832,6 +9832,78 @@ window.BENCHMARK_DATA = {
             "value": 163920605,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163920605 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ceec7e2c4e56f16cd5e6c2eb70804656f7d606f1",
+          "message": "feat: ClientIvc recursive verifier (#6721)\n\nAdds a ClientIvc recursive verifier which currently consists only of a\r\nPG rec verifier and Decider rec verifier. A goblin recursive verifier\r\nwill be implemented in a separate PR then added to this work to complete\r\nthe ClientIvc recursive verifier.",
+          "timestamp": "2024-05-31T13:46:34Z",
+          "tree_id": "a6a871b268aef3c910d48a31b33ca38e7b31d9dc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ceec7e2c4e56f16cd5e6c2eb70804656f7d606f1"
+        },
+        "date": 1717163600830,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15465.854799999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10773.314257 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5541.4761539999945,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5217.8086920000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49452.33044,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49452332000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17051.715858000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17051715000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5171107928,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5171107928 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197917170,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197917170 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4297450855,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4297450855 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162949374,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162949374 ns\nthreads: 1"
           }
         ]
       }
