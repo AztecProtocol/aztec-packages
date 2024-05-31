@@ -16,10 +16,9 @@ touch cross_chain_test_harness.ts
 
 In `cross_chain_test_harness.ts`, add:
 
-```ts raw
+```ts
 import { expect } from '@jest/globals'
-#include_code cross_chain_test_harness /yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts typescript
-
+#include_code cross_chain_test_harness /yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts raw
 ```
 
 This
@@ -122,8 +121,8 @@ Paste the private flow test below the setup:
 
 Paste the public flow below the private flow:
 
-```ts raw
-#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging/deposits.test.ts typescript
+```ts
+#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging/deposits.test.ts raw
 })
 ```
 
