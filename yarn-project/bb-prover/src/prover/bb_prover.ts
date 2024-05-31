@@ -301,7 +301,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const emptyNested = await this.getEmptyNestedProof();
     const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(
       PrivateKernelEmptyInputs.from({
@@ -331,7 +331,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
-  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'PrivateKernelEmptyArtifact',
@@ -343,7 +343,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
     await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
 
-    return makePublicInputsAndProof(circuitOutput, proof, verificationKey);
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   private async generateProofWithBB<

@@ -156,7 +156,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     return this.enqueue({ type: ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs }, signal);
   }
 

@@ -90,7 +90,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const emptyNested = new EmptyNestedData(
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
       VERIFICATION_KEYS['EmptyNestedArtifact'],
@@ -100,7 +100,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witness = await this.wasmSimulator.simulateCircuit(witnessMap, PrivateKernelEmptyArtifact);
     const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
 
-    return makePublicInputsAndProof(
+    return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       VerificationKeyData.makeFake(),
