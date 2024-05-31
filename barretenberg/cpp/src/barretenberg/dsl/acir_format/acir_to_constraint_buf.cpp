@@ -441,12 +441,10 @@ BlockConstraint handle_memory_init(Program::Opcode::MemoryInit const& mem_init)
     }
 
     // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal array.
-    if (IsMegaBuilder<Builder>) {
-        if (std::holds_alternative<Program::BlockType::CallData>(mem_init.block_type.value)) {
-            block.type = BlockType::CallData;
-        } else if (std::holds_alternative<Program::BlockType::ReturnData>(mem_init.block_type.value)) {
-            block.type = BlockType::ReturnData;
-        }
+    if (std::holds_alternative<Program::BlockType::CallData>(mem_init.block_type.value)) {
+        block.type = BlockType::CallData;
+    } else if (std::holds_alternative<Program::BlockType::ReturnData>(mem_init.block_type.value)) {
+        block.type = BlockType::ReturnData;
     }
 
     return block;
