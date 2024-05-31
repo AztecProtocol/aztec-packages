@@ -200,9 +200,12 @@ function parseNoirFile(fileContent: string): ParsedContent {
       return;
     }
 
+    // Some values might contain "as Field". We remove it.
+    const cleanedValue = value.replace(/\s+as\s+Field$/, '');
+
     const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
     if (indexName) {
-      generatorIndexEnum[indexName] = +value;
+      generatorIndexEnum[indexName] = +cleanedValue;
     } else {
       constantsExpressions.push([name, value]);
     }
