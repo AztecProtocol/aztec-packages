@@ -2,12 +2,14 @@
 
 namespace bb::stdlib::recursion::honk {
 
-void GoblinRecursiveVerifier::verify(GoblinProof& proof)
+void GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
+    info("ECCVM!");
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key };
     eccvm_verifier.verify_proof(proof.eccvm_proof);
 
+    info("Translator!");
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
@@ -26,6 +28,7 @@ void GoblinRecursiveVerifier::verify(GoblinProof& proof)
                                 TranslatorBF::from_witness(builder, native_translation_evaluations.z2)
 
         };
+    info("Evaluations!");
     translator_verifier.verify_translation(translation_evaluations);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1024): Perform recursive merge verification once it
