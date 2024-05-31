@@ -109,6 +109,11 @@ std::string vk_to_json(std::vector<bb::fr>& data)
     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
+std::string honk_vk_to_json(std::vector<bb::fr>& data)
+{
+    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+}
+
 /**
  * @brief Proves and Verifies an ACIR circuit
  *
@@ -732,8 +737,7 @@ template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_pat
 
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     std::vector<bb::fr> data = verification_key->to_field_elements();
-
-    auto json = vk_to_json(data);
+    auto json = honk_vk_to_json(data);
     if (output_path == "-") {
         writeStringToStdout(json);
         vinfo("vk as fields written to stdout");
