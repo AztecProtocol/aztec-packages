@@ -83,7 +83,7 @@ jobs:
 
   build:
     needs: [setup, changes]
-    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' }}
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
