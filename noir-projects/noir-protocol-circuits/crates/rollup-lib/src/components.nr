@@ -162,28 +162,34 @@ pub fn compute_tx_effects_hash(
 
     let mut offset = 0;
 
+    // REVERT CODE
     // upcast to Field to have the same size for the purposes of the hash
     tx_effects_hash_input[offset] = revert_code as Field;
     offset += 1;
 
+    // TX FEE
     tx_effects_hash_input[offset] = transaction_fee;
     offset += 1;
 
+    // NOTE HASHES
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
         tx_effects_hash_input[offset + j] = new_note_hashes[j];
     }
     offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 
+    // NULLIFIERS
     for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
         tx_effects_hash_input[offset + j] = new_nullifiers[j];
     }
     offset += MAX_NEW_NULLIFIERS_PER_TX ;
 
+    // L2 TO L1 MESSAGES
     for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
         tx_effects_hash_input[offset + j] = new_l2_to_l1_msgs[j];
     }
     offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
+    // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         tx_effects_hash_input[offset + j * 2] =
                 public_data_update_requests[j].leaf_slot;

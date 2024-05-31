@@ -147,12 +147,12 @@ library TxsDecoder {
         offsets.l2ToL1Msgs = offset;
         offset += count * 0x20; // each l2 to l1 message is 0x20 bytes long
 
-        // Public data writes
+        // Public data update requests
         count = read1(_body, offset);
         offset += 0x1;
         counts.publicData = count;
         offsets.publicData = offset;
-        offset += count * 0x40; // each public data write is 0x40 bytes long
+        offset += count * 0x40; // each public data update request is 0x40 bytes long
 
         /**
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
