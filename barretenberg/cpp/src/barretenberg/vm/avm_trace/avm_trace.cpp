@@ -23,9 +23,10 @@ namespace bb::avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs)
+AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs, ExecutionHints execution_hints)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : kernel_trace_builder(public_inputs)
+    , execution_hints(execution_hints)
 {
     main_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -1248,6 +1249,34 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
     };
 }
 
+// TODO: fix the naming here - we need it to be different as we are writing a hint
+Row AvmTraceBuilder::create_sload(
+    uint32_t clk, uint32_t data_offset, FF const& data_value, FF const& slot_value, uint32_t slot_offset)
+{
+    // We write the sload into memory, where the sload is an injected value that is mapped to the public inputs
+    mem_trace_builder.write_into_memory(
+        call_ptr, clk, IntermRegister::IA, data_offset, data_value, AvmMemoryTag::FF, AvmMemoryTag::FF);
+
+    return Row{
+        .avm_main_clk = clk,
+        .avm_main_ia = data_value,
+        .avm_main_ib = slot_value,
+        .avm_main_ind_a = 0,
+        .avm_main_ind_b = 0,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_mem_idx_a = data_offset,
+        .avm_main_mem_idx_b = slot_offset,
+        .avm_main_mem_op_a = 1,
+        .avm_main_mem_op_b = 1,
+        .avm_main_pc = pc++,
+        .avm_main_q_kernel_output_lookup = 1,
+        .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .avm_main_rwa = 1,
+        .avm_main_rwb = 0,
+        .avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+    };
+}
+
 Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(
     uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value)
 {
@@ -1327,8 +1356,7 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset, uint32_t dest_
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): success or fail must come from hint - it is
-    // always 1 for now
-    uint32_t result = 1;
+    bool result = execution_hints.l1_to_l2_msg_exists.at(log_offset);
     Row row =
         create_kernel_output_opcode_with_set_metadata_output(clk, log_offset, AvmMemoryTag::FF, dest_offset, result);
     kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia, result);
@@ -1342,7 +1370,7 @@ void AvmTraceBuilder::op_note_hash_exists(uint32_t note_offset, uint32_t dest_of
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
-    uint32_t result = 1;
+    bool result = execution_hints.note_hash_exists.at(note_offset);
     Row row =
         create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, AvmMemoryTag::FF, dest_offset, result);
     kernel_trace_builder.op_note_hash_exists(clk, row.avm_main_ia, result);
@@ -1356,7 +1384,7 @@ void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_of
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
-    uint32_t result = 1;
+    bool result = execution_hints.nullifier_exists.at(note_offset);
     Row row =
         create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, AvmMemoryTag::FF, dest_offset, result);
     kernel_trace_builder.op_nullifier_exists(clk, row.avm_main_ia, result);
@@ -1365,13 +1393,23 @@ void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_of
     main_trace.push_back(row);
 }
 
-void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t value_offset)
+void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t write_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    Row row =
-        create_kernel_output_opcode_with_metadata(clk, value_offset, AvmMemoryTag::FF, slot_offset, AvmMemoryTag::FF);
-    kernel_trace_builder.op_sload(clk, row.avm_main_ib, row.avm_main_ia);
+    // Read the slot
+    AvmMemTraceBuilder::MemRead slot_read = mem_trace_builder.read_and_load_from_memory(
+        call_ptr, clk, IntermRegister::IB, slot_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
+
+    // Get the data value from the execution_hints
+    // TODO: for now the hints are being offset by the offset - this will NOT fly, but i struggled to get the hash
+    // working for FF
+    FF value = execution_hints.storage_values.at(write_offset);
+    // TODO: throw error if the hint does not exist
+
+    Row row = create_sload(clk, write_offset, value, slot_read.val, slot_offset);
+    kernel_trace_builder.op_sload(clk, row.avm_main_ib, value);
+
     row.avm_main_sel_op_sload = FF(1);
 
     main_trace.push_back(row);

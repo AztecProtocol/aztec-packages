@@ -153,7 +153,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF>& returndata,
                                       std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs_vec)
+                                      std::vector<FF> const& public_inputs_vec,
+                                      ExecutionHints const& execution_hints)
 
 {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
@@ -161,7 +162,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     info("before convert public inputs");
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     info("after convert public inputs");
-    AvmTraceBuilder trace_builder(public_inputs);
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution

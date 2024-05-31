@@ -18,12 +18,14 @@ class Execution {
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF>& returndata,
                                       std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs);
+                                      std::vector<FF> const& public_inputs,
+                                      ExecutionHints const& execution_hints = {});
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF> const& calldata = {});
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs);
+
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(std::vector<uint8_t> const& bytecode,
                                                                        std::vector<FF> const& calldata = {});
     static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);

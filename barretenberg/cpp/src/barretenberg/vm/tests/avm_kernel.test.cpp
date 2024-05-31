@@ -38,11 +38,11 @@ VmPublicInputs get_public_inputs()
 
 // Template helper function to apply boilerplate around the kernel lookup tests
 template <typename OpcodesFunc, typename CheckFunc>
-void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
+void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace, ExecutionHints execution_hints = {})
 {
     VmPublicInputs public_inputs = get_public_inputs();
 
-    AvmTraceBuilder trace_builder(public_inputs);
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
@@ -78,7 +78,7 @@ void expect_output_table_row(std::vector<Row>::const_iterator row,
                              FF selector,
                              FF ia,
                              FF mem_idx_a,
-                             AvmMemoryTag w_in_tag,
+                             AvmMemoryTag r_in_tag,
                              uint32_t side_effect_counter)
 {
     // Checks dependent on the opcode
@@ -90,7 +90,7 @@ void expect_output_table_row(std::vector<Row>::const_iterator row,
     EXPECT_EQ(row->avm_main_rwa, FF(0));
     EXPECT_EQ(row->avm_main_ind_a, FF(0));
     EXPECT_EQ(row->avm_main_mem_op_a, FF(1));
-    EXPECT_EQ(row->avm_main_r_in_tag, static_cast<uint32_t>(w_in_tag));
+    EXPECT_EQ(row->avm_main_r_in_tag, static_cast<uint32_t>(r_in_tag));
     EXPECT_EQ(row->avm_main_q_kernel_output_lookup, FF(1));
 
     EXPECT_EQ(row->avm_kernel_side_effect_counter, FF(side_effect_counter));
@@ -102,10 +102,44 @@ void expect_output_table_row_with_metadata(std::vector<Row>::const_iterator row,
                                            FF mem_idx_a,
                                            FF ib,
                                            FF mem_idx_b,
-                                           AvmMemoryTag w_in_tag,
+                                           AvmMemoryTag r_in_tag,
                                            uint32_t side_effect_counter)
 {
-    expect_output_table_row(row, selector, ia, mem_idx_a, w_in_tag, side_effect_counter);
+    expect_output_table_row(row, selector, ia, mem_idx_a, r_in_tag, side_effect_counter);
+
+    EXPECT_EQ(row->avm_main_ib, ib);
+    EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
+
+    // Checks that are fixed for kernel inputs
+    EXPECT_EQ(row->avm_main_rwb, FF(0));
+    EXPECT_EQ(row->avm_main_ind_b, FF(0));
+    EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
+}
+
+// TODO: rework - temporary for PoC
+void expect_output_table_row_with_metadata_hint(std::vector<Row>::const_iterator row,
+                                                FF selector,
+                                                FF ia,
+                                                FF mem_idx_a,
+                                                FF ib,
+                                                FF mem_idx_b,
+                                                AvmMemoryTag r_in_tag,
+                                                uint32_t side_effect_counter)
+{
+    // Checks dependent on the opcode
+    EXPECT_EQ(row->avm_kernel_kernel_out_offset, selector);
+    EXPECT_EQ(row->avm_main_ia, ia);
+    EXPECT_EQ(row->avm_main_mem_idx_a, mem_idx_a);
+
+    // Checks that are fixed for kernel inputs
+    EXPECT_EQ(row->avm_main_rwa, FF(1));
+    EXPECT_EQ(row->avm_main_ind_a, FF(0));
+    EXPECT_EQ(row->avm_main_mem_op_a, FF(1));
+    EXPECT_EQ(row->avm_main_w_in_tag, static_cast<uint32_t>(r_in_tag));
+    EXPECT_EQ(row->avm_main_r_in_tag, static_cast<uint32_t>(r_in_tag));
+    EXPECT_EQ(row->avm_main_q_kernel_output_lookup, FF(1));
+
+    EXPECT_EQ(row->avm_kernel_side_effect_counter, FF(side_effect_counter));
 
     EXPECT_EQ(row->avm_main_ib, ib);
     EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
@@ -726,13 +760,16 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
 {
     uint32_t value_offset = 42;
     auto value = 1234;
-    uint32_t metadata_offset = 420;
+    uint32_t slot_offset = 420;
     auto slot = 12345;
 
+    // Provide a hint for sload value slot
+    ExecutionHints execution_hints;
+    execution_hints.storage_values[value_offset] = value;
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_set(0, static_cast<uint128_t>(slot), metadata_offset, AvmMemoryTag::FF);
-        trace_builder.op_sload(metadata_offset, value_offset);
+        trace_builder.op_set(0, static_cast<uint128_t>(slot), slot_offset, AvmMemoryTag::FF);
+        trace_builder.op_sload(slot_offset, value_offset);
     };
     auto checks = [=](const std::vector<Row>& trace) {
         std::vector<Row>::const_iterator row =
@@ -742,22 +779,20 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
         // Check the outputs of the trace
         uint32_t output_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
 
-        expect_output_table_row_with_metadata(
+        expect_output_table_row_with_metadata_hint(
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/value_offset,
             /*ib=*/slot,
-            /*mem_idx_b=*/metadata_offset,
+            /*mem_idx_b=*/slot_offset,
             /*w_in_tag=*/AvmMemoryTag::FF,
-            /*side_effect_counter=*/0
-
-        );
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, slot);
     };
 
-    test_kernel_lookup(apply_opcodes, checks);
+    test_kernel_lookup(apply_opcodes, checks, execution_hints);
 }
 
 TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
@@ -803,6 +838,9 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     uint32_t metadata_offset = 420;
     auto exists = 1;
 
+    ExecutionHints execution_hints = {};
+    execution_hints.note_hash_exists[value_offset] = static_cast<bool>(exists);
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_note_hash_exists(value_offset, metadata_offset);
@@ -829,7 +867,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };
 
-    test_kernel_lookup(apply_opcodes, checks);
+    test_kernel_lookup(apply_opcodes, checks, execution_hints);
 }
 
 TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
@@ -838,6 +876,9 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
+
+    ExecutionHints execution_hints = {};
+    execution_hints.nullifier_exists[value_offset] = static_cast<bool>(exists);
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
@@ -864,7 +905,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };
 
-    test_kernel_lookup(apply_opcodes, checks);
+    test_kernel_lookup(apply_opcodes, checks, execution_hints);
 }
 
 TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
@@ -873,6 +914,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
+
+    // Create an execution hints object with the result of the operation
+    ExecutionHints execution_hints = {};
+    execution_hints.l1_to_l2_msg_exists[value_offset] = static_cast<bool>(exists);
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
@@ -899,7 +944,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };
 
-    test_kernel_lookup(apply_opcodes, checks);
+    test_kernel_lookup(apply_opcodes, checks, execution_hints);
 }
 
 } // namespace tests_avm
