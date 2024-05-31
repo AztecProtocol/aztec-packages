@@ -1,13 +1,16 @@
 use crate::{
-    context::{inputs::PrivateContextInputs, interface::ContextInterface},
+    context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_unencrypted_log_hash},
     keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
-    key_validation_request::get_key_validation_request, arguments, returns,
+    key_validation_request::get_key_validation_request, arguments, returns::pack_returns,
     call_private_function::call_private_function_internal, header::get_header_at,
-    logs::{emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_log},
+    logs::{
+    emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_log,
+    emit_contract_class_unencrypted_log_private_internal, emit_unencrypted_log_private_internal
+},
     logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
@@ -35,8 +38,8 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
-    traits::{is_empty, Deserialize, Empty}, utils::arrays::find_index
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{is_empty, Empty},
+    utils::arrays::find_index
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -79,7 +82,33 @@ struct PrivateContext {
     last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
-impl ContextInterface for PrivateContext {
+impl PrivateContext {
+    pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
+        PrivateContext {
+            inputs,
+            side_effect_counter: inputs.start_side_effect_counter + 1,
+            min_revertible_side_effect_counter: 0,
+            is_fee_payer: false,
+            args_hash,
+            return_hash: 0,
+            max_block_number: MaxBlockNumber::empty(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            key_validation_requests_and_generators: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            historical_header: inputs.historical_header,
+            private_call_requests: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            public_teardown_function_hash: 0,
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            note_encrypted_logs_hashes: BoundedVec::new(),
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
+            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES]
+        }
+    }
+
     fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
@@ -111,34 +140,6 @@ impl ContextInterface for PrivateContext {
     fn push_new_nullifier(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.new_nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash, counter: self.next_counter() });
     }
-}
-
-impl PrivateContext {
-    pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        PrivateContext {
-            inputs,
-            side_effect_counter: inputs.start_side_effect_counter + 1,
-            min_revertible_side_effect_counter: 0,
-            is_fee_payer: false,
-            args_hash,
-            return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
-            note_hash_read_requests: BoundedVec::new(),
-            nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
-            new_note_hashes: BoundedVec::new(),
-            new_nullifiers: BoundedVec::new(),
-            historical_header: inputs.historical_header,
-            private_call_requests: BoundedVec::new(),
-            public_call_stack_hashes: BoundedVec::new(),
-            public_teardown_function_hash: 0,
-            new_l2_to_l1_msgs: BoundedVec::new(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
-            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES]
-        }
-    }
 
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
     // included in).
@@ -153,7 +154,7 @@ impl PrivateContext {
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        returns::pack_returns(returns_hasher.fields);
+        pack_returns(returns_hasher.fields);
         self.return_hash = returns_hasher.hash();
     }
 
@@ -310,12 +311,23 @@ impl PrivateContext {
         contract_address: AztecAddress,
         randomness: Field, // Secret random value used later for masked_contract_address
         event_type_id: Field,
+        ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M> {
+        let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
+
         // We are currently just encrypting it EXACTLY the same way as if it was a note.
         let counter = self.next_counter();
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, randomness, event_type_id, ivpk_m, preimage);
+        let encrypted_log: [u8; M] = compute_encrypted_log(
+            contract_address,
+            randomness,
+            event_type_id,
+            ovsk_app,
+            ovpk_m,
+            ivpk_m,
+            preimage
+        );
         emit_encrypted_log(contract_address, randomness, encrypted_log, counter);
         let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
         let log_hash = sha256_to_field(encrypted_log);
@@ -328,24 +340,34 @@ impl PrivateContext {
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
+        ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint,
         note: Note
     ) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-        let note_hash: Field = compute_note_hash_for_insertion(note);
+        let note_hash_counter = note.get_header().note_hash_counter;
         let note_exists_index = find_index(
             self.new_note_hashes.storage,
-            |n: NoteHash| n.value == note_hash
+            |n: NoteHash| n.counter == note_hash_counter
         );
         assert(
             note_exists_index != MAX_NEW_NOTE_HASHES_PER_CALL, "Can only emit a note log for an existing note."
         );
-        let note_hash_counter = self.new_note_hashes.storage[note_exists_index].counter;
         let preimage = note.serialize_content();
         let counter = self.next_counter();
 
+        let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
+
         // TODO(#1139 | #6408): perform encryption in the circuit
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage);
-        emit_encrypted_note_log(note_hash, encrypted_log, counter);
+        let encrypted_log: [u8; M] = compute_encrypted_log(
+            contract_address,
+            storage_slot,
+            note_type_id,
+            ovsk_app,
+            ovpk_m,
+            ivpk_m,
+            preimage
+        );
+        emit_encrypted_note_log(note_hash_counter, encrypted_log, counter);
 
         // Current unoptimized size of the encrypted log
         // incoming_tag (32 bytes)
@@ -695,67 +717,3 @@ impl Empty for PrivateContext {
         }
     }
 }
-
-struct PackedReturns {
-  packed_returns: Field,
-}
-
-impl PackedReturns {
-    pub fn new(packed_returns: Field) -> Self {
-        PackedReturns { packed_returns }
-    }
-
-    pub fn assert_empty(self) {
-        assert_eq(self.packed_returns, 0);
-    }
-
-    pub fn raw(self) -> Field {
-        self.packed_returns
-    }
-
-    pub fn unpack<N>(self) -> [Field; N] {
-        let unpacked: [Field; N] = returns::unpack_returns(self.packed_returns);
-        assert_eq(self.packed_returns, hash_args_array(unpacked));
-        unpacked
-    }
-
-    pub fn unpack_into<T, N>(self) -> T where T: Deserialize<N> {
-        let unpacked: [Field; N] = self.unpack();
-        Deserialize::deserialize(unpacked)
-    }
-}
-
-#[oracle(emitUnencryptedLog)]
-fn emit_unencrypted_log_oracle_private<T>(
-    _contract_address: AztecAddress,
-    _event_selector: Field,
-    _message: T,
-    _counter: u32
-) -> Field {}
-
-unconstrained pub fn emit_unencrypted_log_private_internal<T>(
-    contract_address: AztecAddress,
-    event_selector: Field,
-    message: T,
-    counter: u32
-) -> Field {
-    emit_unencrypted_log_oracle_private(contract_address, event_selector, message, counter)
-}
-
-#[oracle(emitContractClassUnencryptedLog)]
-fn emit_contract_class_unencrypted_log_private<N>(
-    contract_address: AztecAddress,
-    event_selector: Field,
-    message: [Field; N],
-    counter: u32
-) -> Field {}
-
-unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
-    contract_address: AztecAddress,
-    event_selector: Field,
-    message: [Field; N],
-    counter: u32
-) -> Field {
-    emit_contract_class_unencrypted_log_private(contract_address, event_selector, message, counter)
-}
-

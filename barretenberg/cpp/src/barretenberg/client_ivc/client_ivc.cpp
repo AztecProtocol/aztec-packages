@@ -17,7 +17,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // If a previous fold proof exists, add a recursive folding verification to the circuit
     if (!fold_output.proof.empty()) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
-        FoldingRecursiveVerifier verifier{ &circuit, verifier_accumulator, { instance_vk } };
+        FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { instance_vk } } };
         auto verifier_accum = verifier.verify_folding_proof(fold_output.proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
     }
@@ -65,7 +65,10 @@ ClientIVC::Proof ClientIVC::prove()
 bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
 {
     // Goblin verification (merge, eccvm, translator)
-    bool goblin_verified = goblin.verify(proof.goblin_proof);
+    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
+    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
+    bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
 
     // Decider verification
     ClientIVC::FoldingVerifier folding_verifier({ verifier_instances[0], verifier_instances[1] });
@@ -115,6 +118,20 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     this->structured_flag = structured;
 
     return vkeys;
+}
+
+/**
+ * @brief Construct and verify a proof for the IVC
+ * @note Use of this method only makes sense when the prover and verifier are the same entity, e.g. in
+ * development/testing.
+ *
+ */
+bool ClientIVC::prove_and_verify()
+{
+    auto proof = prove();
+
+    auto verifier_inst = std::make_shared<VerifierInstance>(this->instance_vk);
+    return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 
 } // namespace bb

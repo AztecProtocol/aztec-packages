@@ -500,6 +500,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "honk_recursion",
+        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -526,17 +530,6 @@
         "type": "const uint32_t *"
       }
     ],
-    "outArgs": [
-      {
-        "name": "out",
-        "type": "out_ptr"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_new_goblin_acir_composer",
-    "inArgs": [],
     "outArgs": [
       {
         "name": "out",
@@ -655,12 +648,8 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_goblin_prove",
+    "functionName": "acir_fold_and_verify_program_stack",
     "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
@@ -672,8 +661,8 @@
     ],
     "outArgs": [
       {
-        "name": "out",
-        "type": "uint8_t **"
+        "name": "result",
+        "type": "bool *"
       }
     ],
     "isAsync": false
@@ -742,26 +731,6 @@
   },
   {
     "functionName": "acir_verify_proof",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
-      {
-        "name": "proof_buf",
-        "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_goblin_verify",
     "inArgs": [
       {
         "name": "acir_composer_ptr",

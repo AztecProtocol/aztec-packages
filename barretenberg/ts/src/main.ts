@@ -6,7 +6,6 @@ import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
-import { GrumpkinCrs } from './crs/node/index.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
@@ -33,8 +32,8 @@ function getBytecode(bytecodePath: string) {
   return decompressed;
 }
 
-async function getGates(bytecodePath: string, api: Barretenberg) {
-  const { total } = await computeCircuitSize(bytecodePath, api);
+async function getGates(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
+  const { total } = await computeCircuitSize(bytecodePath, honkRecursion, api);
   return total;
 }
 
@@ -44,17 +43,17 @@ function getWitness(witnessPath: string) {
   return decompressed;
 }
 
-async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
+async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
   debug(`computing circuit size...`);
   const bytecode = getBytecode(bytecodePath);
-  const [exact, total, subgroup] = await api.acirGetCircuitSizes(bytecode);
+  const [exact, total, subgroup] = await api.acirGetCircuitSizes(bytecode, honkRecursion);
   return { exact, total, subgroup };
 }
 
-async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1) {
+async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
   const api = await Barretenberg.new({ threads });
 
-  const circuitSize = await getGates(bytecodePath, api);
+  const circuitSize = await getGates(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
   if (subgroupSize > MAX_CIRCUIT_SIZE) {
@@ -76,21 +75,6 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
 
   const acirComposer = await api.acirNewAcirComposer(subgroupSize);
   return { api, acirComposer, circuitSize, subgroupSize };
-}
-
-async function initGoblin(bytecodePath: string, crsPath: string) {
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
-  const hardcodedGrumpkinSubgroupSizeHack = 262144;
-  const initData = await init(bytecodePath, crsPath, hardcodedGrumpkinSubgroupSizeHack);
-  const { api } = initData;
-  initData.acirComposer = await api.acirNewGoblinAcirComposer();
-
-  // Plus 1 needed! (Move +1 into Crs?)
-  // Need both grumpkin and bn254 SRS's currently
-  const grumpkinCrs = await GrumpkinCrs.new(hardcodedGrumpkinSubgroupSizeHack + 1, crsPath);
-  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
-
-  return initData;
 }
 
 async function initLite() {
@@ -138,7 +122,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
 
 export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const { api } = await init(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath, -1, true);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
@@ -166,27 +150,14 @@ export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: 
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const acir_test = path.basename(process.cwd());
-
-  const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath);
   try {
-    debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
-    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
-    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
-
-    const proofTimer = new Timer();
-    const proof = await api.acirGoblinProve(acirComposer, bytecode, witness);
-    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
-
-    debug(`verifying...`);
-    const verified = await api.acirGoblinVerify(acirComposer, proof);
-    debug(`verified: ${verified}`);
-    console.log({ verified });
+    const verified = await api.acirFoldAndVerifyProgramStack(bytecode, witness);
     return verified;
   } finally {
     await api.destroy();
@@ -215,10 +186,10 @@ export async function prove(bytecodePath: string, witnessPath: string, crsPath: 
   }
 }
 
-export async function gateCount(bytecodePath: string) {
+export async function gateCount(bytecodePath: string, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
-    const numberOfGates = await getGates(bytecodePath, api);
+    const numberOfGates = await getGates(bytecodePath, honkRecursion, api);
 
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
@@ -355,7 +326,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 }
 
 export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath, -1, true);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
@@ -376,7 +347,7 @@ export async function proveUltraHonk(bytecodePath: string, witnessPath: string, 
 }
 
 export async function writeVkUltraHonk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath, -1, true);
   try {
     const bytecode = getBytecode(bytecodePath);
     debug('initing verification key...');
@@ -493,13 +464,13 @@ program
   });
 
 program
-  .command('prove_and_verify_goblin')
-  .description('Generate a Goblin proof and verify it. Process exits with success or failure code.')
+  .command('fold_and_verify_program')
+  .description('Accumulate a set of circuits using ClientIvc then verify. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await proveAndVerifyGoblin(bytecodePath, witnessPath, crsPath);
+    const result = await foldAndVerifyProgram(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -518,9 +489,10 @@ program
   .command('gates')
   .description('Print gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
-  .action(async ({ bytecodePath: bytecodePath }) => {
+  .option('-hr, --honk-recursion <bool>', 'Specify whether to use UltraHonk recursion', 'false')
+  .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
-    await gateCount(bytecodePath);
+    await gateCount(bytecodePath, honkRecursion);
   });
 
 program

@@ -884,6 +884,7 @@ impl<'context> Elaborator<'context> {
         self.local_module = trait_impl.module_id;
         self.file = trait_impl.file_id;
         self.current_trait_impl = trait_impl.impl_id;
+
         trait_impl.trait_id = self.resolve_trait_by_path(trait_impl.trait_path.clone());
 
         let self_type = trait_impl.methods.self_type.clone();
@@ -898,6 +899,7 @@ impl<'context> Elaborator<'context> {
             self.push_err(DefCollectorErrorKind::MutableReferenceInTraitImpl { span });
         }
 
+        assert!(trait_impl.trait_id.is_some());
         if let Some(trait_id) = trait_impl.trait_id {
             self.generics = trait_impl.resolved_generics.clone();
             self.collect_trait_impl_methods(trait_id, trait_impl);
@@ -1235,6 +1237,68 @@ impl<'context> Elaborator<'context> {
         // Otherwise we may prematurely default to a Field inside the next function if this
         // global was unused there, even if it is consistently used as a u8 everywhere else.
         self.type_variables.clear();
+    }
+
+    fn define_function_metas(
+        &mut self,
+        functions: &mut [UnresolvedFunctions],
+        impls: &mut ImplMap,
+        trait_impls: &mut [UnresolvedTraitImpl],
+    ) {
+        for function_set in functions {
+            self.define_function_metas_for_functions(function_set);
+        }
+
+        for ((self_type, local_module), function_sets) in impls {
+            self.local_module = *local_module;
+
+            for (generics, _, function_set) in function_sets {
+                self.add_generics(generics);
+                let self_type = self.resolve_type(self_type.clone());
+                function_set.self_type = Some(self_type.clone());
+                self.self_type = Some(self_type);
+                self.define_function_metas_for_functions(function_set);
+                self.generics.clear();
+            }
+        }
+
+        for trait_impl in trait_impls {
+            self.file = trait_impl.file_id;
+            self.local_module = trait_impl.module_id;
+
+            let unresolved_type = &trait_impl.object_type;
+            self.add_generics(&trait_impl.generics);
+            trait_impl.resolved_generics = self.generics.clone();
+
+            let trait_generics =
+                vecmap(&trait_impl.trait_generics, |generic| self.resolve_type(generic.clone()));
+            trait_impl.resolved_trait_generics = trait_generics;
+
+            let self_type = self.resolve_type(unresolved_type.clone());
+
+            self.self_type = Some(self_type.clone());
+            trait_impl.methods.self_type = Some(self_type);
+
+            let impl_id = self.interner.next_trait_impl_id();
+            self.current_trait_impl = Some(impl_id);
+
+            self.define_function_metas_for_functions(&mut trait_impl.methods);
+
+            trait_impl.resolved_object_type = self.self_type.take();
+            trait_impl.impl_id = self.current_trait_impl.take();
+            self.generics.clear();
+        }
+    }
+
+    fn define_function_metas_for_functions(&mut self, function_set: &mut UnresolvedFunctions) {
+        self.file = function_set.file_id;
+
+        for (local_module, id, func) in &mut function_set.functions {
+            self.local_module = *local_module;
+            self.recover_generics(|this| {
+                this.define_function_meta(func, *id, false);
+            });
+        }
     }
 
     fn define_function_metas(
