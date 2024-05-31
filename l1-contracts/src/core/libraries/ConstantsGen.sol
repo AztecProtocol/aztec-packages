@@ -34,9 +34,9 @@ library Constants {
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 32;
-  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 31;
+  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 127;
   uint256 internal constant PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 1;
-  uint256 internal constant MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 32;
+  uint256 internal constant MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 32;
   uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_TX = 128;
