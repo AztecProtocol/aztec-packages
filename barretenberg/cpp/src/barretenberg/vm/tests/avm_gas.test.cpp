@@ -66,6 +66,7 @@ TEST_F(AvmGasPositiveTests, gasAdd)
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
 
+        // TODO: Clean these logs once unit tests are implemented.
         // Show the first few rows and see if the correct gas values are populated
         for (size_t i = 1; i < 5; i++) {
             info("Row ",

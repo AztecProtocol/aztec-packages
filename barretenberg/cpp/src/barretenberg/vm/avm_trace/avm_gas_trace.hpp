@@ -138,8 +138,6 @@ class AvmGasTraceBuilder {
     uint32_t initial_da_gas = 0;
 
   private:
-    std::vector<GasTableEntry> construct_gas_lookup_table();
-
     uint32_t remaining_l2_gas = 0;
     uint32_t remaining_da_gas = 0;
 };

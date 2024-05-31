@@ -2826,7 +2826,7 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
                                        uint32_t input_offset,
                                        uint32_t input_size_offset)
 {
-    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     bool tag_match = true;
     uint32_t direct_src_offset = input_offset;
     bool indirect_src_flag = is_operand_indirect(indirect, 2);
@@ -2840,6 +2840,9 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
 
     auto input_read = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::PEDERSEN);
 
     uint32_t pedersen_clk = clk;
     // We read the input and output addresses in one row as they should contain FF elements
@@ -3041,11 +3044,11 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // 2**16 long)
     size_t const lookup_table_size = (bin_trace_size > 0 && range_check_required) ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,       main_trace_size,       alu_trace_size,
-                                        range_check_size,     conv_trace_size,       lookup_table_size,
-                                        sha256_trace_size,    poseidon2_trace_size, pedersen_trace_size,  gas_trace_size + 1,
-                                        KERNEL_INPUTS_LENGTH, KERNEL_OUTPUTS_LENGTH, min_trace_size,
-                                        GAS_COST_TABLE.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,     main_trace_size,      alu_trace_size,
+                                        range_check_size,   conv_trace_size,      lookup_table_size,
+                                        sha256_trace_size,  poseidon2_trace_size, pedersen_trace_size,
+                                        gas_trace_size + 1, KERNEL_INPUTS_LENGTH, KERNEL_OUTPUTS_LENGTH,
+                                        min_trace_size,     GAS_COST_TABLE.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the
