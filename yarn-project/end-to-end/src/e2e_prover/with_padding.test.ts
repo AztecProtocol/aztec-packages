@@ -3,7 +3,7 @@ import { FullProverTest } from './e2e_prover_test.js';
 const TIMEOUT = 1_800_000;
 
 describe('full_prover_with_padding_tx', () => {
-  const t = new FullProverTest('full_prover_with_padding_tx');
+  const t = new FullProverTest('full_prover_with_padding_tx', 1);
   let { provenAssets, accounts, tokenSim, logger } = t;
 
   beforeAll(async () => {
