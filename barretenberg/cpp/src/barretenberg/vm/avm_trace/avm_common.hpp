@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <unordered_map>
 
 namespace bb::avm_trace {
 
@@ -34,5 +35,32 @@ static const uint32_t MAX_MEM_TAG = 6;
 static const size_t NUM_MEM_SPACES = 256;
 static const uint8_t INTERNAL_CALL_SPACE_ID = 255;
 static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
+
+// TODO: find a more suitable place for these
+/**
+ * Auxiliary hints are required when the executor is unable to work out a witness value
+ * These hints will be required for any opcodes that will require database information
+ */
+struct ExecutionHints {
+    // slot -> value
+    std::unordered_map<uint32_t, FF> storage_values;
+
+    // Note hash value -> exists
+    std::unordered_map<uint32_t, bool> note_hash_exists;
+
+    // Nullifier -> exists
+    std::unordered_map<uint32_t, bool> nullifier_exists;
+
+    // L1 to L2 message exists
+    std::unordered_map<uint32_t, bool> l1_to_l2_msg_exists;
+
+    ExecutionHints()
+    {
+        storage_values = std::unordered_map<uint32_t, FF>();
+        note_hash_exists = std::unordered_map<uint32_t, bool>();
+        nullifier_exists = std::unordered_map<uint32_t, bool>();
+        l1_to_l2_msg_exists = std::unordered_map<uint32_t, bool>();
+    }
+};
 
 } // namespace bb::avm_trace

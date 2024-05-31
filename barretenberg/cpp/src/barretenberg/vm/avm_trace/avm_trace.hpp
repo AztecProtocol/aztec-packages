@@ -27,7 +27,7 @@ using Row = bb::AvmFullRow<bb::fr>;
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {}, ExecutionHints execution_hints = {});
 
     std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
     void reset();
@@ -265,6 +265,13 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // TODO: more info
+    // Execution hints aid witness solving for instructions that require auxiliary information to construct
+    ExecutionHints execution_hints;
+
+    Row create_sload(
+        uint32_t clk, uint32_t data_offset, FF const& data_value, FF const& slot_value, uint32_t solt_offset);
 
     // TODO(ilyas: #6383): Temporary way to bulk read slices
     template <typename MEM>
