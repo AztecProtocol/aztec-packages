@@ -322,14 +322,14 @@ export abstract class AbstractPhaseManager {
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
         );
         const callData = await this.getPublicCallData(result, isExecutionRequest);
-        const circuitResult = await this.runKernelCircuit(kernelPublicOutput, callData);
-        kernelPublicOutput = circuitResult[1];
+        const [privateInputs, publicInputs] = await this.runKernelCircuit(kernelPublicOutput, callData);
+        kernelPublicOutput = publicInputs;
 
         // Capture the inputs for later proving in the AVM and kernel.
         const publicProvingInformation: PublicProvingInformation = {
           calldata: result.calldata,
           bytecode: result.bytecode!,
-          inputs: circuitResult[0],
+          inputs: privateInputs,
         };
         provingInformationList.push(publicProvingInformation);
 
@@ -394,14 +394,7 @@ export abstract class AbstractPhaseManager {
     return Fr.ZERO;
   }
 
-  protected async runKernelCircuit(
-    previousOutput: PublicKernelCircuitPublicInputs,
-    callData: PublicCallData,
-  ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
-    return await this.getKernelCircuitOutput(previousOutput, callData);
-  }
-
-  protected async getKernelCircuitOutput(
+  private async runKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
     callData: PublicCallData,
   ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {

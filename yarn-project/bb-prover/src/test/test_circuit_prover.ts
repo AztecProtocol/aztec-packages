@@ -318,7 +318,8 @@ export class TestCircuitProver implements ServerCircuitProver {
   }
 
   getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
-    // We can't simulate the AVM. Just return an empty proof.
+    // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
+    // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     return Promise.resolve({ proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() });
   }
