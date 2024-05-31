@@ -29,13 +29,13 @@ class GoblinRecursiveVerifier {
     /**
      * @brief Construct a Goblin recursive verifier circuit
      * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
-     * @todohttps://github.com/AztecProtocol/barretenberg/issues/1021): The values returned by the recursive verifiers
+     * @todo(https://github.com/AztecProtocol/barretenberg/issues/1021): The values returned by the recursive verifiers
      * are not aggregated here. We need to aggregate and return the pairing points from Merge/Translator plus deal with
      * the IPA accumulator from ECCVM.
      *
      * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */
-    void verify(GoblinProof&);
+    void verify(const GoblinProof&);
 
   private:
     Builder* builder;
