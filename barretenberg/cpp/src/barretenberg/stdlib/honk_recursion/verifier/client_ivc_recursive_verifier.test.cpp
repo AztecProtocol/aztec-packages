@@ -8,6 +8,7 @@ class ClientIVCRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
     using ClientIVCVerifier = ClientIVCRecursiveVerifier;
+    using VerifierInput = ClientIVCVerifier::VerifierInput;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
     using GoblinVerifierInput = ClientIVCVerifier::GoblinVerifierInput;
     using VerifierInstance = FoldVerifierInput::Instance;
@@ -23,8 +24,7 @@ class ClientIVCRecursionTests : public testing::Test {
 
     struct ClientIVCProverOutput {
         Proof proof;
-        FoldVerifierInput fold_verifier_input;
-        GoblinVerifierInput goblin_verifier_input;
+        VerifierInput verifier_input;
     };
 
     /**
@@ -48,7 +48,7 @@ class ClientIVCRecursionTests : public testing::Test {
                                                    std::make_shared<TranslatorVK>(
                                                        ivc.goblin.get_translator_proving_key()) };
 
-        return { proof, fold_verifier_input, goblin_verifier_input };
+        return { proof, { fold_verifier_input, goblin_verifier_input } };
     }
 };
 
@@ -59,11 +59,11 @@ class ClientIVCRecursionTests : public testing::Test {
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
     ClientIVC ivc;
-    auto [proof, fold_verifier_input, goblin_verifier_input] = construct_client_ivc_prover_output(ivc);
+    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the set of native verifier instances to be processed by the folding verifier
-    std::vector<std::shared_ptr<VerifierInstance>> instances{ fold_verifier_input.accumulator };
-    for (auto vk : fold_verifier_input.instance_vks) {
+    std::vector<std::shared_ptr<VerifierInstance>> instances{ verifier_input.fold_input.accumulator };
+    for (auto vk : verifier_input.fold_input.instance_vks) {
         instances.emplace_back(std::make_shared<VerifierInstance>(vk));
     }
 
@@ -79,14 +79,14 @@ TEST_F(ClientIVCRecursionTests, Basic)
 {
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc;
-    auto [proof, fold_verifier_input, goblin_verifier_input] = construct_client_ivc_prover_output(ivc);
+    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
     Builder builder;
-    ClientIVCVerifier verifier{ &builder };
+    ClientIVCVerifier verifier{ &builder, verifier_input };
 
     // Generate the recursive verification circuit
-    verifier.verify(proof, fold_verifier_input, goblin_verifier_input);
+    verifier.verify(proof);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
