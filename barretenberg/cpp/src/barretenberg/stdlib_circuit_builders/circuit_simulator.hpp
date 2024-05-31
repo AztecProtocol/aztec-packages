@@ -49,7 +49,7 @@ class CircuitSimulatorBN254 {
     static constexpr uint32_t zero_idx = 0; // Ditto?
     std::vector<FF> public_inputs;
 
-    void add_recursive_proof(const std::vector<FF>& proof_element_limbs)
+    void add_recursive_proof(const AggregationObjectIndices& proof_element_limbs)
     {
 
         if (contains_recursive_proof) {

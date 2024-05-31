@@ -183,7 +183,7 @@ template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    bool contains_recursive_proof;
+    bool contains_recursive_proof = false;
     AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     uint64_t pub_inputs_offset = 0;
 

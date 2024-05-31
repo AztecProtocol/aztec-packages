@@ -54,12 +54,11 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
-std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
-    Builder& builder,
-    const RecursionConstraint& input,
-    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
-    bool has_valid_witness_assignments = false);
+AggregationObjectIndices create_recursion_constraints(Builder& builder,
+                                                      const RecursionConstraint& input,
+                                                      AggregationObjectIndices input_aggregation_object,
+                                                      AggregationObjectIndices nested_aggregation_object,
+                                                      bool has_valid_witness_assignments = false);
 
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
 std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,

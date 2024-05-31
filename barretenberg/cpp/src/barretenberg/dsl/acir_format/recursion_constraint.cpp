@@ -29,12 +29,11 @@ void generate_dummy_proof() {}
  *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
-    Builder& builder,
-    const RecursionConstraint& input,
-    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
-    bool has_valid_witness_assignments)
+AggregationObjectIndices create_recursion_constraints(Builder& builder,
+                                                      const RecursionConstraint& input,
+                                                      AggregationObjectIndices input_aggregation_object,
+                                                      AggregationObjectIndices nested_aggregation_object,
+                                                      bool has_valid_witness_assignments)
 {
     const auto& nested_aggregation_indices = nested_aggregation_object;
     bool nested_aggregation_indices_all_zero = true;
@@ -163,7 +162,7 @@ std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
 
     // We want to return an array, so just copy the vector into the array
     ASSERT(result.proof_witness_indices.size() == bb::AGGREGATION_OBJECT_SIZE);
-    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> resulting_output_aggregation_object;
+    AggregationObjectIndices resulting_output_aggregation_object;
     std::copy(result.proof_witness_indices.begin(),
               result.proof_witness_indices.begin() + bb::AGGREGATION_OBJECT_SIZE,
               resulting_output_aggregation_object.begin());

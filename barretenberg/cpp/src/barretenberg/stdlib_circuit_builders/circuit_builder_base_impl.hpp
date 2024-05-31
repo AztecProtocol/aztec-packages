@@ -231,7 +231,7 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::add_recursive_proof(const std::vector<uint32_t>& proof_output_witness_indices)
+void CircuitBuilderBase<FF_>::add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices)
 {
     if (contains_recursive_proof) {
         failure("added recursive proof when one already exists");
@@ -247,7 +247,7 @@ void CircuitBuilderBase<FF_>::add_recursive_proof(const std::vector<uint32_t>& p
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::set_recursive_proof(const std::vector<uint32_t>& proof_output_witness_indices)
+void CircuitBuilderBase<FF_>::set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices)
 {
     if (contains_recursive_proof) {
         failure("added recursive proof when one already exists");

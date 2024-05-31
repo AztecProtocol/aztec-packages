@@ -205,7 +205,7 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_recursive_proof(const std::vector<uint32_t>& proof_output_witness_indices);
+    void add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
 
     /**
      * TODO: We can remove this and use `add_recursive_proof` once my question has been addressed
@@ -215,7 +215,7 @@ template <typename FF_> class CircuitBuilderBase {
      *
      * @param proof_output_witness_indices
      */
-    void set_recursive_proof(const std::vector<uint32_t>& proof_output_witness_indices);
+    void set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
 
     bool failed() const;
     const std::string& err() const;
