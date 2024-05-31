@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ../build-images/+base-slim-node
+FROM ../../build-images/+base-slim-node
 
 pack-base-benchmark:
   # Copies the base benchmark (ie the master run) into a container and packs it as an artifact,
