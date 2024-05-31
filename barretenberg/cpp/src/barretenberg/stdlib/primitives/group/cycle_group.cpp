@@ -664,14 +664,13 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
     } else {
         lo = witness_t(ctx, value_lo);
         hi = witness_t(ctx, value_hi);
-        lo.validate_is_in_field();
-        hi.validate_is_in_field();
 
         BigScalarField lo_big(lo, witness_t(ctx, 0));
         BigScalarField hi_big(hi, witness_t(ctx, 0));
         BigScalarField res = lo_big + hi_big * BigScalarField((uint256_t(1) << LO_BITS));
         scalar.assert_equal(res);
     }
+    validate_scalar_is_in_field();
 };
 
 template <typename Builder> bool cycle_group<Builder>::cycle_scalar::is_constant() const
