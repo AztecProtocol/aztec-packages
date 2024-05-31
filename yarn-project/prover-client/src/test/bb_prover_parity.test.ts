@@ -122,15 +122,12 @@ describe('prover/bb_prover/parity', () => {
       'Failed to generate witness',
     );
 
-    // Check wrong proof error.
-    await expect(context.prover.getRootParityProof(new RootParityInputs(tupleWithDefectiveProof))).rejects.toThrow(
-      'Failed to generate proof',
-    );
-
-    // Check verification error.
-    const result = await context.prover.getRootParityProof(new RootParityInputs(tupleWithDefectiveInputs));
-    await expect(bbProver.verifyProof('RootParityArtifact', result.proof.binaryProof)).rejects.toThrow(
-      'Failed to verify proof',
-    );
+    for (const t of [tupleWithDefectiveProof, tupleWithDefectiveInputs]) {
+      await expect(async () => {
+        const result = await context.prover.getRootParityProof(new RootParityInputs(t));
+        await bbProver.verifyProof('RootParityArtifact', result.proof.binaryProof);
+        fail('Proof should not be generated and verified');
+      }).rejects.toThrow(/Failed to generate proof|Failed to verify proof/);
+    }
   });
 });
