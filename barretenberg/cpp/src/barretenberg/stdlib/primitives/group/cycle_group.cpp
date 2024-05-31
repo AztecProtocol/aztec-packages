@@ -554,25 +554,25 @@ cycle_group<Builder>::cycle_scalar::cycle_scalar(const field_t& _lo, const field
     , hi(_hi)
 {}
 
-template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(const field_t& _in)
+template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(const field_t& in)
 {
-    const uint256_t value(_in.get_value());
+    const uint256_t value(in.get_value());
     const uint256_t lo_v = value.slice(0, LO_BITS);
     const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
     constexpr uint256_t shift = uint256_t(1) << LO_BITS;
-    if (_in.is_constant()) {
+    if (in.is_constant()) {
         lo = lo_v;
         hi = hi_v;
     } else {
-        lo = witness_t(_in.get_context(), lo_v);
-        hi = witness_t(_in.get_context(), hi_v);
-        (lo + hi * shift).assert_equal(_in);
+        lo = witness_t(in.get_context(), lo_v);
+        hi = witness_t(in.get_context(), hi_v);
+        (lo + hi * shift).assert_equal(in);
     }
 }
 
-template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(const ScalarField& _in)
+template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(const ScalarField& in)
 {
-    const uint256_t value(_in);
+    const uint256_t value(in);
     const uint256_t lo_v = value.slice(0, LO_BITS);
     const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
     lo = lo_v;
@@ -642,30 +642,31 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     return result;
 }
 /**
- * @brief Construct a new cycle scalar from a bigfield _value, over the same Scalar Field. If  _value is a witness, we
- * add constraints to ensure the conversion is correct by reconstructing a bigfield from the limbs of the cycle_scalar
- * and checking equality with the initial _value.
+ * @brief Construct a new cycle scalar from a bigfield _value, over the same ScalarField Field. If  _value is a witness,
+ * we add constraints to ensure the conversion is correct by reconstructing a bigfield from the limbs of the
+ * cycle_scalar and checking equality with the initial _value.
  *
  * @tparam Builder
  * @param _value
  * @todo (https://github.com/AztecProtocol/barretenberg/issues/1016): Optimise this method
  */
-template <typename Builder>
-cycle_group<Builder>::cycle_scalar::cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& _value)
+template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(BigScalarField& scalar)
 {
-    using bigfield_t = stdlib::bigfield<Builder, typename ScalarField::Params>;
-    const uint256_t value((_value.get_value() % uint512_t(ScalarField::modulus)).lo);
-    const uint256_t lo_v = value.slice(0, LO_BITS);
-    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
-    lo = lo_v;
-    hi = hi_v;
-    if (!_value.is_constant()) {
-        auto* ctx = get_context() ? get_context() : _value.get_context();
+    auto* ctx = get_context() ? get_context() : scalar.get_context();
+    const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
+    const uint256_t value_lo = value.slice(0, LO_BITS);
+    const uint256_t value_hi = value.slice(LO_BITS, HI_BITS);
+    if (scalar.is_constant()) {
+        lo = value_lo;
+        hi = value_hi;
         // N.B. to be able to call assert equal, these cannot be constants
-        bigfield_t lo_big = bigfield_t(witness_t(ctx, lo_v), witness_t(ctx, 0));
-        bigfield_t hi_big = bigfield_t(witness_t(ctx, hi_v), witness_t(ctx, 0));
-        bigfield_t res = lo_big + hi_big * bigfield_t((uint256_t(1) << LO_BITS));
-        _value.assert_equal(res);
+    } else {
+        lo = witness_t(ctx, value_lo);
+        hi = witness_t(ctx, value_hi);
+        BigScalarField lo_big(lo, witness_t(ctx, 0));
+        BigScalarField hi_big(hi, witness_t(ctx, 0));
+        BigScalarField res = lo_big + hi_big * BigScalarField((uint256_t(1) << LO_BITS));
+        scalar.assert_equal(res);
     }
 };
 
@@ -1373,14 +1374,12 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
     return *this;
 }
 
-template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::operator*(const bigfield<Builder, bb::Bn254FqParams>& scalar) const
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator*(const BigScalarField& scalar) const
 {
     return batch_mul({ *this }, { scalar });
 }
 
-template <typename Builder>
-cycle_group<Builder>& cycle_group<Builder>::operator*=(const bigfield<Builder, bb::Bn254FqParams>& scalar)
+template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator*=(const BigScalarField& scalar)
 {
     *this = operator*(scalar);
     return *this;
