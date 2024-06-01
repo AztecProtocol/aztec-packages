@@ -70,6 +70,10 @@ jobs:
               - 'noir-projects/**'
             non-barretenberg-cpp:
               - '!(barretenberg/cpp/**)'
+              # don't consider AVM stuff 'core bb'
+              - barretenberg/cpp/pil/**
+              - barretenberg/cpp/src/barretenberg/vm/**
+              - barretenberg/cpp/src/barretenberg/**/generated/*
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -264,7 +268,7 @@ jobs:
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
-    needs: [build, changes]
+    needs: [setup, changes]
     runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
     steps:
@@ -297,7 +301,7 @@ jobs:
         run: earthly-ci --no-output ./+test
 
   noir-build-acir-tests:
-    needs: [build, changes]
+    needs: [setup, changes]
     runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
