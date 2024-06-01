@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/dsl/builder_types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
@@ -8,6 +7,7 @@
 
 namespace acir_format {
 
+using Builder = bb::UltraCircuitBuilder;
 using witness_ct = bb::stdlib::witness_t<Builder>;
 
 struct EcdsaSecp256k1Constraint {

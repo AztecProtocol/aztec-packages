@@ -1,9 +1,11 @@
 #pragma once
-#include "barretenberg/dsl/builder_types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <cstdint>
 
 namespace acir_format {
+
+using Builder = bb::UltraCircuitBuilder;
 
 struct LogicConstraint {
     uint32_t a;

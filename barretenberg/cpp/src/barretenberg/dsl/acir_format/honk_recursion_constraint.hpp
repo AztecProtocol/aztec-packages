@@ -1,9 +1,9 @@
 #pragma once
-#include "barretenberg/dsl/builder_types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include <vector>
 
 namespace acir_format {
+using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 using fq_ct = stdlib::bigfield<Builder, Bn254FqParams>;
