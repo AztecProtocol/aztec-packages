@@ -7,6 +7,7 @@
 #include <vector>
 
 using namespace acir_format;
+using namespace bb;
 using namespace bb::plonk;
 
 class AcirRecursionConstraint : public ::testing::Test {

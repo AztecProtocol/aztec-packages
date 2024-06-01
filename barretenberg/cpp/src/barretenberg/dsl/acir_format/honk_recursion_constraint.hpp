@@ -1,10 +1,14 @@
 #pragma once
+#include "barretenberg/dsl/builder_types.hpp"
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include <vector>
 
 namespace acir_format {
-using fq_ct = bb::stdlib::bigfield<Builder, bb::Bn254FqParams>;
+
+using namespace bb;
+using fq_ct = stdlib::bigfield<Builder, Bn254FqParams>;
+
 /**
  * @brief HonkRecursionConstraint struct contains information required to recursively verify a proof!
  *

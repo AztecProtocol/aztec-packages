@@ -9,6 +9,7 @@
 
 // #define LOG_SIZES
 
+using namespace bb;
 class AcirIntegrationTest : public ::testing::Test {
   public:
     static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)

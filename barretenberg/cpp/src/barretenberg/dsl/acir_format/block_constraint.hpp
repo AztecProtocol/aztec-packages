@@ -27,7 +27,7 @@ struct BlockConstraint {
 
 template <typename Builder>
 void create_block_constraints(Builder& builder,
-                              const BlockConstraint constraint,
+                              const BlockConstraint& constraint,
                               bool has_valid_witness_assignments = true);
 
 template <typename B> inline void read(B& buf, MemOp& mem_op)

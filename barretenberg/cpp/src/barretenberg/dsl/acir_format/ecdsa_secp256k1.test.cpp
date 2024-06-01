@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>

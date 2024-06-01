@@ -9,6 +9,8 @@
 
 namespace acir_format {
 
+using namespace bb;
+
 ModulusId modulus_param_to_id(ModulusParam param)
 {
     if (Bn254FqParams::modulus_0 == param.modulus_0 && Bn254FqParams::modulus_1 == param.modulus_1 &&

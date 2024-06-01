@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/dsl/builder_types.hpp"
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
@@ -19,7 +20,8 @@ struct LogicConstraint {
 };
 
 template <typename Builder>
-void create_logic_gate(Builder& builder, uint32_t a, uint32_t b, uint32_t result, size_t num_bits, bool is_xor_gate);
+void create_logic_gate(
+    Builder& builder, uint32_t a, uint32_t b, uint32_t result, std::size_t num_bits, bool is_xor_gate);
 
 void xor_gate(Builder& builder, uint32_t a, uint32_t b, uint32_t result);
 

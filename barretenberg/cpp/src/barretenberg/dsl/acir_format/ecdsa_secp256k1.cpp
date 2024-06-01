@@ -3,6 +3,7 @@
 
 namespace acir_format {
 
+using namespace bb;
 using secp256k1_ct = bb::stdlib::secp256k1<Builder>;
 
 using namespace bb::plonk;
