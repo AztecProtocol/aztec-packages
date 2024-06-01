@@ -274,8 +274,8 @@ export class ProvingOrchestrator {
             // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
             // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
             // we'd have to clear out the paddingTx here and regenerate it when they do.
-            chainId: unprovenPaddingTx.data.constants.globalVariables.chainId,
-            version: unprovenPaddingTx.data.constants.globalVariables.version,
+            chainId: unprovenPaddingTx.data.constants.txContext.chainId,
+            version: unprovenPaddingTx.data.constants.txContext.version,
             header: unprovenPaddingTx.data.constants.historicalHeader,
           },
           signal,
@@ -288,11 +288,19 @@ export class ProvingOrchestrator {
     );
   }
 
+  /**
+   * Prepares the cached sets of base rollup inputs for padding transactions and proves them
+   * @param txInputs - The base rollup inputs, start and end hash paths etc
+   * @param paddingTx - The padding tx, contains the header, proof, vk, public inputs used in the proof
+   * @param provingState - The block proving state
+   */
   private provePaddingTransactions(
     txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }>,
     paddingTx: PaddingProcessedTx,
     provingState: ProvingState,
   ) {
+    // The padding tx contains the public input, the proof and vk, generated separately from the base inputs
+    // Copy these into the base rollup inputs
     for (let i = 0; i < txInputs.length; i++) {
       txInputs[i].inputs.kernelData.vk = paddingTx.verificationKey;
       txInputs[i].inputs.kernelData.proof = paddingTx.recursiveProof;
