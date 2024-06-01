@@ -1,5 +1,4 @@
 #include "sha256_constraint.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256_plookup.hpp"
 #include "round.hpp"

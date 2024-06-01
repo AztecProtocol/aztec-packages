@@ -1,5 +1,4 @@
 #include "ec_operations.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/groups/affine_element.hpp"

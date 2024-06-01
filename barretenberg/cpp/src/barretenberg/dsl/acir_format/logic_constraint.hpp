@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/dsl/builder_types.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 

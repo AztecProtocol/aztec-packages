@@ -1,5 +1,4 @@
 #include "multi_scalar_mul.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"

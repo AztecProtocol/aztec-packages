@@ -20,6 +20,7 @@
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
 #include <utility>
+#include <vector>
 
 namespace acir_format {
 

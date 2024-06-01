@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>

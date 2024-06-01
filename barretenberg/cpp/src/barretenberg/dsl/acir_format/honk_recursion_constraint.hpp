@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/dsl/builder_types.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include <vector>
 

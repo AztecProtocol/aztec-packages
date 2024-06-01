@@ -3,7 +3,6 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"

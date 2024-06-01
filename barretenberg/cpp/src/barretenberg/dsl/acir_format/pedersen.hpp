@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include <cstdint>
 #include <vector>
 
