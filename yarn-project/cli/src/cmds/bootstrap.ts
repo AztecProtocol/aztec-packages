@@ -1,4 +1,4 @@
-import { BatchCall, SignerlessWallet, type WaitOpts, createPXEClient } from '@aztec/aztec.js';
+import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type LogFn } from '@aztec/foundation/log';
 import { GasTokenContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
@@ -11,29 +11,40 @@ const waitOpts: WaitOpts = {
 };
 
 export async function bootstrap(rpcUrl: string, log: LogFn) {
-  const pxe = createPXEClient(rpcUrl);
+  const pxe = createPXEClient(rpcUrl, makeFetch([], true));
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(31337, 1));
 
-  const keyRegistryTx = KeyRegistryContract.deploy(deployer).send({
+  const keyRegistryDeployParams = {
     contractAddressSalt: canonicalKeyRegistry.instance.salt,
     universalDeploy: true,
-  });
+  };
+  const keyRegistryTx = KeyRegistryContract.deploy(deployer);
 
   const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
   const canonicalGasToken = getCanonicalGasToken();
 
-  const gasTokenTx = GasTokenContract.deploy(deployer).send({
+  const gasTokenDeployParams = {
     contractAddressSalt: canonicalGasToken.instance.salt,
     universalDeploy: true,
-  });
+  };
+  const gasTokenTx = GasTokenContract.deploy(deployer);
 
-  const [keyRegistry, gasToken] = await Promise.all([keyRegistryTx.deployed(waitOpts), gasTokenTx.deployed(waitOpts)]);
-  const portalSetTx = gasToken.methods.set_portal(gasPortalAddress).send();
-  const emptyTx = new BatchCall(deployer, []).send();
+  // prove these txs sequentially otherwise the default node fetch times out
+  await keyRegistryTx.prove(keyRegistryDeployParams);
+  await gasTokenTx.prove(gasTokenDeployParams);
 
-  await Promise.all([portalSetTx.wait(waitOpts), emptyTx.wait(waitOpts)]);
+  const keyRegistry = await keyRegistryTx.send(keyRegistryDeployParams).deployed(waitOpts);
+  const gasToken = await gasTokenTx.send(gasTokenDeployParams).deployed(waitOpts);
+  // const [keyRegistry, gasToken] = await Promise.all([
+  //   keyRegistryTx.send(keyRegistryDeployParams).deployed(waitOpts),
+  //   gasTokenTx.send(gasTokenDeployParams).deployed(waitOpts),
+  // ]);
 
   log(`Key Registry deployed at canonical address ${keyRegistry.address.toString()}`);
   log(`Gas token deployed at canonical address ${gasToken.address.toString()}`);
+
+  const portalSetTx = gasToken.methods.set_portal(gasPortalAddress);
+  await portalSetTx.prove();
+  portalSetTx.send();
 }
