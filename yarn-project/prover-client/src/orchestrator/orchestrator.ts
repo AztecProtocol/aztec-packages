@@ -294,7 +294,7 @@ export class ProvingOrchestrator {
     paddingTx: PaddingProcessedTx,
     provingState: ProvingState,
   ) {
-    // The padding tx contains the public input, the proof and vk, generated separately from the base inputs
+    // The padding tx contains the proof and vk, generated separately from the base inputs
     // Copy these into the base rollup inputs
     for (let i = 0; i < txInputs.length; i++) {
       txInputs[i].inputs.kernelData.vk = paddingTx.verificationKey;
