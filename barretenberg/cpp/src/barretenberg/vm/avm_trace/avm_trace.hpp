@@ -2,22 +2,23 @@
 
 #include <stack>
 
-#include "avm_alu_trace.hpp"
-#include "avm_binary_trace.hpp"
-#include "avm_common.hpp"
-#include "avm_instructions.hpp"
-#include "avm_mem_trace.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/relations/generated/avm/avm_main.hpp"
+#include "barretenberg/vm/avm_trace/avm_alu_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_binary_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_gas_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_pedersen.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_sha256.hpp"
-#include "constants.hpp"
+#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 
 namespace bb::avm_trace {
+
+using Row = bb::AvmFullRow<bb::fr>;
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
@@ -123,6 +124,9 @@ class AvmTraceBuilder {
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
 
+    // Jump conditionally to a given program counter.
+    void jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset);
+
     // Jump to a given program counter; storing the return location on a call stack.
     // TODO(md): this program counter MUST be an operand to the OPCODE.
     void internal_call(uint32_t jmp_dest);
@@ -187,6 +191,7 @@ class AvmTraceBuilder {
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
     AvmKernelTraceBuilder kernel_trace_builder;
+    AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;
     AvmPoseidon2TraceBuilder poseidon2_trace_builder;
@@ -279,4 +284,5 @@ class AvmTraceBuilder {
                                FF internal_return_ptr,
                                std::vector<FF> const& slice);
 };
+
 } // namespace bb::avm_trace

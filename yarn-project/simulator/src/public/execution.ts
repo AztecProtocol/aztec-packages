@@ -63,20 +63,20 @@ export interface PublicExecutionResult {
    * Useful for maintaining correct ordering in ts.
    */
   allUnencryptedLogs: UnencryptedFunctionL2Logs;
-  /**
-   * Whether the execution reverted.
-   */
+  /** Whether the execution reverted. */
   reverted: boolean;
-  /**
-   * The revert reason if the execution reverted.
-   */
-  revertReason: SimulationError | undefined;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
   /** How much gas was available for this public execution. */
   startGasLeft: Gas;
   /** How much gas was left after this public execution. */
   endGasLeft: Gas;
   /** Transaction fee set for this tx. */
   transactionFee: Fr;
+  /** Bytecode used for this execution. */
+  bytecode?: Buffer;
+  /** Calldata used for this execution. */
+  calldata: Fr[];
 }
 
 /**
