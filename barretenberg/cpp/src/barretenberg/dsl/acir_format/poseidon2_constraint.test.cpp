@@ -1,6 +1,7 @@
 #include "poseidon2_constraint.hpp"
 #include "acir_format.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -11,6 +12,7 @@
 namespace acir_format::tests {
 
 using namespace bb;
+using Composer = plonk::UltraComposer;
 
 class Poseidon2Tests : public ::testing::Test {
   protected:
