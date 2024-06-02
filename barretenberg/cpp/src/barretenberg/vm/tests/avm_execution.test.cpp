@@ -1715,6 +1715,91 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     validate_trace(std::move(trace));
 }
 
+TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
+{
+    // Sload from a value that has not previously been written to will require a hint to process
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000001"            // value 1
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +            // opcode CAST
+                               "00"                                // Indirect flag
+                               "06"                                // tag field
+                               "00000001"                          // dst 1
+                               "00000001"                          // dst 1
+                               + to_hex(OpCode::NOTEHASHEXISTS) +  // opcode NOTEHASHEXISTS
+                               "00"                                // Indirect flag
+                               "00000001"                          // slot offset 1
+                               "00000002"                          // write storage value to offset 2 (exists value)
+                               + to_hex(OpCode::NULLIFIEREXISTS) + // opcode NULLIFIEREXISTS
+                               "00"                                // Indirect flag
+                               "00000001"                          // slot offset 1
+                               "00000002"                          // value write offset 2 (exists value)
+                               + to_hex(OpCode::L1TOL2MSGEXISTS) + // opcode L1TOL2MSGEXISTS
+                               "00"                                // Indirect flag
+                               "00000001"                          // slot offset 1
+                               "00000002"                          // value write offset 2 (exists value)
+                               + to_hex(OpCode::RETURN) +          // opcode RETURN
+                               "00"                                // Indirect flag
+                               "00000000"                          // ret offset 0
+                               "00000000";                         // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    // 2 instructions
+    ASSERT_THAT(instructions, SizeIs(6));
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+
+    // Craft public inputs object - in this case all return values are known to be a fixed value 1
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+
+    // Generate Hint for Sload operation
+    ExecutionHints execution_hints = {};
+    execution_hints.note_hash_exists[FF(1)] = true;    // Slot 1 = true
+    execution_hints.nullifier_exists[FF(1)] = true;    // Slot 1 = true
+    execution_hints.l1_to_l2_msg_exists[FF(1)] = true; // Slot 1 = true
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK NOTEHASHEXISTS
+    auto note_hash_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_note_hash_exists == 1; });
+    EXPECT_EQ(note_hash_row->avm_main_ia, 1); // Read value
+    EXPECT_EQ(note_hash_row->avm_main_ib, 1); // Storage slot
+    EXPECT_EQ(note_hash_row->avm_kernel_side_effect_counter, 0);
+
+    // Get the row of the first note hash out
+    uint32_t note_hash_exists_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
+    info("note hash offset: ", note_hash_exists_offset);
+    auto note_hash_out_row =
+        // TODO: it appears that as note_hash_exists_offset is zero, there are two posisitons where the clk is 0, so it
+        // is getting the wrong one
+        std::ranges::find_if(
+            trace.begin() + sizeof(Row), trace.end(), [&](Row r) { return r.avm_main_clk == note_hash_exists_offset; });
+    info("gotten value: @ offset ",
+         note_hash_exists_offset,
+         ": value: ",
+         note_hash_out_row->avm_kernel_kernel_value_out__is_public);
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
+    info("gotten sec: @ offset ",
+         note_hash_exists_offset,
+         ": sec: ",
+         note_hash_out_row->avm_kernel_kernel_side_effect_out__is_public);
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    info("gotten metadata: @ offset ",
+         note_hash_exists_offset,
+         ": meta: ",
+         note_hash_out_row->avm_kernel_kernel_metadata_out__is_public);
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // slot
+
+    validate_trace(std::move(trace));
+}
+
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)
 {
