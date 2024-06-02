@@ -1278,18 +1278,21 @@ Row AvmTraceBuilder::create_sload(
 }
 
 Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(
-    uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value)
+    uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, std::unordered_map<FF, bool> const& exists_hint)
 {
     AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
-        call_ptr, clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U8);
+        call_ptr, clk, IntermRegister::IA, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U8);
+
+    bool exists = exists_hint.at(read_a.val);
+    // TODO: throw error if incorrect
 
     mem_trace_builder.write_into_memory(
-        call_ptr, clk, IntermRegister::IB, metadata_offset, write_value, data_r_tag, AvmMemoryTag::U8);
+        call_ptr, clk, IntermRegister::IB, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U8);
 
     return Row{
         .avm_main_clk = clk,
         .avm_main_ia = read_a.val,
-        .avm_main_ib = write_value,
+        .avm_main_ib = exists,
         .avm_main_ind_a = 0,
         .avm_main_ind_b = 0,
         .avm_main_internal_return_ptr = internal_return_ptr,
@@ -1299,7 +1302,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(
         .avm_main_mem_op_b = 1,
         .avm_main_pc = pc++,
         .avm_main_q_kernel_output_lookup = 1,
-        .avm_main_r_in_tag = static_cast<uint32_t>(data_r_tag),
+        .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .avm_main_rwa = 0,
         .avm_main_rwb = 1,
         .avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U8),
@@ -1355,11 +1358,9 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset, uint32_t dest_
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): success or fail must come from hint - it is
-    bool result = execution_hints.l1_to_l2_msg_exists.at(log_offset);
-    Row row =
-        create_kernel_output_opcode_with_set_metadata_output(clk, log_offset, AvmMemoryTag::FF, dest_offset, result);
-    kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia, result);
+    Row row = create_kernel_output_opcode_with_set_metadata_output(
+        clk, log_offset, dest_offset, execution_hints.l1_to_l2_msg_exists);
+    kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     main_trace.push_back(row);
@@ -1369,11 +1370,9 @@ void AvmTraceBuilder::op_note_hash_exists(uint32_t note_offset, uint32_t dest_of
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
-    bool result = execution_hints.note_hash_exists.at(note_offset);
-    Row row =
-        create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, AvmMemoryTag::FF, dest_offset, result);
-    kernel_trace_builder.op_note_hash_exists(clk, row.avm_main_ia, result);
+    Row row = create_kernel_output_opcode_with_set_metadata_output(
+        clk, note_offset, dest_offset, execution_hints.note_hash_exists);
+    kernel_trace_builder.op_note_hash_exists(clk, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     main_trace.push_back(row);
@@ -1383,11 +1382,9 @@ void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_of
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
-    bool result = execution_hints.nullifier_exists.at(note_offset);
-    Row row =
-        create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, AvmMemoryTag::FF, dest_offset, result);
-    kernel_trace_builder.op_nullifier_exists(clk, row.avm_main_ia, result);
+    Row row = create_kernel_output_opcode_with_set_metadata_output(
+        clk, note_offset, dest_offset, execution_hints.nullifier_exists);
+    kernel_trace_builder.op_nullifier_exists(clk, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
     row.avm_main_sel_op_nullifier_exists = FF(1);
 
     main_trace.push_back(row);

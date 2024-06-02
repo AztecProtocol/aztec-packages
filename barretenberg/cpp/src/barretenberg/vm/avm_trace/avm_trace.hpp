@@ -240,8 +240,11 @@ class AvmTraceBuilder {
      * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
      * @return Row
      */
-    Row create_kernel_output_opcode_with_set_metadata_output(
-        uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value);
+    // TODO: update info
+    Row create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
+                                                             uint32_t data_offset,
+                                                             uint32_t metadata_offset,
+                                                             std::unordered_map<FF, bool> const& exists_hint);
 
     void finalise_mem_trace_lookup_counts();
 

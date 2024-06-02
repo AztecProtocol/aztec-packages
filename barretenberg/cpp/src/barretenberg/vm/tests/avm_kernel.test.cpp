@@ -840,7 +840,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     auto exists = 1;
 
     ExecutionHints execution_hints = {};
-    execution_hints.note_hash_exists[value_offset] = static_cast<bool>(exists);
+    execution_hints.note_hash_exists[FF(value)] = static_cast<bool>(exists);
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
@@ -879,7 +879,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
     auto exists = 1;
 
     ExecutionHints execution_hints = {};
-    execution_hints.nullifier_exists[value_offset] = static_cast<bool>(exists);
+    execution_hints.nullifier_exists[FF(value)] = static_cast<bool>(exists);
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
@@ -918,7 +918,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
 
     // Create an execution hints object with the result of the operation
     ExecutionHints execution_hints = {};
-    execution_hints.l1_to_l2_msg_exists[value_offset] = static_cast<bool>(exists);
+    execution_hints.l1_to_l2_msg_exists[FF(value)] = static_cast<bool>(exists);
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
