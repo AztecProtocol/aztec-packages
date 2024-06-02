@@ -1,8 +1,9 @@
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
-#include "constants.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
+
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 
@@ -10,7 +11,6 @@ namespace bb::avm_trace {
 
 using Flavor = bb::AvmFlavor;
 using FF = Flavor::FF;
-using Row = bb::AvmFullRow<bb::fr>;
 
 } // namespace bb::avm_trace
 

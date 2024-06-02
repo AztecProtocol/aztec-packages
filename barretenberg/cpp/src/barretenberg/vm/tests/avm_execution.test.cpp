@@ -23,11 +23,31 @@ using bb::utils::hex_to_bytes;
 
 class AvmExecutionTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
+    std::vector<FF> public_inputs_vec{};
+
+    AvmExecutionTests()
+        : public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH){};
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+    void SetUp() override
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+        public_inputs_vec.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
+        public_inputs_vec.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
+    };
+
+    /**
+     * @brief Generate the execution trace pertaining to the supplied instructions.
+     *
+     * @param instructions A vector of the instructions to be executed.
+     * @return The trace as a vector of Row.
+     */
+    std::vector<Row> gen_trace_from_instr(std::vector<Instruction> const& instructions) const
+    {
+        std::vector<FF> calldata{};
+        return Execution::gen_trace(instructions, calldata, public_inputs_vec);
+    }
 };
 
 // Basic positive test with an ADD and RETURN opcode.
@@ -67,8 +87,8 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
-    auto trace = Execution::gen_trace(instructions);
-    validate_trace(std::move(trace), {}, true);
+    auto trace = gen_trace_from_instr(instructions);
+    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), true);
 }
 
 // Positive test for SET and SUB opcodes
@@ -128,12 +148,12 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
                                         VariantWith<uint32_t>(51),
                                         VariantWith<uint32_t>(1)))));
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == 1; });
     EXPECT_EQ(row->avm_main_ic, 10000); // 47123 - 37123 = 10000
-    validate_trace(std::move(trace), {}, true);
+    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), true);
 }
 
 // Positive test for multiple MUL opcodes
@@ -206,7 +226,7 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the multiplication selector and pc = 13
     auto row = std::ranges::find_if(
@@ -267,7 +287,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
@@ -346,7 +366,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
         EXPECT_EQ(instructions.at(i).op_code, opcode_sequence.at(i));
     }
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };
@@ -416,7 +436,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                 AllOf(Field(&Instruction::op_code, OpCode::JUMP),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(3)))));
 
-    auto trace = Execution::gen_trace(instructions, std::vector<FF>{ 13, 156 });
+    std::vector<FF> returndata{};
+    auto trace = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 13, 156 }, public_inputs_vec);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 3, 4 };
@@ -435,6 +456,102 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     EXPECT_EQ(row, trace.end());
 
     validate_trace(std::move(trace));
+}
+
+// Positive test for JUMPI.
+// We invoke CALLDATACOPY on a FF array of one value which will serve as the conditional value
+// for JUMPI ans set this value at memory offset 10.
+// Then, we set value 20 (UINT16) at memory offset 101.
+// Then, a JUMPI call is performed. Depending of the conditional value, the next opcode (ADD) is
+// omitted or not, i.e., we jump to the subsequent opcode MUL.
+// Bytecode layout: CALLDATACOPY  SET  JUMPI  ADD   MUL  RETURN
+//                        0        1     2     3     4      5
+// We test this bytecode with two calldatacopy values: 9873123 and 0.
+TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
+{
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset
+                               "00000001"                     // copy_size
+                               "0000000A"                     // dst_offset 10
+                               + to_hex(OpCode::SET) +        // opcode SET
+                               "00"                           // Indirect flag
+                               "02"                           // U16
+                               "0014"                         // val 20
+                               "00000065"                     // dst_offset 101
+                               + to_hex(OpCode::JUMPI) +      // opcode JUMPI
+                               "00"                           // Indirect flag
+                               "00000004"                     // jmp_dest (MUL located at 4)
+                               "0000000A"                     // cond_offset 10
+                               + to_hex(OpCode::ADD) +        // opcode ADD
+                               "00"                           // Indirect flag
+                               "02"                           // U16
+                               "00000065"                     // addr 101
+                               "00000065"                     // addr 101
+                               "00000065"                     // output addr 101
+                               + to_hex(OpCode::MUL) +        // opcode MUL
+                               "00"                           // Indirect flag
+                               "02"                           // U16
+                               "00000065"                     // addr 101
+                               "00000065"                     // addr 101
+                               "00000066"                     // output of MUL addr 102
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "00000000"                     // ret offset 0
+                               "00000000"                     // ret size 0
+        ;
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(6));
+
+    // We test parsing of JUMPI.
+
+    // JUMPI
+    EXPECT_THAT(
+        instructions.at(2),
+        AllOf(Field(&Instruction::op_code, OpCode::JUMPI),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(4), VariantWith<uint32_t>(10)))));
+
+    std::vector<FF> returndata{};
+    auto trace_jump = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 9873123 }, public_inputs_vec);
+    auto trace_no_jump = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 0 }, public_inputs_vec);
+
+    // Expected sequence of PCs during execution with jump
+    std::vector<FF> pc_sequence_jump{ 0, 1, 2, 4, 5 };
+    // Expected sequence of PCs during execution without jump
+    std::vector<FF> pc_sequence_no_jump{ 0, 1, 2, 3, 4, 5 };
+
+    for (size_t i = 0; i < 5; i++) {
+        EXPECT_EQ(trace_jump.at(i + 1).avm_main_pc, pc_sequence_jump.at(i));
+    }
+
+    for (size_t i = 0; i < 6; i++) {
+        EXPECT_EQ(trace_no_jump.at(i + 1).avm_main_pc, pc_sequence_no_jump.at(i));
+    }
+
+    // JUMP CASE
+    // Find the first row enabling the MUL opcode
+    auto row =
+        std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.avm_main_sel_op_mul == 1; });
+    EXPECT_EQ(row->avm_main_ic, 400); // 400 = 20 * 20
+
+    // Find the first row enabling the addition selector.
+    row = std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.avm_main_sel_op_add == 1; });
+    // It must have failed as addition was "jumped over".
+    EXPECT_EQ(row, trace_jump.end());
+
+    // NO JUMP CASE
+    // Find the first row enabling the MUL opcode
+    row = std::ranges::find_if(
+        trace_no_jump.begin(), trace_no_jump.end(), [](Row r) { return r.avm_main_sel_op_mul == 1; });
+    EXPECT_EQ(row->avm_main_ic, 1600); // 800 = (20 + 20) * (20 + 20)
+
+    // traces validation
+    validate_trace(std::move(trace_jump));
+    validate_trace(std::move(trace_no_jump));
 }
 
 // Positive test with MOV.
@@ -475,7 +592,7 @@ TEST_F(AvmExecutionTests, movOpcode)
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(171), VariantWith<uint32_t>(33)))));
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the MOV selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
@@ -529,7 +646,7 @@ TEST_F(AvmExecutionTests, cmovOpcode)
                                         VariantWith<uint32_t>(32),
                                         VariantWith<uint32_t>(18)))));
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the CMOV selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_cmov == 1; });
@@ -579,7 +696,7 @@ TEST_F(AvmExecutionTests, indMovOpcode)
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint32_t>(1), VariantWith<uint32_t>(2)))));
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the MOV selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
@@ -621,7 +738,7 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
                                         VariantWith<uint32_t>(17),
                                         VariantWith<uint32_t>(18)))));
 
-    auto trace = Execution::gen_trace(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the cast selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_cast == 1; });
@@ -676,8 +793,8 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> public_inputs = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs);
+    auto trace =
+        Execution::gen_trace(instructions, returndata, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec);
 
     // Find the first row enabling the TORADIXLE selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_radix_le == 1; });
@@ -771,7 +888,8 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
     // Test vector output taken from noir black_box_solver
-    // Uint32Array.from([1862536192, 526086805, 2067405084, 593147560, 726610467, 813867028, 4091010797,3974542186]),
+    // Uint32Array.from([1862536192, 526086805, 2067405084, 593147560, 726610467, 813867028,
+    // 4091010797,3974542186]),
     std::vector<FF> expected_output = { 1862536192, 526086805, 2067405084,    593147560,
                                         726610467,  813867028, 4091010797ULL, 3974542186ULL };
 
@@ -867,7 +985,6 @@ TEST_F(AvmExecutionTests, sha256Opcode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata = std::vector<FF>();
     std::vector<FF> calldata = std::vector<FF>();
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the sha256 selector
@@ -1046,7 +1163,6 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the keccak selector
@@ -1129,7 +1245,6 @@ TEST_F(AvmExecutionTests, keccakOpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the keccak selector
@@ -1147,6 +1262,80 @@ TEST_F(AvmExecutionTests, keccakOpCode)
     EXPECT_EQ(row->avm_main_ib, 1);         // Input length
 
     EXPECT_EQ(returndata, expected_output);
+
+    validate_trace(std::move(trace));
+}
+
+// Positive test with Pedersen.
+TEST_F(AvmExecutionTests, pedersenHashOpCode)
+{
+
+    // Test vectors from pedersen_hash in noir/noir-repo/acvm-repo/blackbox_solver/
+    // input = [1,1]
+    // output = 0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6
+    // hash_index = 5;
+    FF expected_output = FF("0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6");
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset
+                               "00000002"                     // copy_size
+                               "00000000"                     // dst_offset
+                               + to_hex(OpCode::SET) +        // opcode SET for direct hash index offset
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000005"                     // value 5
+                               "00000002"                     // input_offset 2
+                               + to_hex(OpCode::SET) +        // opcode SET for indirect src
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000000"                     // value 0 (i.e. where the src will be read from)
+                               "00000004"                     // dst_offset 4
+                               + to_hex(OpCode::SET) +        // opcode SET for direct src_length
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000002"                     // value 2
+                               "00000005"                     // dst_offset
+                               + to_hex(OpCode::PEDERSEN) +   // opcode PEDERSEN
+                               "04"                           // Indirect flag (3rd operand indirect)
+                               "00000002"                     // hash_index offset (direct)
+                               "00000003"                     // dest offset (direct)
+                               "00000004"                     // input offset (indirect)
+                               "00000005"                     // length offset (direct)
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "00000003"                     // ret offset 3
+                               "00000001";                    // ret size 1
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(6));
+    // Pedersen
+    EXPECT_THAT(instructions.at(4),
+                AllOf(Field(&Instruction::op_code, OpCode::PEDERSEN),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(4),
+                                        VariantWith<uint32_t>(2),
+                                        VariantWith<uint32_t>(3),
+                                        VariantWith<uint32_t>(4),
+                                        VariantWith<uint32_t>(5)))));
+
+    // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> returndata = std::vector<FF>();
+    std::vector<FF> calldata = { FF(1), FF(1) };
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+
+    // Find the first row enabling the pedersen selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_pedersen == 1; });
+    EXPECT_EQ(row->avm_main_ind_a, 4);     // Register A is indirect
+    EXPECT_EQ(row->avm_main_mem_idx_a, 0); // Indirect(4) -> 1
+    EXPECT_EQ(row->avm_main_ia, 1);        // The first input
+    // The second row loads the U32 values
+    std::advance(row, 1);
+    EXPECT_EQ(row->avm_main_ia, 2); // Input length is 2
+    EXPECT_EQ(row->avm_main_ib, 5); // Hash offset is 5
+
+    EXPECT_EQ(returndata[0], expected_output);
 
     validate_trace(std::move(trace));
 }
@@ -1262,13 +1451,11 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     // Not in simulator
     // FF coinbase = 10;
 
-    // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with this
-    // array The returndata call above will then return this array
+    // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
+    // this array The returndata call above will then return this array
     std::vector<FF> returndata = { sender,      address,        feeperl2gas,
                                    feeperdagas, transactionfee, chainid,
                                    version,     blocknumber,    /*coinbase,*/ timestamp };
-
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
     // Set up public inputs to contain the above values
     // TODO: maybe have a javascript like object construction so that this is readable
@@ -1291,7 +1478,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     // Transaction fee
     public_inputs_vec[TRANSACTION_FEE_OFFSET] = transactionfee;
 
-    auto trace = Execution::gen_trace(instructions, calldata, returndata, public_inputs_vec);
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Validate that the opcode read the correct value into ia
     // Check sender

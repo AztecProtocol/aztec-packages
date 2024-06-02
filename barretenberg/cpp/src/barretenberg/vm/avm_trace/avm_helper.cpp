@@ -1,4 +1,4 @@
-#include "avm_helper.hpp"
+#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
 
 namespace bb::avm_trace {
@@ -82,6 +82,13 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
             info("note_hash_write:           ", trace.at(i).avm_kernel_emit_note_hash_write_offset);
             info("nullifier_write:           ", trace.at(i).avm_kernel_emit_nullifier_write_offset);
             info("unencrypted_write:           ", trace.at(i).avm_kernel_emit_unencrypted_log_write_offset);
+
+            info("=======GAS ACCOUNTING================================================================");
+            info("opcode active:      ", trace.at(i).avm_main_gas_cost_active);
+            info("l2_gas_remaining:   ", trace.at(i).avm_main_l2_gas_remaining);
+            info("da_gas_remaining:   ", trace.at(i).avm_main_da_gas_remaining);
+            info("l2_gas_op:          ", trace.at(i).avm_main_l2_gas_op);
+            info("da_gas_op:          ", trace.at(i).avm_main_da_gas_op);
 
             if (enable_selectors) {
                 info("=======SELECTORS======================================================================");

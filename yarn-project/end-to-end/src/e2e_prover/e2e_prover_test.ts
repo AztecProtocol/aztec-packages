@@ -72,7 +72,7 @@ export class FullProverTest {
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
 
-  constructor(testName: string) {
+  constructor(testName: string, private minNumberOfTxsPerBlock: number) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(`full_prover_integration/${testName}`, dataPath);
   }
@@ -152,9 +152,9 @@ export class FullProverTest {
 
     this.logger.debug(`Configuring the node for real proofs...`);
     await this.aztecNode.setConfig({
-      proverAgentConcurrency: 1,
+      proverAgentConcurrency: 2,
       realProofs: true,
-      minTxsPerBlock: 2, // min 2 txs per block
+      minTxsPerBlock: this.minNumberOfTxsPerBlock,
     });
 
     this.logger.debug(`Main setup completed, initializing full prover PXE and Node...`);
