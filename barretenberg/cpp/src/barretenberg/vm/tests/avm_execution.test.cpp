@@ -893,7 +893,6 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     std::vector<FF> expected_output = { 1862536192, 526086805, 2067405084,    593147560,
                                         726610467,  813867028, 4091010797ULL, 3974542186ULL };
 
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the Sha256Compression selector
@@ -1060,7 +1059,6 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     std::vector<FF> expected_output = {
         FF(std::string("0x2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95")),
         FF(std::string("0x0c01fa1b8d0748becafbe452c0cb0231c38224ea824554c9362518eebdd5701f")),
@@ -1584,16 +1582,11 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    // 2 instructions
     ASSERT_THAT(instructions, SizeIs(6));
 
     std::vector<FF> calldata = {};
-    std::vector<FF> reutrndata = {};
-
-    // Craft public inputs object - in this case all return values are known to be a fixed value 1
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
-
-    auto trace = Execution::gen_trace(instructions);
+    std::vector<FF> returndata = {};
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // CHECK EMIT NOTE HASH
     // Check output data + side effect counters have been set correctly
@@ -1667,14 +1660,10 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    // 2 instructions
     ASSERT_THAT(instructions, SizeIs(5));
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
-
-    // Craft public inputs object - in this case all return values are known to be a fixed value 1
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
     // Generate Hint for Sload operation
     ExecutionHints execution_hints = {};
@@ -1750,14 +1739,10 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    // 2 instructions
     ASSERT_THAT(instructions, SizeIs(6));
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
-
-    // Craft public inputs object - in this case all return values are known to be a fixed value 1
-    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
     // Generate Hint for Sload operation
     ExecutionHints execution_hints = {};
@@ -1774,29 +1759,40 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     EXPECT_EQ(note_hash_row->avm_main_ib, 1); // Storage slot
     EXPECT_EQ(note_hash_row->avm_kernel_side_effect_counter, 0);
 
-    // Get the row of the first note hash out
-    uint32_t note_hash_exists_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
-    info("note hash offset: ", note_hash_exists_offset);
-    auto note_hash_out_row =
-        // TODO: it appears that as note_hash_exists_offset is zero, there are two posisitons where the clk is 0, so it
-        // is getting the wrong one
-        std::ranges::find_if(
-            trace.begin() + sizeof(Row), trace.end(), [&](Row r) { return r.avm_main_clk == note_hash_exists_offset; });
-    info("gotten value: @ offset ",
-         note_hash_exists_offset,
-         ": value: ",
-         note_hash_out_row->avm_kernel_kernel_value_out__is_public);
+    auto note_hash_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
+        return r.avm_main_clk == AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
+    });
     EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    info("gotten sec: @ offset ",
-         note_hash_exists_offset,
-         ": sec: ",
-         note_hash_out_row->avm_kernel_kernel_side_effect_out__is_public);
     EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    info("gotten metadata: @ offset ",
-         note_hash_exists_offset,
-         ": meta: ",
-         note_hash_out_row->avm_kernel_kernel_metadata_out__is_public);
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // slot
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+
+    // CHECK NULLIFIEREXISTS
+    auto nullifier_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_nullifier_exists == 1; });
+    EXPECT_EQ(nullifier_row->avm_main_ia, 1); // Read value
+    EXPECT_EQ(nullifier_row->avm_main_ib, 1); // Storage slot
+    EXPECT_EQ(nullifier_row->avm_kernel_side_effect_counter, 1);
+
+    auto nullifier_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
+        return r.avm_main_clk == AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET;
+    });
+    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
+    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+
+    // CHECK L1TOL2MSGEXISTS
+    auto l1_to_l2_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_l1_to_l2_msg_exists == 1; });
+    EXPECT_EQ(l1_to_l2_row->avm_main_ia, 1); // Read value
+    EXPECT_EQ(l1_to_l2_row->avm_main_ib, 1); // Storage slot
+    EXPECT_EQ(l1_to_l2_row->avm_kernel_side_effect_counter, 2);
+
+    auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
+        return r.avm_main_clk == AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
+    });
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
 
     validate_trace(std::move(trace));
 }
