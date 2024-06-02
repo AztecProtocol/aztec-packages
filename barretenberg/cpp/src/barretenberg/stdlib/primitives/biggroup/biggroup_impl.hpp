@@ -238,9 +238,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested
 template <typename C, class Fq, class Fr, class G>
-std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
+std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other,
+                                                                                          const bool generic_pair) const
 {
     if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
+        return { *this + other, *this - other };
+    }
+
+    // since a022220d1e, + and - handle collisions
+    if (!generic_pair) {
         return { *this + other, *this - other };
     }
 
@@ -748,15 +754,26 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 }
 
 /**
- * Generic batch multiplication that works for all elliptic curve types.
+ * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for short
- * scalars See `bn254_endo_batch_mul` for description of algorithm
- **/
+ * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for
+ * short scalars See `bn254_endo_batch_mul` for description of algorithm.
+ *
+ * @tparam C The circuit builder type.
+ * @tparam Fq The field of definition of the points in `_points`.
+ * @tparam Fr The field of scalars acting on `_points`.
+ * @tparam G The group whose arithmetic is emulated by `element`.
+ * @param _points
+ * @param _scalars
+ * @param max_num_bits The max of the bit lengths of the scalars.
+ * @param generic_input Flag to indicuate that no two pairs of input scalars are equal WORKTODO: correct condition?
+ * @return element<C, Fq, Fr, G>
+ */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
                                                        const std::vector<Fr>& _scalars,
-                                                       const size_t max_num_bits)
+                                                       const size_t max_num_bits,
+                                                       const bool generic_input)
 {
     const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
@@ -778,7 +795,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         } else {
             const size_t num_points = points.size();
             ASSERT(scalars.size() == num_points);
-            batch_lookup_table point_table(points);
+            batch_lookup_table point_table(points, generic_input);
             const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
             std::vector<std::vector<bool_ct>> naf_entries;
