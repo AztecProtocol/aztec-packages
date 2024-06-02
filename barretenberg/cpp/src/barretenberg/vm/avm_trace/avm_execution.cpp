@@ -51,7 +51,8 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
                                                                    std::vector<FF> const& public_inputs_vec,
                                                                    ExecutionHints const& execution_hints)
 {
-    info("silence warning: ", public_inputs_vec[0]);
+    // TODO: temp
+    info("logging to silence warning for now: ", public_inputs_vec.size());
 
     auto instructions = Deserialization::parse(bytecode);
     std::vector<FF> returndata{};
@@ -158,10 +159,11 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @param calldata expressed as a vector of finite field elements.
  * @return The trace as a vector of Row.
  */
-std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions, std::vector<FF> const& calldata)
+std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
+                                      std::vector<FF> const& calldata,
+                                      std::vector<FF> const& public_inputs_vec)
 {
     std::vector<FF> returndata{};
-    std::vector<FF> public_inputs_vec = {};
     return gen_trace(instructions, returndata, calldata, public_inputs_vec);
 }
 

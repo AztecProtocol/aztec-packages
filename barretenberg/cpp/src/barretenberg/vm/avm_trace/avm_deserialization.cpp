@@ -163,7 +163,6 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         auto const opcode = static_cast<OpCode>(opcode_byte);
         std::vector<OperandType> inst_format;
 
-        info("opcode byte: ", opcode_byte);
         if (opcode == OpCode::SET) {
             // Small hack here because of the structure of SET (where Indirect is the first flag).
             // Right now pos is pointing to the indirect flag, but we want it to point to the memory tag.
@@ -273,7 +272,6 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         }
         instructions.emplace_back(opcode, operands);
     }
-    info("have all instructions");
     return instructions;
 };
 

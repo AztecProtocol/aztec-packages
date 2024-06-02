@@ -910,9 +910,11 @@ int main(int argc, char* argv[])
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
             std::filesystem::path calldata_path = get_option(args, "-d", "./target/call_data.bin");
+            std::filesystem::path public_inputs_path = get_option(args, "-u", "./target/public_inputs.bin");
+            std::filesystem::path execution_hints_path = get_option(args, "-e", "./target/execution_hints.bin");
             // This outputs both files: proof and vk, under the given directory.
             std::filesystem::path output_path = get_option(args, "-o", "./proofs");
-            avm_prove(avm_bytecode_path, calldata_path, output_path);
+            avm_prove(avm_bytecode_path, calldata_path, public_inputs_path, execution_hints_path, output_path);
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "prove_ultra_honk") {
