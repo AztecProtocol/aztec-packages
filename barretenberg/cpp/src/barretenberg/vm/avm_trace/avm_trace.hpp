@@ -151,6 +151,17 @@ class AvmTraceBuilder {
     // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
     std::vector<FF> return_op(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
 
+    // Calls
+    void op_call(uint8_t indirect,
+                 uint32_t gas_offset,
+                 uint32_t addr_offset,
+                 uint32_t args_offset,
+                 uint32_t args_size,
+                 uint32_t ret_offset,
+                 uint32_t ret_size,
+                 uint32_t success_offset,
+                 uint32_t function_selector_offset);
+
     // Gadgets
     // --- Conversions
     // To Radix LE conversion operation.

@@ -2260,6 +2260,32 @@ uint32_t AvmTraceBuilder::read_slice_to_memory(uint8_t space_id,
     return num_main_rows;
 }
 
+void AvmTraceBuilder::op_call(uint8_t indirect,
+                              uint32_t gas_offset,
+                              uint32_t addr_offset,
+                              uint32_t args_offset,
+                              uint32_t args_size,
+                              uint32_t ret_offset,
+                              uint32_t ret_size,
+                              uint32_t success_offset,
+                              uint32_t function_selector_offset)
+{
+    // NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+    // call in one vm circuit
+
+    // PLAN
+    // 1. We load and constrain all of the operands ( of which there are loads, (either 4 more registers or we send it
+    // across two rows (we might be able to get away with this - and break a shit load of other stuff)))
+    // 2. Use the write slice to memory once we get the entire return data size from the hint
+
+    // Getting the return values
+    // We should be able to receive return data values from the hints, and do an (unconstrained) sanity check that the
+    // correct values are here
+
+    // TODO: how can we get the return data hint from the public inputs callstack item
+    std::vector<FF> return_data = execution_hints.return_data_map[0];
+}
+
 /**
  * @brief To_Radix_LE with direct or indirect memory access.
  *

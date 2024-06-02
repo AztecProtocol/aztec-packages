@@ -71,12 +71,17 @@ struct ExecutionHints {
     // L1 to L2 message exists
     std::unordered_map<FF, bool> l1_to_l2_msg_exists;
 
+    // Return data maps
+    // returndatahash -> return args
+    std::unordered_map<FF, std::vector<FF>> return_data_map;
+
     ExecutionHints()
     {
         storage_values = std::unordered_map<FF, FF>();
         note_hash_exists = std::unordered_map<FF, bool>();
         nullifier_exists = std::unordered_map<FF, bool>();
         l1_to_l2_msg_exists = std::unordered_map<FF, bool>();
+        return_data_map = std::unordered_map<FF, std::vector<FF>>();
     }
 
     friend bool operator==(const ExecutionHints&, const ExecutionHints&);

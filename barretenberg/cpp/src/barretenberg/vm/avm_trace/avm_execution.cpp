@@ -446,6 +446,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // and adds a valid row to the trace.
             trace_builder.jump(pc + 1);
             break;
+        case OpCode::CALL:
+            trace_builder.op_call(std::get<uint32_t>(inst.operands.at(0)),
+                                  std::get<uint32_t>(inst.operands.at(1)),
+                                  std::get<uint32_t>(inst.operands.at(2)),
+                                  std::get<uint32_t>(inst.operands.at(3)),
+                                  std::get<uint32_t>(inst.operands.at(4)),
+                                  std::get<uint32_t>(inst.operands.at(5)));
+            break;
         case OpCode::TORADIXLE:
             trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
                                          std::get<uint32_t>(inst.operands.at(1)),
