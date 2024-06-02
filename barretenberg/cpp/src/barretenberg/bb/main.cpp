@@ -542,7 +542,7 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     init_bn254_crs(1 << 17);
 
     // Prove execution and return vk
-    auto const [verification_key, proof] = avm_trace::Execution::prove(bytecode, calldata);
+    auto const [verification_key, proof] = avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec);
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
     std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
     std::vector<fr> vk_as_fields = { verification_key.circuit_size, verification_key.num_public_inputs };
