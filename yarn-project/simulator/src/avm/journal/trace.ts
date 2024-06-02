@@ -1,3 +1,5 @@
+import { type UnencryptedL2Log } from '@aztec/circuit-types';
+import { type EthAddress, L2ToL1Message, LogHash } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
@@ -8,7 +10,6 @@ import {
   type TracedNullifierCheck,
   type TracedPublicStorageRead,
   type TracedPublicStorageWrite,
-  type TracedUnencryptedL2Log,
 } from './trace_types.js';
 
 export class WorldStateAccessTrace {
@@ -22,7 +23,11 @@ export class WorldStateAccessTrace {
   public nullifierChecks: TracedNullifierCheck[] = [];
   public newNullifiers: TracedNullifier[] = [];
   public l1ToL2MessageChecks: TracedL1toL2MessageCheck[] = [];
-  public newLogsHashes: TracedUnencryptedL2Log[] = [];
+
+  /** Accrued Substate **/
+  public newL2ToL1Messages: L2ToL1Message[] = [];
+  public newUnencryptedLogs: UnencryptedL2Log[] = [];
+  public newUnencryptedLogsHashes: LogHash[] = [];
 
   //public contractCalls: TracedContractCall[] = [];
   //public archiveChecks: TracedArchiveLeafCheck[] = [];
@@ -137,12 +142,18 @@ export class WorldStateAccessTrace {
     this.incrementAccessCounter();
   }
 
-  public traceNewLog(logHash: Fr) {
-    const traced: TracedUnencryptedL2Log = {
-      logHash,
-      counter: new Fr(this.accessCounter),
-    };
-    this.newLogsHashes.push(traced);
+  public traceL2ToL1Message(recipient: EthAddress, content: Fr) {
+    const traced = new L2ToL1Message(recipient, content, this.accessCounter);
+    this.newL2ToL1Messages.push(traced);
+    this.incrementAccessCounter();
+  }
+
+  public traceUnencryptedLog(ulog: UnencryptedL2Log, logHash: Fr) {
+    // TODO(6578): explain magic number 4 here
+    // TODO(4805): check if some threshold is reached for max logs
+    const traced = new LogHash(logHash, this.accessCounter, new Fr(ulog.length + 4));
+    this.newUnencryptedLogs.push(ulog);
+    this.newUnencryptedLogsHashes.push(traced);
     this.incrementAccessCounter();
   }
 
@@ -155,7 +166,7 @@ export class WorldStateAccessTrace {
    *
    * @param incomingTrace - the incoming trace to merge into this instance
    */
-  public acceptAndMerge(incomingTrace: WorldStateAccessTrace) {
+  public merge(incomingTrace: WorldStateAccessTrace, rejectIncomingAccruedSubstate: boolean = false) {
     // Merge storage read and write journals
     this.publicStorageReads.push(...incomingTrace.publicStorageReads);
     this.publicStorageWrites.push(...incomingTrace.publicStorageWrites);
@@ -165,7 +176,16 @@ export class WorldStateAccessTrace {
     this.nullifierChecks.push(...incomingTrace.nullifierChecks);
     this.newNullifiers.push(...incomingTrace.newNullifiers);
     this.l1ToL2MessageChecks.push(...incomingTrace.l1ToL2MessageChecks);
-    this.newLogsHashes.push(...incomingTrace.newLogsHashes);
+
+    // We keep track of ALL state accesses (even those that are reverted),
+    // but we don't keep track of reverted accrued substate (new messages and logs)
+    if (!rejectIncomingAccruedSubstate) {
+      // Accrued Substate
+      this.newL2ToL1Messages.push(...incomingTrace.newL2ToL1Messages);
+      this.newUnencryptedLogs.push(...incomingTrace.newUnencryptedLogs);
+      this.newUnencryptedLogsHashes.push(...incomingTrace.newUnencryptedLogsHashes);
+    }
+
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
     this.accessCounter = incomingTrace.accessCounter;
   }

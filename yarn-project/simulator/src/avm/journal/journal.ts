@@ -87,7 +87,6 @@ export class AvmPersistableStateManager {
   public readonly hostStorage: HostStorage;
 
   // TODO(5818): make members private once this is not used in transitional_adaptors.ts.
-  /** World State */
   /** Public storage, including cached writes */
   public publicStorage: PublicStorage;
   /** Nullifier set, including cached/recently-emitted nullifiers */
@@ -95,10 +94,6 @@ export class AvmPersistableStateManager {
 
   /** World State Access Trace */
   public trace: WorldStateAccessTrace;
-
-  /** Accrued Substate **/
-  public newL1Messages: L2ToL1Message[] = [];
-  public newLogs: UnencryptedL2Log[] = [];
 
   // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
   public transitionalExecutionResult: PartialPublicExecutionResult;
@@ -292,10 +287,11 @@ export class AvmPersistableStateManager {
     this.log.debug(`L1Messages(${recipient}) += ${content}.`);
     const recipientAddress = recipient instanceof EthAddress ? recipient : EthAddress.fromField(recipient);
     const message = new L2ToL1Message(recipientAddress, content, 0);
-    this.newL1Messages.push(message);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     this.transitionalExecutionResult.newL2ToL1Messages.push(message);
+
+    this.trace.traceL2ToL1Message(recipientAddress, content);
   }
 
   public writeLog(contractAddress: Fr, event: Fr, log: Fr[]) {
@@ -315,11 +311,8 @@ export class AvmPersistableStateManager {
       // TODO(6578): explain magic number 4 here
       new LogHash(logHash, this.trace.accessCounter, new Fr(ulog.length + 4)),
     );
-    // TODO(6206): likely need to track this here and not just in the transitional logic.
 
-    // TODO(6205): why are logs pushed here but logs hashes are traced?
-    this.newLogs.push(ulog);
-    this.trace.traceNewLog(logHash);
+    this.trace.traceUnencryptedLog(ulog, logHash);
   }
 
   /**
@@ -330,11 +323,7 @@ export class AvmPersistableStateManager {
     this.publicStorage.acceptAndMerge(nestedJournal.publicStorage);
 
     // Merge World State Access Trace
-    this.trace.acceptAndMerge(nestedJournal.trace);
-
-    // Accrued Substate
-    this.newL1Messages.push(...nestedJournal.newL1Messages);
-    this.newLogs.push(...nestedJournal.newLogs);
+    this.trace.merge(nestedJournal.trace);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     this.transitionalExecutionResult.allUnencryptedLogs.push(
@@ -347,7 +336,7 @@ export class AvmPersistableStateManager {
    */
   public rejectNestedCallState(nestedJournal: AvmPersistableStateManager) {
     // Merge World State Access Trace
-    this.trace.acceptAndMerge(nestedJournal.trace);
+    this.trace.merge(nestedJournal.trace, /*rejectIncomingAccruedSubstate=*/ true);
   }
 
   // TODO:(5818): do we need this type anymore?
@@ -363,9 +352,13 @@ export class AvmPersistableStateManager {
       nullifierChecks: this.trace.nullifierChecks,
       newNullifiers: this.trace.newNullifiers,
       l1ToL2MessageChecks: this.trace.l1ToL2MessageChecks,
-      newL1Messages: this.newL1Messages,
-      newLogs: this.newLogs,
-      newLogsHashes: this.trace.newLogsHashes,
+      newL1Messages: this.trace.newL2ToL1Messages,
+      newLogs: this.trace.newUnencryptedLogs,
+      // TODO(5818): remove this hack
+      newLogsHashes: this.trace.newUnencryptedLogsHashes.map(logHash => {
+        const tracedLogHash: TracedUnencryptedL2Log = { logHash: logHash.value, counter: new Fr(logHash.counter) };
+        return tracedLogHash;
+      }),
       currentStorageValue: this.publicStorage.getCache().cachePerContract,
       storageReads: this.trace.publicStorageReads,
       storageWrites: this.trace.publicStorageWrites,
