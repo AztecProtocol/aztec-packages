@@ -171,6 +171,7 @@ describe('Kernel Prover', () => {
     prover = new KernelProver(oracle, proofCreator);
   });
 
+  // LONDONTODO(Client): Iterate on this and not the updated full test?
   it('should create proofs in correct order', async () => {
     {
       dependencies = { a: [] };

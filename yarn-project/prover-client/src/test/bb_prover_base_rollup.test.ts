@@ -25,7 +25,7 @@ describe('prover/bb_prover/base-rollup', () => {
 
   // LONDONTODO(BaseRollup): Good starting point. 
   // LONDONTODO(Rollup):     Also Good starting point. 
-  // LONDONTODO(Rollup):     Duplicate and make a test of just merge cicuit. Another file? 
+  // LONDONTODO(Rollup):     Duplicate and make a test of just merge circuit. Another file? 
   it('proves the base rollup', async () => {
     const header = await context.actualDb.buildInitialHeader();
     const chainId = context.globalVariables.chainId;

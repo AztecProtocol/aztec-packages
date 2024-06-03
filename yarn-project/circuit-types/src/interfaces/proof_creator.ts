@@ -49,6 +49,8 @@ export type AppCircuitProofOutput = {
  * ProofCreator provides functionality to create and validate proofs, and retrieve
  * siloed commitments necessary for maintaining transaction privacy and security on the network.
  */
+// LONDONTODO(Client): We have two classes conforming to this interface: BBNativeProofCreator and TestProofCreator.
+//                     Should we start with TestProofCreator update to reflect folding?
 export interface ProofCreator {
   /**
    * Computes the siloed commitments for a given set of public inputs.

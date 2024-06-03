@@ -259,6 +259,8 @@ export class BBNativeProofCreator implements ProofCreator {
     convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
+    // LONDONTODO(Client): This compiled circuit now needs to have a #fold appended
+    // LONDONTODO(Client): Question: you can separately compile circuits to be folded and then send, right?
     const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
 
     const witnessMap = convertInputs(inputs);
@@ -274,6 +276,7 @@ export class BBNativeProofCreator implements ProofCreator {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
+    // LONDONTODO(Client): This should just output the vk right? Consider refactor later (vk already supplied...?) but for now just re-use the function (possibly with rename?)?
     const proofOutput = await this.createProof(
       directory,
       outputWitness,
@@ -283,8 +286,8 @@ export class BBNativeProofCreator implements ProofCreator {
     if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
       throw new Error(`Incorrect proof length`);
     }
+    // LONDONTODO(Client): this goes away from kernelOutput
     const nestedProof = proofOutput.proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-
     const kernelOutput: KernelProofOutput<O> = {
       publicInputs: output,
       proof: nestedProof,
