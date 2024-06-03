@@ -14,19 +14,6 @@ using FF = Flavor::FF;
 
 } // namespace bb::avm_trace
 
-// TODO: where is the best place for this to live?
-namespace std {
-template <> struct hash<bb::avm_trace::FF> {
-    // We define a hash function for the AVM FF type for an unordered_map integration
-    size_t operator()(const bb::avm_trace::FF& ff) const
-    {
-        return (
-            std::hash<uint64_t>()(ff.data[0]) ^
-            std::hash<uint64_t>()(ff.data[1] ^ std::hash<uint64_t>()(ff.data[2]) ^ std::hash<uint64_t>()(ff.data[3])));
-    }
-};
-} // namespace std
-
 namespace bb::avm_trace {
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
@@ -53,35 +40,7 @@ static const size_t NUM_MEM_SPACES = 256;
 static const uint8_t INTERNAL_CALL_SPACE_ID = 255;
 static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
 
-// TODO: find a more suitable place for these
-/**
- * Auxiliary hints are required when the executor is unable to work out a witness value
- * These hints will be required for any opcodes that will require database information
- */
-struct ExecutionHints {
-    // slot -> value
-    std::unordered_map<FF, FF> storage_values;
-
-    // Note hash value -> exists
-    std::unordered_map<FF, bool> note_hash_exists;
-
-    // Nullifier -> exists
-    std::unordered_map<FF, bool> nullifier_exists;
-
-    // L1 to L2 message exists
-    std::unordered_map<FF, bool> l1_to_l2_msg_exists;
-
-    ExecutionHints()
-    {
-        storage_values = std::unordered_map<FF, FF>();
-        note_hash_exists = std::unordered_map<FF, bool>();
-        nullifier_exists = std::unordered_map<FF, bool>();
-        l1_to_l2_msg_exists = std::unordered_map<FF, bool>();
-    }
-
-    friend bool operator==(const ExecutionHints&, const ExecutionHints&);
-    std::vector<uint8_t> bincodeSerialize() const;
-    static ExecutionHints bincodeDeserialize(std::vector<uint8_t>);
-};
+// Side effect counter -> value
+using ExecutionHints = std::unordered_map<uint32_t, FF>;
 
 } // namespace bb::avm_trace

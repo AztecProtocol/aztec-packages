@@ -253,11 +253,10 @@ class AvmTraceBuilder {
      * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
      * @return Row
      */
-    // TODO: update info
+    // TODO: update info -> really to do with when a hint is used
     Row create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
                                                              uint32_t data_offset,
-                                                             uint32_t metadata_offset,
-                                                             std::unordered_map<FF, bool> const& exists_hint);
+                                                             uint32_t metadata_offset);
 
     void finalise_mem_trace_lookup_counts();
 
@@ -268,6 +267,10 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // Side effect counter will incremenent when any state writing values are
+    // encountered
+    uint32_t side_effect_counter = 0;
 
     // TODO: more info
     // Execution hints aid witness solving for instructions that require auxiliary information to construct

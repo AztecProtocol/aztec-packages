@@ -1667,7 +1667,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
 
     // Generate Hint for Sload operation
     ExecutionHints execution_hints = {};
-    execution_hints.storage_values[FF(9)] = FF(42); // Slot 9 = value 42
+    execution_hints[0] = FF(42); // side effect counter 0 = value 42
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
@@ -1746,9 +1746,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
 
     // Generate Hint for Sload operation
     ExecutionHints execution_hints = {};
-    execution_hints.note_hash_exists[FF(1)] = true;    // Slot 1 = true
-    execution_hints.nullifier_exists[FF(1)] = true;    // Slot 1 = true
-    execution_hints.l1_to_l2_msg_exists[FF(1)] = true; // Slot 1 = true
+    execution_hints[0] = 1; // Side effect counter 0 = true
+    execution_hints[1] = 1; // Side effect counter 1 = true
+    execution_hints[2] = 1; // Side effect counter 2 = true
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 

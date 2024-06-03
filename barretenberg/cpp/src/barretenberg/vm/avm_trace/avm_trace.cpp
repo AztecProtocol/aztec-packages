@@ -1361,13 +1361,14 @@ Row AvmTraceBuilder::create_sload(
     };
 }
 
-Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(
-    uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, std::unordered_map<FF, bool> const& exists_hint)
+Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
+                                                                          uint32_t data_offset,
+                                                                          uint32_t metadata_offset)
 {
     AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IA, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U8);
 
-    bool exists = exists_hint.at(read_a.val);
+    FF exists = execution_hints.at(side_effect_counter);
     // TODO: throw error if incorrect
 
     mem_trace_builder.write_into_memory(
@@ -1398,13 +1399,14 @@ void AvmTraceBuilder::op_emit_note_hash(uint32_t note_hash_offset)
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     Row row = create_kernel_output_opcode(clk, note_hash_offset);
-    kernel_trace_builder.op_emit_note_hash(clk, row.avm_main_ia);
+    kernel_trace_builder.op_emit_note_hash(clk, side_effect_counter, row.avm_main_ia);
     row.avm_main_sel_op_emit_note_hash = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::EMITNOTEHASH);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_emit_nullifier(uint32_t nullifier_offset)
@@ -1412,13 +1414,14 @@ void AvmTraceBuilder::op_emit_nullifier(uint32_t nullifier_offset)
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     Row row = create_kernel_output_opcode(clk, nullifier_offset);
-    kernel_trace_builder.op_emit_nullifier(clk, row.avm_main_ia);
+    kernel_trace_builder.op_emit_nullifier(clk, side_effect_counter, row.avm_main_ia);
     row.avm_main_sel_op_emit_nullifier = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::EMITNULLIFIER);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t msg_offset)
@@ -1426,13 +1429,14 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t msg_offset)
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     Row row = create_kernel_output_opcode(clk, msg_offset);
-    kernel_trace_builder.op_emit_l2_to_l1_msg(clk, row.avm_main_ia);
+    kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.avm_main_ia);
     row.avm_main_sel_op_emit_l2_to_l1_msg = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::SENDL2TOL1MSG);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_emit_unencrypted_log(uint32_t log_offset)
@@ -1440,13 +1444,14 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint32_t log_offset)
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     Row row = create_kernel_output_opcode(clk, log_offset);
-    kernel_trace_builder.op_emit_unencrypted_log(clk, row.avm_main_ia);
+    kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, row.avm_main_ia);
     row.avm_main_sel_op_emit_unencrypted_log = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::EMITUNENCRYPTEDLOG);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 // State output opcodes that include metadata
@@ -1454,45 +1459,48 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset, uint32_t dest_
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, log_offset, dest_offset, execution_hints.l1_to_l2_msg_exists);
-    kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
+    Row row = create_kernel_output_opcode_with_set_metadata_output(clk, log_offset, dest_offset);
+    kernel_trace_builder.op_l1_to_l2_msg_exists(
+        clk, side_effect_counter, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::L1TOL2MSGEXISTS);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_note_hash_exists(uint32_t note_offset, uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, note_offset, dest_offset, execution_hints.note_hash_exists);
-    kernel_trace_builder.op_note_hash_exists(clk, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
+    Row row = create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, dest_offset);
+    kernel_trace_builder.op_note_hash_exists(
+        clk, side_effect_counter, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::NOTEHASHEXISTS);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, note_offset, dest_offset, execution_hints.nullifier_exists);
-    kernel_trace_builder.op_nullifier_exists(clk, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
+    Row row = create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, dest_offset);
+    kernel_trace_builder.op_nullifier_exists(
+        clk, side_effect_counter, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
     row.avm_main_sel_op_nullifier_exists = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::NULLIFIEREXISTS);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t write_offset)
@@ -1506,11 +1514,11 @@ void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t write_offset)
     // Get the data value from the execution_hints
     // TODO: for now the hints are being offset by the offset - this will NOT fly, but i struggled to get the hash
     // working for FF
-    FF value = execution_hints.storage_values.at(slot_read.val);
+    FF value = execution_hints.at(side_effect_counter);
     // TODO: throw error if the hint does not exist
 
     Row row = create_sload(clk, write_offset, value, slot_read.val, slot_offset);
-    kernel_trace_builder.op_sload(clk, row.avm_main_ib, value);
+    kernel_trace_builder.op_sload(clk, side_effect_counter, row.avm_main_ib, value);
 
     row.avm_main_sel_op_sload = FF(1);
 
@@ -1518,6 +1526,7 @@ void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t write_offset)
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::SLOAD);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_sstore(uint32_t slot_offset, uint32_t value_offset)
@@ -1526,13 +1535,14 @@ void AvmTraceBuilder::op_sstore(uint32_t slot_offset, uint32_t value_offset)
 
     Row row =
         create_kernel_output_opcode_with_metadata(clk, value_offset, AvmMemoryTag::FF, slot_offset, AvmMemoryTag::FF);
-    kernel_trace_builder.op_sstore(clk, row.avm_main_ib, row.avm_main_ia);
+    kernel_trace_builder.op_sstore(clk, side_effect_counter, row.avm_main_ib, row.avm_main_ia);
     row.avm_main_sel_op_sstore = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::SSTORE);
 
     main_trace.push_back(row);
+    side_effect_counter++;
 }
 
 /**

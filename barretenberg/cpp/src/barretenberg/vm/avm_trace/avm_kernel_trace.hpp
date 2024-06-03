@@ -89,16 +89,16 @@ class AvmKernelTraceBuilder {
 
     // Outputs
     // Each returns the selector that was used
-    void op_note_hash_exists(uint32_t clk, const FF& note_hash, uint32_t result);
-    void op_emit_note_hash(uint32_t clk, const FF& note_hash);
-    void op_nullifier_exists(uint32_t clk, const FF& nullifier, uint32_t result);
-    void op_emit_nullifier(uint32_t clk, const FF& nullifier);
-    void op_l1_to_l2_msg_exists(uint32_t clk, const FF& message, uint32_t result);
-    void op_emit_unencrypted_log(uint32_t clk, const FF& log_hash);
-    void op_emit_l2_to_l1_msg(uint32_t clk, const FF& message);
+    void op_note_hash_exists(uint32_t clk, uint32_t side_effect_counter, const FF& note_hash, uint32_t result);
+    void op_emit_note_hash(uint32_t clk, uint32_t side_effect_counter, const FF& note_hash);
+    void op_nullifier_exists(uint32_t clk, uint32_t side_effect_counter, const FF& nullifier, uint32_t result);
+    void op_emit_nullifier(uint32_t clk, uint32_t side_effect_counter, const FF& nullifier);
+    void op_l1_to_l2_msg_exists(uint32_t clk, uint32_t side_effect_counter, const FF& message, uint32_t result);
+    void op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash);
+    void op_emit_l2_to_l1_msg(uint32_t clk, uint32_t side_effect_counter, const FF& message);
 
-    void op_sload(uint32_t clk, const FF& slot, const FF& value);
-    void op_sstore(uint32_t clk, const FF& slot, const FF& value);
+    void op_sload(uint32_t clk, uint32_t side_effect_counter, const FF& slot, const FF& value);
+    void op_sstore(uint32_t clk, uint32_t side_effect_counter, const FF& slot, const FF& value);
 
     // TODO: Move into constants.hpp?
     static const uint32_t START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
@@ -124,10 +124,6 @@ class AvmKernelTraceBuilder {
   private:
     std::vector<KernelTraceEntry> kernel_trace;
 
-    // Side effect counter will incremenent when any state writing values are
-    // encountered
-    uint32_t side_effect_counter = 0;
-
     // Output index counters
     uint32_t note_hash_exists_offset = 0;
     uint32_t emit_note_hash_offset = 0;
@@ -141,6 +137,9 @@ class AvmKernelTraceBuilder {
     uint32_t sstore_write_offset = 0;
 
     FF perform_kernel_input_lookup(uint32_t selector);
-    void perform_kernel_output_lookup(uint32_t write_offset, const FF& value, const FF& metadata);
+    void perform_kernel_output_lookup(uint32_t write_offset,
+                                      uint32_t side_effect_counter,
+                                      const FF& value,
+                                      const FF& metadata);
 };
 } // namespace bb::avm_trace
