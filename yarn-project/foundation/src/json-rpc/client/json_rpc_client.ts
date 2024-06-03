@@ -2,7 +2,7 @@
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
-import axios, { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { type RemoteObject } from 'comlink';
 import { format } from 'util';
 
