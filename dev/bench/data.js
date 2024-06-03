@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717437371422,
+  "lastUpdate": 1717439063806,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -16480,6 +16480,78 @@ window.BENCHMARK_DATA = {
             "value": 165295686,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165295686 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1324d5880e416586e47045d90efca55959773e18",
+          "message": "feat: new test program for verifying honk (#6781)\n\nAdds a new test Noir program verify_honk_proof that takes in a honk\r\nproof and calls the honk recursive verifier.\r\n\r\nFixes a couple of errors in the flow: we shouldn't be doing vkey hash stuff when processing the vkey anymore since taht isn't being attached, and we need to be able to figure out the proof size and public input size without having valid witnesses (for the write_vk_honk flow).",
+          "timestamp": "2024-06-03T14:09:46-04:00",
+          "tree_id": "0a7a341a71eeb479f7506f460c979fed78fe3042",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1324d5880e416586e47045d90efca55959773e18"
+        },
+        "date": 1717439061226,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15428.287546000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10724.128432 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5497.704797999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5178.6187390000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49003.783018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49003784000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16924.871324,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16924872000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5177429071,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5177429071 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197640557,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197640557 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4281223593,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4281223593 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163646671,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163646671 ns\nthreads: 1"
           }
         ]
       }
