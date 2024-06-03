@@ -85,11 +85,9 @@ export class EscrowTokenContractTest {
   }
 
   async mineBlocks(amount: number = EscrowTokenContractTest.DELAY) {
-    this.logger.verbose(`Mining ${amount} blocks... ${await this.aztecNode.getBlockNumber()}`);
     for (let i = 0; i < amount; ++i) {
       await this.asset.methods.total_supply().send().wait();
     }
-    this.logger.verbose(`Mining ${amount} blocks... successfully... ${await this.aztecNode.getBlockNumber()}`);
   }
 
   async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
