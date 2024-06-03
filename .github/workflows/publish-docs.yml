@@ -42,6 +42,7 @@ jobs:
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           repository: AztecProtocol/protocol-specs-pdf
           path: protocol-specs-pdf
       - name: Install Prince
