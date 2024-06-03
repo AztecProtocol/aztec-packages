@@ -38,13 +38,16 @@ We will write two tests:
 Open `cross_chain_messaging.test.ts` and paste the initial description of the test:
 
 ```typescript
-import { describe, beforeEach, expect, jest, it} from '@jest/globals'
-import { AccountWallet, AztecAddress, type DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor } from '@aztec/aztec.js';
+import { beforeAll, describe, beforeEach, expect, jest, it} from '@jest/globals'
+import { AccountWallet, AztecAddress, BatchCall, type DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor, type Wallet } from '@aztec/aztec.js';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { TokenBridgeContract } from './fixtures/TokenBridge.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
+import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
+
 
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -57,6 +60,16 @@ const hdAccount = mnemonicToAccount(MNEMONIC);
 const aztecNode = createAztecNodeClient(PXE_URL);
 export const NO_L1_TO_L2_MSG_ERROR =
   /No non-nullified L1 to L2 message found for message hash|Tried to consume nonexistent L1-to-L2 message/;
+
+async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
+  const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
+  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
+  const batch = new BatchCall(sender, [
+    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
+    ...instances.map(instance => deployInstance(sender, instance!).request()),
+  ]);
+  await batch.send().wait();
+}
 
 describe('e2e_cross_chain_messaging', () => {
   jest.setTimeout(90_000);
@@ -73,11 +86,20 @@ describe('e2e_cross_chain_messaging', () => {
   let l2Bridge: TokenBridgeContract;
   let outbox: any;
 
+  beforeAll(async () => {
+      logger = createDebugLogger('aztec:e2e_uniswap');
+      const pxe = createPXEClient(PXE_URL);
+      await waitForPXE(pxe);
+      wallets = await getInitialTestAccountsWallets(pxe);
+
+      // deploy the accounts publicly to use public authwits
+      await publicDeployAccounts(wallets[0], wallets);
+  })
+
   beforeEach(async () => {
     logger = createDebugLogger('aztec:e2e_uniswap');
     const pxe = createPXEClient(PXE_URL);
     await waitForPXE(pxe);
-    let wallets = await getInitialTestAccountsWallets(pxe);
 
     const walletClient = createWalletClient({
       account: hdAccount,
