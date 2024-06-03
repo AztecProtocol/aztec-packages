@@ -82,13 +82,13 @@ TEST_F(ClientIVCRecursionTests, Basic)
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
-    Builder builder;
-    ClientIVCVerifier verifier{ &builder, verifier_input };
+    auto builder = std::make_shared<Builder>();
+    ClientIVCVerifier verifier{ builder, verifier_input };
 
     // Generate the recursive verification circuit
     verifier.verify(proof);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(*builder));
 }
 
 } // namespace bb::stdlib::recursion::honk

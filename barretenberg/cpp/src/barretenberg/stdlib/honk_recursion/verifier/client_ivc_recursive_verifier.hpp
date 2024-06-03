@@ -20,14 +20,14 @@ class ClientIVCRecursiveVerifier {
         GoblinVerifierInput goblin_input;
     };
 
-    ClientIVCRecursiveVerifier(Builder* builder, VerifierInput& verifier_input)
+    ClientIVCRecursiveVerifier(std::shared_ptr<Builder> builder, VerifierInput& verifier_input)
         : builder(builder)
         , verifier_input(verifier_input){};
 
     void verify(const ClientIVC::Proof&);
 
   private:
-    Builder* builder;
+    std::shared_ptr<Builder> builder;
     VerifierInput verifier_input;
 };
 } // namespace bb::stdlib::recursion::honk
