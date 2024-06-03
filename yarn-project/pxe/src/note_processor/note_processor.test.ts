@@ -25,14 +25,22 @@ import { type NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;
+const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NEW_NOTE_HASHES_PER_TX;
 
+/** A wrapper containing info about a note we want to mock and insert into a block */
 class MockNoteRequest {
   constructor(
+    /** Note we want to insert into a block. */
     public readonly note: TaggedNote,
+    /** Block number this note corresponds to. */
     public readonly blockNumber: number,
+    /** Index of a tx within a block this note corresponds to. */
     public readonly txIndex: number,
+    /** Index of a note hash withing a list of note hashes for 1 tx. */
     public readonly noteHashIndex: number,
+    /** ivpk we use when encrypting a note */
     public readonly ivpk: PublicKey,
+    /** ovKeys we use when encrypting a note */
     public readonly ovKeys: KeyValidationRequest,
   ) {
     if (noteHashIndex >= MAX_NEW_NOTE_HASHES_PER_TX) {
@@ -49,6 +57,14 @@ class MockNoteRequest {
     const log = this.note.encrypt(ephSk, recipient, this.ivpk, this.ovKeys);
     return new EncryptedL2NoteLog(log);
   }
+
+  get indexWithinNoteHashTree(): bigint {
+    return BigInt(
+      (this.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK +
+        this.txIndex * MAX_NEW_NOTE_HASHES_PER_TX +
+        this.noteHashIndex,
+    );
+  }
 }
 
 describe('Note Processor', () => {
@@ -59,15 +75,10 @@ describe('Note Processor', () => {
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
   const firstBlockNum = 123;
-  const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_NOTE_HASHES_PER_TX;
-  const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
-  const firstBlockDataEndIndex = firstBlockNum * numCommitmentsPerBlock;
 
   let ownerIvskM: GrumpkinPrivateKey;
   let ownerIvpkM: PublicKey;
   let ownerOvKeys: KeyValidationRequest;
-
-  const app = AztecAddress.random();
 
   function mockBlocks(requests: MockNoteRequest[], numBlocks: number) {
     const blocks = [];
@@ -77,8 +88,7 @@ describe('Note Processor', () => {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK, 1, 0, 4);
 
       // We have to update the next available leaf index in note hash tree to match the block number
-      block.header.state.partial.noteHashTree.nextAvailableLeafIndex =
-        firstBlockDataEndIndex + i * numCommitmentsPerBlock;
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex = block.number * NUM_NOTE_HASHES_PER_BLOCK;
 
       // Then we get all the note requests for the block
       const noteRequestsForBlock = requests.filter(request => request.blockNumber === block.number);
@@ -89,7 +99,7 @@ describe('Note Processor', () => {
         const noteHash = pedersenHash(note.notePayload.note.items);
         block.body.txEffects[request.txIndex].noteHashes[request.noteHashIndex] = noteHash;
 
-        // Now we populate the encrypted log - to simplify we say that there is only 1 function
+        // Now we populate the log - to simplify we say that there is only 1 function log invocations in each tx
         block.body.txEffects[request.txIndex].noteEncryptedLogs.functionLogs[0].logs[request.noteHashIndex] =
           request.encrypt();
       }
@@ -104,6 +114,7 @@ describe('Note Processor', () => {
   beforeAll(() => {
     const ownerSk = Fr.random();
     const allOwnerKeys = deriveKeys(ownerSk);
+    const app = AztecAddress.random();
 
     ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
     ownerIvpkM = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
@@ -150,7 +161,7 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...request.note.notePayload,
-        index: BigInt(firstBlockDataStartIndex + 2),
+        index: request.indexWithinNoteHashTree,
       }),
     ]);
   }, 25_000);
@@ -164,28 +175,27 @@ describe('Note Processor', () => {
     ];
 
     const blocks = mockBlocks(requests, 4);
+
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
     await noteProcessor.process(blocks, encryptedLogs);
-
-    const thisBlockDataStartIndex = firstBlockDataStartIndex + prependedBlocks * numCommitmentsPerBlock;
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...requests[0].note.notePayload,
         // Index 1 log in the 2nd tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (2 - 1) + 1),
+        index: requests[0].indexWithinNoteHashTree,
       }),
       expect.objectContaining({
         ...requests[1].note.notePayload,
         // Index 0 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 0),
+        index: requests[1].indexWithinNoteHashTree,
       }),
       expect.objectContaining({
         ...requests[2].note.notePayload,
         // Index 2 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 2),
+        index: requests[2].indexWithinNoteHashTree,
       }),
     ]);
   }, 30_000);
@@ -213,13 +223,13 @@ describe('Note Processor', () => {
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const requests = [
       new MockNoteRequest(note, firstBlockNum, 0, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum, 2, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note2, firstBlockNum, 2, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum, 2, 3, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, firstBlockNum + 1, 0, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, firstBlockNum + 1, 2, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note2, firstBlockNum + 2, 2, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, firstBlockNum + 3, 2, 3, ownerIvpkM, ownerOvKeys),
     ];
 
-    const blocks = mockBlocks(requests, 1);
+    const blocks = mockBlocks(requests, 4);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
