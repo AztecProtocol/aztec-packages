@@ -46,7 +46,7 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { TokenBridgeContract } from './fixtures/TokenBridge.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 
-import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createPublicClient, createWalletClient, http, toFunctionSelector } from 'viem';
 import { foundry } from 'viem/chains';
