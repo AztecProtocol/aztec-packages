@@ -3,6 +3,7 @@
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
 import { type RemoteObject } from 'comlink';
+import { Agent } from 'undici';
 import { format } from 'util';
 
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
@@ -39,11 +40,19 @@ export async function defaultFetch(
       headers: { 'content-type': 'application/json' },
     });
   } else {
+    const defaultTimeoutMs = 1000 * 60 * 15; // 15 minutes
     resp = await fetch(host, {
       method: 'POST',
       body: JsonStringify({ ...body, method: rpcMethod }),
       headers: { 'content-type': 'application/json' },
-    });
+      dispatcher: new Agent({
+        headersTimeout: defaultTimeoutMs,
+        bodyTimeout: defaultTimeoutMs,
+        connectTimeout: defaultTimeoutMs,
+        keepAliveMaxTimeout: defaultTimeoutMs,
+        keepAliveTimeout: defaultTimeoutMs,
+      }),
+    } as RequestInit);
   }
 
   let responseJson;
@@ -80,7 +89,7 @@ export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,
-      true,
+      false,
     );
   };
 }

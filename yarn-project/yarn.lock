@@ -562,6 +562,7 @@ __metadata:
     supertest: ^6.3.3
     ts-node: ^10.9.1
     typescript: ^5.0.4
+    undici: ^6.18.2
     zod: ^3.22.4
   languageName: unknown
   linkType: soft
@@ -13839,6 +13840,13 @@ __metadata:
   version: 5.26.5
   resolution: "undici-types@npm:5.26.5"
   checksum: 3192ef6f3fd5df652f2dc1cd782b49d6ff14dc98e5dced492aa8a8c65425227da5da6aafe22523c67f035a272c599bb89cfe803c1db6311e44bed3042fc25487
+  languageName: node
+  linkType: hard
+
+"undici@npm:^6.18.2":
+  version: 6.18.2
+  resolution: "undici@npm:6.18.2"
+  checksum: c20e47bd4f959c00d24516756b178190f0a9ae000007e875f1f68c8e7f3f9a68b0a7faa03f3d030ddd71a9e3feb558fbce661b5229a0aa8380cfbe1cea4281e4
   languageName: node
   linkType: hard
 

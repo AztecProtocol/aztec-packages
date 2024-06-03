@@ -99,6 +99,7 @@
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
     "sha3": "^2.1.4",
+    "undici": "^6.18.2",
     "zod": "^3.22.4"
   },
   "devDependencies": {
