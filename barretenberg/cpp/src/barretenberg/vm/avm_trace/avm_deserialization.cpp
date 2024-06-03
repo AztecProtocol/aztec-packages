@@ -1,11 +1,11 @@
-#include "avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "barretenberg/vm/avm_trace/avm_instructions.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -17,6 +17,7 @@ namespace {
 const std::vector<OperandType> three_operand_format = {
     OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32,
 };
+const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
 
 const std::vector<OperandType> getter_format = {
     OperandType::INDIRECT,
@@ -53,6 +54,16 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::FEEPERL2GAS, getter_format },
     { OpCode::FEEPERDAGAS, getter_format },
     { OpCode::TRANSACTIONFEE, getter_format },
+
+    // TODO: ordering inline with spec
+    { OpCode::EMITNOTEHASH, getter_format },  // TODO: new format for these
+    { OpCode::EMITNULLIFIER, getter_format }, // TODO: new format for these
+    { OpCode::EMITUNENCRYPTEDLOG, getter_format },
+    { OpCode::SLOAD, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SSTORE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::NOTEHASHEXISTS, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::NULLIFIEREXISTS, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::L1TOL2MSGEXISTS, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // CONTRACTCALLDEPTH, -- not in simulator
     // Execution Environment - Globals
     { OpCode::CHAINID, getter_format },
@@ -69,7 +80,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::DAGASLEFT, getter_format },
     // Machine State - Internal Control Flow
     { OpCode::JUMP, { OperandType::UINT32 } },
-    // JUMPI
+    { OpCode::JUMPI, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
     // Machine State - Memory
@@ -145,8 +156,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         const uint8_t opcode_byte = bytecode.at(pos);
 
         if (!Bytecode::is_valid(opcode_byte)) {
-            throw_or_abort("Invalid opcode byte: " + std::to_string(opcode_byte) +
-                           " at position: " + std::to_string(pos));
+            throw_or_abort("Invalid opcode byte: " + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
         }
         pos++;
 
@@ -193,11 +203,14 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT128, OperandType::UINT32 };
                 break;
             default: // This branch is guarded above.
-                std::cerr << "This code branch must have been guarded by the tag validation. \n";
-                assert(false);
+                throw_or_abort("Error processing wire format of SET opcode.");
             }
         } else {
-            inst_format = OPCODE_WIRE_FORMAT.at(opcode);
+            auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
+            if (iter == OPCODE_WIRE_FORMAT.end()) {
+                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode));
+            }
+            inst_format = iter->second;
         }
 
         std::vector<Operand> operands;
@@ -205,7 +218,8 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         for (OperandType const& opType : inst_format) {
             // No underflow as while condition guarantees pos <= length (after pos++)
             if (length - pos < OPERAND_TYPE_SIZE.at(opType)) {
-                throw_or_abort("Operand is missing at position " + std::to_string(pos));
+                throw_or_abort("Operand is missing at position " + std::to_string(pos) +
+                               " for opcode: " + to_hex(opcode));
             }
 
             switch (opType) {
@@ -217,7 +231,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 uint8_t tag_u8 = bytecode.at(pos);
                 if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
-                                   " value: " + std::to_string(tag_u8));
+                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_hex(opcode));
                 }
                 operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
                 break;
