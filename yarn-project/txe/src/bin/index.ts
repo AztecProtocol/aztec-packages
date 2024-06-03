@@ -2,7 +2,7 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { startTXEHttpServer } from '../index.js';
-import { TXE, TXEService } from '../txe_service/txe_service.js';
+import { TXEService } from '../txe_service/txe_service.js';
 
 const { TXE_PORT = 8080 } = process.env;
 
@@ -14,8 +14,7 @@ const logger = createDebugLogger('aztec:txe_service');
 async function main() {
   logger.info(`Setting up TXE...`);
 
-  const txe = await TXE.init(logger);
-  const txeService = new TXEService(txe);
+  const txeService = await TXEService.init(logger);
 
   startTXEHttpServer(txeService, TXE_PORT);
 

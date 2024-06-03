@@ -16,23 +16,21 @@ import { type FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
-  type ACVMField,
   type MessageLoadOracleInputs,
   type NoteData,
   type TypedOracle,
   WorldStateDB,
   WorldStatePublicDB,
-  fromACVMField,
-  toACVMField,
 } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
-import { MerkleTrees } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import {
-  ForeignCallArray,
-  ForeignCallSingle,
+  type ForeignCallArray,
+  type ForeignCallSingle,
   fromArray,
   fromSingle,
   toArray,
@@ -40,20 +38,12 @@ import {
 } from '../util/encoding.js';
 
 export class TXE implements TypedOracle {
-  constructor(
-    private logger: Logger,
-    private worldStatePublicDB: WorldStatePublicDB,
-    private worldStateDB: WorldStateDB,
-    private contractAddress: AztecAddress,
-  ) {}
+  private worldStatePublicDB: WorldStatePublicDB;
+  private worldStateDB: WorldStateDB;
 
-  static async init(logger: Logger) {
-    const store = openTmpStore(true);
-    const merkleTrees = await MerkleTrees.new(store, logger);
-    const worldStatePublicDB = new WorldStatePublicDB(merkleTrees.asLatest());
-    const worldStateDB = new WorldStateDB(merkleTrees.asLatest());
-    const contractAddress = AztecAddress.random();
-    return new TXE(logger, worldStatePublicDB, worldStateDB, contractAddress);
+  constructor(private logger: Logger, private trees: MerkleTreeOperations, private contractAddress: AztecAddress) {
+    this.worldStatePublicDB = new WorldStatePublicDB(this.trees);
+    this.worldStateDB = new WorldStateDB(this.trees);
   }
 
   getRandomField() {
@@ -140,8 +130,6 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
   async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
-    console.log(`startStorageSlot ${startStorageSlot}`);
-    console.log(`numberOfElements ${numberOfElements}`);
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = startStorageSlot.add(new Fr(i));
@@ -151,6 +139,7 @@ export class TXE implements TypedOracle {
     }
     return values;
   }
+
   async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
     return await Promise.all(
       values.map(async (value, i) => {
@@ -232,8 +221,22 @@ export class TXE implements TypedOracle {
 }
 
 export class TXEService {
-  constructor(private typedOracle: TypedOracle) {
-    this.typedOracle = typedOracle;
+  constructor(private typedOracle: TypedOracle, private store: AztecKVStore, private contractAddress: AztecAddress) {}
+
+  static async init(logger: Logger, contractAddress = AztecAddress.random()) {
+    const store = openTmpStore(true);
+    const trees = await MerkleTrees.new(store, logger);
+    const txe = new TXE(logger, trees.asLatest(), contractAddress);
+    return new TXEService(txe, store, contractAddress);
+  }
+
+  setContractAddress(address = AztecAddress.random()): AztecAddress {
+    this.contractAddress = address;
+    return this.contractAddress;
+  }
+
+  async reset() {
+    await this.store.clear();
   }
 
   async storageRead(startStorageSlot: ForeignCallSingle, numberOfElements: ForeignCallSingle) {
