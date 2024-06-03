@@ -14,6 +14,7 @@ import {
   ContentCommitment,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
+  type EmptyNestedData,
   EncryptedLogHash,
   EthAddress,
   Fr,
@@ -78,6 +79,7 @@ import {
   type PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   type PrivateKernelData,
+  type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInitHints,
   type PrivateKernelInnerCircuitPrivateInputs,
@@ -144,6 +146,7 @@ import type {
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
+  EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
   EncryptedLogHash as EncryptedLogHashNoir,
   Field,
   FixedLengthArray,
@@ -193,6 +196,7 @@ import type {
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelCircuitPublicInputs as PrivateKernelCircuitPublicInputsNoir,
   PrivateKernelData as PrivateKernelDataNoir,
+  PrivateKernelEmptyPrivateInputs as PrivateKernelEmptyPrivateInputsNoir,
   PrivateKernelInitCircuitPrivateInputs as PrivateKernelInitCircuitPrivateInputsNoir,
   PrivateKernelInitHints as PrivateKernelInitHintsNoir,
   PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircuitPrivateInputsNoir,
@@ -1770,6 +1774,14 @@ export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsN
       combineHints.sortedPublicDataUpdateRequestsIndexes,
       mapNumberToNoir,
     ),
+    deduped_public_data_update_requests: mapTuple(
+      combineHints.dedupedPublicDataUpdateRequests,
+      mapPublicDataUpdateRequestToNoir,
+    ),
+    deduped_public_data_update_requests_runs: mapTuple(
+      combineHints.dedupedPublicDataUpdateRequestsRuns,
+      mapNumberToNoir,
+    ),
   };
 }
 
@@ -1904,6 +1916,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     note_hash_read_requests: mapTuple(publicInputs.noteHashReadRequests, mapReadRequestToNoir),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
+    l1_to_l2_msg_read_requests: mapTuple(publicInputs.l1ToL2MsgReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
@@ -2372,5 +2385,21 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.constants),
     fee_payer_gas_token_balance_read_hint: mapPublicDataHintToNoir(inputs.feePayerGasTokenBalanceReadHint),
+  };
+}
+
+export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): PrivateKernelEmptyPrivateInputsNoir {
+  return {
+    empty_nested: mapEmptyNestedDataToNoir(inputs.emptyNested),
+    historical_header: mapHeaderToNoir(inputs.header),
+    chain_id: mapFieldToNoir(inputs.chainId),
+    version: mapFieldToNoir(inputs.version),
+  };
+}
+
+function mapEmptyNestedDataToNoir(inputs: EmptyNestedData): EmptyNestedDataNoir {
+  return {
+    proof: mapRecursiveProofToNoir(inputs.proof),
+    vk: mapVerificationKeyToNoir(inputs.vk),
   };
 }

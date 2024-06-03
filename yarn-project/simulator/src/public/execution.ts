@@ -40,6 +40,8 @@ export interface PublicExecutionResult {
   nullifierReadRequests: ReadRequest[];
   /** The nullifier non existent read requests emitted in this call. */
   nullifierNonExistentReadRequests: ReadRequest[];
+  /** L1 to L2 message read requests emitted in this call. */
+  l1ToL2MsgReadRequests: ReadRequest[];
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];
   /** The contract storage update requests performed by the function. */
@@ -61,20 +63,20 @@ export interface PublicExecutionResult {
    * Useful for maintaining correct ordering in ts.
    */
   allUnencryptedLogs: UnencryptedFunctionL2Logs;
-  /**
-   * Whether the execution reverted.
-   */
+  /** Whether the execution reverted. */
   reverted: boolean;
-  /**
-   * The revert reason if the execution reverted.
-   */
-  revertReason: SimulationError | undefined;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
   /** How much gas was available for this public execution. */
   startGasLeft: Gas;
   /** How much gas was left after this public execution. */
   endGasLeft: Gas;
   /** Transaction fee set for this tx. */
   transactionFee: Fr;
+  /** Bytecode used for this execution. */
+  bytecode?: Buffer;
+  /** Calldata used for this execution. */
+  calldata: Fr[];
 }
 
 /**
