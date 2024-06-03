@@ -83,6 +83,7 @@
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
+    "axios": "^1.7.2",
     "bn.js": "^5.2.1",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
@@ -99,7 +100,6 @@
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
     "sha3": "^2.1.4",
-    "undici": "^6.18.2",
     "zod": "^3.22.4"
   },
   "devDependencies": {

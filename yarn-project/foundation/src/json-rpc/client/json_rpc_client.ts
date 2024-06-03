@@ -2,14 +2,14 @@
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
+import axios, { AxiosResponse } from 'axios';
 import { type RemoteObject } from 'comlink';
-import { Agent } from 'undici';
 import { format } from 'util';
 
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
 import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
-import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
+import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
 export { JsonStringify } from '../convert.js';
 
@@ -32,47 +32,29 @@ export async function defaultFetch(
   noRetry = false,
 ) {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
-  let resp: Response;
+  let resp: AxiosResponse;
   if (useApiEndpoints) {
-    resp = await fetch(`${host}/${rpcMethod}`, {
-      method: 'POST',
-      body: JsonStringify(body),
+    resp = await axios.post(`${host}/${rpcMethod}`, body, {
       headers: { 'content-type': 'application/json' },
     });
   } else {
-    const defaultTimeoutMs = 1000 * 60 * 15; // 15 minutes
-    resp = await fetch(host, {
-      method: 'POST',
-      body: JsonStringify({ ...body, method: rpcMethod }),
-      headers: { 'content-type': 'application/json' },
-      dispatcher: new Agent({
-        headersTimeout: defaultTimeoutMs,
-        bodyTimeout: defaultTimeoutMs,
-        connectTimeout: defaultTimeoutMs,
-        keepAliveMaxTimeout: defaultTimeoutMs,
-        keepAliveTimeout: defaultTimeoutMs,
-      }),
-    } as RequestInit);
+    resp = await axios.post(
+      host,
+      { ...body, method: rpcMethod },
+      {
+        headers: { 'content-type': 'application/json' },
+      },
+    );
   }
 
-  let responseJson;
-  try {
-    responseJson = await resp.json();
-  } catch (err) {
-    if (!resp.ok) {
-      throw new Error(resp.statusText);
-    }
-    throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
+  const isOK = resp.status >= 200 && resp.status < 300;
+  if (isOK) {
+    return resp.data;
+  } else if (noRetry || (resp.status >= 400 && resp.status < 500)) {
+    throw new NoRetryError('(JSON-RPC PROPAGATED) ' + resp.data.error.message);
+  } else {
+    throw new Error('(JSON-RPC PROPAGATED) ' + resp.data.error.message);
   }
-  if (!resp.ok) {
-    if (noRetry || (resp.status >= 400 && resp.status < 500)) {
-      throw new NoRetryError('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
-    } else {
-      throw new Error('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
-    }
-  }
-
-  return responseJson;
 }
 
 /**
