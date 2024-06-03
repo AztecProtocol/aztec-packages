@@ -204,6 +204,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  // LONDONTODO(Rollup): make Rollup proof
   public async getMergeRollupProof(
     input: MergeRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
@@ -234,6 +235,8 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  // LONDONTODO(Rollup): make rollup proof 
+  // LONDONTODO(Rollup): same as root rollup
   public async getRootRollupProof(
     input: RootRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
