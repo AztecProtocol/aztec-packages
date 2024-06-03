@@ -31,6 +31,7 @@ describe('Discv5Service', () => {
   let port = 7890;
   const baseConfig = {
     announceUdpHostname: '/ip4/127.0.0.1',
+    announceTcpHostname: '/ip4/127.0.0.1',
     announcePort: port,
     tcpListenPort: port,
     udpListenIp: '0.0.0.0',
