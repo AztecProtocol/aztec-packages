@@ -53,6 +53,7 @@ export class TaggedNote {
     ivpk: PublicKey,
     ovKeys: KeyValidationRequest,
   ): Buffer {
+    // TODO(benesjan): return as EncryptedNoteFunctionL2Logs
     return serializeToBuffer(
       this.incomingTag,
       this.outgoingTag,
