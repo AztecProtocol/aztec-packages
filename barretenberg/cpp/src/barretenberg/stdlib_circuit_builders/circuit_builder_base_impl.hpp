@@ -274,6 +274,7 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
+    abort();
     _failed = true;
     set_err(std::move(msg));
 }

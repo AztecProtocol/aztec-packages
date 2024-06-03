@@ -766,14 +766,14 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
  * @param _points
  * @param _scalars
  * @param max_num_bits The max of the bit lengths of the scalars.
- * @param generic_input Flag to indicuate that no two pairs of input scalars are equal WORKTODO: correct condition?
+ * @param with_edgecases Use when points are linearly dependent. Randomises them.
  * @return element<C, Fq, Fr, G>
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
                                                        const std::vector<Fr>& _scalars,
                                                        const size_t max_num_bits,
-                                                       const bool generic_input)
+                                                       const bool with_edgecases)
 {
     const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
@@ -795,7 +795,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         } else {
             const size_t num_points = points.size();
             ASSERT(scalars.size() == num_points);
-            batch_lookup_table point_table(points, generic_input);
+            batch_lookup_table point_table(points);
             const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
             std::vector<std::vector<bool_ct>> naf_entries;
