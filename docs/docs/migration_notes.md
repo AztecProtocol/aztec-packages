@@ -6,13 +6,22 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.42.0
+
+### [Aztec.nr] Unconstrained Context
+
+Top-level unconstrained execution is now marked by the new `UnconstrainedContext`, which provides access to the block number and contract address being used in the simulation. Any custom state variables that provided unconstrained functions should update their specialization parameter:
+
+```diff
++ use dep::aztec::context::UnconstrainedContext;
+
+- impl MyStateVariable<()> {
++ impl MyStateVariable<UnconstrainedContext> {
+```
 
 ### [Aztec.nr] Filtering is now constrained
 
 The `filter` argument of `NoteGetterOptions` (typically passed via the `with_filter()` function) is now applied in a constraining environment, meaning any assertions made during the filtering are guaranteed to hold. This mirrors the behavior of the `select()` function.
-
-## 0.42.0
 
 ### [Aztec.nr] Emitting encrypted notes and logs
 

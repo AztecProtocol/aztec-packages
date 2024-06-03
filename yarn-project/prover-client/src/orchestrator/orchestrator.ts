@@ -5,12 +5,14 @@ import {
   type PaddingProcessedTx,
   type ProcessedTx,
   PublicKernelType,
+  Tx,
   type TxEffect,
   makeEmptyProcessedTx,
   makePaddingProcessedTx,
   toTxEffect,
 } from '@aztec/circuit-types';
 import {
+  BlockProofError,
   type BlockResult,
   PROVING_STATUS,
   type ProvingResult,
@@ -88,9 +90,15 @@ export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: PaddingProcessedTx | undefined = undefined;
-  private initialHeader: Header | undefined = undefined;
 
-  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
+  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver, private initialHeader?: Header) {}
+
+  /**
+   * Resets the orchestrator's cached padding tx.
+   */
+  public reset() {
+    this.paddingTx = undefined;
+  }
 
   /**
    * Starts off a new block
@@ -249,9 +257,11 @@ export class ProvingOrchestrator {
   ) {
     if (this.paddingTx) {
       // We already have the padding transaction
+      logger.debug(`Enqueuing ${txInputs.length} padding transactions using existing padding tx`);
       this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
       return;
     }
+    logger.debug(`Enqueuing deferred proving for padding txs to enqueue ${txInputs.length} paddings`);
     this.deferredProving(
       provingState,
       signal =>
@@ -260,24 +270,33 @@ export class ProvingOrchestrator {
             // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
             // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
             // we'd have to clear out the paddingTx here and regenerate it when they do.
-            chainId: unprovenPaddingTx.data.constants.globalVariables.chainId,
-            version: unprovenPaddingTx.data.constants.globalVariables.version,
+            chainId: unprovenPaddingTx.data.constants.txContext.chainId,
+            version: unprovenPaddingTx.data.constants.txContext.version,
             header: unprovenPaddingTx.data.constants.historicalHeader,
           },
           signal,
         ),
       result => {
+        logger.debug(`Completed proof for padding tx, now enqueuing ${txInputs.length} padding txs`);
         this.paddingTx = makePaddingProcessedTx(result);
         this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
       },
     );
   }
 
+  /**
+   * Prepares the cached sets of base rollup inputs for padding transactions and proves them
+   * @param txInputs - The base rollup inputs, start and end hash paths etc
+   * @param paddingTx - The padding tx, contains the header, proof, vk, public inputs used in the proof
+   * @param provingState - The block proving state
+   */
   private provePaddingTransactions(
     txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }>,
     paddingTx: PaddingProcessedTx,
     provingState: ProvingState,
   ) {
+    // The padding tx contains the proof and vk, generated separately from the base inputs
+    // Copy these into the base rollup inputs
     for (let i = 0; i < txInputs.length; i++) {
       txInputs[i].inputs.kernelData.vk = paddingTx.verificationKey;
       txInputs[i].inputs.kernelData.proof = paddingTx.recursiveProof;
@@ -301,64 +320,71 @@ export class ProvingOrchestrator {
    * @returns The fully proven block and proof.
    */
   public async finaliseBlock() {
-    if (
-      !this.provingState ||
-      !this.provingState.rootRollupPublicInputs ||
-      !this.provingState.finalProof ||
-      !this.provingState.finalAggregationObject
-    ) {
-      throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
-    }
-    if (this.provingState.block) {
-      throw new Error('Block already finalised');
-    }
+    try {
+      if (
+        !this.provingState ||
+        !this.provingState.rootRollupPublicInputs ||
+        !this.provingState.finalProof ||
+        !this.provingState.finalAggregationObject
+      ) {
+        throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
+      }
+      if (this.provingState.block) {
+        throw new Error('Block already finalised');
+      }
 
-    const rootRollupOutputs = this.provingState.rootRollupPublicInputs;
+      const rootRollupOutputs = this.provingState.rootRollupPublicInputs;
 
-    logger?.debug(`Updating and validating root trees`);
-    await this.db.updateArchive(rootRollupOutputs.header);
+      logger?.debug(`Updating and validating root trees`);
+      await this.db.updateArchive(rootRollupOutputs.header);
 
-    await validateRootOutput(rootRollupOutputs, this.db);
+      await validateRootOutput(rootRollupOutputs, this.db);
 
-    // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const gasFees = this.provingState.globalVariables.gasFees;
-    const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(txProvingState =>
-      toTxEffect(txProvingState.processedTx, gasFees),
-    ).filter(txEffect => !txEffect.isEmpty());
-    const blockBody = new Body(nonEmptyTxEffects);
+      // Collect all new nullifiers, commitments, and contracts from all txs in this block
+      const gasFees = this.provingState.globalVariables.gasFees;
+      const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(txProvingState =>
+        toTxEffect(txProvingState.processedTx, gasFees),
+      ).filter(txEffect => !txEffect.isEmpty());
+      const blockBody = new Body(nonEmptyTxEffects);
 
-    const l2Block = L2Block.fromFields({
-      archive: rootRollupOutputs.archive,
-      header: rootRollupOutputs.header,
-      body: blockBody,
-    });
+      const l2Block = L2Block.fromFields({
+        archive: rootRollupOutputs.archive,
+        header: rootRollupOutputs.header,
+        body: blockBody,
+      });
 
-    if (!l2Block.body.getTxsEffectsHash().equals(rootRollupOutputs.header.contentCommitment.txsEffectsHash)) {
-      logger.debug(inspect(blockBody));
-      throw new Error(
-        `Txs effects hash mismatch, ${l2Block.body
-          .getTxsEffectsHash()
-          .toString('hex')} == ${rootRollupOutputs.header.contentCommitment.txsEffectsHash.toString('hex')} `,
+      if (!l2Block.body.getTxsEffectsHash().equals(rootRollupOutputs.header.contentCommitment.txsEffectsHash)) {
+        logger.debug(inspect(blockBody));
+        throw new Error(
+          `Txs effects hash mismatch, ${l2Block.body
+            .getTxsEffectsHash()
+            .toString('hex')} == ${rootRollupOutputs.header.contentCommitment.txsEffectsHash.toString('hex')} `,
+        );
+      }
+
+      logger.info(`Successfully proven block ${l2Block.number}!`);
+
+      this.provingState.block = l2Block;
+
+      const blockResult: BlockResult = {
+        proof: this.provingState.finalProof,
+        aggregationObject: this.provingState.finalAggregationObject,
+        block: l2Block,
+      };
+
+      pushTestData('blockResults', {
+        block: l2Block.toString(),
+        proof: this.provingState.finalProof.toString(),
+        aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
+      });
+
+      return blockResult;
+    } catch (err) {
+      throw new BlockProofError(
+        err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err),
+        this.provingState?.allTxs.map(x => Tx.getHash(x.processedTx)) ?? [],
       );
     }
-
-    logger.info(`Successfully proven block ${l2Block.number}!`);
-
-    this.provingState.block = l2Block;
-
-    const blockResult: BlockResult = {
-      proof: this.provingState.finalProof,
-      aggregationObject: this.provingState.finalAggregationObject,
-      block: l2Block,
-    };
-
-    pushTestData('blockResults', {
-      block: l2Block.toString(),
-      proof: this.provingState.finalProof.toString(),
-      aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
-    });
-
-    return blockResult;
   }
 
   /**
@@ -559,10 +585,17 @@ export class ProvingOrchestrator {
       return;
     }
 
+    logger.debug(
+      `Enqueuing deferred proving base rollup${
+        tx.processedTx.isEmpty ? ' with padding tx' : ''
+      } for ${tx.processedTx.hash.toString()}`,
+    );
+
     this.deferredProving(
       provingState,
       signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
       result => {
+        logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
         validatePartialState(result.inputs.end, tx.treeSnapshots);
         const currentLevel = provingState.numMergeLevels + 1n;
         this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [
