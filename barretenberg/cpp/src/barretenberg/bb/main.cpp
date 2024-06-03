@@ -508,6 +508,17 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
     }
 }
 
+avm_trace::ExecutionHints deserialize_execution_hints(const std::vector<uint8_t>& hints)
+{
+    // TODO(md): this if is just to silence warnings
+    if (hints.size() == 0) {
+        vinfo("no hints provided");
+    }
+    // In this case the execution hints are a tuple of field elements, so we can work out how many pairs we have, then
+    // slice em up!
+    return avm_trace::ExecutionHints{};
+}
+
 /**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
@@ -531,18 +542,14 @@ void avm_prove(const std::filesystem::path& bytecode_path,
         bytecode_path.extension() == ".gz" ? gunzip(bytecode_path) : read_file(bytecode_path);
     std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
     std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(read_file(public_inputs_path));
-    std::vector<uint8_t> avm_hints;
-    try {
-        avm_hints = read_file(hints_path);
-    } catch (std::runtime_error const& err) {
-        vinfo("No hints were provided for avm proving.... Might be fine!");
-    }
+    avm_trace::ExecutionHints avm_hints = deserialize_execution_hints(read_file(hints_path));
 
     // Hardcoded circuit size for now, with enough to support 16-bit range checks
     init_bn254_crs(1 << 17);
 
     // Prove execution and return vk
-    auto const [verification_key, proof] = avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec);
+    auto const [verification_key, proof] =
+        avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints);
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
     std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
     std::vector<fr> vk_as_fields = { verification_key.circuit_size, verification_key.num_public_inputs };
