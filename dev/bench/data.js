@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717425623738,
+  "lastUpdate": 1717426139981,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -14776,6 +14776,78 @@ window.BENCHMARK_DATA = {
             "value": 164966122,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164966122 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd795c70874662674ebc580c1496d3ccec93e93a",
+          "message": "feat: Add goblin recursive verifier to ClientIVC recursive verifier (#6811)\n\nCompletes ClientIVC recursive verifier (minus final recursive merge) by\r\nincorporating the Goblin recursive verifier. Also adds some failure\r\ntests for the latter.",
+          "timestamp": "2024-06-03T15:36:36+01:00",
+          "tree_id": "fbb8d0b8c19b16c6646afc06189bb361c44e6eda",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bd795c70874662674ebc580c1496d3ccec93e93a"
+        },
+        "date": 1717426138832,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15540.274613999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10886.136231 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5665.210983999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5249.814542 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49015.746763,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49015749000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17141.852147,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17141851000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5205684841,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5205684841 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199597787,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199597787 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4287435336,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4287435336 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163595610,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163595610 ns\nthreads: 1"
           }
         ]
       }
