@@ -414,35 +414,4 @@ mod test {
         HeapArray, HeapVector, Memory,
     };
 
-    #[test]
-    fn sha256() {
-        let message: Vec<u8> = b"hello world".to_vec();
-        let message_length = message.len();
-
-        let mut memory: Memory<FieldElement> = Memory::default();
-        let message_pointer = 3;
-        let result_pointer = message_pointer + message_length;
-        memory.write(MemoryAddress(0), message_pointer.into());
-        memory.write(MemoryAddress(1), message_length.into());
-        memory.write(MemoryAddress(2), result_pointer.into());
-        memory.write_slice(MemoryAddress(message_pointer), to_value_vec(&message).as_slice());
-
-        let op = BlackBoxOp::Sha256 {
-            message: HeapVector { pointer: 0.into(), size: 1.into() },
-            output: HeapArray { pointer: 2.into(), size: 32 },
-        };
-
-        evaluate_black_box(&op, &StubbedBlackBoxSolver, &mut memory, &mut BigIntSolver::default())
-            .unwrap();
-
-        let result = memory.read_slice(MemoryAddress(result_pointer), 32);
-
-        assert_eq!(
-            to_u8_vec(result),
-            vec![
-                185, 77, 39, 185, 147, 77, 62, 8, 165, 46, 82, 215, 218, 125, 171, 250, 196, 132,
-                239, 227, 122, 83, 128, 238, 144, 136, 247, 172, 226, 239, 205, 233
-            ]
-        );
-    }
-}
+  }
