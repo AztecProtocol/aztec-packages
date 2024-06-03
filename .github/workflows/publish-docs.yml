@@ -25,7 +25,7 @@ jobs:
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
-          commit_tag: ${{ inputs.tag || env.GITHUB_REF }}
+          commit_tag: ${{ inputs.tag }}
 
       - timeout-minutes: 25
         run: earthly-ci --no-output ./docs/+deploy-prod --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
