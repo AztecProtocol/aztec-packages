@@ -17,7 +17,7 @@ import {
   type TxContext,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -643,7 +643,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
 
-      let value = await this.aztecNode.getPublicStorageAt(this.callContext.storageContractAddress, storageSlot);
+      const value = await this.aztecNode.getPublicStorageAt(this.callContext.storageContractAddress, storageSlot);
       this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
 
       values.push(value);
