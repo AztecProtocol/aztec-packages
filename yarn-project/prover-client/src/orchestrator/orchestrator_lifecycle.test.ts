@@ -3,6 +3,7 @@ import {
   type GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  getMockVerificationKeys,
 } from '@aztec/circuits.js';
 import { fr, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
@@ -13,7 +14,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { jest } from '@jest/globals';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, makeGlobals } from '../mocks/fixtures.js';
+import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -51,7 +52,8 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals1,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs1[0]);
@@ -74,7 +76,8 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals2,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs2[0]);
@@ -107,7 +110,8 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals1,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs1[0]);
@@ -118,7 +122,8 @@ describe('prover/orchestrator/lifecycle', () => {
         2,
         globals2,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs2[0]);
@@ -146,7 +151,13 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-      await orchestrator.startNewBlock(2, makeGlobalVariables(1), [], await makeEmptyProcessedTestTx(context.actualDb));
+      await orchestrator.startNewBlock(
+        2,
+        makeGlobalVariables(1),
+        [],
+
+        getMockVerificationKeys(),
+      );
 
       await sleep(1);
 

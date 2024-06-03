@@ -74,11 +74,27 @@ export class CommitmentMap {
   }
 }
 
+export const CIRCUIT_SIZE_INDEX = 3;
+export const CIRCUIT_PUBLIC_INPUTS_INDEX = 4;
+export const CIRCUIT_RECURSIVE_INDEX = 5;
+
 /**
  * Provides a 'fields' representation of a circuit's verification key
  */
 export class VerificationKeyAsFields {
   constructor(public key: Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, public hash: Fr) {}
+
+  public get numPublicInputs() {
+    return Number(this.key[CIRCUIT_PUBLIC_INPUTS_INDEX]);
+  }
+
+  public get circuitSize() {
+    return Number(this.key[CIRCUIT_SIZE_INDEX]);
+  }
+
+  public get isRecursive() {
+    return this.key[CIRCUIT_RECURSIVE_INDEX] == Fr.ONE;
+  }
 
   /**
    * Serialize as a buffer.
@@ -162,7 +178,8 @@ export class VerificationKey {
   }
 
   /**
-	@@ -126,28 +97,14 @@ export class VerificationKeyAsFields {
+   * Deserializes class from a buffer.
+   * @returns A VerificationKey instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKey {
     const reader = BufferReader.asReader(buffer);
@@ -190,4 +207,77 @@ export class VerificationKey {
       times(16, i => i),
     );
   }
+}
+
+export class VerificationKeyData {
+  constructor(public readonly keyAsFields: VerificationKeyAsFields, public readonly keyAsBytes: Buffer) {}
+
+  public get numPublicInputs() {
+    return this.keyAsFields.numPublicInputs;
+  }
+
+  public get circuitSize() {
+    return this.keyAsFields.circuitSize;
+  }
+
+  public get isRecursive() {
+    return this.keyAsFields.isRecursive;
+  }
+
+  static makeFake(): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
+  }
+
+  /**
+   * Serialize as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.keyAsFields, this.keyAsBytes.length, this.keyAsBytes);
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
+    const reader = BufferReader.asReader(buffer);
+    const verificationKeyAsFields = reader.readObject(VerificationKeyAsFields);
+    const length = reader.readNumber();
+    const bytes = reader.readBytes(length);
+    return new VerificationKeyData(verificationKeyAsFields, bytes);
+  }
+
+  static fromString(str: string): VerificationKeyData {
+    return VerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  public clone() {
+    return VerificationKeyData.fromBuffer(this.toBuffer());
+  }
+}
+
+/**
+ * Well-known verification keys.
+ */
+export interface VerificationKeys {
+  /**
+   * Verification key for the default private kernel tail circuit.
+   */
+  privateKernelCircuit: VerificationKeyData;
+  /**
+   * Verification key for the default private kernel circuit.
+   */
+  privateKernelToPublicCircuit: VerificationKeyData;
+}
+
+/**
+ * Returns mock verification keys for each well known circuit.
+ * @returns A VerificationKeys object with fake values.
+ */
+export function getMockVerificationKeys(): VerificationKeys {
+  return {
+    privateKernelCircuit: VerificationKeyData.makeFake(),
+    privateKernelToPublicCircuit: VerificationKeyData.makeFake(),
+  };
 }

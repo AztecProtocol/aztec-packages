@@ -12,7 +12,6 @@ contract SchnorrAccount {
         auth_witness::get_auth_witness
     };
     use dep::aztec::hash::compute_siloed_nullifier;
-    use dep::aztec::keys::getters::{get_ivpk_m, get_npk_m_hash};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
@@ -30,12 +29,17 @@ contract SchnorrAccount {
     #[aztec(initializer)]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        let this_npk_m_hash = get_npk_m_hash(&mut context, this);
-        let this_ivpk_m = get_ivpk_m(&mut context, this);
+        let header = context.get_header();
+        let this_npk_m_hash = header.get_npk_m_hash(&mut context, this);
+        // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
+        // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
+        // important.
+        let this_ovpk_m = header.get_ovpk_m(&mut context, this);
+        let this_ivpk_m = header.get_ivpk_m(&mut context, this);
 
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
-        storage.signing_public_key.initialize(&mut pub_key_note, true, this_ivpk_m);
+        storage.signing_public_key.initialize(&mut pub_key_note, this_ovpk_m, this_ivpk_m);
         // docs:end:initialize
     }
 

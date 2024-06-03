@@ -1,10 +1,8 @@
-import { type EncryptedL2Log } from '@aztec/circuit-types';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
-import { type CountedLog } from './execution_result.js';
 
 export interface PendingNote {
   note: NoteData;
@@ -30,13 +28,6 @@ export class ExecutionNoteCache {
   private nullifiers: Map<bigint, Set<bigint>> = new Map();
 
   /**
-   * The list of encrypted logs linked to note hashes created in this transaction.
-   * This mapping maps from inner note hash to log(s) emitted for that note hash.
-   * Note that their value (bigint representation) is used because Frs cannot be looked up in Sets.
-   */
-  private logs: Map<bigint, CountedLog<EncryptedL2Log>[]> = new Map();
-
-  /**
    * Add a new note to cache.
    * @param note - New note created during execution.
    */
@@ -44,16 +35,6 @@ export class ExecutionNoteCache {
     const notes = this.newNotes.get(note.contractAddress.toBigInt()) ?? [];
     notes.push({ note, counter });
     this.newNotes.set(note.contractAddress.toBigInt(), notes);
-  }
-
-  /**
-   * Add a new note to cache.
-   * @param note - New note created during execution.
-   */
-  public addNewLog(log: CountedLog<EncryptedL2Log>, innerNoteHash: Fr) {
-    const logs = this.logs.get(innerNoteHash.toBigInt()) ?? [];
-    logs.push(log);
-    this.logs.set(innerNoteHash.toBigInt(), logs);
   }
 
   /**
@@ -81,8 +62,6 @@ export class ExecutionNoteCache {
       const note = notes.splice(noteIndexToRemove, 1)[0];
       nullifiedNoteHashCounter = note.counter;
       this.newNotes.set(contractAddress.toBigInt(), notes);
-      // If a log linked to the note hash does not exist, this method just does nothing
-      this.logs.delete(innerNoteHash.toBigInt());
     }
 
     return nullifiedNoteHashCounter;
@@ -116,12 +95,5 @@ export class ExecutionNoteCache {
    */
   public getNullifiers(contractAddress: AztecAddress): Set<bigint> {
     return this.nullifiers.get(contractAddress.toBigInt()) ?? new Set();
-  }
-
-  /**
-   * Return all note logs emitted from a contract.
-   */
-  public getLogs(): CountedLog<EncryptedL2Log>[] {
-    return Array.from(this.logs.values()).flat();
   }
 }

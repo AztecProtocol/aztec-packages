@@ -102,12 +102,12 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+    i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
     seed + 0x500,
   );
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+    i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
     seed + 0x600,
   );
 
@@ -119,7 +119,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   processedTx.data.end.newNullifiers[tx.data.forPublic!.end.newNullifiers.length - 1] = Fr.zero();
 
   processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-  processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash(0));
+  processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash());
   processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
   processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 

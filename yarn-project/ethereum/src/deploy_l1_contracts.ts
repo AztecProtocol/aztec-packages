@@ -95,7 +95,7 @@ export interface L1ContractArtifactsForDeployment {
  */
 export function createL1Clients(
   rpcUrl: string,
-  mnemonicOrHdAccount: string | HDAccount,
+  mnemonicOrHdAccount: string | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
 ): { publicClient: PublicClient<HttpTransport, Chain>; walletClient: WalletClient<HttpTransport, Chain, Account> } {
   const hdAccount =
@@ -277,7 +277,11 @@ export async function deployL1Contract(
   const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
-    throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);
+    throw new Error(
+      `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
+        typeof val === 'bigint' ? String(val) : val,
+      )}`,
+    );
   }
 
   return EthAddress.fromString(receipt.contractAddress!);

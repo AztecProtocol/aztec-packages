@@ -2,7 +2,7 @@
 title: Storage slots
 ---
 
-From the description of storage slots [in the Concepts](/guides/smart_contracts/writing_contracts/storage/storage_slots) you will get an idea around the logic of storage slots. In this section we will go into more detail and walk through an entire example of how storage slots are computed for private state to improve our storage slot intuition. Recall, that storage slots in the private domain is just a logical construct, and are not "actually" used for lookups, but rather just as a value to constrain against.
+From the description of storage slots [in the Concepts](storage_slots.md) you will get an idea around the logic of storage slots. In this section we will go into more detail and walk through an entire example of how storage slots are computed for private state to improve our storage slot intuition. Recall, that storage slots in the private domain is just a logical construct, and are not "actually" used for lookups, but rather just as a value to constrain against.
 
 For the case of the example, we will look at what is inserted into the note hashes tree when adding a note in the Token contract. Specifically, we are looking at the last part of the `transfer` function:
 
@@ -29,7 +29,7 @@ sequenceDiagram
     BalanceSet->>BalanceSet: note = TokenNote::new(amount, to)
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
-    LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, is_transient: true }
+    LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
     LifeCycle->>Utils: compute_inner_note_hash(note)
     Utils->>TokenNote: note.compute_note_content_hash()
     TokenNote->>Utils: note_hash = H(amount, to, randomness)

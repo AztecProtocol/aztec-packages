@@ -12,7 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData } from '../acvm/index.js';
-import { type CommitmentsDB } from '../public/db.js';
+import { type CommitmentsDB } from '../public/db_interfaces.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -94,6 +94,13 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to a FunctionArtifact object.
    */
   getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact>;
+
+  /**
+   * Generates a stable function name for debug purposes.
+   * @param contractAddress - The contract address.
+   * @param selector - The corresponding function selector.
+   */
+  getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string>;
 
   /**
    * Retrieves the artifact of a specified function within a given contract.

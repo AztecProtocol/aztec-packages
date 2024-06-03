@@ -74,8 +74,8 @@ describe('e2e_lending_contract', () => {
       lendingAccount,
       rate,
       lendingContract,
-      new TokenSimulator(collateralAsset, logger, [lendingContract.address, wallet.getAddress()]),
-      new TokenSimulator(stableCoin, logger, [lendingContract.address, wallet.getAddress()]),
+      new TokenSimulator(collateralAsset, wallet, logger, [lendingContract.address, wallet.getAddress()]),
+      new TokenSimulator(stableCoin, wallet, logger, [lendingContract.address, wallet.getAddress()]),
     );
   }, 300_000);
 

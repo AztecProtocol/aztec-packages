@@ -1,5 +1,4 @@
 #include "sha256_constraint.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256_plookup.hpp"
 #include "round.hpp"
@@ -36,7 +35,7 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     auto output_bytes = bb::stdlib::sha256_plookup::sha256_block<Builder>(hash_inputs, inputs);
 
     for (size_t i = 0; i < 8; ++i) {
-        poly_triple assert_equal{
+        bb::poly_triple assert_equal{
             .a = output_bytes[i].normalize().witness_index,
             .b = constraint.result[i],
             .c = 0,
@@ -50,9 +49,9 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     }
 }
 
-template void create_sha256_compression_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                         const Sha256Compression& constraint);
-template void create_sha256_compression_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                               const Sha256Compression& constraint);
+template void create_sha256_compression_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
+                                                                             const Sha256Compression& constraint);
+template void create_sha256_compression_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
+                                                                            const Sha256Compression& constraint);
 
 } // namespace acir_format

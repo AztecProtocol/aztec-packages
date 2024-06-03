@@ -1,5 +1,6 @@
 import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 import { GasSettings } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
@@ -26,6 +27,8 @@ export type SendMethodOptions = {
 export abstract class BaseContractInteraction {
   protected tx?: Tx;
   protected txRequest?: TxExecutionRequest;
+
+  protected log = createDebugLogger('aztec:js:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 
@@ -66,14 +69,28 @@ export abstract class BaseContractInteraction {
   }
 
   /**
-   * Estimates gas for a given tx request and returns defaults gas settings for it.
-   * @param txRequest - Transaction execution request to process.
-   * @returns Gas settings.
+   * Estimates gas for a given tx request and returns gas limits for it.
+   * @param opts - Options.
+   * @returns Gas limits.
    */
-  protected async estimateGas(txRequest: TxExecutionRequest) {
+  public async estimateGas(
+    opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
+  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
+    // REFACTOR: both `this.txRequest = undefined` below are horrible, we should not be caching stuff that doesn't need to be.
+    // This also hints at a weird interface for create/request/estimate/send etc.
+
+    // Ensure we don't accidentally use a version of tx request that has estimateGas set to true, leading to an infinite loop.
+    this.txRequest = undefined;
+    const txRequest = await this.create({ ...opts, estimateGas: false });
+    // Ensure we don't accidentally cache a version of tx request that has estimateGas forcefully set to false.
+    this.txRequest = undefined;
+
     const simulationResult = await this.wallet.simulateTx(txRequest, true);
-    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult);
-    return GasSettings.default({ gasLimits, teardownGasLimits });
+    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
+      simulationResult,
+      (opts?.fee?.gasSettings ?? GasSettings.default()).teardownGasLimits,
+    );
+    return { gasLimits, teardownGasLimits };
   }
 
   /**
@@ -81,11 +98,18 @@ export abstract class BaseContractInteraction {
    * @param request - Request to execute for this interaction.
    * @returns Fee options for the actual transaction.
    */
-  protected async getFeeOptions(request: ExecutionRequestInit) {
+  protected async getFeeOptionsFromEstimatedGas(request: ExecutionRequestInit) {
     const fee = request.fee;
     if (fee) {
       const txRequest = await this.wallet.createTxExecutionRequest(request);
-      const { gasLimits, teardownGasLimits } = await this.estimateGas(txRequest);
+      const simulationResult = await this.wallet.simulateTx(txRequest, true);
+      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
+        simulationResult,
+        fee.gasSettings.teardownGasLimits,
+      );
+      this.log.debug(
+        `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+      );
       const gasSettings = GasSettings.default({ ...fee.gasSettings, gasLimits, teardownGasLimits });
       return { ...fee, gasSettings };
     }
