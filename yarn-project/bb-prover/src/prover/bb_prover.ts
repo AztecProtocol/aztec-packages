@@ -264,6 +264,39 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
+  // /**
+  //  * Simulates the base rollup circuit from its inputs.
+  //  * @param input - Inputs to the circuit.
+  //  * @returns The public inputs as outputs of the simulation.
+  //  */
+  // // LONDONTODO(BaseRollup): implement verifyClientProof function and use here
+  // // Kernel circuit PIs coming from private kernels
+  // // Outputs have converted proof type
+  // public async getTubeRollupProof(
+  //   input: KernelCircuitPublicInputs,
+  // ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  //   // We may need to convert the recursive proof into fields format
+  //   input.kernelData.proof = await this.ensureValidProof(
+  //     input.kernelData.proof,
+  //     'BaseRollupArtifact',
+  //     input.kernelData.vk,
+  //   );
+
+  //   const { circuitOutput, proof } = await this.createRecursiveProof(
+  //     input,
+  //     'BaseRollupArtifact',
+  //     NESTED_RECURSIVE_PROOF_LENGTH,
+  //     convertBaseRollupInputsToWitnessMap,
+  //     convertBaseRollupOutputsFromWitnessMap,
+  //   );
+
+  //   const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
+
+  //   await this.verifyProof('BaseRollupArtifact', proof.binaryProof);
+
+  //   return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  // }
+
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
