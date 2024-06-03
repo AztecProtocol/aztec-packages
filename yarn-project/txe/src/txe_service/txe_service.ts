@@ -253,6 +253,7 @@ export class TXEService {
 
   async reset() {
     await this.store.clear();
+    return toForeignCallResult([]);
   }
 
   async storageRead(startStorageSlot: ForeignCallSingle, numberOfElements: ForeignCallSingle) {
