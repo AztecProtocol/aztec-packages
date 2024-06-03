@@ -49,7 +49,7 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 
 
-import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 import { mnemonicToAccount } from 'viem/accounts';
 import { createPublicClient, createWalletClient, http, toFunctionSelector } from 'viem';
 import { foundry } from 'viem/chains';
