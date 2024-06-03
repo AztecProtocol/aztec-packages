@@ -1,16 +1,18 @@
 import {
-  type MerkleTreeId,
+  MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
-  type PublicDataWitness,
+  PublicDataWitness,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
   type Header,
   type KeyValidationRequest,
+  PUBLIC_DATA_TREE_HEIGHT,
   type PrivateCallStackItem,
   type PublicCallRequest,
+  PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -74,8 +76,22 @@ export class TXE implements TypedOracle {
   getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     throw new Error('Method not implemented.');
   }
-  getPublicDataTreeWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    throw new Error('Method not implemented.');
+  async getPublicDataTreeWitness(_blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const committedDb = this.trees;
+    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult) {
+      return undefined;
+    } else {
+      const preimage = (await committedDb.getLeafPreimage(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      )) as PublicDataTreeLeafPreimage;
+      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      );
+      return new PublicDataWitness(lowLeafResult.index, preimage, path);
+    }
   }
   getLowNullifierMembershipWitness(
     _blockNumber: number,
@@ -250,5 +266,16 @@ export class TXEService {
   async storageWrite(startStorageSlot: ForeignCallSingle, values: ForeignCallArray) {
     const newValues = await this.typedOracle.storageWrite(fromSingle(startStorageSlot), fromArray(values));
     return toForeignCallResult([toArray(newValues)]);
+  }
+
+  async getPublicDataTreeWitness(blockNumber: ForeignCallSingle, leafSlot: ForeignCallSingle) {
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+    const parsedLeafSlot = fromSingle(leafSlot);
+
+    const witness = await this.typedOracle.getPublicDataTreeWitness(parsedBlockNumber, parsedLeafSlot);
+    if (!witness) {
+      throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
+    }
+    return toForeignCallResult([toArray(witness.toFields())]);
   }
 }

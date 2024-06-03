@@ -9,7 +9,7 @@ import { type TXEService } from '../txe_service/txe_service.js';
  * @returns A new instance of the HTTP server.
  */
 export function createTXERpcServer(txeService: TXEService): JsonRpcServer {
-  return new JsonRpcServer(txeService, {}, {}, ['start', 'stop']);
+  return new JsonRpcServer(txeService, {}, {}, ['init']);
 }
 
 /**
