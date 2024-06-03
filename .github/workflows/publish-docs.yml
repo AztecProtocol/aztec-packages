@@ -38,13 +38,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-      - name: Checkout protocol-specs-pdf
-        run: |
-          git config --global user.name AztecBot
-          git config --global user.email tech@aztecprotocol.com
-          # clone outside of aztec-packges
-          cd ..
-          git clone https://github.com/AztecProtocol/protocol-specs-pdf.git
+          path: aztec-packages
+      - name: Checkout tools repo
+        uses: actions/checkout@v3
+        with:
+          repository: AztecProtocol/protocol-specs-pdf
+          path: protocol-specs-pdf
       - name: Install Prince
         run: |
           curl https://www.princexml.com/download/prince-14.2-linux-generic-x86_64.tar.gz -O
@@ -53,14 +52,16 @@ jobs:
           yes "" | sudo ./install.sh
       - name: generate pdf
         run: |
-          cd docs
+          cd aztec-packages/docs
           yarn serve
           # add generated pdf to the protocol-specs-pdf repo cloned above
           npx docusaurus-prince-pdf -u http://localhost:3000/protocol-specs/intro --output ../../protocol-specs-pdf/protocol-specs.pdf
         timeout-minutes: 4
       - name: push to pdf repo
         run: |
-          cd ../protocol-specs-pdf
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          cd protocol-specs-pdf
           git add protocol-specs.pdf
           git commit -m "chore: update protocol-specs.pdf"
           git push
