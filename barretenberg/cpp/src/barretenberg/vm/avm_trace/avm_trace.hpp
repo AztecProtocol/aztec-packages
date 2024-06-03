@@ -254,7 +254,10 @@ class AvmTraceBuilder {
      * @return Row
      */
     // TODO: update info -> really to do with when a hint is used
-    Row create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
+    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
+                                                                       uint32_t data_offset,
+                                                                       uint32_t metadata_offset);
+    Row create_kernel_output_opcode_with_set_value_from_hint(uint32_t clk,
                                                              uint32_t data_offset,
                                                              uint32_t metadata_offset);
 
@@ -275,9 +278,6 @@ class AvmTraceBuilder {
     // TODO: more info
     // Execution hints aid witness solving for instructions that require auxiliary information to construct
     ExecutionHints execution_hints;
-
-    Row create_sload(
-        uint32_t clk, uint32_t data_offset, FF const& data_value, FF const& slot_value, uint32_t solt_offset);
 
     // TODO(ilyas: #6383): Temporary way to bulk read slices
     template <typename MEM>
