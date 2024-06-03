@@ -6,6 +6,9 @@ on:
         description: The tag to build from.
         required: true
 
+env:
+  COMMIT_TAG: ${{ inputs.tag }}
+
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
@@ -25,7 +28,6 @@ jobs:
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
-          commit_tag: ${{ inputs.tag }}
 
       - timeout-minutes: 25
         run: earthly-ci --no-output ./docs/+deploy-prod --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
