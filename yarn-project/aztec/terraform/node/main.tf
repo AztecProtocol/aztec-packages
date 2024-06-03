@@ -59,7 +59,6 @@ locals {
   node_count             = length(local.publisher_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec/data"
   agents_per_sequencer   = var.AGENTS_PER_SEQUENCER
-  total_agents           = local.node_count * local.agents_per_sequencer
 }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group" {
@@ -737,7 +736,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
 # Create Auto Scaling Target for ECS Service
 resource "aws_appautoscaling_target" "ecs_proving_agent" {
   count              = local.node_count
-  max_capacity       = var.AGENTS_PER_SEQUENCER
+  max_capacity       = local.agents_per_sequencer
   min_capacity       = 1
   resource_id        = "service/${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id}/${aws_ecs_service.aztec_proving_agent[count.index].name}"
   scalable_dimension = "ecs:service:DesiredCount"
