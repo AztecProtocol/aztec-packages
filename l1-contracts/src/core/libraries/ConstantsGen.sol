@@ -55,8 +55,8 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_TREE_HEIGHT = 40;
   uint256 internal constant NULLIFIER_TREE_HEIGHT = 20;
   uint256 internal constant L1_TO_L2_MSG_TREE_HEIGHT = 16;
-  uint256 internal constant ROLLUP_VK_TREE_HEIGHT = 8;
   uint256 internal constant ARCHIVE_HEIGHT = 16;
+  uint256 internal constant ROLLUP_VK_TREE_HEIGHT = 8;
   uint256 internal constant ARTIFACT_FUNCTION_TREE_MAX_HEIGHT = 5;
   uint256 internal constant NULLIFIER_TREE_ID = 0;
   uint256 internal constant NOTE_HASH_TREE_ID = 1;
@@ -64,12 +64,12 @@ library Constants {
   uint256 internal constant L1_TO_L2_MESSAGE_TREE_ID = 3;
   uint256 internal constant ARCHIVE_TREE_ID = 4;
   uint256 internal constant NOTE_HASH_SUBTREE_HEIGHT = 6;
-  uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 26;
   uint256 internal constant NULLIFIER_SUBTREE_HEIGHT = 6;
   uint256 internal constant PUBLIC_DATA_SUBTREE_HEIGHT = 5;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
+  uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 26;
   uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 14;
   uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 35;
-  uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 64;
