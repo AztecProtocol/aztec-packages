@@ -55,6 +55,7 @@ struct BaseRollupInputs {
     constants: ConstantRollupData,
 }
 
+// LONDONTODO(BaseRollup) Which "base" is this?
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
         // Verify the kernel circuit proof
