@@ -243,20 +243,29 @@ class AvmTraceBuilder {
     /**
      * @brief Create a kernel output opcode with set metadata output object
      *
-     * Used for writing output opcode where one value is written and comes from a hint
+     * Used for writing output opcode where one metadata value is written and comes from a hint
      * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
      *
      * @param clk - The trace clk
      * @param data_offset - The offset of the main value to output
-     * @param data_r_tag - The data type of the value
      * @param metadata_offset - The offset of the metadata (slot in the sload example)
-     * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
      * @return Row
      */
-    // TODO: update info -> really to do with when a hint is used
     Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
                                                                        uint32_t data_offset,
                                                                        uint32_t metadata_offset);
+
+    /**
+     * @brief Create a kernel output opcode with set metadata output object
+     *
+     * Used for writing output opcode where one value is written and comes from a hint
+     * {sload}
+     *
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @return Row
+     */
     Row create_kernel_output_opcode_with_set_value_from_hint(uint32_t clk,
                                                              uint32_t data_offset,
                                                              uint32_t metadata_offset);
@@ -275,8 +284,8 @@ class AvmTraceBuilder {
     // encountered
     uint32_t side_effect_counter = 0;
 
-    // TODO: more info
     // Execution hints aid witness solving for instructions that require auxiliary information to construct
+    // Mapping of side effect counter -> value
     ExecutionHints execution_hints;
 
     // TODO(ilyas: #6383): Temporary way to bulk read slices

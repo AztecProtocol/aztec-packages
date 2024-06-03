@@ -521,8 +521,6 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
  */
 void avm_prove(const std::filesystem::path& bytecode_path,
                const std::filesystem::path& calldata_path,
-               const std::filesystem::path& public_inputs_path,
-               const std::filesystem::path& hints_path,
                const std::filesystem::path& output_path)
 {
     // Get Bytecode
@@ -534,26 +532,11 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     }
     std::vector<fr> const call_data = many_from_buffer<fr>(call_data_bytes);
 
-    std::vector<uint8_t> public_inputs_bytes{};
-    if (std::filesystem::exists(public_inputs_path)) {
-        public_inputs_bytes = read_file(public_inputs_path);
-    }
-    std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(public_inputs_bytes);
-
-    std::vector<uint8_t> hints_bytes{};
-    if (std::filesystem::exists(hints_path)) {
-        hints_bytes = read_file(hints_path);
-    }
-
-    // ExecutionHints const execution_hints = ExecutionHints::from_buffer(hints_bytes);
-    // ExecutionHints const execution_hints = {};
-
     // Hardcoded circuit size for now, with enough to support 16-bit range checks
     init_bn254_crs(1 << 17);
 
     // Prove execution and return vk
-    auto const [verification_key, proof] =
-        avm_trace::Execution::prove(avm_bytecode, call_data, public_inputs_vec /*, execution_hints*/);
+    auto const [verification_key, proof] = avm_trace::Execution::prove(avm_bytecode, call_data);
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
     std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
     std::vector<fr> vk_as_fields = { verification_key.circuit_size, verification_key.num_public_inputs };
@@ -910,11 +893,9 @@ int main(int argc, char* argv[])
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
             std::filesystem::path calldata_path = get_option(args, "-d", "./target/call_data.bin");
-            std::filesystem::path public_inputs_path = get_option(args, "-u", "./target/public_inputs.bin");
-            std::filesystem::path execution_hints_path = get_option(args, "-e", "./target/execution_hints.bin");
             // This outputs both files: proof and vk, under the given directory.
             std::filesystem::path output_path = get_option(args, "-o", "./proofs");
-            avm_prove(avm_bytecode_path, calldata_path, public_inputs_path, execution_hints_path, output_path);
+            avm_prove(avm_bytecode_path, calldata_path, output_path);
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "prove_ultra_honk") {
