@@ -2,7 +2,7 @@ import { type PXE, createPXEClient } from '@aztec/aztec.js';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { NoRetryError } from '@aztec/foundation/retry';
 
-import axios, { AxiosError, AxiosResponse } from 'axios';
+import axios, { type AxiosError, type AxiosResponse } from 'axios';
 import { gtr, ltr, satisfies, valid } from 'semver';
 
 export async function axiosFetch(
