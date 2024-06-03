@@ -1,5 +1,4 @@
 import {
-  FunctionL2Logs,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -8,8 +7,8 @@ import {
   type ProverClient,
   type ProvingSuccess,
   type ProvingTicket,
-  Tx,
-  UnencryptedL2Log,
+  type Tx,
+  type UnencryptedL2Log,
   UnencryptedTxL2Logs,
   makeProcessedTx,
   mockTxForRollup,
@@ -25,7 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeProof } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Writeable } from '@aztec/foundation/types';
+import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
@@ -257,7 +256,6 @@ describe('sequencer', () => {
     // We make txs[1] too big to fit
     (txs[1] as Writeable<Tx>).unencryptedLogs = UnencryptedTxL2Logs.random(2, 4);
     (txs[1].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data = randomBytes(1024 * 1022);
-    console.log('DA SIZE', txs[1].getStats().size);
 
     await sequencer.initialSync();
     await sequencer.work();
