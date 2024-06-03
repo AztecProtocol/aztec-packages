@@ -216,7 +216,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool generic_input = false);
+                             const bool generic_input = false,
+                             const bool use_ladder = true);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and use
     // this to optimize other operations.

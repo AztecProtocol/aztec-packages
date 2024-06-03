@@ -75,7 +75,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
         alpha_pow *= alpha;
     }
 
-    auto batched_commitment = Commitment::batch_mul(commitments, scalars);
+    auto batched_commitment = Commitment::batch_mul(commitments, scalars, /*generic_inputs=*/false);
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 

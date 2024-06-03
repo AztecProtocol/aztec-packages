@@ -296,7 +296,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
      *
      * batch_lookup_table implements a lookup table for a vector of points.
      *
-     * We subdivide `batch_lookup_table` into a set of 3-bit lookup tables,
+     * We subdivide `batch_lookup_table` into a set of 3-bit lookup tables, WORKTODO: hm?
      * (using 2-bit and 1-bit tables if points.size() is not a multiple of 8)
      *
      * We index the lookup table using a vector of NAF values for each point
@@ -312,9 +312,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
      * Compute scalar multiplier NAFs
      *
      * A Non Adjacent Form is a representation of an integer where each 'bit' is either +1 OR -1, i.e. each bit entry is
-     *non-zero. This is VERY useful for biggroup operations, as this removes the need to conditionally add points
-     *depending on whether the scalar mul bit is +1 or 0 (instead we multiply the y-coordinate by the NAF value, which
-     *is cheaper)
+     * non-zero. This is VERY useful for biggroup operations, as this removes the need to conditionally add points
+     * depending on whether the scalar mul bit is +1 or 0 (instead we multiply the y-coordinate by the NAF value, which
+     * is cheaper)
      *
      * The vector `naf_entries` tracks the `naf` set for each point, where each `naf` set is a vector of bools
      * if `naf[i][j] = 0` this represents a NAF value of -1
@@ -334,8 +334,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
 
     /**
      * Get the initial entry of our point table. This is the same as point_table.get_accumulator for the most
-     *significant NAF entry. HOWEVER, we know the most significant NAF value is +1 because our scalar muls are positive.
-     * `get_initial_entry` handles this special case as it's cheaper than `point_table.get_accumulator`
+     * significant NAF entry. HOWEVER, we know the most significant NAF value is +1 because our scalar muls are
+     *positive. `get_initial_entry` handles this special case as it's cheaper than `point_table.get_accumulator`
      **/
     element accumulator = offset_generators.first + point_table.get_initial_entry();
 
