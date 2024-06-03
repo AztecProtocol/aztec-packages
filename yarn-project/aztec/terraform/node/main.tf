@@ -591,7 +591,7 @@ resource "aws_service_discovery_service" "aztec-proving-agent" {
 # Define task definitions for each node.
 resource "aws_ecs_task_definition" "aztec-proving-agent" {
   count                    = local.node_count
-  family                   = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
+  family                   = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "16384"
@@ -704,8 +704,8 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   evaluation_periods  = "1"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Average"
+  period              = "60"
+  statistic           = "Maximum"
   threshold           = "10"
   alarm_description   = "Alert when CPU utilization is greater than 10%"
   dimensions = {
@@ -722,8 +722,8 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
   evaluation_periods  = "1"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Average"
+  period              = "60"
+  statistic           = "Maximum"
   threshold           = "10"
   alarm_description   = "Alarm when CPU utilization is less than 10%"
   dimensions = {
@@ -747,7 +747,7 @@ resource "aws_appautoscaling_target" "ecs_proving_agent" {
 resource "aws_appautoscaling_policy" "scale_out" {
   count              = local.node_count
   name               = "${var.DEPLOY_TAG}-scale-out-${count.index}"
-  policy_type        = "StepScaling"
+  policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
   scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
   service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
@@ -755,10 +755,10 @@ resource "aws_appautoscaling_policy" "scale_out" {
   step_scaling_policy_configuration {
     adjustment_type         = "ChangeInCapacity"
     cooldown                = 60
-    metric_aggregation_type = "Average"
+    metric_aggregation_type = "Maximum"
 
     step_adjustment {
-      scaling_adjustment          = 1
+      scaling_adjustment          = local.agents_per_sequencer - 1 # -1 since we're adding our target to the existing 1
       metric_interval_lower_bound = 0
     }
   }
@@ -776,32 +776,11 @@ resource "aws_appautoscaling_policy" "scale_in" {
   step_scaling_policy_configuration {
     adjustment_type         = "ChangeInCapacity"
     cooldown                = 60
-    metric_aggregation_type = "Average"
+    metric_aggregation_type = "Maximum"
 
     step_adjustment {
-      scaling_adjustment          = -1
+      scaling_adjustment          = -local.agents_per_sequencer + 1 # +1 since we're removing our target from the existing 1
       metric_interval_upper_bound = 0
     }
   }
-}
-
-# Link the High CPU alarm to the scale out policy
-resource "aws_cloudwatch_metric_alarm" "cpu_high" {
-  count               = local.node_count
-  alarm_name          = "${var.DEPLOY_TAG}-cpu-high-${count.index + 1}"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "10"
-  alarm_description   = "Alarm when CPU utilization is greater than 10%"
-  dimensions = {
-    ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
-    ServiceName = "${aws_ecs_service.aztec_proving_agent[count.index].name}"
-  }
-  alarm_actions             = [aws_appautoscaling_policy.scale_out[count.index].arn]
-  insufficient_data_actions = []
-  ok_actions                = []
 }
