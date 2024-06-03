@@ -1,13 +1,4 @@
-import {
-  type AztecNode,
-  EncryptedL2NoteLog,
-  EncryptedNoteFunctionL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  EncryptedNoteTxL2Logs,
-  type L1NotePayload,
-  L2Block,
-  TaggedNote,
-} from '@aztec/circuit-types';
+import { type AztecNode, EncryptedL2NoteLog, L2Block, TaggedNote } from '@aztec/circuit-types';
 import {
   AztecAddress,
   Fr,
@@ -78,83 +69,8 @@ describe('Note Processor', () => {
 
   const app = AztecAddress.random();
 
-  // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
-  const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: TaggedNote[]) => {
-    const newNotes: TaggedNote[] = [];
-    const ownedL1NotePayloads: L1NotePayload[] = [];
-    const txLogs: EncryptedNoteTxL2Logs[] = [];
-    let usedOwnedNote = 0;
-    for (let i = 0; i < TXS_PER_BLOCK; ++i) {
-      const ownedDataIndices = ownedData[i] || [];
-      if (ownedDataIndices.some(index => index >= MAX_NEW_NOTE_HASHES_PER_TX)) {
-        throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
-      }
-
-      const logs: EncryptedNoteFunctionL2Logs[] = [];
-      for (let noteIndex = 0; noteIndex < MAX_NEW_NOTE_HASHES_PER_TX; ++noteIndex) {
-        const isOwner = ownedDataIndices.includes(noteIndex);
-        const ivpk = isOwner ? ownerIvpkM : Point.random();
-        const ovKeys = isOwner ? ownerOvKeys : new KeyValidationRequest(Point.random(), Fr.random());
-        const note = (isOwner && ownedNotes[usedOwnedNote]) || TaggedNote.random();
-        usedOwnedNote += note === ownedNotes[usedOwnedNote] ? 1 : 0;
-        newNotes.push(note);
-        if (isOwner) {
-          ownedL1NotePayloads.push(note.notePayload);
-        }
-
-        const ephSk = GrumpkinScalar.random();
-        const recipient = AztecAddress.random();
-        const log = note.encrypt(ephSk, recipient, ivpk, ovKeys);
-        // 1 tx containing 1 function invocation containing 1 log
-        logs.push(new EncryptedNoteFunctionL2Logs([new EncryptedL2NoteLog(log)]));
-      }
-      txLogs.push(new EncryptedNoteTxL2Logs(logs));
-    }
-
-    const encryptedLogs = new EncryptedNoteL2BlockL2Logs(txLogs);
-    return { newNotes, ownedL1NotePayloads, encryptedLogs };
-  };
-
-  const mockData2 = (
-    ownedData: number[][], // = [[2]]
-    prependedBlocks = 0,
-    appendedBlocks = 0,
-    ownedNotes: TaggedNote[] = [], // L1NotePayload[] = [],
-  ) => {
-    if (ownedData.length > TXS_PER_BLOCK) {
-      throw new Error(`Tx size should be less than ${TXS_PER_BLOCK}.`);
-    }
-
-    const blocks: L2Block[] = [];
-    const encryptedLogsArr: EncryptedNoteL2BlockL2Logs[] = [];
-    const ownedL1NotePayloads: L1NotePayload[] = [];
-    const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
-    for (let i = 0; i < numberOfBlocks; ++i) {
-      const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
-      block.header.state.partial.noteHashTree.nextAvailableLeafIndex =
-        firstBlockDataEndIndex + i * numCommitmentsPerBlock;
-
-      const isTargetBlock = i === prependedBlocks;
-      const {
-        newNotes,
-        encryptedLogs,
-        ownedL1NotePayloads: payloads,
-      } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
-      encryptedLogsArr.push(encryptedLogs);
-      ownedL1NotePayloads.push(...payloads);
-      for (let i = 0; i < TXS_PER_BLOCK; i++) {
-        const txEffectNotes = newNotes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
-        block.body.txEffects[i].noteHashes = txEffectNotes.map(n => pedersenHash(n.notePayload.note.items));
-      }
-
-      blocks.push(block);
-    }
-    return { blocks, encryptedLogsArr, ownedL1NotePayloads };
-  };
-
-  function mockData(requests: MockNoteRequest[], numBlocks: number) {
+  function mockBlocks(requests: MockNoteRequest[], numBlocks: number) {
     const blocks = [];
-    // const encryptedLogs: EncryptedNoteL2BlockL2Logs[] = [];
 
     for (let i = 0; i < numBlocks; i++) {
       // First we get a random block with correct block number
@@ -180,17 +96,6 @@ describe('Note Processor', () => {
 
       // The block is finished so we add it to the list of blocks
       blocks.push(block);
-
-      // // Now we encrypt the logs
-      // const txsLogs: EncryptedNoteTxL2Logs[] = [];
-      // for (let i = 0; i < TXS_PER_BLOCK; ++i) {
-      //   const noteRequestsForTx = noteRequestsForBlock.filter(request => request.txIndex === i);
-      //   const logs = noteRequestsForTx.map(request => {
-      //     // 1 function invocation containing 1 log
-      //     return new EncryptedNoteFunctionL2Logs([request.encrypt()]);
-      //   });
-      //   txsLogs.push(new EncryptedNoteTxL2Logs(logs));
-      // }
     }
 
     return blocks;
@@ -233,10 +138,9 @@ describe('Note Processor', () => {
   });
 
   it('should store a note that belongs to us', async () => {
-    const note = TaggedNote.random();
-    const request = new MockNoteRequest(note, firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
+    const request = new MockNoteRequest(TaggedNote.random(), firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
 
-    const blocks = mockData([request], 1);
+    const blocks = mockBlocks([request], 1);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
@@ -245,7 +149,7 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...note.notePayload,
+        ...request.note.notePayload,
         index: BigInt(firstBlockDataStartIndex + 2),
       }),
     ]);
@@ -259,7 +163,7 @@ describe('Note Processor', () => {
       new MockNoteRequest(TaggedNote.random(), firstBlockNum + prependedBlocks, 3, 2, ownerIvpkM, ownerOvKeys),
     ];
 
-    const blocks = mockData(requests, 4);
+    const blocks = mockBlocks(requests, 4);
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
     await noteProcessor.process(blocks, encryptedLogs);
@@ -288,7 +192,7 @@ describe('Note Processor', () => {
 
   it('should not store notes that do not belong to us', async () => {
     // Both notes should be ignored because the encryption keys do not belong to owner (they are random).
-    const blocks = mockData(
+    const blocks = mockBlocks(
       [
         new MockNoteRequest(TaggedNote.random(), firstBlockNum, 1, 1, Point.random(), KeyValidationRequest.random()),
         new MockNoteRequest(TaggedNote.random(), firstBlockNum, 3, 0, Point.random(), KeyValidationRequest.random()),
@@ -303,49 +207,59 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledTimes(0);
   });
 
-  it.only('should be able to recover two note payloads containing the same note', async () => {
-    const note = TaggedNote.random(); // L1NotePayload.random();
-    const note2 = TaggedNote.random(); // L1NotePayload.random();
+  it('should be able to recover two note payloads containing the same note', async () => {
+    const note = TaggedNote.random();
+    const note2 = TaggedNote.random();
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const requests = [
+      new MockNoteRequest(note, firstBlockNum, 0, 0, ownerIvpkM, ownerOvKeys),
       new MockNoteRequest(note, firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum, 1, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum, 3, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note2, firstBlockNum, 3, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, firstBlockNum, 2, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note2, firstBlockNum, 2, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, firstBlockNum, 2, 3, ownerIvpkM, ownerOvKeys),
     ];
 
-    const notes = [note, note, note, note2, note];
-    const { blocks, encryptedLogsArr, ownedL1NotePayloads } = mockData2([[0, 2], [], [0, 1, 3]], 0, 0, notes);
-    await noteProcessor.process(blocks, encryptedLogsArr);
+    const blocks = mockBlocks(requests, 1);
+
+    // TODO(#6830): pass in only the blocks
+    const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
+    await noteProcessor.process(blocks, encryptedLogs);
 
     const addedNoteDaos: NoteDao[] = addNotesSpy.mock.calls[0][0];
     expect(addedNoteDaos.map(dao => dao)).toEqual([
-      expect.objectContaining({ ...ownedL1NotePayloads[0] }),
-      expect.objectContaining({ ...ownedL1NotePayloads[1] }),
-      expect.objectContaining({ ...ownedL1NotePayloads[2] }),
-      expect.objectContaining({ ...ownedL1NotePayloads[3] }),
-      expect.objectContaining({ ...ownedL1NotePayloads[4] }),
+      expect.objectContaining({ ...requests[0].note.notePayload }),
+      expect.objectContaining({ ...requests[1].note.notePayload }),
+      expect.objectContaining({ ...requests[2].note.notePayload }),
+      expect.objectContaining({ ...requests[3].note.notePayload }),
+      expect.objectContaining({ ...requests[4].note.notePayload }),
     ]);
-    expect(ownedL1NotePayloads[0]).toEqual(ownedL1NotePayloads[1]);
-    expect(ownedL1NotePayloads[1]).toEqual(ownedL1NotePayloads[2]);
-    expect(ownedL1NotePayloads[2]).toEqual(ownedL1NotePayloads[4]);
-    expect(ownedL1NotePayloads[3]).not.toEqual(ownedL1NotePayloads[4]);
 
     // Check that every note has a different nonce.
     const nonceSet = new Set<bigint>();
     addedNoteDaos.forEach(info => nonceSet.add(info.nonce.value));
-    expect(nonceSet.size).toBe(notes.length);
+    expect(nonceSet.size).toBe(requests.length);
   });
 
   it('advances the block number', async () => {
-    const { blocks, encryptedLogsArr } = mockData2([[2]]);
-    await noteProcessor.process(blocks, encryptedLogsArr);
+    const request = new MockNoteRequest(TaggedNote.random(), firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
+
+    const blocks = mockBlocks([request], 1);
+
+    // TODO(#6830): pass in only the blocks
+    const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
+    await noteProcessor.process(blocks, encryptedLogs);
+
     expect(noteProcessor.status.syncedToBlock).toEqual(blocks.at(-1)?.number);
   });
 
   it('should restore the last block number processed and ignore the starting block', async () => {
-    const { blocks, encryptedLogsArr } = mockData2([[2]]);
-    await noteProcessor.process(blocks, encryptedLogsArr);
+    const request = new MockNoteRequest(TaggedNote.random(), firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
+
+    const blocks = mockBlocks([request], 1);
+
+    // TODO(#6830): pass in only the blocks
+    const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
+    await noteProcessor.process(blocks, encryptedLogs);
 
     const newNoteProcessor = new NoteProcessor(
       ownerIvpkM,
