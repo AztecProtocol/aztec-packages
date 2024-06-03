@@ -61,15 +61,9 @@ fn test_initialize_uninitialized() {
 
     let value = MockStruct::new(5, 6);
 
-    state_var.mock_uninitialized_storage();
-
-    let init_mock = state_var.mock_initialize_write();
-    let value_mock = state_var.mock_value_write(value);
-
     state_var.initialize(value);
 
-    state_var.assert_initialize_write(init_mock);
-    state_var.assert_value_write(value_mock, value);
+    assert(state_var.read() == value);
 }
 
 #[test(should_fail_with="PublicImmutable already initialized")]
