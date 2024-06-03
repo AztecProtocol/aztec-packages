@@ -1,5 +1,5 @@
 import { type Fr } from '@aztec/foundation/fields';
-import { serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
@@ -47,8 +47,7 @@ export class AvmExecutionHints {
    */
   toBuffer() {
     // Flatten to a single array before serializing
-    // Need to use serializeArrayOfBufferableToVector here to include array length in serialization
-    return serializeArrayOfBufferableToVector(AvmExecutionHints.getFields(this).flat());
+    return serializeToBuffer(AvmExecutionHints.getFields(this).flat());
   }
 
   /**

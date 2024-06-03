@@ -5,6 +5,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
@@ -510,13 +511,18 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 
 avm_trace::ExecutionHints deserialize_execution_hints(const std::vector<uint8_t>& hints)
 {
-    // TODO(md): this if is just to silence warnings
+    avm_trace::ExecutionHints execution_hints;
     if (hints.size() == 0) {
         vinfo("no hints provided");
+    } else {
+        // Hints arrive serialised as a vector of <side effect counter, hint> pairs
+        using FF = avm_trace::FF;
+        std::vector<std::pair<FF, FF>> deser_hints = many_from_buffer<std::pair<FF, FF>>(hints);
+        for (auto& hint : deser_hints) {
+            execution_hints[static_cast<uint32_t>(hint.first)] = hint.second;
+        }
     }
-    // In this case the execution hints are a tuple of field elements, so we can work out how many pairs we have, then
-    // slice em up!
-    return avm_trace::ExecutionHints{};
+    return execution_hints;
 }
 
 /**
