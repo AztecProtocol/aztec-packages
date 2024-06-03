@@ -79,7 +79,8 @@ void expect_output_table_row(std::vector<Row>::const_iterator row,
                              FF ia,
                              FF mem_idx_a,
                              AvmMemoryTag r_in_tag,
-                             uint32_t side_effect_counter)
+                             uint32_t side_effect_counter,
+                             uint32_t rwa = 0)
 {
     // Checks dependent on the opcode
     EXPECT_EQ(row->avm_kernel_kernel_out_offset, selector);
@@ -87,7 +88,7 @@ void expect_output_table_row(std::vector<Row>::const_iterator row,
     EXPECT_EQ(row->avm_main_mem_idx_a, mem_idx_a);
 
     // Checks that are fixed for kernel inputs
-    EXPECT_EQ(row->avm_main_rwa, FF(0));
+    EXPECT_EQ(row->avm_main_rwa, FF(rwa));
     EXPECT_EQ(row->avm_main_ind_a, FF(0));
     EXPECT_EQ(row->avm_main_mem_op_a, FF(1));
     EXPECT_EQ(row->avm_main_r_in_tag, static_cast<uint32_t>(r_in_tag));
@@ -103,43 +104,10 @@ void expect_output_table_row_with_metadata(std::vector<Row>::const_iterator row,
                                            FF ib,
                                            FF mem_idx_b,
                                            AvmMemoryTag r_in_tag,
-                                           uint32_t side_effect_counter)
+                                           uint32_t side_effect_counter,
+                                           uint32_t rwa = 0)
 {
-    expect_output_table_row(row, selector, ia, mem_idx_a, r_in_tag, side_effect_counter);
-
-    EXPECT_EQ(row->avm_main_ib, ib);
-    EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
-
-    // Checks that are fixed for kernel inputs
-    EXPECT_EQ(row->avm_main_rwb, FF(0));
-    EXPECT_EQ(row->avm_main_ind_b, FF(0));
-    EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
-}
-
-// TODO: rework - temporary for PoC
-void expect_output_table_row_with_metadata_hint(std::vector<Row>::const_iterator row,
-                                                FF selector,
-                                                FF ia,
-                                                FF mem_idx_a,
-                                                FF ib,
-                                                FF mem_idx_b,
-                                                AvmMemoryTag r_in_tag,
-                                                uint32_t side_effect_counter)
-{
-    // Checks dependent on the opcode
-    EXPECT_EQ(row->avm_kernel_kernel_out_offset, selector);
-    EXPECT_EQ(row->avm_main_ia, ia);
-    EXPECT_EQ(row->avm_main_mem_idx_a, mem_idx_a);
-
-    // Checks that are fixed for kernel inputs
-    EXPECT_EQ(row->avm_main_rwa, FF(1));
-    EXPECT_EQ(row->avm_main_ind_a, FF(0));
-    EXPECT_EQ(row->avm_main_mem_op_a, FF(1));
-    EXPECT_EQ(row->avm_main_w_in_tag, static_cast<uint32_t>(r_in_tag));
-    EXPECT_EQ(row->avm_main_r_in_tag, static_cast<uint32_t>(r_in_tag));
-    EXPECT_EQ(row->avm_main_q_kernel_output_lookup, FF(1));
-
-    EXPECT_EQ(row->avm_kernel_side_effect_counter, FF(side_effect_counter));
+    expect_output_table_row(row, selector, ia, mem_idx_a, r_in_tag, side_effect_counter, rwa);
 
     EXPECT_EQ(row->avm_main_ib, ib);
     EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
@@ -779,8 +747,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
         // Check the outputs of the trace
         uint32_t output_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
 
-        // TODO: unify this with the existing metadata checking thing - it should not be different
-        expect_output_table_row_with_metadata_hint(
+        expect_output_table_row_with_metadata(
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
@@ -788,7 +755,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
             /*ib=*/slot,
             /*mem_idx_b=*/slot_offset,
             /*w_in_tag=*/AvmMemoryTag::FF,
-            /*side_effect_counter=*/0);
+            /*side_effect_counter=*/0,
+            /*rwa=*/1);
 
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, slot);
     };
