@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717365972519,
+  "lastUpdate": 1717406085277,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -13888,6 +13888,78 @@ window.BENCHMARK_DATA = {
             "value": 163707317,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163707317 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d9f7da39b02c41641fbf15a13882f39905b7a583",
+          "message": "chore: reduce compilation by breaking up acir types.hpp (#6816)\n\nThis reduces wasm compilation by 15% aggregate and all release targets\r\nby 9% aggregate (note: not the same as wall time because that depends on\r\nbottlenecks, looking at you AVM)\r\n\r\nbefore:\r\n\r\nCompilation (367 times):\r\n  Parsing (frontend):         1677.6 s\r\n  Codegen & opts (backend):    765.9 s\r\n\r\nafter:\r\nCompilation (365 times):\r\n  Parsing (frontend):         1412.3 s\r\n  Codegen & opts (backend):    675.1 s\r\n  \r\nMisc changes:\r\n- minor cleanup of using namespace bb and a few typedefs",
+          "timestamp": "2024-06-03T10:00:52+01:00",
+          "tree_id": "4f57f6f0fdf4a52190ed425cb10e7cfaaf9bc3b7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d9f7da39b02c41641fbf15a13882f39905b7a583"
+        },
+        "date": 1717406083994,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15430.630024999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10688.949734000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5538.794590999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5103.379188999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49723.944868,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49723947000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16907.259534,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16907259000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5192407690,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5192407690 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198043576,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198043576 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4294003632,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4294003632 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163565394,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163565394 ns\nthreads: 1"
           }
         ]
       }
