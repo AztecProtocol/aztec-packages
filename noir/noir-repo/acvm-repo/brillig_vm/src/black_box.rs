@@ -413,5 +413,4 @@ mod test {
         black_box::{evaluate_black_box, to_u8_vec, to_value_vec},
         HeapArray, HeapVector, Memory,
     };
-
-  }
+}
