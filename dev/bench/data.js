@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717430724183,
+  "lastUpdate": 1717430780755,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -15460,6 +15460,74 @@ window.BENCHMARK_DATA = {
             "value": 165404276,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165404276 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "fb90188c5cb5ad613ca85dc0306009175317c53f",
+          "message": "docs(avm): Comments in pil file related to range checks of addresses",
+          "timestamp": "2024-06-03T15:49:58Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6837/commits/fb90188c5cb5ad613ca85dc0306009175317c53f"
+        },
+        "date": 1717430779838,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15491.102847999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10716.666197 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5523.998396999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5191.196244 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49243.529788,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49243532000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16908.442741,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16908443000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5205181639,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5205181639 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199642650,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199642650 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4274665097,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4274665097 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163087588,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163087588 ns\nthreads: 1"
           }
         ]
       }
