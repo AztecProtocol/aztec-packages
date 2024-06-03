@@ -2,7 +2,7 @@
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
-import axios, { type AxiosResponse } from 'axios';
+import axios, { type AxiosError, type AxiosResponse } from 'axios';
 import { type RemoteObject } from 'comlink';
 import { format } from 'util';
 
@@ -34,17 +34,31 @@ export async function defaultFetch(
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: AxiosResponse;
   if (useApiEndpoints) {
-    resp = await axios.post(`${host}/${rpcMethod}`, body, {
-      headers: { 'content-type': 'application/json' },
-    });
-  } else {
-    resp = await axios.post(
-      host,
-      { ...body, method: rpcMethod },
-      {
+    resp = await axios
+      .post(`${host}/${rpcMethod}`, body, {
         headers: { 'content-type': 'application/json' },
-      },
-    );
+      })
+      .catch((error: AxiosError) => {
+        if (error.response) {
+          return error.response;
+        }
+        throw error;
+      });
+  } else {
+    resp = await axios
+      .post(
+        host,
+        { ...body, method: rpcMethod },
+        {
+          headers: { 'content-type': 'application/json' },
+        },
+      )
+      .catch((error: AxiosError) => {
+        if (error.response) {
+          return error.response;
+        }
+        throw error;
+      });
   }
 
   const isOK = resp.status >= 200 && resp.status < 300;
