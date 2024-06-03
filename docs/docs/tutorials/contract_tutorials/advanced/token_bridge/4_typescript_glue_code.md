@@ -77,7 +77,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger = createDebugLogger('aztec:e2e_uniswap');
     const pxe = createPXEClient(PXE_URL);
     await waitForPXE(pxe);
-    const wallets = await getInitialTestAccountsWallets(pxe);
+    let wallets = await getInitialTestAccountsWallets(pxe);
 
     const walletClient = createWalletClient({
       account: hdAccount,
