@@ -12,9 +12,9 @@ const waitOpts: WaitOpts = {
 
 export async function bootstrap(rpcUrl: string, log: LogFn) {
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));
-  const canonicalKeyRegistry = getCanonicalKeyRegistry();
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(31337, 1));
 
+  const canonicalKeyRegistry = getCanonicalKeyRegistry();
   const keyRegistryDeployParams = {
     contractAddressSalt: canonicalKeyRegistry.instance.salt,
     universalDeploy: true,
@@ -23,23 +23,19 @@ export async function bootstrap(rpcUrl: string, log: LogFn) {
 
   const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
   const canonicalGasToken = getCanonicalGasToken();
-
   const gasTokenDeployParams = {
     contractAddressSalt: canonicalGasToken.instance.salt,
     universalDeploy: true,
   };
   const gasTokenTx = GasTokenContract.deploy(deployer);
 
-  // prove these txs sequentially otherwise the default node fetch times out
+  // prove these txs sequentially otherwise global fetch with default options times out with real proofs
   await keyRegistryTx.prove(keyRegistryDeployParams);
   await gasTokenTx.prove(gasTokenDeployParams);
 
+  // also deploy the accounts sequentially otherwise there's too much data and publishing TxEffects fails
   const keyRegistry = await keyRegistryTx.send(keyRegistryDeployParams).deployed(waitOpts);
   const gasToken = await gasTokenTx.send(gasTokenDeployParams).deployed(waitOpts);
-  // const [keyRegistry, gasToken] = await Promise.all([
-  //   keyRegistryTx.send(keyRegistryDeployParams).deployed(waitOpts),
-  //   gasTokenTx.send(gasTokenDeployParams).deployed(waitOpts),
-  // ]);
 
   log(`Key Registry deployed at canonical address ${keyRegistry.address.toString()}`);
   log(`Gas token deployed at canonical address ${gasToken.address.toString()}`);
