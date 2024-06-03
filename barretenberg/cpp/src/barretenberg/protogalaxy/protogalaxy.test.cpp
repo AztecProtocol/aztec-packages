@@ -59,6 +59,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto prover_instance = std::make_shared<ProverInstance>(builder, structured);
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
         auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+        info("here");
         get<0>(instances).emplace_back(prover_instance);
         get<1>(instances).emplace_back(verifier_instance);
     }
