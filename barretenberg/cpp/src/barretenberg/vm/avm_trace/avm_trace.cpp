@@ -3816,9 +3816,6 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         if (clk < main_trace_size) {
             Row& next = main_trace.at(clk + 1);
 
-            if (src.op_emit_unencrypted_log) {
-                info("side effect counter when emiting log: ", curr.avm_kernel_side_effect_counter);
-            }
             // Increment the write offset counter for the following row
             next.avm_kernel_note_hash_exist_write_offset =
                 curr.avm_kernel_note_hash_exist_write_offset + static_cast<FF>(src.op_note_hash_exists);
