@@ -261,9 +261,6 @@ export class Sequencer {
       await this.publishL2Block(block, aggregationObject, proof);
       this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
     } catch (err) {
-      // wipe the mempool
-      this.log.warn(`Block building failed, wiping mempool`);
-      await this.p2pClient.deleteTxs((await this.p2pClient.getTxs()).map(tx => tx.getTxHash()));
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
       // Cancel any further proving on the block
       this.prover?.cancelBlock();
