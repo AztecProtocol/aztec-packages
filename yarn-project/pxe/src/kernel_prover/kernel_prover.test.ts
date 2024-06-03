@@ -34,7 +34,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
-  let proofCreator: ReturnType<typeof mock<ProofCreator>>;
+  let proofCreator: ReturnType<typeof mock<ProofCreator>>; // this is what makes proof construction mocked in this test suite
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
@@ -67,13 +67,13 @@ describe('Kernel Prover', () => {
     functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
       callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
-      nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
+      nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)), // LONDONTODO(Client): recursive call
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
       nullifiedNoteHashCounters: new Map(),
       noteHashLeafIndexMap: new Map(),
       returnValues: [],
-      acir: Buffer.alloc(0),
+      acir: Buffer.alloc(0), // LONDONTODO(Client): returning an empty circuit - doesn't ever appear to be populated with smthng nontrivial
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
       publicTeardownFunctionCall: PublicCallRequest.empty(),

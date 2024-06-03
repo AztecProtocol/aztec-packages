@@ -141,6 +141,7 @@ export class BBNativeProofCreator implements ProofCreator {
     const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
       const proofOutput = await this.createProof(directory, partialWitness, bytecode, 'App', appCircuitName);
+      // LONDONTODO(Client): what's a recursive proof and why should this be one?
       if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
         throw new Error(`Incorrect proof length`);
       }

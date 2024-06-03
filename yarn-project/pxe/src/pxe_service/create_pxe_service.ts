@@ -51,6 +51,7 @@ export async function createPXEService(
     if (config.proverEnabled && (!config.bbBinaryPath || !config.bbWorkingDirectory)) {
       throw new Error(`Prover must be configured with binary path and working directory`);
     }
+    // LONDONTODO(Client): the config determines whether a genuine proof is constructed or not
     prover = !config.proverEnabled
       ? new TestProofCreator()
       : new BBNativeProofCreator(

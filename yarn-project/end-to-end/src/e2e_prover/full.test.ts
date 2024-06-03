@@ -1,6 +1,7 @@
 import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
+// LONDONTODO(Client): PXE created via the import below. Real proving turned on therein
 import { FullProverTest } from './e2e_prover_test.js';
 
 const TIMEOUT = 1_800_000;
@@ -42,13 +43,13 @@ describe('full_prover', () => {
         privateSendAmount,
         0,
       );
-      
+
       const [privateTx] = await Promise.all([privateInteraction.prove()]);
-      
+
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
-      
+
       // LONDONTODO(Client): Generate a client proof.
       // if (isGenerateTestDataEnabled()) {
       //   const blockResults = getTestData('blockResults');
