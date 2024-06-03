@@ -20,7 +20,7 @@ You can also click on this badge and start a codespace - a free remote server th
 
 Start a new project by using the very same `npx` command that powers the codespace:
 
-<span id="new_project">
+<span data-testid="0">
 
 ```bash
 yes | npx aztec-app init
@@ -43,7 +43,7 @@ Once upon a time, we could compile and deploy on the CLI. It will come back one 
 
 Ok ok let's compile this little guy. While we're here, we can also use the handy `aztec-builder` package to generate some TS bindings.
 
-<span id="compile_and_gen">
+<span data-testid="1">
 
 ```bash
 aztec-nargo compile
@@ -55,7 +55,7 @@ aztec-builder codegen -o artifacts target
 
 Wait, we don't yet have a project, right? Let's do it now, and btw let's install `@aztec/aztec.js` and `@aztec/accounts`.
 
-<span id="yarn_create_and_add">
+<span data-testid="2">
 
 ```bash
 yes | yarn add @aztec/aztec.js @aztec/accounts
@@ -67,7 +67,7 @@ These two packages are quite useful. `aztec.js` gives us a nice interface to int
 
 So, let's create an `index.ts` file and add those imports. Since we're here, let's import the contract artifact we generated above.
 
-<span id="add_js_code_0">
+<span data-testid="3">
 
 ```js
 import { createPXEClient } from "@aztec/aztec.js";
@@ -87,7 +87,7 @@ Since the sandbox is running already, our PXE is also running. Yey! So we call i
 
 Then we can deploy our artifact, broadcast it, and wait for the result:
 
-<span id="add_js_code_1">
+<span data-testid="4">
 
 ```ts
 const pxe = createPXEClient("http://localhost:8080");
@@ -101,7 +101,7 @@ console.log("Yey! Address: ", contract.address)
 
 With the infra ready, all we need is <s>love</s> hit the button:
 
-<span class="deploy">
+<span data-testid="5">
 
 ```bash
 yes | npx tsx index.ts
@@ -122,8 +122,7 @@ So I like tsx, which uses sensible defaults that "just work" 💡
 
 Ok ok let's dive in the actual voting logic. Let's have a look at our `main.nr`. There's not much in there, but there's an initializer that runs when you deploy it, and turns out we would like to have an admin for our little election. So we pass it as a parameter:
 
-<!-- Purposefully out of order, as the test will "write" from top to bottom -->
-<span id="add_noir_code_3">
+<span data-testid="6">
 
 ```rust
 #[aztec(public)]
@@ -138,22 +137,27 @@ fn constructor(admin: AztecAddress) {
 
 ### Storage
 
-What's this storage thing? Well, that's something we need to define. Thankfully, there's a `#[aztec(storage)]` macro for that. Above our initializer, we can add our admin:
+What's this storage thing? Well, that's something we need to define. Thankfully, there's a `#[aztec(storage)]` macro for that. Above our initializer, we can add our admin. 
+
+<span data-testid="7">
 
 ```rust
 #[aztec(storage)]
 struct Storage {
     admin: PublicMutable<AztecAddress>, // admin can end vote
+    tally: Map<Field, PublicMutable<Field>>
 }
 ```
 
+</span>
+
 `PublicMutable` is more or less self-explanatory: it is a public value that can change. As for _who_ can change it, that's up to the contract logic.
 
-We can also add another storage value `tally`, which is a map that relates a key (the persona) with its current vote count.
+We also added another storage value `tally`, which is a map that relates a key (the persona) with its current vote count.
 
 Here's all the code we have so far:
 
-<span id="add_noir_code_2">
+<span data-testid="partial-0">
 
 ```rust
 contract Main {

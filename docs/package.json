@@ -13,7 +13,8 @@
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js  && node src/preprocess/generate_aztecnr_reference.js",
     "preprocess:dev": "nodemon --config nodemon.json ./src/preprocess/index.js  && nodemon --config nodemon.json src/preprocess/generate_aztecnr_reference.js ",
     "typedoc": "docusaurus generate-typedoc",
-    "rewrite": "node ./scripts/rewrite_paths.js"
+    "rewrite": "node ./scripts/rewrite_paths.js",
+    "test": "npx playwright test"
   },
   "dependencies": {
     "@docusaurus/core": "^3.0.1",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.0.1",
+    "@playwright/test": "1.42.0",
     "@docusaurus/types": "3.0.0",
     "@tsconfig/docusaurus": "^1.0.5",
     "concurrently": "^8.0.1",
