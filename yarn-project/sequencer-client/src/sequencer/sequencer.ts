@@ -43,6 +43,7 @@ export class Sequencer {
   private state = SequencerState.STOPPED;
   private allowedFunctionsInSetup: AllowedFunction[] = [];
   private allowedFunctionsInTeardown: AllowedFunction[] = [];
+  private maxBlockSizeInBytes: number = 1024 * 1024;
 
   constructor(
     private publisher: L1Publisher,
@@ -83,6 +84,9 @@ export class Sequencer {
     }
     if (config.allowedFunctionsInSetup) {
       this.allowedFunctionsInSetup = config.allowedFunctionsInSetup;
+    }
+    if (config.maxBlockSizeInBytes) {
+      this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
     // TODO(#5917) remove this. it is no longer needed since we don't need to whitelist functions in teardown
     if (config.allowedFunctionsInTeardown) {
@@ -302,15 +306,15 @@ export class Sequencer {
   }
 
   protected takeTxsWithinMaxSize(txs: Tx[]): Tx[] {
-    const MAX_SIZE = 1024 * 1024;
+    const maxSize = this.maxBlockSizeInBytes;
     let totalSize = 0;
 
     const toReturn: Tx[] = [];
     for (const tx of txs) {
       const txSize = tx.getStats().size - tx.proof.toBuffer().length;
-      if (totalSize + txSize > MAX_SIZE) {
+      if (totalSize + txSize > maxSize) {
         this.log.warn(
-          `Dropping tx ${tx.getTxHash()} with size ${txSize} due to exceeding block size limit (currently at ${totalSize})`,
+          `Dropping tx ${tx.getTxHash()} with size ${txSize} due to exceeding ${maxSize} block size limit (currently at ${totalSize})`,
         );
         continue;
       }
