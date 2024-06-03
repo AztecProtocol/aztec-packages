@@ -2,14 +2,13 @@
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
-import axios, { type AxiosError, type AxiosResponse } from 'axios';
 import { type RemoteObject } from 'comlink';
 import { format } from 'util';
 
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
 import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
-import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
+import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
 export { JsonStringify } from '../convert.js';
 
@@ -32,43 +31,39 @@ export async function defaultFetch(
   noRetry = false,
 ) {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
-  let resp: AxiosResponse;
+  let resp: Response;
   if (useApiEndpoints) {
-    resp = await axios
-      .post(`${host}/${rpcMethod}`, body, {
-        headers: { 'content-type': 'application/json' },
-      })
-      .catch((error: AxiosError) => {
-        if (error.response) {
-          return error.response;
-        }
-        throw error;
-      });
+    resp = await fetch(`${host}/${rpcMethod}`, {
+      method: 'POST',
+      body: JsonStringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
   } else {
-    resp = await axios
-      .post(
-        host,
-        { ...body, method: rpcMethod },
-        {
-          headers: { 'content-type': 'application/json' },
-        },
-      )
-      .catch((error: AxiosError) => {
-        if (error.response) {
-          return error.response;
-        }
-        throw error;
-      });
+    resp = await fetch(host, {
+      method: 'POST',
+      body: JsonStringify({ ...body, method: rpcMethod }),
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
-  const isOK = resp.status >= 200 && resp.status < 300;
-  if (isOK) {
-    return resp.data;
-  } else if (noRetry || (resp.status >= 400 && resp.status < 500)) {
-    throw new NoRetryError('(JSON-RPC PROPAGATED) ' + resp.data.error.message);
-  } else {
-    throw new Error('(JSON-RPC PROPAGATED) ' + resp.data.error.message);
+  let responseJson;
+  try {
+    responseJson = await resp.json();
+  } catch (err) {
+    if (!resp.ok) {
+      throw new Error(resp.statusText);
+    }
+    throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
+  if (!resp.ok) {
+    if (noRetry || (resp.status >= 400 && resp.status < 500)) {
+      throw new NoRetryError('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
+    } else {
+      throw new Error('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
+    }
+  }
+
+  return responseJson;
 }
 
 /**
@@ -85,7 +80,7 @@ export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,
-      false,
+      true,
     );
   };
 }
