@@ -3,7 +3,9 @@
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+
 #include <cstdint>
+#include <variant>
 #include <vector>
 
 namespace bb::avm_trace {

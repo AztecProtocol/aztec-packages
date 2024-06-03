@@ -1,11 +1,12 @@
-#include "avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "barretenberg/vm/avm_trace/avm_instructions.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,11 @@ namespace {
 
 const std::vector<OperandType> three_operand_format = {
     OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32,
+};
+
+const std::vector<OperandType> getter_format = {
+    OperandType::INDIRECT,
+    OperandType::UINT32,
 };
 
 // Contrary to TS, the format does not contain the opcode byte which prefixes any instruction.
@@ -32,18 +38,38 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::LT, three_operand_format },
     { OpCode::LTE, three_operand_format },
     // Compute - Bitwise
-    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::AND, three_operand_format },
     { OpCode::OR, three_operand_format },
     { OpCode::XOR, three_operand_format },
-    { OpCode::SHR, three_operand_format },
+    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::SHL, three_operand_format },
+    { OpCode::SHR, three_operand_format },
     // Compute - Type Conversions
     { OpCode::CAST, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
+    // Execution Environment - Globals
+    { OpCode::ADDRESS, getter_format },
+    { OpCode::STORAGEADDRESS, getter_format },
+    { OpCode::SENDER, getter_format },
+    { OpCode::FEEPERL2GAS, getter_format },
+    { OpCode::FEEPERDAGAS, getter_format },
+    { OpCode::TRANSACTIONFEE, getter_format },
+    // CONTRACTCALLDEPTH, -- not in simulator
+    // Execution Environment - Globals
+    { OpCode::CHAINID, getter_format },
+    { OpCode::VERSION, getter_format },
+    { OpCode::BLOCKNUMBER, getter_format },
+    { OpCode::TIMESTAMP, getter_format },
+    // COINBASE, -- not in simulator
+    // BLOCKL2GASLIMIT, -- not in simulator
+    // BLOCKDAGASLIMIT, -- not in simulator
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    // Machine State - Gas
+    { OpCode::L2GASLEFT, getter_format },
+    { OpCode::DAGASLEFT, getter_format },
     // Machine State - Internal Control Flow
     { OpCode::JUMP, { OperandType::UINT32 } },
+    { OpCode::JUMPI, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
     // Machine State - Memory
@@ -51,11 +77,46 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::MOV, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::CMOV,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    // World State
+    // SLOAD,
+    // SSTORE,
+    // NOTEHASHEXISTS,
+    // EMITNOTEHASH,
+    // NULLIFIEREXISTS,
+    // EMITNULLIFIER,
+    // L1TOL2MSGEXISTS,
+    // HEADERMEMBER,
+    // GETCONTRACTINSTANCE,
+    // Accrued Substate
+    // EMITUNENCRYPTEDLOG,
+    // SENDL2TOL1MSG,
     // Control Flow - Contract Calls
+    // CALL,
+    // STATICCALL,
+    // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    // REVERT,
+    // Misc
+    { OpCode::DEBUGLOG,
+      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    // Gadgets
+    // KECCAK,
+    // POSEIDON2,
+    // SHA256,
+    // PEDERSEN,
+    // Gadget - Hashing
+    { OpCode::KECCAK, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::POSEIDON2, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SHA256, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::PEDERSEN,
+      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Gadget - Conversion
     { OpCode::TORADIXLE,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    // Gadgets - Unused for now
+    { OpCode::SHA256COMPRESSION,
+      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
@@ -84,8 +145,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         const uint8_t opcode_byte = bytecode.at(pos);
 
         if (!Bytecode::is_valid(opcode_byte)) {
-            throw_or_abort("Invalid opcode byte: " + std::to_string(opcode_byte) +
-                           " at position: " + std::to_string(pos));
+            throw_or_abort("Invalid opcode byte: " + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
         }
         pos++;
 
@@ -132,11 +192,14 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT128, OperandType::UINT32 };
                 break;
             default: // This branch is guarded above.
-                std::cerr << "This code branch must have been guarded by the tag validation. \n";
-                assert(false);
+                throw_or_abort("Error processing wire format of SET opcode.");
             }
         } else {
-            inst_format = OPCODE_WIRE_FORMAT.at(opcode);
+            auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
+            if (iter == OPCODE_WIRE_FORMAT.end()) {
+                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode));
+            }
+            inst_format = iter->second;
         }
 
         std::vector<Operand> operands;
@@ -144,7 +207,8 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         for (OperandType const& opType : inst_format) {
             // No underflow as while condition guarantees pos <= length (after pos++)
             if (length - pos < OPERAND_TYPE_SIZE.at(opType)) {
-                throw_or_abort("Operand is missing at position " + std::to_string(pos));
+                throw_or_abort("Operand is missing at position " + std::to_string(pos) +
+                               " for opcode: " + to_hex(opcode));
             }
 
             switch (opType) {
@@ -156,7 +220,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 uint8_t tag_u8 = bytecode.at(pos);
                 if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
-                                   " value: " + std::to_string(tag_u8));
+                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_hex(opcode));
                 }
                 operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
                 break;
@@ -199,4 +263,5 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
     }
     return instructions;
 };
+
 } // namespace bb::avm_trace

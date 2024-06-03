@@ -5,7 +5,8 @@ use crate::{
 },
     address::AztecAddress,
     constants::{
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
+    MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+    MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS,
@@ -22,8 +23,10 @@ struct PublicCircuitPublicInputs {
     args_hash: Field,
     returns_hash: Field,
 
+    note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
     nullifier_non_existent_read_requests: [ReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+    l1_to_l2_msg_read_requests: [ReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
     contract_storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
     contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
@@ -66,11 +69,17 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
         fields.push(self.returns_hash);
+        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+            fields.extend_from_array(self.note_hash_read_requests[i].serialize());
+        }
         for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
             fields.extend_from_array(self.nullifier_read_requests[i].serialize());
         }
         for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL {
             fields.extend_from_array(self.nullifier_non_existent_read_requests[i].serialize());
+        }
+        for i in 0..MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL {
+            fields.extend_from_array(self.l1_to_l2_msg_read_requests[i].serialize());
         }
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             fields.extend_from_array(self.contract_storage_update_requests[i].serialize());
@@ -115,8 +124,10 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             returns_hash: reader.read(),
+            note_hash_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
             nullifier_non_existent_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL]),
+            l1_to_l2_msg_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL]),
             contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),
             contract_storage_reads: reader.read_struct_array(StorageRead::deserialize, [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
@@ -152,8 +163,10 @@ impl Empty for PublicCircuitPublicInputs {
             call_context: CallContext::empty(),
             args_hash: 0,
             returns_hash: 0,
+            note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+            l1_to_l2_msg_read_requests: [ReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
             contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
             public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
@@ -188,6 +201,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x1e4351db0c9aa20836e7009bc3e6a4555c92622c5e9cb3b49e2ec0fbbf59d0bd;
+    let test_data_empty_hash = 0x0933cf2bb384c9733d5a8311bfdc089489c2557df2265026579f9ac2b21d2ef9;
     assert_eq(hash, test_data_empty_hash);
 }

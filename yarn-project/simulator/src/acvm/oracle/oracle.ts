@@ -1,4 +1,5 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { KeyValidationRequest } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -296,26 +297,32 @@ export class Oracle {
     );
   }
 
-  emitEncryptedNoteLog([noteHash]: ACVMField[], encryptedNote: ACVMField[], [counter]: ACVMField[]): void {
+  emitEncryptedNoteLog([noteHashCounter]: ACVMField[], encryptedNote: ACVMField[], [counter]: ACVMField[]): void {
     // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
     const processedInput = Buffer.from(encryptedNote.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedNoteLog(fromACVMField(noteHash), processedInput, +counter);
+    this.typedOracle.emitEncryptedNoteLog(+noteHashCounter, processedInput, +counter);
   }
 
   computeEncryptedLog(
     [contractAddress]: ACVMField[],
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
-    [publicKeyX]: ACVMField[],
-    [publicKeyY]: ACVMField[],
+    [ovskApp]: ACVMField[],
+    [ovpkMX]: ACVMField[],
+    [ovpkMY]: ACVMField[],
+    [ivpkMX]: ACVMField[],
+    [ivpkMY]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
     const encLog = this.typedOracle.computeEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
-      publicKey,
+      ovKeys,
+      ivpkM,
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];

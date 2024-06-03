@@ -8,7 +8,6 @@
 
 namespace bb::stdlib {
 
-using namespace bb;
 /**
  * @brief stdlib class that evaluates in-circuit poseidon2 hashes, consistent with behavior in
  * crypto::poseidon2
@@ -30,6 +29,6 @@ template <typename Builder> class poseidon2 {
     static field_ct hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
 };
 
-extern template class poseidon2<bb::GoblinUltraCircuitBuilder>;
+extern template class poseidon2<bb::MegaCircuitBuilder>;
 
 } // namespace bb::stdlib

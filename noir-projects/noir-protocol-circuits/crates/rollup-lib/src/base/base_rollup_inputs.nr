@@ -22,9 +22,8 @@ use dep::types::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
-    MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
+    MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
+    NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
@@ -273,7 +272,7 @@ impl BaseRollupInputs {
                 );
 
                 let new_value = compute_public_data_tree_value(existing_update.new_value - tx_fee);
-                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value };
+                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
                 (protocol_update_request, existing_update_index as u64)
             } else {
                 // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
@@ -284,7 +283,7 @@ impl BaseRollupInputs {
                 assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
                 let new_value = compute_public_data_tree_value(balance - tx_fee);
-                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value };
+                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
                 (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
             }
         } else {
@@ -450,7 +449,7 @@ mod tests {
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
-        side_effect::SideEffect, accumulated_data::CombinedAccumulatedData, gas::Gas
+        accumulated_data::CombinedAccumulatedData, gas::Gas
     },
         merkle_tree::MembershipWitness, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
@@ -490,7 +489,7 @@ mod tests {
         protocol_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         mut final_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
-    ) -> ([Field; 35], [PublicDataTreeLeaf; 32], [u64; 32], [PublicDataTreeLeafPreimage; 32], [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; 32], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
+    ) -> ([Field; 35], [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [u64; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
         let mut subtree_path = [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH];
         let mut sorted_public_data_writes = [PublicDataTreeLeaf::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         let mut sorted_public_data_writes_indexes = [0 as u64; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
@@ -505,6 +504,7 @@ mod tests {
                 kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
                     new_value : leaf.value,
+                    counter : 0
                 };
             }
         }
@@ -853,7 +853,7 @@ mod tests {
 
         let new_note_hashes = [27, 28, 29, 30, 31, 32];
         for i in 0..new_note_hashes.len() {
-            builder.kernel_data.add_new_note_hash(new_note_hashes[i]);
+            builder.kernel_data.add_new_note_hash(new_note_hashes[i], 0);
         }
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
             [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],

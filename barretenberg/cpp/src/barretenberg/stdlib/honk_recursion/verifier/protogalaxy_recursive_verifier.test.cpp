@@ -31,7 +31,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor = std::conditional_t<IsGoblinUltraBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
+    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
@@ -193,8 +193,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder folding_circuit;
-        auto verifier =
-            FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
+        auto verifier = FoldingRecursiveVerifier(&folding_circuit,
+                                                 { verifier_instance_1, { verifier_instance_2->verification_key } });
         verifier.verify_folding_proof(folding_proof.proof);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
@@ -257,8 +257,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder folding_circuit;
-        auto verifier =
-            FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
+        auto verifier = FoldingRecursiveVerifier(&folding_circuit,
+                                                 { verifier_instance_1, { verifier_instance_2->verification_key } });
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.proof);
         auto native_verifier_acc = std::make_shared<InnerVerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
@@ -357,20 +357,19 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // commitments
         OuterBuilder folding_circuit;
         FoldingRecursiveVerifier verifier{ &folding_circuit,
-                                           verifier_accumulator,
-                                           { verifier_inst->verification_key } };
+                                           { verifier_accumulator, { verifier_inst->verification_key } } };
         auto recursive_verifier_acc = verifier.verify_folding_proof(folding_proof.proof);
         // Validate that the target sum between prover and verifier is now different
         EXPECT_FALSE(folding_proof.accumulator->target_sum == recursive_verifier_acc->target_sum.get_value());
     };
 };
 
-using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
-                                   GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
+using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                   MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                   UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
+                                   UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                    UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                                   GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                   MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

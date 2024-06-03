@@ -1,8 +1,6 @@
-#include "avm_opcode.hpp"
-
-#include <cstdint>
-#include <iomanip>
-#include <sstream>
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/serialize.hpp"
 
 namespace bb::avm_trace {
 
@@ -19,10 +17,7 @@ bool Bytecode::is_valid(const uint8_t byte)
 
 std::string to_hex(OpCode opcode)
 {
-    std::ostringstream stream;
-    // pad with 0s to fill exactly 2 hex characters
-    stream << std::setfill('0') << std::setw(2) << std::hex << (static_cast<uint8_t>(opcode) & 0xFF);
-    return stream.str();
+    return to_hex(static_cast<uint8_t>(opcode));
 }
 
 } // namespace bb::avm_trace

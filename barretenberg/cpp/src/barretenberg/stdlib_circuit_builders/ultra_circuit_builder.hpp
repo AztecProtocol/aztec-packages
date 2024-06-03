@@ -9,6 +9,7 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "circuit_builder_base.hpp"
 #include <optional>
+#include <unordered_set>
 
 namespace bb {
 
@@ -22,8 +23,6 @@ template <typename FF> struct non_native_field_witnesses {
     std::array<FF, 5> neg_modulus;
     FF modulus;
 };
-
-using namespace bb;
 
 template <typename Arithmetization_>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_::FF> {

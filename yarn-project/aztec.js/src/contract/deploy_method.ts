@@ -7,7 +7,6 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type Wallet } from '../account/index.js';
@@ -53,8 +52,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /** Cached call to request() */
   private functionCalls?: ExecutionRequestInit;
 
-  private log = createDebugLogger('aztec:js:deploy_method');
-
   constructor(
     private publicKeysHash: Fr,
     wallet: Wallet,
@@ -79,8 +76,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     if (!this.txRequest) {
       this.txRequest = await this.wallet.createTxExecutionRequest(await this.request(options));
-      // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-      await this.wallet.registerContract({ artifact: this.artifact, instance: this.instance! });
     }
     return this.txRequest;
   }
@@ -98,6 +93,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async request(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
     if (!this.functionCalls) {
+      // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
+      // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
+      // runs, since it needs the contract to have been registered in order to estimate gas for its initialization,
+      // in case the initializer is public. This hints at the need of having "transient" contracts scoped to a
+      // simulation, so we can run the simulation with a set of contracts, but only "commit" them to the wallet
+      // once this tx has gone through.
+      await this.wallet.registerContract({ artifact: this.artifact, instance: this.getInstance(options) });
+
       const deployment = await this.getDeploymentFunctionCalls(options);
       const bootstrap = await this.getInitializeFunctionCalls(options);
 
@@ -113,7 +116,13 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       };
 
       if (options.estimateGas) {
-        request.fee = await this.getFeeOptions(request);
+        // Why do we call this seemingly idempotent getter method here, without using its return value?
+        // This call pushes a capsule required for contract class registration under the hood. And since
+        // capsules are a stack, when we run the simulation for estimating gas, we consume the capsule
+        // that was meant for the actual call. So we need to push it again here. Hopefully this design
+        // will go away soon.
+        await this.getDeploymentFunctionCalls(options);
+        request.fee = await this.getFeeOptionsFromEstimatedGas(request);
       }
 
       this.functionCalls = request;
@@ -231,6 +240,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public override prove(options: DeployOptions): Promise<Tx> {
     return super.prove(options);
+  }
+
+  /**
+   * Estimates gas cost for this deployment operation.
+   * @param options - Options.
+   */
+  public override estimateGas(options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>) {
+    return super.estimateGas(options);
   }
 
   /** Return this deployment address. */

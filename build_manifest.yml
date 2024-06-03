@@ -48,6 +48,19 @@ avm-transpiler:
   rebuildPatterns:
     - ^avm-transpiler/
     - ^noir/
+  dependencies:
+    - noir
+
+aztec-nargo:
+  buildDir: .
+  dockerfile: aztec-nargo/Dockerfile
+  rebuildPatterns:
+    - ^aztec-nargo/
+    - ^avm-transpiler/
+    - ^noir/
+  dependencies:
+    - avm-transpiler
+    - noir
 
 # Compiles all aztec noir projects using nargo and the avm-transpiler.
 noir-projects:
@@ -82,12 +95,6 @@ barretenberg-x86_64-linux-clang-assert:
 barretenberg-x86_64-linux-clang-fuzzing:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing
-  rebuildPatterns: .rebuild_patterns
-
-# Builds all of barretenberg with gcc. Ensures compiler compatibility.
-barretenberg-x86_64-linux-gcc:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
   rebuildPatterns: .rebuild_patterns
 
 # Builds barretenberg.wasm (single and multithreaded builds).

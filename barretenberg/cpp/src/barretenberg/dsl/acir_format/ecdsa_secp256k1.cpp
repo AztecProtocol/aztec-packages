@@ -3,10 +3,13 @@
 
 namespace acir_format {
 
+using namespace bb;
+using secp256k1_ct = bb::stdlib::secp256k1<Builder>;
+
 using namespace bb::plonk;
 
 template <typename Builder>
-secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affine_element& input)
+secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const bb::secp256k1::g1::affine_element& input)
 {
     uint256_t x_u256(input.x);
     uint256_t y_u256(input.y);
@@ -165,9 +168,9 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
 template void create_ecdsa_k1_verify_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                                       const EcdsaSecp256k1Constraint& input,
                                                                       bool has_valid_witness_assignments);
-template void create_ecdsa_k1_verify_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                            const EcdsaSecp256k1Constraint& input,
-                                                                            bool has_valid_witness_assignments);
+template void create_ecdsa_k1_verify_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                                     const EcdsaSecp256k1Constraint& input,
+                                                                     bool has_valid_witness_assignments);
 template void dummy_ecdsa_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                           EcdsaSecp256k1Constraint const& input);
 

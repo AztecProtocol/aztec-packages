@@ -1,15 +1,26 @@
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
-#include "constants.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
+
+#include <array>
 #include <cstdint>
 
 namespace bb::avm_trace {
 
 using Flavor = bb::AvmFlavor;
 using FF = Flavor::FF;
-using Row = bb::AvmFullRow<bb::fr>;
+
+// There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
+using VmPublicInputs = std::tuple<std::array<FF, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
+                                  std::array<FF, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs data
+                                  std::array<FF, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs side effects
+                                  std::array<FF, KERNEL_OUTPUTS_LENGTH>>; // Output: Kernel outputs metadata
+// Constants for indexing into the tuple above
+static const size_t KERNEL_INPUTS = 0;
+static const size_t KERNEL_OUTPUTS_VALUE = 1;
+static const size_t KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER = 2;
+static const size_t KERNEL_OUTPUTS_METADATA = 3;
 
 // Number of rows
 static const size_t AVM_TRACE_SIZE = 1 << 18;
