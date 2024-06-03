@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717427149710,
+  "lastUpdate": 1717427433075,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -15120,6 +15120,74 @@ window.BENCHMARK_DATA = {
             "value": 163857848,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163857848 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "a550043d77dad22f694bac22380f61e6e6af67a0",
+          "message": "feat(avm): avm circuit actually uses public inputs columns passed from TS",
+          "timestamp": "2024-06-03T14:51:17Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6819/commits/a550043d77dad22f694bac22380f61e6e6af67a0"
+        },
+        "date": 1717427429900,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15434.110428999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10717.189601 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5514.026577999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5108.660922 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49014.257174000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49014258000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17036.195164999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17036194000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5165100098,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5165100098 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197728872,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197728872 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4268001698,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4268001698 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164350890,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164350890 ns\nthreads: 1"
           }
         ]
       }
