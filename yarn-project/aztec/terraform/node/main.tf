@@ -551,18 +551,16 @@ resource "aws_security_group_rule" "allow-node-udp-out" {
 
 
 
-
-// Configuration for proving agents
-
+# Configuration for proving agents
 resource "aws_cloudwatch_log_group" "aztec-proving-agent-log-group" {
-  count             = local.total_agents
-  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
+  count             = local.node_count
+  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-group-${count.index + 1}"
   retention_in_days = 14
 }
 
 resource "aws_service_discovery_service" "aztec-proving-agent" {
-  count = local.total_agents
-  name  = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
+  count = local.node_count
+  name  = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
 
   health_check_custom_config {
     failure_threshold = 1
@@ -593,7 +591,7 @@ resource "aws_service_discovery_service" "aztec-proving-agent" {
 
 # Define task definitions for each node.
 resource "aws_ecs_task_definition" "aztec-proving-agent" {
-  count                    = local.total_agents
+  count                    = local.node_count
   family                   = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -605,7 +603,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
   container_definitions = <<DEFINITIONS
 [
   {
-    "name": "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}",
+    "name": "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
     "command": ["start", "--prover"],
     "essential": true,
@@ -629,8 +627,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "${var.DEPLOY_TAG}"
       },
       {
-        "name": "PROVER_URL",
-        "value": "http://${var.DEPLOY_TAG}-aztec-node-${floor(count.index / local.agents_per_sequencer) + 1}.local/${var.DEPLOY_TAG}/aztec-node-${floor(count.index / local.agents_per_sequencer) + 1}"
+        "name": "AZTEC_NODE_URL",
+        "value": "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
       },
       {
         "name": "PROVER_AGENTS",
@@ -660,7 +658,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-        "awslogs-group": "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}",
+        "awslogs-group": ${aws_cloudwatch_log_group.aztec-proving-agent-log-group[count.index].name},
         "awslogs-region": "eu-west-2",
         "awslogs-stream-prefix": "ecs"
       }
@@ -671,8 +669,8 @@ DEFINITIONS
 }
 
 resource "aws_ecs_service" "aztec-proving-agent" {
-  count                              = local.total_agents
-  name                               = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
+  count                              = local.node_count
+  name                               = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = 1
@@ -691,9 +689,120 @@ resource "aws_ecs_service" "aztec-proving-agent" {
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-proving-agent[count.index].arn
-    container_name = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
+    container_name = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
     container_port = 80
   }
 
   task_definition = aws_ecs_task_definition.aztec-proving-agent[count.index].family
+}
+
+
+# Create CloudWatch metrics for the proving agents
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  count               = local.node_count
+  alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-high-${count.index + 1}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "10"
+  alarm_description   = "Alert when CPU utilization is greater than 10%"
+  dimensions = {
+    ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
+    ServiceName = "${aws_ecs_service.aztec-proving-agent[count.index].name}"
+  }
+  alarm_actions = [aws_appautoscaling_policy.scale_out[count.index].arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_low" {
+  count               = local.node_count
+  alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-low-${count.index + 1}"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "10"
+  alarm_description   = "Alarm when CPU utilization is less than 10%"
+  dimensions = {
+    ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
+    ServiceName = "${aws_ecs_service.aztec-proving-agent[count.index].name}"
+  }
+  alarm_actions = [aws_appautoscaling_policy.scale_in[count.index].arn]
+}
+
+# Create Auto Scaling Target for ECS Service
+resource "aws_appautoscaling_target" "ecs_proving_agent" {
+  count              = local.node_count
+  max_capacity       = var.AGENTS_PER_SEQUENCER
+  min_capacity       = 1
+  resource_id        = "service/${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id}/${aws_ecs_service.aztec_proving_agent[count.index].name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+# Create Scaling Policy for Scaling Out
+resource "aws_appautoscaling_policy" "scale_out" {
+  count              = local.node_count
+  name               = "${var.DEPLOY_TAG}-scale-out-${count.index}"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = 60
+    metric_aggregation_type = "Average"
+
+    step_adjustment {
+      scaling_adjustment          = 1
+      metric_interval_lower_bound = 0
+    }
+  }
+}
+
+# Create Scaling Policy for Scaling In
+resource "aws_appautoscaling_policy" "scale_in" {
+  count              = local.node_count
+  name               = "${var.DEPLOY_TAG}-scale-in-${count.index + 1}"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = 60
+    metric_aggregation_type = "Average"
+
+    step_adjustment {
+      scaling_adjustment          = -1
+      metric_interval_upper_bound = 0
+    }
+  }
+}
+
+# Link the High CPU alarm to the scale out policy
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  count               = local.node_count
+  alarm_name          = "${var.DEPLOY_TAG}-cpu-high-${count.index + 1}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "10"
+  alarm_description   = "Alarm when CPU utilization is greater than 10%"
+  dimensions = {
+    ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
+    ServiceName = "${aws_ecs_service.aztec_proving_agent[count.index].name}"
+  }
+  alarm_actions             = [aws_appautoscaling_policy.scale_out[count.index].arn]
+  insufficient_data_actions = []
+  ok_actions                = []
 }
