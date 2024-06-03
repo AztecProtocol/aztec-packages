@@ -753,12 +753,12 @@ resource "aws_appautoscaling_policy" "scale_out" {
   service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
 
   step_scaling_policy_configuration {
-    adjustment_type         = "ChangeInCapacity"
+    adjustment_type         = "ExactCapacity"
     cooldown                = 60
     metric_aggregation_type = "Maximum"
 
     step_adjustment {
-      scaling_adjustment          = local.agents_per_sequencer - 1 # -1 since we're adding our target to the existing 1
+      scaling_adjustment          = local.agents_per_sequencer
       metric_interval_lower_bound = 0
     }
   }
@@ -774,12 +774,12 @@ resource "aws_appautoscaling_policy" "scale_in" {
   service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
 
   step_scaling_policy_configuration {
-    adjustment_type         = "ChangeInCapacity"
+    adjustment_type         = "ExactCapacity"
     cooldown                = 60
     metric_aggregation_type = "Maximum"
 
     step_adjustment {
-      scaling_adjustment          = -local.agents_per_sequencer + 1 # +1 since we're removing our target from the existing 1
+      scaling_adjustment          = 1
       metric_interval_upper_bound = 0
     }
   }
