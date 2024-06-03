@@ -6,7 +6,12 @@ import {
   Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { type AllowedFunction, type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedFunction,
+  BlockProofError,
+  type BlockProver,
+  PROVING_STATUS,
+} from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, EthAddress, type Proof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -205,16 +210,15 @@ export class Sequencer {
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
 
-      const emptyTx = processor.makeEmptyProcessedTx();
-
       const blockBuildingTimer = new Timer();
 
       // We must initialise the block to be a power of 2 in size
       const numRealTxs = validTxs.length;
       const pow2 = Math.log2(numRealTxs);
+      // TODO turn this back into a Math.ceil once we can pad blocks to the next-power-of-2 with empty txs
       const totalTxs = 2 ** Math.ceil(pow2);
       const blockSize = Math.max(2, totalTxs);
-      const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages, emptyTx);
+      const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
         processor.process(validTxs, blockSize, this.prover, this.txValidatorFactory.validatorForProcessedTxs()),
@@ -262,6 +266,11 @@ export class Sequencer {
       await this.publishL2Block(block, aggregationObject, proof);
       this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
     } catch (err) {
+      if (BlockProofError.isBlockProofError(err)) {
+        const txHashes = err.txHashes.filter(h => !h.isZero());
+        this.log.warn(`Proving block failed, removing ${txHashes.length} txs from pool`);
+        await this.p2pClient.deleteTxs(txHashes);
+      }
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
       // Cancel any further proving on the block
       this.prover?.cancelBlock();

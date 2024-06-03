@@ -56,8 +56,10 @@ export type JournalData = {
 
 // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
 type PartialPublicExecutionResult = {
+  noteHashReadRequests: ReadRequest[];
   nullifierReadRequests: ReadRequest[];
   nullifierNonExistentReadRequests: ReadRequest[];
+  l1ToL2MsgReadRequests: ReadRequest[];
   newNoteHashes: NoteHash[];
   newL2ToL1Messages: L2ToL1Message[];
   startSideEffectCounter: number;
@@ -108,8 +110,10 @@ export class AvmPersistableStateManager {
     this.trace = new WorldStateAccessTrace(parent?.trace);
 
     this.transitionalExecutionResult = {
+      noteHashReadRequests: [],
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],
+      l1ToL2MsgReadRequests: [],
       newNoteHashes: [],
       newL2ToL1Messages: [],
       startSideEffectCounter: this.trace.accessCounter,
