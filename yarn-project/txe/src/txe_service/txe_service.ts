@@ -94,8 +94,10 @@ export class TXEService {
   }
 
   async reset() {
+    this.blockNumber = 0;
     await this.store.clear();
     this.packedValuesCache = new PackedValuesCache();
+    await this.#timeTravelInner(1);
     return toForeignCallResult([]);
   }
 
