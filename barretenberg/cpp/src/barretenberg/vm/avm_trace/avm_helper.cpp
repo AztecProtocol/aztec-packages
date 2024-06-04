@@ -43,11 +43,11 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
             info("internal_return:    ", trace.at(i).avm_main_sel_internal_return);
             info("internal_return_ptr:", trace.at(i).avm_main_internal_return_ptr);
 
-            // info("=======ALU TRACE=====================================================================");
-            // info("alu_clk             ", trace.at(i).avm_alu_clk);
-            // info("alu_ia              ", trace.at(i).avm_alu_ia);
-            // info("alu_ib              ", trace.at(i).avm_alu_ib);
-            // info("alu_ic              ", trace.at(i).avm_alu_ic);
+            info("=======ALU TRACE=====================================================================");
+            info("alu_clk             ", trace.at(i).avm_alu_clk);
+            info("alu_ia              ", trace.at(i).avm_alu_ia);
+            info("alu_ib              ", trace.at(i).avm_alu_ib);
+            info("alu_ic              ", trace.at(i).avm_alu_ic);
 
             info("=======MAIN TRACE====================================================================");
             info("clk:                ", trace.at(i).avm_main_clk);
@@ -60,28 +60,23 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
             info("first:              ", trace.at(i).avm_main_first);
             info("last:               ", trace.at(i).avm_main_last);
 
-            // info("=======MEM_OP_A======================================================================");
-            // info("mem_op_a:           ", trace.at(i).avm_main_mem_op_a);
-            // info("mem_idx_a:          ", trace.at(i).avm_main_mem_idx_a);
-            // info("rwa:                ", trace.at(i).avm_main_rwa);
+            info("=======MEM_OP_A======================================================================");
+            info("mem_op_a:           ", trace.at(i).avm_main_mem_op_a);
+            info("mem_idx_a:          ", trace.at(i).avm_main_mem_idx_a);
+            info("rwa:                ", trace.at(i).avm_main_rwa);
 
-            // info("=======MEM_OP_B======================================================================");
-            // info("mem_op_b:           ", trace.at(i).avm_main_mem_op_b);
-            // info("mem_idx_b:          ", trace.at(i).avm_main_mem_idx_b);
-            // info("rwb:                ", trace.at(i).avm_main_rwb);
+            info("=======MEM_OP_B======================================================================");
+            info("mem_op_b:           ", trace.at(i).avm_main_mem_op_b);
+            info("mem_idx_b:          ", trace.at(i).avm_main_mem_idx_b);
+            info("rwb:                ", trace.at(i).avm_main_rwb);
 
-            // info("=======MEM_OP_C======================================================================");
-            // info("mem_op_c:           ", trace.at(i).avm_main_mem_op_c);
-            // info("mem_idx_c:          ", trace.at(i).avm_main_mem_idx_c);
-            // info("rwc:                ", trace.at(i).avm_main_rwc);
-            // info("diff_hi:            ", trace.at(i).avm_mem_diff_hi);
-            // info("diff_mid:           ", trace.at(i).avm_mem_diff_mid);
-            // info("diff_lo:            ", trace.at(i).avm_mem_diff_lo);
-
-            info("=======OUT_CONSISTENCY======================================================================");
-            info("note_hash_write:           ", trace.at(i).avm_kernel_emit_note_hash_write_offset);
-            info("nullifier_write:           ", trace.at(i).avm_kernel_emit_nullifier_write_offset);
-            info("unencrypted_write:           ", trace.at(i).avm_kernel_emit_unencrypted_log_write_offset);
+            info("=======MEM_OP_C======================================================================");
+            info("mem_op_c:           ", trace.at(i).avm_main_mem_op_c);
+            info("mem_idx_c:          ", trace.at(i).avm_main_mem_idx_c);
+            info("rwc:                ", trace.at(i).avm_main_rwc);
+            info("diff_hi:            ", trace.at(i).avm_mem_diff_hi);
+            info("diff_mid:           ", trace.at(i).avm_mem_diff_mid);
+            info("diff_lo:            ", trace.at(i).avm_mem_diff_lo);
 
             info("=======GAS ACCOUNTING================================================================");
             info("opcode active:      ", trace.at(i).avm_main_gas_cost_active);
@@ -92,15 +87,12 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
 
             if (enable_selectors) {
                 info("=======SELECTORS======================================================================");
-                info("sel_op_emit_note_hash:           ", trace.at(i).avm_main_sel_op_emit_note_hash);
-                info("sel_op_emit_nullifier:           ", trace.at(i).avm_main_sel_op_emit_nullifier);
-                info("sel_op_emit_unencryped_log:           ", trace.at(i).avm_main_sel_op_emit_unencrypted_log);
-                // info("sel_op_add:           ", trace.at(i).avm_main_sel_op_add);
-                // info("sel_op_sub:           ", trace.at(i).avm_main_sel_op_sub);
-                // info("sel_op_mul:           ", trace.at(i).avm_main_sel_op_mul);
-                // info("sel_op_eq:            ", trace.at(i).avm_main_sel_op_eq);
-                // info("sel_op_not:           ", trace.at(i).avm_main_sel_op_not);
-                // info("sel_op_sel_alu:       ", trace.at(i).avm_main_alu_sel);
+                info("sel_op_add:           ", trace.at(i).avm_main_sel_op_add);
+                info("sel_op_sub:           ", trace.at(i).avm_main_sel_op_sub);
+                info("sel_op_mul:           ", trace.at(i).avm_main_sel_op_mul);
+                info("sel_op_eq:            ", trace.at(i).avm_main_sel_op_eq);
+                info("sel_op_not:           ", trace.at(i).avm_main_sel_op_not);
+                info("sel_op_sel_alu:       ", trace.at(i).avm_main_alu_sel);
             }
             info("\n");
         }
