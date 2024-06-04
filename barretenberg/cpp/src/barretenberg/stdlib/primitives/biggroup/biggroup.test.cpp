@@ -449,6 +449,44 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_batch_mul_edgecase_equivalence()
+    {
+        const size_t num_points = 5;
+        Builder builder;
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element(element::random_element()));
+            scalars.push_back(fr::random_element());
+        }
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        }
+
+        element_ct result_point2 =
+            element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+
+        element expected_point = g1::one;
+        expected_point.self_set_infinity();
+        for (size_t i = 0; i < num_points; ++i) {
+            expected_point += (element(points[i]) * scalars[i]);
+        }
+
+        expected_point = expected_point.normalize();
+
+        fq result2_x(result_point2.x.get_value().lo);
+        fq result2_y(result_point2.y.get_value().lo);
+
+        EXPECT_EQ(result2_x, expected_point.x);
+        EXPECT_EQ(result2_y, expected_point.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_batch_mul_edge_cases()
     {
         const auto test_repeated_points = [](const uint32_t num_points) {
@@ -1185,6 +1223,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, one)
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 {
     TestFixture::test_batch_mul();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edgecase_equivalence)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_edgecase_equivalence();
+    }
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_cases)
 {

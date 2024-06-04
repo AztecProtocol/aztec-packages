@@ -204,6 +204,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
+                                                                        const std::vector<Fr>& _scalars);
+
     static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
         const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
@@ -216,7 +219,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool generic_input = false);
+                             const bool with_edgecases = false);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and use
     // this to optimize other operations.
@@ -311,6 +314,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                                                  const std::array<uint256_t, 8>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
+    static typename NativeGroup::affine_element compute_table_offset_generator();
 
     template <typename = typename std::enable_if<HasPlookup<Builder>>> struct four_bit_table_plookup {
         four_bit_table_plookup(){};
@@ -425,7 +429,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     template <size_t length, typename = typename std::enable_if<HasPlookup<Builder>>> struct lookup_table_plookup {
         static constexpr size_t table_size = (1ULL << (length));
         lookup_table_plookup() {}
-        lookup_table_plookup(const std::array<element, length>& inputs, bool generic_input = true);
+        lookup_table_plookup(const std::array<element, length>& inputs);
         lookup_table_plookup(const lookup_table_plookup& other) = default;
         lookup_table_plookup& operator=(const lookup_table_plookup& other) = default;
 
@@ -511,7 +515,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      * UltraPlonk version
      **/
     template <typename X = typename std::enable_if<HasPlookup<Builder>>> struct batch_lookup_table_plookup {
-        batch_lookup_table_plookup(const std::vector<element>& points, bool generic_inputs = true)
+        batch_lookup_table_plookup(const std::vector<element>& points)
         {
             num_points = points.size();
             num_fives = num_points / 5;
@@ -541,42 +545,38 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
 
             size_t offset = 0;
             for (size_t i = 0; i < num_sixes; ++i) {
-                six_tables.push_back(lookup_table_plookup<6>(
-                    {
-                        points[offset + 6 * i],
-                        points[offset + 6 * i + 1],
-                        points[offset + 6 * i + 2],
-                        points[offset + 6 * i + 3],
-                        points[offset + 6 * i + 4],
-                        points[offset + 6 * i + 5],
-                    },
-                    generic_inputs));
+                six_tables.push_back(lookup_table_plookup<6>({
+                    points[offset + 6 * i],
+                    points[offset + 6 * i + 1],
+                    points[offset + 6 * i + 2],
+                    points[offset + 6 * i + 3],
+                    points[offset + 6 * i + 4],
+                    points[offset + 6 * i + 5],
+                }));
             }
             offset += 6 * num_sixes;
             for (size_t i = 0; i < num_fives; ++i) {
-                five_tables.push_back(lookup_table_plookup<5>(
-                    {
-                        points[offset + 5 * i],
-                        points[offset + 5 * i + 1],
-                        points[offset + 5 * i + 2],
-                        points[offset + 5 * i + 3],
-                        points[offset + 5 * i + 4],
-                    },
-                    generic_inputs));
+                five_tables.push_back(lookup_table_plookup<5>({
+                    points[offset + 5 * i],
+                    points[offset + 5 * i + 1],
+                    points[offset + 5 * i + 2],
+                    points[offset + 5 * i + 3],
+                    points[offset + 5 * i + 4],
+                }));
             }
             offset += 5 * num_fives;
 
             if (has_quad) {
-                quad_tables.push_back(quad_lookup_table(
-                    { points[offset], points[offset + 1], points[offset + 2], points[offset + 3] }, generic_inputs));
+                quad_tables.push_back(
+                    quad_lookup_table({ points[offset], points[offset + 1], points[offset + 2], points[offset + 3] }));
             }
 
             if (has_triple) {
                 triple_tables.push_back(
-                    triple_lookup_table({ points[offset], points[offset + 1], points[offset + 2] }, generic_inputs));
+                    triple_lookup_table({ points[offset], points[offset + 1], points[offset + 2] }));
             }
             if (has_twin) {
-                twin_tables.push_back(twin_lookup_table({ points[offset], points[offset + 1] }, generic_inputs));
+                twin_tables.push_back(twin_lookup_table({ points[offset], points[offset + 1] }));
             }
 
             if (has_singleton) {
