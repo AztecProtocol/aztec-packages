@@ -234,7 +234,5 @@ describe('e2e_key_rotation', () => {
     }
   }, 600_000);
 
-  it(`Rotates incoming viewing keys`, async () => {
-    
-  });
+  it(`Rotates incoming viewing keys`, async () => {});
 });

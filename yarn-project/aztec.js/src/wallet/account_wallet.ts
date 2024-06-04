@@ -1,5 +1,12 @@
 import { type AuthWitness, type FunctionCall, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, GrumpkinPrivateKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CANONICAL_KEY_REGISTRY_ADDRESS,
+  Fq,
+  Fr,
+  type GrumpkinPrivateKey,
+  derivePublicKeyFromSecretKey,
+} from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { type AccountInterface } from '../account/interface.js';
