@@ -124,6 +124,8 @@ export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestP
 export interface ProvingJobSource {
   getProvingJob(): Promise<ProvingJob<ProvingRequest> | undefined>;
 
+  heartbeat(jobId: string): Promise<void>;
+
   resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResult<T>): Promise<void>;
 
   rejectProvingJob(jobId: string, reason: Error): Promise<void>;
