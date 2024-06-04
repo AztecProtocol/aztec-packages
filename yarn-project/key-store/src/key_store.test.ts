@@ -2,9 +2,10 @@ import {
   AztecAddress,
   Fq,
   Fr,
-  computeAppNullifierSecretKey,
+  KeyPrefix,
+  computeAppSecretKey,
   deriveKeys,
-  derivePublicKeyFromSecretKey,
+  derivePublicKeyFromSecretKey
 } from '@aztec/circuits.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
@@ -89,7 +90,7 @@ describe('KeyStore', () => {
     );
   });
 
-  it('nullifier key rotation tests', async () => {
+  it.each(['n', 'iv'])('key rotation tests', async keyPrefix => {
     const keyStore = new KeyStore(openTmpStore());
 
     // Arbitrary fixed values
@@ -102,69 +103,69 @@ describe('KeyStore', () => {
     );
 
     // Arbitrary fixed values
-    const newMasterNullifierSecretKeys = [new Fq(420n), new Fq(69n), new Fq(42069n)];
-    const newDerivedMasterNullifierPublicKeys = [
-      derivePublicKeyFromSecretKey(newMasterNullifierSecretKeys[0]),
-      derivePublicKeyFromSecretKey(newMasterNullifierSecretKeys[1]),
-      derivePublicKeyFromSecretKey(newMasterNullifierSecretKeys[2]),
+    const newMasterSecretKeys = [new Fq(420n), new Fq(69n), new Fq(42069n)];
+    const newDerivedMasterPublicKeys = [
+      derivePublicKeyFromSecretKey(newMasterSecretKeys[0]),
+      derivePublicKeyFromSecretKey(newMasterSecretKeys[1]),
+      derivePublicKeyFromSecretKey(newMasterSecretKeys[2]),
     ];
 
-    const newComputedMasterNullifierPublicKeyHashes = [
-      newDerivedMasterNullifierPublicKeys[0].hash(),
-      newDerivedMasterNullifierPublicKeys[1].hash(),
-      newDerivedMasterNullifierPublicKeys[2].hash(),
+    const newComputedMasterPublicKeyHashes = [
+      newDerivedMasterPublicKeys[0].hash(),
+      newDerivedMasterPublicKeys[1].hash(),
+      newDerivedMasterPublicKeys[2].hash(),
     ];
 
-    // We rotate our nullifier key
-    await keyStore.rotateMasterKey(accountAddress, 'n', newMasterNullifierSecretKeys[0]);
-    await keyStore.rotateMasterKey(accountAddress, 'n', newMasterNullifierSecretKeys[1]);
-    await keyStore.rotateMasterKey(accountAddress, 'n', newMasterNullifierSecretKeys[2]);
+    // We rotate our key
+    await keyStore.rotateMasterKey(accountAddress, keyPrefix, newMasterSecretKeys[0]);
+    await keyStore.rotateMasterKey(accountAddress, keyPrefix, newMasterSecretKeys[1]);
+    await keyStore.rotateMasterKey(accountAddress, keyPrefix, newMasterSecretKeys[2]);
 
-    // We make sure we can get master nullifier public keys with master nullifier public key hashes
-    const { pkM: masterNullifierPublicKey2 } = await keyStore.getKeyValidationRequest(
-      newComputedMasterNullifierPublicKeyHashes[2],
+    // We make sure we can get master public keys with master public key hashes
+    const { pkM: masterPublicKey2 } = await keyStore.getKeyValidationRequest(
+      newComputedMasterPublicKeyHashes[2],
       AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
-    expect(masterNullifierPublicKey2).toEqual(newDerivedMasterNullifierPublicKeys[2]);
-    const { pkM: masterNullifierPublicKey1 } = await keyStore.getKeyValidationRequest(
-      newComputedMasterNullifierPublicKeyHashes[1],
+    expect(masterPublicKey2).toEqual(newDerivedMasterPublicKeys[2]);
+    const { pkM: masterPublicKey1 } = await keyStore.getKeyValidationRequest(
+      newComputedMasterPublicKeyHashes[1],
       AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
-    expect(masterNullifierPublicKey1).toEqual(newDerivedMasterNullifierPublicKeys[1]);
-    const { pkM: masterNullifierPublicKey0 } = await keyStore.getKeyValidationRequest(
-      newComputedMasterNullifierPublicKeyHashes[0],
+    expect(masterPublicKey1).toEqual(newDerivedMasterPublicKeys[1]);
+    const { pkM: masterPublicKey0 } = await keyStore.getKeyValidationRequest(
+      newComputedMasterPublicKeyHashes[0],
       AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
-    expect(masterNullifierPublicKey0).toEqual(newDerivedMasterNullifierPublicKeys[0]);
+    expect(masterPublicKey0).toEqual(newDerivedMasterPublicKeys[0]);
 
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 
-    // We make sure we can get app nullifier secret keys with master nullifier public key hashes
-    const { skApp: appNullifierSecretKey0 } = await keyStore.getKeyValidationRequest(
-      newComputedMasterNullifierPublicKeyHashes[0],
+    // We make sure we can get app secret keys with master public key hashes
+    const { skApp: appSecretKey0 } = await keyStore.getKeyValidationRequest(
+      newComputedMasterPublicKeyHashes[0],
       appAddress,
     );
-    expect(appNullifierSecretKey0.toString()).toMatchInlineSnapshot(
+    expect(appSecretKey0.toString()).toMatchInlineSnapshot(
       `"0x296e42f1039b62290372d608fcab55b00a3f96c1c8aa347b2a830639c5a12757"`,
     );
-    const { skApp: appNullifierSecretKey1 } = await keyStore.getKeyValidationRequest(
-      newComputedMasterNullifierPublicKeyHashes[1],
+    const { skApp: appSecretKey1 } = await keyStore.getKeyValidationRequest(
+      newComputedMasterPublicKeyHashes[1],
       appAddress,
     );
-    expect(appNullifierSecretKey1.toString()).toMatchInlineSnapshot(
+    expect(appSecretKey1.toString()).toMatchInlineSnapshot(
       `"0x019f2a705b68683f1d86da639a543411fa779af41896c3920d0c2d5226c686dd"`,
     );
-    const { skApp: appNullifierSecretKey2 } = await keyStore.getKeyValidationRequest(
-      newComputedMasterNullifierPublicKeyHashes[2],
+    const { skApp: appSecretKey2 } = await keyStore.getKeyValidationRequest(
+      newComputedMasterPublicKeyHashes[2],
       appAddress,
     );
-    expect(appNullifierSecretKey2.toString()).toMatchInlineSnapshot(
+    expect(appSecretKey2.toString()).toMatchInlineSnapshot(
       `"0x117445c8819c06b9a0889e5cce1f550e32ec6993c23f57bc9fc5cda05df520ae"`,
     );
 
-    expect(appNullifierSecretKey0).toEqual(computeAppNullifierSecretKey(newMasterNullifierSecretKeys[0], appAddress));
-    expect(appNullifierSecretKey1).toEqual(computeAppNullifierSecretKey(newMasterNullifierSecretKeys[1], appAddress));
-    expect(appNullifierSecretKey2).toEqual(computeAppNullifierSecretKey(newMasterNullifierSecretKeys[2], appAddress));
+    expect(appSecretKey0).toEqual(computeAppSecretKey(newMasterSecretKeys[0], appAddress, keyPrefix));
+    expect(appSecretKey1).toEqual(computeAppSecretKey(newMasterSecretKeys[1], appAddress, keyPrefix));
+    expect(appSecretKey2).toEqual(computeAppSecretKey(newMasterSecretKeys[2], appAddress, keyPrefix));
   });
 });
