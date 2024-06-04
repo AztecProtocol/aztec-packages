@@ -33,7 +33,7 @@ import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger, setAlias } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
@@ -237,6 +237,7 @@ export class PXEService implements PXE {
     const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
+    setAlias(contractClassId.toString(), `${artifact.name}Class`);
   }
 
   public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
@@ -252,6 +253,7 @@ export class PXEService implements PXE {
         );
       }
       await this.db.addContractArtifact(contractClassId, artifact);
+      setAlias(contractClassId.toString(), `${artifact.name}Class`);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.db.getContractArtifact(instance.contractClassId);
@@ -263,6 +265,7 @@ export class PXEService implements PXE {
     }
 
     this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
+    setAlias(instance.address.toString(), `${artifact.name}Instance`);
     await this.db.addContractInstance(instance);
     await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
   }

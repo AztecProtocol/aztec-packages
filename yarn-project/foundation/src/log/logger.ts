@@ -66,6 +66,20 @@ export function onLog(handler: LogHandler) {
   logHandlers.push(handler);
 }
 
+/** Register an alias for a keyword, will get replaced from all logs. */
+export function setAlias(text: string, alias: string) {
+  aliases[text] = alias;
+}
+
+const aliases: Record<string, string> = {};
+
+function replaceAliases(input: string) {
+  for (const [text, alias] of Object.entries(aliases)) {
+    input = input.replaceAll(text, `${alias}(${text})`);
+  }
+  return input;
+}
+
 /**
  * Logs args to npm debug if enabled or log level is debug, console.error otherwise.
  * @param debug - Instance of npm debug.
@@ -77,7 +91,9 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?
     handler(level, debug.namespace, msg, data);
   }
 
+  msg = replaceAliases(msg);
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
+
   if (debug.enabled) {
     if (level !== 'debug') {
       msg = `${level.toUpperCase()} ${msg}`;
