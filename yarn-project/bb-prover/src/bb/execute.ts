@@ -225,7 +225,13 @@ export async function generateProof(
 
   try {
     // Write the bytecode to the working directory
-    await fs.writeFile(bytecodePath, bytecode);
+    await fs.writeFile(bytecodePath, bytecode); // FOLDINGSTACK: circuit bytecode is written to a file here
+    // FOLDINGSTACK: input to bb execution is 3 paths: 1) where to write proof/vk, 2) bytecode path, 3) witness path. Maybe the easiest
+    // (also most correct?) thing to do is to simply store vectors of bytecode/witness paths, then send those all in one go to BB for
+    // folding. Serialization is already handled here (i.e. bytecode/witness have already been written to a file). Deserialization
+    // in BB for individual circuits is already handled so our work just amounts to  'create_circuit(bytecode_paths[i], witness_paths[i]).
+    // A possibly even simpler option: Write all of the bytecode/witness data to a directory './folding_stack', send that path
+    // to BB, then BB just processes each of the bytecode/witness file pairs in that directory.
     const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v'];
     const timer = new Timer();
     const logFunction = (message: string) => {

@@ -66,7 +66,7 @@ export class BBNativeProofCreator implements ProofCreator {
     Promise<VerificationKeyData>
   >();
 
-  private stackForFolding: StackForFolding = new this.stackForFolding;
+  // private stackForFolding: StackForFolding = new this.stackForFolding;
 
   constructor(
     private bbBinaryPath: string,
@@ -313,7 +313,7 @@ export class BBNativeProofCreator implements ProofCreator {
 
     const inputsWitnessFile = `${directory}/witness.gz`;
 
-    await fs.writeFile(inputsWitnessFile, compressedBincodedWitness);
+    await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
