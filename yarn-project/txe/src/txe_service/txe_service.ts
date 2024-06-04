@@ -73,7 +73,7 @@ export class TXEService {
   }
 
   getContractAddress() {
-    return toForeignCallResult([toSingle(this.contractAddress)]);
+    return toForeignCallResult([toSingle(this.contractAddress.toField())]);
   }
 
   getBlockNumber() {
@@ -81,7 +81,7 @@ export class TXEService {
   }
 
   avmOpcodeAddress() {
-    return toForeignCallResult([toSingle(this.contractAddress)]);
+    return toForeignCallResult([toSingle(this.contractAddress.toField())]);
   }
 
   avmOpcodeBlockNumber() {
