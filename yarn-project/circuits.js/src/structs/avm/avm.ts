@@ -130,7 +130,12 @@ export class AvmExecutionHints {
   }
 
   flat() {
-    return [...this.storageValues.items, ...this.noteHashExists.items, ...this.nullifierExists.items, ...this.l1ToL2MessageExists.items];
+    return [
+      ...this.storageValues.items,
+      ...this.noteHashExists.items,
+      ...this.nullifierExists.items,
+      ...this.l1ToL2MessageExists.items,
+    ];
   }
 
   /**
