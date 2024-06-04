@@ -94,11 +94,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 366;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 367;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 433;
+    static constexpr size_t NUM_ALL_ENTITIES = 434;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -449,6 +449,7 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
+                              avm_main_sel_op_get_contract_instance,
                               avm_main_sel_op_keccak,
                               avm_main_sel_op_l1_to_l2_msg_exists,
                               avm_main_sel_op_lt,
@@ -818,6 +819,7 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_get_contract_instance,
                      avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
                      avm_main_sel_op_lt,
@@ -1192,6 +1194,7 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
+                              avm_main_sel_op_get_contract_instance,
                               avm_main_sel_op_keccak,
                               avm_main_sel_op_l1_to_l2_msg_exists,
                               avm_main_sel_op_lt,
@@ -1628,6 +1631,7 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_get_contract_instance,
                      avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
                      avm_main_sel_op_lt,
@@ -2064,6 +2068,7 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_get_contract_instance,
                      avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
                      avm_main_sel_op_lt,
@@ -2849,6 +2854,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_fdiv = "AVM_MAIN_SEL_OP_FDIV";
             Base::avm_main_sel_op_fee_per_da_gas = "AVM_MAIN_SEL_OP_FEE_PER_DA_GAS";
             Base::avm_main_sel_op_fee_per_l2_gas = "AVM_MAIN_SEL_OP_FEE_PER_L2_GAS";
+            Base::avm_main_sel_op_get_contract_instance = "AVM_MAIN_SEL_OP_GET_CONTRACT_INSTANCE";
             Base::avm_main_sel_op_keccak = "AVM_MAIN_SEL_OP_KECCAK";
             Base::avm_main_sel_op_l1_to_l2_msg_exists = "AVM_MAIN_SEL_OP_L1_TO_L2_MSG_EXISTS";
             Base::avm_main_sel_op_lt = "AVM_MAIN_SEL_OP_LT";
@@ -3234,6 +3240,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_fdiv;
         Commitment avm_main_sel_op_fee_per_da_gas;
         Commitment avm_main_sel_op_fee_per_l2_gas;
+        Commitment avm_main_sel_op_get_contract_instance;
         Commitment avm_main_sel_op_keccak;
         Commitment avm_main_sel_op_l1_to_l2_msg_exists;
         Commitment avm_main_sel_op_lt;
@@ -3636,6 +3643,8 @@ class AvmFlavor {
             avm_main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_get_contract_instance =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_keccak = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_l1_to_l2_msg_exists =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -4029,6 +4038,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_da_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l2_gas, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_get_contract_instance, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_keccak, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_l1_to_l2_msg_exists, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lt, Transcript::proof_data);
