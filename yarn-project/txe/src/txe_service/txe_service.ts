@@ -1,5 +1,5 @@
 import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { Fr, Header } from '@aztec/circuits.js';
+import { Fr, Header, PrivateContextInputs } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -39,6 +39,15 @@ export class TXEService {
     const service = new TXEService(logger, txe, store, trees, packedValuesCache, contractAddress);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
+  }
+
+  async getPrivateContextInputs() {
+    const inputs = PrivateContextInputs.empty();
+    inputs.historicalHeader.globalVariables.blockNumber = new Fr(this.blockNumber);
+    inputs.historicalHeader.state.partial = (await this.trees.getStateReference(true)).partial;
+    inputs.callContext.msgSender = AztecAddress.random();
+    inputs.callContext.storageContractAddress = this.contractAddress;
+    return toForeignCallResult([toArray(inputs.toFields())]);
   }
 
   timeTravel(blocks: ForeignCallSingle) {
