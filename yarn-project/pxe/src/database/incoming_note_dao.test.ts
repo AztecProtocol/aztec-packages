@@ -13,7 +13,7 @@ export const randomIncomingNoteDao = ({
   innerNoteHash = Fr.random(),
   siloedNullifier = Fr.random(),
   index = Fr.random().toBigInt(),
-  publicKey = Point.random(),
+  ivpkM = Point.random(),
 }: Partial<IncomingNoteDao> = {}) => {
   return new IncomingNoteDao(
     note,
@@ -25,7 +25,7 @@ export const randomIncomingNoteDao = ({
     innerNoteHash,
     siloedNullifier,
     index,
-    publicKey,
+    ivpkM,
   );
 };
 

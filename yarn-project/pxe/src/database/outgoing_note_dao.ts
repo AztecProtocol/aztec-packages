@@ -18,7 +18,7 @@ export class OutgoingNoteDao {
     /** The hash of the tx the note was created in. */
     public txHash: TxHash,
     /** The public key with which the note was encrypted. */
-    public publicKey: PublicKey,
+    public ovpkM: PublicKey,
   ) {}
 
   toBuffer(): Buffer {
@@ -28,7 +28,7 @@ export class OutgoingNoteDao {
       this.storageSlot,
       this.noteTypeId,
       this.txHash.buffer,
-      this.publicKey,
+      this.ovpkM,
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {

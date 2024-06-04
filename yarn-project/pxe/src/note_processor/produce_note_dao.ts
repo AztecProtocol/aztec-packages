@@ -63,15 +63,15 @@ export async function produceNoteDaos(
 
   try {
     if (ivpkM) {
-      const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+      const { noteHashIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
         simulator,
         newNoteHashes,
         txHash,
         payload,
         excludedIndices,
       );
-      const index = BigInt(dataStartIndexForTx + commitmentIndex);
-      excludedIndices?.add(commitmentIndex);
+      const index = BigInt(dataStartIndexForTx + noteHashIndex);
+      excludedIndices?.add(noteHashIndex);
 
       incomingNote = new IncomingNoteDao(
         payload.note,
@@ -115,45 +115,43 @@ export async function produceNoteDaos(
 }
 
 /**
- * Find the index of the note in the note hash tree by computing the note hash with different nonce and see which
- * commitment for the current tx matches this value.
- * Compute a nullifier for a given l1NotePayload.
- * The nullifier is calculated using the private key of the account,
- * contract address, and the note associated with the l1NotePayload.
- * This method assists in identifying spent commitments in the private state.
- * @param commitments - Commitments in the tx. One of them should be the note's commitment.
- * @param txHash - First nullifier in the tx.
- * @param l1NotePayload - An instance of l1NotePayload.
+ * Finds nonce, index, inner hash and siloed nullifier for a given note.
+ * @dev Finds the index in the note hash tree by computing the note hash with different nonce and see which hash for
+ * the current tx matches this value.
+ * @remarks This method assists in identifying spent notes in the note hash tree.
+ * @param noteHashes - Note hashes in the tx. One of them should correspond to the note we are looking for
+ * @param txHash - Hash of a tx the note was emitted in.
+ * @param l1NotePayload - The note payload.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
  * l1NotePayload. We need to find a different index for each replicate.
- * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
- * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
+ * @returns Nonce, index, inner hash and siloed nullifier for a given note.
+ * @throws If cannot find the nonce for the note.
  */
 async function findNoteIndexAndNullifier(
   simulator: AcirSimulator,
-  commitments: Fr[],
+  noteHashes: Fr[],
   txHash: TxHash,
   { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
   excludedIndices: Set<number>,
 ) {
-  let commitmentIndex = 0;
+  let noteHashIndex = 0;
   let nonce: Fr | undefined;
   let innerNoteHash: Fr | undefined;
   let siloedNoteHash: Fr | undefined;
   let innerNullifier: Fr | undefined;
   const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
-  for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-    if (excludedIndices.has(commitmentIndex)) {
+  for (; noteHashIndex < noteHashes.length; ++noteHashIndex) {
+    if (excludedIndices.has(noteHashIndex)) {
       continue;
     }
 
-    const commitment = commitments[commitmentIndex];
-    if (commitment.equals(Fr.ZERO)) {
+    const noteHash = noteHashes[noteHashIndex];
+    if (noteHash.equals(Fr.ZERO)) {
       break;
     }
 
-    const expectedNonce = computeNoteHashNonce(firstNullifier, commitmentIndex);
+    const expectedNonce = computeNoteHashNonce(firstNullifier, noteHashIndex);
     ({ innerNoteHash, siloedNoteHash, innerNullifier } = await simulator.computeNoteHashAndNullifier(
       contractAddress,
       expectedNonce,
@@ -162,7 +160,7 @@ async function findNoteIndexAndNullifier(
       note,
     ));
 
-    if (commitment.equals(siloedNoteHash)) {
+    if (noteHash.equals(siloedNoteHash)) {
       nonce = expectedNonce;
       break;
     }
@@ -171,11 +169,11 @@ async function findNoteIndexAndNullifier(
   if (!nonce) {
     // NB: this used to warn the user that a decrypted log didn't match any notes.
     // This was previously fine as we didn't chop transient note logs, but now we do (#1641 complete).
-    throw new Error('Cannot find a matching commitment for the note.');
+    throw new Error('Cannot find a matching note hash for the note.');
   }
 
   return {
-    commitmentIndex,
+    noteHashIndex,
     nonce,
     innerNoteHash: innerNoteHash!,
     siloedNullifier: siloNullifier(contractAddress, innerNullifier!),

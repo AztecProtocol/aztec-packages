@@ -371,9 +371,9 @@ export class Synchronizer {
     // now group the decoded incoming notes by public key
     const publicKeyToNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
     for (const noteDao of incomingNotes) {
-      const notesForPublicKey = publicKeyToNotes.get(noteDao.publicKey) ?? [];
+      const notesForPublicKey = publicKeyToNotes.get(noteDao.ivpkM) ?? [];
       notesForPublicKey.push(noteDao);
-      publicKeyToNotes.set(noteDao.publicKey, notesForPublicKey);
+      publicKeyToNotes.set(noteDao.ivpkM, notesForPublicKey);
     }
 
     // now for each group, look for the nullifiers in the nullifier tree

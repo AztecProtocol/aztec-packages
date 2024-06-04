@@ -9,9 +9,9 @@ export const randomOutgoingNoteDao = ({
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteTypeId = Fr.random(),
-  publicKey = Point.random(),
+  ovpkM = Point.random(),
 }: Partial<OutgoingNoteDao> = {}) => {
-  return new OutgoingNoteDao(note, contractAddress, storageSlot, noteTypeId, txHash, publicKey);
+  return new OutgoingNoteDao(note, contractAddress, storageSlot, noteTypeId, txHash, ovpkM);
 };
 
 describe('Outgoing Note DAO', () => {

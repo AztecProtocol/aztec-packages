@@ -31,7 +31,7 @@ export class IncomingNoteDao implements NoteData {
     /** The location of the relevant note in the note hash tree. */
     public index: bigint,
     /** The public key with which the note was encrypted. */
-    public publicKey: PublicKey,
+    public ivpkM: PublicKey,
   ) {}
 
   toBuffer(): Buffer {
@@ -45,7 +45,7 @@ export class IncomingNoteDao implements NoteData {
       this.innerNoteHash,
       this.siloedNullifier,
       this.index,
-      this.publicKey,
+      this.ivpkM,
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {

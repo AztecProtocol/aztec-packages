@@ -286,10 +286,10 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.publicKey),
+          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.ivpkM),
         );
         if (completeAddresses === undefined) {
-          throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
+          throw new Error(`Cannot find complete address for IvpkM ${dao.ivpkM.toString()}`);
         }
         owner = completeAddresses.address;
       }

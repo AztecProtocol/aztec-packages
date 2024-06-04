@@ -140,10 +140,10 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.addNotes([note], []);
   }
 
-  addNotes(notes: IncomingNoteDao[], _outgoingNotes: OutgoingNoteDao[]): Promise<void> {
-    // TODO(benesjan): store the outgoing note
+  addNotes(incomingNotes: IncomingNoteDao[], _outgoingNotes: OutgoingNoteDao[]): Promise<void> {
+    // TODO(#6867): store the outgoing note
     return this.db.transaction(() => {
-      for (const dao of notes) {
+      for (const dao of incomingNotes) {
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
         // and should also return notes in the order that they were created.
@@ -154,7 +154,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notesByContract.set(dao.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
         void this.#notesByTxHash.set(dao.txHash.toString(), noteIndex);
-        void this.#notesByOwner.set(dao.publicKey.toString(), noteIndex);
+        void this.#notesByOwner.set(dao.ivpkM.toString(), noteIndex);
       }
     });
   }
@@ -267,7 +267,7 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
 
-        if (publicKey && !note.publicKey.equals(publicKey)) {
+        if (publicKey && !note.ivpkM.equals(publicKey)) {
           continue;
         }
 
@@ -304,7 +304,7 @@ export class KVPxeDatabase implements PxeDatabase {
         }
 
         const note = IncomingNoteDao.fromBuffer(noteBuffer);
-        if (!note.publicKey.equals(account)) {
+        if (!note.ivpkM.equals(account)) {
           // tried to nullify someone else's note
           continue;
         }
@@ -321,7 +321,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
         void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
         void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
-        void this.#nullifiedNotesByOwner.set(note.publicKey.toString(), noteIndex);
+        void this.#nullifiedNotesByOwner.set(note.ivpkM.toString(), noteIndex);
 
         void this.#nullifierToNoteId.delete(nullifier.toString());
       }
