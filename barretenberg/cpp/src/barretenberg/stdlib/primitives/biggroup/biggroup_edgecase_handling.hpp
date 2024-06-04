@@ -4,6 +4,64 @@
 namespace bb::stdlib {
 
 /**
+ * @brief Compute an offset generator for use in biggroup tables
+ *
+ *@details Sometimes the points from which we construct the tables are going to be dependent in such a way that
+ *combining them for constructing the table is not possible without handling the edgecases such as the point at infinity
+ *and doubling. To avoid handling those we add multiples of this offset generator to the points.
+ *
+ * @param num_rounds
+ * @return std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>>
+ */
+template <typename C, class Fq, class Fr, class G>
+std::pair<typename G::affine_element, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::compute_table_offset_generator()
+{
+    constexpr typename G::affine_element offset_generator =
+        G::derive_generators("biggroup table offset generator", 1)[0];
+
+    return std::make_pair<typename G::affine_element, element>(typename G::affine_element(offset_generator),
+                                                               element(offset_generator));
+}
+
+/**
+ * @brief Given two lists of points that need to be multiplied by scalars, create a new list of length +1 with original
+ * points masked, but the same scalar product sum
+ * @details Add +1G, +2G, +4G etc to the original points and adds a new point G and scalar x to the lists. By doubling
+ * the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases, unless the
+ * points are deliberately constructed to trigger it.
+ */
+template <typename C, class Fq, class Fr, class G>
+std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::mask_points(
+    const std::vector<element>& _points, const std::vector<Fr>& _scalars)
+{
+    std::vector<element> points;
+    std::vector<Fr> scalars;
+    ASSERT(_points.size() == _scalars.size());
+    using NativeFr = typename Fr::native;
+    auto running_scalar = NativeFr::one();
+    // Get the offset generator G_offset in native and in-circuit form
+    auto [native_offset_generator, in_circuit_offset_generator] = element::compute_table_offset_generator();
+    Fr last_scalar = Fr(0);
+    // For each point and scalar
+    for (size_t i = 0; i < _points.size(); i++) {
+        scalars.push_back(_scalars[i]);
+        // Convert point into point + 2ⁱ⋅G_offset
+        points.push_back(_points[i] + (native_offset_generator * running_scalar));
+        // Add 2ⁱ⋅scalar to the last scalar
+        last_scalar += _scalars[i] * running_scalar;
+        // Double the running scalar
+        running_scalar += running_scalar;
+    }
+
+    // Add a scalar -<(1,2,4,...,2ⁿ⁻¹ ),(scalar₀,...,scalarₙ₋₁)>
+    scalars.push_back(-last_scalar);
+    // Add in-circuit G_offset to points
+    points.push_back(in_circuit_offset_generator);
+
+    return { points, scalars };
+}
+
+/**
  * @brief Replace all pairs (∞, scalar) by the pair (one, 0) where one is a fixed generator of the curve
  * @details This is a step in enabling our our multiscalar multiplication algorithms to hande points at infinity.
  */

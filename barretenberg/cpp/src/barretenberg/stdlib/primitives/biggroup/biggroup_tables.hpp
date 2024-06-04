@@ -7,29 +7,6 @@ namespace bb::stdlib {
 using plookup::MultiTableId;
 
 /**
- * @brief Compute an offset generator for use in biggroup tables
- *
- *@details Sometimes the points from which we construct the tables are going to be dependent in such a way that adding
- *two for constructing the table is not possible without handling the edgecases such as the point at infinity and
- *doubling. To avoid handling those we add multiples of this offset generator to the points.
- *
- * @param num_rounds
- * @return std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>>
- */
-template <typename C, class Fq, class Fr, class G>
-std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::compute_table_offset_generator(
-    const size_t num_rounds)
-{
-    constexpr typename G::affine_element offset_generator =
-        G::derive_generators("biggroup table offset generator", 1)[0];
-
-    const uint256_t offset_multiplier = uint256_t(1) << uint256_t(num_rounds - 1);
-
-    const typename G::affine_element offset_generator_end = typename G::element(offset_generator) * offset_multiplier;
-    return std::make_pair<element, element>(offset_generator, offset_generator_end);
-}
-
-/**
  * @brief Constructs a ROM table to look up linear combinations of group elements
  *
  * @tparam C
