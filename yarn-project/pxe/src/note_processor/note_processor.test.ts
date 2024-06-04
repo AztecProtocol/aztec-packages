@@ -36,7 +36,7 @@ class MockNoteRequest {
     public readonly blockNumber: number,
     /** Index of a tx within a block this note corresponds to. */
     public readonly txIndex: number,
-    /** Index of a note hash withing a list of note hashes for 1 tx. */
+    /** Index of a note hash within a list of note hashes for 1 tx. */
     public readonly noteHashIndex: number,
     /** ivpk we use when encrypting a note */
     public readonly ivpk: PublicKey,
