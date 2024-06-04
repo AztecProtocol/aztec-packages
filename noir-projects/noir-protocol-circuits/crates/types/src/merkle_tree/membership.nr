@@ -156,7 +156,7 @@ mod tests {
     fn assert_check_non_membership_at_index(low_leaf_index: u64, key: Field) {
         let tree = build_tree();
         let tree_root = tree.get_root();
-        let leaf_preimage = if low_leaf_index < leaf_preimages.len() {
+        let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
             leaf_preimages[low_leaf_index]
         } else {
             TestLeafPreimage { value: 0, next_value: 0 }
@@ -173,7 +173,7 @@ mod tests {
     fn conditionally_assert_check_membership_at_index(exists: bool, low_leaf_index: u64, key: Field) {
         let tree = build_tree();
         let tree_root = tree.get_root();
-        let leaf_preimage = if low_leaf_index < leaf_preimages.len() {
+        let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
             leaf_preimages[low_leaf_index]
         } else {
             TestLeafPreimage { value: 0, next_value: 0 }
