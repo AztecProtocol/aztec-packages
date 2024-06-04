@@ -6,6 +6,7 @@ import {
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
+  KEY_PREFIXES,
 } from '@aztec/circuits.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
@@ -90,7 +91,7 @@ describe('KeyStore', () => {
     );
   });
 
-  it.each(['n' as KeyPrefix, 'iv' as KeyPrefix])('key rotation tests', async keyPrefix => {
+  it.each(KEY_PREFIXES)('key rotation tests', async keyPrefix => {
     const keyStore = new KeyStore(openTmpStore());
 
     // Arbitrary fixed values

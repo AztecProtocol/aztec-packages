@@ -15,3 +15,19 @@ exports[`KeyStore key rotation tests 6`] = `"0x21e3ca4bc7ae2b5e9fe343f4eec5c0aa7
 exports[`KeyStore key rotation tests 7`] = `"0x0900aea4825d057e5bc916063a535520a7c6283740eaf218cd6961b10cba46fd"`;
 
 exports[`KeyStore key rotation tests 8`] = `"0x27ccbe41ff5f33fa78348533da9d4a79e8fea8805771e61748ea42be4202f168"`;
+
+exports[`KeyStore key rotation tests 9`] = `"0x1a8a9a1d91cbb353d8df4f1bbfd0283f7fc63766f671edd9443a1270a7b2a954"`;
+
+exports[`KeyStore key rotation tests 10`] = `"0x1895c1aa4f807cc8429c4d73a7bcb366653fea18f2b35f12589c599398733e7b"`;
+
+exports[`KeyStore key rotation tests 11`] = `"0x28e0f5e42af72adfa2aa1f7c64c34dc9589104e4a3bc0ac0d63f21a6780d8250"`;
+
+exports[`KeyStore key rotation tests 12`] = `"0x0f00f1ac34f2e4ba49d25cc57b4d0ed45a1cc2b55b292e1fb09b157887153f8e"`;
+
+exports[`KeyStore key rotation tests 13`] = `"0x1a8a9a1d91cbb353d8df4f1bbfd0283f7fc63766f671edd9443a1270a7b2a954"`;
+
+exports[`KeyStore key rotation tests 14`] = `"0x105baf9ca58f8a5bff283642c423f3f1d46107975f05a751abc7e8b51728277f"`;
+
+exports[`KeyStore key rotation tests 15`] = `"0x2fb411ed0ba7bf7b44963b1c36a1de17546da2ebee4564d9cc62486c3325149e"`;
+
+exports[`KeyStore key rotation tests 16`] = `"0x1c0fb3a8709e6ea1a9c67b3b499b5e6d0471cb38a6c824319805aeaca0e201df"`;
