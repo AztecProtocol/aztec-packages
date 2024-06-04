@@ -37,15 +37,7 @@ namespace bb {
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
 struct BbStackTrace : backward::StackTrace {
-    BbStackTrace()
-    {
-        load_here(32);
-        // NOTE these only make sense when running tests
-        skip_n_firsts(2);
-        for (size_t i = 0; i < 9; i++) {
-            _stacktrace.pop_back();
-        }
-    }
+    BbStackTrace() { load_here(32); }
 };
 struct StackTraces {
     std::vector<BbStackTrace> stack_traces;
@@ -98,6 +90,9 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
         for (auto& p : selectors) {
             p.reserve(size_hint);
         }
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        stack_traces.stack_traces.reserve(size_hint);
+#endif
     }
 
     uint32_t get_fixed_size() const { return fixed_size; }

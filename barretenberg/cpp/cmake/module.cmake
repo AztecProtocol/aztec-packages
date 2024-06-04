@@ -255,6 +255,18 @@ function(barretenberg_module MODULE_NAME)
                 benchmark::benchmark
                 ${TBB_IMPORTED_TARGETS}
             )
+            if(CHECK_CIRCUIT_STACKTRACES)
+                target_link_libraries(
+                    ${BENCHMARK_NAME}_bench_objects
+                    PUBLIC
+                    Backward::Interface
+                )
+                target_link_options(
+                    ${BENCHMARK_NAME}_bench
+                    PRIVATE
+                    -ldw -lelf
+                )
+            endif()
 
             # enable msgpack downloading via dependency (solves race condition)
             add_dependencies(${BENCHMARK_NAME}_bench_objects msgpack-c)
