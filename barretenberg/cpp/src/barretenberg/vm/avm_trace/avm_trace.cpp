@@ -1172,6 +1172,7 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t s
         .avm_main_w_in_tag = static_cast<uint32_t>(w_tag),
     };
 }
+
 void AvmTraceBuilder::op_storage_address(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_storage_address();
