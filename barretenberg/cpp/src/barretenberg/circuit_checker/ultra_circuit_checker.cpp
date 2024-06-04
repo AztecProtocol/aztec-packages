@@ -40,7 +40,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     size_t block_idx = 0;
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
-        if (result == false) {
+        if (!result) {
             info("Failed at block idx = ", block_idx);
             return false;
         }
@@ -49,7 +49,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
     result = result && check_tag_data(tag_data);
-    if (result == false) {
+    if (!result) {
         info("Failed tag check.");
         return false;
     }
@@ -78,51 +78,56 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
-        if (result == false) {
+        if (!result) {
             info("Failed Arithmetic relation at row idx = ", idx);
             return false;
         }
         result = result && check_relation<Elliptic>(values, params);
-        if (result == false) {
+        if (!result) {
             info("Failed Elliptic relation at row idx = ", idx);
             return false;
         }
         result = result && check_relation<Auxiliary>(values, params);
-        if (result == false) {
+        if (!result) {
             info("Failed Auxiliary relation at row idx = ", idx);
             return false;
         }
         result = result && check_relation<DeltaRangeConstraint>(values, params);
-        if (result == false) {
+        if (!result) {
             info("Failed DeltaRangeConstraint relation at row idx = ", idx);
             return false;
         }
         result = result && check_lookup(values, lookup_hash_table);
-        if (result == false) {
+        if (!result) {
             info("Failed Lookup check relation at row idx = ", idx);
             return false;
         }
         if constexpr (IsMegaBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
-            if (result == false) {
+            if (!result) {
                 info("Failed PoseidonInternal relation at row idx = ", idx);
                 return false;
             }
             result = result && check_relation<PoseidonExternal>(values, params);
-            if (result == false) {
+            if (!result) {
                 info("Failed PoseidonExternal relation at row idx = ", idx);
                 return false;
             }
             result = result && check_databus_read(values, builder);
-            if (result == false) {
+            if (!result) {
                 info("Failed databus read at row idx = ", idx);
                 return false;
             }
         }
-        if (result == false) {
+        if (!result) {
             info("Failed at row idx = ", idx);
             return false;
         }
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        if (!result) {
+            block.stack_traces.print(idx);
+        }
+#endif
     }
 
     return result;
