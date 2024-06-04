@@ -97,8 +97,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('elliptic curve operations', async () => {
-    const calldata: Fr[] = [];
-    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+    const context = initContext();
 
     const bytecode = getAvmTestContractBytecode('elliptic_curve_add_and_double');
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
