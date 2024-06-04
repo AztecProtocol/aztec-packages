@@ -22,6 +22,7 @@ export class TXEService {
   private blockNumber = 0;
 
   constructor(
+    private logger: Logger,
     private typedOracle: TypedOracle,
     private store: AztecKVStore,
     private trees: MerkleTrees,
@@ -35,17 +36,22 @@ export class TXEService {
     const packedValuesCache = new PackedValuesCache();
     logger.info(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, contractAddress);
-    const service = new TXEService(txe, store, trees, packedValuesCache, contractAddress);
-    await service.timeTravel(1);
+    const service = new TXEService(logger, txe, store, trees, packedValuesCache, contractAddress);
+    await service.timeTravel(toSingle(new Fr(1n)));
     return service;
   }
 
-  async timeTravel(blocks: number) {
-    const header = Header.empty();
-    const l2Block = L2Block.empty();
+  timeTravel(blocks: ForeignCallSingle) {
+    return this.#timeTravelInner(fromSingle(blocks).toNumber());
+  }
 
+  async #timeTravelInner(blocks: number) {
+    this.logger.info(`time traveling ${blocks} blocks`);
     for (let i = 0; i < blocks; i++) {
+      const header = Header.empty();
+      const l2Block = L2Block.empty();
       header.state = await this.trees.getStateReference(true);
+      header.globalVariables.blockNumber = new Fr(this.blockNumber);
       header.state.partial.nullifierTree.root = Fr.fromBuffer(
         (await this.trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
       );

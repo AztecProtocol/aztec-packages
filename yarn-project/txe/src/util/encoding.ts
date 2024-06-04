@@ -17,7 +17,7 @@ export function fromArray(obj: ForeignCallArray) {
 }
 
 export function toSingle(obj: Fr) {
-  return { Single: obj.toString() };
+  return { Single: obj.toString().slice(2) };
 }
 
 export function toArray(objs: Fr[]) {
