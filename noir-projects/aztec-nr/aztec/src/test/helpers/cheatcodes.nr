@@ -34,3 +34,9 @@ fn oracle_time_travel(blocks: Field) {}
 unconstrained pub fn advance_blocks(blocks: Field) {
     oracle_time_travel(blocks);
 }
+
+unconstrained pub fn advance_block_to(block_number: Field) {
+    let difference = block_number - get_block_number();
+    advance_blocks(difference);
+}
+

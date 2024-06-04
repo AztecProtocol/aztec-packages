@@ -136,15 +136,19 @@ fn test_get_current_value_in_public() {
 #[test]
 fn test_get_scheduled_value_in_public() {
     let (state_var, block_number) = setup();
-    // // Change in the future, scheduled is post (always is)
-    // mock_value_change_read(state_var, pre_value, post_value, block_number + 1);
-    // assert_eq(state_var.get_scheduled_value_in_public(), (post_value, (block_number + 1) as u32));
-    // // Change in the current block, scheduled is post (always is)
-    // mock_value_change_read(state_var, pre_value, post_value, block_number);
-    // assert_eq(state_var.get_scheduled_value_in_public(), (post_value, block_number as u32));
-    // // Change in the past, scheduled is post (always is)
-    // mock_value_change_read(state_var, pre_value, post_value, block_number - 1);
-    // assert_eq(state_var.get_scheduled_value_in_public(), (post_value, (block_number - 1) as u32));
+
+    state_var.schedule_value_change(post_value);
+
+    // Change in the future, scheduled is post (always is)
+    assert_eq(
+        state_var.get_scheduled_value_in_public(), (post_value, (block_number + TEST_INITIAL_DELAY) as u32)
+    );
+
+    cheatcodes::advance_blocks(TEST_INITIAL_DELAY);
+
+    assert_eq(
+        state_var.get_scheduled_value_in_public(), (post_value, (block_number + TEST_INITIAL_DELAY) as u32)
+    );
 }
 
 #[test]

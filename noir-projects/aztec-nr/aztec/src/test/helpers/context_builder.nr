@@ -1,6 +1,7 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::test::helpers::cheatcodes;
 use dep::protocol_types::address::AztecAddress;
+
 struct ContextBuilder {
     block_number: Option<Field>,
     contract_address: Option<AztecAddress>,
@@ -28,9 +29,7 @@ impl ContextBuilder {
         if self.block_number.is_some() {
             let block_number = self.block_number.unwrap_unchecked();
             context.inputs.historical_header.global_variables.block_number = block_number;
-
-            let difference = block_number - cheatcodes::get_block_number();
-            cheatcodes::advance_blocks(difference);
+            cheatcodes::advance_block_to(block_number);
         }
 
         if self.contract_address.is_some() {
@@ -43,20 +42,18 @@ impl ContextBuilder {
     }
 
     fn public(self) -> PublicContext {
-        // cheatcodes::reset();
+        cheatcodes::reset();
         let mut context = PublicContext::empty();
 
         if self.block_number.is_some() {
             let block_number = self.block_number.unwrap_unchecked();
-
-            let difference = block_number - cheatcodes::get_block_number();
-            // cheatcodes::advance_blocks(difference);
+            cheatcodes::advance_block_to(block_number);
         }
 
-        // if self.contract_address.is_some() {
-        //     let contract_address = self.contract_address.unwrap_unchecked();
-        //     cheatcodes::set_contract_address(contract_address);
-        // }
+        if self.contract_address.is_some() {
+            let contract_address = self.contract_address.unwrap_unchecked();
+            cheatcodes::set_contract_address(contract_address);
+        }
 
         context
     }
