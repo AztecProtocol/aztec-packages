@@ -75,7 +75,6 @@ describe('EC Instructions', () => {
     });
 
     it('Should add correctly', async () => {
-      console.log(grumpkin.generator());
       const G2 = grumpkin.add(grumpkin.generator(), grumpkin.generator());
       const zero = new Uint8(0);
 
