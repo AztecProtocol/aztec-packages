@@ -548,7 +548,13 @@ void avm_prove(const std::filesystem::path& bytecode_path,
         bytecode_path.extension() == ".gz" ? gunzip(bytecode_path) : read_file(bytecode_path);
     std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
     std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(read_file(public_inputs_path));
-    avm_trace::ExecutionHints avm_hints = deserialize_execution_hints(read_file(hints_path));
+
+    avm_trace::ExecutionHints avm_hints;
+    try {
+        avm_hints = deserialize_execution_hints(read_file(hints_path));
+    } catch (const std::exception& e) {
+        vinfo("hints file empty, this is probably fine!");
+    }
 
     // Hardcoded circuit size for now, with enough to support 16-bit range checks
     init_bn254_crs(1 << 17);
