@@ -40,7 +40,6 @@ static const size_t NUM_MEM_SPACES = 256;
 static const uint8_t INTERNAL_CALL_SPACE_ID = 255;
 static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
 
-// Side effect counter -> value
 struct ContractInstanceHint {
     bool instance_found_in_address;
     FF salt;

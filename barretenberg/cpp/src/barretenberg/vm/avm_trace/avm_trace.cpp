@@ -2499,7 +2499,6 @@ void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t addres
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .avm_main_sel_op_get_contract_instance = FF(1),
-        //. add selectors
     });
     clk++;
     // Read the contract instance
