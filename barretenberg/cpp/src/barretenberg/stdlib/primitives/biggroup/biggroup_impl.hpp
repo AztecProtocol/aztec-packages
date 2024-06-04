@@ -238,7 +238,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested
 template <typename C, class Fq, class Fr, class G>
-std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other, ) const
+std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
     if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         return { *this + other, *this - other };

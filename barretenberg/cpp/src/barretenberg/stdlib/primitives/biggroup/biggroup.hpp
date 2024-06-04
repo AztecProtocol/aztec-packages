@@ -119,7 +119,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element&, const bool generic_pair = true) const;
+    std::array<element, 2> checked_unconditional_add_sub(const element&) const;
 
     element operator*(const Fr& other) const;
 
