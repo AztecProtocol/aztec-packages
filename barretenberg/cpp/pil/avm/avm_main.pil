@@ -520,9 +520,9 @@ namespace avm_main(256);
 
     //===== GASLEFT OPCODES =====================================================
     #[L2GASLEFT]
-    sel_op_l2gasleft * (ia - l2_gas_remaining) = 0;
+    sel_op_l2gasleft * (ia - l2_gas_remaining') = 0;
     #[DAGASLEFT]
-    sel_op_dagasleft * (ia - da_gas_remaining) = 0;
+    sel_op_dagasleft * (ia - da_gas_remaining') = 0;
 
     //===== KERNEL INPUTS CONSTRAINTS ===========================================
     // The general pattern for environment lookups is as follows:

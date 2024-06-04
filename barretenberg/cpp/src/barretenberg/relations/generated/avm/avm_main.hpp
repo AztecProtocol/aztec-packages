@@ -1299,7 +1299,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(106);
 
-            auto tmp = (avm_main_sel_op_l2gasleft * (avm_main_ia - avm_main_l2_gas_remaining));
+            auto tmp = (avm_main_sel_op_l2gasleft * (avm_main_ia - avm_main_l2_gas_remaining_shift));
             tmp *= scaling_factor;
             std::get<106>(evals) += tmp;
         }
@@ -1307,7 +1307,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(107);
 
-            auto tmp = (avm_main_sel_op_dagasleft * (avm_main_ia - avm_main_da_gas_remaining));
+            auto tmp = (avm_main_sel_op_dagasleft * (avm_main_ia - avm_main_da_gas_remaining_shift));
             tmp *= scaling_factor;
             std::get<107>(evals) += tmp;
         }
