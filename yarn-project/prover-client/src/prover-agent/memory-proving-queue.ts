@@ -98,7 +98,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         return undefined;
       }
 
-      if (this.rejectIfAborted(job)) {
+      if (job.signal?.aborted) {
         return undefined;
       }
 
@@ -129,13 +129,11 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     }
 
     this.jobsInProgress.delete(jobId);
-
-    if (this.rejectIfAborted(job)) {
-      return Promise.resolve();
-    } else {
+    if (!job.signal?.aborted) {
       job.resolve(result);
-      return Promise.resolve();
     }
+
+    return Promise.resolve();
   }
 
   rejectProvingJob(jobId: string, err: any): Promise<void> {
@@ -151,7 +149,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
 
     this.jobsInProgress.delete(jobId);
 
-    if (this.rejectIfAborted(job)) {
+    if (job.signal?.aborted) {
       return Promise.resolve();
     }
 
@@ -191,7 +189,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     const now = this.timeSource();
 
     for (const job of this.jobsInProgress.values()) {
-      if (this.rejectIfAborted(job)) {
+      if (job.signal?.aborted) {
+        this.jobsInProgress.delete(job.id);
         continue;
       }
 
@@ -386,15 +385,5 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
    */
   verifyProof(): Promise<void> {
     return Promise.reject('not implemented');
-  }
-
-  private rejectIfAborted(job: ProvingJobWithResolvers): boolean {
-    if (job.signal?.aborted) {
-      this.log.debug(`Job ${job.id} type=${ProvingRequestType[job.request.type]} has been aborted`);
-      job.reject(new AbortError('Proving job has been aborted'));
-      return true;
-    }
-
-    return false;
   }
 }

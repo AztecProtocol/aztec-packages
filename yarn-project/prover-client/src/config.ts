@@ -35,7 +35,7 @@ export function getProverEnvVars(): ProverClientConfig {
     PROVER_AGENT_POLL_INTERVAL_MS = '100',
     PROVER_REAL_PROOFS = '',
     PROVER_JOB_TIMEOUT_MS = '60000',
-    PROVER_JOB_POLL_INTERVAL_MS = '100',
+    PROVER_JOB_POLL_INTERVAL_MS = '1000',
   } = process.env;
 
   const realProofs = ['1', 'true'].includes(PROVER_REAL_PROOFS);
@@ -43,7 +43,7 @@ export function getProverEnvVars(): ProverClientConfig {
   const proverAgentConcurrency = safeParseNumber(PROVER_AGENT_CONCURRENCY, 1);
   const proverAgentPollInterval = safeParseNumber(PROVER_AGENT_POLL_INTERVAL_MS, 100);
   const proverJobTimeoutMs = safeParseNumber(PROVER_JOB_TIMEOUT_MS, 60000);
-  const proverJobPollIntervalMs = safeParseNumber(PROVER_JOB_POLL_INTERVAL_MS, 100);
+  const proverJobPollIntervalMs = safeParseNumber(PROVER_JOB_POLL_INTERVAL_MS, 1000);
 
   return {
     acvmWorkingDirectory: ACVM_WORKING_DIRECTORY,
