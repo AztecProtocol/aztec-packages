@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717515797392,
+  "lastUpdate": 1717518698305,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -19224,6 +19224,78 @@ window.BENCHMARK_DATA = {
             "value": 163443391,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163443391 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "66f1c876578b05838698377f2ede12b52671e4ca",
+          "message": "docs(avm): Comments in pil file related to range checks of addresses (#6837)",
+          "timestamp": "2024-06-04T17:15:51+01:00",
+          "tree_id": "66c0eff6d13673d811bb4158e55956db0bec6e42",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/66f1c876578b05838698377f2ede12b52671e4ca"
+        },
+        "date": 1717518696900,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15394.29771799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10759.753695000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5539.235731000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5179.237476000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49429.294354000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49429296000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16891.590584,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16891589000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5172099147,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5172099147 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197674567,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197674567 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4242808316,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4242808316 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163335679,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163335679 ns\nthreads: 1"
           }
         ]
       }
