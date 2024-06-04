@@ -1,5 +1,6 @@
 #pragma once
 #include "./assert.hpp"
+#include "./log.hpp"
 #include <list>
 #include <map>
 #include <memory>

@@ -10,6 +10,7 @@
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
 #include "get_grumpkin_crs.hpp"
+#include "log.hpp"
 #include <barretenberg/common/benchmark.hpp>
 #include <barretenberg/common/container.hpp>
 #include <barretenberg/common/timer.hpp>

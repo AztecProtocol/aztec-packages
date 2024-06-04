@@ -1,4 +1,5 @@
 #ifndef NO_MULTITHREADING
+#include "log.hpp"
 #include "thread.hpp"
 #include <atomic>
 #include <condition_variable>

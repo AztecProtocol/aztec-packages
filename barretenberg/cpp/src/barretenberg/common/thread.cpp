@@ -1,4 +1,5 @@
 #include "thread.hpp"
+#include "log.hpp"
 
 /**
  * There's a lot to talk about here. To bring threading to WASM, parallel_for was written to replace the OpenMP loops
