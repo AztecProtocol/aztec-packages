@@ -118,6 +118,13 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
 
+  it.only("Should prove keccak", 
+    async () => {
+      await proveAndVerifyAvmTestContract('keccak_hash', [1,2,3,4,5,6,7,8,9,10].map(e => new Fr(e)));
+    },
+    TIMEOUT,
+  )
+
   // TODO: requires revert
   // it("Should prove to radix",
   //   async () => {

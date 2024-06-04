@@ -3024,7 +3024,7 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
     });
     clk++;
     auto input_length_read = mem_trace_builder.read_and_load_from_memory(
-        call_ptr, clk, IntermRegister::IB, input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U32);
+        call_ptr, clk, IntermRegister::IB, input_size_offset, AvmMemoryTag::U64, AvmMemoryTag::U64);
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_ib = input_length_read.val, // Message Length
@@ -3032,8 +3032,8 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
         .avm_main_mem_idx_b = FF(input_size_offset), // length
         .avm_main_mem_op_b = FF(1),
         .avm_main_pc = FF(pc),
-        .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
+        .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
+        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
     });
     clk++;
 
