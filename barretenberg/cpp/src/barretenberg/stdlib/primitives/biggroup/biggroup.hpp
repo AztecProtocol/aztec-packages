@@ -314,7 +314,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                                                  const std::array<uint256_t, 8>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
-    static std::pair<typename NativeGroup::affine_element, element> compute_table_offset_generator();
+    static typename NativeGroup::affine_element compute_table_offset_generator();
 
     template <typename = typename std::enable_if<HasPlookup<Builder>>> struct four_bit_table_plookup {
         four_bit_table_plookup(){};

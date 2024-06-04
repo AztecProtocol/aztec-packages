@@ -11,24 +11,22 @@ namespace bb::stdlib {
  *and doubling. To avoid handling those we add multiples of this offset generator to the points.
  *
  * @param num_rounds
- * @return std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>>
  */
 template <typename C, class Fq, class Fr, class G>
-std::pair<typename G::affine_element, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::compute_table_offset_generator()
+typename G::affine_element element<C, Fq, Fr, G>::compute_table_offset_generator()
 {
     constexpr typename G::affine_element offset_generator =
         G::derive_generators("biggroup table offset generator", 1)[0];
 
-    return std::make_pair<typename G::affine_element, element>(typename G::affine_element(offset_generator),
-                                                               element(offset_generator));
+    return offset_generator;
 }
 
 /**
  * @brief Given two lists of points that need to be multiplied by scalars, create a new list of length +1 with original
  * points masked, but the same scalar product sum
- * @details Add +1G, +2G, +4G etc to the original points and adds a new point G and scalar x to the lists. By doubling
- * the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases, unless the
- * points are deliberately constructed to trigger it.
+ * @details Add +1G, +2G, +4G etc to the original points and adds a new point 2ⁿ⋅G and scalar x to the lists. By
+ * doubling the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases, unless
+ * the points are deliberately constructed to trigger it.
  */
 template <typename C, class Fq, class Fr, class G>
 std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::mask_points(
@@ -40,23 +38,25 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     using NativeFr = typename Fr::native;
     auto running_scalar = NativeFr::one();
     // Get the offset generator G_offset in native and in-circuit form
-    auto [native_offset_generator, in_circuit_offset_generator] = element::compute_table_offset_generator();
+    auto native_offset_generator = element::compute_table_offset_generator();
     Fr last_scalar = Fr(0);
+    NativeFr generator_coefficient = NativeFr(2).pow(_points.size());
+    auto generator_coefficient_inverse = generator_coefficient.invert();
     // For each point and scalar
     for (size_t i = 0; i < _points.size(); i++) {
         scalars.push_back(_scalars[i]);
         // Convert point into point + 2ⁱ⋅G_offset
         points.push_back(_points[i] + (native_offset_generator * running_scalar));
-        // Add 2ⁱ⋅scalar to the last scalar
-        last_scalar += _scalars[i] * running_scalar;
+        // Add \frac{2ⁱ⋅scalar}{2ⁿ} to the last scalar
+        last_scalar += _scalars[i] * (running_scalar * generator_coefficient_inverse);
         // Double the running scalar
         running_scalar += running_scalar;
     }
 
-    // Add a scalar -<(1,2,4,...,2ⁿ⁻¹ ),(scalar₀,...,scalarₙ₋₁)>
+    // Add a scalar -(<(1,2,4,...,2ⁿ⁻¹ ),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)
     scalars.push_back(-last_scalar);
     // Add in-circuit G_offset to points
-    points.push_back(in_circuit_offset_generator);
+    points.push_back(element(native_offset_generator * generator_coefficient));
 
     return { points, scalars };
 }
