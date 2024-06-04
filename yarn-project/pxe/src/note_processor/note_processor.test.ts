@@ -38,11 +38,14 @@ class MockNoteRequest {
     public readonly txIndex: number,
     /** Index of a note hash within a list of note hashes for 1 tx. */
     public readonly noteHashIndex: number,
-    /** ivpk we use when encrypting a note */
+    /** ivpk we use when encrypting a note. */
     public readonly ivpk: PublicKey,
-    /** ovKeys we use when encrypting a note */
+    /** ovKeys we use when encrypting a note. */
     public readonly ovKeys: KeyValidationRequest,
   ) {
+    if (blockNumber < INITIAL_L2_BLOCK_NUM) {
+      throw new Error(`Block number should be greater than or equal to ${INITIAL_L2_BLOCK_NUM}.`);
+    }
     if (noteHashIndex >= MAX_NEW_NOTE_HASHES_PER_TX) {
       throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
     }
@@ -74,18 +77,20 @@ describe('Note Processor', () => {
   let noteProcessor: NoteProcessor;
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
-  const firstBlockNum = 123;
 
   let ownerIvskM: GrumpkinPrivateKey;
   let ownerIvpkM: PublicKey;
   let ownerOvKeys: KeyValidationRequest;
 
-  function mockBlocks(requests: MockNoteRequest[], numBlocks: number) {
+  function mockBlocks(requests: MockNoteRequest[]) {
     const blocks = [];
+
+    // The number of blocks we create starts from INITIAL_L2_BLOCK_NUM and ends at the highest block number in requests
+    const numBlocks = requests.reduce((maxBlockNum, request) => Math.max(maxBlockNum, request.blockNumber), 0);
 
     for (let i = 0; i < numBlocks; i++) {
       // First we get a random block with correct block number
-      const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK, 1, 0, 4);
+      const block = L2Block.random(INITIAL_L2_BLOCK_NUM + i, TXS_PER_BLOCK, 1, 0, 4);
 
       // We have to update the next available leaf index in note hash tree to match the block number
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex = block.number * NUM_NOTE_HASHES_PER_BLOCK;
@@ -149,9 +154,9 @@ describe('Note Processor', () => {
   });
 
   it('should store a note that belongs to us', async () => {
-    const request = new MockNoteRequest(TaggedNote.random(), firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
+    const request = new MockNoteRequest(TaggedNote.random(), 4, 0, 2, ownerIvpkM, ownerOvKeys);
 
-    const blocks = mockBlocks([request], 1);
+    const blocks = mockBlocks([request]);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
@@ -168,12 +173,12 @@ describe('Note Processor', () => {
 
   it('should store multiple notes that belong to us', async () => {
     const requests = [
-      new MockNoteRequest(TaggedNote.random(), firstBlockNum, 1, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(TaggedNote.random(), firstBlockNum + 2, 3, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(TaggedNote.random(), firstBlockNum + 6, 3, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(), 1, 1, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(), 2, 3, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(), 6, 3, 2, ownerIvpkM, ownerOvKeys),
     ];
 
-    const blocks = mockBlocks(requests, 7);
+    const blocks = mockBlocks(requests);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
@@ -201,13 +206,10 @@ describe('Note Processor', () => {
 
   it('should not store notes that do not belong to us', async () => {
     // Both notes should be ignored because the encryption keys do not belong to owner (they are random).
-    const blocks = mockBlocks(
-      [
-        new MockNoteRequest(TaggedNote.random(), firstBlockNum, 1, 1, Point.random(), KeyValidationRequest.random()),
-        new MockNoteRequest(TaggedNote.random(), firstBlockNum, 3, 0, Point.random(), KeyValidationRequest.random()),
-      ],
-      4,
-    );
+    const blocks = mockBlocks([
+      new MockNoteRequest(TaggedNote.random(), 2, 1, 1, Point.random(), KeyValidationRequest.random()),
+      new MockNoteRequest(TaggedNote.random(), 2, 3, 0, Point.random(), KeyValidationRequest.random()),
+    ]);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
@@ -221,14 +223,14 @@ describe('Note Processor', () => {
     const note2 = TaggedNote.random();
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const requests = [
-      new MockNoteRequest(note, firstBlockNum, 0, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum + 1, 0, 2, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum + 1, 2, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note2, firstBlockNum + 2, 2, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, firstBlockNum + 3, 2, 3, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, 3, 0, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, 4, 0, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, 4, 2, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note2, 5, 2, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, 6, 2, 3, ownerIvpkM, ownerOvKeys),
     ];
 
-    const blocks = mockBlocks(requests, 4);
+    const blocks = mockBlocks(requests);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
@@ -250,9 +252,9 @@ describe('Note Processor', () => {
   });
 
   it('advances the block number', async () => {
-    const request = new MockNoteRequest(TaggedNote.random(), firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
+    const request = new MockNoteRequest(TaggedNote.random(), 6, 0, 2, ownerIvpkM, ownerOvKeys);
 
-    const blocks = mockBlocks([request], 1);
+    const blocks = mockBlocks([request]);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
@@ -262,9 +264,9 @@ describe('Note Processor', () => {
   });
 
   it('should restore the last block number processed and ignore the starting block', async () => {
-    const request = new MockNoteRequest(TaggedNote.random(), firstBlockNum, 0, 2, ownerIvpkM, ownerOvKeys);
+    const request = new MockNoteRequest(TaggedNote.random(), 6, 0, 2, ownerIvpkM, ownerOvKeys);
 
-    const blocks = mockBlocks([request], 1);
+    const blocks = mockBlocks([request]);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
