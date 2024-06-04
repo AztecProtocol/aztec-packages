@@ -2724,7 +2724,7 @@ template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetizati
 template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithmetization>::export_circuit()
 {
     using base = CircuitBuilderBase<FF>;
-    CircuitSchema cir;
+    CircuitSchema<FF> cir;
 
     uint64_t modulus[4] = {
         FF::Params::modulus_0, FF::Params::modulus_1, FF::Params::modulus_2, FF::Params::modulus_3

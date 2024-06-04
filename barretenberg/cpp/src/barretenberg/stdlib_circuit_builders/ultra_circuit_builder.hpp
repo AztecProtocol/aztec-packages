@@ -816,20 +816,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     uint256_t hash_circuit();
 
     msgpack::sbuffer export_circuit() override;
-
-  private:
-    struct CircuitSchema {
-        std::string modulus;
-        std::vector<uint32_t> public_inps;
-        std::unordered_map<uint32_t, std::string> vars_of_interest;
-        std::vector<FF> variables;
-        std::vector<std::vector<std::vector<FF>>> selectors;
-        std::vector<std::vector<std::vector<uint32_t>>> wires;
-        std::vector<uint32_t> real_variable_index;
-        std::vector<std::vector<std::vector<FF>>> lookup_tables;
-        MSGPACK_FIELDS(
-            modulus, public_inps, vars_of_interest, variables, selectors, wires, real_variable_index, lookup_tables);
-    } circuit_schema;
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

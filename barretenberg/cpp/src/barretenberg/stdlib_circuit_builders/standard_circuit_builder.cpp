@@ -521,7 +521,7 @@ void StandardCircuitBuilder_<FF>::assert_equal_constant(uint32_t const a_idx, FF
 template <typename FF> msgpack::sbuffer StandardCircuitBuilder_<FF>::export_circuit()
 {
     using base = CircuitBuilderBase<FF>;
-    CircuitSchema cir;
+    CircuitSchema<FF> cir;
 
     uint64_t modulus[4] = {
         FF::Params::modulus_0, FF::Params::modulus_1, FF::Params::modulus_2, FF::Params::modulus_3
