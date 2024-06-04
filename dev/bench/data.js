@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717529546816,
+  "lastUpdate": 1717531513467,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -20388,6 +20388,78 @@ window.BENCHMARK_DATA = {
             "value": 194849008,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 194849008 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d3be85f57c34aa88e732ea115239f3bed1e7aa16",
+          "message": "feat(avm): deserialise execution hints in bb main (#6848)\n\n\r\n\r\n---------\r\n\r\nCo-authored-by: dbanks12 <david@aztecprotocol.com>\r\nCo-authored-by: David Banks <47112877+dbanks12@users.noreply.github.com>",
+          "timestamp": "2024-06-04T19:53:20Z",
+          "tree_id": "33b06779137c5027f3d5436dd47706f6dcd424b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d3be85f57c34aa88e732ea115239f3bed1e7aa16"
+        },
+        "date": 1717531512154,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15390.052705000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10763.607337000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5610.140332,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5135.068768 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49295.589976999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49295592000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17078.729671,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17078729000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5193789428,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5193789428 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200798938,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200798938 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4318001390,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4318001390 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163857195,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163857195 ns\nthreads: 1"
           }
         ]
       }
