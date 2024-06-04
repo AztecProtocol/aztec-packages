@@ -3801,6 +3801,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
             dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
+            dest.avm_kernel_nullifier_non_exists_write_offset = prev.avm_kernel_nullifier_non_exists_write_offset;
             dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
             dest.avm_kernel_emit_l2_to_l1_msg_write_offset = prev.avm_kernel_emit_l2_to_l1_msg_write_offset;
             dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
@@ -3841,7 +3842,11 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             next.avm_kernel_emit_nullifier_write_offset =
                 curr.avm_kernel_emit_nullifier_write_offset + static_cast<FF>(src.op_emit_nullifier);
             next.avm_kernel_nullifier_exists_write_offset =
-                curr.avm_kernel_nullifier_exists_write_offset + static_cast<FF>(src.op_nullifier_exists);
+                curr.avm_kernel_nullifier_exists_write_offset +
+                (static_cast<FF>(src.op_nullifier_exists) * curr.avm_main_ib);
+            next.avm_kernel_nullifier_non_exists_write_offset =
+                curr.avm_kernel_nullifier_non_exists_write_offset +
+                (static_cast<FF>(src.op_nullifier_exists) * (FF(1) - curr.avm_main_ib));
             next.avm_kernel_l1_to_l2_msg_exists_write_offset =
                 curr.avm_kernel_l1_to_l2_msg_exists_write_offset + static_cast<FF>(src.op_l1_to_l2_msg_exists);
             next.avm_kernel_emit_l2_to_l1_msg_write_offset =
@@ -3853,7 +3858,17 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
             // The side effect counter will increment regardless of the offset value
             next.avm_kernel_side_effect_counter = curr.avm_kernel_side_effect_counter + 1;
+
+            info("non exists curr: ", curr.avm_kernel_nullifier_non_exists_write_offset);
+            info("non exists next: ", next.avm_kernel_nullifier_non_exists_write_offset);
         }
+
+        info("for kernel output", curr.avm_main_sel_op_nullifier_exists);
+        info(curr.avm_main_sel_op_nullifier_exists *
+             (curr.avm_kernel_kernel_out_offset -
+              ((curr.avm_main_ib * (FF(32) + curr.avm_kernel_nullifier_exists_write_offset)) +
+               ((FF(1) - curr.avm_main_ib) * (FF(64) + curr.avm_kernel_nullifier_non_exists_write_offset)))));
+        info("kernel out offset:", curr.avm_kernel_kernel_out_offset);
 
         kernel_padding_main_trace_bottom = clk + 1;
     }
@@ -3869,6 +3884,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_note_hash_exist_write_offset = 0;
             dest.avm_kernel_emit_note_hash_write_offset = 0;
             dest.avm_kernel_nullifier_exists_write_offset = 0;
+            dest.avm_kernel_nullifier_non_exists_write_offset = 0;
             dest.avm_kernel_emit_nullifier_write_offset = 0;
             dest.avm_kernel_l1_to_l2_msg_exists_write_offset = 0;
             dest.avm_kernel_emit_unencrypted_log_write_offset = 0;
@@ -3880,6 +3896,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
             dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
+            dest.avm_kernel_nullifier_non_exists_write_offset = prev.avm_kernel_nullifier_non_exists_write_offset;
             dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
             dest.avm_kernel_l1_to_l2_msg_exists_write_offset = prev.avm_kernel_l1_to_l2_msg_exists_write_offset;
             dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;

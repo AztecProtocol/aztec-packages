@@ -1,32 +1,4 @@
-import {
-  AvmCircuitInputs,
-  AztecAddress,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  Gas,
-  GlobalVariables,
-  Header,
-  L2ToL1Message,
-  LogHash,
-  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
-  NoteHash,
-  Nullifier,
-  PublicCircuitPublicInputs,
-  ReadRequest,
-  RevertCode,
-} from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { AvmCircuitInputs, AztecAddress, ContractStorageRead, ContractStorageUpdateRequest, Gas, GlobalVariables, Header, L2ToL1Message, LogHash, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL, NoteHash, Nullifier, PublicCircuitPublicInputs, ReadRequest, RevertCode } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, type PublicExecutionResult } from '@aztec/simulator';
@@ -42,6 +14,8 @@ import {
 } from '../../simulator/src/public/transitional_adaptors.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
 import { extractVkData } from './verification_key/verification_key_data.js';
+import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 const TIMEOUT = 30_000;
 
@@ -70,9 +44,52 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
 
-  // it.only("Should new note hash",
+  it("Should prove new note hash",
+    async () => {
+      await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
+    },
+    TIMEOUT
+  )
+
+  it("Should prove new note hash",
+    async () => {
+      await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
+    },
+    TIMEOUT
+  )
+
+  it("Should prove new nullifier",
+    async () => {
+      await proveAndVerifyAvmTestContract('new_nullifier', [new Fr(1)]);
+    },
+    TIMEOUT
+  )
+
+  it("Should prove nullifier exists",
+    async () => {
+      await proveAndVerifyAvmTestContract('nullifier_exists', [new Fr(1)]);
+    },
+    TIMEOUT
+  )
+  
+  it("Should prove l1 to l2 msg exists",
+    async () => {
+      await proveAndVerifyAvmTestContract('l1_to_l2_msg_exists', [new Fr(1), new Fr(2)]);
+    },
+    TIMEOUT
+  )
+
+  // TODO: requires revert
+  // it("Should prove to radix",
   //   async () => {
-  //     await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
+  //     await proveAndVerifyAvmTestContract('to_radix_le', [new Fr(10)]);
+  //   },
+  //   TIMEOUT
+  // )
+
+  // it("Should prove send l2 to l1 msg",
+  //   async () => {
+  //     await proveAndVerifyAvmTestContract('send_l2_to_l1_msg', [new Fr(1), new Fr(2)]);
   //   },
   //   TIMEOUT
   // )
