@@ -43,8 +43,9 @@ export class TXEService {
 
   async getPrivateContextInputs() {
     const inputs = PrivateContextInputs.empty();
+    const stateReference = await this.trees.getStateReference(true);
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(this.blockNumber);
-    inputs.historicalHeader.state.partial = (await this.trees.getStateReference(true)).partial;
+    inputs.historicalHeader.state = stateReference;
     inputs.callContext.msgSender = AztecAddress.random();
     inputs.callContext.storageContractAddress = this.contractAddress;
     return toForeignCallResult(inputs.toFields().map(toSingle));
