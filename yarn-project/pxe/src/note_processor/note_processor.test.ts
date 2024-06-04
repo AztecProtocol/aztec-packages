@@ -167,14 +167,13 @@ describe('Note Processor', () => {
   }, 25_000);
 
   it('should store multiple notes that belong to us', async () => {
-    const prependedBlocks = 2;
     const requests = [
-      new MockNoteRequest(TaggedNote.random(), firstBlockNum + prependedBlocks, 1, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(TaggedNote.random(), firstBlockNum + prependedBlocks, 3, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(TaggedNote.random(), firstBlockNum + prependedBlocks, 3, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(), firstBlockNum, 1, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(), firstBlockNum + 2, 3, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(), firstBlockNum + 6, 3, 2, ownerIvpkM, ownerOvKeys),
     ];
 
-    const blocks = mockBlocks(requests, 4);
+    const blocks = mockBlocks(requests, 7);
 
     // TODO(#6830): pass in only the blocks
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
