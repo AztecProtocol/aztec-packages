@@ -72,10 +72,12 @@ If you spot a broken url, ping us in discord or create an issue :)
 ## Keywords
 
 "Used by search engines" - [link](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-pages#keywords)
+Used to help devs better find specific content via search.
 
 ## Tags
 
 "Another dimension of categorization" - [link](https://docusaurus.io/docs/create-doc#doc-tags)
+Used sparingly to help devs see related contact across docs.
 
 ## Sidebar
 
