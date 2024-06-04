@@ -64,11 +64,12 @@ export class TXEService {
       await this.trees.handleL2BlockAndMessages(l2Block, []);
       this.blockNumber++;
     }
+    return toForeignCallResult([]);
   }
 
-  setContractAddress(address = AztecAddress.random()): AztecAddress {
+  setContractAddress(address = AztecAddress.random()) {
     this.contractAddress = address;
-    return this.contractAddress;
+    return toForeignCallResult([]);
   }
 
   getContractAddress() {
