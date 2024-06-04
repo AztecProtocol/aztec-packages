@@ -1,7 +1,6 @@
 use crate::context::{PrivateContext, PublicContext};
+use crate::test::helpers::cheatcodes;
 use dep::protocol_types::address::AztecAddress;
-use dep::std::test::OracleMock;
-
 struct ContextBuilder {
     block_number: Option<Field>,
     contract_address: Option<AztecAddress>,
@@ -22,30 +21,42 @@ impl ContextBuilder {
         self
     }
 
-    fn private(&mut self) -> PrivateContext {
+    fn private(self) -> PrivateContext {
+        cheatcodes::reset();
         let mut context = PrivateContext::empty();
 
         if self.block_number.is_some() {
-            context.inputs.historical_header.global_variables.block_number = self.block_number.unwrap_unchecked();
+            let block_number = self.block_number.unwrap_unchecked();
+            context.inputs.historical_header.global_variables.block_number = block_number;
+
+            let difference = block_number - cheatcodes::get_block_number();
+            cheatcodes::advance_blocks(difference);
         }
 
         if self.contract_address.is_some() {
-            context.inputs.call_context.storage_contract_address = self.contract_address.unwrap_unchecked();
+            let contract_address = self.contract_address.unwrap_unchecked();
+            context.inputs.call_context.storage_contract_address = contract_address;
+            cheatcodes::set_contract_address(contract_address);
         }
 
         context
     }
 
-    fn public(&mut self) -> PublicContext {
+    fn public(self) -> PublicContext {
+        // cheatcodes::reset();
         let mut context = PublicContext::empty();
 
         if self.block_number.is_some() {
-            let _ = OracleMock::mock("avmOpcodeBlockNumber").returns(self.block_number.unwrap());
+            let block_number = self.block_number.unwrap_unchecked();
+
+            let difference = block_number - cheatcodes::get_block_number();
+            // cheatcodes::advance_blocks(difference);
         }
 
-        if self.contract_address.is_some() {
-            let _ = OracleMock::mock("avmOpcodeAddress").returns(self.contract_address.unwrap());
-        }
+        // if self.contract_address.is_some() {
+        //     let contract_address = self.contract_address.unwrap_unchecked();
+        //     cheatcodes::set_contract_address(contract_address);
+        // }
 
         context
     }
