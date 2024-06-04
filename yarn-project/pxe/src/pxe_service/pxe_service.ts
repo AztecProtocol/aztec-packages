@@ -157,7 +157,13 @@ export class PXEService implements PXE {
   }
 
   async rotateNskM(account: AztecAddress, secretKey: Fq): Promise<void> {
-    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
+    // 'n' prefix stands for nullifier key
+    await this.keyStore.rotateMasterKey(account, 'n', secretKey);
+  }
+
+  async rotateIvskM(account: AztecAddress, secretKey: Fq): Promise<void> {
+    // 'iv' prefix stands for incoming viewing key
+    await this.keyStore.rotateMasterKey(account, 'iv', secretKey);
   }
 
   public addCapsule(capsule: Fr[]) {

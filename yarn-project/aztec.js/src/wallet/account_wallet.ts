@@ -1,5 +1,5 @@
 import { type AuthWitness, type FunctionCall, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, GrumpkinPrivateKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { type AccountInterface } from '../account/interface.js';
@@ -174,7 +174,7 @@ export class AccountWallet extends BaseWallet {
    *
    * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
    */
-  public async rotateNullifierKeys(newNskM: Fq = Fq.random()): Promise<void> {
+  public async rotateNullifierKeys(newNskM: GrumpkinPrivateKey = Fq.random()): Promise<void> {
     // We rotate our secret key in the keystore first, because if the subsequent interaction fails, there are no bad side-effects.
     // If vice versa (the key registry is called first), but the call to the PXE fails, we will end up in a situation with unspendable notes, as we have not committed our
     // nullifier secret key to our wallet.
@@ -184,6 +184,27 @@ export class AccountWallet extends BaseWallet {
       AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
       this.getRotateNpkMAbi(),
       [this.getAddress(), derivePublicKeyFromSecretKey(newNskM), Fr.ZERO],
+    );
+
+    await interaction.send().wait();
+  }
+
+  /**
+   * Rotates the account incoming viewing key pair.
+   * @param newIvskM - The new incoming viewing key secret key we want to use.
+   * @remarks - This function also calls the canonical key registry with the account's new derived incoming viewing public key.
+   * We are doing it this way to avoid user error, in the case that a user rotates their keys in the key registry,
+   * but fails to do so in the key store. This leads to unspendable notes.
+   *
+   * This does not hinder our ability to spend notes tied to a previous incoming viewing public key, provided we have the incoming viewing secret key for it.
+   */
+  public async rotateIncomingViewingKeys(newIvskM: GrumpkinPrivateKey = Fq.random()): Promise<void> {
+    await this.pxe.rotateIvskM(this.getAddress(), newIvskM);
+    const interaction = new ContractFunctionInteraction(
+      this,
+      AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
+      this.getRotateIvpkMAbi(),
+      [this.getAddress(), derivePublicKeyFromSecretKey(newIvskM), Fr.ZERO],
     );
 
     await interaction.send().wait();
@@ -312,6 +333,41 @@ export class AccountWallet extends BaseWallet {
         },
         {
           name: 'new_npk_m',
+          type: {
+            fields: [
+              { name: 'x', type: { kind: 'field' } },
+              { name: 'y', type: { kind: 'field' } },
+            ],
+            kind: 'struct',
+            path: 'authwit::aztec::protocol_types::grumpkin_point::GrumpkinPoint',
+          },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+        { name: 'nonce', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
+      ],
+      returnTypes: [],
+    };
+  }
+
+  private getRotateIvpkMAbi(): FunctionAbi {
+    return {
+      name: 'rotate_ivpk_m',
+      isInitializer: false,
+      functionType: FunctionType.PUBLIC,
+      isInternal: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'address',
+          type: {
+            fields: [{ name: 'inner', type: { kind: 'field' } }],
+            kind: 'struct',
+            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+          },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+        {
+          name: 'new_ivpk_m',
           type: {
             fields: [
               { name: 'x', type: { kind: 'field' } },

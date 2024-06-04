@@ -116,9 +116,9 @@ describe('KeyStore', () => {
     ];
 
     // We rotate our nullifier key
-    await keyStore.rotateMasterNullifierKey(accountAddress, newMasterNullifierSecretKeys[0]);
-    await keyStore.rotateMasterNullifierKey(accountAddress, newMasterNullifierSecretKeys[1]);
-    await keyStore.rotateMasterNullifierKey(accountAddress, newMasterNullifierSecretKeys[2]);
+    await keyStore.rotateMasterKey(accountAddress, 'n', newMasterNullifierSecretKeys[0]);
+    await keyStore.rotateMasterKey(accountAddress, 'n', newMasterNullifierSecretKeys[1]);
+    await keyStore.rotateMasterKey(accountAddress, 'n', newMasterNullifierSecretKeys[2]);
 
     // We make sure we can get master nullifier public keys with master nullifier public key hashes
     const { pkM: masterNullifierPublicKey2 } = await keyStore.getKeyValidationRequest(

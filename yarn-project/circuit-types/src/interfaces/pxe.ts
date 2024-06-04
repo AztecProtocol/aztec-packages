@@ -1,4 +1,4 @@
-import { GrumpkinPrivateKey, type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
+import { type GrumpkinPrivateKey, type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import {
   type ContractClassWithId,

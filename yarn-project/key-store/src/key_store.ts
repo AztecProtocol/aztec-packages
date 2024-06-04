@@ -2,7 +2,7 @@ import { type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
-  Fq,
+  type Fq,
   Fr,
   GeneratorIndex,
   type GrumpkinPrivateKey,
@@ -307,28 +307,24 @@ export class KeyStore {
   }
 
   /**
-   * Rotates the master nullifier key for the specified account.
-   *
-   * @dev This function updates the secret and public keys associated with the account.
-   * It appends a new secret key to the existing secret keys, derives the
-   * corresponding public key, and updates the stored keys accordingly.
-   *
-   * @param account - The account address for which the master nullifier key is being rotated.
-   * @param newSecretKey - (Optional) A new secret key of type Fq. If not provided, a random key is generated.
-   * @throws If the account does not have existing nullifier secret keys or public keys.
+   * Rotates the master key defined by key prefix for the specified account.
+   * @param account - The account address for which the master key is being rotated.
+   * @param keyPrefix - The key prefix of the master key to rotate.
+   * @param newSecretKey - A new secret key to rotate to.
+   * @throws If the account does not have existing secret keys or public keys.
    * @returns A Promise that resolves when the key rotation is complete.
    */
-  public async rotateMasterNullifierKey(account: AztecAddress, newSecretKey: Fq = Fq.random()) {
+  public async rotateMasterKey(account: AztecAddress, keyPrefix: KeyPrefix, newSecretKey: GrumpkinPrivateKey) {
     // We append the secret key to the array of secret keys
-    await this.#appendValue(`${account.toString()}-nsk_m`, newSecretKey);
+    await this.#appendValue(`${account.toString()}-${keyPrefix}sk_m`, newSecretKey);
 
     // Now we derive the public key from the new secret key and append it to the buffer of original public keys
     const newPublicKey = derivePublicKeyFromSecretKey(newSecretKey);
-    await this.#appendValue(`${account.toString()}-npk_m`, newPublicKey);
+    await this.#appendValue(`${account.toString()}-${keyPrefix}pk_m`, newPublicKey);
 
-    // At last we store npk_m_hash under `account-npk_m_hash` key to be able to obtain address and key prefix
+    // At last we store pk_m_hash under `account-pk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
-    await this.#appendValue(`${account.toString()}-npk_m_hash`, newPublicKey.hash());
+    await this.#appendValue(`${account.toString()}-${keyPrefix}pk_m_hash`, newPublicKey.hash());
   }
 
   /**

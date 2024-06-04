@@ -76,6 +76,9 @@ export abstract class BaseWallet implements Wallet {
   rotateNskM(address: AztecAddress, secretKey: Fq) {
     return this.pxe.rotateNskM(address, secretKey);
   }
+  rotateIvskM(address: AztecAddress, secretKey: Fq) {
+    return this.pxe.rotateIvskM(address, secretKey);
+  }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);
   }
