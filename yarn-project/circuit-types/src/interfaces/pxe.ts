@@ -1,4 +1,4 @@
-import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
+import { GrumpkinPrivateKey, type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import {
   type ContractClassWithId,
@@ -114,13 +114,19 @@ export interface PXE {
    * Rotates master nullifier keys.
    * @param address - The address of the account we want to rotate our key for.
    * @param newNskM - The new master nullifier secret key we want to use.
-   * @remarks - One should not use this function directly without also calling the canonical key registry to rotate
-   * the new master nullifier secret key's derived master nullifier public key.
-   * Therefore, it is preferred to use rotateNullifierKeys on AccountWallet, as that handles the call to the Key Registry as well.
-   *
-   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
+   * @remarks - Has to be called along with rotate_npk_m on key registry contract. Instead of this function call
+   * rotateNullifierKeys on AccountWallet to handle the call to the Key Registry as well.
    */
-  rotateNskM(address: AztecAddress, newNskM: Fq): Promise<void>;
+  rotateNskM(address: AztecAddress, newNskM: GrumpkinPrivateKey): Promise<void>;
+
+  /**
+   * Rotates incoming viewing keys.
+   * @param address - The address of the account we want to rotate our key for.
+   * @param newIvskM - The new incoming viewing key secret key we want to use.
+   * @remarks - Has to be called along with rotate_ivpk_m on key registry contract. Instead of this function call
+   * rotateIncomingViewingKeys on AccountWallet to handle the call to the Key Registry as well.
+   */
+  rotateIvskM(address: AztecAddress, newIvskM: GrumpkinPrivateKey): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.

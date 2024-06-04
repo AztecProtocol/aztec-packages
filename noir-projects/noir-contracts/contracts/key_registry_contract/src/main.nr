@@ -42,6 +42,20 @@ contract KeyRegistry {
     }
 
     #[aztec(public)]
+  fn rotate_ivpk_m(address: AztecAddress, new_ivpk_m: GrumpkinPoint, nonce: Field) {
+        if (!address.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit_public(&mut context, address);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        let ivpk_m_x_registry = storage.ivpk_m_x_registry.at(address);
+        let ivpk_m_y_registry = storage.ivpk_m_y_registry.at(address);
+        ivpk_m_x_registry.schedule_value_change(new_ivpk_m.x);
+        ivpk_m_y_registry.schedule_value_change(new_ivpk_m.y);
+    }
+
+    #[aztec(public)]
   fn register(address: AztecAddress, partial_address: PartialAddress, keys: PublicKeys) {
         let computed_address = AztecAddress::compute(keys.hash(), partial_address);
 

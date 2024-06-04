@@ -149,7 +149,7 @@ describe('e2e_key_rotation', () => {
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
   };
 
-  it(`Rotates keys and uses them`, async () => {
+  it(`Rotates nullifier keys and uses them`, async () => {
     // 1. We check that setup set initial balances as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
@@ -233,4 +233,8 @@ describe('e2e_key_rotation', () => {
       await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
     }
   }, 600_000);
+
+  it(`Rotates incoming viewing keys`, async () => {
+    
+  });
 });
