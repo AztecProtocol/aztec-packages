@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717512435479,
+  "lastUpdate": 1717514074191,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -18676,6 +18676,78 @@ window.BENCHMARK_DATA = {
             "value": 163809911,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163809911 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a5329cc9f0af285a0b4ca4bf2b897dc458c48f9",
+          "message": "chore(master): Release 0.42.0 (#6572)\n\nThis release is too large to preview in the pull request body. View the\r\nfull release notes here:\r\nhttps://github.com/AztecProtocol/aztec-packages/blob/release-please--branches--master--release-notes/release-notes.md",
+          "timestamp": "2024-06-04T16:00:56+01:00",
+          "tree_id": "9483cd2b1d5b503216f23850fc9984bddf4c8f44",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4a5329cc9f0af285a0b4ca4bf2b897dc458c48f9"
+        },
+        "date": 1717514070644,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15423.126698999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10904.714317 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5518.190001000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5175.439012 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49655.526452000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49655527000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16883.449148999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16883449000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5133003052,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5133003052 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199327431,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199327431 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4277487330,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4277487330 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163494164,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163494164 ns\nthreads: 1"
           }
         ]
       }
