@@ -61,9 +61,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    info("Checking circuit");
-    circuit_builder.check_circuit();
-
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
@@ -153,10 +150,6 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     for (size_t i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_CALL; i++) {
         size_t dest_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NOTE_HASH_EXISTS_OFFSET + (i * 2);
-
-        info("new note hashes");
-        info("value: ", public_inputs_vec[pcpi_offset]);
-        info("sec: ", public_inputs_vec[pcpi_offset + 1]);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
