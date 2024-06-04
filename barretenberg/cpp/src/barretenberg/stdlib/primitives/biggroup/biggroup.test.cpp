@@ -531,6 +531,71 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         test_repeated_points(5);
         test_repeated_points(6);
         test_repeated_points(7);
+        {
+            // batch oo + P = P
+            std::vector<affine_element> points;
+            points.push_back(affine_element::infinity());
+            points.push_back(affine_element(element::random_element()));
+            std::vector<fr> scalars;
+            scalars.push_back(1);
+            scalars.push_back(1);
+
+            Builder builder;
+            ASSERT(points.size() == scalars.size());
+            const size_t num_points = points.size();
+
+            std::vector<element_ct> circuit_points;
+            std::vector<scalar_ct> circuit_scalars;
+            for (size_t i = 0; i < num_points; ++i) {
+                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+            }
+            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+
+            element expected_point = points[1];
+            expected_point = expected_point.normalize();
+
+            fq result_x(result_point.x.get_value().lo);
+            fq result_y(result_point.y.get_value().lo);
+
+            EXPECT_EQ(result_x, expected_point.x);
+            EXPECT_EQ(result_y, expected_point.y);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        {
+            // batch 0 * P1 + P2 = P2
+            std::vector<affine_element> points;
+            points.push_back(affine_element(element::random_element()));
+            points.push_back(affine_element(element::random_element()));
+            std::vector<fr> scalars;
+            scalars.push_back(0);
+            scalars.push_back(1);
+
+            Builder builder;
+            ASSERT(points.size() == scalars.size());
+            const size_t num_points = points.size();
+
+            std::vector<element_ct> circuit_points;
+            std::vector<scalar_ct> circuit_scalars;
+            for (size_t i = 0; i < num_points; ++i) {
+                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+            }
+
+            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+
+            element expected_point = points[1];
+            expected_point = expected_point.normalize();
+
+            fq result_x(result_point.x.get_value().lo);
+            fq result_y(result_point.y.get_value().lo);
+
+            EXPECT_EQ(result_x, expected_point.x);
+            EXPECT_EQ(result_y, expected_point.y);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
     }
 
     static void test_chain_add()
