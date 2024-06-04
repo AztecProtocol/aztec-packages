@@ -47,7 +47,7 @@ export class TXEService {
     inputs.historicalHeader.state.partial = (await this.trees.getStateReference(true)).partial;
     inputs.callContext.msgSender = AztecAddress.random();
     inputs.callContext.storageContractAddress = this.contractAddress;
-    return toForeignCallResult([toArray(inputs.toFields())]);
+    return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
   timeTravel(blocks: ForeignCallSingle) {
