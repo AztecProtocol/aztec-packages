@@ -46,7 +46,7 @@ class MockNoteRequest {
     if (noteHashIndex >= MAX_NEW_NOTE_HASHES_PER_TX) {
       throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
     }
-    if (!(txIndex < TXS_PER_BLOCK)) {
+    if (txIndex >= TXS_PER_BLOCK) {
       throw new Error(`Tx index should be less than ${TXS_PER_BLOCK}.`);
     }
   }
@@ -99,7 +99,7 @@ describe('Note Processor', () => {
         const noteHash = pedersenHash(note.notePayload.note.items);
         block.body.txEffects[request.txIndex].noteHashes[request.noteHashIndex] = noteHash;
 
-        // Now we populate the log - to simplify we say that there is only 1 function log invocations in each tx
+        // Now we populate the log - to simplify we say that there is only 1 function invocation in each tx
         block.body.txEffects[request.txIndex].noteEncryptedLogs.functionLogs[0].logs[request.noteHashIndex] =
           request.encrypt();
       }
