@@ -1,5 +1,4 @@
 #pragma once
-#include <barretenberg/common/log.hpp>
 #include <iostream>
 
 extern bool verbose;

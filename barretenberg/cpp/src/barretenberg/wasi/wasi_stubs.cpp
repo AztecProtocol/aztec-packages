@@ -1,6 +1,5 @@
 // If building WASM, we can stub out functions we know we don't need, to save the host
 // environment from having to stub them itself.
-#include <barretenberg/common/log.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <string.h>

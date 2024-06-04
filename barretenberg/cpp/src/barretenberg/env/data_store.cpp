@@ -5,8 +5,7 @@
 #include <map>
 #include <string>
 #include <vector>
-// #include <barretenberg/common/log.hpp>
-
+//
 namespace {
 std::map<std::string, std::vector<uint8_t>> store;
 }

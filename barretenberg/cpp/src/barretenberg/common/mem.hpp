@@ -1,5 +1,4 @@
 #pragma once
-#include "log.hpp"
 #include "memory.h"
 #include "wasm_export.hpp"
 #include <cstdlib>

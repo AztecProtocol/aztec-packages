@@ -1,5 +1,4 @@
 #pragma once
-#include "log.hpp"
 #include <string>
 
 inline void throw_or_abort [[noreturn]] (std::string const& err)
