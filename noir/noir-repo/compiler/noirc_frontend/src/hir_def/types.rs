@@ -124,7 +124,7 @@ impl Type {
                     .evaluate_to_u32()
                     .expect("Cannot have variable sized arrays as a parameter to main");
                 let typ = typ.as_ref();
-                (length as u32) * typ.field_count()
+                length * typ.field_count()
             }
             Type::Struct(def, args) => {
                 let struct_type = def.borrow();
@@ -135,12 +135,9 @@ impl Type {
             Type::Tuple(fields) => {
                 fields.iter().fold(0, |acc, field_typ| acc + field_typ.field_count())
             }
-            Type::String(size) => {
-                let size = size
-                    .evaluate_to_u32()
-                    .expect("Cannot have variable sized strings as a parameter to main");
-                size as u32
-            }
+            Type::String(size) => size
+                .evaluate_to_u32()
+                .expect("Cannot have variable sized strings as a parameter to main"),
             Type::FmtString(_, _)
             | Type::Unit
             | Type::TypeVariable(_, _)

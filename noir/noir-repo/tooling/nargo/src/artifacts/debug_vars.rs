@@ -96,7 +96,7 @@ impl DebugVars {
                     PrintableType::Array { length, typ },
                 ) => {
                     assert!(!*is_slice, "slice has array type");
-                    if *index as u32 >= *length {
+                    if *index >= *length {
                         panic!("unexpected field index past array length")
                     }
                     if *length != array_elements.len() as u32 {
