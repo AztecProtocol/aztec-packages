@@ -524,7 +524,7 @@ avm_trace::ExecutionHints deserialize_execution_hints(const std::vector<uint8_t>
         using FF = avm_trace::FF;
         std::vector<std::pair<FF, FF>> deser_hints = many_from_buffer<std::pair<FF, FF>>(hints);
         for (auto& hint : deser_hints) {
-            execution_hints[static_cast<uint32_t>(hint.first)] = hint.second;
+            execution_hints.side_effect_hints[static_cast<uint32_t>(hint.first)] = hint.second;
         }
     }
     return execution_hints;
