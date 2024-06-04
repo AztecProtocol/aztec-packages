@@ -84,18 +84,18 @@ pub enum ExpressionOrMemory<F> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssertionPayload<F> {
     StaticString(String),
-    Dynamic(/* error_selector */ u64, Vec<ExpressionOrMemory<F>>),
+    Dynamic(/* error_selector */ u32, Vec<ExpressionOrMemory<F>>),
 }
 
 #[derive(Debug, Copy, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
-pub struct ErrorSelector(u64);
+pub struct ErrorSelector(u32);
 
 impl ErrorSelector {
-    pub fn new(integer: u64) -> Self {
+    pub fn new(integer: u32) -> Self {
         ErrorSelector(integer)
     }
 
-    pub fn as_u64(&self) -> u64 {
+    pub fn as_u32(&self) -> u32 {
         self.0
     }
 }
@@ -115,8 +115,8 @@ impl<'de> Deserialize<'de> for ErrorSelector {
         D: serde::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        let as_u64 = s.parse().map_err(serde::de::Error::custom)?;
-        Ok(ErrorSelector(as_u64))
+        let as_u32 = s.parse().map_err(serde::de::Error::custom)?;
+        Ok(ErrorSelector(as_u32))
     }
 }
 

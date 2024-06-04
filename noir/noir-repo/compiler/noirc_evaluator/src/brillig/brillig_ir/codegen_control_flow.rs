@@ -148,7 +148,7 @@ impl BrilligContext {
         condition: SingleAddrVariable,
         revert_data_items: Vec<BrilligVariable>,
         revert_data_types: Vec<BrilligParameter>,
-        error_selector: u64,
+        error_selector: u32,
     ) {
         assert!(condition.bit_size == 1);
 

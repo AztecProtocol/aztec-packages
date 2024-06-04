@@ -641,7 +641,7 @@ impl<'a> Context<'a> {
                                     self.acir_context.vars_to_expressions_or_memory(&acir_vars)?;
 
                                 Some(AssertionPayload::Dynamic(
-                                    error_selector.as_u64(),
+                                    error_selector.as_u32(),
                                     expressions_or_memory,
                                 ))
                             }
