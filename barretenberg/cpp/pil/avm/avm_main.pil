@@ -24,6 +24,7 @@ namespace avm_main(256);
     // CALL CONTEXT
     pol commit sel_op_sender;
     pol commit sel_op_address;
+    pol commit sel_op_storage_address;
 
     // FEES
     pol commit sel_op_fee_per_l2_gas;
@@ -116,6 +117,7 @@ namespace avm_main(256);
     pol commit sel_internal_return;
     pol commit sel_jump;
     pol commit sel_jumpi;
+    pol commit sel_external_call;
     
     // Halt program execution
     pol commit sel_halt;
@@ -229,6 +231,7 @@ namespace avm_main(256);
     // opcode decomposition.
     sel_op_sender * (1 - sel_op_sender) = 0;
     sel_op_address * (1 - sel_op_address) = 0;
+    sel_op_storage_address * (1 - sel_op_storage_address) = 0;
     sel_op_chain_id * (1 - sel_op_chain_id) = 0;
     sel_op_version * (1 - sel_op_version) = 0;
     sel_op_block_number * (1 - sel_op_block_number) = 0;
@@ -276,6 +279,7 @@ namespace avm_main(256);
     sel_jump * (1 - sel_jump) = 0;
     sel_jumpi * (1 - sel_jumpi) = 0;
     sel_halt * (1 - sel_halt) = 0;
+    sel_external_call * (1 - sel_external_call) = 0;
 
     // Might be removed if derived from opcode based on a lookup of constants
     sel_mov * ( 1 - sel_mov) = 0;
@@ -302,10 +306,19 @@ namespace avm_main(256);
     ind_op_c * (1 - ind_op_c) = 0;
     ind_op_d * (1 - ind_op_d) = 0;
 
-    // TODO - Constraints:
-    // - mem_idx_a, mem_idx_b, mem_idx_c, mem_idx_d to u32 type
-    // - ind_a, ind_b, ind_c, ind_d to u32 type
-    // - 0 <= r_in_tag, w_in_tag <= 6 // Maybe not needed as probably derived by the operation decomposition.
+    // TODO - Potential constraints to be implemented:
+    // - mem_idx_a, mem_idx_b, mem_idx_c, mem_idx_d to u32 type:
+    //    - For direct memory accesses, this should be enforced by bytecode validation
+    //      and instruction decomposition. Namely, in this case, only 32-bit immediate
+    //      values should be written into these memory indices.
+    //    - For indirect memory accesses, the memory trace constraints ensure that
+    //      loaded values come from memory addresses with tag u32. This is enforced in the memory trace
+    //      where each memory entry with flag ind_op_x (for x = a,b,c,d) constrains r_int_tag == 3 (u32).
+    //
+    // - ind_a, ind_b, ind_c, ind_d to u32 type: Should be guaranteed by bytecode validation and
+    // instruction decomposition as only immediate 32-bit values should be written into the indirect registers.
+    //
+    // - 0 <= r_in_tag, w_in_tag <= 6 // This should be constrained by the operation decomposition.
 
     //====== COMPARATOR OPCODES CONSTRAINTS =====================================
     // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
@@ -359,7 +372,7 @@ namespace avm_main(256);
     
     //===== KERNEL LOOKUPS =======================================================
     pol KERNEL_INPUT_SELECTORS = (
-        sel_op_sender + sel_op_address + sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + 
+        sel_op_sender + sel_op_address + sel_op_storage_address + sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + 
         sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
     );
     // Ensure that only one kernel lookup is active when the kernel_in_offset is active
@@ -426,6 +439,7 @@ namespace avm_main(256);
     //       setting a newly introduced boolean mem_op_activate_gas which is set in witness generation.
     //       We should remove this shortcut and constrain this activation through bytecode decomposition.
     //       Alternatively, we introduce a boolean selector for the three opcodes mentioned above.
+    //       Note: External call gas cost is not constrained
     pol commit gas_cost_active;
     pol commit mem_op_activate_gas; // TODO: remove this one
     gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - mem_op_activate_gas = 0;
@@ -507,6 +521,9 @@ namespace avm_main(256);
 
     #[ADDRESS_KERNEL]
     sel_op_address * (avm_kernel.kernel_in_offset - constants.ADDRESS_SELECTOR) = 0;
+
+    #[STORAGE_ADDRESS_KERNEL]
+    sel_op_storage_address * (avm_kernel.kernel_in_offset - constants.STORAGE_ADDRESS_SELECTOR) = 0;
 
     // FEES
     #[FEE_DA_GAS_KERNEL]

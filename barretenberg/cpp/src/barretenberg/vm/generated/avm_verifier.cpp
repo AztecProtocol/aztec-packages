@@ -376,6 +376,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.avm_main_rwd = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_rwd);
     commitments.avm_main_sel_cmov =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_cmov);
+    commitments.avm_main_sel_external_call =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_external_call);
     commitments.avm_main_sel_halt =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_halt);
     commitments.avm_main_sel_internal_call =
@@ -460,6 +462,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sload);
     commitments.avm_main_sel_op_sstore =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sstore);
+    commitments.avm_main_sel_op_storage_address =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_storage_address);
     commitments.avm_main_sel_op_sub =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sub);
     commitments.avm_main_sel_op_timestamp =
