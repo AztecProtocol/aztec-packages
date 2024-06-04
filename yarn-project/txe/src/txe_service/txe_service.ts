@@ -26,7 +26,6 @@ export class TXEService {
     private typedOracle: TypedOracle,
     private store: AztecKVStore,
     private trees: MerkleTrees,
-    private packedValuesCache: PackedValuesCache,
     private contractAddress: AztecAddress,
   ) {}
 
@@ -36,7 +35,7 @@ export class TXEService {
     const packedValuesCache = new PackedValuesCache();
     logger.info(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, contractAddress);
-    const service = new TXEService(logger, txe, store, trees, packedValuesCache, contractAddress);
+    const service = new TXEService(logger, txe, store, trees, contractAddress);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
   }
@@ -107,7 +106,7 @@ export class TXEService {
     this.blockNumber = 0;
     this.store = openTmpStore(true);
     this.trees = await MerkleTrees.new(this.store, this.logger);
-    this.packedValuesCache = new PackedValuesCache();
+    this.typedOracle = new TXE(this.logger, this.trees, new PackedValuesCache(), this.contractAddress);
     await this.#timeTravelInner(1);
     return toForeignCallResult([]);
   }

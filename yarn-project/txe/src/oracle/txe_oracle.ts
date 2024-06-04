@@ -28,14 +28,11 @@ import {
   type NoteData,
   type PackedValuesCache,
   type TypedOracle,
-  WorldStatePublicDB,
 } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 export class TXE implements TypedOracle {
-  private worldStatePublicDB: WorldStatePublicDB;
-
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
@@ -43,7 +40,6 @@ export class TXE implements TypedOracle {
     private contractAddress: AztecAddress,
   ) {
     this.packedValuesCache = packedValuesCache;
-    this.worldStatePublicDB = new WorldStatePublicDB(this.trees.asLatest());
   }
 
   getRandomField() {
