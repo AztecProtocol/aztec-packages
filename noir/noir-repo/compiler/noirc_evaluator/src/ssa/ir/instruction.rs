@@ -572,7 +572,7 @@ impl Instruction {
                 let index = dfg.get_numeric_constant(*index);
                 if let (Some((array, _)), Some(index)) = (array, index) {
                     let index =
-                        index.try_to_u64().expect("Expected array index to fit in u64") as usize;
+                        index.try_to_u32().expect("Expected array index to fit in u32") as usize;
                     if index < array.len() {
                         return SimplifiedTo(array[index]);
                     }
@@ -584,7 +584,7 @@ impl Instruction {
                 let index = dfg.get_numeric_constant(*index);
                 if let (Some((array, element_type)), Some(index)) = (array, index) {
                     let index =
-                        index.try_to_u64().expect("Expected array index to fit in u64") as usize;
+                        index.try_to_u32().expect("Expected array index to fit in u32") as usize;
 
                     if index < array.len() {
                         let new_array = dfg.make_array(array.update(index, *value), element_type);
@@ -714,7 +714,7 @@ pub(crate) fn error_selector_from_type(typ: &ErrorType) -> ErrorSelector {
             typ.hash(&mut hasher);
             let hash = hasher.finish();
             assert!(hash != 0, "ICE: Error type {} collides with the string error type", typ);
-            ErrorSelector::new(hash)
+            ErrorSelector::new(hash as u32) // NOTE: will this break? - i want this to be lossy
         }
     }
 }
