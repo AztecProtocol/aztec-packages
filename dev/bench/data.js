@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717518986958,
+  "lastUpdate": 1717519117746,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -19364,6 +19364,78 @@ window.BENCHMARK_DATA = {
             "value": 163354399,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163354399 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "54339d48861a91429e996177713f46952ffbd808",
+          "message": "chore(avm): Gas alignments with simulator (#6873)\n\nResolves #6860",
+          "timestamp": "2024-06-04T18:26:33+02:00",
+          "tree_id": "b41bd3cdd92b05882b47dbea085358ee5f1bbe16",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/54339d48861a91429e996177713f46952ffbd808"
+        },
+        "date": 1717519116553,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15449.779360999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10862.271031 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5513.946423000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5189.4465150000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49826.969357,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49826971000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16921.467233,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16921468000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5126507546,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5126507546 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197879313,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197879313 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4257176572,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4257176572 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163755175,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163755175 ns\nthreads: 1"
           }
         ]
       }
