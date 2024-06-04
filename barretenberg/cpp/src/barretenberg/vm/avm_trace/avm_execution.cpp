@@ -61,6 +61,8 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
+    circuit_builder.check_circuit();
+
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
@@ -555,6 +557,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // Control Flow - Contract Calls
         case OpCode::RETURN: {
             auto ret = trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
+            returndata.insert(returndata.end(), ret.begin(), ret.end());
+
+            break;
+        }
+        case OpCode::REVERT: {
+            auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint32_t>(inst.operands.at(1)),
                                                std::get<uint32_t>(inst.operands.at(2)));
             returndata.insert(returndata.end(), ret.begin(), ret.end());

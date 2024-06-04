@@ -151,6 +151,7 @@ class AvmTraceBuilder {
     // direct:   return(M[ret_offset:ret_offset+ret_size])
     // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
     std::vector<FF> return_op(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
+    std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
 
     // Calls
     void op_call(uint8_t indirect,

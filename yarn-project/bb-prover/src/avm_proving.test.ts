@@ -119,12 +119,12 @@ describe('AVM WitGen, proof generation and verification', () => {
   );
 
   // TODO: requires revert
-  // it("Should prove to radix",
-  //   async () => {
-  //     await proveAndVerifyAvmTestContract('to_radix_le', [new Fr(10)]);
-  //   },
-  //   TIMEOUT
-  // )
+  it.only("Should prove to radix",
+    async () => {
+      await proveAndVerifyAvmTestContract('to_radix_le', [new Fr(10)]);
+    },
+    TIMEOUT
+  )
 });
 
 const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[] = []) => {

@@ -131,6 +131,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // STATICCALL,
     // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::REVERT, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // REVERT,
     // Misc
     { OpCode::DEBUGLOG,
