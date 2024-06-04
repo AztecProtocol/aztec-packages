@@ -40,10 +40,10 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
 /**
  * The result of executing a private function.
  */
-// LONDONTODO(Client): This obect is very similar to the one received by bberg when we process a noir program
+// LONDONTODO(Client): This object is very similar to the one received by bberg when we process a noir program
 // containing subprograms marked with the #fold decorator. Its basically a call stack: 'acir' is the acir
 // representation of the main program, and sub-programs are contained in nestedExecutions which is an array
-// of ExecutionResult (which can have further nested programs etc.). It almosts seems like we could pass an
+// of ExecutionResult (which can have further nested programs etc.). It almost seems like we could pass an
 // object like this to bberg, accumulate the circuits as we see fit, then return a ClientIVC proof. One issue
 // is that this call stack seems to only include the 'app' functions (and subfunctions), NOT the kernel
 // circuits. So we would have to somehow interleave the kernel circuits into the stack represented by this

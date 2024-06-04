@@ -411,6 +411,7 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
+  // LONDONTODO(Client): The simulate call actually does proving.
   public async proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
     return (await this.simulateTx(txRequest, simulatePublic)).tx;
   }

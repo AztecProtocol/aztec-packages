@@ -34,7 +34,8 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
-  let proofCreator: ReturnType<typeof mock<ProofCreator>>; // this is what makes proof construction mocked in this test suite
+  // LONDONTODO(Client): replace with non-mocked and see what happens? This means we fake it
+  let proofCreator: ReturnType<typeof mock<ProofCreator>>;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 

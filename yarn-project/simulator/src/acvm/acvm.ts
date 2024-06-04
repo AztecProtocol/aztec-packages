@@ -82,6 +82,7 @@ export function resolveOpcodeLocations(
 
 /**
  * The function call that executes an ACIR.
+ * LONDONTODO(Client): I think this means that it computes the witness 
  */
 export async function acvm(
   acir: Buffer,
