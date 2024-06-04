@@ -53,9 +53,9 @@ void AvmGasTraceBuilder::constrain_gas_lookup(uint32_t clk, OpCode opcode)
 
 void AvmGasTraceBuilder::constrain_gas_for_external_call(uint32_t clk)
 {
-    // Get the gas prices for this opcode
+    // Arbitrary constants for the moment
     uint32_t l2_gas_cost = 6;  // This will be hinted
-    uint32_t da_gas_cost = 23; // This wil be hinted
+    uint32_t da_gas_cost = 23; // This will be hinted
 
     remaining_l2_gas -= l2_gas_cost;
     remaining_da_gas -= da_gas_cost;
