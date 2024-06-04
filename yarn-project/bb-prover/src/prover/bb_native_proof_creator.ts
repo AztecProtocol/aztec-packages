@@ -66,6 +66,8 @@ export class BBNativeProofCreator implements ProofCreator {
     Promise<VerificationKeyData>
   >();
 
+  private stackForFolding: StackForFolding = new this.stackForFolding;
+
   constructor(
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
@@ -351,6 +353,8 @@ export class BBNativeProofCreator implements ProofCreator {
         circuitSize: vkData.circuitSize,
         numPublicInputs: vkData.numPublicInputs,
       } as CircuitProvingStats);
+
+      // WORKTODO: push stuff to the stack for folding
 
       return { proof, verificationKey: vkData.keyAsFields };
     }
