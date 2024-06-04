@@ -1,4 +1,32 @@
-import { AvmCircuitInputs, AztecAddress, ContractStorageRead, ContractStorageUpdateRequest, Gas, GlobalVariables, Header, L2ToL1Message, LogHash, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL, NoteHash, Nullifier, PublicCircuitPublicInputs, ReadRequest, RevertCode } from '@aztec/circuits.js';
+import {
+  AvmCircuitInputs,
+  AztecAddress,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Gas,
+  GlobalVariables,
+  Header,
+  L2ToL1Message,
+  LogHash,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
+  NoteHash,
+  Nullifier,
+  PublicCircuitPublicInputs,
+  ReadRequest,
+  RevertCode,
+} from '@aztec/circuits.js';
+import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, type PublicExecutionResult } from '@aztec/simulator';
