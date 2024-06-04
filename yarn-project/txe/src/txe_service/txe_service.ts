@@ -105,7 +105,8 @@ export class TXEService {
 
   async reset() {
     this.blockNumber = 0;
-    await this.store.clear();
+    this.store = openTmpStore(true);
+    this.trees = await MerkleTrees.new(this.store, this.logger);
     this.packedValuesCache = new PackedValuesCache();
     await this.#timeTravelInner(1);
     return toForeignCallResult([]);

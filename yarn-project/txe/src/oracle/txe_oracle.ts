@@ -3,18 +3,22 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   PublicDataWitness,
+  PublicDataWrite,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
   type Header,
   type KeyValidationRequest,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateCallStackItem,
   type PublicCallRequest,
+  PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
@@ -161,10 +165,23 @@ export class TXE implements TypedOracle {
   }
 
   async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
+    const db = this.trees.asLatest();
+
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = startStorageSlot.add(new Fr(i));
-      const value = await this.worldStatePublicDB.storageRead(this.contractAddress, storageSlot);
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, storageSlot).toBigInt();
+
+      const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+
+      let value = Fr.ZERO;
+      if (lowLeafResult && lowLeafResult.alreadyPresent) {
+        const preimage = (await db.getLeafPreimage(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          lowLeafResult.index,
+        )) as PublicDataTreeLeafPreimage;
+        value = preimage.value;
+      }
       this.logger.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
       values.push(value);
     }
@@ -172,14 +189,19 @@ export class TXE implements TypedOracle {
   }
 
   async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
-    return await Promise.all(
-      values.map(async (value, i) => {
-        const storageSlot = startStorageSlot.add(new Fr(i));
-        const result = await this.worldStatePublicDB.storageWrite(this.contractAddress, storageSlot, value);
-        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-        return new Fr(result);
-      }),
+    const db = this.trees.asLatest();
+
+    const publicDataWrites = values.map((value, i) => {
+      const storageSlot = startStorageSlot.add(new Fr(i));
+      this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
+      return new PublicDataWrite(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
+    });
+    await db.batchInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      PUBLIC_DATA_SUBTREE_HEIGHT,
     );
+    return publicDataWrites.map(write => write.newValue);
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, _counter: number): void {
