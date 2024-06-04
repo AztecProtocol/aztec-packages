@@ -119,9 +119,10 @@ describe('Note Processor', () => {
   }
 
   beforeAll(() => {
+    const app = AztecAddress.random();
+
     const ownerSk = Fr.random();
     const allOwnerKeys = deriveKeys(ownerSk);
-    const app = AztecAddress.random();
     const partialAddress = Fr.random();
     account = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, partialAddress);
 
@@ -178,12 +179,15 @@ describe('Note Processor', () => {
     await noteProcessor.process(blocks, encryptedLogs);
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
-    expect(addNotesSpy).toHaveBeenCalledWith([
-      expect.objectContaining({
-        ...request.note.notePayload,
-        index: request.indexWithinNoteHashTree,
-      }),
-    ]);
+    expect(addNotesSpy).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          ...request.note.notePayload,
+          index: request.indexWithinNoteHashTree,
+        }),
+      ],
+      [],
+    );
   }, 25_000);
 
   it('should store multiple notes that belong to us', async () => {
@@ -200,23 +204,26 @@ describe('Note Processor', () => {
     await noteProcessor.process(blocks, encryptedLogs);
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
-    expect(addNotesSpy).toHaveBeenCalledWith([
-      expect.objectContaining({
-        ...requests[0].note.notePayload,
-        // Index 1 log in the 2nd tx.
-        index: requests[0].indexWithinNoteHashTree,
-      }),
-      expect.objectContaining({
-        ...requests[1].note.notePayload,
-        // Index 0 log in the 4th tx.
-        index: requests[1].indexWithinNoteHashTree,
-      }),
-      expect.objectContaining({
-        ...requests[2].note.notePayload,
-        // Index 2 log in the 4th tx.
-        index: requests[2].indexWithinNoteHashTree,
-      }),
-    ]);
+    expect(addNotesSpy).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          ...requests[0].note.notePayload,
+          // Index 1 log in the 2nd tx.
+          index: requests[0].indexWithinNoteHashTree,
+        }),
+        expect.objectContaining({
+          ...requests[1].note.notePayload,
+          // Index 0 log in the 4th tx.
+          index: requests[1].indexWithinNoteHashTree,
+        }),
+        expect.objectContaining({
+          ...requests[2].note.notePayload,
+          // Index 2 log in the 4th tx.
+          index: requests[2].indexWithinNoteHashTree,
+        }),
+      ],
+      [],
+    );
   }, 30_000);
 
   it('should not store notes that do not belong to us', async () => {
