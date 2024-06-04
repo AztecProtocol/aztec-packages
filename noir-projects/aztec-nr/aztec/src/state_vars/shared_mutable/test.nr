@@ -26,6 +26,8 @@ global post_delay = 15;
 global TEST_INITIAL_DELAY: u32 = 3;
 
 fn setup() -> (SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>, u32) {
+    cheatcodes::reset();
+
     let block_number = 40;
     let mut context = ContextBuilder::new().block_number(block_number).public();
 
@@ -33,6 +35,13 @@ fn setup() -> (SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>, u32
     let state_var = SharedMutable::new(&mut context, storage_slot);
 
     (state_var, block_number)
+}
+
+fn private_setup(block_number: u32) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
+    let mut context = ContextBuilder::new().block_number(block_number).private();
+
+    let storage_slot = 57;
+    SharedMutable::new(&mut context, storage_slot)
 }
 
 fn mock_value_change_read(
@@ -375,14 +384,18 @@ fn test_get_current_value_in_private_before_change() {
     let (state_var, block_number) = setup();
     state_var.schedule_value_change(new_value);
 
-    cheatcodes::advance_blocks(1);
+    let (_, block_horizon) = state_var.get_scheduled_value_in_public();
 
-    let block_number = 40;
-    let mut context = ContextBuilder::new().block_number(block_number).private();
-    let storage_slot = 57;
-    let private_state_var: SharedMutable<Field,0,&mut PrivateContext> = SharedMutable::new(&mut context, storage_slot);
+    cheatcodes::advance_blocks(100);
 
-    assert_eq(private_state_var.get_current_value_in_private(), 0);
+    let pre_change_state_var = private_setup(block_number);
+    assert_eq(pre_change_state_var.get_current_value_in_private(), 0);
+
+    let pre_change_state_var = private_setup(block_horizon - 1);
+    assert_eq(pre_change_state_var.get_current_value_in_private(), 0);
+
+    let pre_change_state_var = private_setup(block_horizon);
+    assert_eq(pre_change_state_var.get_current_value_in_private(), new_value);
     // Here we'd want to test that the private getter returns the correct value and sets max_block_number in the
     // context to the expected block horizon, in all the possible scenarios (long before change, before near change,
     // after change).

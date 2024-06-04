@@ -1,9 +1,11 @@
 use crate::{context::PublicContext, state_vars::public_immutable::PublicImmutable};
-use crate::test::{helpers::context_builder::ContextBuilder, mocks::mock_struct::MockStruct};
+use crate::test::{helpers::{cheatcodes, context_builder::ContextBuilder}, mocks::mock_struct::MockStruct};
 use dep::std::test::OracleMock;
 use dep::protocol_types::traits::Serialize;
 
 fn setup() -> PublicImmutable<MockStruct, &mut PublicContext> {
+    cheatcodes::reset();
+
     let mut context = ContextBuilder::new().public();
     let storage_slot = 7;
 

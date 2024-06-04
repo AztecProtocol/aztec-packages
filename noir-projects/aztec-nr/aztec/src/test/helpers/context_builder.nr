@@ -25,18 +25,6 @@ impl ContextBuilder {
     }
 
     fn private(self) -> PrivateContext {
-        cheatcodes::reset();
-
-        if self.block_number.is_some() {
-            let block_number = self.block_number.unwrap_unchecked();
-            cheatcodes::advance_block_to(block_number);
-        }
-
-        if self.contract_address.is_some() {
-            let contract_address = self.contract_address.unwrap_unchecked();
-            cheatcodes::set_contract_address(contract_address);
-        }
-
         let inputs = cheatcodes::get_private_context_inputs(self.block_number.unwrap());
 
         let args_hash = 0;
@@ -44,8 +32,6 @@ impl ContextBuilder {
     }
 
     fn public(self) -> PublicContext {
-        cheatcodes::reset();
-
         let mut context = PublicContext::empty();
 
         if self.block_number.is_some() {
