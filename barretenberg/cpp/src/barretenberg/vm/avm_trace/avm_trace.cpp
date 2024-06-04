@@ -2504,13 +2504,12 @@ void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t addres
     // Read the contract instance
     ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
 
-    std::vector<FF> contract_instance_vec = { FF(contract_instance.instance_found_in_address),
-                                              FF(contract_instance.salt),
-                                              FF(contract_instance.deployer_addr),
-                                              FF(contract_instance.contract_class_id),
-                                              FF(contract_instance.initialisation_hash),
-                                              FF(contract_instance.portal_contract_addr),
-                                              FF(contract_instance.public_key_hash) };
+    std::vector<FF> contract_instance_vec = { contract_instance.instance_found_in_address,
+                                              contract_instance.salt,
+                                              contract_instance.deployer_addr,
+                                              contract_instance.contract_class_id,
+                                              contract_instance.initialisation_hash,
+                                              contract_instance.public_key_hash };
     write_slice_to_memory(call_ptr,
                           clk,
                           direct_dst_offset,

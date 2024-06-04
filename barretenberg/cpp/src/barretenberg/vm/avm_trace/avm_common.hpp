@@ -41,12 +41,11 @@ static const uint8_t INTERNAL_CALL_SPACE_ID = 255;
 static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
 
 struct ContractInstanceHint {
-    bool instance_found_in_address;
+    FF instance_found_in_address;
     FF salt;
     FF deployer_addr;
     FF contract_class_id;
     FF initialisation_hash;
-    FF portal_contract_addr;
     FF public_key_hash;
 };
 struct ExecutionHints {

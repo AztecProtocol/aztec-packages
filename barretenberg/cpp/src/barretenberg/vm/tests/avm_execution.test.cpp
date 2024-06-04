@@ -1897,7 +1897,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000003"                            // ret offset 3
-                               "00000007";                           // ret size 7
+                               "00000006";                           // ret size 6
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1908,11 +1908,11 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
 
     // Generate Hint for call operation
     ExecutionHints execution_hints = {};
-    ContractInstanceHint contract_instance_hint = { true, 1, 2, 3, 4, 5, 6 };
+    ContractInstanceHint contract_instance_hint = { 1, 1, 2, 3, 4, 5 }; // The first one represents true
     execution_hints.contract_instance_hints.insert({ address, contract_instance_hint });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
-    EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5, 6 })); // The first one represents true
+    EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5 })); // The first one represents true
 
     validate_trace(std::move(trace));
 }
