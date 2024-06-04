@@ -1,27 +1,30 @@
 use crate::{context::PublicContext, state_vars::public_immutable::PublicImmutable};
-use crate::test::{helpers::{cheatcodes, context_builder::ContextBuilder}, mocks::mock_struct::MockStruct};
+use crate::test::{helpers::context_builder::TestEnvironment, mocks::mock_struct::MockStruct};
 use dep::std::test::OracleMock;
 use dep::protocol_types::traits::Serialize;
 
-fn setup() -> PublicImmutable<MockStruct, &mut PublicContext> {
-    cheatcodes::reset();
+global storage_slot = 7;
 
-    let mut context = ContextBuilder::new().public();
-    let storage_slot = 7;
+fn setup() -> TestEnvironment {
+    TestEnvironment::new()
+}
 
-    PublicImmutable::new(&mut context, storage_slot)
+fn in_public(env: TestEnvironment) -> PublicImmutable<MockStruct, &mut PublicContext> {
+    PublicImmutable::new(&mut env.public(), storage_slot)
 }
 
 #[test]
 fn test_uninitialized_by_default() {
-    let state_var = setup();
+    let env = setup();
+    let state_var = in_public(env);
 
     assert_eq(state_var.is_initialized(), false);
 }
 
 #[test]
 fn test_initialize_uninitialized() {
-    let state_var = setup();
+    let env = setup();
+    let state_var = in_public(env);
 
     let value = MockStruct::new(5, 6);
 
@@ -33,7 +36,8 @@ fn test_initialize_uninitialized() {
 
 #[test(should_fail_with="PublicImmutable already initialized")]
 fn test_initialize_already_initialized() {
-    let state_var = setup();
+    let env = setup();
+    let state_var = in_public(env);
 
     let value = MockStruct::new(5, 6);
 
@@ -43,7 +47,8 @@ fn test_initialize_already_initialized() {
 
 #[test(should_fail_with="PublicImmutable not initialized")]
 fn test_read_uninitialized() {
-    let state_var = setup();
+    let env = setup();
+    let state_var = in_public(env);
 
     let _ = state_var.read();
 }

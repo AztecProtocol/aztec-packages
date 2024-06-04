@@ -21,13 +21,8 @@ unconstrained pub fn advance_blocks(blocks: u32) {
     oracle_time_travel(blocks);
 }
 
-unconstrained pub fn advance_block_to(block_number: u32) {
-    let difference = block_number - get_block_number();
-    advance_blocks(difference);
-}
-
-unconstrained pub fn get_private_context_inputs(block_number: u32) -> PrivateContextInputs {
-    oracle_get_private_context_inputs(block_number)
+unconstrained pub fn get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {
+    oracle_get_private_context_inputs(historical_block_number)
 }
 
 #[oracle(reset)]
@@ -46,5 +41,5 @@ fn oracle_get_block_number() -> u32 {}
 fn oracle_time_travel(blocks: u32) {}
 
 #[oracle(getPrivateContextInputs)]
-fn oracle_get_private_context_inputs(block_number: u32) -> PrivateContextInputs {}
+fn oracle_get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {}
 

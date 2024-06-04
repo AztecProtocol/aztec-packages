@@ -6,8 +6,7 @@ use crate::{
     shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
     scheduled_delay_change::ScheduledDelayChange
 },
-    test::helpers::{cheatcodes, context_builder::ContextBuilder},
-    oracle::get_public_data_witness::PublicDataWitness
+    test::helpers::context_builder::TestEnvironment, oracle::get_public_data_witness::PublicDataWitness
 };
 
 use dep::protocol_types::{
@@ -15,154 +14,82 @@ use dep::protocol_types::{
     address::AztecAddress, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage
 };
 
-global pre_value = 13;
-global post_value = 42;
-
 global new_value = 57;
 
 global pre_delay = 20;
 global post_delay = 15;
 
+global storage_slot = 57;
+
 global TEST_INITIAL_DELAY: u32 = 3;
 
-fn setup() -> (SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>, u32) {
-    cheatcodes::reset();
-
-    let block_number = 40;
-    let mut context = ContextBuilder::new().block_number(block_number).public();
-
-    let storage_slot = 57;
-    let state_var = SharedMutable::new(&mut context, storage_slot);
-
-    (state_var, block_number)
+fn setup() -> TestEnvironment {
+    TestEnvironment::new()
 }
 
-fn private_setup(block_number: u32) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
-    let mut context = ContextBuilder::new().block_number(block_number).private();
-
-    let storage_slot = 57;
-    SharedMutable::new(&mut context, storage_slot)
+fn in_public(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext> {
+    SharedMutable::new(&mut env.public(), storage_slot)
 }
 
-fn mock_value_change_read(
-    state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
-    pre: Field,
-    post: Field,
-    block_of_change: Field
-) {
-    let value_change_slot = state_var.get_value_change_storage_slot();
-    let fields = ScheduledValueChange::new(pre, post, block_of_change as u32).serialize();
-
-    let _ = OracleMock::mock("storageRead").with_params((value_change_slot, 3)).returns(fields).times(1);
-}
-
-fn mock_delay_change_read(
-    state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
-    pre: Field,
-    post: Field,
-    block_of_change: Field
-) {
-    let delay_change_slot = state_var.get_delay_change_storage_slot();
-    let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(
-        Option::some(pre as u32),
-        Option::some(post as u32),
-        block_of_change as u32
-    );
-    let fields = delay_change.serialize();
-
-    let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns(fields).times(1);
-}
-
-fn mock_delay_change_read_uninitialized(state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>) {
-    let delay_change_slot = state_var.get_delay_change_storage_slot();
-    let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns([0]).times(1);
-}
-
-// Useful since change and delay values are always the global pre/post ones, so we typically only care about their
-// block of change.
-fn mock_value_and_delay_read(
-    state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
-    value_block_of_change: Field,
-    delay_block_of_change: Field
-) {
-    mock_value_change_read(state_var, pre_value, post_value, value_block_of_change);
-    mock_delay_change_read(state_var, pre_delay, post_delay, delay_block_of_change);
-}
-
-fn mock_value_change_write() -> OracleMock {
-    OracleMock::mock("storageWrite").returns([0; 3])
-}
-
-fn mock_delay_change_write() -> OracleMock {
-    OracleMock::mock("storageWrite").returns([0; 1])
-}
-
-fn assert_value_change_write(
-    state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
-    mock: OracleMock,
-    pre: Field,
-    post: Field,
-    block_of_change: Field
-) {
-    let fields = ScheduledValueChange::new(pre, post, block_of_change as u32).serialize();
-    assert_eq(mock.get_last_params(), (state_var.get_value_change_storage_slot(), fields));
-}
-
-fn assert_delay_change_write(
-    state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
-    mock: OracleMock,
-    pre: Field,
-    post: Field,
-    block_of_change: Field
-) {
-    let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(
-        Option::some(pre as u32),
-        Option::some(post as u32),
-        block_of_change as u32
-    );
-
-    let fields = delay_change.serialize();
-    assert_eq(mock.get_last_params(), (state_var.get_delay_change_storage_slot(), fields));
+fn in_private(
+    env: &mut TestEnvironment,
+    historical_block_number: u32
+) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
+    SharedMutable::new(&mut env.private_at(historical_block_number), storage_slot)
 }
 
 #[test]
-fn test_get_current_value_in_public() {
-    let (state_var, block_number) = setup();
+fn test_get_current_value_in_public_initial() {
+    let env = setup();
+    let state_var = in_public(env);
 
-    state_var.schedule_value_change(new_value);
-
-    let (scheduled_value, block_of_change) = state_var.get_scheduled_value_in_public();
-
-    assert_eq(scheduled_value, new_value);
-    assert_eq(block_of_change, block_number + TEST_INITIAL_DELAY);
-    assert_eq(state_var.get_current_value_in_public(), 0); // initial value
-
-    cheatcodes::advance_block_to(block_of_change);
-
-    assert_eq(state_var.get_current_value_in_public(), new_value);
-    assert_eq(state_var.get_scheduled_value_in_public(), (scheduled_value, block_of_change));
-
-    cheatcodes::advance_blocks(10);
-
-    assert_eq(state_var.get_current_value_in_public(), new_value);
-    assert_eq(state_var.get_scheduled_value_in_public(), (scheduled_value, block_of_change));
+    // 0 is the default empty value for a Field
+    assert_eq(state_var.get_current_value_in_public(), 0);
 }
 
 #[test]
-fn test_get_scheduled_value_in_public() {
-    let (state_var, block_number) = setup();
+fn test_get_current_value_in_public_before_scheduled_change() {
+    let mut env = setup();
+    let state_var = in_public(env);
 
     state_var.schedule_value_change(new_value);
 
-    assert_eq(
-        state_var.get_scheduled_value_in_public(), (new_value, (block_number + TEST_INITIAL_DELAY) as u32)
-    );
+    let (_, block_of_change) = state_var.get_scheduled_value_in_public();
 
-    cheatcodes::advance_blocks(TEST_INITIAL_DELAY * 2);
+    let original_value = 0;
 
-    assert_eq(
-        state_var.get_scheduled_value_in_public(), (new_value, (block_number + TEST_INITIAL_DELAY) as u32)
-    );
+    // The current value has not changed
+    assert_eq(state_var.get_current_value_in_public(), original_value);
+
+    // The current value still does not change right before the block of change
+    env.advance_block_to(block_of_change - 1);
+    assert_eq(state_var.get_current_value_in_public(), original_value);
+}
+
+#[test]
+fn test_get_current_value_in_public_at_scheduled_change() {
+    let mut env = setup();
+    let state_var = in_public(env);
+
+    state_var.schedule_value_change(new_value);
+
+    let (_, block_of_change) = state_var.get_scheduled_value_in_public();
+
+    env.advance_block_to(block_of_change);
+    assert_eq(state_var.get_current_value_in_public(), new_value);
+}
+
+#[test]
+fn test_get_current_value_in_public_after_scheduled_change() {
+    let mut env = setup();
+    let state_var = in_public(env);
+
+    state_var.schedule_value_change(new_value);
+
+    let (_, block_of_change) = state_var.get_scheduled_value_in_public();
+
+    env.advance_block_to(block_of_change + 10);
+    assert_eq(state_var.get_current_value_in_public(), new_value);
 }
 
 // #[test]
@@ -381,28 +308,52 @@ fn test_get_scheduled_value_in_public() {
 
 #[test]
 fn test_get_current_value_in_private_before_change() {
-    let (state_var, block_number) = setup();
+    let mut env = setup();
+
+    let public_state_var = in_public(env);
+    public_state_var.schedule_value_change(new_value);
+
+    let schedule_block_number = env.block_number;
+
+    let private_state_var = in_private(&mut env, schedule_block_number);
+    assert_eq(private_state_var.get_current_value_in_private(), 0);
+}
+
+#[test]
+fn test_get_current_value_in_private_immediately_before_change() {
+    let mut env = setup();
+
+    let state_var = in_public(env);
     state_var.schedule_value_change(new_value);
 
     let (_, block_horizon) = state_var.get_scheduled_value_in_public();
 
-    cheatcodes::advance_blocks(100);
+    let private_state_var = in_private(&mut env, block_horizon - 1);
+    assert_eq(private_state_var.get_current_value_in_private(), 0);
+}
 
-    let pre_change_state_var = private_setup(block_number);
-    assert_eq(pre_change_state_var.get_current_value_in_private(), 0);
+#[test]
+fn test_get_current_value_in_private_at_change() {
+    let mut env = setup();
 
-    let pre_change_state_var = private_setup(block_horizon - 1);
-    assert_eq(pre_change_state_var.get_current_value_in_private(), 0);
+    let state_var = in_public(env);
+    state_var.schedule_value_change(new_value);
 
-    let pre_change_state_var = private_setup(block_horizon);
-    assert_eq(pre_change_state_var.get_current_value_in_private(), new_value);
-    // Here we'd want to test that the private getter returns the correct value and sets max_block_number in the
-    // context to the expected block horizon, in all the possible scenarios (long before change, before near change,
-    // after change).
-    // However, this requires mocking the getPublicDataTreeWitness oracle so that we can convince the circuit that
-    // it got a valid historical proof. Because we can set the tree root to whatever we want in the context, this is
-    // trivial for a single historical value (we add a leaf and compute the root with any random path), but is quite
-    // hard if we're reading more than one value for the same root (as SharedMutable does): we essentially need to
-    // create an actual indexed tree and compute the correct path for each of the inserted values.
-    // TODO: implement an actual tree and use it here https://github.com/AztecProtocol/aztec-packages/issues/5494
+    let (_, block_horizon) = state_var.get_scheduled_value_in_public();
+
+    let private_state_var = in_private(&mut env, block_horizon);
+    assert_eq(private_state_var.get_current_value_in_private(), new_value);
+}
+
+#[test]
+fn test_get_current_value_in_private_after_change() {
+    let mut env = setup();
+
+    let state_var = in_public(env);
+    state_var.schedule_value_change(new_value);
+
+    let (_, block_horizon) = state_var.get_scheduled_value_in_public();
+
+    let private_state_var = in_private(&mut env, block_horizon + 10);
+    assert_eq(private_state_var.get_current_value_in_private(), new_value);
 }
