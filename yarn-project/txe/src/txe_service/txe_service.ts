@@ -41,7 +41,6 @@ export class TXEService {
   }
 
   async timeTravel(blocks: number) {
-    this.blockNumber += blocks;
     const header = Header.empty();
     const l2Block = L2Block.empty();
 
