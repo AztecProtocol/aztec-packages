@@ -2296,16 +2296,33 @@ uint32_t AvmTraceBuilder::read_slice_to_memory(uint8_t space_id,
     return num_main_rows;
 }
 
-// Use the indirect later to support all the indirect accesses
+/**
+ * @brief External Call with direct or indirect memory access.
+ *
+ * TODO: Use the indirect later to support all the indirect accesses
+ * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+ * call in one vm circuit
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
+ * @param addr_offset An index in memory pointing to the target contract address
+ * @param args_offset An index in memory pointing to the first value of the input array for the external call
+ * @param args_size The number of values in the input array for the external call
+ * @param ret_offset An index in memory pointing to where the first value of the external calls return value should be
+ * stored.
+ * @param ret_size The number of values in the return array
+ * @param success_offset An index in memory pointing to where the success flag (U8) of the external call should be
+ * stored
+ * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
+ */
 void AvmTraceBuilder::op_call([[maybe_unused]] uint8_t indirect,
                               uint32_t gas_offset,
                               uint32_t addr_offset,
                               uint32_t args_offset,
                               uint32_t args_size,
-                              [[maybe_unused]] uint32_t ret_offset,
-                              [[maybe_unused]] uint32_t ret_size,
-                              [[maybe_unused]] uint32_t success_offset,
-                              [[maybe_unused]] uint32_t function_selector_offset)
+                              uint32_t ret_offset,
+                              uint32_t ret_size,
+                              uint32_t success_offset,
+                              uint32_t function_selector_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     // We can load up to 4 things per row
@@ -2395,14 +2412,7 @@ void AvmTraceBuilder::op_call([[maybe_unused]] uint8_t indirect,
         .avm_main_pc = FF(pc),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
     });
-    // NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
-    // call in one vm circuit
     clk++;
-    // PLAN
-    // 1. We load and constrain all of the operands ( of which there are loads, (either 4 more registers or we send
-    // it across two rows (we might be able to get away with this - and break a shit load of other stuff)))
-    std::vector<uint32_t> write_operands = { ret_offset, success_offset };
-    // 2. Use the write slice to memory once we get the entire return data size from the hint
     write_slice_to_memory(call_ptr,
                           clk,
                           uint32_t(read_ind_ret_offset.val),
@@ -2414,10 +2424,6 @@ void AvmTraceBuilder::op_call([[maybe_unused]] uint8_t indirect,
     clk++;
     write_slice_to_memory(
         call_ptr, clk, success_offset, AvmMemoryTag::U0, AvmMemoryTag::U8, internal_return_ptr, { FF(1) });
-
-    // Getting the return values
-    // We should be able to receive return data values from the hints, and do an (unconstrained) sanity check that
-    // the correct values are here
 }
 
 /**

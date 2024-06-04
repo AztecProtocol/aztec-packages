@@ -1799,9 +1799,6 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
 
 TEST_F(AvmExecutionTests, opCallOpcodes)
 {
-    // Sload from a value that has not previously been written to will require a hint to process
-    // SET gas, addr, args, args size, ret offset, success, function selector in the order they appear for
-    // simplicity
     std::string bytecode_preamble;
     // Gas offset preamble
     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for gas offset indirect
@@ -1854,8 +1851,6 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
-
-    // ASSERT_THAT(instructions, SizeIs(3));
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
