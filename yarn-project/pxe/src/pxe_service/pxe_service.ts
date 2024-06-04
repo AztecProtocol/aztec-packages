@@ -317,6 +317,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
+      console.log(`GO FUCK YOURSELF, `, note);
       const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
         note.contractAddress,
         nonce,

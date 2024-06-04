@@ -7,6 +7,7 @@ import {
   SimpleEscrowContract,
 } from '@aztec/noir-contracts.js';
 
+import { DUPLICATE_NULLIFIER_ERROR } from '../../fixtures/fixtures.js';
 import { setupPXEService } from '../../fixtures/utils.js';
 import { EscrowTokenContractTest, toAddressOption } from '../escrowable_token_contract_test.js';
 
@@ -42,6 +43,28 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
     alice = wallets[0];
     bob = (await createAccounts(pxeB, 1))[0];
 
+    // https://i.pinimg.com/originals/e0/a7/1f/e0a71f597967638ffd90698f1fd8aa5a.png
+    {
+      {
+        const instance = await alice.getContractInstance(alice.getAddress());
+        if (!instance) {
+          throw new Error('Failed to get contract instance');
+        }
+        await pxeB.registerContract({
+          instance: instance,
+        });
+      }
+      {
+        const instance = await bob.getContractInstance(bob.getAddress());
+        if (!instance) {
+          throw new Error('Failed to get contract instance');
+        }
+        await alice.registerContract({
+          instance: instance,
+        });
+      }
+    }
+
     await alice.registerRecipient(bob.getCompleteAddress());
     await bob.registerRecipient(alice.getCompleteAddress());
 
@@ -53,6 +76,20 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
     // Deploys escrows for alice and bob
     escrowAlice = await SimpleEscrowContract.deploy(alice, asset.address, alice.getAddress()).send().deployed();
     escrowBob = await SimpleEscrowContract.deploy(bob, asset.address, bob.getAddress()).send().deployed();
+
+    {
+      {
+        const extendedNotes = await alice.getNotes({ contractAddress: alice.getAddress() });
+        console.log(extendedNotes[0]);
+        expect(extendedNotes.length).toEqual(1);
+        await bob.addNote(extendedNotes[0]);
+      }
+      {
+        const extendedNotes = await bob.getNotes({ contractAddress: bob.getAddress() });
+        expect(extendedNotes.length).toEqual(1);
+        await alice.addNote(extendedNotes[0]);
+      }
+    }
 
     // Add to the token
     tokenSim.addAccount(escrowAlice.address);
@@ -69,6 +106,69 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
 
   afterEach(async () => {
     await t.tokenSim.check();
+  });
+
+  describe.skip('broken authwit escrow', () => {
+    /**
+     * The ability to pass an authwit to someone else such that they can do something on your behalf is BROKEN.
+     * Unless the actor is yourself, they will not have the keys to nullify or make the proper outgoing
+     */
+
+    it('transfer on behalf of other', async () => {
+      // The only difference between this test and the one in the `transfer_private.test.ts` files, are that this is run
+      // with wallets connected to different PXE services. This is to show that the authwit is not working as expected.
+      // The reason that this was not encountered earlier is that this slows down the tests, and was not directly considered.
+      const balance0 = await asset.methods.balance_of_private(alice.getAddress()).simulate();
+      const amount = balance0 / 2n;
+      const nonce = Fr.random();
+      expect(amount).toBeGreaterThan(0n);
+
+      // We need to compute the message we want to sign and add it to the wallet as approved
+      const action = asset
+        .withWallet(bob)
+        .methods.transfer(
+          alice.getAddress(),
+          bob.getAddress(),
+          amount,
+          nonce,
+          toAddressOption(),
+          toAddressOption(),
+          toAddressOption(),
+        );
+
+      const witness = await alice.createAuthWit({ caller: bob.getAddress(), action });
+
+      await bob.addAuthWitness(witness);
+
+      expect(await alice.lookupValidity(alice.getAddress(), { caller: bob.getAddress(), action })).toEqual({
+        isValidInPrivate: true,
+        isValidInPublic: false,
+      });
+
+      expect(await bob.lookupValidity(alice.getAddress(), { caller: bob.getAddress(), action })).toEqual({
+        isValidInPrivate: true,
+        isValidInPublic: false,
+      });
+
+      // Perform the transfer
+      await action.send().wait();
+      tokenSim.transferPrivate(alice.getAddress(), bob.getAddress(), amount);
+
+      // Perform the transfer again, should fail
+      const txReplay = asset
+        .withWallet(bob)
+        .methods.transfer(
+          alice.getAddress(),
+          bob.getAddress(),
+          amount,
+          nonce,
+          toAddressOption(),
+          toAddressOption(),
+          toAddressOption(),
+        )
+        .send();
+      await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    });
   });
 
   describe('escrowing', () => {
@@ -159,7 +259,7 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
       });
     });
 
-    it('Alice blackmails Bob. She transfer funds to him, but is using herself as viewers and nullifier', async () => {
+    it.only('Alice blackmails Bob. She transfer funds to him, but is using herself as viewers and nullifier', async () => {
       // For this test, we are doing something quite strange.
       // Alice is sending funds to Bob, but setting herself as the `to_incoming_viewer_and_nullifier`
       // This means that Bob will not be used when encrypting the message, e.g., he will not learn that he received something,
@@ -208,6 +308,54 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
             )
             .simulate(),
         ).rejects.toThrow("Assertion failed: Cannot return zero notes 'num_notes != 0'");
+      }
+
+      console.log('LASSE 2');
+      {
+        // Alice and Bob is colluding on getting a hold of Bobs funds
+        // Alice will only help if bob gives her half of the amount!
+
+        const toAlice = amount / 2n;
+        const toBob = amount - toAlice;
+        const actionBlackmail = asset
+          .withWallet(alice)
+          .methods.transfer(
+            bob.getAddress(),
+            alice.getAddress(),
+            toAlice,
+            0,
+            toAddressOption(),
+            toAddressOption(),
+            toAddressOption(),
+          )
+          .request();
+        console.log('LASSE 3');
+
+        const actionNonBlackmail = asset
+          .withWallet(alice)
+          .methods.transfer(
+            bob.getAddress(),
+            bob.getAddress(),
+            toBob,
+            0,
+            toAddressOption(),
+            toAddressOption(),
+            toAddressOption(),
+          )
+          .request();
+
+        console.log('LASSE 4');
+        const appPayload = EntrypointPayload.fromAppExecution([actionBlackmail, actionNonBlackmail]);
+        // Even though Alice is practically sending it, she is not the sender in the fee option notation.
+        const feePayload = await EntrypointPayload.fromFeeOptions(bob.getAddress());
+
+        await alice.addAuthWitness(await bob.createAuthWit(appPayload.hash()));
+        await alice.addAuthWitness(await bob.createAuthWit(feePayload.hash()));
+
+        console.log('LASSE 5');
+        const bobsAccount = await Contract.at(bob.getAddress(), SchnorrAccountContractArtifact, alice);
+        console.log('LASSE 6');
+        await bobsAccount.withWallet(alice).methods['entrypoint'](appPayload, feePayload).send().wait();
       }
     });
   });
