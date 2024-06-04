@@ -771,7 +771,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      *
      **/
     struct batch_lookup_table_base {
-        batch_lookup_table_base(const std::vector<element>& points, [[maybe_unused]] bool generic_inputs = true)
+        batch_lookup_table_base(const std::vector<element>& points)
         {
             num_points = points.size();
             num_quads = num_points / 4;
