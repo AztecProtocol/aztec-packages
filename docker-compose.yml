@@ -1,7 +1,7 @@
 name: aztec-devnet
 services:
   pxe:
-    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:e101ddc5ec24fc2c52af0e13b9005329d388481d9ccbf07289bdd62faba44615}
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:0e25d5c87ddeb4b270cb2055d270b09d2ae65467a19e3a33a93d7bd40e409425}
     # need to run bb for proofs and bb is only built for x86
     platform: linux/amd64
     environment:
@@ -23,7 +23,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   cli:
-    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:e101ddc5ec24fc2c52af0e13b9005329d388481d9ccbf07289bdd62faba44615}
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:0e25d5c87ddeb4b270cb2055d270b09d2ae65467a19e3a33a93d7bd40e409425}
     # run the same image as pxe
     platform: linux/amd64
     environment:
