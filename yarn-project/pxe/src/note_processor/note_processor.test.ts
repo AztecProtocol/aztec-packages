@@ -79,8 +79,11 @@ describe('Note Processor', () => {
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
 
+  const app = AztecAddress.random();
+
   let ownerIvskM: GrumpkinPrivateKey;
   let ownerIvpkM: PublicKey;
+  let ownerOvskM: GrumpkinPrivateKey;
   let ownerOvKeys: KeyValidationRequest;
   let account: CompleteAddress;
 
@@ -119,15 +122,16 @@ describe('Note Processor', () => {
   }
 
   beforeAll(() => {
-    const app = AztecAddress.random();
-
     const ownerSk = Fr.random();
-    const allOwnerKeys = deriveKeys(ownerSk);
     const partialAddress = Fr.random();
     account = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, partialAddress);
 
-    ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
+    const allOwnerKeys = deriveKeys(ownerSk);
+
     ownerIvpkM = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
+    ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
+
+    ownerOvskM = allOwnerKeys.masterOutgoingViewingSecretKey;
     ownerOvKeys = new KeyValidationRequest(
       allOwnerKeys.publicKeys.masterOutgoingViewingPublicKey,
       computeOvskApp(allOwnerKeys.masterOutgoingViewingSecretKey, app),
@@ -142,7 +146,16 @@ describe('Note Processor', () => {
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
 
-    keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
+    keyStore.getMasterSecretKey.mockImplementation((pkM: PublicKey) => {
+      if (pkM.equals(ownerIvpkM)) {
+        return Promise.resolve(ownerIvskM);
+      }
+      if (pkM.equals(ownerOvKeys.pkM)) {
+        return Promise.resolve(ownerOvskM);
+      }
+      throw new Error(`Unknown public key: ${pkM}`);
+    });
+
     keyStore.getMasterIncomingViewingPublicKey.mockResolvedValue(account.publicKeys.masterIncomingViewingPublicKey);
     keyStore.getMasterOutgoingViewingPublicKey.mockResolvedValue(account.publicKeys.masterOutgoingViewingPublicKey);
 
@@ -169,8 +182,15 @@ describe('Note Processor', () => {
     addNotesSpy.mockReset();
   });
 
-  it('should store a note that belongs to us', async () => {
-    const request = new MockNoteRequest(TaggedNote.random(), 4, 0, 2, ownerIvpkM, ownerOvKeys);
+  it('should store an incoming note that belongs to us', async () => {
+    const request = new MockNoteRequest(
+      TaggedNote.random(app),
+      4,
+      0,
+      2,
+      ownerIvpkM,
+      KeyValidationRequest.random(),
+    );
 
     const blocks = mockBlocks([request]);
 
@@ -190,11 +210,25 @@ describe('Note Processor', () => {
     );
   }, 25_000);
 
+  it('should store an outgoing note that belongs to us', async () => {
+    const request = new MockNoteRequest(TaggedNote.random(app), firstBlockNum, 0, 2, Point.random(), ownerOvKeys);
+
+    const blocks = mockBlocks([request], 1);
+
+    // TODO(#6830): pass in only the blocks
+    const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
+    await noteProcessor.process(blocks, encryptedLogs);
+
+    expect(addNotesSpy).toHaveBeenCalledTimes(1);
+    // For outgoing notes, the resulting DAO does not contain index.
+    expect(addNotesSpy).toHaveBeenCalledWith([], [expect.objectContaining(request.note.notePayload)]);
+  }, 25_000);
+
   it('should store multiple notes that belong to us', async () => {
     const requests = [
-      new MockNoteRequest(TaggedNote.random(), 1, 1, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(TaggedNote.random(), 2, 3, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(TaggedNote.random(), 6, 3, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(app), 1, 1, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(app), 2, 3, 0, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(TaggedNote.random(app), 6, 3, 2, ownerIvpkM, ownerOvKeys),
     ];
 
     const blocks = mockBlocks(requests);
@@ -241,8 +275,8 @@ describe('Note Processor', () => {
   });
 
   it('should be able to recover two note payloads containing the same note', async () => {
-    const note = TaggedNote.random();
-    const note2 = TaggedNote.random();
+    const note = TaggedNote.random(app);
+    const note2 = TaggedNote.random(app);
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const requests = [
       new MockNoteRequest(note, 3, 0, 0, ownerIvpkM, ownerOvKeys),
@@ -286,7 +320,7 @@ describe('Note Processor', () => {
   });
 
   it('should restore the last block number processed and ignore the starting block', async () => {
-    const request = new MockNoteRequest(TaggedNote.random(), 6, 0, 2, ownerIvpkM, ownerOvKeys);
+    const request = new MockNoteRequest(TaggedNote.random(app), 6, 0, 2, ownerIvpkM, ownerOvKeys);
 
     const blocks = mockBlocks([request]);
 

@@ -73,10 +73,11 @@ export class L1NotePayload {
 
   /**
    * Create a random L1NotePayload object (useful for testing purposes).
+   * @param contract - The contract address to use in the payload.
    * @returns A random L1NotePayload object.
    */
-  static random() {
-    return new L1NotePayload(Note.random(), AztecAddress.random(), Fr.random(), Fr.random());
+  static random(contract = AztecAddress.random()) {
+    return new L1NotePayload(Note.random(), contract, Fr.random(), Fr.random());
   }
 
   /**

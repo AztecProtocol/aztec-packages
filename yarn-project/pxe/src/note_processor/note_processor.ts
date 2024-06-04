@@ -165,7 +165,7 @@ export class NoteProcessor {
                 throw new Error('Incoming and outgoing note payloads do not match.');
               }
 
-              const payload = incomingTaggedNote.notePayload || outgoingTaggedNote.notePayload;
+              const payload = incomingTaggedNote?.notePayload || outgoingTaggedNote?.notePayload;
 
               const txHash = block.body.txEffects[indexOfTxInABlock].txHash;
               const { incomingNote, outgoingNote, incomingDeferredNote } = await produceNoteDaos(
