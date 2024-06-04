@@ -2,10 +2,10 @@ import {
   AztecAddress,
   Fq,
   Fr,
-  KeyPrefix,
+  type KeyPrefix,
   computeAppSecretKey,
   deriveKeys,
-  derivePublicKeyFromSecretKey
+  derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
@@ -90,7 +90,7 @@ describe('KeyStore', () => {
     );
   });
 
-  it.each(['n', 'iv'])('key rotation tests', async keyPrefix => {
+  it.each(['n' as KeyPrefix, 'iv' as KeyPrefix])('key rotation tests', async keyPrefix => {
     const keyStore = new KeyStore(openTmpStore());
 
     // Arbitrary fixed values
@@ -98,9 +98,7 @@ describe('KeyStore', () => {
     const partialAddress = new Fr(243523n);
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
-    expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x1a8a9a1d91cbb353d8df4f1bbfd0283f7fc63766f671edd9443a1270a7b2a954"`,
-    );
+    expect(accountAddress.toString()).toMatchSnapshot();
 
     // Arbitrary fixed values
     const newMasterSecretKeys = [new Fq(420n), new Fq(69n), new Fq(42069n)];
@@ -146,23 +144,17 @@ describe('KeyStore', () => {
       newComputedMasterPublicKeyHashes[0],
       appAddress,
     );
-    expect(appSecretKey0.toString()).toMatchInlineSnapshot(
-      `"0x296e42f1039b62290372d608fcab55b00a3f96c1c8aa347b2a830639c5a12757"`,
-    );
+    expect(appSecretKey0.toString()).toMatchSnapshot();
     const { skApp: appSecretKey1 } = await keyStore.getKeyValidationRequest(
       newComputedMasterPublicKeyHashes[1],
       appAddress,
     );
-    expect(appSecretKey1.toString()).toMatchInlineSnapshot(
-      `"0x019f2a705b68683f1d86da639a543411fa779af41896c3920d0c2d5226c686dd"`,
-    );
+    expect(appSecretKey1.toString()).toMatchSnapshot();
     const { skApp: appSecretKey2 } = await keyStore.getKeyValidationRequest(
       newComputedMasterPublicKeyHashes[2],
       appAddress,
     );
-    expect(appSecretKey2.toString()).toMatchInlineSnapshot(
-      `"0x117445c8819c06b9a0889e5cce1f550e32ec6993c23f57bc9fc5cda05df520ae"`,
-    );
+    expect(appSecretKey2.toString()).toMatchSnapshot();
 
     expect(appSecretKey0).toEqual(computeAppSecretKey(newMasterSecretKeys[0], appAddress, keyPrefix));
     expect(appSecretKey1).toEqual(computeAppSecretKey(newMasterSecretKeys[1], appAddress, keyPrefix));
