@@ -1,18 +1,26 @@
 import { createAccounts } from '@aztec/accounts/testing';
-import { type AccountWallet, AztecAddress, Fr, retryUntil } from '@aztec/aztec.js';
-import { EscrowableTokenContract, SimpleEscrowContract } from '@aztec/noir-contracts.js';
+import { type AccountWallet, AztecAddress, Contract, Fr, retryUntil } from '@aztec/aztec.js';
+import { EntrypointPayload } from '@aztec/aztec.js/entrypoint';
+import {
+  EscrowableTokenContract,
+  SchnorrAccountContractArtifact,
+  SimpleEscrowContract,
+} from '@aztec/noir-contracts.js';
 
 import { setupPXEService } from '../../fixtures/utils.js';
 import { EscrowTokenContractTest, toAddressOption } from '../escrowable_token_contract_test.js';
 
 describe('e2e_escrowable_token_contract escrow transfer private', () => {
-  const walletGroup2: AccountWallet[] = [];
   let teardownB: () => Promise<void>;
 
-  const escrowContracts: SimpleEscrowContract[] = [];
-
   const t = new EscrowTokenContractTest('transfer_private');
-  let { asset, accounts, tokenSim, wallets, aztecNode } = t;
+  let { asset, tokenSim, wallets, aztecNode } = t;
+
+  let alice!: AccountWallet; // On pxe a
+  let bob!: AccountWallet; // On pxe b
+
+  let escrowAlice!: SimpleEscrowContract;
+  let escrowBob!: SimpleEscrowContract;
 
   const awaitUserSynchronized = async (wallet: AccountWallet, owner: AztecAddress) => {
     const isUserSynchronized = async () => {
@@ -25,37 +33,33 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, accounts, tokenSim, wallets, aztecNode } = t);
+    ({ asset, tokenSim, wallets, aztecNode } = t);
 
     // We need a fresh PXE service for the second group of wallets
     const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
     teardownB = _teardown;
-    const freshAccounts = await createAccounts(pxeB, 1);
-    walletGroup2.push(freshAccounts[0]);
 
-    await wallets[0].registerRecipient(walletGroup2[0].getCompleteAddress());
-    await walletGroup2[0].registerRecipient(wallets[0].getCompleteAddress());
+    alice = wallets[0];
+    bob = (await createAccounts(pxeB, 1))[0];
 
-    await pxeB.registerContract({
+    await alice.registerRecipient(bob.getCompleteAddress());
+    await bob.registerRecipient(alice.getCompleteAddress());
+
+    await bob.registerContract({
       artifact: EscrowableTokenContract.artifact,
       instance: asset.instance,
     });
 
-    tokenSim.addAccount(walletGroup2[0].getAddress());
-    tokenSim.setLookupProvider(walletGroup2[0].getAddress(), walletGroup2[0]);
+    // Deploys escrows for alice and bob
+    escrowAlice = await SimpleEscrowContract.deploy(alice, asset.address, alice.getAddress()).send().deployed();
+    escrowBob = await SimpleEscrowContract.deploy(bob, asset.address, bob.getAddress()).send().deployed();
 
-    // Need to deploy the contract
-    const a = await SimpleEscrowContract.deploy(wallets[0], asset.address, wallets[0].getAddress()).send().deployed();
-
-    escrowContracts.push(a);
-    tokenSim.addAccount(a.address);
-
-    const b = await SimpleEscrowContract.deploy(walletGroup2[0], asset.address, walletGroup2[0].getAddress())
-      .send()
-      .deployed();
-    escrowContracts.push(b);
-    tokenSim.addAccount(b.address);
-    tokenSim.setLookupProvider(b.address, walletGroup2[0]);
+    // Add to the token
+    tokenSim.addAccount(escrowAlice.address);
+    tokenSim.addAccount(escrowBob.address);
+    tokenSim.addAccount(bob.getAddress());
+    tokenSim.setWallet(bob.getAddress(), bob);
+    tokenSim.setWallet(escrowBob.address, bob);
   });
 
   afterAll(async () => {
@@ -69,43 +73,44 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
 
   describe('escrowing', () => {
     describe('simple escrow', () => {
-      it('donate to escrow, `incoming_viewer_and_nullifier != to`', async () => {
+      it('alice donate to alice escrow, `incoming_viewer_and_nullifier != to`', async () => {
         const amount = 100n;
         const nonce = Fr.random();
 
-        expect(wallets[0].getAddress()).toEqual(accounts[0].address);
-
+        // Create an action that we can approve with an authwit and then execute
         const action = asset
-          .withWallet(wallets[0])
+          .withWallet(alice)
           .methods.transfer(
-            accounts[0].address,
-            escrowContracts[0].address,
+            alice.getAddress(),
+            escrowAlice.address,
             amount,
             nonce,
-            toAddressOption(accounts[0].address),
-            toAddressOption(wallets[0].getAddress()),
-            toAddressOption(accounts[0].address),
+            toAddressOption(alice.getAddress()),
+            toAddressOption(alice.getAddress()),
+            toAddressOption(alice.getAddress()),
           );
-        await wallets[0].createAuthWit({ caller: escrowContracts[0].address, action });
+        await alice.createAuthWit({ caller: escrowAlice.address, action });
 
-        await escrowContracts[0].withWallet(wallets[0]).methods.donate(amount, nonce).send().wait();
-        tokenSim.transferPrivate(accounts[0].address, escrowContracts[0].address, amount);
+        // We then donate (consuming the authwit) and which increases our balance
+        await escrowAlice.withWallet(alice).methods.donate(amount, nonce).send().wait();
+        tokenSim.transferPrivate(alice.getAddress(), escrowAlice.address, amount);
       });
 
       it('withdraw from escrow', async () => {
         const amount = 5n;
-        await escrowContracts[0].methods.transfer(accounts[0].address, amount, toAddressOption()).send().wait();
-        tokenSim.transferPrivate(escrowContracts[0].address, accounts[0].address, amount);
+        await escrowAlice.methods.transfer(alice.getAddress(), amount, toAddressOption()).send().wait();
+        tokenSim.transferPrivate(escrowAlice.address, alice.getAddress(), amount);
       });
 
       describe('failure cases', () => {
         it('FAIL: direct transfer to vault fails', async () => {
+          // This test should fail because the escrow does not have any keys registered and hence obtaining them fails.
           const amount = 10n;
           await expect(
             asset.methods
               .transfer(
-                accounts[0].address,
-                escrowContracts[0].address,
+                alice.getAddress(),
+                escrowAlice.address,
                 amount,
                 0,
                 toAddressOption(),
@@ -127,76 +132,74 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
       it('transfer from escrow a to escrow b', async () => {
         const amount = 7n;
 
-        await escrowContracts[0]
-          .withWallet(wallets[0])
-          .methods.transfer(escrowContracts[1].address, amount, toAddressOption(walletGroup2[0].getAddress()))
+        await escrowAlice
+          .withWallet(alice)
+          .methods.transfer(escrowBob.address, amount, toAddressOption(bob.getAddress()))
           .send()
           .wait();
-        tokenSim.transferPrivate(escrowContracts[0].address, escrowContracts[1].address, amount);
+        tokenSim.transferPrivate(escrowAlice.address, escrowBob.address, amount);
       });
 
       it('transfer from escrow b to owner b', async () => {
         const amount = 7n;
 
-        await escrowContracts[1]
-          .withWallet(walletGroup2[0])
-          .methods.transfer(walletGroup2[0].getAddress(), amount, toAddressOption())
-          .send()
-          .wait();
-        tokenSim.transferPrivate(escrowContracts[1].address, walletGroup2[0].getAddress(), amount);
+        await escrowBob.withWallet(bob).methods.transfer(bob.getAddress(), amount, toAddressOption()).send().wait();
+        tokenSim.transferPrivate(escrowBob.address, bob.getAddress(), amount);
       });
 
       describe('failure cases', () => {
         it('FAIL: transfer from escrow to escrow (unspecified incoming_viewer_and_nullifier)', async () => {
+          // This test should fail because we try to fetch keys for escrow 1 when `the incoming_viewer_and_nullifier` is not specified and escrows do not have keys registered.
           const amount = 9n;
 
           await expect(
-            escrowContracts[0]
-              .withWallet(wallets[0])
-              .methods.transfer(escrowContracts[1].address, amount, toAddressOption())
-              .simulate(),
+            escrowAlice.withWallet(alice).methods.transfer(escrowBob.address, amount, toAddressOption()).simulate(),
           ).rejects.toThrow();
         });
       });
     });
 
-    it('sending funds but using recipient as escrow, 🏦🤫💰', async () => {
-      // For this test, I'm doing something quite strange, I am sending funds to Bob, but I am not allowing him to actually spend them
-      // I am still the "incoming_viewer_and_nullifier". This is a really annoying example as it will look like loss of funds to the users, and to get the funds
-      // back, or spend them, I need to give Bob some secrets 💀
+    it('Alice blackmails Bob. She transfer funds to him, but is using herself as viewers and nullifier', async () => {
+      // For this test, we are doing something quite strange.
+      // Alice is sending funds to Bob, but setting herself as the `to_incoming_viewer_and_nullifier`
+      // This means that Bob will not be used when encrypting the message, e.g., he will not learn that he received something,
+      // nor be able to compute the nullifier.
+      // In practice this means that Bob will not be able to spend the notes on his own, and neither will Alice.
+      //
+      // However, their aggregate knowledge should allow them to spend the notes. Like a really weird multi-sig
 
-      await awaitUserSynchronized(wallets[0], accounts[0].address);
-      await awaitUserSynchronized(walletGroup2[0], walletGroup2[0].getAddress());
+      await awaitUserSynchronized(alice, alice.getAddress());
+      await awaitUserSynchronized(bob, bob.getAddress());
 
-      const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_private(alice.getAddress()).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       await asset.methods
         .transfer(
-          accounts[0].address,
-          walletGroup2[0].getAddress(),
+          alice.getAddress(),
+          bob.getAddress(),
           amount,
           0,
-          toAddressOption(accounts[0].address), // I'm setting myself af the change_incoming_viewer_and_nullifier
-          toAddressOption(accounts[0].address), // I'm setting myself af the to_incoming_viewer_and_nullifier
-          toAddressOption(accounts[0].address), // I'm setting myself as the outgoing_viewer
+          toAddressOption(alice.getAddress()), // Alice is used as `change_incoming_viewer_and_nullifier`
+          toAddressOption(alice.getAddress()), // Alice is used as `to_incoming_viewer_and_nullifier`
+          toAddressOption(alice.getAddress()), // Alice is used as `outgoing_viewer`
         )
         .send()
         .wait();
 
-      // NOTICE! From the POV of walletGroup2[0], it have not received any funds!
+      // NOTICE! From the POV of bob, it have not received any funds!
       // Since Alice still sent some funds, this should be accounted similar to a transfer to 0
-      tokenSim.transferPrivate(accounts[0].address, AztecAddress.ZERO, amount);
+      tokenSim.transferPrivate(alice.getAddress(), AztecAddress.ZERO, amount);
       // In practice, the funds are still possible to rescue, but this makes our account a bit simpler.
-
       {
-        const balance1 = await asset.methods.balance_of_private(accounts[1].address).simulate();
+        // Now we try to obtain the balance. It should fail with zero notes error because the recipient's PXE is expected to not have decrypted any notes.
+        const balance1 = await asset.methods.balance_of_private(bob.getAddress()).simulate();
         await expect(
           asset
-            .withWallet(walletGroup2[0])
+            .withWallet(bob)
             .methods.transfer(
-              walletGroup2[0].getAddress(),
-              accounts[0].address,
+              bob.getAddress(),
+              alice.getAddress(),
               balance1,
               0,
               toAddressOption(),

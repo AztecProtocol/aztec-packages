@@ -22,7 +22,7 @@ export class TokenSimulator {
     this.accounts.push(account);
   }
 
-  public setLookupProvider(account: AztecAddress, wallet: Wallet) {
+  public setWallet(account: AztecAddress, wallet: Wallet) {
     this.lookupProvider.set(account.toString(), wallet);
   }
 

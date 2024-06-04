@@ -3,7 +3,7 @@ use dep::aztec::prelude::{
     PrivateSet, Map
 };
 use dep::aztec::{
-    context::PublicContext, hash::pedersen_hash,
+    context::{PublicContext, UnconstrainedContext}, hash::pedersen_hash,
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{note_getter::view_notes, note_getter_options::SortOrder}
 };
@@ -27,7 +27,7 @@ impl<T, Context> BalancesMap<T, Context> {
     }
 }
 
-impl<T> BalancesMap<T, ()> {
+impl<T> BalancesMap<T, UnconstrainedContext> {
     unconstrained pub fn balance_of<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress
@@ -119,7 +119,12 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
 
         assert(minuend >= subtrahend, "Balance too low");
 
-        self.add(owner, minuend - subtrahend, incoming_viewer_and_nullifier, outgoing_viewer);
+        self.add(
+            owner,
+            minuend - subtrahend,
+            incoming_viewer_and_nullifier,
+            outgoing_viewer
+        );
     }
 }
 

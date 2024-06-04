@@ -4,7 +4,7 @@ import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/ind
 import { EscrowTokenContractTest, toAddressOption } from './escrowable_token_contract_test.js';
 
 // @todo For this test to be truly meaningful we need to run every actor with a separate PXE.
-// when they are using the same we don't actually know if the default values are correct or
+// When they are using the same we don't actually know if the default values are correct or
 // they just figure it out because they know the keys of everyone.
 
 describe('e2e_escrowable_token_contract shield + redeem_shield', () => {
