@@ -10,7 +10,6 @@ import { Fr } from './fields.js';
 export class Point {
   static ZERO = new Point(Fr.ZERO, Fr.ZERO);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
-  static G = new Point(new Fr(1n), new Fr(17631683881184975370165255887551781615748388533673675138860n));
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -47,7 +46,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader.readBytes(32)), Fr.fromBuffer(reader.readBytes(32)));
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -138,8 +137,7 @@ export class Point {
     return poseidon2Hash(this.toFields());
   }
 
-  is_on_grumpkin() {
-    // allow zero point to represent infinity
+  isOnGrumpkin() {
     if (this.isZero()) {
       return true;
     }
@@ -149,76 +147,6 @@ export class Point {
     const lhs = this.y.square();
     const rhs = this.x.square().mul(this.x).sub(A);
     return lhs.equals(rhs);
-  }
-
-  /**
-   * Double the current Point instance.
-   * Returns a new Point instance representing the result of the doubling operation.
-   *
-   * @returns A new Point instance representing the result of the doubling operation.
-   */
-  double() {
-    if (this.isZero()) {
-      return this;
-    }
-
-    const two = new Fr(2);
-    const three = new Fr(3);
-
-    const lambda = this.x.square().mul(three).div(this.y.mul(two));
-    const x = lambda.square().sub(this.x.mul(two));
-    const y = lambda.mul(this.x.sub(x)).sub(this.y);
-    return new Point(x, y);
-  }
-
-  /**
-   * Add another Point instance to the current instance.
-   * Returns a new Point instance representing the sum of the two points.
-   *
-   * @param rhs - The Point instance to add to the current instance.
-   * @returns A new Point instance representing the sum of the two points.
-   */
-  add(rhs: Point) {
-    if (this.isZero()) {
-      return rhs;
-    }
-    if (rhs.isZero()) {
-      return this;
-    }
-
-    if (this.equals(rhs)) {
-      return this.double();
-    }
-
-    if (this.x.equals(rhs.x) && this.y.equals(rhs.y.negate())) {
-      return Point.ZERO;
-    }
-
-    const lambda = this.y.sub(rhs.y).div(this.x.sub(rhs.x));
-    const x = lambda.square().sub(this.x).sub(rhs.x);
-    const y = lambda.mul(this.x.sub(x)).sub(this.y);
-    return new Point(x, y);
-  }
-
-  /**
-   * Negate the current Point instance.
-   * Returns a new Point instance representing the negation of the current instance.
-   *
-   * @returns A new Point instance representing the negation of the current instance.
-   */
-  negate() {
-    return new Point(this.x, this.y.negate());
-  }
-
-  /**
-   * Subtract another Point instance from the current instance.
-   * Returns a new Point instance representing the difference of the two points.
-   *
-   * @param rhs - The Point instance to subtract from the current instance.
-   * @returns A new Point instance representing the difference of the two points.
-   */
-  sub(rhs: Point) {
-    return this.add(rhs.negate());
   }
 }
 
