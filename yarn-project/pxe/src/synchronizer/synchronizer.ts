@@ -345,20 +345,18 @@ export class Synchronizer {
 
     // keep track of decoded notes
     const incomingNotes: IncomingNoteDao[] = [];
-    const outgoingNotes: OutgoingNoteDao[] = [];
     // now process each txHash
     for (const deferredNotes of txHashToDeferredNotes.values()) {
       // to be safe, try each note processor in case the deferred notes are for different accounts.
       for (const processor of this.noteProcessors) {
         const notes = await processor.decodeDeferredNotes(deferredNotes);
-        incomingNotes.push(...notes.incomingNotes);
-        outgoingNotes.push(...notes.outgoingNotes);
+        incomingNotes.push(...notes);
       }
     }
 
     // now drop the deferred notes, and add the decoded notes
     await this.db.removeDeferredNotesByContract(contractAddress);
-    await this.db.addNotes(incomingNotes, outgoingNotes);
+    await this.db.addNotes(incomingNotes, []);
 
     incomingNotes.forEach(noteDao => {
       this.log.debug(

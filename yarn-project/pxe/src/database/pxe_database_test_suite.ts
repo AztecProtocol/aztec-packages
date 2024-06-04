@@ -68,7 +68,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    describe('notes', () => {
+    describe('incoming notes', () => {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
       let storageSlots: Fr[];
@@ -197,6 +197,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(result.sort()).toEqual([...notes].sort());
       });
     });
+
+    // TODO(#6867): Add tests for outgoing notes
 
     describe('block header', () => {
       it('stores and retrieves the block header', async () => {

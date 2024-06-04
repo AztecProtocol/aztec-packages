@@ -29,7 +29,7 @@ import { NoteProcessor } from './note_processor.js';
 const TXS_PER_BLOCK = 4;
 const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NEW_NOTE_HASHES_PER_TX;
 
-/** A wrapper containing info about a note we want to mock and insert into a block */
+/** A wrapper containing info about a note we want to mock and insert into a block. */
 class MockNoteRequest {
   constructor(
     /** Note we want to insert into a block. */
@@ -125,17 +125,15 @@ describe('Note Processor', () => {
   beforeAll(() => {
     const ownerSk = Fr.random();
     const partialAddress = Fr.random();
+
     account = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, partialAddress);
+    ownerIvpkM = account.publicKeys.masterIncomingViewingPublicKey;
 
-    const allOwnerKeys = deriveKeys(ownerSk);
+    ({ masterIncomingViewingSecretKey: ownerIvskM, masterOutgoingViewingSecretKey: ownerOvskM } = deriveKeys(ownerSk));
 
-    ownerIvpkM = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
-    ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
-
-    ownerOvskM = allOwnerKeys.masterOutgoingViewingSecretKey;
     ownerOvKeys = new KeyValidationRequest(
-      allOwnerKeys.publicKeys.masterOutgoingViewingPublicKey,
-      computeOvskApp(allOwnerKeys.masterOutgoingViewingSecretKey, app),
+      account.publicKeys.masterOutgoingViewingPublicKey,
+      computeOvskApp(ownerOvskM, app),
     );
   });
 

@@ -278,35 +278,29 @@ export class NoteProcessor {
    * Retry decoding the given deferred notes because we now have the contract code.
    *
    * @param deferredNoteDaos - notes that we have previously deferred because the contract was not found
-   * @returns An array of NoteDaos that were successfully decoded.
+   * @returns An array of incoming notes that were successfully decoded.
    *
    * @remarks Caller is responsible for making sure that we have the contract for the
    * deferred notes provided: we will not retry notes that fail again.
    */
-  public async decodeDeferredNotes(
-    deferredNoteDaos: DeferredNoteDao[],
-  ): Promise<{ incomingNotes: IncomingNoteDao[]; outgoingNotes: OutgoingNoteDao[] }> {
+  public async decodeDeferredNotes(deferredNoteDaos: DeferredNoteDao[]): Promise<IncomingNoteDao[]> {
     const excludedIndices: Set<number> = new Set();
     const incomingNotes: IncomingNoteDao[] = [];
-    const outgoingNotes: OutgoingNoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
-      const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, newNoteHashes, dataStartIndexForTx } =
+      const { ivpkM, note, contractAddress, storageSlot, noteTypeId, txHash, newNoteHashes, dataStartIndexForTx } =
         deferredNote;
       const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
-      const isIncoming = publicKey.equals(this.ivpkM);
-      const isOutgoing = publicKey.equals(this.ovpkM);
-
-      if (!isIncoming && !isOutgoing) {
+      if (!ivpkM.equals(this.ivpkM)) {
         // The note is not for this account, so we skip it.
         continue;
       }
 
-      const { incomingNote, outgoingNote } = await produceNoteDaos(
+      const { incomingNote } = await produceNoteDaos(
         this.simulator,
-        isIncoming ? this.ivpkM : undefined,
-        isOutgoing ? this.ovpkM : undefined,
+        this.ivpkM,
+        undefined,
         payload,
         txHash,
         newNoteHashes,
@@ -315,16 +309,14 @@ export class NoteProcessor {
         this.log,
       );
 
-      if (incomingNote) {
-        incomingNotes.push(incomingNote);
-        this.stats.decrypted++;
+      if (!incomingNote) {
+        throw new Error('Deferred note could not be decoded.');
       }
-      if (outgoingNote) {
-        outgoingNotes.push(outgoingNote);
-        this.stats.decrypted++;
-      }
+
+      incomingNotes.push(incomingNote);
+      this.stats.decrypted++;
     }
 
-    return { incomingNotes, outgoingNotes };
+    return incomingNotes;
   }
 }
