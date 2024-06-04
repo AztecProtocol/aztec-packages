@@ -1,37 +1,13 @@
-import {
-  MerkleTreeId,
-  type NoteStatus,
-  type NullifierMembershipWitness,
-  PublicDataWitness,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type CompleteAddress,
-  type Header,
-  type KeyValidationRequest,
-  type PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateCallStackItem,
-  type PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { type FunctionSelector } from '@aztec/foundation/abi';
+import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { Fr, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import {
-  type MessageLoadOracleInputs,
-  type NoteData,
-  PackedValuesCache,
-  type TypedOracle,
-  WorldStateDB,
-  WorldStatePublicDB,
-} from '@aztec/simulator';
-import { type ContractInstance } from '@aztec/types/contracts';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { PackedValuesCache, type TypedOracle } from '@aztec/simulator';
+import { MerkleTrees } from '@aztec/world-state';
 
+import { TXE } from '../oracle/txe_oracle.js';
 import {
   type ForeignCallArray,
   type ForeignCallSingle,
@@ -42,244 +18,13 @@ import {
   toSingle,
 } from '../util/encoding.js';
 
-export class TXE implements TypedOracle {
-  private worldStatePublicDB: WorldStatePublicDB;
-  private worldStateDB: WorldStateDB;
-
-  constructor(
-    private logger: Logger,
-    private trees: MerkleTreeOperations,
-    private packedValuesCache: PackedValuesCache,
-    private contractAddress: AztecAddress,
-  ) {
-    this.worldStatePublicDB = new WorldStatePublicDB(this.trees);
-    this.worldStateDB = new WorldStateDB(this.trees);
-    this.packedValuesCache = packedValuesCache;
-  }
-
-  getRandomField() {
-    return Fr.random();
-  }
-
-  packArgumentsArray(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(args));
-  }
-
-  packReturns(returns: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
-  }
-
-  unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
-  }
-
-  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
-    throw new Error('Method not implemented.');
-  }
-
-  getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
-    throw new Error('Method not implemented.');
-  }
-
-  getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
-    throw new Error('Method not implemented.');
-  }
-
-  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
-    throw new Error('Method not implemented.');
-  }
-
-  getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Method not implemented.');
-  }
-
-  async getPublicDataTreeWitness(_blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = this.trees;
-    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
-    if (!lowLeafResult) {
-      return undefined;
-    } else {
-      const preimage = (await committedDb.getLeafPreimage(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      )) as PublicDataTreeLeafPreimage;
-      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      );
-      return new PublicDataWitness(lowLeafResult.index, preimage, path);
-    }
-  }
-
-  getLowNullifierMembershipWitness(
-    _blockNumber: number,
-    _nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Method not implemented.');
-  }
-
-  getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new Error('Method not implemented.');
-  }
-
-  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
-    throw new Error('Method not implemented.');
-  }
-
-  getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
-    throw new Error('Method not implemented.');
-  }
-
-  popCapsule(): Promise<Fr[]> {
-    throw new Error('Method not implemented.');
-  }
-
-  getNotes(
-    _storageSlot: Fr,
-    _numSelects: number,
-    _selectByIndexes: number[],
-    _selectByOffsets: number[],
-    _selectByLengths: number[],
-    _selectValues: Fr[],
-    _selectComparators: number[],
-    _sortByIndexes: number[],
-    _sortByOffsets: number[],
-    _sortByLengths: number[],
-    _sortOrder: number[],
-    _limit: number,
-    _offset: number,
-    _status: NoteStatus,
-  ): Promise<NoteData[]> {
-    throw new Error('Method not implemented.');
-  }
-
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr, _counter: number): void {
-    throw new Error('Method not implemented.');
-  }
-
-  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr, _counter: number): Promise<void> {
-    throw new Error('Method not implemented.');
-  }
-
-  checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
-
-  getL1ToL2MembershipWitness(
-    _contractAddress: AztecAddress,
-    _messageHash: Fr,
-    _secret: Fr,
-  ): Promise<MessageLoadOracleInputs<16>> {
-    throw new Error('Method not implemented.');
-  }
-
-  async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
-    const values = [];
-    for (let i = 0n; i < numberOfElements; i++) {
-      const storageSlot = startStorageSlot.add(new Fr(i));
-      const value = await this.worldStatePublicDB.storageRead(this.contractAddress, storageSlot);
-      this.logger.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
-      values.push(value);
-    }
-    return values;
-  }
-
-  async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
-    return await Promise.all(
-      values.map(async (value, i) => {
-        const storageSlot = startStorageSlot.add(new Fr(i));
-        const result = await this.worldStatePublicDB.storageWrite(this.contractAddress, storageSlot, value);
-        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-        return new Fr(result);
-      }),
-    );
-  }
-
-  emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, _counter: number): void {
-    throw new Error('Method not implemented.');
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
-    throw new Error('Method not implemented.');
-  }
-
-  computeEncryptedLog(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _noteTypeId: Fr,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: Point,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new Error('Method not implemented.');
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
-    throw new Error('Method not implemented.');
-  }
-
-  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
-    throw new Error('Method not implemented.');
-  }
-
-  callPrivateFunction(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<PrivateCallStackItem> {
-    throw new Error('Method not implemented.');
-  }
-
-  callPublicFunction(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<Fr[]> {
-    throw new Error('Method not implemented.');
-  }
-
-  enqueuePublicFunctionCall(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
-    throw new Error('Method not implemented.');
-  }
-
-  setPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
-    throw new Error('Method not implemented.');
-  }
-
-  aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
-    const aes128 = new Aes128();
-    return aes128.encryptBufferCBC(input, initializationVector, key);
-  }
-
-  debugLog(message: string, fields: Fr[]): void {
-    this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
-  }
-}
-
 export class TXEService {
+  private blockNumber = 0;
+
   constructor(
     private typedOracle: TypedOracle,
     private store: AztecKVStore,
+    private trees: MerkleTrees,
     private packedValuesCache: PackedValuesCache,
     private contractAddress: AztecAddress,
   ) {}
@@ -288,13 +33,58 @@ export class TXEService {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, logger);
     const packedValuesCache = new PackedValuesCache();
-    const txe = new TXE(logger, trees.asLatest(), packedValuesCache, contractAddress);
-    return new TXEService(txe, store, packedValuesCache, contractAddress);
+    logger.info(`TXE service initialized`);
+    const txe = new TXE(logger, trees, packedValuesCache, contractAddress);
+    const service = new TXEService(txe, store, trees, packedValuesCache, contractAddress);
+    await service.timeTravel(1);
+    return service;
+  }
+
+  async timeTravel(blocks: number) {
+    this.blockNumber += blocks;
+    const header = Header.empty();
+    const l2Block = L2Block.empty();
+
+    for (let i = 0; i < blocks; i++) {
+      header.state = await this.trees.getStateReference(true);
+      header.state.partial.nullifierTree.root = Fr.fromBuffer(
+        (await this.trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
+      );
+      header.state.partial.noteHashTree.root = Fr.fromBuffer(
+        (await this.trees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true)).root,
+      );
+      header.state.partial.publicDataTree.root = Fr.fromBuffer(
+        (await this.trees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE, true)).root,
+      );
+      header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
+        (await this.trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
+      );
+      l2Block.archive.root = Fr.fromBuffer((await this.trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
+      l2Block.header = header;
+      await this.trees.handleL2BlockAndMessages(l2Block, []);
+      this.blockNumber++;
+    }
   }
 
   setContractAddress(address = AztecAddress.random()): AztecAddress {
     this.contractAddress = address;
     return this.contractAddress;
+  }
+
+  getContractAddress() {
+    return toForeignCallResult([toSingle(this.contractAddress)]);
+  }
+
+  getBlockNumber() {
+    return toForeignCallResult([toSingle(new Fr(this.blockNumber))]);
+  }
+
+  avmOpcodeAddress() {
+    return toForeignCallResult([toSingle(this.contractAddress)]);
+  }
+
+  avmOpcodeBlockNumber() {
+    return toForeignCallResult([toSingle(new Fr(this.blockNumber))]);
   }
 
   async reset() {
@@ -356,5 +146,14 @@ export class TXEService {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
     return toForeignCallResult([toArray(witness.toFields())]);
+  }
+
+  async getSiblingPath(blockNumber: ForeignCallSingle, treeId: ForeignCallSingle, leafIndex: ForeignCallSingle) {
+    const result = await this.typedOracle.getSiblingPath(
+      fromSingle(blockNumber).toNumber(),
+      fromSingle(treeId).toNumber(),
+      fromSingle(leafIndex),
+    );
+    return toForeignCallResult([toArray(result)]);
   }
 }
