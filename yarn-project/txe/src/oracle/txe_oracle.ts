@@ -1,5 +1,6 @@
 import {
   MerkleTreeId,
+  Note,
   type NoteStatus,
   type NullifierMembershipWitness,
   PublicDataWitness,
@@ -10,6 +11,7 @@ import {
   type CompleteAddress,
   type Header,
   type KeyValidationRequest,
+  NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateCallStackItem,
@@ -18,16 +20,18 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import {
+  type ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   type PackedValuesCache,
   type TypedOracle,
+  pickNotes,
 } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
@@ -37,9 +41,11 @@ export class TXE implements TypedOracle {
     private logger: Logger,
     private trees: MerkleTrees,
     private packedValuesCache: PackedValuesCache,
+    private noteCache: ExecutionNoteCache,
     private contractAddress: AztecAddress,
   ) {
     this.packedValuesCache = packedValuesCache;
+    this.noteCache = noteCache;
   }
 
   getRandomField() {
@@ -122,34 +128,82 @@ export class TXE implements TypedOracle {
   }
 
   getNotes(
-    _storageSlot: Fr,
-    _numSelects: number,
-    _selectByIndexes: number[],
-    _selectByOffsets: number[],
-    _selectByLengths: number[],
-    _selectValues: Fr[],
-    _selectComparators: number[],
-    _sortByIndexes: number[],
-    _sortByOffsets: number[],
-    _sortByLengths: number[],
-    _sortOrder: number[],
-    _limit: number,
-    _offset: number,
+    storageSlot: Fr,
+    numSelects: number,
+    selectByIndexes: number[],
+    selectByOffsets: number[],
+    selectByLengths: number[],
+    selectValues: Fr[],
+    selectComparators: number[],
+    sortByIndexes: number[],
+    sortByOffsets: number[],
+    sortByLengths: number[],
+    sortOrder: number[],
+    limit: number,
+    offset: number,
     _status: NoteStatus,
-  ): Promise<NoteData[]> {
-    throw new Error('Method not implemented.');
+  ) {
+    // Nullified pending notes are already removed from the list.
+    const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
+
+    // const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
+    // const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status);
+    // const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
+
+    const notes = pickNotes<NoteData>(pendingNotes, {
+      selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
+        selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
+        value: selectValues[i],
+        comparator: selectComparators[i],
+      })),
+      sorts: sortByIndexes.map((index, i) => ({
+        selector: { index, offset: sortByOffsets[i], length: sortByLengths[i] },
+        order: sortOrder[i],
+      })),
+      limit,
+      offset,
+    });
+
+    this.logger.debug(
+      `Returning ${notes.length} notes for ${this.contractAddress} at ${storageSlot}: ${notes
+        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
+        .join(', ')}`,
+    );
+
+    return Promise.resolve(notes);
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr, _counter: number): void {
-    throw new Error('Method not implemented.');
+  async notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr, counter: number) {
+    const note = new Note(noteItems);
+    this.noteCache.addNewNote(
+      {
+        contractAddress: this.contractAddress,
+        storageSlot,
+        nonce: Fr.ZERO, // Nonce cannot be known during private execution.
+        note,
+        siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
+        innerNoteHash,
+      },
+      counter,
+    );
+    const db = this.trees.asLatest();
+    const noteHash = siloNoteHash(this.contractAddress, innerNoteHash);
+    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr, _counter: number): Promise<void> {
-    throw new Error('Method not implemented.');
+  async notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, _counter: number) {
+    this.noteCache.nullifyNote(this.contractAddress, innerNullifier, innerNoteHash);
+    const db = this.trees.asLatest();
+    const siloedNullifier = siloNullifier(this.contractAddress, innerNullifier);
+    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
+    return Promise.resolve();
   }
 
-  checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
-    throw new Error('Method not implemented.');
+  async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
+    const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
+    const db = this.trees.asLatest();
+    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    return index !== undefined;
   }
 
   getL1ToL2MembershipWitness(

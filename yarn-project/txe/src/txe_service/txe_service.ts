@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { PackedValuesCache, type TypedOracle } from '@aztec/simulator';
+import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -33,8 +33,9 @@ export class TXEService {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, logger);
     const packedValuesCache = new PackedValuesCache();
+    const noteCache = new ExecutionNoteCache();
     logger.info(`TXE service initialized`);
-    const txe = new TXE(logger, trees, packedValuesCache, contractAddress);
+    const txe = new TXE(logger, trees, packedValuesCache, noteCache, contractAddress);
     const service = new TXEService(logger, txe, store, trees, contractAddress);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
@@ -106,7 +107,13 @@ export class TXEService {
     this.blockNumber = 0;
     this.store = openTmpStore(true);
     this.trees = await MerkleTrees.new(this.store, this.logger);
-    this.typedOracle = new TXE(this.logger, this.trees, new PackedValuesCache(), this.contractAddress);
+    this.typedOracle = new TXE(
+      this.logger,
+      this.trees,
+      new PackedValuesCache(),
+      new ExecutionNoteCache(),
+      this.contractAddress,
+    );
     await this.#timeTravelInner(1);
     return toForeignCallResult([]);
   }
@@ -173,5 +180,101 @@ export class TXEService {
       fromSingle(leafIndex),
     );
     return toForeignCallResult([toArray(result)]);
+  }
+
+  async getNotes(
+    storageSlot: ForeignCallSingle,
+    numSelects: ForeignCallSingle,
+    selectByIndexes: ForeignCallArray,
+    selectByOffsets: ForeignCallArray,
+    selectByLengths: ForeignCallArray,
+    selectValues: ForeignCallArray,
+    selectComparators: ForeignCallArray,
+    sortByIndexes: ForeignCallArray,
+    sortByOffsets: ForeignCallArray,
+    sortByLengths: ForeignCallArray,
+    sortOrder: ForeignCallArray,
+    limit: ForeignCallSingle,
+    offset: ForeignCallSingle,
+    status: ForeignCallSingle,
+    returnSize: ForeignCallSingle,
+  ) {
+    const noteDatas = await this.typedOracle.getNotes(
+      fromSingle(storageSlot),
+      fromSingle(numSelects).toNumber(),
+      fromArray(selectByIndexes).map(fr => fr.toNumber()),
+      fromArray(selectByOffsets).map(fr => fr.toNumber()),
+      fromArray(selectByLengths).map(fr => fr.toNumber()),
+      fromArray(selectValues),
+      fromArray(selectComparators).map(fr => fr.toNumber()),
+      fromArray(sortByIndexes).map(fr => fr.toNumber()),
+      fromArray(sortByOffsets).map(fr => fr.toNumber()),
+      fromArray(sortByLengths).map(fr => fr.toNumber()),
+      fromArray(sortOrder).map(fr => fr.toNumber()),
+      fromSingle(limit).toNumber(),
+      fromSingle(offset).toNumber(),
+      fromSingle(status).toNumber(),
+    );
+    const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
+    if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+      throw new Error('Notes should all be the same length.');
+    }
+
+    const contractAddress = noteDatas[0]?.contractAddress ?? Fr.ZERO;
+
+    // Values indicates whether the note is settled or transient.
+    const noteTypes = {
+      isSettled: new Fr(0),
+      isTransient: new Fr(1),
+    };
+    const flattenData = noteDatas.flatMap(({ nonce, note, index }) => [
+      nonce,
+      index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
+      ...note.items,
+    ]);
+
+    const returnFieldSize = fromSingle(returnSize).toNumber();
+    const returnData = [noteDatas.length, contractAddress, ...flattenData].map(v => new Fr(v));
+    if (returnData.length > returnFieldSize) {
+      throw new Error(`Return data size too big. Maximum ${returnFieldSize} fields. Got ${flattenData.length}.`);
+    }
+
+    const paddedZeros = Array(returnFieldSize - returnData.length).fill(new Fr(0));
+    return toForeignCallResult([toArray([...returnData, ...paddedZeros])]);
+  }
+
+  notifyCreatedNote(
+    storageSlot: ForeignCallSingle,
+    noteTypeId: ForeignCallSingle,
+    note: ForeignCallArray,
+    innerNoteHash: ForeignCallSingle,
+    counter: ForeignCallSingle,
+  ) {
+    this.typedOracle.notifyCreatedNote(
+      fromSingle(storageSlot),
+      fromSingle(noteTypeId),
+      fromArray(note),
+      fromSingle(innerNoteHash),
+      fromSingle(counter).toNumber(),
+    );
+    return toForeignCallResult([]);
+  }
+
+  async notifyNullifiedNote(
+    innerNullifier: ForeignCallSingle,
+    innerNoteHash: ForeignCallSingle,
+    counter: ForeignCallSingle,
+  ) {
+    await this.typedOracle.notifyNullifiedNote(
+      fromSingle(innerNullifier),
+      fromSingle(innerNoteHash),
+      fromSingle(counter).toNumber(),
+    );
+    return toForeignCallResult([]);
+  }
+
+  async checkNullifierExists(innerNullifier: ForeignCallSingle) {
+    const exists = await this.typedOracle.checkNullifierExists(fromSingle(innerNullifier));
+    return toForeignCallResult([toSingle(new Fr(exists))]);
   }
 }
