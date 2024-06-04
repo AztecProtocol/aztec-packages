@@ -61,9 +61,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    info("Checking circuit");
-    circuit_builder.check_circuit();
-
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
@@ -227,8 +224,10 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
         size_t dest_offset = AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_L2_TO_L1_MSGS_OFFSET + (i * L2_TO_L1_MESSAGE_LENGTH);
 
-        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
-        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        // Note: unorthadox order
+        ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
     // For EMITUNENCRYPTEDLOG
     for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
@@ -494,7 +493,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_emit_unencrypted_log(std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SENDL2TOL1MSG:
-            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
             break;
             // Machine State - Internal Control Flow
         case OpCode::JUMP:

@@ -105,7 +105,7 @@ class AvmTraceBuilder {
     void op_emit_note_hash(uint32_t note_hash_offset);
     void op_emit_nullifier(uint32_t nullifier_offset);
     void op_emit_unencrypted_log(uint32_t log_offset);
-    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+    void op_emit_l2_to_l1_msg(uint32_t msg_offset, uint32_t recipient_offset);
 
     // With additional metadata output
     void op_l1_to_l2_msg_exists(uint32_t msg_offset, uint32_t dest_offset);
