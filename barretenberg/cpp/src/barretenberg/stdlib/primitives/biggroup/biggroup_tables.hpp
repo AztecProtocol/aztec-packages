@@ -336,7 +336,6 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(con
         element G2 = inputs[6] - F1; // G - F + E
         element G3 = inputs[6] - F0; // G - F - E
 
-        // WORKTODO: note possible regressions here.
         element_table[0] = G0 + E0;
         element_table[1] = G0 + E1;
         element_table[2] = G0 + E2;
