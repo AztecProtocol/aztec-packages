@@ -3,7 +3,7 @@ import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
- * A note with contextual data.
+ * A note with contextual data which was decrypted as outgoing.
  */
 export class OutgoingNoteDao {
   constructor(

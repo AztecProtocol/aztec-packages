@@ -5,7 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type NoteData } from '@aztec/simulator';
 
 /**
- * A note with contextual data.
+ * A note with contextual data which was decrypted as incoming.
  */
 export class IncomingNoteDao implements NoteData {
   constructor(

@@ -40,7 +40,7 @@ export class TaggedNote {
 
   /**
    * Create a random TaggedNote (useful for testing purposes).
-   * @param contract - The contract address to use in the payload.
+   * @param contract - The address of a contract the note was emitted from.
    * @returns A random TaggedNote object.
    */
   static random(contract = AztecAddress.random()): TaggedNote {
