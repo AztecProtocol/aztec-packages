@@ -9,7 +9,6 @@ import { type KeyStore } from '@aztec/key-store';
 import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
 /**
