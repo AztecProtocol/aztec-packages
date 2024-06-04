@@ -183,14 +183,7 @@ describe('Note Processor', () => {
   });
 
   it('should store an incoming note that belongs to us', async () => {
-    const request = new MockNoteRequest(
-      TaggedNote.random(app),
-      4,
-      0,
-      2,
-      ownerIvpkM,
-      KeyValidationRequest.random(),
-    );
+    const request = new MockNoteRequest(TaggedNote.random(app), 4, 0, 2, ownerIvpkM, KeyValidationRequest.random());
 
     const blocks = mockBlocks([request]);
 
