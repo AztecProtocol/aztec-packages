@@ -27,7 +27,7 @@ using Row = bb::AvmFullRow<bb::fr>;
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {}, ExecutionHints execution_hints = {});
 
     std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
     void reset();
@@ -84,6 +84,7 @@ class AvmTraceBuilder {
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
     // Call Context
+    void op_storage_address(uint32_t dst_offset);
     void op_sender(uint32_t dst_offset);
     void op_address(uint32_t dst_offset);
 
@@ -150,6 +151,17 @@ class AvmTraceBuilder {
     // direct:   return(M[ret_offset:ret_offset+ret_size])
     // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
     std::vector<FF> return_op(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
+
+    // Calls
+    void op_call(uint8_t indirect,
+                 uint32_t gas_offset,
+                 uint32_t addr_offset,
+                 uint32_t args_offset,
+                 uint32_t args_size,
+                 uint32_t ret_offset,
+                 uint32_t ret_size,
+                 uint32_t success_offset,
+                 uint32_t function_selector_offset);
 
     // Gadgets
     // --- Conversions
@@ -243,18 +255,32 @@ class AvmTraceBuilder {
     /**
      * @brief Create a kernel output opcode with set metadata output object
      *
-     * Used for writing output opcode where one value is written and comes from a hint
+     * Used for writing output opcode where one metadata value is written and comes from a hint
      * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
      *
      * @param clk - The trace clk
      * @param data_offset - The offset of the main value to output
-     * @param data_r_tag - The data type of the value
      * @param metadata_offset - The offset of the metadata (slot in the sload example)
-     * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
      * @return Row
      */
-    Row create_kernel_output_opcode_with_set_metadata_output(
-        uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value);
+    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
+                                                                       uint32_t data_offset,
+                                                                       uint32_t metadata_offset);
+
+    /**
+     * @brief Create a kernel output opcode with set metadata output object
+     *
+     * Used for writing output opcode where one value is written and comes from a hint
+     * {sload}
+     *
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @return Row
+     */
+    Row create_kernel_output_opcode_with_set_value_from_hint(uint32_t clk,
+                                                             uint32_t data_offset,
+                                                             uint32_t metadata_offset);
 
     void finalise_mem_trace_lookup_counts();
 
@@ -265,6 +291,15 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // Side effect counter will incremenent when any state writing values are
+    // encountered
+    uint32_t side_effect_counter = 0;
+    uint32_t return_data_counter = 0;
+
+    // Execution hints aid witness solving for instructions that require auxiliary information to construct
+    // Mapping of side effect counter -> value
+    ExecutionHints execution_hints;
 
     // TODO(ilyas: #6383): Temporary way to bulk read slices
     template <typename MEM>

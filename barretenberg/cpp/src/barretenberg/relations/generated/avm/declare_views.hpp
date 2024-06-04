@@ -195,6 +195,7 @@
     [[maybe_unused]] auto avm_main_rwc = View(new_term.avm_main_rwc);                                                  \
     [[maybe_unused]] auto avm_main_rwd = View(new_term.avm_main_rwd);                                                  \
     [[maybe_unused]] auto avm_main_sel_cmov = View(new_term.avm_main_sel_cmov);                                        \
+    [[maybe_unused]] auto avm_main_sel_external_call = View(new_term.avm_main_sel_external_call);                      \
     [[maybe_unused]] auto avm_main_sel_halt = View(new_term.avm_main_sel_halt);                                        \
     [[maybe_unused]] auto avm_main_sel_internal_call = View(new_term.avm_main_sel_internal_call);                      \
     [[maybe_unused]] auto avm_main_sel_internal_return = View(new_term.avm_main_sel_internal_return);                  \
@@ -237,6 +238,7 @@
     [[maybe_unused]] auto avm_main_sel_op_shr = View(new_term.avm_main_sel_op_shr);                                    \
     [[maybe_unused]] auto avm_main_sel_op_sload = View(new_term.avm_main_sel_op_sload);                                \
     [[maybe_unused]] auto avm_main_sel_op_sstore = View(new_term.avm_main_sel_op_sstore);                              \
+    [[maybe_unused]] auto avm_main_sel_op_storage_address = View(new_term.avm_main_sel_op_storage_address);            \
     [[maybe_unused]] auto avm_main_sel_op_sub = View(new_term.avm_main_sel_op_sub);                                    \
     [[maybe_unused]] auto avm_main_sel_op_timestamp = View(new_term.avm_main_sel_op_timestamp);                        \
     [[maybe_unused]] auto avm_main_sel_op_transaction_fee = View(new_term.avm_main_sel_op_transaction_fee);            \

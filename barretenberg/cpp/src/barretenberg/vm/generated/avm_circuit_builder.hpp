@@ -262,6 +262,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_rwc{};
     FF avm_main_rwd{};
     FF avm_main_sel_cmov{};
+    FF avm_main_sel_external_call{};
     FF avm_main_sel_halt{};
     FF avm_main_sel_internal_call{};
     FF avm_main_sel_internal_return{};
@@ -304,6 +305,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_shr{};
     FF avm_main_sel_op_sload{};
     FF avm_main_sel_op_sstore{};
+    FF avm_main_sel_op_storage_address{};
     FF avm_main_sel_op_sub{};
     FF avm_main_sel_op_timestamp{};
     FF avm_main_sel_op_transaction_fee{};
@@ -522,8 +524,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 429;
-    static constexpr size_t num_polys = 365;
+    static constexpr size_t num_fixed_columns = 431;
+    static constexpr size_t num_polys = 367;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -724,6 +726,7 @@ class AvmCircuitBuilder {
             polys.avm_main_rwc[i] = rows[i].avm_main_rwc;
             polys.avm_main_rwd[i] = rows[i].avm_main_rwd;
             polys.avm_main_sel_cmov[i] = rows[i].avm_main_sel_cmov;
+            polys.avm_main_sel_external_call[i] = rows[i].avm_main_sel_external_call;
             polys.avm_main_sel_halt[i] = rows[i].avm_main_sel_halt;
             polys.avm_main_sel_internal_call[i] = rows[i].avm_main_sel_internal_call;
             polys.avm_main_sel_internal_return[i] = rows[i].avm_main_sel_internal_return;
@@ -766,6 +769,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
             polys.avm_main_sel_op_sload[i] = rows[i].avm_main_sel_op_sload;
             polys.avm_main_sel_op_sstore[i] = rows[i].avm_main_sel_op_sstore;
+            polys.avm_main_sel_op_storage_address[i] = rows[i].avm_main_sel_op_storage_address;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
             polys.avm_main_sel_op_timestamp[i] = rows[i].avm_main_sel_op_timestamp;
             polys.avm_main_sel_op_transaction_fee[i] = rows[i].avm_main_sel_op_transaction_fee;
