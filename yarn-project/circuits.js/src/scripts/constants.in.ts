@@ -21,15 +21,29 @@ const CPP_CONSTANTS = [
   'HEADER_LENGTH',
   'CALL_CONTEXT_LENGTH',
   'PUBLIC_CONTEXT_INPUTS_LENGTH',
+  'PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH',
+  'READ_REQUEST_LENGTH',
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
-  'MAX_NEW_NOTE_HASHES_PER_CALL',
   'MAX_NULLIFIER_READ_REQUESTS_PER_CALL',
   'MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL',
-  'MAX_NEW_NULLIFIERS_PER_CALL',
-  'MAX_NEW_L2_TO_L1_MSGS_PER_CALL',
-  'MAX_UNENCRYPTED_LOGS_PER_CALL',
-  'MAX_PUBLIC_DATA_READS_PER_CALL',
+  'MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL',
+  'CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
+  'CONTRACT_STORAGE_READ_LENGTH',
+  'MAX_PUBLIC_DATA_READS_PER_CALL',
+  'MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL',
+  'NOTE_HASH_LENGTH',
+  'MAX_NEW_NOTE_HASHES_PER_CALL',
+  'NULLIFIER_LENGTH',
+  'MAX_NEW_NULLIFIERS_PER_CALL',
+  'L2_TO_L1_MESSAGE_LENGTH',
+  'MAX_NEW_L2_TO_L1_MSGS_PER_CALL',
+  'LOG_HASH_LENGTH',
+  'MAX_UNENCRYPTED_LOGS_PER_CALL',
+  'HEADER_LENGTH',
+  'GLOBAL_VARIABLES_LENGTH',
+  'AZTEC_ADDRESS_LENGTH',
+  'GAS_LENGTH',
 ];
 
 /**
@@ -37,7 +51,7 @@ const CPP_CONSTANTS = [
  */
 interface ParsedContent {
   /**
-   * Constants.
+   * Constants of the form "CONSTANT_NAME: number_as_string".
    */
   constants: { [key: string]: string };
   /**
@@ -70,9 +84,8 @@ function processConstantsTS(constants: { [key: string]: string }): string {
 function processConstantsCpp(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    // We exclude large numbers
-    if (CPP_CONSTANTS.includes(key) && !(value.startsWith('0x') || value.includes('0_0'))) {
-      code.push(`const size_t ${key} = ${value};`);
+    if (CPP_CONSTANTS.includes(key)) {
+      code.push(`#define ${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -133,7 +146,6 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 #pragma once
-#include <cstddef>
 
 ${processConstantsCpp(constants)}
 \n`;
@@ -171,7 +183,7 @@ ${processConstantsSolidity(constants)}
  * Parse the content of the constants file in Noir.
  */
 function parseNoirFile(fileContent: string): ParsedContent {
-  const constants: { [key: string]: string } = {};
+  const constantsExpressions: [string, string][] = [];
   const generatorIndexEnum: { [key: string]: number } = {};
 
   fileContent.split('\n').forEach(l => {
@@ -192,11 +204,52 @@ function parseNoirFile(fileContent: string): ParsedContent {
     if (indexName) {
       generatorIndexEnum[indexName] = +value;
     } else {
-      constants[name] = value;
+      constantsExpressions.push([name, value]);
     }
   });
 
+  const constants = evaluateExpressions(constantsExpressions);
+
   return { constants, generatorIndexEnum };
+}
+
+/**
+ * Converts constants defined as expressions to constants with actual values.
+ * @param expressions Ordered list of expressions of the type: "CONSTANT_NAME: expression".
+ *   where the expression is a string that can be evaluated to a number.
+ *   For example: "CONSTANT_NAME: 2 + 2" or "CONSTANT_NAME: CONSTANT_A * CONSTANT_B".
+ * @returns Parsed expressions of the form: "CONSTANT_NAME: number_as_string".
+ */
+function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
+  const constants: { [key: string]: string } = {};
+
+  // Create JS expressions. It is not as easy as just evaluating the expression!
+  // We basically need to convert everything to BigInts, otherwise things don't fit.
+  // However, (1) the bigints need to be initialized from strings; (2) everything needs to
+  // be a bigint, even the actual constant values!
+  const prelude = expressions
+    .map(([name, rhs]) => {
+      const guardedRhs = rhs
+        // We make some space around the parentheses, so that constant numbers are still split.
+        .replace(/\(/g, '( ')
+        .replace(/\)/g, ' )')
+        // We split the expression into terms...
+        .split(' ')
+        // ...and then we convert each term to a BigInt if it is a number.
+        .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        // We join the terms back together.
+        .join(' ');
+      return `var ${name} = ${guardedRhs};`;
+    })
+    .join('\n');
+
+  // Extract each value from the expressions. Observe that this will still be a string,
+  // so that we can then choose to express it as BigInt or Number depending on the size.
+  for (const [name, _] of expressions) {
+    constants[name] = eval(prelude + `; BigInt(${name}).toString()`);
+  }
+
+  return constants;
 }
 
 /**

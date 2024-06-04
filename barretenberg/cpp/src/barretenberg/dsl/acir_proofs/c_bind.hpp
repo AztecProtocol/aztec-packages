@@ -7,19 +7,14 @@
 using namespace bb;
 
 WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* constraint_system_buf,
+                                        bool const* honk_recursion,
                                         uint32_t* exact,
                                         uint32_t* total,
                                         uint32_t* subgroup);
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out);
 
-WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out);
-
 WASM_EXPORT void acir_delete_acir_composer(in_ptr acir_composer_ptr);
-
-WASM_EXPORT void acir_create_circuit(in_ptr acir_composer_ptr,
-                                     uint8_t const* constraint_system_buf,
-                                     uint32_t const* size_hint);
 
 WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* constraint_system_buf);
 
@@ -50,14 +45,12 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
                                                  bool* result);
 
 /**
- * @brief Construct a full goblin proof
- * @details Makes a call to accumulate to a final circuit before constructing a Goblin proof
+ * @brief Fold and verify a set of circuits using ClientIvc
  *
  */
-WASM_EXPORT void acir_goblin_prove(in_ptr acir_composer_ptr,
-                                   uint8_t const* constraint_system_buf,
-                                   uint8_t const* witness_buf,
-                                   uint8_t** out);
+WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* constraint_system_buf,
+                                                    uint8_t const* witness_buf,
+                                                    bool* result);
 
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf);
 
@@ -68,12 +61,6 @@ WASM_EXPORT void acir_get_verification_key(in_ptr acir_composer_ptr, uint8_t** o
 WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* acir_vec, uint8_t** out);
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
-
-/**
- * @brief Verifies a full goblin proof (and the MegaHonk proof produced by accumulation)
- *
- */
-WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
 

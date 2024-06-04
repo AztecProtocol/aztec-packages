@@ -1,6 +1,7 @@
 #pragma once
 
-#include "avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+
 #include <cstdint>
 
 namespace bb::avm_trace {
@@ -100,6 +101,7 @@ class AvmMemTraceBuilder {
     MemEntry read_and_load_mov_opcode(uint8_t space_id, uint32_t clk, uint32_t addr);
     std::array<MemEntry, 3> read_and_load_cmov_opcode(
         uint8_t space_id, uint32_t clk, uint32_t a_addr, uint32_t b_addr, uint32_t cond_addr);
+    MemEntry read_and_load_jumpi_opcode(uint8_t space_id, uint32_t clk, uint32_t cond_addr);
     MemEntry read_and_load_cast_opcode(uint8_t space_id, uint32_t clk, uint32_t addr, AvmMemoryTag w_in_tag);
     MemRead read_and_load_from_memory(uint8_t space_id,
                                       uint32_t clk,

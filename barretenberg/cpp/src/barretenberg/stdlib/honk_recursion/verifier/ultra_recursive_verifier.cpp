@@ -13,12 +13,30 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
     , builder(builder)
 {}
 
+template <typename Flavor>
+UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey)
+    : key(vkey)
+    , builder(builder)
+{}
+
 /**
- * @brief This function constructs a recursive verifier circuit for an Ultra Honk proof of a given flavor.
+ * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
  *
  */
 template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+{
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    return verify_proof(stdlib_proof);
+}
+
+/**
+ * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
+ *
+ */
+template <typename Flavor>
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof<Builder>& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -28,22 +46,20 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     using RelationParams = ::bb::RelationParameters<FF>;
     using Transcript = typename Flavor::Transcript;
 
+    transcript = std::make_shared<Transcript>(proof);
+
     RelationParams relation_parameters;
-
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
-
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    const auto public_input_size = transcript->template receive_from_prover<FF>("public_input_size");
-    const auto pub_inputs_offset = transcript->template receive_from_prover<FF>("pub_inputs_offset");
+    transcript->template receive_from_prover<FF>("circuit_size");
+    transcript->template receive_from_prover<FF>("public_input_size");
+    transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
     // For debugging purposes only
-    ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
-    ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
-    ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
+    // ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
+    // ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
+    // ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
@@ -95,8 +111,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
 
     const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(pub_inputs_offset.get_value()));
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
+        public_inputs, beta, gamma, key->circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, key->circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -109,7 +125,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {

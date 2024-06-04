@@ -1,8 +1,13 @@
 #include "acir_to_constraint_buf.hpp"
+#include "barretenberg/common/container.hpp"
 #ifndef __wasm__
 #include "barretenberg/bb/get_bytecode.hpp"
 #endif
+#include "barretenberg/common/map.hpp"
 namespace acir_format {
+
+using namespace bb;
+
 /**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
  *
@@ -50,7 +55,7 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     ASSERT(arg.linear_combinations.size() <= 3); // We can only accommodate 3 linear terms
     for (const auto& linear_term : arg.linear_combinations) {
-        bb::fr selector_value(uint256_t(std::get<0>(linear_term)));
+        fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -88,7 +93,7 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
     pt.q_c = uint256_t(arg.q_c);
     return pt;
 }
-mul_quad_<bb::fr> serialize_mul_quad_gate(Program::Expression const& arg)
+mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
     // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
@@ -96,16 +101,16 @@ mul_quad_<bb::fr> serialize_mul_quad_gate(Program::Expression const& arg)
     // erroneously populated with this value. This does not cause failures however because the corresponding selector
     // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
     // even if they dont break the relation. They'll still add cost in commitments, for example.
-    mul_quad_<bb::fr> quad{ .a = 0,
-                            .b = 0,
-                            .c = 0,
-                            .d = 0,
-                            .mul_scaling = 0,
-                            .a_scaling = 0,
-                            .b_scaling = 0,
-                            .c_scaling = 0,
-                            .d_scaling = 0,
-                            .const_scaling = 0 };
+    mul_quad_<fr> quad{ .a = 0,
+                        .b = 0,
+                        .c = 0,
+                        .d = 0,
+                        .mul_scaling = 0,
+                        .a_scaling = 0,
+                        .b_scaling = 0,
+                        .c_scaling = 0,
+                        .d_scaling = 0,
+                        .const_scaling = 0 };
 
     // Flags indicating whether each witness index for the present mul_quad has been set
     bool a_set = false;
@@ -125,7 +130,7 @@ mul_quad_<bb::fr> serialize_mul_quad_gate(Program::Expression const& arg)
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     ASSERT(arg.linear_combinations.size() <= 4); // We can only accommodate 4 linear terms
     for (const auto& linear_term : arg.linear_combinations) {
-        bb::fr selector_value(uint256_t(std::get<0>(linear_term)));
+        fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -177,7 +182,7 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af)
     }
 }
 
-void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af)
+void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, bool honk_recursion)
 {
     std::visit(
         [&](auto&& arg) {
@@ -354,13 +359,22 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
-                auto c = RecursionConstraint{
-                    .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
-                    .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
-                    .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
-                    .key_hash = arg.key_hash.witness.value,
-                };
-                af.recursion_constraints.push_back(c);
+                if (honk_recursion) { // if we're using the honk recursive verifier
+                    auto c = HonkRecursionConstraint{
+                        .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
+                        .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
+                        .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
+                    };
+                    af.honk_recursion_constraints.push_back(c);
+                } else {
+                    auto c = RecursionConstraint{
+                        .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
+                        .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
+                        .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
+                        .key_hash = arg.key_hash.witness.value,
+                    };
+                    af.recursion_constraints.push_back(c);
+                }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
                     .inputs = map(arg.inputs, [](auto& e) { return e.witness.value; }),
@@ -467,7 +481,7 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     block.trace.push_back(acir_mem_op);
 }
 
-AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
+AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool honk_recursion)
 {
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
@@ -484,7 +498,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
                 if constexpr (std::is_same_v<T, Program::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af);
+                    handle_blackbox_func_call(arg, af, honk_recursion);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
                     uint32_t block_id = arg.block_id.value;
@@ -507,14 +521,14 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just `program_buf_to_acir_format`
     // once Honk fully supports all ACIR test flows
     // For now the backend still expects to work with a single ACIR function
     auto circuit = Program::Program::bincodeDeserialize(buf).functions[0];
 
-    return circuit_serde_to_acir_format(circuit);
+    return circuit_serde_to_acir_format(circuit, honk_recursion);
 }
 
 /**
@@ -534,10 +548,10 @@ WitnessVector witness_map_to_witness_vector(WitnessStack::WitnessMap const& witn
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
         // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
-            wv.push_back(bb::fr(0));
+            wv.push_back(fr(0));
             index++;
         }
-        wv.push_back(bb::fr(uint256_t(e.second)));
+        wv.push_back(fr(uint256_t(e.second)));
         index++;
     }
     return wv;
@@ -562,14 +576,14 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf)
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion)
 {
     auto program = Program::Program::bincodeDeserialize(buf);
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());
     for (auto const& function : program.functions) {
-        constraint_systems.emplace_back(circuit_serde_to_acir_format(function));
+        constraint_systems.emplace_back(circuit_serde_to_acir_format(function, honk_recursion));
     }
 
     return constraint_systems;
@@ -588,10 +602,15 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 }
 
 #ifndef __wasm__
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
+AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
+                                        std::string const& witness_path,
+                                        bool honk_recursion)
 {
     auto bytecode = get_bytecode(bytecode_path);
-    auto constraint_systems = program_buf_to_acir_format(bytecode);
+    auto constraint_systems =
+        program_buf_to_acir_format(bytecode,
+                                   honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                                                    // Remove honk recursion flag
 
     auto witness_data = get_bytecode(witness_path);
     auto witness_stack = witness_buf_to_witness_stack(witness_data);
