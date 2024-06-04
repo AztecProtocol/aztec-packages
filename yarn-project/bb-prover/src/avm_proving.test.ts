@@ -42,12 +42,12 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT
   );
 
-  it.only("Should new note hash",
-    async () => {
-      await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
-    },
-    TIMEOUT
-  )
+  // it.only("Should new note hash",
+  //   async () => {
+  //     await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
+  //   },
+  //   TIMEOUT
+  // )
 });
 
 const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[] = []) => {
