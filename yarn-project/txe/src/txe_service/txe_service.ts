@@ -41,10 +41,10 @@ export class TXEService {
     return service;
   }
 
-  async getPrivateContextInputs() {
+  async getPrivateContextInputs(blockNumber: ForeignCallSingle) {
     const inputs = PrivateContextInputs.empty();
     const stateReference = await this.trees.getStateReference(true);
-    inputs.historicalHeader.globalVariables.blockNumber = new Fr(this.blockNumber);
+    inputs.historicalHeader.globalVariables.blockNumber = fromSingle(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.callContext.msgSender = AztecAddress.random();
     inputs.callContext.storageContractAddress = this.contractAddress;
