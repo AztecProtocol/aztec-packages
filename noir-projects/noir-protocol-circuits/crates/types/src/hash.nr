@@ -35,7 +35,7 @@ pub fn private_functions_root_from_siblings(
     root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path)
 }
 
-fn compute_note_hash_nonce(first_nullifier: Field, note_hash_index: u64) -> Field {
+pub fn compute_note_hash_nonce(first_nullifier: Field, note_hash_index: u32) -> Field {
     pedersen_hash(
         [
         first_nullifier,
