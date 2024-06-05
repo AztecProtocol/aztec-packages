@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717589972737,
+  "lastUpdate": 1717590459699,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -22104,6 +22104,78 @@ window.BENCHMARK_DATA = {
             "value": 164528473,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164528473 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e61c40e9c3e71f50c2d6a6c8a1688b6a8ddd4ba8",
+          "message": "fix: Biggroup batch mul handles collisions (#6780)\n\nThe following PR adds an edgecase handling mode to biggroup batch\r\nmultiplication. In this mode the points are randomised in such a way as\r\navoid weird interactions (doublings and point at infinity cases).\r\nIt enables using tables for RecurisveMergeVerifier and Recursive\r\nVerifier for Protogalaxy on ultra (it also halves the gatecount from 4.5\r\nmln to 2.2).\r\nFor a batch multiplication of 5 points it increases the gate count in\r\nultra from ~72k to ~78k\r\n\r\n---------\r\n\r\nCo-authored-by: Rumata888 <isennovskiy@gmail.com>",
+          "timestamp": "2024-06-05T13:05:19+01:00",
+          "tree_id": "58638b5305b935992fb0994e773c1c2f263f94b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e61c40e9c3e71f50c2d6a6c8a1688b6a8ddd4ba8"
+        },
+        "date": 1717590458118,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15333.652208000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10744.032322 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5502.318521999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5100.248867 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49101.161121,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49101163000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16919.472431,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16919472000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5095410537,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5095410537 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197821075,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197821075 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4197470542,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4197470542 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162657775,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162657775 ns\nthreads: 1"
           }
         ]
       }
