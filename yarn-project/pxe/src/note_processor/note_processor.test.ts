@@ -233,6 +233,7 @@ describe('Note Processor', () => {
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith(
+      // Incoming should contain notes from requests 0, 2, 4 because in those requests we set owner ivpk.
       [
         expect.objectContaining({
           ...requests[0].note.notePayload,
@@ -247,6 +248,7 @@ describe('Note Processor', () => {
           index: requests[4].indexWithinNoteHashTree,
         }),
       ],
+      // Outgoing should contain notes from requests 0, 1, 4 because in those requests we set owner ovKeys.
       [
         expect.objectContaining(requests[0].note.notePayload),
         expect.objectContaining(requests[1].note.notePayload),
