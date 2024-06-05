@@ -227,6 +227,9 @@ TEST(subcircuits, shl_circuit)
 
 // Check that all the relative offsets are calculated correctly.
 // I.e. I can find all three operands at the indices, given by get_standard_logic_circuit
+// I can't check the position of the lhs here, since shr doesn't use the witness directly but
+// it's accumulators.
+// However, according to standard_circuit test they seem fine.
 TEST(subcircuits, shr_circuit)
 {
     for (uint32_t r = 1; r < 8; r += 2) {
