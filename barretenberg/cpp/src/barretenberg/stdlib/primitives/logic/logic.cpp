@@ -1,10 +1,25 @@
 #include "logic.hpp"
+
+#include <cstddef>
+#include <cstdint>
+
 #include "../circuit_builders/circuit_builders.hpp"
 #include "../plookup/plookup.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include <cstddef>
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+namespace bb {
+class CircuitSimulatorBN254;
+} // namespace bb
 
 namespace bb::stdlib {
 

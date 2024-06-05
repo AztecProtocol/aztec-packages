@@ -1,5 +1,12 @@
 #pragma once
+#include <map>
+#include <memory>
+#include <string>
+
 #include "barretenberg/eccvm_recursion/eccvm_recursive_flavor.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 template <typename Flavor> class ECCVMRecursiveVerifier_ {

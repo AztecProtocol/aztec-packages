@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 

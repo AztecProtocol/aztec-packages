@@ -67,6 +67,16 @@
       }
     },
     {
+      "name": "clang18",
+      "displayName": "Build with Clang-18",
+      "description": "Build with globally installed Clang-18",
+      "inherits": "default",
+      "environment": {
+        "CC": "clang-18",
+        "CXX": "clang++-18"
+      }
+    },
+    {
       "name": "clang16-dbg",
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",

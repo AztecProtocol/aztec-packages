@@ -1,19 +1,34 @@
 #include "plookup_tables.hpp"
+
+#include <array>
+#include <mutex>
+#include <vector>
+
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/aes128.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/blake2s.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/dummy.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/uint.hpp"
-
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_chi.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_input.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_output.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
-#include <mutex>
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/sparse.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/uint.hpp"
+
 namespace bb::plookup {
 
 using namespace bb;

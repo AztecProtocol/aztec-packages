@@ -1,6 +1,8 @@
+#include <cstddef>
+#include <cstdint>
+
 #include "./serialize.hpp"
 #include "./wasm_export.hpp"
-#include <cstddef>
 
 WASM_EXPORT void test_threads(uint32_t const* threads, uint32_t const* iterations, uint32_t* out);
 

@@ -1,14 +1,35 @@
 #pragma once
+#include <concepts>
+#include <map>
+#include <msgpack/sbuffer_decl.hpp>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
-#include <msgpack/sbuffer_decl.hpp>
-#include <utility>
+#include "msgpack/v3/sbuffer_decl.hpp"
 
-#include <unordered_map>
+namespace msgpack {
+namespace v1 {
+class sbuffer;
+} // namespace v1
+} // namespace msgpack
 
 namespace bb {
+template <typename FF> struct add_triple_;
+template <typename FF> struct mul_triple_;
+template <typename FF> struct poly_triple_;
+
 static constexpr uint32_t DUMMY_TAG = 0;
 
 template <typename FF_> class CircuitBuilderBase {

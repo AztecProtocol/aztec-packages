@@ -1,7 +1,37 @@
 #include "ecdsa_secp256r1.hpp"
+
+#include <algorithm>
+#include <iterator>
+#include <stddef.h>
+#include <string>
+#include <vector>
+
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/crypto/ecdsa/ecdsa_impl.hpp"
+#include "barretenberg/crypto/hashers/hashers.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/encryption/ecdsa/ecdsa_impl.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_impl.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "ecdsa_secp256k1.hpp"
 
 using namespace bb;

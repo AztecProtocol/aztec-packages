@@ -1,11 +1,8 @@
 #include "aes128.hpp"
 
-#include "memory.h"
-#include <array>
 #include <cstddef>
 #include <cstdint>
-
-#include <iostream>
+#include <string.h>
 
 namespace {
 

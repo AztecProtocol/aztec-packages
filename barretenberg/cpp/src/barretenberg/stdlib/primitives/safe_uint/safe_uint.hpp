@@ -1,11 +1,25 @@
 #pragma once
+#include <array>
+#include <functional>
+#include <iosfwd>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <utility>
+
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../witness/witness.hpp"
 #include "barretenberg/common/assert.hpp"
-#include <functional>
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
 
 // The purpose of this class is to enable positive integer operations without a risk of overflow.
 // Despite the name, it is *not* a "safe" version of the uint class - as operations are positive integer

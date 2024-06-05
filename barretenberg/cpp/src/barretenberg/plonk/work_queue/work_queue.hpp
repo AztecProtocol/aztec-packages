@@ -1,7 +1,24 @@
 #pragma once
 
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+
+namespace bb {
+namespace plonk {
+namespace transcript {
+class StandardTranscript;
+} // namespace transcript
+struct proving_key;
+} // namespace plonk
+} // namespace bb
 
 namespace bb::plonk {
 

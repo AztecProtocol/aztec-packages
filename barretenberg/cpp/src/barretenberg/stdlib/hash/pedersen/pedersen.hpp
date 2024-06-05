@@ -1,10 +1,19 @@
 #pragma once
+#include <vector>
+
+#include "../../primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
-#include "../../primitives/circuit_builders/circuit_builders.hpp"
+namespace bb {
+namespace stdlib {
+template <typename Builder> class byte_array;
+} // namespace stdlib
+} // namespace bb
 
 namespace bb::stdlib {
 

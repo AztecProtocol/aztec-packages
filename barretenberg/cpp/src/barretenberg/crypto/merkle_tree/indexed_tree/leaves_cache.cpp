@@ -1,5 +1,13 @@
 #include "leaves_cache.hpp"
 
+#include <stddef.h>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+
 namespace bb::crypto::merkle_tree {
 
 index_t LeavesCache::get_size() const

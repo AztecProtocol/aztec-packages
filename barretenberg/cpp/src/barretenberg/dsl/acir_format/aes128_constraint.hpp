@@ -1,8 +1,10 @@
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
 #include <array>
 #include <cstdint>
 #include <vector>
+
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
 
 namespace acir_format {
 

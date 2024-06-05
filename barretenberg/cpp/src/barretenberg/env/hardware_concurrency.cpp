@@ -1,7 +1,7 @@
 #include "hardware_concurrency.hpp"
-#include <barretenberg/common/throw_or_abort.hpp>
+
 #include <cstdlib>
-#include <iostream>
+#include <exception>
 #include <stdexcept>
 #include <string>
 

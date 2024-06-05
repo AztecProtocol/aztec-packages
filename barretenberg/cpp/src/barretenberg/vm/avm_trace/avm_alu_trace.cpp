@@ -1,5 +1,16 @@
 #include "barretenberg/vm/avm_trace/avm_alu_trace.hpp"
 
+#include <assert.h>
+#include <stddef.h>
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+
 namespace bb::avm_trace {
 
 /**

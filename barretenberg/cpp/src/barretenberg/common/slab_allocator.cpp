@@ -1,10 +1,14 @@
 #include "slab_allocator.hpp"
-#include <barretenberg/common/assert.hpp>
-#include <barretenberg/common/log.hpp>
+
 #include <barretenberg/common/mem.hpp>
 #include <cstddef>
+#include <list>
+#include <map>
+#include <mutex>
 #include <numeric>
+#include <stdlib.h>
 #include <unordered_map>
+#include <utility>
 
 #define LOGGING 0
 

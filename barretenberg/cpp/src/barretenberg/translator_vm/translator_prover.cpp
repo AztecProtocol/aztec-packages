@@ -1,10 +1,30 @@
 #include "translator_prover.hpp"
-#include "barretenberg/commitment_schemes/claim.hpp"
+
+#include <algorithm>
+#include <array>
+#include <functional>
+#include <iterator>
+#include <span>
+#include <stdint.h>
+#include <string>
+#include <tuple>
+#include <vector>
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 

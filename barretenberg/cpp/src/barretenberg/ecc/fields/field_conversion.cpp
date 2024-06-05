@@ -1,5 +1,7 @@
 
 #include "barretenberg/ecc/fields/field_conversion.hpp"
+
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
 namespace bb::field_conversion {

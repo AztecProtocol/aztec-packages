@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include "./runtime_states.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include <cstddef>
-#include <cstdint>
 
 namespace bb::scalar_multiplication {
 

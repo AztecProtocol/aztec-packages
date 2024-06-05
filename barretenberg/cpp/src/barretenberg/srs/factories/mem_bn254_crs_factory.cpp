@@ -1,9 +1,11 @@
 #include "mem_bn254_crs_factory.hpp"
+
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
-#include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/ecc/curves/bn254/pairing_impl.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_prover_crs.hpp"
 
 namespace {

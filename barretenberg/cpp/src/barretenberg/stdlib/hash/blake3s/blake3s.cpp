@@ -1,5 +1,11 @@
 #include "blake3s.hpp"
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include "../blake2s/blake_util.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "blake3s_plookup.hpp"
 

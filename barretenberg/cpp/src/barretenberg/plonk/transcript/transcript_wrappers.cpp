@@ -1,6 +1,13 @@
 #include "./transcript_wrappers.hpp"
-#include "manifest.hpp"
+
+#include <array>
 #include <vector>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 
 namespace bb::plonk::transcript {
 void StandardTranscript::add_field_element(const std::string& element_name, const bb::fr& element)

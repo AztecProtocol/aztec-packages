@@ -1,8 +1,13 @@
 #pragma once
 
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-
+#include <array>
 #include <cstdint>
+#include <map>
+#include <unordered_map>
+#include <vector>
+
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 

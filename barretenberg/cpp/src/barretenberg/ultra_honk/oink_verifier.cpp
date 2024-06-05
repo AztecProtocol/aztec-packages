@@ -1,5 +1,17 @@
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
+#include <algorithm>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+
 namespace bb {
 
 /**

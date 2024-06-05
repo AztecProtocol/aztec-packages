@@ -1,4 +1,8 @@
 #include "polynomial_store_wasm.hpp"
+
+#include <stdint.h>
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/env/data_store.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 

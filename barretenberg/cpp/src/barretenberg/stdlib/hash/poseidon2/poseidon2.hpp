@@ -1,10 +1,20 @@
 #pragma once
-#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/stdlib/hash/poseidon2/sponge/sponge.hpp"
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include <vector>
 
 #include "../../primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/sponge/sponge.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+
+namespace bb {
+namespace stdlib {
+template <typename Builder> class byte_array;
+} // namespace stdlib
+} // namespace bb
 
 namespace bb::stdlib {
 

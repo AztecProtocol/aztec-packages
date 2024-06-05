@@ -1,12 +1,19 @@
 #pragma once
-#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
-#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
-
 #include <array>
 #include <cstdint>
+#include <map>
 #include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 
 namespace acir_format {
 

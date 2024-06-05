@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <stddef.h>
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"

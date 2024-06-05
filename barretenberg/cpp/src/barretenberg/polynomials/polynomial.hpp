@@ -1,12 +1,29 @@
 #pragma once
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <fstream>
+#include <memory>
+#include <span>
+#include <stdint.h>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
-#include <fstream>
 
 namespace bb {
+template <typename FF> class EvaluationDomain;
+
 enum class DontZeroMemory { FLAG };
 
 template <typename Fr> class Polynomial {

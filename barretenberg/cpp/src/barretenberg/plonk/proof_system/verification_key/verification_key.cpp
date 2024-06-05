@@ -1,8 +1,19 @@
 #include "verification_key.hpp"
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+
+namespace bb {
+enum class CircuitType : uint32_t;
+namespace curve {
+class BN254;
+} // namespace curve
+} // namespace bb
 
 namespace bb::plonk {
 

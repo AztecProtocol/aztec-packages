@@ -1,9 +1,13 @@
 #pragma once
 
-#include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-
+#include <stdint.h>
 #include <unordered_map>
+#include <vector>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 

@@ -1,8 +1,16 @@
 #pragma once
+#include <iomanip>
+#include <ostream>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
 #include "../bool/bool.hpp"
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace bb::stdlib {
 

@@ -1,5 +1,17 @@
 #include "non_native_group_generator.hpp"
 
+#include <vector>
+
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+
 namespace bb::plookup::ecc_generator_tables {
 
 /**

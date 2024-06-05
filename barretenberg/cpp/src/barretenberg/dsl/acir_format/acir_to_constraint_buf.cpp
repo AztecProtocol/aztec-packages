@@ -1,9 +1,51 @@
 #include "acir_to_constraint_buf.hpp"
+
+#include <map>
+#include <stddef.h>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <variant>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/aes128_constraint.hpp"
+#include "barretenberg/dsl/acir_format/bigint_constraint.hpp"
+#include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
+#include "barretenberg/dsl/acir_format/blake3_constraint.hpp"
+#include "barretenberg/dsl/acir_format/block_constraint.hpp"
+#include "barretenberg/dsl/acir_format/ec_operations.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_secp256r1.hpp"
+#include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/keccak_constraint.hpp"
+#include "barretenberg/dsl/acir_format/logic_constraint.hpp"
+#include "barretenberg/dsl/acir_format/multi_scalar_mul.hpp"
+#include "barretenberg/dsl/acir_format/pedersen.hpp"
+#include "barretenberg/dsl/acir_format/poseidon2_constraint.hpp"
+#include "barretenberg/dsl/acir_format/range_constraint.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/schnorr_verify.hpp"
+#include "barretenberg/dsl/acir_format/serde/acir.hpp"
+#include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/dsl/acir_format/sha256_constraint.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #ifndef __wasm__
 #include "barretenberg/bb/get_bytecode.hpp"
 #endif
 #include "barretenberg/common/map.hpp"
+
 namespace acir_format {
 
 using namespace bb;

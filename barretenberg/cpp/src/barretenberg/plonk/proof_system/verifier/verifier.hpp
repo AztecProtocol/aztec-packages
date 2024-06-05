@@ -1,9 +1,33 @@
 #pragma once
+#include <iomanip>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <utility>
+
 #include "../types/program_settings.hpp"
 #include "../types/proof.hpp"
 #include "../widgets/random_widgets/random_widget.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk/proof_system/commitment_scheme/commitment_scheme.hpp"
 #include "barretenberg/plonk/transcript/manifest.hpp"
+
+namespace bb {
+namespace plonk {
+class CommitmentScheme;
+struct proof;
+struct verification_key;
+} // namespace plonk
+} // namespace bb
 
 namespace bb::plonk {
 template <typename program_settings> class VerifierBase {

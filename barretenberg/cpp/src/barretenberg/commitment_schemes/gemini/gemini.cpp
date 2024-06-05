@@ -1,10 +1,17 @@
 
 #include "gemini.hpp"
-#include "barretenberg/common/thread.hpp"
 
-#include <bit>
-#include <memory>
+#include <algorithm>
+#include <cstddef>
 #include <vector>
+
+#include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 
 /**
  * @brief Protocol for opening several multi-linear polynomials at the same point.

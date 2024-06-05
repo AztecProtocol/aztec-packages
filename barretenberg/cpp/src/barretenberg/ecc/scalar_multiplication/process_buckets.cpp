@@ -1,5 +1,6 @@
 #include "process_buckets.hpp"
 
+#include <algorithm>
 #include <array>
 
 namespace bb::scalar_multiplication {

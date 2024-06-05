@@ -1,6 +1,25 @@
 #include "pedersen.hpp"
+
+#include <stddef.h>
+#include <string>
+
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+namespace bb {
+namespace stdlib {
+template <typename Builder> class byte_array;
+} // namespace stdlib
+} // namespace bb
+
 namespace bb::stdlib {
 
 using namespace bb;

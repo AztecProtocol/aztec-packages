@@ -1,10 +1,10 @@
 
-#include <cstddef>
 #ifdef BB_USE_OP_COUNT
-#include "op_count.hpp"
 #include <iostream>
 #include <sstream>
 #include <thread>
+
+#include "op_count.hpp"
 
 namespace bb::detail {
 

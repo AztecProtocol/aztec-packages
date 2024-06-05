@@ -1,7 +1,12 @@
 #include "ultra_prover.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
+
+#include <stddef.h>
+#include <string>
+#include <vector>
+
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+
 namespace bb {
 
 /**

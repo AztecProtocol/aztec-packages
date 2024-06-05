@@ -1,6 +1,11 @@
 #pragma once
 
+#include <memory>
+#include <stddef.h>
+
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
@@ -9,6 +14,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
+template <class Curve> class VerifierCommitmentKey;
 
 /**
  * @brief Verifier class for the Goblin ECC op queue transcript merge protocol

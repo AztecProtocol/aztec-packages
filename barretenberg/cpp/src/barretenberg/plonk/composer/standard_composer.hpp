@@ -1,14 +1,31 @@
 #pragma once
 
+#include <memory>
+#include <stddef.h>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
+#include "barretenberg/plonk/transcript/manifest.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
-#include <utility>
+
+namespace bb {
+namespace curve {
+class BN254;
+} // namespace curve
+} // namespace bb
 
 namespace bb::plonk {
 class StandardComposer {

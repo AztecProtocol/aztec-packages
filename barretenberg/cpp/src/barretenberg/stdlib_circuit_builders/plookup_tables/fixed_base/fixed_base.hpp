@@ -1,10 +1,27 @@
 #pragma once
 
+#include <array>
+#include <optional>
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
 #include "../types.hpp"
 #include "./fixed_base_params.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 
 namespace bb::plookup::fixed_base {
 

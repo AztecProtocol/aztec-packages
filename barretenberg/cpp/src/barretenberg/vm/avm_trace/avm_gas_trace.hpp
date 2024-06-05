@@ -1,6 +1,10 @@
+#include <cstdint>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
-#include <cstdint>
 
 namespace bb::avm_trace {
 

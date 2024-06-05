@@ -1,15 +1,13 @@
 #ifndef NO_MULTITHREADING
-#include "log.hpp"
-#include "thread.hpp"
-#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
-#include <queue>
+#include <stddef.h>
 #include <thread>
 #include <vector>
 
 #include "barretenberg/common/compiler_hints.hpp"
+#include "thread.hpp"
 
 namespace {
 

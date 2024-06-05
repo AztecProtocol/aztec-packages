@@ -1,10 +1,26 @@
 #include "keccak.hpp"
+
+#include <stddef.h>
+#include <string>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
 namespace bb::stdlib {
 
 using namespace bb::plookup;

@@ -1,6 +1,32 @@
 #include "./eccvm_verifier.hpp"
+
+#include <algorithm>
+#include <array>
+#include <optional>
+#include <span>
+#include <stddef.h>
+#include <stdint.h>
+#include <tuple>
+#include <vector>
+
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
 
 namespace bb {
 

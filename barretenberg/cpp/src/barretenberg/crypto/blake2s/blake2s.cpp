@@ -14,7 +14,6 @@
 */
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 
 #include "blake2-impl.hpp"

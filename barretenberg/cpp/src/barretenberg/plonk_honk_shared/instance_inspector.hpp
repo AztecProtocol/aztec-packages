@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stddef.h>
+#include <string>
+#include <vector>
+
 #include "barretenberg/common/log.hpp"
 
 namespace bb::instance_inspector {

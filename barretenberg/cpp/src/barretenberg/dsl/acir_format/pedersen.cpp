@@ -1,7 +1,7 @@
 #include "pedersen.hpp"
+
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace acir_format {

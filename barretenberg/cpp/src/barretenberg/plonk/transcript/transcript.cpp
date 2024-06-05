@@ -1,16 +1,24 @@
 #include "transcript.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/net.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/crypto/blake3s/blake3s.hpp"
-#include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
-#include "manifest.hpp"
+
+#include <algorithm>
 #include <array>
 #include <cstddef>
-#include <iomanip>
-#include <iostream>
 #include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/net.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/crypto/keccak/hash_types.hpp"
+#include "barretenberg/crypto/keccak/keccak.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "manifest.hpp"
 
 namespace bb::plonk::transcript {
 

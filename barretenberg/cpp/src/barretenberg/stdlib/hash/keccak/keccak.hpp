@@ -1,8 +1,19 @@
 #pragma once
+#include <array>
+#include <stdint.h>
+#include <string.h>
+#include <vector>
+
+#include "barretenberg/crypto/keccak/hash_types.hpp"
+#include "barretenberg/crypto/keccak/keccak.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-#include <array>
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace bb::stdlib {
 template <typename Builder> class bit_array;

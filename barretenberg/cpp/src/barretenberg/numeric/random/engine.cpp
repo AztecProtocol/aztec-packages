@@ -1,8 +1,13 @@
 #include "engine.hpp"
-#include "barretenberg/common/assert.hpp"
+
+#include <algorithm>
 #include <array>
 #include <functional>
+#include <iterator>
 #include <random>
+#include <stddef.h>
+
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 namespace bb::numeric {
 

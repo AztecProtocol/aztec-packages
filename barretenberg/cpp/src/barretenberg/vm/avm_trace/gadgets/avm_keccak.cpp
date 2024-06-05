@@ -1,9 +1,14 @@
 #include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
-#include "barretenberg/crypto/hashers/hashers.hpp"
-#include "barretenberg/crypto/keccak/keccak.hpp"
 
 #include <algorithm>
 #include <cstdint>
+#include <stddef.h>
+#include <utility>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/keccak/hash_types.hpp"
+#include "barretenberg/crypto/keccak/keccak.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 

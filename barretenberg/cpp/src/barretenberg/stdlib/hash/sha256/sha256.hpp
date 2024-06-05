@@ -1,10 +1,16 @@
 #pragma once
+#include <array>
+#include <stddef.h>
+#include <vector>
+
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "sha256_plookup.hpp"
-#include <array>
 // namespace bb
 
 namespace bb::stdlib {

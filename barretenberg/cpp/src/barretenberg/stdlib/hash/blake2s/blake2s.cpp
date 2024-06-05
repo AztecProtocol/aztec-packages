@@ -1,4 +1,10 @@
 #include "blake2s.hpp"
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "blake2s_plookup.hpp"
 #include "blake_util.hpp"

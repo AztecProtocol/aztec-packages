@@ -2,13 +2,29 @@
 
 #pragma once
 
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 #include "barretenberg/vm/generated/avm_prover.hpp"
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
+namespace srs {
+namespace factories {
+template <typename Curve> class CrsFactory;
+} // namespace factories
+} // namespace srs
+
 class AvmComposer {
   public:
     using Flavor = AvmFlavor;

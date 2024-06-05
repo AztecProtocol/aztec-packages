@@ -1,7 +1,22 @@
 #pragma once
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
 #include "../hash.hpp"
 #include "../merkle_tree.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "nullifier_leaf.hpp"
+
+namespace bb {
+namespace crypto {
+namespace merkle_tree {
+template <typename HashingPolicy> class WrappedNullifierLeaf;
+} // namespace merkle_tree
+} // namespace crypto
+} // namespace bb
 
 namespace bb::crypto::merkle_tree {
 

@@ -1,5 +1,29 @@
 #pragma once
+#include <algorithm>
+#include <array>
 #include <barretenberg/dsl/acir_format/acir_format.hpp>
+#include <iomanip>
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+namespace acir_format {
+struct AcirFormat;
+} // namespace acir_format
 
 namespace acir_proofs {
 

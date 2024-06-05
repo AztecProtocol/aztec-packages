@@ -1,6 +1,12 @@
 
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
 
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+
 namespace bb::avm_trace {
 
 AvmConversionTraceBuilder::AvmConversionTraceBuilder()

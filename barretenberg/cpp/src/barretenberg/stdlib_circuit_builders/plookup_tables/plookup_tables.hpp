@@ -1,5 +1,8 @@
 #pragma once
+#include <stddef.h>
+
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 namespace bb::plookup {

@@ -1,10 +1,11 @@
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "barretenberg/vm/avm_trace/avm_trace.hpp"
-#include "constants.hpp"
 
 #include <cstdint>
-#include <sys/types.h>
+#include <tuple>
+#include <utility>
+
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 // For the meantime, we do not fire around the public inputs as a vector or otherwise
 // Instead we fire them around as a fixed length array from the kernel, as that is how they will be

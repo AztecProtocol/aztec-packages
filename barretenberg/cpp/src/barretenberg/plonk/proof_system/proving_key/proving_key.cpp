@@ -1,7 +1,20 @@
 #include "proving_key.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
+
+#include <string.h>
+#include <utility>
+
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+
+namespace bb {
+namespace curve {
+class BN254;
+} // namespace curve
+namespace srs {
+namespace factories {
+template <typename Curve> class ProverCrs;
+} // namespace factories
+} // namespace srs
+} // namespace bb
 
 namespace bb::plonk {
 

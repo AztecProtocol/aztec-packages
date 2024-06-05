@@ -1,12 +1,21 @@
 #pragma once
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "../io.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "crs_factory.hpp"
-#include <cstddef>
-#include <utility>
+
+namespace bb {
+namespace pairing {
+struct miller_lines;
+} // namespace pairing
+} // namespace bb
 
 namespace bb::srs::factories {
 

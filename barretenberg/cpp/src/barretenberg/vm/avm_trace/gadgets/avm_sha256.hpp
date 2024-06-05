@@ -1,10 +1,10 @@
 #pragma once
 
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-
 #include <array>
 #include <cstdint>
 #include <vector>
+
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 class AvmSha256TraceBuilder {

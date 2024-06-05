@@ -1,8 +1,24 @@
 #include "simple.hpp"
+
+#include <algorithm>
+#include <array>
 #include <barretenberg/common/timer.hpp>
-#include <barretenberg/plonk/proof_system/proving_key/serialize.hpp>
 #include <barretenberg/plonk/proof_system/types/proof.hpp>
+#include <iomanip>
 #include <memory>
+#include <stddef.h>
+#include <string>
+#include <vector>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
+#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace examples::simple {
 

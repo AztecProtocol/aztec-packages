@@ -1,7 +1,21 @@
 #pragma once
+#include <algorithm>
+#include <array>
+#include <stdint.h>
+#include <stdio.h>
+#include <string>
+#include <type_traits>
+#include <vector>
+
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../uint/uint.hpp"
-#include <algorithm>
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace bb::stdlib {
 

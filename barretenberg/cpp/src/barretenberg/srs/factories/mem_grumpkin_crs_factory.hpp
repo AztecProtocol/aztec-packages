@@ -1,7 +1,11 @@
 #pragma once
-#include "crs_factory.hpp"
 #include <cstddef>
+#include <memory>
 #include <utility>
+#include <vector>
+
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "crs_factory.hpp"
 
 namespace bb::srs::factories {
 

@@ -1,5 +1,8 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 
+#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/recursive_verifier_instance.hpp"
+
 namespace bb {
 
 /**

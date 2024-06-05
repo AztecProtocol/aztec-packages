@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <stddef.h>
+
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/relations/relation_types.hpp"

@@ -1,11 +1,16 @@
 #include "sha256_plookup.hpp"
 
-#include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 using namespace bb;
 

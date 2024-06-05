@@ -1,4 +1,8 @@
 #pragma once
+#include <stdint.h>
+#include <string>
+#include <vector>
+
 #include "acir_format.hpp"
 #include "serde/index.hpp"
 

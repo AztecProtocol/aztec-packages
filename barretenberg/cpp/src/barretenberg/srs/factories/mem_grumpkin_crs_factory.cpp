@@ -1,8 +1,11 @@
 #include "mem_grumpkin_crs_factory.hpp"
-#include "../io.hpp"
+
+#include <algorithm>
+
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_prover_crs.hpp"
 
 namespace {

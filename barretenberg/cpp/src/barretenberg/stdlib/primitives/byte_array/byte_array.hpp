@@ -1,8 +1,24 @@
 #pragma once
+#include <assert.h>
+#include <iomanip>
+#include <ostream>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../safe_uint/safe_uint.hpp"
+#include "barretenberg/common/assert.hpp"
+
+namespace bb {
+namespace stdlib {
+template <typename Builder> class safe_uint_t;
+} // namespace stdlib
+} // namespace bb
+
 namespace bb::stdlib {
 
 template <typename Builder> class byte_array {

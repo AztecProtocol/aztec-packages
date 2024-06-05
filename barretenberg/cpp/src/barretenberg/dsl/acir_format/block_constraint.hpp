@@ -1,7 +1,11 @@
 #pragma once
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace acir_format {
 

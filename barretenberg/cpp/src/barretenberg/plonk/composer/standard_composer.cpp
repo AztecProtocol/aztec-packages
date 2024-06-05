@@ -1,16 +1,27 @@
 #include "standard_composer.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/plonk/composer/composer_lib.hpp"
-#include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
-#include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget.hpp"
-#include "barretenberg/plonk/proof_system/widgets/transition_widgets/arithmetic_widget.hpp"
-#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/plonk/composer/composer_lib.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget_impl.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/random_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/arithmetic_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/transition_widget.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+
+namespace bb {
+namespace plonk {
+class standard_settings;
+} // namespace plonk
+} // namespace bb
 
 namespace bb::plonk {
 

@@ -1,6 +1,22 @@
 #include "protogalaxy_verifier.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+
+#include <algorithm>
+#include <array>
+#include <utility>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
+
 namespace bb {
 
 template <class VerifierInstances>

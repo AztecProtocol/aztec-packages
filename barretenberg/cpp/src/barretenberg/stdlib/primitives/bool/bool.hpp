@@ -1,4 +1,10 @@
 #pragma once
+#include <iosfwd>
+#include <stdint.h>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
 

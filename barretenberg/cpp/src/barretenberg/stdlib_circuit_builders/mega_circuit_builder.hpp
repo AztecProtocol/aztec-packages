@@ -1,6 +1,25 @@
 #pragma once
+#include <algorithm>
+#include <array>
+#include <iostream>
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string_view>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
 #include "barretenberg/execution_trace/execution_trace.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"

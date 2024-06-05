@@ -1,8 +1,12 @@
 #include "./sha256.hpp"
+
+#include <array>
+#include <iterator>
+#include <stdint.h>
+#include <string.h>
+
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/net.hpp"
-#include <array>
-#include <memory.h>
 
 namespace {
 constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,

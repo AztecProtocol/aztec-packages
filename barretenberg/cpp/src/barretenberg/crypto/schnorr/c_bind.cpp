@@ -1,4 +1,15 @@
 #include "c_bind.hpp"
+
+#include <algorithm>
+#include <array>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "barretenberg/crypto/schnorr/schnorr.tcc"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
 #include "multisig.hpp"
 #include "schnorr.hpp"
 

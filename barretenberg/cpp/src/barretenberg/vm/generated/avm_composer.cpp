@@ -1,9 +1,13 @@
 
 
 #include "./avm_composer.hpp"
-#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
+
+#include <tuple>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {

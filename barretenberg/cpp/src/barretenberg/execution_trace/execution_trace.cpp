@@ -1,8 +1,17 @@
 #include "execution_trace.hpp"
+
+#include <string>
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+
 namespace bb {
 
 template <class Flavor>

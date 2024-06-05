@@ -1,5 +1,28 @@
 #include "./eccvm_recursive_verifier.hpp"
+
+#include <algorithm>
+#include <array>
+#include <ostream>
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/eccvm_recursion/eccvm_recursive_flavor.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 

@@ -3,12 +3,29 @@
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
 
+#include <array>
+#include <concepts>
+#include <cstddef>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <span>
+#include <stdint.h>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include <concepts>
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace bb {
 

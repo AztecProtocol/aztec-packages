@@ -2,12 +2,12 @@
 // clang-format off
 /*                                            )\   /|
 *                                          .-/'-|_/ |
-*                       __            __,-' (   / \/          
-*                   .-'"  "'-..__,-'""          -o.`-._   
+*                       __            __,-' (   / \/
+*                   .-'"  "'-..__,-'""          -o.`-._
 *                  /                                   '/
-*          *--._ ./                                 _.-- 
-*                |                              _.-' 
-*                :                           .-/   
+*          *--._ ./                                 _.--
+*                |                              _.-'
+*                :                           .-/
 *                 \                       )_ /
 *                  \                _)   / \(
 *                    `.   /-.___.---'(  /   \\
@@ -17,8 +17,12 @@
 *                        L\              L\
 */
 // clang-format on
+#include <memory>
+#include <string>
 #include <utility>
 
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"

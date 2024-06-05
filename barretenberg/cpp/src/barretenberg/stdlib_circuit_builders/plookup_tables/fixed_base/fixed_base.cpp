@@ -1,11 +1,11 @@
 
 #include "./fixed_base.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
-#include "barretenberg/numeric/bitop/pow.hpp"
-#include "barretenberg/numeric/bitop/rotate.hpp"
-#include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+
 namespace bb::plookup::fixed_base {
 
 /**

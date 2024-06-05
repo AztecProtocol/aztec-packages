@@ -1,10 +1,14 @@
 #pragma once
 
+#include <span>
+#include <stddef.h>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "../claim.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-
-#include <vector>
 
 /**
  * @brief Protocol for opening several multi-linear polynomials at the same point.

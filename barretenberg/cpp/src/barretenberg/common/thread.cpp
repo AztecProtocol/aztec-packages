@@ -1,5 +1,8 @@
 #include "thread.hpp"
-#include "log.hpp"
+
+#include <algorithm>
+
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 
 /**
  * There's a lot to talk about here. To bring threading to WASM, parallel_for was written to replace the OpenMP loops

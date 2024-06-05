@@ -1,13 +1,22 @@
 #include "eccvm_prover.hpp"
-#include "barretenberg/commitment_schemes/claim.hpp"
+
+#include <array>
+#include <span>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <tuple>
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {

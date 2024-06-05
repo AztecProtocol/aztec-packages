@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include <vector>
+
 #include "poseidon2_params.hpp"
 #include "poseidon2_permutation.hpp"
 #include "sponge/sponge.hpp"

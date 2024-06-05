@@ -1,6 +1,13 @@
+#include <algorithm>
+#include <array>
+#include <barretenberg/common/wasm_export.hpp>
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "blake2s.hpp"
-#include <barretenberg/common/wasm_export.hpp>
 
 using namespace bb;
 

@@ -4,6 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+
 using namespace bb;
 
 WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* constraint_system_buf,

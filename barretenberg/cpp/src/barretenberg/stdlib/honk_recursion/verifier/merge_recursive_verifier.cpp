@@ -1,5 +1,26 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_nafs.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/handle_points_at_infinity.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
 namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>

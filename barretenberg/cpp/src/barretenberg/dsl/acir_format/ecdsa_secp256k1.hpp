@@ -1,9 +1,17 @@
 #pragma once
+#include <array>
+#include <cstddef>
+#include <stdint.h>
+#include <tuple>
+#include <vector>
+
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
-#include <vector>
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace acir_format {
 

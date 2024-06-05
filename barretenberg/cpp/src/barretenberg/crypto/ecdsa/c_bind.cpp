@@ -1,5 +1,23 @@
-#include "ecdsa.hpp"
+#include <algorithm>
+#include <array>
 #include <barretenberg/ecc/curves/secp256k1/secp256k1.hpp>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/wasm_export.hpp"
+#include "barretenberg/crypto/ecdsa/ecdsa_impl.hpp"
+#include "barretenberg/crypto/hashers/hashers.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "ecdsa.hpp"
 
 using namespace bb;
 using namespace bb::crypto;

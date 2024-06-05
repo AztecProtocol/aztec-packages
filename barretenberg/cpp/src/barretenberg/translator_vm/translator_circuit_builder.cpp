@@ -8,11 +8,21 @@
  *
  */
 #include "translator_circuit_builder.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+
 #include <cstddef>
+#include <initializer_list>
+#include <iterator>
+#include <stdlib.h>
+
+#include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+
 namespace bb {
 using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 

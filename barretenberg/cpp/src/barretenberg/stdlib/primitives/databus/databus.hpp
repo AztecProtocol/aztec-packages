@@ -1,6 +1,10 @@
 #pragma once
+#include <stddef.h>
+#include <vector>
+
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb::stdlib {

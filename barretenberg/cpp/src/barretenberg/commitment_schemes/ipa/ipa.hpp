@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -127,7 +128,7 @@ template <typename Curve_> class IPA {
     *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
     *
     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
-    */ 
+    */
    template <typename Transcript>
    static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
                                               const OpeningPair<Curve>& opening_pair,
@@ -436,6 +437,12 @@ template <typename Curve_> class IPA {
             poly_length,
             [&G_vec_local, srs_elements](size_t start, size_t end) {
                 for (size_t i = start * 2; i < end * 2; i += 2) {
+                    if (srs_elements[i].x.is_zero()) {
+                        throw_or_abort("srs x zero");
+                    }
+                    if (srs_elements[i].y.is_zero()) {
+                        throw_or_abort("srs y zero");
+                    }
                     G_vec_local[i >> 1] = srs_elements[i];
                 }
             },
@@ -449,6 +456,15 @@ template <typename Curve_> class IPA {
 
         // Step 8.
         // Compute G₀
+        for (auto& v : G_vec_local) {
+            if (v.x.is_zero()) {
+                throw_or_abort("pippenger x zero");
+            }
+            if (v.y.is_zero()) {
+                throw_or_abort("pippenger y zero");
+            }
+        }
+        info(G_vec_local.size(), " vs ", poly_length);
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &s_vec[0], &G_vec_local[0], poly_length, vk->pippenger_runtime_state);
 

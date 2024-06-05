@@ -1,4 +1,8 @@
 #pragma once
+#include <array>
+#include <stddef.h>
+#include <vector>
+
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 

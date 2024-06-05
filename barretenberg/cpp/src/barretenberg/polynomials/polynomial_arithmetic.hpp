@@ -1,5 +1,15 @@
 #pragma once
+#include <span>
+#include <stddef.h>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "evaluation_domain.hpp"
+
+namespace bb {
+template <typename FF> class EvaluationDomain;
+} // namespace bb
 
 namespace bb::polynomial_arithmetic {
 

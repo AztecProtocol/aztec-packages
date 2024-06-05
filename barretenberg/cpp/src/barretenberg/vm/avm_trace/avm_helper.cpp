@@ -1,5 +1,19 @@
 #include "barretenberg/vm/avm_trace/avm_helper.hpp"
+
+#include <algorithm>
+#include <array>
+#include <iomanip>
+#include <tuple>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 
 namespace bb::avm_trace {
 

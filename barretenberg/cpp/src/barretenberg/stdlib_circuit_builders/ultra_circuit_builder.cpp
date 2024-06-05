@@ -6,9 +6,12 @@
  *
  */
 #include "ultra_circuit_builder.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
-#include <unordered_map>
-#include <unordered_set>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
 namespace bb {
 

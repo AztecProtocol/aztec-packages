@@ -1,11 +1,37 @@
-#include "../field/field.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include <algorithm>
+#include <array>
+#include <iterator>
+#include <stdint.h>
+#include <tuple>
 
 #include "./cycle_group.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+namespace bb {
+namespace stdlib {
+template <typename Builder> class field_t;
+} // namespace stdlib
+} // namespace bb
+
 namespace bb::stdlib {
 
 template <typename Builder>

@@ -1,7 +1,20 @@
 #include "bit_array.hpp"
-#include "../circuit_builders/circuit_builders.hpp"
 
+#include <algorithm>
 #include <bitset>
+#include <iterator>
+#include <stddef.h>
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb::stdlib {
 

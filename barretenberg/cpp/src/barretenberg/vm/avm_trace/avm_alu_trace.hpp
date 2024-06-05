@@ -1,11 +1,14 @@
 #pragma once
 
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include <array>
 #include <cstdint>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
+
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 

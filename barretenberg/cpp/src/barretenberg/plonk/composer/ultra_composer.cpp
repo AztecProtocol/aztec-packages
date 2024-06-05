@@ -1,15 +1,34 @@
 #include "ultra_composer.hpp"
-#include "barretenberg/plonk/composer/composer_lib.hpp"
-#include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
-#include "barretenberg/plonk/proof_system/types/program_settings.hpp"
-#include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
-#include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/plonk/composer/composer_lib.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+#include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
+#include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget_impl.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/plookup_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/plookup_widget_impl.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/elliptic_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/genperm_sort_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/plookup_arithmetic_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/plookup_auxiliary_widget.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/polynomials/polynomial_store.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 namespace bb::plonk {
 

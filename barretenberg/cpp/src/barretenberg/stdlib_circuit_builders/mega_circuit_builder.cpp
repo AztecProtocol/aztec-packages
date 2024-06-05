@@ -1,9 +1,10 @@
 #include "mega_circuit_builder.hpp"
+
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
-#include <unordered_map>
-#include <unordered_set>
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib_circuit_builders/databus.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;
 using namespace bb::crypto;

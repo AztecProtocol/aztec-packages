@@ -1,5 +1,7 @@
 #include "./bbmalloc.hpp"
+
 #include "./slab_allocator.hpp"
+#include "barretenberg/common/wasm_export.hpp"
 
 WASM_EXPORT void* bbmalloc(size_t size)
 {

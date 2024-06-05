@@ -1,6 +1,10 @@
 #include "blake2s_constraint.hpp"
+
+#include <stddef.h>
+
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "round.hpp"
 
 namespace acir_format {

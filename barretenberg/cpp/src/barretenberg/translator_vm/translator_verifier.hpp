@@ -1,6 +1,16 @@
 #pragma once
+#include <map>
+#include <memory>
+#include <string>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 

@@ -1,13 +1,39 @@
 #pragma once
+#include <map>
+#include <memory>
+#include <ostream>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include <map>
+
+namespace bb {
+enum class CircuitType : uint32_t;
+namespace curve {
+class BN254;
+} // namespace curve
+} // namespace bb
 
 namespace bb::plonk {
 

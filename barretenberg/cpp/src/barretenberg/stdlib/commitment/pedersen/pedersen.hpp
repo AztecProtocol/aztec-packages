@@ -1,7 +1,12 @@
 #pragma once
+#include <utility>
+#include <vector>
+
 #include "../../primitives/byte_array/byte_array.hpp"
 #include "../../primitives/field/field.hpp"
+#include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 namespace bb::stdlib {

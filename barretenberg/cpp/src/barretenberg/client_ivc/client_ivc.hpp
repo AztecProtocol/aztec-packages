@@ -1,11 +1,45 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <iomanip>
+#include <memory>
+#include <stddef.h>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/goblin/types.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
+#include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/recursive_instances.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_impl.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 
 namespace bb {

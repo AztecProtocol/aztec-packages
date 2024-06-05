@@ -1,5 +1,21 @@
 #include "merge_prover.hpp"
 
+#include <algorithm>
+#include <array>
+#include <span>
+#include <string>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+
 namespace bb {
 
 /**

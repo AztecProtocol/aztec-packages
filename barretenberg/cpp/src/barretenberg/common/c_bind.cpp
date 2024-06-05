@@ -1,9 +1,18 @@
 #include "./c_bind.hpp"
-#include "./mem.hpp"
-#include "./serialize.hpp"
+
+#include <algorithm>
+#include <arpa/inet.h>
+#include <atomic>
+#include <cstddef>
+#include <cstdlib>
+#include <iostream>
+#include <stdio.h>
+#include <vector>
+
 #include "./slab_allocator.hpp"
 #include "./timer.hpp"
-#include <algorithm>
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/wasm_export.hpp"
 
 #ifndef NO_MULTITHREADING
 #include <thread>

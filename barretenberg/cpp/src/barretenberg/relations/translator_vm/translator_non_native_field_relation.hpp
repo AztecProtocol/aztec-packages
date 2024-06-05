@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include <stddef.h>
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 

@@ -1,10 +1,21 @@
 #pragma once
+#include <array>
+
 #include "../../primitives/bool/bool.hpp"
 #include "../../primitives/byte_array/byte_array.hpp"
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/group/cycle_group.hpp"
 #include "../../primitives/witness/witness.hpp"
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
+
+namespace bb {
+namespace crypto {
+struct schnorr_signature;
+} // namespace crypto
+namespace stdlib {
+template <typename Builder> class byte_array;
+} // namespace stdlib
+} // namespace bb
 
 namespace bb::stdlib {
 

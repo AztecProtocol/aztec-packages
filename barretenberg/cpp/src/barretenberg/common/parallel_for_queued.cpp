@@ -1,13 +1,14 @@
 #ifndef NO_MULTITHREADING
-#include "log.hpp"
-#include "thread.hpp"
 #include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <queue>
+#include <stddef.h>
 #include <thread>
 #include <vector>
+
+#include "thread.hpp"
 
 namespace {
 class ThreadPool {

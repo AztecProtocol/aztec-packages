@@ -1,13 +1,19 @@
 #include "polynomial_arithmetic.hpp"
+
+#include <memory>
+#include <stdint.h>
+#include <string.h>
+
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "iterate_over_domain.hpp"
-#include <math.h>
-#include <memory.h>
-#include <memory>
 
 namespace bb::polynomial_arithmetic {
 

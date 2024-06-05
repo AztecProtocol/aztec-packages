@@ -1,6 +1,17 @@
 #include "c_bind.hpp"
-#include "barretenberg/common/mem.hpp"
+
+#include <arpa/inet.h>
+#include <stddef.h>
+#include <vector>
+
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/generators/generator_data.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "pedersen.hpp"
 
 using namespace bb;

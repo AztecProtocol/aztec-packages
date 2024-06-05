@@ -1,4 +1,9 @@
 #include "logic_constraint.hpp"
+
+#include <stddef.h>
+
+#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 
 namespace acir_format {

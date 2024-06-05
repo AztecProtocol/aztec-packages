@@ -1,6 +1,16 @@
 #pragma once
+#include <algorithm>
+#include <memory>
+#include <utility>
+
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"

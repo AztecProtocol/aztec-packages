@@ -1,6 +1,11 @@
 #include "keccak_constraint.hpp"
+
+#include <stddef.h>
+
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "round.hpp"
 
 namespace acir_format {

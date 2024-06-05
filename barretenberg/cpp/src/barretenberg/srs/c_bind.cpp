@@ -1,10 +1,22 @@
 #include "c_bind.hpp"
-#include "./io.hpp"
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "global_crs.hpp"
-#include <barretenberg/common/streams.hpp>
+
+#include <arpa/inet.h>
 #include <barretenberg/ecc/curves/bn254/g1.hpp>
 #include <barretenberg/ecc/curves/bn254/g2.hpp>
+#include <stddef.h>
+#include <vector>
+
+#include "./io.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/wasm_export.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field2_declarations.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "global_crs.hpp"
 
 using namespace bb;
 

@@ -1,5 +1,14 @@
 #include "poseidon2.hpp"
 
+#include <stddef.h>
+
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+
 namespace bb::crypto {
 /**
  * @brief Hashes a vector of field elements

@@ -1,5 +1,12 @@
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
+
+#include <utility>
+
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {

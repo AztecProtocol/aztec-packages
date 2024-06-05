@@ -1,10 +1,20 @@
 #include "polynomial_store.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+
 #include <cstddef>
-#include <map>
+#include <iomanip>
 #include <string>
 #include <unordered_map>
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 
 namespace bb {
 

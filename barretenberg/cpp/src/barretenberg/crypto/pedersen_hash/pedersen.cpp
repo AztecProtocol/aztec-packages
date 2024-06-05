@@ -1,5 +1,10 @@
 #include "./pedersen.hpp"
+
+#include <stddef.h>
+
 #include "../pedersen_commitment/pedersen.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 
 namespace bb::crypto {
 

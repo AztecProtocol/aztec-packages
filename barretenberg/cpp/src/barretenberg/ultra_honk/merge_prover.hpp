@@ -1,6 +1,10 @@
 #pragma once
 
+#include <memory>
+#include <stddef.h>
+
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
@@ -8,6 +12,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
+class ECCOpQueue;
 
 /**
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol

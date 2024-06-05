@@ -1,7 +1,13 @@
 #include "poseidon2_constraint.hpp"
+
+#include <array>
+#include <stddef.h>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace acir_format {

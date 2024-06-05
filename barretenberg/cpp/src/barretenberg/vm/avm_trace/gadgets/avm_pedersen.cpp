@@ -1,5 +1,10 @@
 #include "barretenberg/vm/avm_trace/gadgets/avm_pedersen.hpp"
+
+#include <utility>
+
+#include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {

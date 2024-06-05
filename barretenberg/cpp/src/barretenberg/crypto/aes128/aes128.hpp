@@ -8,12 +8,13 @@
  * Based off of tiny-AES by @kokke : https://github.com/kokke/tiny-AES-c
  **/
 
-#include "memory.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
-
 #include <iostream>
+
+#include "memory.h"
+
 namespace bb::crypto {
 
 void aes128_expand_key(const uint8_t* key, uint8_t* round_key);

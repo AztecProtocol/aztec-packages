@@ -1,11 +1,12 @@
 #pragma once
 
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include <cstddef>
 #include <map>
 #include <string>
 #include <unordered_map>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 
 namespace bb {
 

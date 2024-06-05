@@ -1,5 +1,20 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <variant>
+#include <vector>
+
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
 #include "barretenberg/vm/avm_trace/avm_helper.hpp"
@@ -12,14 +27,8 @@
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
-
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <string>
-#include <tuple>
-#include <variant>
-#include <vector>
+#include "barretenberg/vm/generated/avm_prover.hpp"
+#include "barretenberg/vm/generated/avm_verifier.hpp"
 
 using namespace bb;
 

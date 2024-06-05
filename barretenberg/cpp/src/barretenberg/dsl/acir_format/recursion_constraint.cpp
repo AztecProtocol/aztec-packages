@@ -1,10 +1,43 @@
 #include "recursion_constraint.hpp"
+
+#include <algorithm>
+#include <cstddef>
+#include <map>
+#include <ostream>
+#include <string>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget_impl.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/plookup_widget_impl.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/transcript/transcript.hpp"
+#include "barretenberg/stdlib/plonk_recursion/verification_key/verification_key.hpp"
+#include "barretenberg/stdlib/plonk_recursion/verifier/program_settings.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_batch_mul.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_bn254.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_nafs.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_tables.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/handle_points_at_infinity.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace acir_format {
 

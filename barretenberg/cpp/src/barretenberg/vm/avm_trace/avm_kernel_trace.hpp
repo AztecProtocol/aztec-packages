@@ -1,12 +1,14 @@
 #pragma once
 
-#include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "constants.hpp"
-
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/aztec_constants.hpp"
+#include "constants.hpp"
 
 inline const uint32_t SENDER_SELECTOR = 0;
 inline const uint32_t ADDRESS_SELECTOR = 1;

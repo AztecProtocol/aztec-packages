@@ -1,5 +1,7 @@
 #include "client_ivc_recursive_verifier.hpp"
 
+#include "barretenberg/stdlib/honk_recursion/verifier/recursive_verifier_instance.hpp"
+
 namespace bb::stdlib::recursion::honk {
 
 void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)

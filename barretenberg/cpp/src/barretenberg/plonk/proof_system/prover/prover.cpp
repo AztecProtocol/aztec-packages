@@ -1,11 +1,21 @@
 #include "prover.hpp"
-#include "../public_inputs/public_inputs.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+
+#include <array>
+#include <stdint.h>
+#include <string>
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
-#include "barretenberg/polynomials/iterate_over_domain.hpp"
+#include "barretenberg/plonk/proof_system/widgets/random_widgets/random_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/transition_widget.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include <chrono>
+#include "barretenberg/polynomials/polynomial_store.hpp"
 
 using namespace bb;
 

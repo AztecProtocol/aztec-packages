@@ -1,7 +1,25 @@
 #include "work_queue.hpp"
+
+#include <string.h>
+#include <utility>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/ecc/scalar_multiplication/runtime_states.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include "barretenberg/polynomials/polynomial_store.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 
 namespace bb::plonk {
 

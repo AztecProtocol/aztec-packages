@@ -1,12 +1,31 @@
 #pragma once
+#include <array>
+#include <map>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/execution_trace/execution_trace.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
 #include "circuit_builder_base.hpp"
-#include <array>
+#include "msgpack/sbuffer_decl.hpp"
 
 namespace bb {
 

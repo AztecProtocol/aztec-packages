@@ -1,5 +1,29 @@
 #pragma once
+#include <iomanip>
+#include <map>
+#include <memory>
+#include <stddef.h>
+#include <string>
+
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/proof_system/types/commitment_open_proof.hpp"
 #include "commitment_scheme.hpp"
+
+namespace bb {
+namespace plonk {
+class work_queue;
+namespace transcript {
+class StandardTranscript;
+} // namespace transcript
+struct proving_key;
+struct verification_key;
+} // namespace plonk
+} // namespace bb
 
 namespace bb::plonk {
 

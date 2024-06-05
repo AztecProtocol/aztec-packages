@@ -1,5 +1,9 @@
 #pragma once
 
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/groups/wnaf.hpp"

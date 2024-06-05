@@ -1,8 +1,11 @@
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "barretenberg/vm/avm_trace/avm_trace.hpp"
 
+#include <algorithm>
 #include <cstdint>
+#include <utility>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 

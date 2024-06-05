@@ -1,7 +1,17 @@
 #pragma once
 
+#include <stdint.h>
+#include <vector>
+
 #include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+
 namespace bb::crypto {
 /**
  * @brief Performs pedersen hashes!

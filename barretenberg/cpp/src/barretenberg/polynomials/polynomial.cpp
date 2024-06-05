@@ -1,19 +1,20 @@
 #include "polynomial.hpp"
+
+#include <cstddef>
+#include <memory>
+#include <string.h>
+#include <utility>
+
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "polynomial_arithmetic.hpp"
-#include <cstddef>
-#include <fcntl.h>
-#include <list>
-#include <memory>
-#include <mutex>
-#include <sys/stat.h>
-#include <unordered_map>
-#include <utility>
 
 namespace bb {
+template <typename FF> class EvaluationDomain;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(const size_t n_elements)

@@ -1,10 +1,15 @@
 #pragma once
 
+#include <array>
+#include <stddef.h>
+#include <stdint.h>
+#include <utility>
+
 #include "./types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
-#include <array>
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 
 namespace bb::plookup::ecc_generator_tables {
 

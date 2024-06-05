@@ -1,3 +1,7 @@
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
 #include "barretenberg/common/wasm_export.hpp"
 #include "sha256.hpp"
 

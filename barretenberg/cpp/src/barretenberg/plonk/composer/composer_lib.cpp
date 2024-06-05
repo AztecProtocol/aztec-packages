@@ -3,8 +3,34 @@
  * @brief Contains some functions that are shared between the various Plonk composers.
  */
 #include "composer_lib.hpp"
+
+#include <map>
+#include <ostream>
+#include <span>
+#include <utility>
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include "barretenberg/polynomials/polynomial_store.hpp"
+
+namespace bb {
+namespace srs {
+namespace factories {
+template <typename Curve> class VerifierCrs;
+} // namespace factories
+} // namespace srs
+} // namespace bb
 
 namespace bb::plonk {
 

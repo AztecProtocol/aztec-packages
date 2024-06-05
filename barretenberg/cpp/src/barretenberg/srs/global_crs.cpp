@@ -1,7 +1,9 @@
 #include "./global_crs.hpp"
+
 #include "./factories/file_crs_factory.hpp"
 #include "./factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 
 namespace {

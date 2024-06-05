@@ -1,8 +1,29 @@
 #include "byte_array.hpp"
 
-#include <bitset>
+#include <algorithm>
+#include <iterator>
+#include <utility>
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+namespace bb {
+namespace stdlib {
+template <typename Builder> class safe_uint_t;
+} // namespace stdlib
+} // namespace bb
 
 using namespace bb;
 

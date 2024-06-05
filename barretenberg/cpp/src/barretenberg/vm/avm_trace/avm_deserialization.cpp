@@ -1,14 +1,17 @@
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 
 namespace bb::avm_trace {
 

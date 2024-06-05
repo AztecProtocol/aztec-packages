@@ -1,7 +1,12 @@
 #include "./ultra_verifier.hpp"
+
+#include <stddef.h>
+#include <string>
+
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {

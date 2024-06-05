@@ -1,14 +1,34 @@
 #pragma once
+#include <iosfwd>
 #include <map>
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/scalar_multiplication/runtime_states.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+
+namespace bb {
+namespace curve {
+class BN254;
+} // namespace curve
+namespace srs {
+namespace factories {
+template <typename Curve> class ProverCrs;
+} // namespace factories
+} // namespace srs
+} // namespace bb
 
 #ifdef __wasm__
 #include "barretenberg/polynomials/polynomial_store_cache.hpp"

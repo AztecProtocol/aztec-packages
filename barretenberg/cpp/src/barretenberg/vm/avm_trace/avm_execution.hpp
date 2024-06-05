@@ -1,13 +1,23 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
+
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_instructions.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <vector>
+namespace bb {
+namespace avm_trace {
+class Instruction;
+} // namespace avm_trace
+} // namespace bb
 
 namespace bb::avm_trace {
 

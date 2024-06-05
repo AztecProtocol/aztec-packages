@@ -1,5 +1,19 @@
 #include "get_grumpkin_crs.hpp"
 
+#include <fstream>
+#include <ios>
+#include <stdexcept>
+#include <stdint.h>
+#include <string>
+
+#include "barretenberg/bb/exec_pipe.hpp"
+#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/bb/log.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/srs/io.hpp"
+
 namespace {
 std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 {

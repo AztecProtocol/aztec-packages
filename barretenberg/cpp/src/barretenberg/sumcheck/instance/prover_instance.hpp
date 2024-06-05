@@ -1,4 +1,9 @@
 #pragma once
+#include <span>
+#include <stddef.h>
+#include <vector>
+
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"

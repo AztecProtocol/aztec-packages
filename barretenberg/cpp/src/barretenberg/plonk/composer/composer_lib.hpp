@@ -1,7 +1,26 @@
 #pragma once
+#include <memory>
+#include <stddef.h>
+#include <string>
+#include <vector>
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+
+namespace bb {
+namespace curve {
+class BN254;
+} // namespace curve
+namespace plonk {
+struct proving_key;
+} // namespace plonk
+namespace srs {
+namespace factories {
+template <typename Curve> class VerifierCrs;
+} // namespace factories
+} // namespace srs
+} // namespace bb
 
 namespace bb::plonk {
 struct SelectorProperties {

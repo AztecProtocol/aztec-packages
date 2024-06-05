@@ -1,7 +1,9 @@
 #pragma once
-#include "barretenberg/polynomials/polynomial.hpp"
+#include <stddef.h>
 #include <string>
 #include <unordered_map>
+
+#include "barretenberg/polynomials/polynomial.hpp"
 
 namespace bb {
 

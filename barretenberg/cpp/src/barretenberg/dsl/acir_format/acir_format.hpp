@@ -1,7 +1,19 @@
 #pragma once
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <utility>
+#include <vector>
+
 #include "aes128_constraint.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
@@ -19,8 +31,10 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
-#include <utility>
-#include <vector>
+
+namespace bb {
+class ECCOpQueue;
+} // namespace bb
 
 namespace acir_format {
 

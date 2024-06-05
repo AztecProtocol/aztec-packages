@@ -1,5 +1,9 @@
 #include "./polynomial_store_cache.hpp"
 
+#include <utility>
+
+#include "barretenberg/polynomials/polynomial_store_wasm.hpp"
+
 namespace bb {
 
 PolynomialStoreCache::PolynomialStoreCache()

@@ -1,8 +1,7 @@
 #include "std_string.hpp"
+
 #include <algorithm>
 #include <cctype>
-#include <iostream>
-#include <locale>
 #include <sstream>
 #include <vector>
 

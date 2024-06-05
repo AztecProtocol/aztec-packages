@@ -1,12 +1,12 @@
 #include "barretenberg/vm/avm_trace/avm_binary_trace.hpp"
-#include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 #include <algorithm>
-#include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
 

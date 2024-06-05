@@ -1,5 +1,7 @@
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
+
 namespace bb::stdlib::field_conversion {
 
 /**

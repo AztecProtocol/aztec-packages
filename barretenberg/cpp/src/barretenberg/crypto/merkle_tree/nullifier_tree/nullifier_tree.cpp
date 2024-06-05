@@ -1,13 +1,16 @@
 #include "nullifier_tree.hpp"
+
+#include <tuple>
+#include <utility>
+
 #include "../hash.hpp"
 #include "../memory_store.hpp"
 #include "../merkle_tree.hpp"
-#include "barretenberg/common/net.hpp"
-#include "barretenberg/numeric/bitop/count_leading_zeros.hpp"
-#include "barretenberg/numeric/bitop/keep_n_lsb.hpp"
-#include "barretenberg/numeric/uint128/uint128.hpp"
-#include <iostream>
-#include <sstream>
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_leaf.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 
 namespace bb::crypto::merkle_tree {
 

@@ -1,4 +1,11 @@
 #pragma once
+#include <map>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "indexed_leaf.hpp"
 

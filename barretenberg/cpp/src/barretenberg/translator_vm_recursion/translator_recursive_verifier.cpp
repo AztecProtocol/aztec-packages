@@ -1,11 +1,43 @@
 #include "./translator_recursive_verifier.hpp"
+
+#include <algorithm>
+#include <ostream>
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_nafs.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/handle_points_at_infinity.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/translator_vm_recursion/translator_recursive_flavor.hpp"
 
 namespace bb {
 

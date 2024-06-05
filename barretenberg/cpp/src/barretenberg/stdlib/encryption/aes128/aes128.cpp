@@ -1,11 +1,20 @@
 #include "./aes128.hpp"
 
-#include "barretenberg/crypto/aes128/aes128.hpp"
+#include <array>
+#include <iterator>
+#include <stddef.h>
+#include <stdint.h>
+#include <utility>
+
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 using namespace bb::crypto;
 

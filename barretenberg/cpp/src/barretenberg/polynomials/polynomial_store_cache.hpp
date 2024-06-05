@@ -1,8 +1,11 @@
 #pragma once
-#include "./polynomial_store_wasm.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include <map>
+#include <stddef.h>
 #include <string>
+
+#include "./polynomial_store_wasm.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 
 namespace bb {
 

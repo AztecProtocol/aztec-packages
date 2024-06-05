@@ -1,8 +1,9 @@
 #include "multi_scalar_mul.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
-#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+
+#include <stddef.h>
+
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 namespace acir_format {

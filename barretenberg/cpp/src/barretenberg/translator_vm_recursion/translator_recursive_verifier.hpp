@@ -1,6 +1,12 @@
 #pragma once
+#include <array>
+#include <map>
+#include <memory>
+#include <string>
+
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"

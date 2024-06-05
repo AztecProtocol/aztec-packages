@@ -1,12 +1,15 @@
 #pragma once
-#include "manifest.hpp"
 #include <array>
 #include <exception>
 #include <map>
+#include <stddef.h>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "manifest.hpp"
+
 namespace bb::plonk::transcript {
 
 struct Keccak256Hasher {

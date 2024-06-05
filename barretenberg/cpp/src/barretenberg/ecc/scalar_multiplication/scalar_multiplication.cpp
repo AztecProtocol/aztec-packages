@@ -1,13 +1,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
+#include <functional>
 #include <memory>
+#include <string.h>
+#include <vector>
 
 #include "./process_buckets.hpp"
 #include "./runtime_states.hpp"
 #include "./scalar_multiplication.hpp"
-
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"

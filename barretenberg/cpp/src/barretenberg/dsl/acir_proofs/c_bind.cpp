@@ -1,17 +1,34 @@
 #include "c_bind.hpp"
+
+#include <algorithm>
+#include <arpa/inet.h>
+#include <cstdint>
+#include <iomanip>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "acir_composer.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/net.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/srs/global_crs.hpp"
-#include <cstdint>
-#include <memory>
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 WASM_EXPORT void acir_get_circuit_sizes(
     uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)

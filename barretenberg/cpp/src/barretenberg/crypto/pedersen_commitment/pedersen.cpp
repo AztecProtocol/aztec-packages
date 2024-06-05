@@ -1,7 +1,8 @@
 #include "./pedersen.hpp"
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include <iostream>
+
+#include <stddef.h>
+
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #ifndef NO_OMP_MULTITHREADING
 #include <omp.h>
 #endif

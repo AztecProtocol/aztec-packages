@@ -1,14 +1,20 @@
 #include "acir_composer.hpp"
-#include "barretenberg/common/serialize.hpp"
+
+#include <memory>
+#include <sstream>
+#include <utility>
+
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/plonk/transcript/transcript.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "contract.hpp"
-#include <memory>
 
 namespace acir_proofs {
 

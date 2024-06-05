@@ -1,5 +1,9 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/goblin_recursive_verifier.hpp"
 
+#include "barretenberg/goblin/types.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+
 namespace bb::stdlib::recursion::honk {
 
 void GoblinRecursiveVerifier::verify(const GoblinProof& proof)

@@ -1,9 +1,26 @@
 #include "honk_recursion_constraint.hpp"
-#include "barretenberg/flavor/flavor.hpp"
+
+#include <algorithm>
+#include <assert.h>
+#include <memory>
+#include <ostream>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.tcc"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_impl.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_nafs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "recursion_constraint.hpp"
 

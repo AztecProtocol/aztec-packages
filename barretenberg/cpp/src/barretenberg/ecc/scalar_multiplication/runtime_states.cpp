@@ -1,9 +1,15 @@
 #include "runtime_states.hpp"
 
+#include <string.h>
+#include <utility>
+
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
 namespace bb::scalar_multiplication {

@@ -1,8 +1,17 @@
 #pragma once
 
+#include <span>
+#include <stddef.h>
+#include <stdint.h>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 

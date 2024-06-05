@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 

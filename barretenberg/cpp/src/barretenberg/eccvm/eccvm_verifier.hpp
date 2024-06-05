@@ -1,5 +1,10 @@
 #pragma once
+#include <map>
+#include <memory>
+#include <string>
+
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 
 namespace bb {
 class ECCVMVerifier {

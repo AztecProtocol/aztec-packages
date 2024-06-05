@@ -1,10 +1,18 @@
 #pragma once
+#include <cstddef>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "crs_factory.hpp"
-#include <cstddef>
-#include <utility>
 
 namespace bb::srs::factories {
 

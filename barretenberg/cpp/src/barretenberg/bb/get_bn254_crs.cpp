@@ -1,5 +1,21 @@
 #include "get_bn254_crs.hpp"
+
+#include <fstream>
+#include <stdexcept>
+#include <stdint.h>
+#include <string>
+
+#include "barretenberg/bb/exec_pipe.hpp"
 #include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/bb/log.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field2_declarations.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
 
 namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)

@@ -1,7 +1,15 @@
 #pragma once
 
+#include <map>
 #include <stack>
+#include <stddef.h>
+#include <stdint.h>
+#include <unordered_map>
+#include <vector>
 
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/vm/avm_trace/avm_alu_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_binary_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
@@ -16,6 +24,12 @@
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_sha256.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
+
+namespace bb {
+namespace avm_trace {
+enum class OpCode : uint8_t;
+} // namespace avm_trace
+} // namespace bb
 
 namespace bb::avm_trace {
 

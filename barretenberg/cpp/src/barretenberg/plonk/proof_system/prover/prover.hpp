@@ -1,11 +1,39 @@
 #pragma once
+#include <iomanip>
+#include <memory>
+#include <stddef.h>
+#include <vector>
+
 #include "../commitment_scheme/commitment_scheme.hpp"
 #include "../types/program_settings.hpp"
 #include "../types/proof.hpp"
 #include "../widgets/random_widgets/random_widget.hpp"
 #include "../widgets/transition_widgets/transition_widget.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
+#include "barretenberg/plonk/transcript/manifest.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
 #include "barretenberg/plonk/work_queue/work_queue.hpp"
+
+namespace bb {
+namespace plonk {
+class CommitmentScheme;
+class ProverRandomWidget;
+namespace widget {
+template <class Field> class TransitionWidgetBase;
+} // namespace widget
+struct proving_key;
+} // namespace plonk
+} // namespace bb
 
 namespace bb::plonk {
 

@@ -1,9 +1,16 @@
 #pragma once
+#include <array>
+#include <map>
+#include <memory>
+#include <string>
+
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <typename Flavor> class UltraRecursiveVerifier_ {

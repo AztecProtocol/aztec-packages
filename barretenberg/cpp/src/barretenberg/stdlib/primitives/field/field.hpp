@@ -1,12 +1,27 @@
 #pragma once
+#include <array>
+#include <functional>
+#include <iosfwd>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
 #include "barretenberg/common/assert.hpp"
-#include <functional>
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
 namespace bb::stdlib {
 
 template <typename Builder> class bool_t;
+
 template <typename Builder> class field_t {
   public:
     using View = field_t;

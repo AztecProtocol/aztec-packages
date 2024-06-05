@@ -1,10 +1,17 @@
 // TODO(@zac-wiliamson #2341 delete this file once we migrate to new hash standard
 
 #pragma once
+#include <array>
+#include <vector>
+
 #include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include <array>
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
 
 namespace bb::crypto {
 

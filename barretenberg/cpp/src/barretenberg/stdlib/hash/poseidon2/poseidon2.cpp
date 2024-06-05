@@ -1,5 +1,18 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+
+#include <stddef.h>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+
+namespace bb {
+namespace stdlib {
+template <typename Builder> class byte_array;
+} // namespace stdlib
+} // namespace bb
+
 namespace bb::stdlib {
 
 using namespace bb;

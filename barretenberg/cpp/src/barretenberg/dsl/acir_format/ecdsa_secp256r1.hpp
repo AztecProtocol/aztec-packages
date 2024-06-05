@@ -1,8 +1,9 @@
 #pragma once
-#include "barretenberg/common/serialize.hpp"
 #include <array>
 #include <cstdint>
 #include <vector>
+
+#include "barretenberg/common/serialize.hpp"
 
 namespace acir_format {
 

@@ -1,8 +1,11 @@
 #include "aes128_constraint.hpp"
-#include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
+
 #include <cstdint>
 #include <cstdio>
 #include <span>
+
+#include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 using namespace bb;
 

@@ -1,4 +1,6 @@
 #pragma once
+#include <stddef.h>
+
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 

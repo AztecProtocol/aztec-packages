@@ -1,6 +1,15 @@
 #include "schnorr_verify.hpp"
+
+#include <stddef.h>
+
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib/encryption/schnorr/schnorr.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace acir_format {
 

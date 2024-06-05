@@ -1,8 +1,21 @@
 #pragma once
+#include <iomanip>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/eccvm_recursion/eccvm_recursive_flavor.hpp"
 #include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/translator_vm_recursion/translator_recursive_flavor.hpp"
 #include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
+
+namespace bb {
+struct GoblinProof;
+} // namespace bb
 
 namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifier {

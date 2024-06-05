@@ -1,4 +1,12 @@
 #pragma once
+#include <array>
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 /**
  * @file translator_builder.hpp
  * @author @Rumata888
@@ -8,14 +16,28 @@
  * @copyright Copyright (c) 2023
  *
  */
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
+class ECCOpQueue;
+template <typename FF> struct add_triple_;
+template <typename FF> struct mul_triple_;
+template <typename FF> struct poly_triple_;
+
 /**
  * @brief TranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of
  * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and p is the modulus of Fp)

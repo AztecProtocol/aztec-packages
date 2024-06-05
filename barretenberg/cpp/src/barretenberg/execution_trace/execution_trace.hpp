@@ -1,4 +1,10 @@
 #pragma once
+#include <array>
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
+#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"

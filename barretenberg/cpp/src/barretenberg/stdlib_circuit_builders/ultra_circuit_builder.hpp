@@ -1,5 +1,32 @@
 #pragma once
+#include <algorithm>
+#include <array>
+#include <compare>
+#include <functional>
+#include <iostream>
+#include <iterator>
+#include <map>
+#include <optional>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/execution_trace/execution_trace.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
@@ -8,8 +35,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "circuit_builder_base.hpp"
-#include <optional>
-#include <unordered_set>
 
 namespace bb {
 

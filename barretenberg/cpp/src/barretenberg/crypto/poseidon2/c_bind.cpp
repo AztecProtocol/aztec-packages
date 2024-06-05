@@ -1,6 +1,16 @@
 #include "c_bind.hpp"
-#include "barretenberg/common/mem.hpp"
+
+#include <algorithm>
+#include <stddef.h>
+#include <vector>
+
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "poseidon2.hpp"
 #include "poseidon2_permutation.hpp"
 

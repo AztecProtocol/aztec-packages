@@ -1,7 +1,10 @@
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include <cstddef>
 #include <cstdint>
+
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 namespace acir_format {
 

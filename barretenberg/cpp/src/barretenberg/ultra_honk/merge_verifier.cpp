@@ -1,5 +1,18 @@
 #include "merge_verifier.hpp"
 
+#include <algorithm>
+#include <array>
+#include <string>
+#include <vector>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+
 namespace bb {
 
 template <typename Flavor>

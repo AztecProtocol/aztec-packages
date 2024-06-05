@@ -1,6 +1,18 @@
 #pragma once
-#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include <array>
+#include <stddef.h>
+#include <stdint.h>
 #include <vector>
+
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/numeric/uintx/uintx_impl.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace acir_format {
 using Builder = bb::UltraCircuitBuilder;

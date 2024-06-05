@@ -1,6 +1,27 @@
 #include "kate_commitment_scheme.hpp"
+
+#include <array>
+#include <ostream>
+#include <span>
+#include <stdint.h>
+#include <utility>
+#include <vector>
+
 #include "../../../polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+#include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/plonk/work_queue/work_queue.hpp"
+#include "barretenberg/polynomials/iterate_over_domain.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/polynomial_store.hpp"
 
 namespace bb::plonk {
 

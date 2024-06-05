@@ -1,8 +1,35 @@
 #pragma once
-#include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include <array>
+#include <iomanip>
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
 #include <vector>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/affine_element_impl.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk/transcript/manifest.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+
+namespace bb {
+namespace plonk {
+namespace transcript {
+class StandardTranscript;
+} // namespace transcript
+struct verification_key;
+} // namespace plonk
+} // namespace bb
 
 namespace acir_format {
 

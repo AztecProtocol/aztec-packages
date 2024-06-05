@@ -1,11 +1,30 @@
 #include "file_crs_factory.hpp"
+
+#include <utility>
+
 #include "../io.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/ecc/curves/bn254/pairing_impl.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/ecc/groups/element_impl.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+
+namespace bb {
+namespace srs {
+namespace factories {
+template <typename Curve> class ProverCrs;
+template <typename Curve> class VerifierCrs;
+} // namespace factories
+} // namespace srs
+} // namespace bb
 
 namespace bb::srs::factories {
 

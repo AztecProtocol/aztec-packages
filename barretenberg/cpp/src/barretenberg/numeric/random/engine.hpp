@@ -1,10 +1,12 @@
 #pragma once
+#include <cstdint>
+#include <random>
+
 #include "../uint128/uint128.hpp"
 #include "../uint256/uint256.hpp"
 #include "../uintx/uintx.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "unistd.h"
-#include <cstdint>
-#include <random>
 
 namespace bb::numeric {
 

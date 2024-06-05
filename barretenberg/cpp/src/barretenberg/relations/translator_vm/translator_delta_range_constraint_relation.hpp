@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include <stddef.h>
+
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {

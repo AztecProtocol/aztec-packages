@@ -1,6 +1,32 @@
 #include "eccvm_trace_checker.hpp"
+
+#include <stddef.h>
+#include <string>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+
+namespace bb {
+namespace numeric {
+class RNG;
+} // namespace numeric
+} // namespace bb
 
 using namespace bb;
 

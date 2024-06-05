@@ -1,6 +1,13 @@
 #pragma once
+#include <stddef.h>
+
 #include "../circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "ram_table.hpp"
+
 namespace bb::stdlib {
 
 /**

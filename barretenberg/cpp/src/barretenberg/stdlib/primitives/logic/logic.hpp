@@ -1,11 +1,14 @@
 #pragma once
+#include <cstdint>
+#include <functional>
+#include <stddef.h>
+#include <utility>
+
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
-#include <cstdint>
-#include <functional>
-#include <utility>
 
 namespace bb::stdlib {
 

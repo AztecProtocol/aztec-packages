@@ -1,6 +1,12 @@
 #ifndef NO_MULTITHREADING
-#include "thread.hpp"
+#include <algorithm>
+#include <atomic>
+#include <functional>
+#include <stddef.h>
 #include <thread>
+#include <vector>
+
+#include "thread.hpp"
 
 namespace bb {
 /**

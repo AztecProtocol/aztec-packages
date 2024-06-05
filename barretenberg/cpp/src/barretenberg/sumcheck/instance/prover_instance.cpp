@@ -1,7 +1,12 @@
 #include "prover_instance.hpp"
-#include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+#include <algorithm>
+
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 /**

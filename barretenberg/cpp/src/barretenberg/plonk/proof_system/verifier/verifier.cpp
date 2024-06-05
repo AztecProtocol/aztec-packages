@@ -1,12 +1,29 @@
 #include "./verifier.hpp"
-#include "../public_inputs/public_inputs.hpp"
-#include "../utils/kate_verification.hpp"
+
+#include <array>
+#include <stddef.h>
+#include <stdint.h>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
-#include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/ecc/curves/bn254/pairing_impl.hpp"
+#include "barretenberg/ecc/fields/field12.hpp"
+#include "barretenberg/ecc/groups/affine_element.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/scalar_multiplication/runtime_states.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk/proof_system/commitment_scheme/commitment_scheme.hpp"
+#include "barretenberg/plonk/proof_system/types/program_settings.hpp"
+#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
 using namespace bb;

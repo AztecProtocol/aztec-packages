@@ -1,11 +1,23 @@
 #pragma once
+#include <array>
+#include <iosfwd>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "../bool/bool.hpp"
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../plookup/plookup.hpp"
-
 #include "./plookup/uint.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace bb::stdlib {
 

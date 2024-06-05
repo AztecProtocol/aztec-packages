@@ -1,16 +1,26 @@
 #pragma once
 
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
+#include "barretenberg/numeric/uint256/uint256_impl.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
+#include "barretenberg/plonk/transcript/manifest.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-
-#include <cstddef>
-#include <utility>
 
 namespace bb::plonk {
 class UltraComposer {

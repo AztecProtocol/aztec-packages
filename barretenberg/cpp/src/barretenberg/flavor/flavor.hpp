@@ -64,20 +64,31 @@
  */
 
 #pragma once
+#include <array>
+#include <barretenberg/srs/global_crs.hpp>
+#include <concepts>
+#include <cstddef>
+#include <memory>
+#include <stdint.h>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include <array>
-#include <barretenberg/srs/global_crs.hpp>
-#include <concepts>
-#include <vector>
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 namespace bb {
+class CircuitSimulatorBN254;
 
 /**
  * @brief Base class template containing circuit-specifying data.

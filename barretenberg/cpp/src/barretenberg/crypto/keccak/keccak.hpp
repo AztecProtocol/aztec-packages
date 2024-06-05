@@ -5,9 +5,10 @@
 
 #pragma once
 
-#include "./hash_types.hpp"
-
 #include <stddef.h>
+#include <stdint.h>
+
+#include "./hash_types.hpp"
 
 #ifdef __cplusplus
 #define NOEXCEPT noexcept

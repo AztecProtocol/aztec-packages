@@ -3,19 +3,23 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
-#include <iostream>
-#include <limits>
+#include <math.h>
 #include <set>
-#include <string>
-#include <sys/types.h>
+#include <tuple>
+#include <utility>
 #include <vector>
 
-#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/ecc/fields/field_impl.hpp"
+#include "barretenberg/ecc/fields/field_impl_generic.hpp"
+#include "barretenberg/ecc/fields/field_impl_x64.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
 
 namespace bb::avm_trace {
 

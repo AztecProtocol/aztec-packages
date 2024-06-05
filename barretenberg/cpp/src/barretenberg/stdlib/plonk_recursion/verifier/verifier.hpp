@@ -1,11 +1,22 @@
 #pragma once
 
+#include <iostream>
+#include <map>
+#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/public_inputs/public_inputs.hpp"
+#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/utils/kate_verification.hpp"
+#include "barretenberg/plonk/transcript/manifest.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/plonk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/program_settings.hpp"
@@ -13,6 +24,18 @@
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
+
+namespace bb {
+namespace stdlib {
+namespace recursion {
+template <typename Builder> struct evaluation_domain;
+template <typename Curve> class recursive_ultra_verifier_settings;
+template <typename Curve> struct verification_key;
+} // namespace recursion
+template <typename CircuitBuilder> struct bn254;
+} // namespace stdlib
+} // namespace bb
 
 namespace bb::stdlib::recursion {
 
