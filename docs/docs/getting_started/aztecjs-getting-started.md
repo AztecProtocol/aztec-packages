@@ -12,6 +12,7 @@ This guide assumes you have followed the [quickstart](../getting_started.md).
 ## Prerequisites
 
 - A running [Aztec sandbox](../getting_started.md)
+- version 20.14.0 of node (latest version, namely 22.2.0 causes some issues)
 
 ## Set up the project
 
