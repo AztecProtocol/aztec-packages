@@ -30,12 +30,10 @@ describe('Discv5Service', () => {
   let bootNodePeerId: PeerId;
   let port = 7890;
   const baseConfig = {
-    announceUdpHostname: '/ip4/127.0.0.1',
-    announceTcpHostname: '/ip4/127.0.0.1',
-    announcePort: port,
-    tcpListenPort: port,
-    udpListenIp: '0.0.0.0',
-    udpListenPort: port,
+    udpAnnounceAddress: `127.0.0.1:${port}`,
+    tcpAnnounceAddress: `127.0.0.1${port}`,
+    tcpListenAddress: `0.0.0.0:${port}`,
+    udpListenAddress: `0.0.0.0:${port}`,
     minPeerCount: 1,
     maxPeerCount: 100,
     queryForIp: false,
@@ -113,11 +111,9 @@ describe('Discv5Service', () => {
     const peerId = await createLibP2PPeerId();
     const config = {
       ...baseConfig,
-      tcpListenIp: '0.0.0.0',
+      tcpListenAddress: `0.0.0.0:${port}`,
+      udpListenAddress: `0.0.0.0:${port}`,
       bootstrapNodes: [bootNode.getENR().encodeTxt()],
-      tcpListenPort: port,
-      udpListenPort: port,
-      announcePort: port,
       p2pBlockCheckIntervalMS: 50,
       p2pPeerCheckIntervalMS: 50,
       transactionProtocol: 'aztec/1.0.0',

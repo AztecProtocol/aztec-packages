@@ -6,8 +6,8 @@ import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService, DummyPeerDiscoveryService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
-import { getPublicIp } from '../service/ip_query.js';
 import { type TxPool } from '../tx_pool/index.js';
+import { getPublicIp } from '../util.js';
 
 export * from './p2p_client.js';
 
@@ -21,30 +21,34 @@ export const createP2PClient = async (
   let p2pService;
 
   if (config.p2pEnabled) {
-    // If announceTcpHostname or announceUdpHostname are not provided, query for public IP if config allows
+    // If announceTcpAddress or announceUdpAddress are not provided, query for public IP if config allows
     const {
-      announceTcpHostname: configAnnounceTcpHostname,
-      announceUdpHostname: configAnnounceUdpHostname,
+      tcpAnnounceAddress: configTcpAnnounceAddress,
+      udpAnnounceAddress: configUdpAnnounceAddress,
       queryForIp,
     } = config;
-    if (!configAnnounceTcpHostname) {
+
+    // check if no announce IP was provided
+    const splitTcpAnnounceAddress = configTcpAnnounceAddress?.split(':') || [];
+    if (splitTcpAnnounceAddress.length == 2 && splitTcpAnnounceAddress[0] === '') {
       if (queryForIp) {
         const publicIp = await getPublicIp();
-        const announceHostname = `/ip4/${publicIp}`;
-        config.announceTcpHostname = announceHostname;
+        const tcpAnnounceAddress = `${publicIp}:${splitTcpAnnounceAddress[1]}`;
+        config.tcpAnnounceAddress = tcpAnnounceAddress;
       } else {
-        throw new Error('No announceTcpHostname provided');
+        throw new Error('No announceTcpAddress provided');
       }
     }
 
-    if (!configAnnounceUdpHostname) {
-      // If announceUdpHostname is not provided, use announceTcpHostname
-      if (!queryForIp && config.announceTcpHostname) {
-        config.announceUdpHostname = config.announceTcpHostname;
+    const splitUdpAnnounceAddress = configUdpAnnounceAddress?.split(':') || [];
+    if (splitUdpAnnounceAddress.length == 2 && splitUdpAnnounceAddress[0] === '') {
+      // If announceUdpAddress is not provided, use announceTcpAddress
+      if (!queryForIp && config.tcpAnnounceAddress) {
+        config.udpAnnounceAddress = config.tcpAnnounceAddress;
       } else if (queryForIp) {
         const publicIp = await getPublicIp();
-        const announceHostname = `/ip4/${publicIp}`;
-        config.announceUdpHostname = announceHostname;
+        const udpAnnounceAddress = `${publicIp}:${splitUdpAnnounceAddress[1]}`;
+        config.udpAnnounceAddress = udpAnnounceAddress;
       }
     }
 
