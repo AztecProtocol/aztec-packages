@@ -61,6 +61,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
+    info("Checking circuit");
+    circuit_builder.check_circuit();
+
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
@@ -139,6 +142,102 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
     kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = public_inputs_vec[DA_START_GAS_LEFT_PCPI_OFFSET];
     kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET];
+
+    // Copy the output columns
+    std::array<FF, KERNEL_OUTPUTS_LENGTH>& ko_values = std::get<KERNEL_OUTPUTS_VALUE>(public_inputs);
+    std::array<FF, KERNEL_OUTPUTS_LENGTH>& ko_side_effect = std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs);
+    std::array<FF, KERNEL_OUTPUTS_LENGTH>& ko_metadata = std::get<KERNEL_OUTPUTS_METADATA>(public_inputs);
+
+    // We copy each type of the kernel outputs into their respective columns, each has differeing lengths / data
+    // For NOTEHASHEXISTS
+    for (size_t i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_NOTE_HASH_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+    }
+    // For NULLIFIEREXISTS
+    for (size_t i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET + i;
+        size_t pcpi_offset = PCPI_NULLIFIER_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_metadata[dest_offset] = FF(1);
+    }
+    // For NULLIFIEREXISTS - non existent
+    for (size_t i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_NULLIFIER_NON_EXISTS_OFFSET + i;
+        size_t pcpi_offset = PCPI_NULLIFIER_NON_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_metadata[dest_offset] = FF(0);
+    }
+    // For L1TOL2MSGEXISTS
+    for (size_t i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_L1_TO_L2_MSG_READ_REQUESTS_OFFSET + (i * READ_REQUEST_LENGTH);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+    }
+    // For SSTORE
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_PUBLIC_DATA_UPDATE_OFFSET + (i * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH);
+
+        // slot, value, side effect
+        ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
+    }
+    // For SLOAD
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_PUBLIC_DATA_READ_OFFSET + (i * CONTRACT_STORAGE_READ_LENGTH);
+
+        // slot, value, side effect
+        ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        // TODO(md): serialize side effect in ts
+        // ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
+    }
+    // For EMITNOTEHASH
+    for (size_t i = 0; i < MAX_NEW_NOTE_HASHES_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_NEW_NOTE_HASHES_OFFSET + (i * NOTE_HASH_LENGTH);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+    }
+    // For EMITNULLIFIER
+    for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_NEW_NULLIFIERS_OFFSET + (i * NULLIFIER_LENGTH);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+    }
+    // For EMITL2TOL1MSG
+    for (size_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_NEW_L2_TO_L1_MSGS_OFFSET + (i * L2_TO_L1_MESSAGE_LENGTH);
+
+        // Note: unorthadox order
+        ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
+    }
+    // For EMITUNENCRYPTEDLOG
+    for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
+        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
+        size_t pcpi_offset = PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 2);
+
+        ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+    }
 
     return public_inputs;
 }
@@ -326,7 +425,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                         std::get<uint32_t>(inst.operands.at(3)),
                                         calldata);
             break;
-
+        // Machine State - Gas
+        case OpCode::L2GASLEFT:
+            trace_builder.op_l2gasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::DAGASLEFT:
+            trace_builder.op_dagasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
+            break;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
         case OpCode::SENDER:
             trace_builder.op_sender(std::get<uint32_t>(inst.operands.at(1)));
@@ -363,14 +468,18 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::NOTEHASHEXISTS:
             trace_builder.op_note_hash_exists(std::get<uint32_t>(inst.operands.at(1)),
-                                              std::get<uint32_t>(inst.operands.at(2)));
+                                              // TODO: leaf offset exists
+                                              // std::get<uint32_t>(inst.operands.at(2))
+                                              std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNOTEHASH:
             trace_builder.op_emit_note_hash(std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::NULLIFIEREXISTS:
             trace_builder.op_nullifier_exists(std::get<uint32_t>(inst.operands.at(1)),
-                                              std::get<uint32_t>(inst.operands.at(2)));
+                                              // std::get<uint32_t>(inst.operands.at(2))
+                                              /**TODO: Address offset for siloing */
+                                              std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNULLIFIER:
             trace_builder.op_emit_nullifier(std::get<uint32_t>(inst.operands.at(1)));
@@ -383,13 +492,21 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::L1TOL2MSGEXISTS:
             trace_builder.op_l1_to_l2_msg_exists(std::get<uint32_t>(inst.operands.at(1)),
-                                                 std::get<uint32_t>(inst.operands.at(2)));
+                                                 // TODO: leaf offset exists
+                                                 // std::get<uint32_t>(inst.operands.at(2))
+                                                 std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::GETCONTRACTINSTANCE:
+            trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
+                                                   std::get<uint32_t>(inst.operands.at(1)),
+                                                   std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::EMITUNENCRYPTEDLOG:
             trace_builder.op_emit_unencrypted_log(std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SENDL2TOL1MSG:
-            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
             break;
             // Machine State - Internal Control Flow
         case OpCode::JUMP:
@@ -517,6 +634,11 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(2)),
                                            std::get<uint32_t>(inst.operands.at(3)),
                                            std::get<uint32_t>(inst.operands.at(4)));
+            break;
+        case OpCode::REVERT:
+            trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)));
             break;
         default:
             throw_or_abort("Don't know how to execute opcode " + to_hex(inst.op_code) + " at pc " + std::to_string(pc) +

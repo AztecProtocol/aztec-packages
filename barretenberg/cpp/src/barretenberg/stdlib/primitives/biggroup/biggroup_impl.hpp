@@ -127,6 +127,25 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     return result;
 }
 
+/**
+ * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
+ *
+ * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random coefficients
+ * when we get it as output from our optimised algorithms. This function returns a (0,0) point, if it is a point at
+ * infinity
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
+{
+
+    const bool_ct is_infinity = is_point_at_infinity();
+    element result(*this);
+    const Fq zero = Fq::zero();
+    result.x = Fq::conditional_assign(is_infinity, zero, this->x);
+    result.y = Fq::conditional_assign(is_infinity, zero, this->y);
+    return result;
+}
+
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
 {
@@ -748,17 +767,28 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 }
 
 /**
- * Generic batch multiplication that works for all elliptic curve types.
+ * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for short
- * scalars See `bn254_endo_batch_mul` for description of algorithm
- **/
+ * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for
+ * short scalars See `bn254_endo_batch_mul` for description of algorithm.
+ *
+ * @tparam C The circuit builder type.
+ * @tparam Fq The field of definition of the points in `_points`.
+ * @tparam Fr The field of scalars acting on `_points`.
+ * @tparam G The group whose arithmetic is emulated by `element`.
+ * @param _points
+ * @param _scalars
+ * @param max_num_bits The max of the bit lengths of the scalars.
+ * @param with_edgecases Use when points are linearly dependent. Randomises them.
+ * @return element<C, Fq, Fr, G>
+ */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
                                                        const std::vector<Fr>& _scalars,
-                                                       const size_t max_num_bits)
+                                                       const size_t max_num_bits,
+                                                       const bool with_edgecases)
 {
-    const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
+    auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
     if constexpr (IsSimulator<C>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
@@ -776,8 +806,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
             return goblin_batch_mul(points, scalars);
         } else {
+            if (with_edgecases) {
+                std::tie(points, scalars) = mask_points(points, scalars);
+            }
             const size_t num_points = points.size();
             ASSERT(scalars.size() == num_points);
+
             batch_lookup_table point_table(points);
             const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
