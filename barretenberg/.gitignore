@@ -7,3 +7,4 @@ ts/dest
 .idea
 cmake-build-debug
 *_opt.pil
+e2e_fixtures

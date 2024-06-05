@@ -42,6 +42,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
+import * as path from 'path';
 
 import {
   BB_RESULT,
@@ -314,6 +315,26 @@ export class BBNativeProofCreator implements ProofCreator {
     const inputsWitnessFile = `${directory}/witness.gz`;
 
     await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
+
+    // LONDONTODO(FoldingStack): Every circuit processed by full.test passes through this method during proof construction. Here I'm just writing the
+    // acir data (acir bytecode + witness) to a test fixtures file in bberg. (This should be all that's needed to construct corresponding bberg circuits).
+    // Hoping this provides a quick way to start playing around with accumulation. Probably easiest to start in the integration tests suite. That's where
+    // I'll plan to pick up tomorrow unless something else makes more sense by the time I get back to it. Once things are working there we can work to
+    // fill in the real pieces, e.g. better organization/serialization of this data, a proper flow in the bb binary (which is maybe just the existing
+    // flow if we end up serializing into a WitnessStack). One issue is going to be that the kernel circuits will have recursive verifiers. Might be easy
+    // enough to just 'delete' those op codes from the acir representation, but might also make sense to have versions of the kernels without recursion
+    // since we'll need them soon enough anyway.
+    let fixturesDir = path.resolve(this.bbBinaryPath, '../../../../', 'e2e_fixtures/folding_stack');
+    // Get circuit name; replace colons with underscores
+    const circuitName = (appCircuitName ? appCircuitName : circuitType).replace(/:/g, '_');
+    const stackItemDir = path.join(fixturesDir, circuitName);
+    await fs.mkdir(stackItemDir, { recursive: true });
+    // Write the acir bytecode and witness data to file
+    const bytecodePath = `${stackItemDir}/bytecode`;
+    const witnessPath = `${stackItemDir}/witness.gz`;
+    this.log.info(`Writing data for ${circuitName} to ${fixturesDir}`);
+    await fs.writeFile(bytecodePath, bytecode);
+    await fs.writeFile(witnessPath, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
