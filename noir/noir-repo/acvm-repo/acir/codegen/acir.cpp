@@ -1169,7 +1169,7 @@ namespace Program {
         };
 
         struct Dynamic {
-            std::tuple<uint64_t, std::vector<Program::ExpressionOrMemory>> value;
+            std::tuple<uint32_t, std::vector<Program::ExpressionOrMemory>> value;
 
             friend bool operator==(const Dynamic&, const Dynamic&);
             std::vector<uint8_t> bincodeSerialize() const;
