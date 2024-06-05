@@ -25,7 +25,7 @@ template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly
 }
 
 template <typename Builder>
-void create_block_constraints(Builder& builder, const BlockConstraint constraint, bool has_valid_witness_assignments)
+void create_block_constraints(Builder& builder, const BlockConstraint& constraint, bool has_valid_witness_assignments)
     requires IsNotMegaBuilder<Builder>
 {
     using field_ct = bb::stdlib::field_t<Builder>;
@@ -89,7 +89,7 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
 }
 
 template <typename Builder>
-void create_block_constraints(Builder& builder, const BlockConstraint constraint, bool has_valid_witness_assignments)
+void create_block_constraints(Builder& builder, const BlockConstraint& constraint, bool has_valid_witness_assignments)
     requires IsMegaBuilder<Builder>
 {
     using field_ct = stdlib::field_t<Builder>;
