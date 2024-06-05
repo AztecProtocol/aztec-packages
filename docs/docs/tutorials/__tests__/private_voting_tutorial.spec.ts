@@ -1,7 +1,9 @@
 import { test, expect, Page, Locator } from "@playwright/test";
 import { execFileSync } from "child_process";
 import path from "path";
-import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
+
+const TEST_FOLDER = path.resolve("tmp", "test_tutorial");
 
 async function exec(locator: Locator) {
   const content = (await locator.innerText()).trim();
@@ -19,7 +21,7 @@ async function exec(locator: Locator) {
         .join("");
 
     const existingContent = readFileSync(
-      path.resolve(__dirname, "tmp", "app", file),
+      path.resolve(TEST_FOLDER, file),
       "utf-8"
     );
     expect(trim(content)).toBe(trim(existingContent));
@@ -37,20 +39,20 @@ async function exec(locator: Locator) {
     content.split("\n").map((c) => {
       execFileSync(c.trim(), {
         shell: true,
-        cwd: path.join(__dirname, "tmp", "app"),
+        cwd: path.join(TEST_FOLDER),
         stdio: "inherit",
         env: { NON_INTERACTIVE: "true", ...process.env },
       });
     });
   } else if (replaceLines === "0") {
-    writeFileSync(path.resolve(__dirname, "tmp", "app", file), content);
+    writeFileSync(path.resolve(TEST_FOLDER, file), content);
   } else if (replaceLines === "+") {
-    writeFileSync(path.resolve(__dirname, "tmp", "app", file), content, {
+    writeFileSync(path.resolve(TEST_FOLDER, file), content, {
       flag: "a",
     });
   } else {
     const existingContent = readFileSync(
-      path.resolve(__dirname, "tmp", "app", file),
+      path.resolve(TEST_FOLDER, file),
       "utf-8"
     );
     const [begin, end] = replaceLines.split(",").map(Number);
@@ -66,16 +68,13 @@ async function exec(locator: Locator) {
     // replacing by the new content
     splitContent.splice(begin - 1, removedElements.length, ...splitNewContent);
 
-    writeFileSync(
-      path.resolve(__dirname, "tmp", "app", file),
-      splitContent.join("\n")
-    );
+    writeFileSync(path.resolve(TEST_FOLDER, file), splitContent.join("\n"));
   }
 }
 
 test.beforeEach(async () => {
-  unlinkSync(path.join(__dirname, "tmp/app"));
-  mkdirSync(path.join(__dirname, "tmp/app"), { recursive: true });
+  rmSync(TEST_FOLDER, { recursive: true, force: true });
+  mkdirSync(TEST_FOLDER, { recursive: true });
 });
 
 test("Deploying, setting, and getting a number", async ({ page }) => {

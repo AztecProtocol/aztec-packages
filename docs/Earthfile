@@ -22,6 +22,18 @@ build:
   RUN ./scripts/build.sh
   SAVE ARTIFACT build
 
+test:
+  ARG ENV
+  FROM +deps
+  COPY +build/build build
+  COPY ./static static
+  COPY ./src src
+  COPY ./docusaurus.config.js .
+  COPY ./sidebars.js .
+  COPY ./playwright.config.ts .
+  EXPOSE 3000
+  ENTRYPOINT ["yarn", "test"]
+
 serve:
   ARG ENV
   FROM +deps

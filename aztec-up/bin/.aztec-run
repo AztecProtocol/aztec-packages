@@ -104,12 +104,19 @@ if [[ -z "${SKIP_PORT_ASSIGNMENT:-}" ]]; then
   port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
 fi
 
+
+if [ "$NON_INTERACTIVE" = "true" ]; then
+  TI=""
+else
+  TI="-ti"
+fi
+
 docker run \
-  -ti \
   --rm \
   --workdir "$PWD" \
   -v $HOME:$HOME -v cache:/cache \
   $port_assignment \
+  $TI \
   ${DOCKER_ENV:-} \
   ${DOCKER_HOST_BINDS:-} \
   ${DOCKER_USER:-} \
