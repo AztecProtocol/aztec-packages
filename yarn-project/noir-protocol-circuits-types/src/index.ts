@@ -180,6 +180,7 @@ export const PrivateResetTagToArtifactName: Record<PrivateKernelResetTags, Priva
   small: 'PrivateKernelResetSmallArtifact',
 };
 
+// LONDONTODO(Tube): Need to modify here
 export type ServerProtocolArtifact =
   | 'EmptyNestedArtifact'
   | 'PrivateKernelEmptyArtifact'
@@ -510,6 +511,8 @@ export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): W
   const initialWitnessMap = abiEncode(RootParityJson.abi as Abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
+
+// LONDONTODO(Tube): need to add a thingy here
 
 /**
  * Converts the inputs of the base rollup circuit into a witness map.

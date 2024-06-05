@@ -46,6 +46,12 @@ class ClientIVC {
         HonkProof decider_proof;
         GoblinProof goblin_proof;
 
+        /**
+         * @brief Converts a proof to an array of scalars which is necessary for serialisation and writing the proof to
+         * a file.
+         *
+         * @return std::vector<FF>
+         */
         std::vector<FF> to_buffer() const
         {
             size_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();

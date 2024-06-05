@@ -8,10 +8,13 @@ import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 import { basename, dirname, join } from 'path';
 
+// LONDONTODO(Tube) add paths for client ivc
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
+export const ACC_FILENAME = "pg_acc";
+export const ACC_FIELDS_FILENAME = "pg_acc_fields.json"
 
 export enum BB_RESULT {
   SUCCESS,
@@ -231,6 +234,8 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
+
+    // LONDONTODO(TUBE)
     const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
     const duration = timer.ms();
 
