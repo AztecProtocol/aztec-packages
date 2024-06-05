@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717595761567,
+  "lastUpdate": 1717596054537,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -22528,6 +22528,78 @@ window.BENCHMARK_DATA = {
             "value": 163979358,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163979358 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6c985299d796b8c711794395518c3b3a0f41e775",
+          "message": "feat: SMT Verification Module Update (#6849)\n\nThis PR slightly updates several classes in `smt_verification` directory\r\n\r\n## CircuitSchema\r\n\r\n- new structure of CircuitSchema object for compatibility with\r\nUltraArith and UltraTraceBlocks\r\n- also moved it to `circuit_builder_base` due to `UltraCircuitBuilder`'s\r\n`operator==` definition\r\n- UltraCircuitBuilder now has `export_circuit()` method\r\n\r\n## Solver\r\n\r\n- new table creation function\r\n- cvc5 patch fix\r\n- BitVector output values\r\n\r\n## Circuit\r\n\r\n`circuit.cpp/circuit.hpp` is moving to `standard_circuit.*`. More\r\nsignificant changes in the follow up pr\r\n\r\n## Terms\r\n\r\n- fixed BitVector shift operation\r\n- Added tests for all sorts of operations with bitvectors\r\n- Added test for table inclusion with FFTerm\r\n\r\n## Util\r\n\r\nSlightly changed `default_model` function. Now it doesn't need solver\r\nparameter + fixed the memory related issues.",
+          "timestamp": "2024-06-05T14:46:54+01:00",
+          "tree_id": "c3a4caf50f826afe0d99ce931a1301aba9e760f7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6c985299d796b8c711794395518c3b3a0f41e775"
+        },
+        "date": 1717596053122,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15369.133863999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10719.241975 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5531.902716000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5051.7307200000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49423.546006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49423548000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17055.266018000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17055267000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5192920398,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5192920398 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197369890,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197369890 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4261325939,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4261325939 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162540058,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162540058 ns\nthreads: 1"
           }
         ]
       }
