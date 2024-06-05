@@ -78,7 +78,10 @@ export type CircuitName =
   | 'public-kernel-setup'
   | 'public-kernel-app-logic'
   | 'public-kernel-teardown'
-  | 'public-kernel-tail';
+  | 'public-kernel-tail'
+  | 'avm-circuit'
+  | 'empty-nested'
+  | 'private-kernel-empty';
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
@@ -158,8 +161,8 @@ export type L2BlockHandledStats = {
 export type NoteProcessorCaughtUpStats = {
   /** Name of the event. */
   eventName: 'note-processor-caught-up';
-  /** Public key of the note processor. */
-  publicKey: string;
+  /** Account the note processor belongs to. */
+  account: string;
   /** Total time to catch up with the tip of the chain from scratch in ms. */
   duration: number;
   /** Size of the notes db. */
@@ -172,8 +175,10 @@ export type NoteProcessorStats = {
   seen: number;
   /** How many notes had decryption deferred due to a missing contract */
   deferred: number;
-  /** How many notes were successfully decrypted. */
-  decrypted: number;
+  /** How many incoming notes were successfully decrypted. */
+  decryptedIncoming: number;
+  /** How many outgoing notes were successfully decrypted. */
+  decryptedOutgoing: number;
   /** How many notes failed processing. */
   failed: number;
   /** How many blocks were spanned.  */

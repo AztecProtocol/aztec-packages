@@ -3,11 +3,10 @@ import {
   type FailedTx,
   NestedProcessReturnValues,
   type ProcessedTx,
-  type PublicKernelRequest,
+  type PublicProvingRequest,
   type SimulationError,
   Tx,
   type TxValidator,
-  makeEmptyProcessedTx,
   makeProcessedTx,
   validateProcessedTx,
 } from '@aztec/circuit-types';
@@ -39,7 +38,7 @@ import {
   publicKernelPhaseToKernelType,
 } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_executor.js';
+import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -212,18 +211,9 @@ export class PublicProcessor {
     return finalPublicDataUpdateRequests;
   }
 
-  /**
-   * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
-   * @returns A processed tx with empty data.
-   */
-  public makeEmptyProcessedTx(): ProcessedTx {
-    const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.historicalHeader.clone(), chainId, version);
-  }
-
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     let returnValues: NestedProcessReturnValues[] = [];
-    const publicRequests: PublicKernelRequest[] = [];
+    const publicProvingRequests: PublicProvingRequest[] = [];
     let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
       tx,
       this.db,
@@ -245,7 +235,7 @@ export class PublicProcessor {
       if (phase.phase === PublicKernelPhase.APP_LOGIC) {
         returnValues = output.returnValues;
       }
-      publicRequests.push(...output.kernelRequests);
+      publicProvingRequests.push(...output.publicProvingRequests);
       publicKernelPublicInput = output.publicKernelOutput;
       finalKernelOutput = output.finalKernelOutput;
       revertReason ??= output.revertReason;
@@ -266,7 +256,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }
 }

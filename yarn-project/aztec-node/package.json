@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@aztec/archiver": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -57,6 +58,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",

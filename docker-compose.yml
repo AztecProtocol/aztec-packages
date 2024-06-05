@@ -1,0 +1,48 @@
+name: aztec-devnet
+services:
+  pxe:
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:edc36351a531c2d76c2a96e2a67dc1f4020d5dcb9c7132d7df8e75a8518ed1b3}
+    # need to run bb for proofs and bb is only built for x86
+    platform: linux/amd64
+    environment:
+      LOG_LEVEL: info
+      DEBUG: aztec:*
+      DEBUG_COLORS: 1
+      CHAIN_ID: 31337
+      VERSION: 1
+      PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
+      PXE_DATA_DIRECTORY: /var/lib/aztec/pxe
+      NODE_NO_WARNINGS: 1
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url); node /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe",
+      ]
+    secrets:
+      - aztec-node-url
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - aztec-pxe:/var/lib/aztec/pxe
+    expose:
+      - 8080:8080
+  cli:
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:edc36351a531c2d76c2a96e2a67dc1f4020d5dcb9c7132d7df8e75a8518ed1b3}
+    # run the same image as pxe
+    platform: linux/amd64
+    environment:
+      PXE_URL: http://pxe:8080
+      NODE_NO_WARNINGS: 1
+      PRIVATE_KEY:
+      ETHEREUM_HOST:
+    entrypoint: ["node", "/usr/src/yarn-project/cli/dest/bin/index.js"]
+    profiles:
+      - cli
+
+volumes:
+  aztec-pxe:
+
+secrets:
+  aztec-node-url:
+    environment: AZTEC_NODE_URL

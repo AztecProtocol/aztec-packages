@@ -1,15 +1,21 @@
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
-#include "constants.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
+
+#include <array>
 #include <cstdint>
+#include <unordered_map>
 
 namespace bb::avm_trace {
 
 using Flavor = bb::AvmFlavor;
 using FF = Flavor::FF;
-using Row = bb::AvmFullRow<bb::fr>;
+
+} // namespace bb::avm_trace
+
+namespace bb::avm_trace {
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
 using VmPublicInputs = std::tuple<std::array<FF, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
@@ -34,5 +40,20 @@ static const uint32_t MAX_MEM_TAG = 6;
 static const size_t NUM_MEM_SPACES = 256;
 static const uint8_t INTERNAL_CALL_SPACE_ID = 255;
 static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
+
+struct ContractInstanceHint {
+    FF instance_found_in_address;
+    FF salt;
+    FF deployer_addr;
+    FF contract_class_id;
+    FF initialisation_hash;
+    FF public_key_hash;
+};
+struct ExecutionHints {
+    std::unordered_map<uint32_t, FF> side_effect_hints;
+
+    std::vector<std::vector<FF>> returndata_hints;
+    std::map<FF, ContractInstanceHint> contract_instance_hints;
+};
 
 } // namespace bb::avm_trace
