@@ -33,11 +33,11 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByContract: AztecMultiMap<string, string>;
   #notesByStorageSlot: AztecMultiMap<string, string>;
   #notesByTxHash: AztecMultiMap<string, string>;
-  #notesByOwner: AztecMultiMap<string, string>;
+  #notesByIvpkM: AztecMultiMap<string, string>;
   #nullifiedNotesByContract: AztecMultiMap<string, string>;
   #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
   #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
-  #nullifiedNotesByOwner: AztecMultiMap<string, string>;
+  #nullifiedNotesByIvpkM: AztecMultiMap<string, string>;
   #deferredNotes: AztecArray<Buffer | null>;
   #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
@@ -67,12 +67,12 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#notesByContract = db.openMultiMap('notes_by_contract');
     this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
     this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
-    this.#notesByOwner = db.openMultiMap('notes_by_owner');
+    this.#notesByIvpkM = db.openMultiMap('notes_by_owner');
 
     this.#nullifiedNotesByContract = db.openMultiMap('nullified_notes_by_contract');
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
-    this.#nullifiedNotesByOwner = db.openMultiMap('nullified_notes_by_owner');
+    this.#nullifiedNotesByIvpkM = db.openMultiMap('nullified_notes_by_owner');
 
     this.#deferredNotes = db.openArray('deferred_notes');
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
@@ -154,7 +154,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notesByContract.set(dao.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
         void this.#notesByTxHash.set(dao.txHash.toString(), noteIndex);
-        void this.#notesByOwner.set(dao.ivpkM.toString(), noteIndex);
+        void this.#notesByIvpkM.set(dao.ivpkM.toString(), noteIndex);
       }
     });
   }
@@ -220,7 +220,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     candidateNoteSources.push({
       ids: publicKey
-        ? this.#notesByOwner.getValues(publicKey.toString())
+        ? this.#notesByIvpkM.getValues(publicKey.toString())
         : filter.txHash
         ? this.#notesByTxHash.getValues(filter.txHash.toString())
         : filter.contractAddress
@@ -234,7 +234,7 @@ export class KVPxeDatabase implements PxeDatabase {
     if (filter.status == NoteStatus.ACTIVE_OR_NULLIFIED) {
       candidateNoteSources.push({
         ids: publicKey
-          ? this.#nullifiedNotesByOwner.getValues(publicKey.toString())
+          ? this.#nullifiedNotesByIvpkM.getValues(publicKey.toString())
           : filter.txHash
           ? this.#nullifiedNotesByTxHash.getValues(filter.txHash.toString())
           : filter.contractAddress
@@ -312,7 +312,7 @@ export class KVPxeDatabase implements PxeDatabase {
         nullifiedNotes.push(note);
 
         void this.#notes.delete(noteIndex);
-        void this.#notesByOwner.deleteValue(account.toString(), noteIndex);
+        void this.#notesByIvpkM.deleteValue(account.toString(), noteIndex);
         void this.#notesByTxHash.deleteValue(note.txHash.toString(), noteIndex);
         void this.#notesByContract.deleteValue(note.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlot.deleteValue(note.storageSlot.toString(), noteIndex);
@@ -321,7 +321,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
         void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
         void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
-        void this.#nullifiedNotesByOwner.set(note.ivpkM.toString(), noteIndex);
+        void this.#nullifiedNotesByIvpkM.set(note.ivpkM.toString(), noteIndex);
 
         void this.#nullifierToNoteId.delete(nullifier.toString());
       }
