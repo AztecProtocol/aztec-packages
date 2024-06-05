@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717606406707,
+  "lastUpdate": 1717606425475,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -24392,6 +24392,78 @@ window.BENCHMARK_DATA = {
             "value": 162707746,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162707746 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e6cba16ef82428b115d527eabe237122e269aa32",
+          "message": "feat: Standard form for cycle_group (#6915)\n\nCreate an implementation of get_standard_form function for cycle group.\r\nThe point is to ensure that the point at infinity has (0,0) coordinates",
+          "timestamp": "2024-06-05T17:41:52+01:00",
+          "tree_id": "61b3ce2d57b80b5000ee025a3e4891797f7facad",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e6cba16ef82428b115d527eabe237122e269aa32"
+        },
+        "date": 1717606424240,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15412.556604000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10629.457232000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5503.429686000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5098.306184 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49503.537904000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49503539000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17093.126529999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17093126000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5180037191,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5180037191 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200421712,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200421712 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4262546244,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4262546244 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163156368,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163156368 ns\nthreads: 1"
           }
         ]
       }
