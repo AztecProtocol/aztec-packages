@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717605815266,
+  "lastUpdate": 1717606406707,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -24320,6 +24320,78 @@ window.BENCHMARK_DATA = {
             "value": 164514029,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164514029 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f01573641728d6cc62da36189a22fa813713fd82",
+          "message": "fix: Fix client ivc incorrect srs size issue and parallelise srs generation for grumpkin (#6913)\n\n1. Fixes an off-by-one issue\r\n2. Adds paralllelisation to srs generation (now it's much faster on the\r\nmainframe)\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2024-06-05T16:36:43Z",
+          "tree_id": "c442206268f00bdd1b40bc11c444235d034ae915",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f01573641728d6cc62da36189a22fa813713fd82"
+        },
+        "date": 1717606405024,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15561.344485999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10883.947372999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5513.916862000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5157.01917 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48163.833071,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48163835000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17018.226833,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17018226000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5301632390,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5301632390 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198714652,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198714652 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4265050171,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4265050171 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162707746,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162707746 ns\nthreads: 1"
           }
         ]
       }
