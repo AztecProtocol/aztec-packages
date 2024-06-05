@@ -41,7 +41,7 @@ template <typename T> CircuitProps get_standard_ror_circuit(T n, size_t sh)
     size_t num_gates = builder.get_num_gates() - start_gate;
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
-    // relative offstes in the circuit are calculated manually, according to decompose_into_base4_accumulators method
+    // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method
     // lhs, rhs positions in the gate
     uint32_t a_position = (sh & 1) == 1 ? 1 : 0;
     uint32_t b_position = (sh & 1) == 1 ? 0 : 2;
@@ -69,7 +69,7 @@ template <typename T> CircuitProps get_standard_shift_right_circuit(T n, uint32_
     size_t num_gates = builder.get_num_gates() - start_gate;
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
-    // relative offstes in the circuit are calculated manually, according to decompose_into_base4_accumulators method
+    // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method
     // lhs, rhs positions in the gate
     uint32_t acc_position = 0;
     uint32_t b_position = 1;
@@ -93,7 +93,7 @@ template <typename T> CircuitProps get_standard_shift_left_circuit(T n, uint32_t
     size_t num_gates = builder.get_num_gates() - start_gate;
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
-    // relative offstes in the circuit are calculated manually, according to decompose_into_base4_accumulators method
+    // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method
     // lhs, rhs positions in the gate
     uint32_t a_position = (sh & 1) == 1 ? 1 : 0;
     uint32_t b_position = (sh & 1) == 1 ? 0 : 2;

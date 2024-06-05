@@ -20,7 +20,7 @@ CircuitProps get_standard_range_constraint_circuit(size_t n)
 
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
-    // relative offstes in the circuit are calculated manually, according to decompose_into_base4_accumulators method
+    // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method
     // lhs position in the gate
     uint32_t lhs_position = 2;
     // number of the gate that contains lhs
@@ -54,7 +54,7 @@ CircuitProps get_standard_logic_circuit(size_t n, bool is_xor)
 
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
-    // relative offstes in the circuit are calculated manually, according to create_logic_constraint method
+    // relative offsets in the circuit are calculated manually, according to create_logic_constraint method
     // lhs, rhs and out positions in the corresponding gates
     uint32_t lhs_position = 2;
     uint32_t rhs_position = 2;
