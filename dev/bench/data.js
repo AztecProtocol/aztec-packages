@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717597894763,
+  "lastUpdate": 1717598854640,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -23012,6 +23012,78 @@ window.BENCHMARK_DATA = {
             "value": 162944879,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162944879 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "deb972d3f13a92d34a6f91074b072fb66d247f64",
+          "message": "feat(avm): e2e send l1 msg (#6880)\n\nEnd to end from ts -> avm prove + verify for emit l2 to l1 msg",
+          "timestamp": "2024-06-05T14:33:02Z",
+          "tree_id": "4b51fe0aa8430b253a882b4235fa0645243447f8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/deb972d3f13a92d34a6f91074b072fb66d247f64"
+        },
+        "date": 1717598853033,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15433.695115000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10741.812832000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5543.997301000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5111.663681999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49027.475288,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49027476000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17076.58029,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17076580000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5174076570,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5174076570 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198359002,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198359002 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4271653028,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4271653028 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163621159,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163621159 ns\nthreads: 1"
           }
         ]
       }
