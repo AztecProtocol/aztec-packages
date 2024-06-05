@@ -134,7 +134,6 @@
     "linkability",
     "lmdb",
     "maddiaa",
-    "MADDR",
     "mcache",
     "memdown",
     "memfs",
@@ -298,7 +297,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous"
-  ]
+  "flagWords": ["anonymous"]
 }
