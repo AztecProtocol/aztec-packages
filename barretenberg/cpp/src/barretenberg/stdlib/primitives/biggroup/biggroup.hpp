@@ -22,6 +22,7 @@ namespace bb::stdlib {
 template <class Builder, class Fq, class Fr, class NativeGroup> class element {
   public:
     using bool_ct = stdlib::bool_t<Builder>;
+    using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
 
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
@@ -936,6 +937,16 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     using batch_lookup_table =
         typename std::conditional<HasPlookup<Builder>, batch_lookup_table_plookup<>, batch_lookup_table_base>::type;
 };
+
+// template <typename T>
+// concept IsBigGroup = requires {
+//     typename std::enable_if<
+//         std::is_same_v<T, element<typename T::Builder, typename T::Fq, typename T::Fr, typename
+//         T::NativeGroup>>>::type;
+// };
+
+template <typename T>
+concept IsBigGroup = std::is_same_v<typename T::biggroup_tag, T>;
 
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)

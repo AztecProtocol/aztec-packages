@@ -6,6 +6,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -489,7 +490,12 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Compute batch mul to get the result
         if constexpr (Curve::is_stdlib_type) {
-            return Commitment::batch_mul(commitments, scalars);
+            // If Ultra and using biggroup, handle edge cases in batch_mul
+            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+                return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            } else {
+                return Commitment::batch_mul(commitments, scalars);
+            }
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -604,7 +610,12 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            return Commitment::batch_mul(commitments, scalars);
+            // If Ultra and using biggroup, handle edge cases in batch_mul
+            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+                return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            } else {
+                return Commitment::batch_mul(commitments, scalars);
+            }
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -706,7 +717,12 @@ template <typename PCS> class ZeroMorphVerifier_ {
             auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
-            C_zeta_Z = Commitment::batch_mul(points, scalars);
+            // If Ultra and using biggroup, handle edge cases in batch_mul
+            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+                C_zeta_Z = Commitment::batch_mul(points, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            } else {
+                C_zeta_Z = Commitment::batch_mul(points, scalars);
+            }
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
         }
