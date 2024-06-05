@@ -1825,7 +1825,7 @@ void AvmTraceBuilder::calldata_copy(
                 pos == 0)), // TODO: remove in the long term. This activate gas only for the first row.
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
-            .avm_main_pc = FF(pc++),
+            .avm_main_pc = FF(pc),
             .avm_main_rwa = FF(rwa),
             .avm_main_rwb = FF(rwb),
             .avm_main_rwc = FF(rwc),
@@ -1839,6 +1839,8 @@ void AvmTraceBuilder::calldata_copy(
             pos = copy_size;
         }
     }
+
+    pc++;
 }
 
 /**
@@ -2020,8 +2022,13 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
     }
 
     // Write into memory from intermediate register ia.
-    mem_trace_builder.write_into_memory(
-        call_ptr, clk, IntermRegister::IA, direct_dst_offset, gas_remaining, AvmMemoryTag::U0, AvmMemoryTag::U32);
+    mem_trace_builder.write_into_memory(call_ptr,
+                                        clk,
+                                        IntermRegister::IA,
+                                        direct_dst_offset,
+                                        gas_remaining,
+                                        AvmMemoryTag::U0,
+                                        AvmMemoryTag::FF); // TODO: probably will be U32 in final version
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -2038,7 +2045,8 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
         .avm_main_sel_op_dagasleft = (opcode == OpCode::DAGASLEFT) ? FF(1) : FF(0),
         .avm_main_sel_op_l2gasleft = (opcode == OpCode::L2GASLEFT) ? FF(1) : FF(0),
         .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
+        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)), // TODO: probably will be U32 in final version
+                                                                          // Should the circuit (pil) constrain U32?
     });
 }
 
