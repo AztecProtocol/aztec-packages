@@ -37,6 +37,10 @@ To gather proving speeds benchmark on your local machine:
 
 **Note:** It is recommended to increase or maximize your Docker instance's memory limit, as some of the pre-benchmark compilations are very memory intensive (e.g. an 8GB memory limit is insufficient and is expected to cause OOM errors).
 
-### Adding benchmarks
+### Adding / updating benchmarks
 
-TODO
+Benchmarking programs are located in [*noir/noir-repo/test_programs/benchmarks*](https://github.com/AztecProtocol/aztec-packages/tree/131af8806a453b851403b0eb7cba855bc2c0cc43/noir/noir-repo/test_programs/benchmarks). Follow the naming scheme of folders and packages (in Nargo.toml) beginning with *bench_...* and add or update programs in the directory directly.
+
+To benchmark locally after modifications:
+1. `git commit ...`
+2. `earthly ./noir+bench-acir-bb`
