@@ -20,7 +20,7 @@ export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): st
     }
     [, addr, port] = match;
   } else {
-    // IPv4 address or DNS address
+    // IPv4 address
     [addr, port] = address.split(':');
     if (!addr || !port) {
       throw new Error('Invalid address format. Expected format: <addr>:<port>');
@@ -36,8 +36,7 @@ export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): st
     // IPv4 address
     multiaddrPrefix = 'ip4';
   } else {
-    // DNS address
-    multiaddrPrefix = 'dns4';
+    throw new Error('Invalid address format. Expected an IPv4 or IPv6 address.');
   }
 
   return `/${multiaddrPrefix}/${addr}/${protocol}/${port}`;
