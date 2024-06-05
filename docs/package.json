@@ -37,8 +37,8 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.0.1",
-    "@playwright/test": "1.42.0",
     "@docusaurus/types": "3.0.0",
+    "@playwright/test": "1.42.0",
     "@tsconfig/docusaurus": "^1.0.5",
     "concurrently": "^8.0.1",
     "docusaurus-plugin-typedoc": "^0.20.2",
