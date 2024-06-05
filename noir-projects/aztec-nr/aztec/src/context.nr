@@ -4,11 +4,11 @@ mod inputs;
 mod packed_returns;
 mod private_context;
 mod public_context;
-mod interface;
+mod unconstrained_context;
+
 mod call_interfaces;
 mod gas;
 
-use interface::ContextInterface;
 use call_interfaces::{
     PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface, PublicStaticCallInterface,
     PrivateVoidCallInterface, PrivateStaticVoidCallInterface, PublicVoidCallInterface,
@@ -18,3 +18,4 @@ use private_context::PrivateContext;
 use packed_returns::PackedReturns;
 use public_context::PublicContext;
 use public_context::FunctionReturns;
+use unconstrained_context::UnconstrainedContext;

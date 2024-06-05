@@ -7,7 +7,7 @@ import {
   type ProvingTicket,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
-import { type Fr, type GlobalVariables, type VerificationKeys } from '@aztec/circuits.js';
+import { type Fr, type GlobalVariables, type Header, type VerificationKeys } from '@aztec/circuits.js';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -21,16 +21,18 @@ import { ProverAgent } from '../prover-agent/prover-agent.js';
  */
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
-  private queue = new MemoryProvingQueue();
+  private queue: MemoryProvingQueue;
   private running = false;
 
-  constructor(
+  private constructor(
     private config: ProverClientConfig,
     private worldStateSynchronizer: WorldStateSynchronizer,
     private vks: VerificationKeys,
     private agent?: ProverAgent,
+    initialHeader?: Header,
   ) {
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue);
+    this.queue = new MemoryProvingQueue(config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
+    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue, initialHeader);
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig & { vks: VerificationKeys }>): Promise<void> {
@@ -49,6 +51,10 @@ export class TxProver implements ProverClient {
       this.agent?.setMaxConcurrency(newConfig.proverAgentConcurrency);
     }
 
+    if (!this.config.realProofs && newConfig.realProofs) {
+      this.orchestrator.reset();
+    }
+
     this.config = newConfig;
   }
 
@@ -61,6 +67,7 @@ export class TxProver implements ProverClient {
     }
 
     this.running = true;
+    this.queue.start();
     this.agent?.start(this.queue);
     return Promise.resolve();
   }
@@ -74,6 +81,7 @@ export class TxProver implements ProverClient {
     }
     this.running = false;
     await this.agent?.stop();
+    await this.queue.stop();
   }
 
   /**
@@ -87,6 +95,7 @@ export class TxProver implements ProverClient {
     config: ProverClientConfig,
     vks: VerificationKeys,
     worldStateSynchronizer: WorldStateSynchronizer,
+    initialHeader?: Header,
   ) {
     const agent = config.proverAgentEnabled
       ? new ProverAgent(
@@ -96,7 +105,7 @@ export class TxProver implements ProverClient {
         )
       : undefined;
 
-    const prover = new TxProver(config, worldStateSynchronizer, vks, agent);
+    const prover = new TxProver(config, worldStateSynchronizer, vks, agent, initialHeader);
     await prover.start();
     return prover;
   }
@@ -118,17 +127,15 @@ export class TxProver implements ProverClient {
    * @param numTxs - The complete size of the block, must be a power of 2
    * @param globalVariables - The global variables for this block
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this block
-   * @param emptyTx - An instance of an empty transaction to be used in this block
    */
   public async startNewBlock(
     numTxs: number,
     globalVariables: GlobalVariables,
     newL1ToL2Messages: Fr[],
-    emptyTx: ProcessedTx,
   ): Promise<ProvingTicket> {
     const previousBlockNumber = globalVariables.blockNumber.toNumber() - 1;
     await this.worldStateSynchronizer.syncImmediate(previousBlockNumber);
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, emptyTx, this.vks);
+    return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, this.vks);
   }
 
   /**

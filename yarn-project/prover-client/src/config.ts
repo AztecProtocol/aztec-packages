@@ -23,6 +23,7 @@ export type ProverClientConfig = ProverConfig & {
  */
 export function getProverEnvVars(): ProverClientConfig {
   const {
+    AZTEC_NODE_URL,
     ACVM_WORKING_DIRECTORY = tmpdir(),
     ACVM_BINARY_PATH = '',
     BB_WORKING_DIRECTORY = tmpdir(),
@@ -33,16 +34,16 @@ export function getProverEnvVars(): ProverClientConfig {
     PROVER_AGENT_CONCURRENCY = PROVER_AGENTS,
     PROVER_AGENT_POLL_INTERVAL_MS = '100',
     PROVER_REAL_PROOFS = '',
+    PROVER_JOB_TIMEOUT_MS = '60000',
+    PROVER_JOB_POLL_INTERVAL_MS = '1000',
   } = process.env;
 
   const realProofs = ['1', 'true'].includes(PROVER_REAL_PROOFS);
   const proverAgentEnabled = ['1', 'true'].includes(PROVER_AGENT_ENABLED);
-  const parsedProverConcurrency = parseInt(PROVER_AGENT_CONCURRENCY, 10);
-  const proverAgentConcurrency = Number.isSafeInteger(parsedProverConcurrency) ? parsedProverConcurrency : 1;
-  const parsedProverAgentPollInterval = parseInt(PROVER_AGENT_POLL_INTERVAL_MS, 10);
-  const proverAgentPollInterval = Number.isSafeInteger(parsedProverAgentPollInterval)
-    ? parsedProverAgentPollInterval
-    : 100;
+  const proverAgentConcurrency = safeParseNumber(PROVER_AGENT_CONCURRENCY, 1);
+  const proverAgentPollInterval = safeParseNumber(PROVER_AGENT_POLL_INTERVAL_MS, 100);
+  const proverJobTimeoutMs = safeParseNumber(PROVER_JOB_TIMEOUT_MS, 60000);
+  const proverJobPollIntervalMs = safeParseNumber(PROVER_JOB_POLL_INTERVAL_MS, 1000);
 
   return {
     acvmWorkingDirectory: ACVM_WORKING_DIRECTORY,
@@ -53,5 +54,13 @@ export function getProverEnvVars(): ProverClientConfig {
     proverAgentEnabled,
     proverAgentPollInterval,
     proverAgentConcurrency,
+    nodeUrl: AZTEC_NODE_URL,
+    proverJobPollIntervalMs,
+    proverJobTimeoutMs,
   };
+}
+
+function safeParseNumber(value: string, defaultValue: number): number {
+  const parsedValue = parseInt(value, 10);
+  return Number.isSafeInteger(parsedValue) ? parsedValue : defaultValue;
 }

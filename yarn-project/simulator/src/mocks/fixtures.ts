@@ -1,6 +1,7 @@
 import { type FunctionCall, type SimulationError, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
+  AvmExecutionHints,
   type AztecAddress,
   CallContext,
   type ContractStorageRead,
@@ -141,6 +142,8 @@ export class PublicExecutionResultBuilder {
       startGasLeft: Gas.test(),
       endGasLeft: Gas.test(),
       transactionFee: Fr.ZERO,
+      calldata: [],
+      avmHints: AvmExecutionHints.empty(),
       ...overrides,
     };
   }

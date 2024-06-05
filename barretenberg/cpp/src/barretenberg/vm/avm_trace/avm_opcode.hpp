@@ -1,14 +1,13 @@
 #pragma once
 
-#include "barretenberg/common/log.hpp"
-#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
+
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 
 namespace bb::avm_trace {
 
@@ -133,5 +132,7 @@ std::string to_hex(T value)
     return stream.str();
 }
 std::string to_hex(OpCode opcode);
+
+std::string to_string(OpCode opcode);
 
 } // namespace bb::avm_trace
