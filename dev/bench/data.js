@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717602620928,
+  "lastUpdate": 1717602753237,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -23836,6 +23836,78 @@ window.BENCHMARK_DATA = {
             "value": 166450222,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166450222 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3e44be538e5c7f0e7269c1e5c0820f7bc6e83734",
+          "message": "feat: Add standard form function to biggroup (#6899)\n\nAdds a function to biggroup that makes a point at infinity in biggroup\r\nwith (0,0) coordinates, so Noir can predict the values",
+          "timestamp": "2024-06-05T15:42:21Z",
+          "tree_id": "a97d0cad6a4c6d6a9868ed0d960b9a6fc29b520a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3e44be538e5c7f0e7269c1e5c0820f7bc6e83734"
+        },
+        "date": 1717602751865,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15407.615531999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10578.371371 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5508.774891999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5133.437882 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49262.600701,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49262603000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17065.554709,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17065555000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5145099490,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5145099490 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202207150,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202207150 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4256057614,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4256057614 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164419694,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164419694 ns\nthreads: 1"
           }
         ]
       }
