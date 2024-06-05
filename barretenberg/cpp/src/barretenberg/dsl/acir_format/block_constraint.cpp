@@ -188,7 +188,10 @@ void process_return_data_operations(const BlockConstraint& constraint, std::vect
     databus_ct databus;
     // Populate the returndata in the databus
     databus.return_data.set_values(init);
-    int c = 0;
+    // For each entry of the return data, explicitly assert equality with the initialization value. This implicitly
+    // creates the return data read gates that are required to connect witness values in the main wires to witness
+    // values in the databus return data column.
+    size_t c = 0;
     for (const auto& value : init) {
         value.assert_equal(databus.return_data[c]);
         c++;
