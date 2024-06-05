@@ -1546,6 +1546,87 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     validate_trace(std::move(trace));
 }
 
+// Positive test for L2GASLEFT opcode
+TEST_F(AvmExecutionTests, l2GasLeft)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +         // opcode SET
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000101"                    // val 257
+                               "00000011"                    // dst_offset 17
+                               + to_hex(OpCode::L2GASLEFT) + // opcode L2GASLEFT
+                               "01"                          // Indirect flag
+                               "00000011"                    // dst_offset (indirect addr: 17)
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "00000000"                    // ret offset 0
+                               "00000000";                   // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    // L2GASLEFT
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::L2GASLEFT),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint32_t>(17)))));
+
+    auto trace = gen_trace_from_instr(instructions);
+
+    // Find the first row enabling the L2GASLEFT selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_l2gasleft == 1; });
+
+    uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS - GAS_COST_TABLE.at(OpCode::SET).l2_fixed_gas_cost -
+                                GAS_COST_TABLE.at(OpCode::L2GASLEFT).l2_fixed_gas_cost;
+
+    EXPECT_EQ(row->avm_main_ia, expected_rem_gas);
+    EXPECT_EQ(row->avm_main_mem_idx_a, 257); // Resolved direct address: 257
+
+    validate_trace(std::move(trace));
+}
+
+// Positive test for DAGASLEFT opcode
+TEST_F(AvmExecutionTests, daGasLeft)
+{
+    std::string bytecode_hex = to_hex(OpCode::ADD) +         // opcode ADD
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000007"                    // addr a 7
+                               "00000009"                    // addr b 9
+                               "00000001"                    // addr c 1
+                               + to_hex(OpCode::DAGASLEFT) + // opcode DAGASLEFT
+                               "00"                          // Indirect flag
+                               "00000027"                    // dst_offset 39
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "00000000"                    // ret offset 0
+                               "00000000";                   // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    // DAGASLEFT
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::DAGASLEFT),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(39)))));
+
+    auto trace = gen_trace_from_instr(instructions);
+
+    // Find the first row enabling the DAGASLEFT selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_dagasleft == 1; });
+
+    uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS - GAS_COST_TABLE.at(OpCode::ADD).da_fixed_gas_cost -
+                                GAS_COST_TABLE.at(OpCode::DAGASLEFT).da_fixed_gas_cost;
+
+    EXPECT_EQ(row->avm_main_ia, expected_rem_gas);
+    EXPECT_EQ(row->avm_main_mem_idx_a, 39);
+
+    validate_trace(std::move(trace));
+}
+
 // Should throw whenever the wrong number of public inputs are provided
 TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 {
@@ -1735,15 +1816,18 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
                                + to_hex(OpCode::NOTEHASHEXISTS) +  // opcode NOTEHASHEXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
-                               "00000002"                          // write storage value to offset 2 (exists value)
+                               "00000002"                          // Leaf index offset 2
+                               "00000003"                          // write storage value to offset 2 (exists value)
                                + to_hex(OpCode::NULLIFIEREXISTS) + // opcode NULLIFIEREXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
-                               "00000002"                          // value write offset 2 (exists value)
+                               "00000002"                          // Contract offset 2
+                               "00000003"                          // value write offset 2 (exists value)
                                + to_hex(OpCode::L1TOL2MSGEXISTS) + // opcode L1TOL2MSGEXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
-                               "00000002"                          // value write offset 2 (exists value)
+                               "00000002"                          // Lead offset 2
+                               "00000003"                          // value write offset 2 (exists value)
                                + to_hex(OpCode::RETURN) +          // opcode RETURN
                                "00"                                // Indirect flag
                                "00000000"                          // ret offset 0
@@ -1878,6 +1962,44 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     validate_trace(std::move(trace));
 }
 
+TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
+{
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +        // opcode CALLDATACOPY for addr
+                               "00"                                  // Indirect flag
+                               "00000000"                            // cd_offset
+                               "00000001"                            // copy_size
+                               "00000001"                            // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SET) +               // opcode SET for the indirect dst offset
+                               "00"                                  // Indirect flag
+                               "03"                                  // U32
+                               "00000003"                            // val i
+                               "00000002" +                          // dst_offset 2
+                               to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode CALL
+                               "02"                                  // Indirect flag
+                               "00000001"                            // address offset
+                               "00000002"                            // dst offset
+                               + to_hex(OpCode::RETURN) +            // opcode RETURN
+                               "00"                                  // Indirect flag
+                               "00000003"                            // ret offset 3
+                               "00000006";                           // ret size 6
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    FF address = 10;
+    std::vector<FF> calldata = { address };
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for call operation
+    ExecutionHints execution_hints = {};
+    ContractInstanceHint contract_instance_hint = { 1, 1, 2, 3, 4, 5 }; // The first one represents true
+    execution_hints.contract_instance_hints.insert({ address, contract_instance_hint });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5 })); // The first one represents true
+
+    validate_trace(std::move(trace));
+}
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)
 {

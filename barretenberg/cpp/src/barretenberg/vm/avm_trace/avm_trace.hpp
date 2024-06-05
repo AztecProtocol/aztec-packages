@@ -8,6 +8,7 @@
 #include "barretenberg/vm/avm_trace/avm_gas_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
@@ -106,6 +107,7 @@ class AvmTraceBuilder {
     void op_emit_nullifier(uint32_t nullifier_offset);
     void op_emit_unencrypted_log(uint32_t log_offset);
     void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+    void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
 
     // With additional metadata output
     void op_l1_to_l2_msg_exists(uint32_t msg_offset, uint32_t dest_offset);
@@ -121,6 +123,10 @@ class AvmTraceBuilder {
 
     // Integer Division with direct or indirect memory access.
     void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Machine State - Gas
+    void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
+    void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
@@ -281,6 +287,8 @@ class AvmTraceBuilder {
     Row create_kernel_output_opcode_with_set_value_from_hint(uint32_t clk,
                                                              uint32_t data_offset,
                                                              uint32_t metadata_offset);
+
+    void execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
 
