@@ -106,7 +106,8 @@ contract Rollup is IRollup {
     }
 
     // Check that this is the current sequencer's turn
-    if (this.whoseTurnIsIt(header.globalVariables.blockNumber) != msg.sender) {
+    address sequencer = whoseTurnIsIt(header.globalVariables.blockNumber);
+    if (sequencer != address(0x0) && sequencer != msg.sender) {
       revert Errors.Rollup__InvalidSequencer(msg.sender);
     }
 
