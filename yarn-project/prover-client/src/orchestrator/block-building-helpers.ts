@@ -288,8 +288,7 @@ export async function getConstantRollupData(
   return ConstantRollupData.from({
     baseRollupVkHash: DELETE_FR,
     mergeRollupVkHash: DELETE_FR,
-    privateKernelVkTreeRoot: FUTURE_FR,
-    publicKernelVkTreeRoot: FUTURE_FR,
+    vkTreeRoot: FUTURE_FR,
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,
   });
