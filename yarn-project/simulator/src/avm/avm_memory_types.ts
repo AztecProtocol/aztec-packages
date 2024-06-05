@@ -293,13 +293,17 @@ export class TaggedMemory implements TaggedMemoryInterface {
    */
   public checkTag(tag: TypeTag, offset: number) {
     if (this.getTag(offset) !== tag) {
-      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], `${TypeTag[tag]}`);
     }
   }
 
   public checkIsValidMemoryOffsetTag(offset: number) {
-    if (this.getTag(offset) > TypeTag.UINT64) {
-      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], 'UINT64');
+    if (this.getTag(offset) !== TypeTag.UINT32) {
+      throw TagCheckError.forOffset(
+        offset,
+        TypeTag[this.getTag(offset)],
+        `${TypeTag[TypeTag.UINT32]} (mem offset check)`,
+      );
     }
   }
 
