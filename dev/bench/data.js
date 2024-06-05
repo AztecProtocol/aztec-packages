@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717603142064,
+  "lastUpdate": 1717604024994,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -24112,6 +24112,74 @@ window.BENCHMARK_DATA = {
             "value": 163103509,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163103509 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "018900f0a79f534679e48e16e2f2f4c4c6d1c4a3",
+          "message": "fix: Fix client ivc incorrect srs size issue and parallelise srs generation for grumpkin",
+          "timestamp": "2024-06-05T15:42:26Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6913/commits/018900f0a79f534679e48e16e2f2f4c4c6d1c4a3"
+        },
+        "date": 1717604023102,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15535.122925999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10777.961051 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5604.358521000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5235.0141619999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49260.172592,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49260174000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17165.303395999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17165304000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5208267360,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5208267360 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198758201,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198758201 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4278103729,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4278103729 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163287557,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163287557 ns\nthreads: 1"
           }
         ]
       }
