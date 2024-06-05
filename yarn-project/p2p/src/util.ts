@@ -16,14 +16,14 @@ export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): st
     // IPv6 address enclosed in square brackets
     const match = address.match(/^\[([^\]]+)\]:(\d+)$/);
     if (!match) {
-      throw new Error('Invalid IPv6 address format. Expected format: [<addr>]:<port>');
+      throw new Error(`Invalid IPv6 address format:${address}. Expected format: [<addr>]:<port>`);
     }
     [, addr, port] = match;
   } else {
     // IPv4 address
     [addr, port] = address.split(':');
     if (!addr || !port) {
-      throw new Error('Invalid address format. Expected format: <addr>:<port>');
+      throw new Error(`Invalid address format: ${address}. Expected format: <addr>:<port>`);
     }
   }
 
