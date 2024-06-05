@@ -61,6 +61,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
+    info("Checking circuit");
+    circuit_builder.check_circuit();
+
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
@@ -424,7 +427,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                         std::get<uint32_t>(inst.operands.at(3)),
                                         calldata);
             break;
-
+        // Machine State - Gas
+        case OpCode::L2GASLEFT:
+            trace_builder.op_l2gasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::DAGASLEFT:
+            trace_builder.op_dagasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
+            break;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
         case OpCode::SENDER:
             trace_builder.op_sender(std::get<uint32_t>(inst.operands.at(1)));
@@ -488,6 +497,11 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                                  // TODO: leaf offset exists
                                                  // std::get<uint32_t>(inst.operands.at(2))
                                                  std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::GETCONTRACTINSTANCE:
+            trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
+                                                   std::get<uint32_t>(inst.operands.at(1)),
+                                                   std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::EMITUNENCRYPTEDLOG:
             trace_builder.op_emit_unencrypted_log(std::get<uint32_t>(inst.operands.at(1)));
