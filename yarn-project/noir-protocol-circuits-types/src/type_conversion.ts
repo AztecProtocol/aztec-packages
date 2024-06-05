@@ -1945,8 +1945,7 @@ export function mapPublicCircuitPublicInputsToNoir(
 export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollupDataNoir): ConstantRollupData {
   return new ConstantRollupData(
     mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.last_archive),
-    mapFieldFromNoir(constantRollupData.private_kernel_vk_tree_root),
-    mapFieldFromNoir(constantRollupData.public_kernel_vk_tree_root),
+    mapFieldFromNoir(constantRollupData.vk_tree_root),
     mapFieldFromNoir(constantRollupData.base_rollup_vk_hash),
     mapFieldFromNoir(constantRollupData.merge_rollup_vk_hash),
     mapGlobalVariablesFromNoir(constantRollupData.global_variables),
