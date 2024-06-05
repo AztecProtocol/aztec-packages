@@ -164,8 +164,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
-        // TEMP: hardcode written non existent to 1
-        // ko_metadata[dest_offset] = FF(1);
+        ko_metadata[dest_offset] = FF(1);
     }
     // For NULLIFIEREXISTS - non existent
     for (size_t i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL; i++) {
@@ -174,8 +173,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
-        // TEMP: hardcode written non_existent to 0
-        // ko_metadata[dest_offset] = FF(0);
+        ko_metadata[dest_offset] = FF(0);
     }
     // For L1TOL2MSGEXISTS
     for (size_t i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL; i++) {
