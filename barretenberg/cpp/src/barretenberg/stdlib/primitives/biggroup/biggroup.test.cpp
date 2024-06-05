@@ -487,7 +487,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_batch_mul_edge_cases()
+    static void test_batch_mul_edge_case_set1()
     {
         const auto test_repeated_points = [](const uint32_t num_points) {
             // batch P + ... + P = m*P
@@ -531,6 +531,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         test_repeated_points(5);
         test_repeated_points(6);
         test_repeated_points(7);
+    }
+    static void test_batch_mul_edge_case_set2()
+    {
         {
             // batch oo + P = P
             std::vector<affine_element> points;
@@ -550,7 +553,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
                 circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
             }
-            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+            element_ct result_point =
+                element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
 
             element expected_point = points[1];
             expected_point = expected_point.normalize();
@@ -583,7 +587,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
             }
 
-            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+            element_ct result_point =
+                element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
 
             element expected_point = points[1];
             expected_point = expected_point.normalize();
@@ -1234,13 +1239,17 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edgecase_equivalence)
         TestFixture::test_batch_mul_edgecase_equivalence();
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_cases)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set1)
+{
+    TestFixture::test_batch_mul_edge_case_set1();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set2)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        TestFixture::test_batch_mul_edge_cases();
+        TestFixture::test_batch_mul_edge_case_set2();
     } else {
-        TestFixture::test_batch_mul_edge_cases();
-        // GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1000";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1000";
     };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
