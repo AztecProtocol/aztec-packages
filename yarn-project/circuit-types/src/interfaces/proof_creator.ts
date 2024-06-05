@@ -30,6 +30,9 @@ export type KernelProofOutput<PublicInputsType> = {
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
   verificationKey: VerificationKeyAsFields;
+
+  // LONDONTODO(AD): should this exist in the future?
+  outputWitness: WitnessMap
 };
 
 /**

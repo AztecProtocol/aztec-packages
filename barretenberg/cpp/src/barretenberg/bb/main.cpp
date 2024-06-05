@@ -5,6 +5,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
@@ -18,6 +19,7 @@
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -229,6 +231,45 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::strin
         program_stack.pop_back();
     }
     return true;
+}
+
+struct VectorOfAcirAndWitnesses {
+    std::vector<std::vector<uint8_t>> acirGzippedBincoes;
+    std::vector<std::map<uint8_t, std::string>> witnessMaps;
+};
+
+// TODO(AD): this could probably be more idiomatic
+template <typename T> T unpack_from_file(const std::string& filename)
+{
+    std::ifstream fin;
+    fin.open(filename, std::ios::ate | std::ios::binary);
+    if (!fin.is_open()) {
+        throw std::invalid_argument("file not found");
+    }
+    if (fin.tellg() == -1) {
+        throw std::invalid_argument("something went wrong");
+    }
+
+    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
+    fin.seekg(0, std::ios_base::beg);
+
+    T result;
+    char* encoded_data = new char[fsize];
+    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
+    msgpack::unpack(encoded_data, fsize).get().convert(result);
+    return result;
+}
+
+void foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    std::ifstream bytecode{ bytecodePath };
+    std::ifstream witnesses{ witnessPath };
+
+    auto gzippedBincodes = unpack_from_file<std::vector<std::vector<uint8_t>>>(bytecodePath);
+    auto witnessMaps = unpack_from_file<std::vector<std::map<uint8_t, std::string>>>(bytecodePath);
+
+    // bytecode
+    // const VectorOfAcirAndWitnesses& acir_and_witnesses
 }
 
 bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
@@ -860,6 +901,9 @@ int main(int argc, char* argv[])
         }
         if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "fold_and_verify_program_acir_witness_vector") {
+            return foldAndVerifyProgramAcirWitnessVector(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;

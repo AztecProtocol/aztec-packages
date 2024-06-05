@@ -110,6 +110,8 @@ export class TestProofCreator implements ProofCreator {
       publicInputs,
       proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
+      // LONDONTODO reconsider jamming this everywhere
+      outputWitness: new Map()
     };
     return kernelProofOutput;
   }

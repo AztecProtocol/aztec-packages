@@ -296,6 +296,7 @@ export class BBNativeProofCreator implements ProofCreator {
       publicInputs: output,
       proof: nestedProof,
       verificationKey: proofOutput.verificationKey,
+      outputWitness
     };
     return kernelOutput;
   }
