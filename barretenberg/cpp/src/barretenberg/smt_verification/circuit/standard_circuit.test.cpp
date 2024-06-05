@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
@@ -23,7 +23,7 @@ using witness_t = stdlib::witness_t<StandardCircuitBuilder>;
 using pub_witness_t = stdlib::public_witness_t<StandardCircuitBuilder>;
 using uint_ct = stdlib::uint32<StandardCircuitBuilder>;
 
-TEST(circuit, assert_equal)
+TEST(standard_circuit, assert_equal)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
 
@@ -62,7 +62,7 @@ TEST(circuit, assert_equal)
     ASSERT_EQ(circuit[i.get_witness_index()].term, circuit[j.get_witness_index()].term);
 }
 
-TEST(circuit, cached_subcircuits)
+TEST(standard_circuit, cached_subcircuits)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     field_t a(witness_t(&builder, fr::zero()));
@@ -79,7 +79,7 @@ TEST(circuit, cached_subcircuits)
     s.print_assertions();
 }
 
-TEST(circuit, range_relaxation_assertions)
+TEST(standard_circuit, range_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     field_t a(witness_t(&builder, fr(120)));
@@ -100,7 +100,7 @@ TEST(circuit, range_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(circuit, range_relaxation)
+TEST(standard_circuit, range_relaxation)
 {
     for (size_t i = 2; i < 256; i++) {
         StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -114,7 +114,7 @@ TEST(circuit, range_relaxation)
     }
 }
 
-TEST(circuit, xor_relaxation_assertions)
+TEST(standard_circuit, xor_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -132,7 +132,7 @@ TEST(circuit, xor_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(circuit, xor_relaxation)
+TEST(standard_circuit, xor_relaxation)
 {
     for (size_t i = 2; i < 256; i += 2) {
         StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -147,7 +147,7 @@ TEST(circuit, xor_relaxation)
     }
 }
 
-TEST(circuit, and_relaxation_assertions)
+TEST(standard_circuit, and_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -165,7 +165,7 @@ TEST(circuit, and_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(circuit, ror_relaxation_assertions)
+TEST(standard_circuit, ror_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -181,7 +181,7 @@ TEST(circuit, ror_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(circuit, ror_relaxation)
+TEST(standard_circuit, ror_relaxation)
 {
     for (size_t i = 1; i < 8; i++) {
         using uint_ct = stdlib::uint8<StandardCircuitBuilder>;
@@ -229,7 +229,7 @@ TEST(circuit, ror_relaxation)
     }
 }
 
-TEST(circuit, shl_relaxation_assertions)
+TEST(standard_circuit, shl_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -245,7 +245,7 @@ TEST(circuit, shl_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(circuit, shl_relaxation)
+TEST(standard_circuit, shl_relaxation)
 {
     for (size_t i = 1; i < 8; i++) {
         using uint_ct = stdlib::uint8<StandardCircuitBuilder>;
@@ -293,7 +293,7 @@ TEST(circuit, shl_relaxation)
     }
 }
 
-TEST(circuit, shr_relaxation_assertions)
+TEST(standard_circuit, shr_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -309,7 +309,7 @@ TEST(circuit, shr_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(circuit, shr_relaxation)
+TEST(standard_circuit, shr_relaxation)
 {
     for (size_t i = 1; i < 8; i += 2) {
         using uint_ct = stdlib::uint8<StandardCircuitBuilder>;
