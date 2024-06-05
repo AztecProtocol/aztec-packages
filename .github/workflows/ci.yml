@@ -249,7 +249,6 @@ jobs:
 
   bb-gcc:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
     runs-on: ticktock-tester-x86
     steps:
