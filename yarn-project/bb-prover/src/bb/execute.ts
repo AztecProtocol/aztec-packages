@@ -225,6 +225,8 @@ export async function generateProof(
 
   try {
     // Write the bytecode to the working directory
+    log(`bytecodePath ${bytecodePath}`);
+    log(`outputPath ${outputPath}`);
     await fs.writeFile(bytecodePath, bytecode); // FOLDINGSTACK: circuit bytecode is written to a file here
     // FOLDINGSTACK: input to bb execution is 3 paths: 1) where to write proof/vk, 2) bytecode path, 3) witness path. Maybe the easiest
     // (also most correct?) thing to do is to simply store vectors of bytecode/witness paths, then send those all in one go to BB for
