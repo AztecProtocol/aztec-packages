@@ -1,6 +1,6 @@
 use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 use crate::{context::PrivateContext, state_vars::private_mutable::PrivateMutable};
-use crate::test::{mocks::mock_note::MockNote, helpers::context_builder::TestEnvironment};
+use crate::test::{mocks::mock_note::MockNote, helpers::test_environment::TestEnvironment};
 use dep::std::{unsafe::zeroed, test::OracleMock};
 
 global contract_address = AztecAddress::from_field(13);

@@ -1,18 +1,9 @@
-use dep::std::{merkle::compute_merkle_root, test::OracleMock};
-
 use crate::{
-    context::{PublicContext, PrivateContext},
-    state_vars::shared_mutable::{
-    shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
-    scheduled_delay_change::ScheduledDelayChange
-},
-    test::helpers::context_builder::TestEnvironment, oracle::get_public_data_witness::PublicDataWitness
+    context::{PublicContext, PrivateContext}, state_vars::shared_mutable::shared_mutable::SharedMutable,
+    test::helpers::test_environment::TestEnvironment
 };
 
-use dep::protocol_types::{
-    constants::{GENERATOR_INDEX__PUBLIC_LEAF_INDEX, PUBLIC_DATA_TREE_HEIGHT}, hash::pedersen_hash,
-    address::AztecAddress, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage
-};
+use dep::protocol_types::address::AztecAddress;
 
 global new_value = 57;
 
@@ -21,7 +12,7 @@ global post_delay = 15;
 
 global storage_slot = 57;
 
-global TEST_INITIAL_DELAY: u32 = 3;
+global TEST_INITIAL_DELAY: u32 = 30;
 
 fn setup() -> TestEnvironment {
     TestEnvironment::new()
@@ -90,6 +81,71 @@ fn test_get_current_value_in_public_after_scheduled_change() {
 
     env.advance_block_to(block_of_change + 10);
     assert_eq(state_var.get_current_value_in_public(), new_value);
+}
+
+#[test]
+fn test_get_current_value_in_private_before_change() {
+    let mut env = setup();
+
+    let public_state_var = in_public(env);
+    public_state_var.schedule_value_change(new_value);
+
+    let (_, block_of_change) = public_state_var.get_scheduled_value_in_public();
+
+    let schedule_block_number = env.block_number;
+
+    let private_state_var = in_private(&mut env, schedule_block_number);
+    assert_eq(private_state_var.get_current_value_in_private(), 0);
+    assert_eq(private_state_var.context.max_block_number.unwrap(), block_of_change - 1);
+}
+
+#[test]
+fn test_get_current_value_in_private_immediately_before_change() {
+    let mut env = setup();
+
+    let public_state_var = in_public(env);
+    public_state_var.schedule_value_change(new_value);
+
+    let (_, block_of_change) = public_state_var.get_scheduled_value_in_public();
+
+    let private_state_var = in_private(&mut env, block_of_change - 1);
+
+    assert_eq(private_state_var.get_current_value_in_private(), 0);
+    assert_eq(private_state_var.context.max_block_number.unwrap(), block_of_change - 1);
+}
+
+#[test]
+fn test_get_current_value_in_private_at_change() {
+    let mut env = setup();
+
+    let public_state_var = in_public(env);
+    public_state_var.schedule_value_change(new_value);
+
+    let (_, block_of_change) = public_state_var.get_scheduled_value_in_public();
+
+    let historical_block_number = block_of_change;
+    let private_state_var = in_private(&mut env, historical_block_number);
+    assert_eq(private_state_var.get_current_value_in_private(), new_value);
+    assert_eq(
+        private_state_var.context.max_block_number.unwrap(), historical_block_number + TEST_INITIAL_DELAY
+    );
+}
+
+#[test]
+fn test_get_current_value_in_private_after_change() {
+    let mut env = setup();
+
+    let public_state_var = in_public(env);
+    public_state_var.schedule_value_change(new_value);
+
+    let (_, block_of_change) = public_state_var.get_scheduled_value_in_public();
+
+    let historical_block_number = block_of_change + 10;
+    let private_state_var = in_private(&mut env, historical_block_number);
+    assert_eq(private_state_var.get_current_value_in_private(), new_value);
+    assert_eq(
+        private_state_var.context.max_block_number.unwrap(), historical_block_number + TEST_INITIAL_DELAY
+    );
 }
 
 // #[test]
@@ -305,55 +361,3 @@ fn test_get_current_value_in_public_after_scheduled_change() {
 //         block_number + post_delay - new_delay
 //     );
 // }
-
-#[test]
-fn test_get_current_value_in_private_before_change() {
-    let mut env = setup();
-
-    let public_state_var = in_public(env);
-    public_state_var.schedule_value_change(new_value);
-
-    let schedule_block_number = env.block_number;
-
-    let private_state_var = in_private(&mut env, schedule_block_number);
-    assert_eq(private_state_var.get_current_value_in_private(), 0);
-}
-
-#[test]
-fn test_get_current_value_in_private_immediately_before_change() {
-    let mut env = setup();
-
-    let state_var = in_public(env);
-    state_var.schedule_value_change(new_value);
-
-    let (_, block_horizon) = state_var.get_scheduled_value_in_public();
-
-    let private_state_var = in_private(&mut env, block_horizon - 1);
-    assert_eq(private_state_var.get_current_value_in_private(), 0);
-}
-
-#[test]
-fn test_get_current_value_in_private_at_change() {
-    let mut env = setup();
-
-    let state_var = in_public(env);
-    state_var.schedule_value_change(new_value);
-
-    let (_, block_horizon) = state_var.get_scheduled_value_in_public();
-
-    let private_state_var = in_private(&mut env, block_horizon);
-    assert_eq(private_state_var.get_current_value_in_private(), new_value);
-}
-
-#[test]
-fn test_get_current_value_in_private_after_change() {
-    let mut env = setup();
-
-    let state_var = in_public(env);
-    state_var.schedule_value_change(new_value);
-
-    let (_, block_horizon) = state_var.get_scheduled_value_in_public();
-
-    let private_state_var = in_private(&mut env, block_horizon + 10);
-    assert_eq(private_state_var.get_current_value_in_private(), new_value);
-}

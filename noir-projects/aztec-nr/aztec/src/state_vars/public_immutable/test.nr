@@ -1,6 +1,5 @@
 use crate::{context::PublicContext, state_vars::public_immutable::PublicImmutable};
-use crate::test::{helpers::context_builder::TestEnvironment, mocks::mock_struct::MockStruct};
-use dep::std::test::OracleMock;
+use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct};
 use dep::protocol_types::traits::Serialize;
 
 global storage_slot = 7;

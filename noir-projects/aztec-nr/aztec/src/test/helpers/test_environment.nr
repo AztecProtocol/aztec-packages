@@ -43,7 +43,7 @@ impl TestEnvironment {
 
     fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
         if historical_block_number >= self.block_number {
-            self.advance_block_to(historical_block_number + 2);
+            self.advance_block_to(historical_block_number + 1);
         }
 
         let mut inputs = cheatcodes::get_private_context_inputs(historical_block_number);

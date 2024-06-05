@@ -9,7 +9,7 @@ use crate::{
 };
 use dep::protocol_types::address::AztecAddress;
 
-use crate::test::{helpers::{context_builder::TestEnvironment, cheatcodes}, mocks::mock_note::MockNote};
+use crate::test::{helpers::{test_environment::TestEnvironment, cheatcodes}, mocks::mock_note::MockNote};
 
 global contract_address = AztecAddress::from_field(69);
 global storage_slot: Field = 42;
