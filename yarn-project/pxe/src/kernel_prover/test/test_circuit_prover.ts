@@ -114,7 +114,7 @@ export class TestProofCreator implements ProofCreator {
     const kernelProofOutput: KernelProofOutput<PublicInputsType> = {
       publicInputs,
       proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      verificationKey: ProtocolCircuitVks[circuitType],
+      verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,
     };
     return kernelProofOutput;
   }

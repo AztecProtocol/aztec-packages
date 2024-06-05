@@ -73,7 +73,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const emptyNested = new EmptyNestedData(
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['EmptyNestedArtifact'],
+      ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
     const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
@@ -86,7 +86,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['PrivateKernelEmptyArtifact'],
     );
   }
 
@@ -108,7 +108,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     const rootParityInput = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['BaseParityArtifact'],
+      ProtocolCircuitVks['BaseParityArtifact'].keyAsFields,
       result,
     );
 
@@ -144,7 +144,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     const rootParityInput = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['RootParityArtifact'],
+      ProtocolCircuitVks['RootParityArtifact'].keyAsFields,
       result,
     );
 
@@ -188,7 +188,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['BaseRollupArtifact'],
     );
   }
   /**
@@ -220,7 +220,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['MergeRollupArtifact'],
     );
   }
 
@@ -253,7 +253,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['RootRollupArtifact'],
     );
   }
 
@@ -284,7 +284,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks[kernelOps.artifact],
     );
   }
 
@@ -311,7 +311,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['PublicKernelTailArtifact'],
     );
   }
 

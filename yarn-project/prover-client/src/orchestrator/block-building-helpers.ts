@@ -44,6 +44,7 @@ import {
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { getVKTree } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -266,17 +267,22 @@ export function getPreviousRollupDataFromPublicInputs(
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
+  const vkTree = getVKTree();
+  const leafIndex = vkTree.getIndex(vk.hash.toBuffer());
+  console.log('Rollup leaf index', leafIndex, 'hash', vk.hash.toString());
+
   return new PreviousRollupData(
     rollupOutput,
     rollupProof,
     vk,
-
-    // MembershipWitness for a VK tree to be implemented in the future
-    FUTURE_NUM,
+    leafIndex,
     new MembershipWitness(
       VK_TREE_HEIGHT,
-      BigInt(FUTURE_NUM),
-      makeTuple(VK_TREE_HEIGHT, () => FUTURE_FR),
+      BigInt(leafIndex),
+      assertLength<Fr, typeof VK_TREE_HEIGHT>(
+        vkTree.getSiblingPath(leafIndex).map(buf => new Fr(buf)),
+        VK_TREE_HEIGHT,
+      ),
     ),
   );
 }
