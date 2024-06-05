@@ -131,6 +131,7 @@ export class WorldStateAccessTrace {
       leafIndex: msgLeafIndex,
       msgHash: msgHash,
       exists: exists,
+      counter: new Fr(this.accessCounter),
       //endLifetime: Fr.ZERO, // FIXME
     };
     this.l1ToL2MessageChecks.push(traced);

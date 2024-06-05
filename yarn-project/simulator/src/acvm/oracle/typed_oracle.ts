@@ -82,6 +82,14 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
+  getBlockNumber(): Promise<number> {
+    throw new OracleMethodNotAvailableError('getBlockNumber');
+  }
+
+  getContractAddress(): Promise<AztecAddress> {
+    throw new OracleMethodNotAvailableError('getContractAddress');
+  }
+
   getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
     throw new OracleMethodNotAvailableError('getKeyValidationRequest');
   }
@@ -180,7 +188,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('emitEncryptedLog');
   }
 
-  emitEncryptedNoteLog(_noteHash: Fr, _encryptedNote: Buffer, _counter: number): void {
+  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
   }
 
@@ -188,7 +196,8 @@ export abstract class TypedOracle {
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
     _noteTypeId: Fr,
-    _publicKey: PublicKey,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
     _preimage: Fr[],
   ): Buffer {
     throw new OracleMethodNotAvailableError('computeEncryptedLog');

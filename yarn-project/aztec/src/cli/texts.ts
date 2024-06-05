@@ -4,7 +4,9 @@ const contractAddresses =
   'registryAddress:REGISTRY_CONTRACT_ADDRESS - string - The deployed L1 registry contract address.\n' +
   'inboxAddress:INBOX_CONTRACT_ADDRESS - string - The deployed L1 inbox contract address.\n' +
   'outboxAddress:OUTBOX_CONTRACT_ADDRESS - string - The deployed L1 outbox contract address.\n' +
-  'availabilityOracleAddress:AVAILABILITY_ORACLE_CONTRACT_ADDRESS - string - The deployed L1 availability oracle contract address.\n';
+  'availabilityOracleAddress:AVAILABILITY_ORACLE_CONTRACT_ADDRESS - string - The deployed L1 availability oracle contract address.\n' +
+  'gasTokenAddress:GAS_TOKEN_CONTRACT_ADDRESS - string - The deployed L1 gas token contract address.\n' +
+  'gasPortalAddress:GAS_PORTAL_CONTRACT_ADDRESS - string - The deployed L1 gas portal contract address.\n';
 const p2pOptions =
   'p2pBlockCheckIntervalMS:P2P_BLOCK_CHECK_INTERVAL_MS - number - The frequency in which to check for blocks. Default: 100\n' +
   'p2pPeerCheckIntervalMS:P2P_PEER_CHECK_INTERVAL_MS - number - The frequency in which to check for peers. Default: 1000\n' +
@@ -13,7 +15,9 @@ const p2pOptions =
   'tcpListenIp:TCP_LISTEN_IP - string - The tcp IP on which the P2P service should listen for connections. Default: 0.0.0.0\n' +
   'peerIdPrivateKey:PEER_ID_PRIVATE_KEY - string - An optional peer id private key. If blank, will generate a random key.\n' +
   'bootstrapNodes:BOOTSTRAP_NODES - string - A list of bootstrap peers to connect to.\n' +
-  'announceHostname:P2P_ANNOUNCE_HOSTNAME - string - P2P Hostname to announce.\n' +
+  'announceTcpHostname:P2P_ANNOUNCE_TCP_HOSTNAME - string - P2P Hostname to announce for TCP communications.\n' +
+  'announceUdpHostname:P2P_ANNOUNCE_UDP_HOSTNAME - string - P2P Hostname to announce for UDP communications used in peer discovery.\n' +
+  'queryForIp:P2P_QUERY_FOR_IP - boolean - Whether to query for the public IP address if a hostname has not been provided. Default: false\n' +
   'announcePort:P2P_ANNOUNCE_PORT - number - P2P Port to announce.\n' +
   'enableNat:P2P_NAT_ENABLED - boolean - Whether to enable NAT from libp2p (ignored for bootstrap node). Default: false\n' +
   'minPeerCount:P2P_MIN_PEERS - number - The minimum number of peers to connect to. Default: 10\n' +

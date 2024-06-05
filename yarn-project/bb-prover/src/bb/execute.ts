@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -22,9 +22,13 @@ export enum BB_RESULT {
 export type BBSuccess = {
   status: BB_RESULT.SUCCESS | BB_RESULT.ALREADY_PRESENT;
   duration: number;
+  /** Full path of the public key. */
   pkPath?: string;
+  /** Base directory for the VKs (raw, fields). */
   vkPath?: string;
+  /** Full path of the proof. */
   proofPath?: string;
+  /** Full path of the contract. */
   contractPath?: string;
 };
 
@@ -34,6 +38,8 @@ export type BBFailure = {
 };
 
 export type BBResult = BBSuccess | BBFailure;
+
+export type VerificationFunction = typeof verifyProof | typeof verifyAvmProof;
 
 type BBExecResult = {
   status: BB_RESULT;
@@ -61,6 +67,7 @@ export function executeBB(
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
+    logger(`Executing BB with: ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
     });
@@ -144,8 +151,7 @@ export async function generateKeyForNoirCircuit(
         result = await executeBB(pathToBB, `vk_as_fields`, asFieldsArgs, log);
       }
       const duration = timer.ms();
-      // Cleanup the bytecode file
-      await fs.rm(bytecodePath, { force: true });
+
       if (result.status == BB_RESULT.SUCCESS) {
         return {
           status: BB_RESULT.SUCCESS,
@@ -227,8 +233,7 @@ export async function generateProof(
     };
     const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
     const duration = timer.ms();
-    // cleanup the bytecode
-    await fs.rm(bytecodePath, { force: true });
+
     if (result.status == BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
@@ -260,8 +265,7 @@ export async function generateProof(
 export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
-  bytecode: Buffer,
-  calldata: Fr[],
+  input: AvmCircuitInputs,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -272,9 +276,10 @@ export async function generateAvmProof(
   }
 
   // Paths for the inputs
-  const calldataPath = join(workingDirectory, 'calldata.bin');
-  // WARNING: the bytecode is currently compressed. We signal this to BB by using a .gz extension.
-  const bytecodePath = join(workingDirectory, 'avm_bytecode.bin.gz');
+  const bytecodePath = join(workingDirectory, 'avm_bytecode.bin');
+  const calldataPath = join(workingDirectory, 'avm_calldata.bin');
+  const publicInputsPath = join(workingDirectory, 'avm_public_inputs.bin');
+  const avmHintsPath = join(workingDirectory, 'avm_hints.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -292,19 +297,45 @@ export async function generateAvmProof(
 
   try {
     // Write the inputs to the working directory.
-    await fs.writeFile(bytecodePath, bytecode);
+    await fs.writeFile(bytecodePath, input.bytecode);
     if (!filePresent(bytecodePath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${bytecodePath}` };
     }
     await fs.writeFile(
       calldataPath,
-      calldata.map(fr => fr.toBuffer()),
+      input.calldata.map(fr => fr.toBuffer()),
     );
     if (!filePresent(calldataPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
     }
 
-    const args = ['-b', bytecodePath, '-d', calldataPath, '-o', outputPath];
+    // public inputs are used directly as a vector of fields in C++,
+    // so we serialize them as such here instead of just using toBuffer
+    await fs.writeFile(
+      publicInputsPath,
+      input.publicInputs.toFields().map(fr => fr.toBuffer()),
+    );
+    if (!filePresent(publicInputsPath)) {
+      return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
+    }
+
+    await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
+    if (!filePresent(avmHintsPath)) {
+      return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
+    }
+
+    const args = [
+      '--avm-bytecode',
+      bytecodePath,
+      '--avm-calldata',
+      calldataPath,
+      '--avm-public-inputs',
+      publicInputsPath,
+      '--avm-hints',
+      avmHintsPath,
+      '-o',
+      outputPath,
+    ];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`AvmCircuit (prove) BB out - ${message}`);
@@ -312,17 +343,13 @@ export async function generateAvmProof(
     const result = await executeBB(pathToBB, 'avm_prove', args, logFunction);
     const duration = timer.ms();
 
-    // Cleanup the inputs.
-    await fs.rm(bytecodePath, { force: true });
-    await fs.rm(calldataPath, { force: true });
-
     if (result.status == BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
         duration,
-        proofPath: join(outputPath, 'proof'),
+        proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: join(outputPath, 'vk'),
+        vkPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -591,8 +618,8 @@ async function fsCache<T>(
   } else {
     try {
       run = !expectedCacheKey.equals(await fs.readFile(cacheFilePath));
-    } catch (err) {
-      if (err && err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+    } catch (err: any) {
+      if (err && 'code' in err && err.code === 'ENOENT') {
         // cache file doesn't exist, swallow error and run
         run = true;
       } else {
@@ -612,7 +639,7 @@ async function fsCache<T>(
   try {
     await fs.writeFile(cacheFilePath, expectedCacheKey);
   } catch (err) {
-    logger(`Couldn't write cache data to ${dir}. Skipping cache...`);
+    logger(`Couldn't write cache data to ${cacheFilePath}. Skipping cache...`);
     // ignore
   }
 
