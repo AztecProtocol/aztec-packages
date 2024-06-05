@@ -25,6 +25,7 @@ import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
   PrivateResetTagToArtifactName,
+  ProtocolCircuitVks,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -209,11 +210,17 @@ export class BBNativeProofCreator implements ProofCreator {
         ClientCircuitArtifacts[circuitType],
         'vk',
         this.log.debug,
-      ).then(result => {
+      ).then(async result => {
         if (result.status === BB_RESULT.FAILURE) {
           throw new Error(`Failed to generate verification key for ${circuitType}, ${result.reason}`);
         }
-        return extractVkData(result.vkPath!);
+        const vkData = await extractVkData(result.vkPath!);
+        // TODO(Alvaro) we can probably just use the protocol circuit vks that have been included in protocol circuit types.
+        // However only the as fields version has been included, we'd also need the as bytes version.
+        if (!vkData.keyAsFields.hash.equals(ProtocolCircuitVks[circuitType].hash)) {
+          throw new Error(`Verification key hash mismatch for ${circuitType}`);
+        }
+        return vkData;
       });
       this.verificationKeys.set(circuitType, promise);
     }

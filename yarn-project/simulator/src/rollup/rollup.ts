@@ -12,11 +12,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
-  BaseParityArtifact,
-  MergeRollupArtifact,
-  RootParityArtifact,
-  RootRollupArtifact,
-  SimulatedBaseRollupArtifact,
+  SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
@@ -85,7 +81,10 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
-    const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseParityArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BaseParityArtifact,
+    );
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
@@ -100,7 +99,10 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async rootParityCircuit(inputs: RootParityInputs): Promise<ParityPublicInputs> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
-    const witness = await this.simulationProvider.simulateCircuit(witnessMap, RootParityArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.RootParityArtifact,
+    );
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
@@ -115,7 +117,10 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
-    const witness = await this.simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BaseRollupArtifact,
+    );
 
     const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
@@ -129,7 +134,10 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async mergeRollupCircuit(input: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, MergeRollupArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.MergeRollupArtifact,
+    );
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
@@ -144,7 +152,9 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs> {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(() => this.wasmSimulator.simulateCircuit(witnessMap, RootRollupArtifact));
+    const [duration, witness] = await elapsed(() =>
+      this.wasmSimulator.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts.RootRollupArtifact),
+    );
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 

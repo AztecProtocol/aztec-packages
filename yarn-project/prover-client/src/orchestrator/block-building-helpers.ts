@@ -30,7 +30,6 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  ROLLUP_VK_TREE_HEIGHT,
   type RecursiveProof,
   type RootParityInput,
   RootRollupInputs,
@@ -275,9 +274,9 @@ export function getPreviousRollupDataFromPublicInputs(
     // MembershipWitness for a VK tree to be implemented in the future
     FUTURE_NUM,
     new MembershipWitness(
-      ROLLUP_VK_TREE_HEIGHT,
+      VK_TREE_HEIGHT,
       BigInt(FUTURE_NUM),
-      makeTuple(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
+      makeTuple(VK_TREE_HEIGHT, () => FUTURE_FR),
     ),
   );
 }

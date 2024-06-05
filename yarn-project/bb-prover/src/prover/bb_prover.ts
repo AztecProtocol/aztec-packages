@@ -39,7 +39,6 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  EmptyNestedArtifact,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -331,7 +330,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       inputs,
       'EmptyNestedArtifact',
       RECURSIVE_PROOF_LENGTH,
-      (nothing: any) => abiEncode(EmptyNestedArtifact.abi as Abi, { _inputs: nothing as any }),
+      (nothing: any) => abiEncode(ServerCircuitArtifacts.EmptyNestedArtifact.abi as Abi, { _inputs: nothing as any }),
       () => new EmptyNestedCircuitInputs(),
     );
 

@@ -113,7 +113,6 @@ import {
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
-  ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   RevertCode,
   RollupTypes,
@@ -849,8 +848,7 @@ export function makeConstantBaseRollupData(
 ): ConstantRollupData {
   return ConstantRollupData.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
-    privateKernelVkTreeRoot: fr(seed + 0x401),
-    publicKernelVkTreeRoot: fr(seed + 0x402),
+    vkTreeRoot: fr(seed + 0x401),
     baseRollupVkHash: fr(seed + 0x403),
     mergeRollupVkHash: fr(seed + 0x404),
     globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x405),
@@ -940,7 +938,7 @@ export function makePreviousRollupData(
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
     VerificationKeyAsFields.makeFake(),
     seed + 0x110,
-    makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
+    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }
 

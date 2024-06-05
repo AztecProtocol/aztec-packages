@@ -1893,8 +1893,7 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
 export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupData): ConstantRollupDataNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constantRollupData.lastArchive),
-    private_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.privateKernelVkTreeRoot),
-    public_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.publicKernelVkTreeRoot),
+    vk_tree_root: mapFieldToNoir(constantRollupData.vkTreeRoot),
     base_rollup_vk_hash: mapFieldToNoir(constantRollupData.baseRollupVkHash),
     merge_rollup_vk_hash: mapFieldToNoir(constantRollupData.mergeRollupVkHash),
     global_variables: mapGlobalVariablesToNoir(constantRollupData.globalVariables),

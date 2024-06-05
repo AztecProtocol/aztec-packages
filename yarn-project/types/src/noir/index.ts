@@ -17,6 +17,14 @@ export const AZTEC_VIEW_ATTRIBUTE = 'aztec(view)';
 /** The witness indices of the parameters. */
 type ParamWitnessIndices = { /** Start */ start: number; /** End */ end: number };
 
+export type AbiErrorType =
+  | {
+      error_kind: 'fmtstring';
+      length: number;
+      item_types: AbiType[];
+    }
+  | ({ error_kind: 'custom' } & AbiType);
+
 /** The ABI of an Aztec.nr function. */
 export interface NoirFunctionAbi {
   /** The parameters of the function. */
@@ -36,6 +44,7 @@ export interface NoirFunctionAbi {
   };
   /** The witness indices of the return type. */
   return_witnesses: number[];
+  error_types: Record<string, AbiErrorType>;
 }
 
 /**
