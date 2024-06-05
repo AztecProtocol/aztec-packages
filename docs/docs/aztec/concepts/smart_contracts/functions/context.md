@@ -1,5 +1,6 @@
 ---
 title: Understanding Function Context
+sidebar_position: 1
 ---
 
 ## What is the context

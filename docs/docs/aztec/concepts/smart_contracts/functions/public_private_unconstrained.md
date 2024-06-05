@@ -1,8 +1,10 @@
 ---
 title: Public, Private, and Unconstrained Functions
+sidebar_position: 2
+tags: [functions, macros]
 ---
 
-This page explains the three types of functions that exist on Aztec - public, private, and unconstrained. For a deeper dive into how these functions work under the hood, check out the [Inner Workings](./inner_workings.md) page.
+This page explains three types of functions that exist on Aztec - public, private, and unconstrained. For a deeper dive into how these functions work under the hood, check out the [Inner Workings](./inner_workings.md) page.
 
 ## `Public` Functions
 
