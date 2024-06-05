@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717604813936,
+  "lastUpdate": 1717605815266,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -24248,6 +24248,78 @@ window.BENCHMARK_DATA = {
             "value": 163455343,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163455343 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c3746f5d6ae38bc448d00834d91a7ddd7b901e64",
+          "message": "feat(avm): use hints in gas accounting (circuit) (#6895)",
+          "timestamp": "2024-06-05T17:24:43+01:00",
+          "tree_id": "805a9ca210114f4c65abb93a2adc6e56d1f8f452",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c3746f5d6ae38bc448d00834d91a7ddd7b901e64"
+        },
+        "date": 1717605813462,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15518.805369000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10905.404106 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5584.578717999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5187.033181999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49286.447052,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49286448000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17166.147076,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17166148000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5182535360,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5182535360 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199421378,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199421378 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4306402339,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4306402339 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164514029,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164514029 ns\nthreads: 1"
           }
         ]
       }
