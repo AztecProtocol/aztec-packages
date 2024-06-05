@@ -69,7 +69,6 @@ import {
   type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
-  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
