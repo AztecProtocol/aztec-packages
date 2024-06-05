@@ -1,6 +1,7 @@
 use crate::{
     components::{
     private_call_data_validator::PrivateCallDataValidator,
+    private_kernel_circuit_hints::find_first_revertible_private_call_request_index,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
 }
@@ -13,10 +14,14 @@ use dep::types::{
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, transaction::tx_request::TxRequest
 };
 
-struct PrivateKernelInitHints {
+struct Hints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-    // TODO: Build the following hint in noir.
     first_revertible_private_call_request_index: u64,
+}
+
+struct PrivateKernelInitHints {
+    // TODO: Remove note_hash_nullifier_counters.
+    note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
 }
 
 // Initialization struct for private inputs to the private kernel
@@ -38,13 +43,21 @@ impl PrivateKernelInitCircuitPrivateInputs {
         ).finish()
     }
 
+    unconstrained fn generate_hints(self) -> Hints {
+        Hints {
+            note_hash_nullifier_counters: self.hints.note_hash_nullifier_counters,
+            first_revertible_private_call_request_index: find_first_revertible_private_call_request_index(self.private_call.call_stack_item.public_inputs)
+        }
+    }
+
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        // Generate output.
+        // Generate output and hints.
         let output = self.generate_output();
+        let hints = self.generate_hints();
 
         // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
-        private_call_data_validator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
+        private_call_data_validator.validate_as_first_call(hints.first_revertible_private_call_request_index);
         private_call_data_validator.validate_against_tx_request(self.tx_request);
         private_call_data_validator.validate(output.end.new_note_hashes);
         if !dep::std::runtime::is_unconstrained() {
@@ -59,7 +72,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.private_call.call_stack_item.public_inputs,
                 private_call_data_validator.array_lengths,
                 self.private_call.call_stack_item.contract_address,
-                self.hints.note_hash_nullifier_counters,
+                hints.note_hash_nullifier_counters,
                 self.private_call.public_call_stack,
                 self.private_call.public_teardown_call_request
             );
@@ -87,10 +100,7 @@ mod tests {
         pub fn new() -> Self {
             let private_call = FixtureBuilder::new();
             let tx_request = private_call.build_tx_request();
-            let hints = PrivateKernelInitHints {
-                note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL],
-                first_revertible_private_call_request_index: 0
-            };
+            let hints = PrivateKernelInitHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
             PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
         }
 
