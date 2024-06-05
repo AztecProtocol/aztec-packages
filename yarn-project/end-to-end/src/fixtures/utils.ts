@@ -78,6 +78,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { analyzeBlocks } from '../analyze_blocks.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -384,6 +385,7 @@ export async function setup(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
 
   const teardown = async () => {
+    await analyzeBlocks(aztecNode);
     if (aztecNode instanceof AztecNodeService) {
       await aztecNode?.stop();
     }
