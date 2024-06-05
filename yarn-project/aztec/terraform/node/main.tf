@@ -56,10 +56,10 @@ data "terraform_remote_state" "l1_contracts" {
 locals {
   publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
-  node_count             = length(local.publisher_private_keys)
-  data_dir               = "/usr/src/yarn-project/aztec/data"
-  agents_per_sequencer   = var.AGENTS_PER_SEQUENCER
-  total_agents           = local.node_count * local.agents_per_sequencer
+  #node_count             = length(local.publisher_private_keys)
+  node_count           = 1
+  data_dir             = "/usr/src/yarn-project/aztec/data"
+  agents_per_sequencer = var.AGENTS_PER_SEQUENCER
 }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group" {
@@ -115,18 +115,32 @@ resource "aws_efs_file_system" "node_data_store" {
   }
 }
 
-resource "aws_efs_mount_target" "private_az1" {
+# resource "aws_efs_mount_target" "private_az1" {
+#   count           = local.node_count
+#   file_system_id  = aws_efs_file_system.node_data_store[count.index].id
+#   subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
+#   security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+# }
+
+# resource "aws_efs_mount_target" "private_az2" {
+#   count           = local.node_count
+#   file_system_id  = aws_efs_file_system.node_data_store[count.index].id
+#   subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
+#   security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+# }
+
+resource "aws_efs_mount_target" "public_az1" {
   count           = local.node_count
   file_system_id  = aws_efs_file_system.node_data_store[count.index].id
-  subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
-  security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+  subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az1_id
+  security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_public_id]
 }
 
-resource "aws_efs_mount_target" "private_az2" {
+resource "aws_efs_mount_target" "public_az2" {
   count           = local.node_count
   file_system_id  = aws_efs_file_system.node_data_store[count.index].id
-  subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
-  security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+  subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az2_id
+  security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_public_id]
 }
 
 # Define task definitions for each node.
@@ -187,7 +201,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
+        "value": "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*,libp2p:*,discv5:*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -364,11 +378,11 @@ resource "aws_ecs_service" "aztec-node" {
   }
 
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    container_port   = var.NODE_P2P_TCP_PORT + count.index
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+  #   container_port   = var.NODE_P2P_TCP_PORT + count.index
+  # }
 
   # load_balancer {
   #   target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
@@ -664,10 +678,11 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   count               = local.node_count
   alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-high-${count.index + 1}"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
+  evaluation_periods  = "1"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
-  period              = "10"
+  period              = "60"
+  datapoints_to_alarm = 1
   statistic           = "Maximum"
   threshold           = "20"
   alarm_description   = "Alert when CPU utilization is greater than 20%"
@@ -686,6 +701,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
   period              = "60"
+  datapoints_to_alarm = 3
   statistic           = "Maximum"
   threshold           = "20"
   alarm_description   = "Alarm when CPU utilization is less than 20%"
@@ -709,7 +725,7 @@ resource "aws_appautoscaling_target" "ecs_proving_agent" {
 # Create Scaling Policy for Scaling Out
 resource "aws_appautoscaling_policy" "scale_out" {
   count              = local.node_count
-  name               = "${var.DEPLOY_TAG}-scale-out-${count.index}"
+  name               = "${var.DEPLOY_TAG}-scale-out-${count.index + 1}"
   policy_type        = "StepScaling"
   resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
   scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
