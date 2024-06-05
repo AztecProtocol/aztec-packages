@@ -5,8 +5,8 @@
 ;
 [subrepo]
 	remote = https://github.com/noir-lang/noir
-	branch = md/restrict-bitsize-to-u32
-	commit = fae3be52223699ba7ccb0e1368db263ac2b091ed
-	parent = 9f5b11345dc5dd055442eaf7673227fe7cbaf262
+	branch = master
+	commit = bdb2bc608ea8fd52d46545a38b68dd2558b28110
+	parent = 5a10672830155bf03a210972c22c314a28086a0e
 	method = merge
 	cmdver = 0.4.6
