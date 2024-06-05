@@ -29,8 +29,6 @@ void create_block_constraints(Builder& builder, const BlockConstraint& constrain
     requires IsNotMegaBuilder<Builder>
 {
     using field_ct = bb::stdlib::field_t<Builder>;
-    // using rom_table_ct = bb::stdlib::rom_table<Builder>;
-    using ram_table_ct = bb::stdlib::ram_table<Builder>;
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
@@ -39,30 +37,14 @@ void create_block_constraints(Builder& builder, const BlockConstraint& constrain
     }
 
     switch (constraint.type) {
+    // Note: CallData/ReturnData not supported by Ultra; interpreted as ROM ops instead
     case BlockType::CallData:
     case BlockType::ReturnData:
     case BlockType::ROM: {
-        process_ROM_operations(builder, constraint, init, has_valid_witness_assignments);
+        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     case BlockType::RAM: {
-        ram_table_ct table(init);
-        for (auto& op : constraint.trace) {
-            field_ct value = poly_to_field_ct(op.value, builder);
-            field_ct index = poly_to_field_ct(op.index, builder);
-
-            // We create a new witness w to avoid issues with non-valid witness assignements.
-            // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
-            fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
-            // Create new witness and ensure equal to index.
-            field_ct::from_witness(&builder, index_value).assert_equal(index);
-
-            if (op.access_type == 0) {
-                value.assert_equal(table.read(index));
-            } else {
-                ASSERT(op.access_type == 1);
-                table.write(index, value);
-            }
-        }
+        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     default:
         ASSERT(false);
@@ -75,9 +57,6 @@ void create_block_constraints(Builder& builder, const BlockConstraint& constrain
     requires IsMegaBuilder<Builder>
 {
     using field_ct = stdlib::field_t<Builder>;
-    // using rom_table_ct = stdlib::rom_table<Builder>;
-    using ram_table_ct = stdlib::ram_table<Builder>;
-    using databus_ct = stdlib::databus<Builder>;
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
@@ -87,56 +66,16 @@ void create_block_constraints(Builder& builder, const BlockConstraint& constrain
 
     switch (constraint.type) {
     case BlockType::ROM: {
-        process_ROM_operations(builder, constraint, init, has_valid_witness_assignments);
+        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     case BlockType::RAM: {
-        ram_table_ct table(init);
-        for (auto& op : constraint.trace) {
-            field_ct value = poly_to_field_ct(op.value, builder);
-            field_ct index = poly_to_field_ct(op.index, builder);
-
-            // We create a new witness w to avoid issues with non-valid witness assignements.
-            // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
-            fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
-            // Create new witness and ensure equal to index.
-            field_ct::from_witness(&builder, index_value).assert_equal(index);
-
-            if (op.access_type == 0) {
-                value.assert_equal(table.read(index));
-            } else {
-                ASSERT(op.access_type == 1);
-                table.write(index, value);
-            }
-        }
+        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     case BlockType::CallData: {
-        databus_ct databus;
-        // Populate the calldata in the databus
-        databus.calldata.set_values(init);
-        for (const auto& op : constraint.trace) {
-            ASSERT(op.access_type == 0);
-            field_ct value = poly_to_field_ct(op.value, builder);
-            field_ct index = poly_to_field_ct(op.index, builder);
-            fr w_value = 0;
-            if (has_valid_witness_assignments) {
-                // If witness are assigned, we use the correct value for w
-                w_value = index.get_value();
-            }
-            field_ct w = field_ct::from_witness(&builder, w_value);
-            value.assert_equal(databus.calldata[w]);
-            w.assert_equal(index);
-        }
+        process_call_data_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     case BlockType::ReturnData: {
-        databus_ct databus;
-        // Populate the returndata in the databus
-        databus.return_data.set_values(init);
-        int c = 0;
-        for (const auto& value : init) {
-            value.assert_equal(databus.return_data[c]);
-            c++;
-        }
-        ASSERT(constraint.trace.size() == 0);
+        process_return_data_operations(constraint, init);
     } break;
     default:
         ASSERT(false);
@@ -147,8 +86,8 @@ void create_block_constraints(Builder& builder, const BlockConstraint& constrain
 template <typename Builder>
 void process_ROM_operations(Builder& builder,
                             const BlockConstraint& constraint,
-                            std::vector<bb::stdlib::field_t<Builder>>& init,
-                            bool has_valid_witness_assignments)
+                            bool has_valid_witness_assignments,
+                            std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using field_ct = stdlib::field_t<Builder>;
     using rom_table_ct = stdlib::rom_table<Builder>;
@@ -172,6 +111,78 @@ void process_ROM_operations(Builder& builder,
         value.assert_equal(table[w]);
         w.assert_equal(index);
     }
+}
+
+template <typename Builder>
+void process_RAM_operations(Builder& builder,
+                            const BlockConstraint& constraint,
+                            bool has_valid_witness_assignments,
+                            std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+
+    ram_table_ct table(init);
+    for (auto& op : constraint.trace) {
+        field_ct value = poly_to_field_ct(op.value, builder);
+        field_ct index = poly_to_field_ct(op.index, builder);
+
+        // We create a new witness w to avoid issues with non-valid witness assignements.
+        // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
+        fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
+        // Create new witness and ensure equal to index.
+        field_ct::from_witness(&builder, index_value).assert_equal(index);
+
+        if (op.access_type == 0) {
+            value.assert_equal(table.read(index));
+        } else {
+            ASSERT(op.access_type == 1);
+            table.write(index, value);
+        }
+    }
+}
+
+template <typename Builder>
+void process_call_data_operations(Builder& builder,
+                                  const BlockConstraint& constraint,
+                                  bool has_valid_witness_assignments,
+                                  std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using databus_ct = stdlib::databus<Builder>;
+
+    databus_ct databus;
+    // Populate the calldata in the databus
+    databus.calldata.set_values(init);
+    for (const auto& op : constraint.trace) {
+        ASSERT(op.access_type == 0);
+        field_ct value = poly_to_field_ct(op.value, builder);
+        field_ct index = poly_to_field_ct(op.index, builder);
+        fr w_value = 0;
+        if (has_valid_witness_assignments) {
+            // If witness are assigned, we use the correct value for w
+            w_value = index.get_value();
+        }
+        field_ct w = field_ct::from_witness(&builder, w_value);
+        value.assert_equal(databus.calldata[w]);
+        w.assert_equal(index);
+    }
+}
+
+template <typename Builder>
+void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using databus_ct = stdlib::databus<Builder>;
+
+    databus_ct databus;
+    // Populate the returndata in the databus
+    databus.return_data.set_values(init);
+    int c = 0;
+    for (const auto& value : init) {
+        value.assert_equal(databus.return_data[c]);
+        c++;
+    }
+    ASSERT(constraint.trace.size() == 0);
 }
 
 template void create_block_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
