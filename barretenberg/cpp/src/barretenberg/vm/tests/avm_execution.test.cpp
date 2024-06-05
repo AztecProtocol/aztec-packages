@@ -1347,27 +1347,30 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                + to_hex(OpCode::ADDRESS) +        // opcode ADDRESS
                                "00"                               // Indirect flag
                                "00000002"                         // dst_offset 2
-                               + to_hex(OpCode::FEEPERL2GAS) +    // opcode FEEPERL2GAS
+                               + to_hex(OpCode::STORAGEADDRESS) + // opcode STORAGEADDRESS
                                "00"                               // Indirect flag
                                "00000003"                         // dst_offset 3
-                               + to_hex(OpCode::FEEPERDAGAS) +    // opcode FEEPERDAGAS
+                               + to_hex(OpCode::FEEPERL2GAS) +    // opcode FEEPERL2GAS
                                "00"                               // Indirect flag
                                "00000004"                         // dst_offset 4
-                               + to_hex(OpCode::TRANSACTIONFEE) + // opcode TRANSACTIONFEE
+                               + to_hex(OpCode::FEEPERDAGAS) +    // opcode FEEPERDAGAS
                                "00"                               // Indirect flag
                                "00000005"                         // dst_offset 5
-                               + to_hex(OpCode::CHAINID) +        // opcode CHAINID
+                               + to_hex(OpCode::TRANSACTIONFEE) + // opcode TRANSACTIONFEE
                                "00"                               // Indirect flag
                                "00000006"                         // dst_offset 6
-                               + to_hex(OpCode::VERSION) +        // opcode VERSION
+                               + to_hex(OpCode::CHAINID) +        // opcode CHAINID
                                "00"                               // Indirect flag
                                "00000007"                         // dst_offset 7
-                               + to_hex(OpCode::BLOCKNUMBER) +    // opcode BLOCKNUMBER
+                               + to_hex(OpCode::VERSION) +        // opcode VERSION
                                "00"                               // Indirect flag
                                "00000008"                         // dst_offset 8
-                               + to_hex(OpCode::TIMESTAMP) +      // opcode TIMESTAMP
+                               + to_hex(OpCode::BLOCKNUMBER) +    // opcode BLOCKNUMBER
                                "00"                               // Indirect flag
                                "00000009"                         // dst_offset 9
+                               + to_hex(OpCode::TIMESTAMP) +      // opcode TIMESTAMP
+                               "00"                               // Indirect flag
+                               "0000000a"                         // dst_offset 10
                                                                   // Not in simulator
                                //    + to_hex(OpCode::COINBASE) +       // opcode COINBASE
                                //    "00"                               // Indirect flag
@@ -1375,12 +1378,12 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000001"                 // ret offset 1
-                               "00000009";                // ret size 9
+                               "0000000a";                // ret size 10
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(10));
+    ASSERT_THAT(instructions, SizeIs(11));
 
     // SENDER
     EXPECT_THAT(instructions.at(0),
@@ -1392,40 +1395,44 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                 AllOf(Field(&Instruction::op_code, OpCode::ADDRESS),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(2)))));
 
-    // FEEPERL2GAS
+    // STORAGEADDRESS
     EXPECT_THAT(instructions.at(2),
-                AllOf(Field(&Instruction::op_code, OpCode::FEEPERL2GAS),
+                AllOf(Field(&Instruction::op_code, OpCode::STORAGEADDRESS),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(3)))));
-
-    // FEEPERDAGAS
+    // FEEPERL2GAS
     EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::FEEPERDAGAS),
+                AllOf(Field(&Instruction::op_code, OpCode::FEEPERL2GAS),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(4)))));
 
-    // TRANSACTIONFEE
+    // FEEPERDAGAS
     EXPECT_THAT(instructions.at(4),
-                AllOf(Field(&Instruction::op_code, OpCode::TRANSACTIONFEE),
+                AllOf(Field(&Instruction::op_code, OpCode::FEEPERDAGAS),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(5)))));
 
-    // CHAINID
+    // TRANSACTIONFEE
     EXPECT_THAT(instructions.at(5),
-                AllOf(Field(&Instruction::op_code, OpCode::CHAINID),
+                AllOf(Field(&Instruction::op_code, OpCode::TRANSACTIONFEE),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(6)))));
 
-    // VERSION
+    // CHAINID
     EXPECT_THAT(instructions.at(6),
-                AllOf(Field(&Instruction::op_code, OpCode::VERSION),
+                AllOf(Field(&Instruction::op_code, OpCode::CHAINID),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(7)))));
 
-    // BLOCKNUMBER
+    // VERSION
     EXPECT_THAT(instructions.at(7),
-                AllOf(Field(&Instruction::op_code, OpCode::BLOCKNUMBER),
+                AllOf(Field(&Instruction::op_code, OpCode::VERSION),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(8)))));
 
-    // TIMESTAMP
+    // BLOCKNUMBER
     EXPECT_THAT(instructions.at(8),
-                AllOf(Field(&Instruction::op_code, OpCode::TIMESTAMP),
+                AllOf(Field(&Instruction::op_code, OpCode::BLOCKNUMBER),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(9)))));
+
+    // TIMESTAMP
+    EXPECT_THAT(instructions.at(9),
+                AllOf(Field(&Instruction::op_code, OpCode::TIMESTAMP),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(10)))));
 
     // COINBASE
     // Not in simulator
@@ -1439,27 +1446,28 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 
     FF sender = 1;
     FF address = 2;
-    FF feeperl2gas = 3;
-    FF feeperdagas = 4;
-    FF transactionfee = 5;
-    FF chainid = 6;
-    FF version = 7;
-    FF blocknumber = 8;
-    FF timestamp = 9;
+    FF storage_address = 3;
+    FF feeperl2gas = 4;
+    FF feeperdagas = 5;
+    FF transactionfee = 6;
+    FF chainid = 7;
+    FF version = 8;
+    FF blocknumber = 9;
+    FF timestamp = 10;
     // Not in simulator
     // FF coinbase = 10;
 
     // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
     // this array The returndata call above will then return this array
-    std::vector<FF> returndata = { sender,      address,        feeperl2gas,
-                                   feeperdagas, transactionfee, chainid,
-                                   version,     blocknumber,    /*coinbase,*/ timestamp };
+    std::vector<FF> returndata = { sender,         address, storage_address, feeperl2gas, feeperdagas,
+                                   transactionfee, chainid, version,         blocknumber, /*coinbase,*/ timestamp };
 
     // Set up public inputs to contain the above values
     // TODO: maybe have a javascript like object construction so that this is readable
     // Reduce the amount of times we have similar code to this
     public_inputs_vec[SENDER_SELECTOR] = sender;
     public_inputs_vec[ADDRESS_SELECTOR] = address;
+    public_inputs_vec[STORAGE_ADDRESS_SELECTOR] = storage_address;
 
     // Global variables
     public_inputs_vec[CHAIN_ID_OFFSET] = chainid;
@@ -1488,6 +1496,11 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     auto address_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_address == 1; });
     EXPECT_EQ(address_row->avm_main_ia, address);
+
+    // Check storage address
+    auto storage_addr_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_storage_address == 1; });
+    EXPECT_EQ(storage_addr_row->avm_main_ia, storage_address);
 
     // Check chain id
     auto chainid_row =
@@ -1529,6 +1542,87 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     // auto coinbase_row =
     //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_coinbase == 1; });
     // EXPECT_EQ(coinbase_row->avm_main_ia, coinbase);
+
+    validate_trace(std::move(trace));
+}
+
+// Positive test for L2GASLEFT opcode
+TEST_F(AvmExecutionTests, l2GasLeft)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +         // opcode SET
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000101"                    // val 257
+                               "00000011"                    // dst_offset 17
+                               + to_hex(OpCode::L2GASLEFT) + // opcode L2GASLEFT
+                               "01"                          // Indirect flag
+                               "00000011"                    // dst_offset (indirect addr: 17)
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "00000000"                    // ret offset 0
+                               "00000000";                   // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    // L2GASLEFT
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::L2GASLEFT),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint32_t>(17)))));
+
+    auto trace = gen_trace_from_instr(instructions);
+
+    // Find the first row enabling the L2GASLEFT selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_l2gasleft == 1; });
+
+    uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS - GAS_COST_TABLE.at(OpCode::SET).l2_fixed_gas_cost -
+                                GAS_COST_TABLE.at(OpCode::L2GASLEFT).l2_fixed_gas_cost;
+
+    EXPECT_EQ(row->avm_main_ia, expected_rem_gas);
+    EXPECT_EQ(row->avm_main_mem_idx_a, 257); // Resolved direct address: 257
+
+    validate_trace(std::move(trace));
+}
+
+// Positive test for DAGASLEFT opcode
+TEST_F(AvmExecutionTests, daGasLeft)
+{
+    std::string bytecode_hex = to_hex(OpCode::ADD) +         // opcode ADD
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000007"                    // addr a 7
+                               "00000009"                    // addr b 9
+                               "00000001"                    // addr c 1
+                               + to_hex(OpCode::DAGASLEFT) + // opcode DAGASLEFT
+                               "00"                          // Indirect flag
+                               "00000027"                    // dst_offset 39
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "00000000"                    // ret offset 0
+                               "00000000";                   // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    // DAGASLEFT
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::DAGASLEFT),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(39)))));
+
+    auto trace = gen_trace_from_instr(instructions);
+
+    // Find the first row enabling the DAGASLEFT selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_dagasleft == 1; });
+
+    uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS - GAS_COST_TABLE.at(OpCode::ADD).da_fixed_gas_cost -
+                                GAS_COST_TABLE.at(OpCode::DAGASLEFT).da_fixed_gas_cost;
+
+    EXPECT_EQ(row->avm_main_ia, expected_rem_gas);
+    EXPECT_EQ(row->avm_main_mem_idx_a, 39);
 
     validate_trace(std::move(trace));
 }
@@ -1722,15 +1816,18 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
                                + to_hex(OpCode::NOTEHASHEXISTS) +  // opcode NOTEHASHEXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
-                               "00000002"                          // write storage value to offset 2 (exists value)
+                               "00000002"                          // Leaf index offset 2
+                               "00000003"                          // write storage value to offset 2 (exists value)
                                + to_hex(OpCode::NULLIFIEREXISTS) + // opcode NULLIFIEREXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
-                               "00000002"                          // value write offset 2 (exists value)
+                               "00000002"                          // Contract offset 2
+                               "00000003"                          // value write offset 2 (exists value)
                                + to_hex(OpCode::L1TOL2MSGEXISTS) + // opcode L1TOL2MSGEXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
-                               "00000002"                          // value write offset 2 (exists value)
+                               "00000002"                          // Lead offset 2
+                               "00000003"                          // value write offset 2 (exists value)
                                + to_hex(OpCode::RETURN) +          // opcode RETURN
                                "00"                                // Indirect flag
                                "00000000"                          // ret offset 0
@@ -1865,6 +1962,44 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     validate_trace(std::move(trace));
 }
 
+TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
+{
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +        // opcode CALLDATACOPY for addr
+                               "00"                                  // Indirect flag
+                               "00000000"                            // cd_offset
+                               "00000001"                            // copy_size
+                               "00000001"                            // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SET) +               // opcode SET for the indirect dst offset
+                               "00"                                  // Indirect flag
+                               "03"                                  // U32
+                               "00000003"                            // val i
+                               "00000002" +                          // dst_offset 2
+                               to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode CALL
+                               "02"                                  // Indirect flag
+                               "00000001"                            // address offset
+                               "00000002"                            // dst offset
+                               + to_hex(OpCode::RETURN) +            // opcode RETURN
+                               "00"                                  // Indirect flag
+                               "00000003"                            // ret offset 3
+                               "00000006";                           // ret size 6
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    FF address = 10;
+    std::vector<FF> calldata = { address };
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for call operation
+    ExecutionHints execution_hints = {};
+    ContractInstanceHint contract_instance_hint = { 1, 1, 2, 3, 4, 5 }; // The first one represents true
+    execution_hints.contract_instance_hints.insert({ address, contract_instance_hint });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5 })); // The first one represents true
+
+    validate_trace(std::move(trace));
+}
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)
 {

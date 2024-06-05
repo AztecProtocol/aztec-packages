@@ -94,11 +94,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 364;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 368;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 430;
+    static constexpr size_t NUM_ALL_ENTITIES = 434;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -439,6 +439,7 @@ class AvmFlavor {
                               avm_main_sel_op_cast,
                               avm_main_sel_op_chain_id,
                               avm_main_sel_op_coinbase,
+                              avm_main_sel_op_dagasleft,
                               avm_main_sel_op_div,
                               avm_main_sel_op_emit_l2_to_l1_msg,
                               avm_main_sel_op_emit_note_hash,
@@ -448,8 +449,10 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
+                              avm_main_sel_op_get_contract_instance,
                               avm_main_sel_op_keccak,
                               avm_main_sel_op_l1_to_l2_msg_exists,
+                              avm_main_sel_op_l2gasleft,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
                               avm_main_sel_op_mul,
@@ -466,6 +469,7 @@ class AvmFlavor {
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sload,
                               avm_main_sel_op_sstore,
+                              avm_main_sel_op_storage_address,
                               avm_main_sel_op_sub,
                               avm_main_sel_op_timestamp,
                               avm_main_sel_op_transaction_fee,
@@ -806,6 +810,7 @@ class AvmFlavor {
                      avm_main_sel_op_cast,
                      avm_main_sel_op_chain_id,
                      avm_main_sel_op_coinbase,
+                     avm_main_sel_op_dagasleft,
                      avm_main_sel_op_div,
                      avm_main_sel_op_emit_l2_to_l1_msg,
                      avm_main_sel_op_emit_note_hash,
@@ -815,8 +820,10 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_get_contract_instance,
                      avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
+                     avm_main_sel_op_l2gasleft,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
@@ -833,6 +840,7 @@ class AvmFlavor {
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sload,
                      avm_main_sel_op_sstore,
+                     avm_main_sel_op_storage_address,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_timestamp,
                      avm_main_sel_op_transaction_fee,
@@ -1178,6 +1186,7 @@ class AvmFlavor {
                               avm_main_sel_op_cast,
                               avm_main_sel_op_chain_id,
                               avm_main_sel_op_coinbase,
+                              avm_main_sel_op_dagasleft,
                               avm_main_sel_op_div,
                               avm_main_sel_op_emit_l2_to_l1_msg,
                               avm_main_sel_op_emit_note_hash,
@@ -1187,8 +1196,10 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
+                              avm_main_sel_op_get_contract_instance,
                               avm_main_sel_op_keccak,
                               avm_main_sel_op_l1_to_l2_msg_exists,
+                              avm_main_sel_op_l2gasleft,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
                               avm_main_sel_op_mul,
@@ -1205,6 +1216,7 @@ class AvmFlavor {
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sload,
                               avm_main_sel_op_sstore,
+                              avm_main_sel_op_storage_address,
                               avm_main_sel_op_sub,
                               avm_main_sel_op_timestamp,
                               avm_main_sel_op_transaction_fee,
@@ -1611,6 +1623,7 @@ class AvmFlavor {
                      avm_main_sel_op_cast,
                      avm_main_sel_op_chain_id,
                      avm_main_sel_op_coinbase,
+                     avm_main_sel_op_dagasleft,
                      avm_main_sel_op_div,
                      avm_main_sel_op_emit_l2_to_l1_msg,
                      avm_main_sel_op_emit_note_hash,
@@ -1620,8 +1633,10 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_get_contract_instance,
                      avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
+                     avm_main_sel_op_l2gasleft,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
@@ -1638,6 +1653,7 @@ class AvmFlavor {
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sload,
                      avm_main_sel_op_sstore,
+                     avm_main_sel_op_storage_address,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_timestamp,
                      avm_main_sel_op_transaction_fee,
@@ -2044,6 +2060,7 @@ class AvmFlavor {
                      avm_main_sel_op_cast,
                      avm_main_sel_op_chain_id,
                      avm_main_sel_op_coinbase,
+                     avm_main_sel_op_dagasleft,
                      avm_main_sel_op_div,
                      avm_main_sel_op_emit_l2_to_l1_msg,
                      avm_main_sel_op_emit_note_hash,
@@ -2053,8 +2070,10 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
+                     avm_main_sel_op_get_contract_instance,
                      avm_main_sel_op_keccak,
                      avm_main_sel_op_l1_to_l2_msg_exists,
+                     avm_main_sel_op_l2gasleft,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
@@ -2071,6 +2090,7 @@ class AvmFlavor {
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sload,
                      avm_main_sel_op_sstore,
+                     avm_main_sel_op_storage_address,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_timestamp,
                      avm_main_sel_op_transaction_fee,
@@ -2824,6 +2844,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_cast = "AVM_MAIN_SEL_OP_CAST";
             Base::avm_main_sel_op_chain_id = "AVM_MAIN_SEL_OP_CHAIN_ID";
             Base::avm_main_sel_op_coinbase = "AVM_MAIN_SEL_OP_COINBASE";
+            Base::avm_main_sel_op_dagasleft = "AVM_MAIN_SEL_OP_DAGASLEFT";
             Base::avm_main_sel_op_div = "AVM_MAIN_SEL_OP_DIV";
             Base::avm_main_sel_op_emit_l2_to_l1_msg = "AVM_MAIN_SEL_OP_EMIT_L2_TO_L1_MSG";
             Base::avm_main_sel_op_emit_note_hash = "AVM_MAIN_SEL_OP_EMIT_NOTE_HASH";
@@ -2833,8 +2854,10 @@ class AvmFlavor {
             Base::avm_main_sel_op_fdiv = "AVM_MAIN_SEL_OP_FDIV";
             Base::avm_main_sel_op_fee_per_da_gas = "AVM_MAIN_SEL_OP_FEE_PER_DA_GAS";
             Base::avm_main_sel_op_fee_per_l2_gas = "AVM_MAIN_SEL_OP_FEE_PER_L2_GAS";
+            Base::avm_main_sel_op_get_contract_instance = "AVM_MAIN_SEL_OP_GET_CONTRACT_INSTANCE";
             Base::avm_main_sel_op_keccak = "AVM_MAIN_SEL_OP_KECCAK";
             Base::avm_main_sel_op_l1_to_l2_msg_exists = "AVM_MAIN_SEL_OP_L1_TO_L2_MSG_EXISTS";
+            Base::avm_main_sel_op_l2gasleft = "AVM_MAIN_SEL_OP_L2GASLEFT";
             Base::avm_main_sel_op_lt = "AVM_MAIN_SEL_OP_LT";
             Base::avm_main_sel_op_lte = "AVM_MAIN_SEL_OP_LTE";
             Base::avm_main_sel_op_mul = "AVM_MAIN_SEL_OP_MUL";
@@ -2851,6 +2874,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_shr = "AVM_MAIN_SEL_OP_SHR";
             Base::avm_main_sel_op_sload = "AVM_MAIN_SEL_OP_SLOAD";
             Base::avm_main_sel_op_sstore = "AVM_MAIN_SEL_OP_SSTORE";
+            Base::avm_main_sel_op_storage_address = "AVM_MAIN_SEL_OP_STORAGE_ADDRESS";
             Base::avm_main_sel_op_sub = "AVM_MAIN_SEL_OP_SUB";
             Base::avm_main_sel_op_timestamp = "AVM_MAIN_SEL_OP_TIMESTAMP";
             Base::avm_main_sel_op_transaction_fee = "AVM_MAIN_SEL_OP_TRANSACTION_FEE";
@@ -3207,6 +3231,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_cast;
         Commitment avm_main_sel_op_chain_id;
         Commitment avm_main_sel_op_coinbase;
+        Commitment avm_main_sel_op_dagasleft;
         Commitment avm_main_sel_op_div;
         Commitment avm_main_sel_op_emit_l2_to_l1_msg;
         Commitment avm_main_sel_op_emit_note_hash;
@@ -3216,8 +3241,10 @@ class AvmFlavor {
         Commitment avm_main_sel_op_fdiv;
         Commitment avm_main_sel_op_fee_per_da_gas;
         Commitment avm_main_sel_op_fee_per_l2_gas;
+        Commitment avm_main_sel_op_get_contract_instance;
         Commitment avm_main_sel_op_keccak;
         Commitment avm_main_sel_op_l1_to_l2_msg_exists;
+        Commitment avm_main_sel_op_l2gasleft;
         Commitment avm_main_sel_op_lt;
         Commitment avm_main_sel_op_lte;
         Commitment avm_main_sel_op_mul;
@@ -3234,6 +3261,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_shr;
         Commitment avm_main_sel_op_sload;
         Commitment avm_main_sel_op_sstore;
+        Commitment avm_main_sel_op_storage_address;
         Commitment avm_main_sel_op_sub;
         Commitment avm_main_sel_op_timestamp;
         Commitment avm_main_sel_op_transaction_fee;
@@ -3604,6 +3632,7 @@ class AvmFlavor {
             avm_main_sel_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_chain_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_coinbase = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_dagasleft = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_emit_l2_to_l1_msg =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3615,9 +3644,12 @@ class AvmFlavor {
             avm_main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_get_contract_instance =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_keccak = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_l1_to_l2_msg_exists =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_l2gasleft = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3636,6 +3668,7 @@ class AvmFlavor {
             avm_main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sload = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sstore = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_storage_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_timestamp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_transaction_fee = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3997,6 +4030,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_cast, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_chain_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_coinbase, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_dagasleft, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_div, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_emit_l2_to_l1_msg, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_emit_note_hash, Transcript::proof_data);
@@ -4006,8 +4040,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_da_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l2_gas, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_get_contract_instance, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_keccak, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_l1_to_l2_msg_exists, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_l2gasleft, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lte, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_mul, Transcript::proof_data);
@@ -4024,6 +4060,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_shr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sload, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sstore, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_storage_address, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sub, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_timestamp, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_transaction_fee, Transcript::proof_data);
