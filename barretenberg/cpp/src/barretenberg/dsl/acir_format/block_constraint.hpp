@@ -27,14 +27,7 @@ struct BlockConstraint {
 template <typename Builder>
 void create_block_constraints(Builder& builder,
                               const BlockConstraint& constraint,
-                              bool has_valid_witness_assignments = true)
-    requires IsMegaBuilder<Builder>;
-
-template <typename Builder>
-void create_block_constraints(Builder& builder,
-                              const BlockConstraint& constraint,
-                              bool has_valid_witness_assignments = true)
-    requires IsNotMegaBuilder<Builder>;
+                              bool has_valid_witness_assignments = true);
 
 template <typename Builder>
 void process_ROM_operations(Builder& builder,

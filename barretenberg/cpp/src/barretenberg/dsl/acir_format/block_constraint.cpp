@@ -24,11 +24,17 @@ template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly
     return x;
 }
 
-template <typename Builder>
-void create_block_constraints(Builder& builder, const BlockConstraint& constraint, bool has_valid_witness_assignments)
-    requires IsNotMegaBuilder<Builder>
+/**
+ * @brief Create block constraints; Specialization for Ultra arithmetization
+ * @details Ultra does not support DataBus operations so calldata/returndata are treated as ROM ops
+ *
+ */
+template <>
+void create_block_constraints(UltraCircuitBuilder& builder,
+                              const BlockConstraint& constraint,
+                              bool has_valid_witness_assignments)
 {
-    using field_ct = bb::stdlib::field_t<Builder>;
+    using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
@@ -52,11 +58,16 @@ void create_block_constraints(Builder& builder, const BlockConstraint& constrain
     }
 }
 
-template <typename Builder>
-void create_block_constraints(Builder& builder, const BlockConstraint& constraint, bool has_valid_witness_assignments)
-    requires IsMegaBuilder<Builder>
+/**
+ * @brief Create block constraints; Specialization for Mega arithmetization
+ *
+ */
+template <>
+void create_block_constraints(MegaCircuitBuilder& builder,
+                              const BlockConstraint& constraint,
+                              bool has_valid_witness_assignments)
 {
-    using field_ct = stdlib::field_t<Builder>;
+    using field_ct = stdlib::field_t<MegaCircuitBuilder>;
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
@@ -184,12 +195,5 @@ void process_return_data_operations(const BlockConstraint& constraint, std::vect
     }
     ASSERT(constraint.trace.size() == 0);
 }
-
-template void create_block_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                            const BlockConstraint& constraint,
-                                                            bool has_valid_witness_assignments);
-template void create_block_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                           const BlockConstraint& constraint,
-                                                           bool has_valid_witness_assignments);
 
 } // namespace acir_format
