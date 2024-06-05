@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717593863713,
+  "lastUpdate": 1717595761567,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -22456,6 +22456,78 @@ window.BENCHMARK_DATA = {
             "value": 163878805,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163878805 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3a97f08c457472bd701200adfa45d61554fd3867",
+          "message": "feat(avm): plumb externalcall hints (#6890)\n\nAnd rewrite (de)serialization of hints.",
+          "timestamp": "2024-06-05T14:43:15+01:00",
+          "tree_id": "07a66930b6872fcf7965e536e9a08e21d0071db6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3a97f08c457472bd701200adfa45d61554fd3867"
+        },
+        "date": 1717595759738,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15430.500147999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10764.365098999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5908.213371999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5091.978712 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49517.038157,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49517039000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16865.331445,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16865331000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5167141109,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5167141109 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198871050,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198871050 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4267433580,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4267433580 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163979358,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163979358 ns\nthreads: 1"
           }
         ]
       }
