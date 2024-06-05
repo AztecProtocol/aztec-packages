@@ -1,0 +1,6 @@
+[package]
+name = "bench_hashmap"
+type = "bin"
+authors = [""]
+
+[dependencies]
