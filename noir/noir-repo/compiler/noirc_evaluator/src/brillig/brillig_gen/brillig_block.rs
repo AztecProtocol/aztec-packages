@@ -269,7 +269,7 @@ impl<'block> BrilligBlock<'block> {
                             condition,
                             payload_values,
                             payload_as_params,
-                            selector.as_u32(),
+                            selector.as_u64(),
                         );
                     }
                     Some(ConstrainError::Intrinsic(message)) => {

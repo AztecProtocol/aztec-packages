@@ -714,7 +714,7 @@ pub(crate) fn error_selector_from_type(typ: &ErrorType) -> ErrorSelector {
             typ.hash(&mut hasher);
             let hash = hasher.finish();
             assert!(hash != 0, "ICE: Error type {} collides with the string error type", typ);
-            ErrorSelector::new(hash as u32) // NOTE: will this break? - i want this to be lossy
+            ErrorSelector::new(hash)
         }
     }
 }
