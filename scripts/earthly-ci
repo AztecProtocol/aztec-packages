@@ -16,7 +16,7 @@ ATTEMPT_COUNT=0
 
 # earthly settings
 # Turns on the experimental earthly scheduler.
-export EARTHLY_BUILDKIT_IMAGE="earthly/buildkitd-staging:0bd47cf839592e037a601440646dc33bc6867514-ubuntu-latest-docker-ticktock"
+export EARTHLY_BUILDKIT_IMAGE="earthly/buildkitd:v0.8.13-ticktock"
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
 # TODO(AD): uncomment this before merging!! the first release did not start ticktock scheduler on bootstrap
