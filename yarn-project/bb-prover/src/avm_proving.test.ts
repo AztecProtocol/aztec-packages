@@ -42,8 +42,6 @@ import {
 } from '../../simulator/src/public/transitional_adaptors.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
 import { extractVkData } from './verification_key/verification_key_data.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { padArrayEnd } from '@aztec/foundation/collection';
 
 const TIMEOUT = 30_000;
 
@@ -72,40 +70,45 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
 
-  it("Should prove new note hash",
+  it(
+    'Should prove new note hash',
     async () => {
       await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
     },
-    TIMEOUT
-  )
+    TIMEOUT,
+  );
 
-  it("Should prove new note hash",
+  it(
+    'Should prove new note hash',
     async () => {
       await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
     },
-    TIMEOUT
-  )
+    TIMEOUT,
+  );
 
-  it("Should prove new nullifier",
+  it(
+    'Should prove new nullifier',
     async () => {
       await proveAndVerifyAvmTestContract('new_nullifier', [new Fr(1)]);
     },
-    TIMEOUT
-  )
+    TIMEOUT,
+  );
 
-  it("Should prove nullifier exists",
+  it(
+    'Should prove nullifier exists',
     async () => {
       await proveAndVerifyAvmTestContract('nullifier_exists', [new Fr(1)]);
     },
-    TIMEOUT
-  )
-  
-  it("Should prove l1 to l2 msg exists",
+    TIMEOUT,
+  );
+
+  it(
+    'Should prove l1 to l2 msg exists',
     async () => {
       await proveAndVerifyAvmTestContract('l1_to_l2_msg_exists', [new Fr(1), new Fr(2)]);
     },
-    TIMEOUT
-  )
+    TIMEOUT,
+  );
 
   // TODO: requires revert
   // it("Should prove to radix",
