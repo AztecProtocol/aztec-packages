@@ -106,7 +106,7 @@ class AvmTraceBuilder {
     void op_emit_note_hash(uint32_t note_hash_offset);
     void op_emit_nullifier(uint32_t nullifier_offset);
     void op_emit_unencrypted_log(uint32_t log_offset);
-    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+    void op_emit_l2_to_l1_msg(uint32_t msg_offset, uint32_t recipient_offset);
     void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
 
     // With additional metadata output
@@ -153,6 +153,8 @@ class AvmTraceBuilder {
                        uint32_t dst_offset,
                        std::vector<FF> const& call_data_mem);
 
+    // REVERT Opcode (that just call return under the hood for now)
+    std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // RETURN opcode with direct and indirect memory access, i.e.,
     // direct:   return(M[ret_offset:ret_offset+ret_size])
     // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
@@ -303,7 +305,7 @@ class AvmTraceBuilder {
     // Side effect counter will incremenent when any state writing values are
     // encountered
     uint32_t side_effect_counter = 0;
-    uint32_t return_data_counter = 0;
+    uint32_t external_call_counter = 0;
 
     // Execution hints aid witness solving for instructions that require auxiliary information to construct
     // Mapping of side effect counter -> value

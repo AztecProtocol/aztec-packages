@@ -55,7 +55,7 @@ void AvmTraceBuilder::reset()
     keccak_trace_builder.reset();
     pedersen_trace_builder.reset();
 
-    return_data_counter = 0;
+    external_call_counter = 0;
 }
 
 AvmTraceBuilder::IndirectThreeResolution AvmTraceBuilder::resolve_ind_three(
@@ -1352,34 +1352,6 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
     };
 }
 
-// TODO: fix the naming here - we need it to be different as we are writing a hint
-// Row AvmTraceBuilder::create_sload(
-//     uint32_t clk, uint32_t data_offset, FF const& data_value, FF const& slot_value, uint32_t slot_offset)
-// {
-//     // We write the sload into memory, where the sload is an injected value that is mapped to the public inputs
-//     mem_trace_builder.write_into_memory(
-//         call_ptr, clk, IntermRegister::IA, data_offset, data_value, AvmMemoryTag::FF, AvmMemoryTag::FF);
-
-//     return Row{
-//         .avm_main_clk = clk,
-//         .avm_main_ia = data_value,
-//         .avm_main_ib = slot_value,
-//         .avm_main_ind_a = 0,
-//         .avm_main_ind_b = 0,
-//         .avm_main_internal_return_ptr = internal_return_ptr,
-//         .avm_main_mem_idx_a = data_offset,
-//         .avm_main_mem_idx_b = slot_offset,
-//         .avm_main_mem_op_a = 1,
-//         .avm_main_mem_op_b = 1,
-//         .avm_main_pc = pc++,
-//         .avm_main_q_kernel_output_lookup = 1,
-//         .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-//         .avm_main_rwa = 1,
-//         .avm_main_rwb = 0,
-//         .avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-//     };
-// }
-
 Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
                                                                                     uint32_t data_offset,
                                                                                     uint32_t metadata_offset)
@@ -1387,7 +1359,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
     AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IA, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U8);
 
-    FF exists = execution_hints.side_effect_hints.at(side_effect_counter);
+    FF exists = execution_hints.get_side_effect_hints().at(side_effect_counter);
     // TODO: throw error if incorrect
 
     mem_trace_builder.write_into_memory(
@@ -1417,7 +1389,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hint(uint32
                                                                           uint32_t data_offset,
                                                                           uint32_t metadata_offset)
 {
-    FF value = execution_hints.side_effect_hints.at(side_effect_counter);
+    FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
     // TODO: throw error if incorrect
 
     mem_trace_builder.write_into_memory(
@@ -1476,12 +1448,14 @@ void AvmTraceBuilder::op_emit_nullifier(uint32_t nullifier_offset)
     side_effect_counter++;
 }
 
-void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t msg_offset)
+void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t recipient_offset, uint32_t msg_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode(clk, msg_offset);
-    kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.avm_main_ia);
+    // Note: unorthadox order - as seen in L2ToL1Message struct in TS
+    Row row = create_kernel_output_opcode_with_metadata(
+        clk, msg_offset, AvmMemoryTag::FF, recipient_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.avm_main_ia, row.avm_main_ib);
     row.avm_main_sel_op_emit_l2_to_l1_msg = FF(1);
 
     // Constrain gas cost
@@ -1530,7 +1504,7 @@ void AvmTraceBuilder::op_note_hash_exists(uint32_t note_offset, uint32_t dest_of
     Row row = create_kernel_output_opcode_with_set_metadata_output_from_hint(clk, note_offset, dest_offset);
     kernel_trace_builder.op_note_hash_exists(
         clk, side_effect_counter, row.avm_main_ia, /*safe*/ static_cast<uint32_t>(row.avm_main_ib));
-    row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
+    row.avm_main_sel_op_note_hash_exists = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::NOTEHASHEXISTS);
@@ -1851,7 +1825,7 @@ void AvmTraceBuilder::calldata_copy(
                 pos == 0)), // TODO: remove in the long term. This activate gas only for the first row.
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
-            .avm_main_pc = FF(pc++),
+            .avm_main_pc = FF(pc),
             .avm_main_rwa = FF(rwa),
             .avm_main_rwb = FF(rwb),
             .avm_main_rwc = FF(rwc),
@@ -1865,6 +1839,14 @@ void AvmTraceBuilder::calldata_copy(
             pos = copy_size;
         }
     }
+
+    pc++;
+}
+
+// Credit to SEAN for coming up with this revert opcode
+std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+{
+    return return_op(indirect, ret_offset, ret_size);
 }
 
 /**
@@ -2046,8 +2028,13 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
     }
 
     // Write into memory from intermediate register ia.
-    mem_trace_builder.write_into_memory(
-        call_ptr, clk, IntermRegister::IA, direct_dst_offset, gas_remaining, AvmMemoryTag::U0, AvmMemoryTag::U32);
+    mem_trace_builder.write_into_memory(call_ptr,
+                                        clk,
+                                        IntermRegister::IA,
+                                        direct_dst_offset,
+                                        gas_remaining,
+                                        AvmMemoryTag::U0,
+                                        AvmMemoryTag::FF); // TODO: probably will be U32 in final version
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -2064,7 +2051,8 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
         .avm_main_sel_op_dagasleft = (opcode == OpCode::DAGASLEFT) ? FF(1) : FF(0),
         .avm_main_sel_op_l2gasleft = (opcode == OpCode::L2GASLEFT) ? FF(1) : FF(0),
         .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
+        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)), // TODO: probably will be U32 in final version
+                                                                          // Should the circuit (pil) constrain U32?
     });
 }
 
@@ -2411,10 +2399,12 @@ void AvmTraceBuilder::op_call([[maybe_unused]] uint8_t indirect,
                               uint32_t function_selector_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
     // We can load up to 4 things per row
     auto register_order = std::array{ IntermRegister::IA, IntermRegister::IB, IntermRegister::IC, IntermRegister::ID };
     // Constrain gas cost
-    gas_trace_builder.constrain_gas_for_external_call(clk);
+    gas_trace_builder.constrain_gas_for_external_call(
+        clk, static_cast<uint32_t>(hint.l2_gas_used), static_cast<uint32_t>(hint.da_gas_used));
     // Indirect is ZEROTH, SECOND and FOURTH bit  COME BACK TO MAKING THIS ALL SUPPORTED
     auto read_ind_gas_offset =
         mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, gas_offset);
@@ -2505,11 +2495,11 @@ void AvmTraceBuilder::op_call([[maybe_unused]] uint8_t indirect,
                           AvmMemoryTag::U0,
                           AvmMemoryTag::FF,
                           internal_return_ptr,
-                          execution_hints.returndata_hints.at(return_data_counter));
-    return_data_counter++;
+                          hint.return_data);
     clk++;
     write_slice_to_memory(
-        call_ptr, clk, success_offset, AvmMemoryTag::U0, AvmMemoryTag::U8, internal_return_ptr, { FF(1) });
+        call_ptr, clk, success_offset, AvmMemoryTag::U0, AvmMemoryTag::U8, internal_return_ptr, { hint.success });
+    external_call_counter++;
 }
 
 void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)
@@ -3947,6 +3937,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
             dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
+            dest.avm_kernel_nullifier_non_exists_write_offset = prev.avm_kernel_nullifier_non_exists_write_offset;
             dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
             dest.avm_kernel_emit_l2_to_l1_msg_write_offset = prev.avm_kernel_emit_l2_to_l1_msg_write_offset;
             dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
@@ -3987,7 +3978,11 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             next.avm_kernel_emit_nullifier_write_offset =
                 curr.avm_kernel_emit_nullifier_write_offset + static_cast<FF>(src.op_emit_nullifier);
             next.avm_kernel_nullifier_exists_write_offset =
-                curr.avm_kernel_nullifier_exists_write_offset + static_cast<FF>(src.op_nullifier_exists);
+                curr.avm_kernel_nullifier_exists_write_offset +
+                (static_cast<FF>(src.op_nullifier_exists) * curr.avm_main_ib);
+            next.avm_kernel_nullifier_non_exists_write_offset =
+                curr.avm_kernel_nullifier_non_exists_write_offset +
+                (static_cast<FF>(src.op_nullifier_exists) * (FF(1) - curr.avm_main_ib));
             next.avm_kernel_l1_to_l2_msg_exists_write_offset =
                 curr.avm_kernel_l1_to_l2_msg_exists_write_offset + static_cast<FF>(src.op_l1_to_l2_msg_exists);
             next.avm_kernel_emit_l2_to_l1_msg_write_offset =
@@ -4015,6 +4010,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_note_hash_exist_write_offset = 0;
             dest.avm_kernel_emit_note_hash_write_offset = 0;
             dest.avm_kernel_nullifier_exists_write_offset = 0;
+            dest.avm_kernel_nullifier_non_exists_write_offset = 0;
             dest.avm_kernel_emit_nullifier_write_offset = 0;
             dest.avm_kernel_l1_to_l2_msg_exists_write_offset = 0;
             dest.avm_kernel_emit_unencrypted_log_write_offset = 0;
@@ -4026,6 +4022,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
             dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
+            dest.avm_kernel_nullifier_non_exists_write_offset = prev.avm_kernel_nullifier_non_exists_write_offset;
             dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
             dest.avm_kernel_l1_to_l2_msg_exists_write_offset = prev.avm_kernel_l1_to_l2_msg_exists_write_offset;
             dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
