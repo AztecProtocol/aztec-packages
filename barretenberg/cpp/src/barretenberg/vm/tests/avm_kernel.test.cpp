@@ -713,7 +713,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, msg_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, 420, recipient_offset, AvmMemoryTag::FF);
-        trace_builder.op_emit_l2_to_l1_msg(msg_offset, recipient_offset);
+        trace_builder.op_emit_l2_to_l1_msg(recipient_offset, msg_offset);
     };
     auto checks = [=](const std::vector<Row>& trace) {
         std::vector<Row>::const_iterator row = std::ranges::find_if(

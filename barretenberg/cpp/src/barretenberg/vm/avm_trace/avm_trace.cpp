@@ -3978,17 +3978,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
             // The side effect counter will increment regardless of the offset value
             next.avm_kernel_side_effect_counter = curr.avm_kernel_side_effect_counter + 1;
-
-            info("non exists curr: ", curr.avm_kernel_nullifier_non_exists_write_offset);
-            info("non exists next: ", next.avm_kernel_nullifier_non_exists_write_offset);
         }
-
-        info("for kernel output", curr.avm_main_sel_op_nullifier_exists);
-        info(curr.avm_main_sel_op_nullifier_exists *
-             (curr.avm_kernel_kernel_out_offset -
-              ((curr.avm_main_ib * (FF(32) + curr.avm_kernel_nullifier_exists_write_offset)) +
-               ((FF(1) - curr.avm_main_ib) * (FF(64) + curr.avm_kernel_nullifier_non_exists_write_offset)))));
-        info("kernel out offset:", curr.avm_kernel_kernel_out_offset);
 
         kernel_padding_main_trace_bottom = clk + 1;
     }
