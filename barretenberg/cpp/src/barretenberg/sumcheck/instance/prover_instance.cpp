@@ -60,7 +60,10 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
         return_data_read_counts[idx] = return_data.get_read_count(idx);
     }
 
-    calldata_read_tags[0] = 1; // This causes failure in UGH recursion with U arith
+    // DEBUG: The issue seems to be related to have two identical commitments. If we swet calldata_read_tags[0] = 1,
+    // then its commitment is identical to [L_1]. If we set calldata_read_tags[0] = 2, there doesn't seem to be any
+    // problem.
+    calldata_read_tags[0] = 1; // This causes failure in Mega recursion with Ultra arith
     // calldata_read_tags[0] = 2; // This causes the tests to pass
 
     auto& databus_id = proving_key.polynomials.databus_id;
