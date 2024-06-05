@@ -46,7 +46,15 @@ export class NoteProcessor {
   public readonly timer: Timer = new Timer();
 
   /** Stats accumulated for this processor. */
-  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, deferred: 0, failed: 0, blocks: 0, txs: 0 };
+  public readonly stats: NoteProcessorStats = {
+    seen: 0,
+    decryptedIncoming: 0,
+    decryptedOutgoing: 0,
+    deferred: 0,
+    failed: 0,
+    blocks: 0,
+    txs: 0,
+  };
 
   private constructor(
     public readonly account: AztecAddress,
@@ -182,11 +190,11 @@ export class NoteProcessor {
 
               if (incomingNote) {
                 incomingNotes.push(incomingNote);
-                this.stats.decrypted++;
+                this.stats.decryptedIncoming++;
               }
               if (outgoingNote) {
                 outgoingNotes.push(outgoingNote);
-                this.stats.decrypted++;
+                this.stats.decryptedOutgoing++;
               }
               if (incomingDeferredNote) {
                 deferredNoteDaosIncoming.push(incomingDeferredNote);
@@ -314,7 +322,7 @@ export class NoteProcessor {
       }
 
       incomingNotes.push(incomingNote);
-      this.stats.decrypted++;
+      this.stats.decryptedIncoming++;
     }
 
     return incomingNotes;

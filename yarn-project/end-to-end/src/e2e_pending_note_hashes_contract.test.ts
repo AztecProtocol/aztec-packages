@@ -307,8 +307,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await deployedContract.methods.test_emit_bad_note_log(owner, outgoingViewer).send().wait();
 
     const syncStats = await wallet.getSyncStats();
-    // Expect two decryptable note logs to be emitted
-    expect(syncStats[owner.toString()].decrypted).toEqual(2);
+    // Expect two incoming decryptable note logs to be emitted
+    expect(syncStats[owner.toString()].decryptedIncoming).toEqual(2);
     // Expect one note log to be dropped
     expect(syncStats[owner.toString()].failed).toEqual(1);
   });
