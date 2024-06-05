@@ -90,7 +90,7 @@ TEST(polynomial_evaluation, public)
     STerm ev = direct_polynomial_evaluation(circuit, n);
     ev != circuit["result"];
 
-    bool res = smt_timer(&s, false);
+    bool res = smt_timer(&s);
     ASSERT_FALSE(res);
 }
 
@@ -105,7 +105,7 @@ TEST(polynomial_evaluation, private)
     STerm ev = direct_polynomial_evaluation(circuit, n);
     ev != circuit["result"];
 
-    bool res = smt_timer(&s, false);
+    bool res = smt_timer(&s);
     ASSERT_FALSE(res);
     info("Gates: ", circuit.get_num_gates());
     info("Result: ", s.getResult());
