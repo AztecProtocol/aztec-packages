@@ -5,6 +5,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
@@ -536,18 +537,14 @@ void avm_prove(const std::filesystem::path& bytecode_path,
         bytecode_path.extension() == ".gz" ? gunzip(bytecode_path) : read_file(bytecode_path);
     std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
     std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(read_file(public_inputs_path));
-    std::vector<uint8_t> avm_hints;
-    try {
-        avm_hints = read_file(hints_path);
-    } catch (std::runtime_error const& err) {
-        vinfo("No hints were provided for avm proving.... Might be fine!");
-    }
+    auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Hardcoded circuit size for now, with enough to support 16-bit range checks
     init_bn254_crs(1 << 17);
 
     // Prove execution and return vk
-    auto const [verification_key, proof] = avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec);
+    auto const [verification_key, proof] =
+        avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints);
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
     std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
     std::vector<fr> vk_as_fields = { verification_key.circuit_size, verification_key.num_public_inputs };
