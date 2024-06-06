@@ -1018,11 +1018,13 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto slot = 12345;
+    uint8_t indirect = 0;
+    uint32_t size = 1;
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, static_cast<uint128_t>(slot), metadata_offset, AvmMemoryTag::FF);
-        trace_builder.op_sstore(metadata_offset, value_offset);
+        trace_builder.op_sstore(indirect, metadata_offset, size, value_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
         std::vector<Row>::const_iterator row =
