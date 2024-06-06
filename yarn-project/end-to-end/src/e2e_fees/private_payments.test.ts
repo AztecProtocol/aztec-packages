@@ -137,7 +137,7 @@ describe('e2e_fees private_payment', () => {
      * TODO(6583): update this comment properly now that public execution consumes gas
      */
 
-    expect(tx.transactionFee).toEqual(200036352n);
+    expect(tx.transactionFee).toEqual(200032492n);
     await expect(t.getCoinbaseBalance()).resolves.toEqual(InitialSequencerL1Gas + tx.transactionFee!);
     const [feeAmount, refundAmount] = getFeeAndRefund(tx);
 
