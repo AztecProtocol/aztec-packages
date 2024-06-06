@@ -162,14 +162,13 @@ export class AcirSimulator {
       );
     }
 
-    const maxNoteFields = (artifact.parameters[artifact.parameters.length - 1].type as ArrayType).length;
+    const maxNoteFields = (artifact.parameters[artifact.parameters.length - 2].type as ArrayType).length;
     if (maxNoteFields < note.items.length) {
       throw new Error(
         `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please reduce the number of fields in your note.`,
       );
     }
 
-    console.log(Array(maxNoteFields - note.items.length));
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
