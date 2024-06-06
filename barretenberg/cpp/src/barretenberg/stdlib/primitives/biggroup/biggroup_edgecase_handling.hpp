@@ -56,7 +56,7 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     // Add a scalar -(<(1,2,4,...,2ⁿ⁻¹ ),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)
     scalars.push_back(-last_scalar);
     if constexpr (Fr::is_composite) {
-        scalars[scalars.size() - 1].self_reduce();
+        scalars.back().self_reduce();
     }
     // Add in-circuit G_offset to points
     points.push_back(element(native_offset_generator * generator_coefficient));
