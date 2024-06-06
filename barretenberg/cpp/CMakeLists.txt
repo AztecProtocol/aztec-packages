@@ -19,7 +19,7 @@ configure_file(
 # Add doxygen build command
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
-add_custom_target(build_docs 
+add_custom_target(build_docs
 COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_SOURCE_DIR}/docs/Doxyfile
 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 COMMENT "Generate documentation with Doxygen")
@@ -136,6 +136,10 @@ include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
+# We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
+if (NOT WASM)
+include(cmake/libdeflate.cmake)
+endif
 add_subdirectory(src)
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-16)

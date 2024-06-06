@@ -54,10 +54,17 @@ export class KernelProver {
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) { }
 
+  private mapToDictionary(map: WitnessMap) {
+    const dictionary: any = {};
+    for (const [key, value] of map.entries()) {
+      dictionary[key] = value;
+    }
+    return dictionary;
+  }
   private saveProgramStackAsMsgpack(acirs: Buffer[], witnessStack: WitnessMap[]) {
     // LONDONTODO hack for now
     fs.writeFileSync("/mnt/user-data/adam/acir.msgpack", encode(acirs));
-    fs.writeFileSync("/mnt/user-data/adam/witnesses.msgpack", encode(witnessStack));
+    fs.writeFileSync("/mnt/user-data/adam/witnesses.msgpack", encode(witnessStack.map((map) => this.mapToDictionary(map))));
   }
 
   /**

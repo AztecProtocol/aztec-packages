@@ -11,6 +11,7 @@
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
 #include "get_grumpkin_crs.hpp"
+#include "libdeflate.h"
 #include "log.hpp"
 #include <barretenberg/common/benchmark.hpp>
 #include <barretenberg/common/container.hpp>
@@ -260,16 +261,88 @@ template <typename T> T unpack_from_file(const std::string& filename)
     return result;
 }
 
-void foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, const std::string& witnessPath)
+// TODO find a home for this
+acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
-    std::ifstream bytecode{ bytecodePath };
-    std::ifstream witnesses{ witnessPath };
+    acir_format::WitnessVector wv;
+    size_t index = 0;
+    for (auto& e : witness_map) {
+        uint64_t value = std::stoull(e.first);
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        while (index < value) {
+            wv.push_back(fr(0));
+            index++;
+        }
+        wv.push_back(fr(uint256_t(e.second)));
+        index++;
+    }
+    return wv;
+}
 
-    auto gzippedBincodes = unpack_from_file<std::vector<std::vector<uint8_t>>>(bytecodePath);
-    auto witnessMaps = unpack_from_file<std::vector<std::map<uint8_t, std::string>>>(bytecodePath);
+std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
+{
+    std::vector<uint8_t> content;
+    // initial size guess
+    content.resize(1024ull * 128ull);
+    for (;;) {
+        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
+            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
+        };
+        size_t actual_size = 0;
+        libdeflate_result decompress_result = libdeflate_gzip_decompress(
+            decompressor.get(), bytes, size, std::data(content), std::size(content), &actual_size);
+        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
+            // need a bigger buffer
+            content.resize(content.size() * 2);
+            continue;
+        }
+        if (decompress_result == LIBDEFLATE_BAD_DATA) {
+            throw std::invalid_argument("bad gzip data in bb main");
+        }
+        break;
+    }
+    return content;
+}
 
-    // bytecode
-    // const VectorOfAcirAndWitnesses& acir_and_witnesses
+bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    using Flavor = MegaFlavor; // This is the only option
+    using Builder = Flavor::CircuitBuilder;
+
+    auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
+    auto witnessMaps = unpack_from_file<std::vector<std::map<std::string, std::string>>>(witnessPath);
+
+    std::cout << "size " << gzippedBincodes.size() << std::endl;
+    std::cout << "witness " << witnessMaps.size() << std::endl;
+
+    ClientIVC ivc;
+    ivc.structured_flag = true;
+    // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the future
+    std::vector<uint8_t> buffer =
+        decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[0]), gzippedBincodes[0].size()); // NOLINT
+
+    std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
+        buffer,
+        false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                // this assumes that folding is never done with ultrahonk.
+    acir_format::WitnessVectorStack witness_stack{ { 0, witness_map_to_witness_vector(witnessMaps[0]) } };
+    acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
+
+    // Accumulate the entire program stack into the IVC
+    while (!program_stack.empty()) {
+        auto stack_item = program_stack.back();
+
+        // Construct a bberg circuit from the acir representation
+        auto circuit = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+
+        ivc.accumulate(circuit);
+
+        program_stack.pop_back();
+    }
+    return ivc.prove_and_verify();
 }
 
 bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
@@ -903,7 +976,8 @@ int main(int argc, char* argv[])
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program_acir_witness_vector") {
-            return foldAndVerifyProgramAcirWitnessVector(bytecode_path, witness_path) ? 0 : 1;
+            foldAndVerifyProgramAcirWitnessVector(bytecode_path, witness_path);
+            return 0;
         }
         if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
