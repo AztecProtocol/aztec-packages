@@ -193,7 +193,9 @@ template <typename Flavor> class SumcheckProver {
 
         // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
         // univariates that would be there if the input circuit size were 1<<Flavor::MAX_LOG_CIRCUIT_SIZE.
-        const size_t num_padding_univariates = Flavor::MAX_LOG_CIRCUIT_SIZE - multivariate_d;
+        // WORKTODO: avoiding flavor constant for now so I can build the recursion tests without adding to every flavor
+        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+        const size_t num_padding_univariates = MAX_LOG_CIRCUIT_SIZE - multivariate_d;
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
         for (size_t idx = 0; idx < num_padding_univariates; idx++) {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
@@ -213,7 +215,7 @@ template <typename Flavor> class SumcheckProver {
         round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                   // release memory?        // All but final round
                                                   // We operate on partially_evaluated_polynomials in place.
-        for (size_t idx = num_padding_univariates + 1; idx < Flavor::MAX_LOG_CIRCUIT_SIZE; idx++) {
+        for (size_t idx = num_padding_univariates + 1; idx < MAX_LOG_CIRCUIT_SIZE; idx++) {
             // Write the round univariate to the transcript
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
@@ -396,9 +398,9 @@ template <typename Flavor> class SumcheckVerifier {
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
-
-        const size_t num_padding_univariates = Flavor::MAX_LOG_CIRCUIT_SIZE - multivariate_d;
-        for (size_t round_idx = 0; round_idx < Flavor::MAX_LOG_CIRCUIT_SIZE; round_idx++) {
+        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+        const size_t num_padding_univariates = MAX_LOG_CIRCUIT_SIZE - multivariate_d;
+        for (size_t round_idx = 0; round_idx < MAX_LOG_CIRCUIT_SIZE; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
