@@ -45,7 +45,7 @@ export const createP2PClient = async (
       }
     }
 
-    const splitUdpAnnounceAddress = configUdpAnnounceAddress?.split(':') || [];
+    const splitUdpAnnounceAddress = splitAddressPort(configUdpAnnounceAddress || '', true);
     if (splitUdpAnnounceAddress.length == 2 && splitUdpAnnounceAddress[0] === '') {
       // If announceUdpAddress is not provided, use announceTcpAddress
       if (!queryForIp && config.tcpAnnounceAddress) {
