@@ -124,12 +124,12 @@ describe('e2e_fees private_payment', () => {
      * tx overhead of 512 DA gas
      * for a total of 21632 DA gas (without gas used during public execution)
      * public execution uses N gas
-     * for a total of 200036352 gas
+     * for a total of 200032492n gas
      *
      * The default teardown gas allocation at present is
      * 100_000_000 for both DA and L2 gas.
      *
-     * That produces a grand total of 200036352.
+     * That produces a grand total of 200032492n.
      *
      * This will change because we are presently squashing notes/nullifiers across non/revertible during
      * private execution, but we shouldn't.
