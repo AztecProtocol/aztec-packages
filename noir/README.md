@@ -32,14 +32,14 @@ To gather proving speeds benchmark on your local machine:
 3. `git clone https://github.com/AztecProtocol/aztec-packages.git`
 4. (If you are on macOS:)
     1. `brew install coreutils`
-    2. Edit the `cp --parents…` line in [*aztec-packages/noir/Earthfile*](https://github.com/AztecProtocol/aztec-packages/blob/deb972d3f13a92d34a6f91074b072fb66d247f64/noir/Earthfile) to `gcp --parents…`
+    2. Edit the `cp --parents…` line in [*aztec-packages/noir/Earthfile*](https://github.com/AztecProtocol/aztec-packages/blob/master/noir/Earthfile) to `gcp --parents…`
 5. `earthly ./noir+bench-acir-bb`
 
 **Note:** It is recommended to increase or maximize your Docker instance's memory limit, as some of the pre-benchmark compilations are very memory intensive (e.g. an 8GB memory limit is insufficient and is expected to cause OOM errors).
 
 ### Adding / updating benchmarks
 
-Benchmarking programs are located in [*noir/noir-repo/test_programs/benchmarks*](https://github.com/AztecProtocol/aztec-packages/tree/131af8806a453b851403b0eb7cba855bc2c0cc43/noir/noir-repo/test_programs/benchmarks). Follow the naming scheme of folders and packages (in Nargo.toml) beginning with *bench_...* and add or update programs in the directory directly.
+Benchmarking programs are located in [*noir/noir-repo/test_programs/benchmarks*](https://github.com/AztecProtocol/aztec-packages/tree/master/noir/noir-repo/test_programs/benchmarks). Follow the naming scheme of folders and packages (in Nargo.toml) beginning with *bench_...* and add or update programs in the directory directly.
 
 To benchmark locally after modifications:
 1. `git commit ...`
