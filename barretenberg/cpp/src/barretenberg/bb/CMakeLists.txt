@@ -11,6 +11,7 @@ if (NOT(FUZZING) AND NOT(WASM))
         PRIVATE
         barretenberg
         env
+        circuit_checker
         libdeflate::libdeflate_static
     )
 endif()

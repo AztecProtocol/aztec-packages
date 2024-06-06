@@ -1,4 +1,5 @@
 #include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -6,7 +7,10 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/serialize/cbind.hpp"
+#include <cstddef>
+#ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#endif
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
@@ -312,20 +316,32 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
 
+    init_bn254_crs(1 << 24);
+    init_grumpkin_crs(1 << 14);
+
     auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
-    auto witnessMaps = unpack_from_file<std::vector<std::map<std::string, std::string>>>(witnessPath);
+    auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
+    acir_format::AcirProgramStack program_stack{ {}, {} };
+    for (size_t i = 0; i < gzippedBincodes.size(); i++) {
+        // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the
+        // future
+        std::vector<uint8_t> buffer =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
-    // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the future
-    std::vector<uint8_t> buffer =
-        decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[0][0]), gzippedBincodes[0].size()); // NOLINT
-
-    std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
-        buffer,
-        false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                // this assumes that folding is never done with ultrahonk.
-    acir_format::WitnessVectorStack witness_stack{ { 0, witness_map_to_witness_vector(witnessMaps[0]) } };
-    acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
-
+        std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
+            buffer,
+            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                    // this assumes that folding is never done with ultrahonk.
+        std::vector<uint8_t> witnessBuffer =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
+        acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
+        for (auto& constraint : constraint_systems) {
+            program_stack.constraint_systems.push_back(constraint);
+        }
+        for (auto& witness : witness_stack) {
+            program_stack.witness_stack.push_back(witness);
+        }
+    }
     // TODO dedupe this
     ClientIVC ivc;
     ivc.structured_flag = true;
@@ -338,6 +354,9 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
             stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
         std::cout << "ACCUM" << std::endl;
+        if (!bb::CircuitChecker::check(circuit)) {
+            std::cout << "BAD" << std::endl;
+        }
         ivc.accumulate(circuit);
 
         program_stack.pop_back();
@@ -623,7 +642,7 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 }
 
 #ifndef DISABLE_AZTEC_VM
-/**
+/**git
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
  * Communication:
@@ -978,8 +997,7 @@ int main(int argc, char* argv[])
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program_acir_witness_vector") {
-            foldAndVerifyProgramAcirWitnessVector(bytecode_path, witness_path);
-            return 0;
+            return foldAndVerifyProgramAcirWitnessVector(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
