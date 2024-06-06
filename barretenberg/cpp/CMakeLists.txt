@@ -138,8 +138,8 @@ include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)
-include(cmake/libdeflate.cmake)
-endif
+    include(cmake/libdeflate.cmake)
+endif()
 add_subdirectory(src)
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-16)

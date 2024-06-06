@@ -1,4 +1,4 @@
-if (NOT(FUZZING))
+if (NOT(FUZZING) AND NOT(WASM))
     add_executable(
         bb
         main.cpp
