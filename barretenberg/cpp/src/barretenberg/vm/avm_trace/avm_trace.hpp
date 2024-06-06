@@ -8,6 +8,7 @@
 #include "barretenberg/vm/avm_trace/avm_gas_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
@@ -27,7 +28,7 @@ using Row = bb::AvmFullRow<bb::fr>;
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {}, ExecutionHints execution_hints = {});
 
     std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
     void reset();
@@ -84,27 +85,29 @@ class AvmTraceBuilder {
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
     // Call Context
-    void op_sender(uint32_t dst_offset);
-    void op_address(uint32_t dst_offset);
+    void op_storage_address(uint8_t indirect, uint32_t dst_offset);
+    void op_sender(uint8_t indirect, uint32_t dst_offset);
+    void op_address(uint8_t indirect, uint32_t dst_offset);
 
     // Fees
-    void op_fee_per_da_gas(uint32_t dst_offset);
-    void op_fee_per_l2_gas(uint32_t dst_offset);
-    void op_transaction_fee(uint32_t dst_offset);
+    void op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
+    void op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
+    void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
 
     // Globals
-    void op_chain_id(uint32_t dst_offset);
-    void op_version(uint32_t dst_offset);
-    void op_block_number(uint32_t dst_offset);
-    void op_coinbase(uint32_t dst_offset);
-    void op_timestamp(uint32_t dst_offset);
+    void op_chain_id(uint8_t indirect, uint32_t dst_offset);
+    void op_version(uint8_t indirect, uint32_t dst_offset);
+    void op_block_number(uint8_t indirect, uint32_t dst_offset);
+    void op_coinbase(uint8_t indirect, uint32_t dst_offset);
+    void op_timestamp(uint8_t indirect, uint32_t dst_offset);
 
     // Outputs
     // With single output values
     void op_emit_note_hash(uint32_t note_hash_offset);
     void op_emit_nullifier(uint32_t nullifier_offset);
     void op_emit_unencrypted_log(uint32_t log_offset);
-    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+    void op_emit_l2_to_l1_msg(uint32_t msg_offset, uint32_t recipient_offset);
+    void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
 
     // With additional metadata output
     void op_l1_to_l2_msg_exists(uint32_t msg_offset, uint32_t dest_offset);
@@ -120,6 +123,10 @@ class AvmTraceBuilder {
 
     // Integer Division with direct or indirect memory access.
     void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Machine State - Gas
+    void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
+    void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
@@ -146,10 +153,23 @@ class AvmTraceBuilder {
                        uint32_t dst_offset,
                        std::vector<FF> const& call_data_mem);
 
+    // REVERT Opcode (that just call return under the hood for now)
+    std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // RETURN opcode with direct and indirect memory access, i.e.,
     // direct:   return(M[ret_offset:ret_offset+ret_size])
     // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
     std::vector<FF> return_op(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
+
+    // Calls
+    void op_call(uint8_t indirect,
+                 uint32_t gas_offset,
+                 uint32_t addr_offset,
+                 uint32_t args_offset,
+                 uint32_t args_size,
+                 uint32_t ret_offset,
+                 uint32_t ret_size,
+                 uint32_t success_offset,
+                 uint32_t function_selector_offset);
 
     // Gadgets
     // --- Conversions
@@ -203,13 +223,15 @@ class AvmTraceBuilder {
      *
      * Used for looking up into the kernel inputs (context) - {caller, address, etc.}
      *
+     * @param indirect - Perform indirect memory resolution
      * @param dst_offset - Memory address to write the lookup result to
      * @param selector - The index of the kernel input lookup column
      * @param value - The value read from the memory address
      * @param w_tag - The memory tag of the value read
      * @return Row
      */
-    Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+    Row create_kernel_lookup_opcode(
+        bool indirect, uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
 
     /**
      * @brief Create a kernel output opcode object
@@ -243,18 +265,34 @@ class AvmTraceBuilder {
     /**
      * @brief Create a kernel output opcode with set metadata output object
      *
-     * Used for writing output opcode where one value is written and comes from a hint
+     * Used for writing output opcode where one metadata value is written and comes from a hint
      * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
      *
      * @param clk - The trace clk
      * @param data_offset - The offset of the main value to output
-     * @param data_r_tag - The data type of the value
      * @param metadata_offset - The offset of the metadata (slot in the sload example)
-     * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
      * @return Row
      */
-    Row create_kernel_output_opcode_with_set_metadata_output(
-        uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value);
+    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
+                                                                       uint32_t data_offset,
+                                                                       uint32_t metadata_offset);
+
+    /**
+     * @brief Create a kernel output opcode with set metadata output object
+     *
+     * Used for writing output opcode where one value is written and comes from a hint
+     * {sload}
+     *
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @return Row
+     */
+    Row create_kernel_output_opcode_with_set_value_from_hint(uint32_t clk,
+                                                             uint32_t data_offset,
+                                                             uint32_t metadata_offset);
+
+    void execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
 
@@ -265,6 +303,15 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // Side effect counter will incremenent when any state writing values are
+    // encountered
+    uint32_t side_effect_counter = 0;
+    uint32_t external_call_counter = 0;
+
+    // Execution hints aid witness solving for instructions that require auxiliary information to construct
+    // Mapping of side effect counter -> value
+    ExecutionHints execution_hints;
 
     // TODO(ilyas: #6383): Temporary way to bulk read slices
     template <typename MEM>

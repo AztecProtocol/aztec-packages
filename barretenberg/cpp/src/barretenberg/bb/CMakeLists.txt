@@ -14,4 +14,16 @@ if (NOT(FUZZING) AND NOT(WASM))
         circuit_checker
         libdeflate::libdeflate_static
     )
+    if(CHECK_CIRCUIT_STACKTRACES)
+        target_link_libraries(
+            bb
+            PUBLIC
+            Backward::Interface
+        )
+        target_link_options(
+            bb
+            PRIVATE
+            -ldw -lelf
+        )
+    endif()
 endif()
