@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717669560688,
+  "lastUpdate": 1717669955657,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -25828,6 +25828,74 @@ window.BENCHMARK_DATA = {
             "value": 163805458,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163805458 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "194a34cfa082328ecf0b37113988f820837d5b6b",
+          "message": "chore: fix issue #6929 (off-by-one error in `UltraCircuitBuilder::create_range_constraint`)",
+          "timestamp": "2024-06-06T10:09:31Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6931/commits/194a34cfa082328ecf0b37113988f820837d5b6b"
+        },
+        "date": 1717669954465,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15458.348962000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10872.628684999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5523.24347699998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5173.3941970000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49534.018754,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49534021000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16976.825425000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16976825000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5125759889,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5125759889 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197918604,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197918604 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4250843392,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4250843392 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163254308,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163254308 ns\nthreads: 1"
           }
         ]
       }
