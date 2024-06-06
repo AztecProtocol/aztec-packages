@@ -154,9 +154,9 @@ export class AcirSimulator {
       );
     }
 
-    if (artifact.parameters.length != 5) {
+    if (artifact.parameters.length != 6) {
       throw new Error(
-        `Expected 5 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found ${
+        `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found ${
           artifact.parameters.length
         } in noir contract ${contractAddress.toString()}.`,
       );
@@ -169,6 +169,7 @@ export class AcirSimulator {
       );
     }
 
+    console.log(Array(maxNoteFields - note.items.length));
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {

@@ -100,7 +100,7 @@ describe('Simulator', () => {
         simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrow(
         new RegExp(
-          `Expected 5 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 4 in noir contract ${contractAddress}.`,
+          `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 5 in noir contract ${contractAddress}.`,
         ),
       );
     });
