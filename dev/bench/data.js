@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717662835755,
+  "lastUpdate": 1717663773712,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -25348,6 +25348,78 @@ window.BENCHMARK_DATA = {
             "value": 162620140,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162620140 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "39747b933a13aa08f25c5074207f9d92489d5e3d",
+          "message": "fix: Fix for the flaky issue (I hope) (#6923)\n\nThere was a flaky assert_equal problem in bigfield in biggroup batch mul\r\nwith masking (not in the code we actually use, just for tests). Reducing\r\nthe scalar helped get rid of the problem (I ran the test in a loop and\r\nit didn't appear).",
+          "timestamp": "2024-06-06T08:37:17Z",
+          "tree_id": "53d22391d34b9f5bf0c896b01be9641dac8f06a0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/39747b933a13aa08f25c5074207f9d92489d5e3d"
+        },
+        "date": 1717663772391,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15356.615289000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10686.004048999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5492.696566999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5129.867141 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48962.526707,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48962528000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17052.694829,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17052695000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5179170555,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5179170555 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198186249,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198186249 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4272585707,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4272585707 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163883333,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163883333 ns\nthreads: 1"
           }
         ]
       }
