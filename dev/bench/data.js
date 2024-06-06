@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717681939171,
+  "lastUpdate": 1717682794478,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -26932,6 +26932,78 @@ window.BENCHMARK_DATA = {
             "value": 165236129,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165236129 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f9707321bdd107e3c7116cafd89fd570224e89ef",
+          "message": "feat: SMT Standard Circuit separation (#6904)\n\nThis pr brings a new base class for symbolic circuits of distinct logic.\r\n\r\n## `circuit_base.*`\r\n\r\nThe common initialization part for Standard and Ultra. \r\nThe only thing left in inherited classes are gates initialization and\r\n`unique_witness` like functions.\r\n\r\nAlso, in Standard we should initialize `one` by ourselves. \r\n\r\n## `standard_circuit.*` \r\n\r\nContains all the previous handlers: `range_constraint`, `logic_gate`.\r\nAdded `>>`, `<<` and \"rot\" realaxations.\r\n\r\n## Subcircuits\r\n\r\nAdded `>>`, `<<` and `rot` standard subcircuits",
+          "timestamp": "2024-06-06T14:54:00+01:00",
+          "tree_id": "ce38972e41a43fea436dc84dc8b2372b6dfa6467",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f9707321bdd107e3c7116cafd89fd570224e89ef"
+        },
+        "date": 1717682793051,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15438.729831999979,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10679.285828 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5523.961443000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5096.840515 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49215.999696,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49216001000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17082.688509999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17082689000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5148248206,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5148248206 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197828798,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197828798 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4292650735,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4292650735 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195727733,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195727733 ns\nthreads: 1"
           }
         ]
       }
