@@ -2,6 +2,7 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Bufferable } from '@aztec/foundation/serialize';
 import {
   type ContractClassPublic,
   type ExecutablePrivateFunctionWithMembershipProof,
@@ -15,6 +16,10 @@ import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
   AppendOnlyTreeSnapshot,
+  AvmCircuitInputs,
+  AvmExecutionHints,
+  AvmExternalCallHint,
+  AvmKeyValueHint,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
@@ -42,6 +47,7 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -127,6 +133,7 @@ import {
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
+  Vector,
   VerificationKey,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -408,8 +415,10 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, { storageContractAddress: storageContractAddress ?? makeAztecAddress(seed) }),
     fr(seed + 0x100),
     fr(seed + 0x200),
+    tupleGenerator(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
+    tupleGenerator(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x440, ReadRequest.empty),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,
@@ -682,6 +691,12 @@ export function makeCombineHints(seed = 1): CombineHints {
       seed + 0x300,
     ),
     sortedPublicDataUpdateRequestsIndexes: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x400),
+    dedupedPublicDataUpdateRequests: makeTuple(
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      makePublicDataUpdateRequest,
+      seed + 0x500,
+    ),
+    dedupedPublicDataUpdateRequestsRuns: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x600),
   });
 }
 
@@ -1240,6 +1255,74 @@ function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     vkHash: fr(seed + 2),
   };
+}
+
+export function makeArray<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+  return Array.from({ length }, (_: any, i: number) => fn(i + offset));
+}
+
+export function makeVector<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+  return new Vector(makeArray(length, fn, offset));
+}
+
+/**
+ * Makes arbitrary AvmKeyValueHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmKeyValueHint.
+ */
+export function makeAvmKeyValueHint(seed = 0): AvmKeyValueHint {
+  return new AvmKeyValueHint(new Fr(seed), new Fr(seed + 1));
+}
+
+/**
+ * Makes arbitrary AvmExternalCallHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmKeyValueHint.
+ */
+export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
+  return new AvmExternalCallHint(
+    new Fr(seed % 2),
+    makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
+    new Gas(seed + 0x200, seed),
+  );
+}
+
+/**
+ * Creates arbitrary AvmExecutionHints.
+ * @param seed - The seed to use for generating the hints.
+ * @returns the execution hints.
+ */
+export function makeAvmExecutionHints(
+  seed = 0,
+  overrides: Partial<FieldsOf<AvmExecutionHints>> = {},
+): AvmExecutionHints {
+  const lengthOffset = 10;
+  const lengthSeedMod = 10;
+  const baseLength = lengthOffset + (seed % lengthSeedMod);
+
+  return AvmExecutionHints.from({
+    storageValues: makeVector(baseLength, makeAvmKeyValueHint, seed + 0x4200),
+    noteHashExists: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4300),
+    nullifierExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4400),
+    l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
+    externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
+    ...overrides,
+  });
+}
+
+/**
+ * Creates arbitrary AvmCircuitInputs.
+ * @param seed - The seed to use for generating the hints.
+ * @returns the execution hints.
+ */
+export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
+  return AvmCircuitInputs.from({
+    bytecode: makeBytes((seed % 100) + 100, seed),
+    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
+    publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
+    avmHints: makeAvmExecutionHints(seed + 0x3000),
+    ...overrides,
+  });
 }
 
 /**

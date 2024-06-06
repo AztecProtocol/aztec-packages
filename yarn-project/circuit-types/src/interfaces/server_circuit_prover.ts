@@ -1,23 +1,26 @@
 import {
-  type PublicInputsAndProof,
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
+  type Tx,
 } from '@aztec/circuit-types';
 import {
+  type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
-  type Proof,
-  type PublicCircuitPublicInputs,
+  type PrivateKernelEmptyInputData,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type VerificationKeys,
 } from '@aztec/circuits.js';
 
 /**
@@ -49,7 +52,7 @@ export interface ServerCircuitProver {
   getBaseRollupProof(
     input: BaseRollupInputs,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
   /**
    * Creates a proof for the given input.
@@ -58,7 +61,7 @@ export interface ServerCircuitProver {
   getMergeRollupProof(
     input: MergeRollupInputs,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
   /**
    * Creates a proof for the given input.
@@ -67,7 +70,7 @@ export interface ServerCircuitProver {
   getRootRollupProof(
     input: RootRollupInputs,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<RootRollupPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>>;
 
   /**
    * Create a public kernel proof.
@@ -76,7 +79,7 @@ export interface ServerCircuitProver {
   getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<PublicKernelCircuitPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>>;
 
   /**
    * Create a public kernel tail proof.
@@ -85,22 +88,33 @@ export interface ServerCircuitProver {
   getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
+
+  getEmptyPrivateKernelProof(
+    inputs: PrivateKernelEmptyInputData,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
+
+  /**
+   * Create a proof for the AVM circuit.
+   * @param inputs - Inputs to the AVM circuit.
+   */
+  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal): Promise<ProofAndVerificationKey>;
 }
 
 /**
- * Generates proofs for the public and public kernel circuits.
+ * A verifier used by nodes to check tx proofs are valid.
  */
-export interface PublicProver {
+export interface ClientProtocolCircuitVerifier {
   /**
-   * Creates a proof for the given input.
-   * @param publicInputs - Public inputs obtained via simulation.
+   * Verifies the private protocol circuit's proof.
+   * @param tx - The tx to verify the proof of
+   * @returns True if the proof is valid, false otherwise
    */
-  getPublicCircuitProof(publicInputs: PublicCircuitPublicInputs): Promise<Proof>;
+  verifyProof(tx: Tx): Promise<boolean>;
 
   /**
-   * Creates a proof for the given input.
-   * @param publicInputs - Public inputs obtained via simulation.
+   * Returns the verification keys used to verify tx proofs.
    */
-  getPublicKernelCircuitProof(publicInputs: PublicKernelCircuitPublicInputs): Promise<Proof>;
+  getVerificationKeys(): Promise<VerificationKeys>;
 }

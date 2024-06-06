@@ -1,12 +1,27 @@
 ---
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
-keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
+keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## 0.42.0
+
+### [Aztec.nr] Unconstrained Context
+
+Top-level unconstrained execution is now marked by the new `UnconstrainedContext`, which provides access to the block number and contract address being used in the simulation. Any custom state variables that provided unconstrained functions should update their specialization parameter:
+
+```diff
++ use dep::aztec::context::UnconstrainedContext;
+
+- impl MyStateVariable<()> {
++ impl MyStateVariable<UnconstrainedContext> {
+```
+
+### [Aztec.nr] Filtering is now constrained
+
+The `filter` argument of `NoteGetterOptions` (typically passed via the `with_filter()` function) is now applied in a constraining environment, meaning any assertions made during the filtering are guaranteed to hold. This mirrors the behavior of the `select()` function.
 
 ### [Aztec.nr] Emitting encrypted notes and logs
 
@@ -17,6 +32,7 @@ The `emit_encrypted_log` context function is now `encrypt_and_emit_log` or `encr
 + context.encrypt_and_emit_log(log1);
 + context.encrypt_and_emit_note(note1);
 ```
+
 Broadcasting a note will call `encrypt_and_emit_note` in the background. To broadcast a generic event, use `encrypt_and_emit_log`
 with the same encryption parameters as notes require. Currently, only fields and arrays of fields are supported as events.
 
