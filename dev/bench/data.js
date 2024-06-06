@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717674872703,
+  "lastUpdate": 1717676764442,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -26236,6 +26236,78 @@ window.BENCHMARK_DATA = {
             "value": 163183220,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163183220 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a44b8c81458eb789e54624e020b6c93d0e9963cc",
+          "message": "feat: Sync from noir (#6801)\n\nAutomated pull of development from the\r\n[noir](https://github.com/noir-lang/noir) programming language, a\r\ndependency of Aztec.\r\nBEGIN_COMMIT_OVERRIDE\r\nfeat: place return value witnesses directly after function arguments\r\n(https://github.com/noir-lang/noir/pull/5142)\r\nfix(experimental elaborator): Fix frontend tests when `--use-elaborator`\r\nflag is specified (https://github.com/noir-lang/noir/pull/5145)\r\nchore: Remove unused `new_variables` argument from `resolve_type_inner`\r\n(https://github.com/noir-lang/noir/pull/5148)\r\nchore: Remove hir to ast pass\r\n(https://github.com/noir-lang/noir/pull/5147)\r\nfix(experimental elaborator): Fix definition kind of globals and tuple\r\npatterns with `--use-elaborator` flag\r\n(https://github.com/noir-lang/noir/pull/5139)\r\nchore: default to using bn254 in `noirc_frontend`\r\n(https://github.com/noir-lang/noir/pull/5144)\r\nfix(experimental elaborator): Fix `impl Trait` when `--use-elaborator`\r\nis selected (https://github.com/noir-lang/noir/pull/5138)\r\nfix: wrapping in signed division\r\n(https://github.com/noir-lang/noir/pull/5134)\r\nchore(ci): don't raise MSRV issue if workflow cancelled\r\n(https://github.com/noir-lang/noir/pull/5143)\r\nfix: use predicate for curve operations\r\n(https://github.com/noir-lang/noir/pull/5076)\r\nfix(experimental elaborator): Fix global values used in the elaborator\r\n(https://github.com/noir-lang/noir/pull/5135)\r\nfix(experimental elaborator): Clear generics after elaborating type\r\naliases (https://github.com/noir-lang/noir/pull/5136)\r\nfix(frontend): Resolve object types from method calls a single time\r\n(https://github.com/noir-lang/noir/pull/5131)\r\nfeat: Separate runtimes of SSA functions before inlining\r\n(https://github.com/noir-lang/noir/pull/5121)\r\nchore: run all test programs in brillig as well as ACIR\r\n(https://github.com/noir-lang/noir/pull/5128)\r\nEND_COMMIT_OVERRIDE\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>\r\nCo-authored-by: Tom French <tom@tomfren.ch>\r\nCo-authored-by: guipublic <47281315+guipublic@users.noreply.github.com>\r\nCo-authored-by: guipublic <guipublic@gmail.com>\r\nCo-authored-by: Maddiaa0 <47148561+Maddiaa0@users.noreply.github.com>",
+          "timestamp": "2024-06-06T12:12:00Z",
+          "tree_id": "78674a87810d5179846b5c2243867b109a12f58d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a44b8c81458eb789e54624e020b6c93d0e9963cc"
+        },
+        "date": 1717676762845,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15503.983092999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10763.129664 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5580.576243999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5185.7221819999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49021.947426,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49021949000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17109.895933,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17109896000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5163250909,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5163250909 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200906002,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200906002 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4283197547,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4283197547 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164307326,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164307326 ns\nthreads: 1"
           }
         ]
       }
