@@ -33,13 +33,13 @@ export async function analyzeBlocks(node: AztecNode) {
   }
 }
 
-async function main() {
-  const AZTEC_NODE_URL = 'http://localhost:8080';
-  const node = createAztecNodeClient(AZTEC_NODE_URL);
-  await analyzeBlocks(node);
-}
+// async function main() {
+//   const AZTEC_NODE_URL = 'http://localhost:8080';
+//   const node = createAztecNodeClient(AZTEC_NODE_URL);
+//   await analyzeBlocks(node);
+// }
 
-main().catch(err => {
-  console.log('Error: ', err);
-  process.exit(1);
-});
+// main().catch(err => {
+//   console.log('Error: ', err);
+//   process.exit(1);
+// });
