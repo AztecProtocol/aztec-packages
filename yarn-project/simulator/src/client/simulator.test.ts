@@ -68,7 +68,7 @@ describe('Simulator', () => {
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
       const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
 
-      const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
+      const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note);
 
       expect(result).toEqual({
         innerNoteHash,
@@ -83,7 +83,7 @@ describe('Simulator', () => {
 
       const note = createNote();
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
       ).rejects.toThrow(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
     });
 
@@ -97,7 +97,7 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
       ).rejects.toThrow(
         new RegExp(
           `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 5 in noir contract ${contractAddress}.`,
@@ -129,7 +129,7 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
       ).rejects.toThrow(
         new RegExp(`"compute_note_hash_and_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`),
       );

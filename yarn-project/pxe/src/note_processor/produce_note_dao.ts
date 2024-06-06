@@ -157,6 +157,7 @@ async function findNoteIndexAndNullifier(
       expectedNonce,
       storageSlot,
       noteTypeId,
+      true,
       note,
     ));
 

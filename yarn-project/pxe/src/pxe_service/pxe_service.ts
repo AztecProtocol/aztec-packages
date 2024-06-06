@@ -323,8 +323,8 @@ export class PXEService implements PXE {
         nonce,
         note.storageSlot,
         note.noteTypeId,
-        note.note,
         true,
+        note.note,
       );
 
       const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
@@ -372,8 +372,8 @@ export class PXEService implements PXE {
         nonce,
         note.storageSlot,
         note.noteTypeId,
-        note.note,
         false,
+        note.note,
       );
 
       if (!innerNullifier.equals(Fr.ZERO)) {
@@ -426,6 +426,7 @@ export class PXEService implements PXE {
         publicNoteNonce,
         note.storageSlot,
         note.noteTypeId,
+        false,
         note.note,
       );
       if (tx.noteHashes.some(hash => hash.equals(siloedNoteHash))) {
@@ -447,6 +448,7 @@ export class PXEService implements PXE {
         nonce,
         note.storageSlot,
         note.noteTypeId,
+        false,
         note.note,
       );
       if (hash.equals(siloedNoteHash)) {

@@ -178,8 +178,8 @@ fn generate_compute_note_hash_and_nullifier_source(
             nonce: Field,
             storage_slot: Field,
             note_type_id: Field,
+            compute_nullifier: bool,
             serialized_note: [Field; {}],
-            compute_nullifier: bool
         ) -> pub [Field; 4] {{
             assert(false, \"This contract does not use private notes\");
             [0, 0, 0, 0]
@@ -192,7 +192,7 @@ fn generate_compute_note_hash_and_nullifier_source(
 
         let if_statements: Vec<String> = note_types.iter().map(|note_type| format!(
             "if (note_type_id == {0}::get_note_type_id()) {{
-                dep::aztec::note::utils::compute_note_hash_and_nullifier({0}::deserialize_content, note_header, serialized_note, compute_nullifier)
+                dep::aztec::note::utils::compute_note_hash_and_nullifier({0}::deserialize_content, note_header, compute_nullifier, serialized_note)
             }}"
         , note_type)).collect();
 
@@ -210,8 +210,8 @@ fn generate_compute_note_hash_and_nullifier_source(
                 nonce: Field,
                 storage_slot: Field,
                 note_type_id: Field,
+                compute_nullifier: bool,
                 serialized_note: [Field; {}],
-                compute_nullifier: bool
             ) -> pub [Field; 4] {{
                 let note_header = dep::aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
 

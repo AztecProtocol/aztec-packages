@@ -441,7 +441,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, true, note),
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
@@ -511,7 +511,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, true, note),
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 

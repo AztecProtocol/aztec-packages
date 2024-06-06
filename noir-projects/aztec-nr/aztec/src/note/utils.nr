@@ -108,8 +108,8 @@ pub fn compute_note_hash_and_nullifier<T, N, M, S>(
     // docs:start:compute_note_hash_and_nullifier_args
     deserialize_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
-    serialized_note: [Field; S], // docs:end:compute_note_hash_and_nullifier_args
-    compute_nullifier: bool
+    compute_nullifier: bool,
+    serialized_note: [Field; S] // docs:end:compute_note_hash_and_nullifier_args
 ) -> [Field; 4] where T: NoteInterface<N, M> {
     let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed

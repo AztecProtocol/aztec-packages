@@ -171,7 +171,7 @@ describe('Note Processor', () => {
       Promise.resolve({
         innerNoteHash: Fr.random(),
         uniqueNoteHash: Fr.random(),
-        siloedNoteHash: pedersenHash(args[4].items), // args[4] is note
+        siloedNoteHash: pedersenHash(args[5].items), // args[5] is note
         innerNullifier: Fr.random(),
       }),
     );

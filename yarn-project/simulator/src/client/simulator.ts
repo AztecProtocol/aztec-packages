@@ -132,8 +132,8 @@ export class AcirSimulator {
    * @param nonce - The nonce of the note hash.
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The note type identifier.
+   * @param computeNullifier - A flag indicating whether to compute the nullifier or just return 0.
    * @param note - The note.
-   * @param includeNullifier - A flag indicating whether to compute the nullifier or not.
    * @returns The nullifier.
    */
   public async computeNoteHashAndNullifier(
@@ -141,8 +141,8 @@ export class AcirSimulator {
     nonce: Fr,
     storageSlot: Fr,
     noteTypeId: Fr,
+    computeNullifier: boolean,
     note: Note,
-    includeNullifier = true,
   ) {
     const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
       contractAddress,
@@ -182,8 +182,8 @@ export class AcirSimulator {
         nonce,
         storageSlot,
         noteTypeId,
+        computeNullifier,
         extendedNoteItems,
-        includeNullifier,
       ]),
       returnTypes: artifact.returnTypes,
     };
@@ -216,6 +216,7 @@ export class AcirSimulator {
       Fr.ZERO,
       storageSlot,
       noteTypeId,
+      false,
       note,
     );
     return innerNoteHash;
