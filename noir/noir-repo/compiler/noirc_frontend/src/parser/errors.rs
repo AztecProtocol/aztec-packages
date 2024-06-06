@@ -46,6 +46,8 @@ pub enum ParserErrorReason {
     InvalidBitSize(u32),
     #[error("{0}")]
     Lexer(LexerErrorKind),
+    #[error("Unconstrained functions return values must be wrapped in Unconstrained<T>")]
+    UnconstrainedReturnType,
 }
 
 /// Represents a parsing error, or a parsing error in the making.

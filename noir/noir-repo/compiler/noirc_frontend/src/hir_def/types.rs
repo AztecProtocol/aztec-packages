@@ -9,6 +9,7 @@ use crate::{
     ast::IntegerBitSize,
     hir::type_check::TypeCheckError,
     node_interner::{ExprId, NodeInterner, TraitId, TypeAliasId},
+    token::Keyword,
 };
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span};
@@ -19,7 +20,10 @@ use crate::{
     node_interner::StructId,
 };
 
-use super::expr::{HirCallExpression, HirExpression, HirIdent};
+use super::{
+    expr::{HirBlockExpression, HirCallExpression, HirExpression, HirIdent},
+    stmt::HirStatement,
+};
 
 #[derive(PartialEq, Eq, Clone, Hash)]
 pub enum Type {
@@ -1342,12 +1346,40 @@ impl Type {
         let mut bindings = TypeBindings::new();
 
         if let Err(UnificationError) = self.try_unify(expected, &mut bindings) {
-            if !self.try_array_to_slice_coercion(expected, expression, interner) {
+            if !self.try_array_to_slice_coercion(expected, expression, interner)
+                && !self.try_unconstrained_wrapper_coercion(expected, expression, interner)
+            {
                 errors.push(make_error());
             }
         } else {
             Type::apply_type_bindings(bindings);
         }
+    }
+
+    /// Try to apply the unconstrained wrapper coercion to this given type pair and expression.
+    /// If self can be converted to target this way, do so and return true to indicate success.
+    fn try_unconstrained_wrapper_coercion(
+        &self,
+        target: &Type,
+        expression: ExprId,
+        interner: &mut NodeInterner,
+    ) -> bool {
+        let this = self.follow_bindings();
+        let target = target.follow_bindings();
+
+        if let Type::Struct(typ, generics) = &target {
+            // Still have to ensure the element types match.
+            // Don't need to issue an error here if not, it will be done in unify_with_coercions
+            let mut bindings = TypeBindings::new();
+            if typ.borrow().name.0.contents == Keyword::UnconstrainedType.to_string()
+                && this.try_unify(&generics[0], &mut bindings).is_ok()
+            {
+                wrap_unconstrained_return(expression, this, typ.borrow().id, &target, interner);
+                Self::apply_type_bindings(bindings.clone());
+                return true;
+            }
+        }
+        false
     }
 
     /// Try to apply the array to slice coercion to this given type pair and expression.
@@ -1768,7 +1800,7 @@ fn convert_array_expression_to_slice(
     let func = interner.push_expr(as_slice);
 
     // Copy the expression and give it a new ExprId. The old one
-    // will be mutated in place into a Call expression.
+    // will be mutated in place into a Block with a statement pointing to a Call expression.
     let argument = interner.expression(&expression);
     let argument = interner.push_expr(argument);
     interner.push_expr_type(argument, array_type.clone());
@@ -1776,13 +1808,82 @@ fn convert_array_expression_to_slice(
 
     let arguments = vec![argument];
     let call = HirExpression::Call(HirCallExpression { func, arguments, location });
-    interner.replace_expr(&expression, call);
+    let call_id = interner.push_expr(call);
+    interner.push_expr_location(call_id, location.span, location.file);
+    interner.push_expr_type(call_id, target_type.clone());
+    let call_stmt_id = interner.push_stmt(HirStatement::Expression(call_id));
+    interner.replace_expr(
+        &expression,
+        HirExpression::Block(HirBlockExpression { statements: vec![call_stmt_id] }),
+    );
 
     interner.push_expr_location(func, location.span, location.file);
     interner.push_expr_type(expression, target_type.clone());
 
     let func_type = Type::Function(vec![array_type], Box::new(target_type), Box::new(Type::Unit));
     interner.push_expr_type(func, func_type);
+}
+
+/// Wraps a given `expression` in `Unconstrained::new()`
+fn wrap_unconstrained_return(
+    expression: ExprId,
+    original_type: Type,
+    unconstrained_wrapper_id: StructId,
+    unconstrained_wrapper_type: &Type,
+    interner: &mut NodeInterner,
+) {
+    let new_method_id = interner
+        .lookup_method(unconstrained_wrapper_type, unconstrained_wrapper_id, "new", true)
+        .expect("Expected 'Unconstrained::new' method to be present in Noir's stdlib");
+
+    let modifiers = interner.function_modifiers(&new_method_id).clone();
+    let module_id = interner.function_module(new_method_id);
+    let location = interner.expr_location(&expression);
+
+    let new_function_def_id =
+        interner.push_function_definition(new_method_id, modifiers, module_id, location);
+    let new_unconstrained_wrapper =
+        HirExpression::Ident(HirIdent::non_trait_method(new_function_def_id, location), None);
+    let func_id = interner.push_expr(new_unconstrained_wrapper);
+
+    let meta = interner.function_meta(&new_method_id).clone();
+    let (func_type, bindings) = meta.typ.instantiate_with(vec![original_type.clone()], interner, 0);
+    let instantiated_func_type = func_type.follow_bindings();
+    interner.push_expr_type(func_id, instantiated_func_type);
+    match meta.typ {
+        Type::Forall(_, _) => {
+            for (id, (var, _)) in bindings.clone() {
+                var.unbind(id);
+            }
+        }
+        _ => {
+            unreachable!("Unconstrained::new function must be a forall type");
+        }
+    }
+    interner.store_instantiation_bindings(func_id, bindings.clone());
+
+    // Copy the expression and give it a new ExprId. The old one
+    // will be mutated in place into a Block with a statement pointing to a Call expression.
+    let location = interner.expr_location(&expression);
+    let argument = interner.expression(&expression);
+    let argument = interner.push_expr(argument);
+    interner.push_expr_type(argument, original_type.clone());
+    interner.push_expr_location(argument, location.span, location.file);
+
+    let arguments = vec![argument];
+    let call = HirExpression::Call(HirCallExpression { func: func_id, arguments, location });
+
+    let call_id = interner.push_expr(call);
+    interner.push_expr_location(call_id, location.span, location.file);
+    interner.push_expr_type(call_id, unconstrained_wrapper_type.clone());
+    interner.store_instantiation_bindings(call_id, bindings.clone());
+    let call_stmt_id = interner.push_stmt(HirStatement::Expression(call_id));
+    interner.replace_expr(
+        &expression,
+        HirExpression::Block(HirBlockExpression { statements: vec![call_stmt_id] }),
+    );
+    interner.push_expr_type(expression, unconstrained_wrapper_type.clone());
+    interner.store_instantiation_bindings(expression, bindings.clone());
 }
 
 impl BinaryTypeOperator {

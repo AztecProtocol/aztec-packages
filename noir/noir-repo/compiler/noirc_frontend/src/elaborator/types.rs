@@ -26,10 +26,11 @@ use crate::{
         traits::TraitConstraint,
     },
     macros_api::{
-        HirExpression, HirLiteral, HirStatement, Path, PathKind, SecondaryAttribute, Signedness,
-        UnaryOp, UnresolvedType, UnresolvedTypeData,
+        HirExpression, HirLiteral, HirStatement, Ident, Path, PathKind, SecondaryAttribute,
+        Signedness, UnaryOp, UnresolvedType, UnresolvedTypeData,
     },
     node_interner::{DefinitionKind, ExprId, GlobalId, TraitId, TraitImplKind, TraitMethodId},
+    token::{Keyword, Token},
     Generics, Type, TypeBinding, TypeVariable, TypeVariableKind,
 };
 
@@ -118,6 +119,14 @@ impl<'context> Elaborator<'context> {
                 Type::MutableReference(Box::new(self.resolve_type_inner(*element, new_variables)))
             }
             Parenthesized(typ) => self.resolve_type_inner(*typ, new_variables),
+            Unconstrained(arg) => self.resolve_named_type(
+                Path::from_ident(Ident::from_token(
+                    Token::Ident(Keyword::UnconstrainedType.to_string()),
+                    arg.span.unwrap_or_default(),
+                )),
+                vec![*arg],
+                new_variables,
+            ),
         };
 
         if let Type::Struct(_, _) = resolved_type {

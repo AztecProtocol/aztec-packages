@@ -41,7 +41,10 @@ fn check_for_compute_note_hash_and_nullifier_definition(
                     FunctionReturnType::Default(_) => false,
                     FunctionReturnType::Ty(unresolved_type) => {
                         match &unresolved_type.typ {
-                            UnresolvedTypeData::Array(_, inner_type) => matches!(inner_type.typ, UnresolvedTypeData::FieldElement),
+                            UnresolvedTypeData::Unconstrained(inner_type) => match inner_type.to_owned().typ {
+                                UnresolvedTypeData::Array(_, elements) => matches!(elements.typ.to_owned(), UnresolvedTypeData::FieldElement),
+                                _ => false
+                            },
                             _ => false,
                         }
                     }
@@ -179,7 +182,7 @@ fn generate_compute_note_hash_and_nullifier_source(
             storage_slot: Field,
             note_type_id: Field,
             serialized_note: [Field; {}]
-        ) -> pub [Field; 4] {{
+        ) -> pub Unconstrained<[Field; 4]> {{
             assert(false, \"This contract does not use private notes\");
             [0, 0, 0, 0]
         }}",
@@ -210,7 +213,7 @@ fn generate_compute_note_hash_and_nullifier_source(
                 storage_slot: Field,
                 note_type_id: Field,
                 serialized_note: [Field; {}]
-            ) -> pub [Field; 4] {{
+            ) -> pub Unconstrained<[Field; 4]> {{
                 let note_header = dep::aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
 
                 {}

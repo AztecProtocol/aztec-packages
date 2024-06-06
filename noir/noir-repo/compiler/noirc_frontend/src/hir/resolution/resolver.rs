@@ -22,7 +22,7 @@ use crate::hir_def::expr::{
 
 use crate::hir_def::traits::{Trait, TraitConstraint};
 use crate::macros_api::SecondaryAttribute;
-use crate::token::{Attributes, FunctionAttribute};
+use crate::token::{Attributes, FunctionAttribute, Keyword, Token};
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::rc::Rc;
@@ -603,6 +603,14 @@ impl<'a> Resolver<'a> {
                 Type::MutableReference(Box::new(self.resolve_type_inner(*element, new_variables)))
             }
             Parenthesized(typ) => self.resolve_type_inner(*typ, new_variables),
+            Unconstrained(arg) => self.resolve_named_type(
+                Path::from_ident(Ident::from_token(
+                    Token::Ident(Keyword::UnconstrainedType.to_string()),
+                    arg.span.unwrap_or_default(),
+                )),
+                vec![*arg],
+                new_variables,
+            ),
         };
 
         if let Type::Struct(_, _) = resolved_type {

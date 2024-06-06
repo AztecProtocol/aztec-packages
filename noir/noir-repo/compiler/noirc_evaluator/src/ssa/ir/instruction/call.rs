@@ -295,6 +295,7 @@ pub(super) fn simplify_call(
         }
         Intrinsic::AsWitness => SimplifyResult::None,
         Intrinsic::IsUnconstrained => SimplifyResult::None,
+        Intrinsic::AssertUnconstrained => SimplifyResult::None,
     }
 }
 

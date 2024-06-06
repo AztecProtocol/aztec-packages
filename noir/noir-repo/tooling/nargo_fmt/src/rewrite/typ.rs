@@ -65,6 +65,7 @@ pub(crate) fn rewrite(visitor: &FmtVisitor, _shape: Shape, typ: UnresolvedType) 
         | UnresolvedTypeData::String(_)
         | UnresolvedTypeData::FormatString(_, _)
         | UnresolvedTypeData::Code
+        | UnresolvedTypeData::Unconstrained(_)
         | UnresolvedTypeData::TraitAsType(_, _) => visitor.slice(typ.span.unwrap()).into(),
         UnresolvedTypeData::Error => unreachable!(),
     }
