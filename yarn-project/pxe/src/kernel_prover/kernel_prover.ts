@@ -42,6 +42,7 @@ import {
   buildPrivateKernelTailHints,
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
+import { serializeWitness } from '@noir-lang/noirc_abi';
 
 /**
  * The KernelProver class is responsible for generating kernel proofs.
@@ -54,13 +55,6 @@ export class KernelProver {
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) { }
 
-  private mapToDictionary(map: WitnessMap) {
-    const dictionary: any = {};
-    for (const [key, value] of map.entries()) {
-      dictionary[key] = value;
-    }
-    return dictionary;
-  }
   private saveProgramStackAsMsgpack(acirs: Buffer[], witnessStack: WitnessMap[]) {
     // LONDONTODO hack for now
     fs.writeFileSync("/mnt/user-data/adam/acir.msgpack", encode(acirs));

@@ -622,6 +622,7 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
     }
 }
 
+#ifndef DISABLE_AZTEC_VM
 /**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
@@ -692,6 +693,7 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     vinfo("verified: ", verified);
     return verified;
 }
+#endif
 
 /**
  * @brief Creates a proof for an ACIR circuit
@@ -1008,6 +1010,7 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
+#ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
             std::filesystem::path calldata_path = get_option(args, "-d", "./target/call_data.bin");
@@ -1016,6 +1019,7 @@ int main(int argc, char* argv[])
             avm_prove(avm_bytecode_path, calldata_path, output_path);
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
+#endif
         } else if (command == "prove_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
