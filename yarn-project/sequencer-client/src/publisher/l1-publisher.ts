@@ -5,7 +5,10 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
+import { randomBytes } from 'crypto';
+import * as fs from 'fs';
 import pick from 'lodash.pick';
+import path from 'path';
 
 import { type L2BlockReceiver } from '../receiver.js';
 import { type PublisherConfig } from './config.js';
@@ -141,6 +144,12 @@ export class L1Publisher implements L2BlockReceiver {
     }
 
     const encodedBody = block.body.toBuffer();
+
+    // We write block body to file
+    {
+      const blockBodyPath = `/mnt/user-data/jan/blocks/${block.number}-${randomBytes(6).toString('hex')}.bin`;
+      fs.writeFileSync(blockBodyPath, encodedBody);
+    }
 
     // Publish block transaction effects
     while (!this.interrupted) {

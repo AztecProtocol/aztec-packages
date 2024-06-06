@@ -1,9 +1,21 @@
-import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js';
+import { Body } from '@aztec/aztec.js';
+import * as fs from 'fs';
 
-export async function analyzeBlocks(node: AztecNode) {
-  const blocks = await node.getBlocks(1, 1000);
-  console.log('Num blocks: ', blocks.length);
-  const txEffects = blocks.flatMap(b => b.body.txEffects);
+function loadBodies(): Body[] {
+  const dir = '/mnt/user-data/jan/blocks'
+  // Load all files in dir to buffers
+  const files = fs.readdirSync(dir);
+  const blocks = [];
+  for (const file of files) {
+    const buffer = fs.readFileSync(`${dir}/${file}`);
+    blocks.push(Body.fromBuffer(buffer));
+  }
+  return blocks;
+}
+
+export function analyzeBodies(bodies: Body[]) {
+  console.log('Num block bodies: ', bodies.length);
+  const txEffects = bodies.flatMap(b => b.txEffects);
   console.log('Num tx effects: ', txEffects.length);
 
   // key = [log_0_length-log1_length-...-log_n_length]_[log_0_value-log_1_value-...-log_n_value]...
@@ -33,13 +45,13 @@ export async function analyzeBlocks(node: AztecNode) {
   }
 }
 
-// async function main() {
+function main() {
 //   const AZTEC_NODE_URL = 'http://localhost:8080';
 //   const node = createAztecNodeClient(AZTEC_NODE_URL);
-//   await analyzeBlocks(node);
-// }
+//   const blocks = await node.getBlocks(1, 1000);
+//   await analyzeBlocks(blocks);
+  const bodies = loadBodies();
+  analyzeBodies(bodies);
+}
 
-// main().catch(err => {
-//   console.log('Error: ', err);
-//   process.exit(1);
-// });
+main();
