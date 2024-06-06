@@ -81,6 +81,7 @@ fn fr_to_private_key(r: Field) -> GrumpkinPrivateKey {
 
 fn compute_ivpk_app(ivpk: GrumpkinPoint, contract_address: AztecAddress) -> GrumpkinPoint {
     // It is useless to compute this, it brings no value to derive fully.
+    // Issue(#6955)
     ivpk
 
     /*
