@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717681920861,
+  "lastUpdate": 1717681939171,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -26860,6 +26860,78 @@ window.BENCHMARK_DATA = {
             "value": 164158370,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164158370 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eb35e627445c72ee07fafb3652076349302e7fa1",
+          "message": "feat(bb): stack traces for check_circuit (#6851)\n\nOverview:\r\nIf you are in a scenario where you have a failing call to check_circuit\r\nand wish to get more information out of it than just the gate index, you\r\ncan use this feature to get a stack trace, see example below.\r\n\r\nUsage instructions:\r\n- On ubuntu (or our mainframe accounts) use `sudo apt-get install\r\nlibdw-dev` to support trace printing\r\n- Use `cmake --preset clang16-dbg-fast-circuit-check-traces` and `cmake\r\n--build --preset clang16-dbg-fast-circuit-check-traces` to enable the\r\nbackward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake\r\nvariable.\r\n- Run any case where you have a failing check_circuit call, you will now\r\nhave a stack trace illuminating where this constraint was added in code.\r\n\r\nCaveats:\r\n- This works best for code that is not overly generic, i.e. where just\r\nthe sequence of function calls carries a lot of information. It is\r\npossible to tag extra data along with the stack trace, this can be done\r\nas a followup, please leave feedback if desired.\r\n- There are certain functions like `assert_equals` that can cause gates\r\nthat occur _before_ them to fail. If this would be useful to\r\nautomatically report, please leave feedback.\r\n\r\nExample:\r\n```\r\n[ RUN      ] standard_circuit_constructor.test_check_circuit_broken\r\nStack trace (most recent call last):\r\n#4    Source \"_deps/gtest-src/googletest/src/gtest.cc\", line 2845, in Run\r\n       2842:   if (!Test::HasFatalFailure() && !Test::IsSkipped()) {\r\n       2843:     // This doesn't throw as all user code that can throw are wrapped into\r\n       2844:     // exception handling code.\r\n      >2845:     test->Run();\r\n       2846:   }\r\n       2847: \r\n       2848:   if (test != nullptr) {\r\n#3    Source \"_deps/gtest-src/googletest/src/gtest.cc\", line 2696, in Run\r\n       2693:   // GTEST_SKIP().\r\n       2694:   if (!HasFatalFailure() && !IsSkipped()) {\r\n       2695:     impl->os_stack_trace_getter()->UponLeavingGTest();\r\n      >2696:     internal::HandleExceptionsInMethodIfSupported(this, &Test::TestBody,\r\n       2697:                                                   \"the test body\");\r\n       2698:   }\r\n#2  | Source \"_deps/gtest-src/googletest/src/gtest.cc\", line 2657, in HandleSehExceptionsInMethodIfSupported<testing::Test, void>\r\n    |  2655: #if GTEST_HAS_EXCEPTIONS\r\n    |  2656:     try {\r\n    | >2657:       return HandleSehExceptionsInMethodIfSupported(object, method, location);\r\n    |  2658:     } catch (const AssertionException&) {  // NOLINT\r\n    |  2659:       // This failure was reported already.\r\n      Source \"_deps/gtest-src/googletest/src/gtest.cc\", line 2621, in HandleExceptionsInMethodIfSupported<testing::Test, void>\r\n       2618:   }\r\n       2619: #else\r\n       2620:   (void)location;\r\n      >2621:   return (object->*method)();\r\n       2622: #endif  // GTEST_HAS_SEH\r\n       2623: }\r\n#1    Source \"/mnt/user-data/adam/aztec-packages/barretenberg/cpp/src/barretenberg/circuit_checker/standard_circuit_builder.test.cpp\", line 464, in TestBody\r\n        461:     uint32_t d_idx = circuit_constructor.add_variable(d);\r\n        462:     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });\r\n        463: \r\n      > 464:     circuit_constructor.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });\r\n        465: \r\n        466:     bool result = CircuitChecker::check(circuit_constructor);\r\n        467:     EXPECT_EQ(result, false);\r\n#0    Source \"/mnt/user-data/adam/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/standard_circuit_builder.cpp\", line 22, in create_add_gate\r\n         19: {\r\n         20:     this->assert_valid_variables({ in.a, in.b, in.c });\r\n         21: \r\n      >  22:     blocks.arithmetic.populate_wires(in.a, in.b, in.c);\r\n         23:     blocks.arithmetic.q_m().emplace_back(FF::zero());\r\n         24:     blocks.arithmetic.q_1().emplace_back(in.a_scaling);\r\n         25:     blocks.arithmetic.q_2().emplace_back(in.b_scaling);\r\ngate number4\r\n```",
+          "timestamp": "2024-06-06T14:38:09+01:00",
+          "tree_id": "8d8c87dc14231a641805510706c4c42c14be0eb5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/eb35e627445c72ee07fafb3652076349302e7fa1"
+        },
+        "date": 1717681937088,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15403.589962000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10709.532322 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5509.902088000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5106.850423 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49781.983799999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49781985000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17083.513956000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17083514000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5148275931,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5148275931 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198241343,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198241343 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4272575388,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4272575388 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165236129,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165236129 ns\nthreads: 1"
           }
         ]
       }
