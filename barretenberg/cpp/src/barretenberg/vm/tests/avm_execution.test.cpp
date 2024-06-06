@@ -1736,7 +1736,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
 }
 
 // SLOAD
-TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcode)
+TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
 {
     // Sload from a value that has not previously been written to will require a hint to process
     std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
@@ -1745,14 +1745,13 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcode)
                                "00000009"            // value 9
                                "00000001"            // dst_offset 1
                                // Cast set to field
-                               + to_hex(OpCode::CAST) +  // opcode CAST
-                               "00"                      // Indirect flag
-                               "06"                      // tag field
-                               "00000001"                // dst 1
-                               "00000001"                // dst 1
-                               + to_hex(OpCode::SLOAD) + // opcode SLOAD
-                               //"04"                       // Indirect flag (second operand indirect - dest offset)
-                               "00"                       // Indirect flag (second operand indirect - dest offset)
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag
                                "00000001"                 // slot offset 1
                                "00000001"                 // slot offset 1
                                "00000002"                 // write storage value to offset 2
@@ -1787,6 +1786,72 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcode)
     uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
     auto sload_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+
+    validate_trace(std::move(trace));
+}
+
+// SLOAD
+TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeComplex)
+{
+    // Sload from a value that has not previously been written to will require a hint to process
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000009"            // value 9
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag (second operand indirect - dest offset)
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // slot offset 1
+                               "00000002"                 // write storage value to offset 2
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for Sload operation
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 }, { 1, 123 } });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK SLOAD
+    // Check output data + side effect counters have been set correctly
+    auto sload_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->avm_main_ia, 123); // Read value
+    EXPECT_EQ(sload_row->avm_main_ib, 10);  // Storage slot
+    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 1);
+    sload_row--;
+    EXPECT_EQ(sload_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 0);
+
+    // Get the row of the first read storage read out
+    uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    auto sload_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 123); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 10); // slot
+    sload_kernel_out_row--;
     EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
     EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
     EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot

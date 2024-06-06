@@ -1548,6 +1548,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
     AvmMemTraceBuilder::MemRead read_slot = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IB, slot_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
 
+    info("pc before memory access: ", pc);
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_ia = read_dest_value.val,
@@ -1559,6 +1560,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         .avm_main_mem_idx_b = FF(slot_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
+        .avm_main_pc = pc, // Use previous PC so that when we actually activate the selector below, it can use pc
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
     });
@@ -1566,6 +1568,8 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
 
     for (uint32_t i = 0; i < size; i++) {
         FF value = execution_hints.get_side_effect_hints().at(side_effect_counter + i);
+        info("SE: ", side_effect_counter + i, " value: ", value);
+        info("SEL_OP_SLOAD: ", i == (size - 1) ? FF(1) : FF(0));
         // TODO: throw error if incorrect
 
         mem_trace_builder.write_into_memory(
@@ -1574,17 +1578,18 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         auto row = Row{
             .avm_main_clk = clk,
             .avm_main_ia = value,
-            .avm_main_ib = read_slot.val,
+            .avm_main_ib = read_slot.val + i, // slot increments each time
             .avm_main_ind_a = 0,
             .avm_main_internal_return_ptr = internal_return_ptr,
             .avm_main_mem_idx_a = direct_dest_offset,
             .avm_main_mem_op_a = 1,
-            .avm_main_pc = pc, // No PC increment here since we do it in the specific ops
+            .avm_main_pc = pc, // No PC increment here since this is the same opcode for all loop iterations
             .avm_main_q_kernel_output_lookup = 1,
             .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
             .avm_main_rwa = 1,
-            .avm_main_sel_op_sload =
-                i == 0 ? FF(1) : FF(0), // only raise the opcode selector for the first row it is present
+            // only raise the opcode selector for the last sload row
+            // that way we only enfoced PC+1 when transitioning to the next opcode
+            .avm_main_sel_op_sload = i == (size - 1) ? FF(1) : FF(0),
             .avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         };
 
@@ -1664,6 +1669,7 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::CAST);
 
+    info("pc beefore cast: ", pc);
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(dst_tag)),
@@ -1686,6 +1692,7 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .avm_main_w_in_tag = FF(static_cast<uint32_t>(dst_tag)),
     });
+    info("pc after cast: ", pc);
 }
 /**
  * @brief Integer division with direct or indirect memory access.
@@ -4018,7 +4025,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         curr.avm_main_sel_op_l1_to_l2_msg_exists = static_cast<uint32_t>(src.op_l1_to_l2_msg_exists);
         curr.avm_main_sel_op_emit_unencrypted_log = static_cast<uint32_t>(src.op_emit_unencrypted_log);
         curr.avm_main_sel_op_emit_l2_to_l1_msg = static_cast<uint32_t>(src.op_emit_l2_to_l1_msg);
-        curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
+        // curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
         curr.avm_main_sel_op_sstore = static_cast<uint32_t>(src.op_sstore);
 
         if (clk < main_trace_size) {
