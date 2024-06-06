@@ -18,10 +18,10 @@ export function analyzeBodies(bodies: Body[]) {
   const txEffects = bodies.flatMap(b => b.txEffects);
   console.log('Num tx effects: ', txEffects.length);
 
-  // key = [log_0_length-log1_length-...-log_n_length]_[log_0_value-log_1_value-...-log_n_value]...
+  // key = {num_nullifiers}_[log_0_length-log1_length-...-log_n_length]_[log_0_value-log_1_value-...-log_n_value]...
   const logLengths = new Map<string, number>();
-  for (const { noteEncryptedLogs } of txEffects) {
-    let key = "";
+  for (const { noteEncryptedLogs, nullifiers } of txEffects) {
+    let key = `nullifiers:{${nullifiers.length}}-log_lengths:`;
     for (const functionLog of noteEncryptedLogs.functionLogs) {
       key += "["
       if (functionLog.logs.length === 0) {
@@ -39,8 +39,9 @@ export function analyzeBodies(bodies: Body[]) {
     }
     logLengths.set(key, logLengths.get(key)! + 1);
   }
-  // Print key values
-  for (const [key, value] of logLengths) {
+  // Print key and values in a sorted order by value
+  const sorted = [...logLengths.entries()].sort((a, b) => b[1] - a[1]);
+  for (const [key, value] of sorted) {
     console.log(key, value);
   }
 }
