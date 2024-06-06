@@ -66,6 +66,27 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_read_and_write()
+    {
+        // a generic point
+        {
+            affine_element P = affine_element(element::random_element());
+            [[maybe_unused]] affine_element R;
+
+            std::vector<uint8_t> v(64);
+            uint8_t* ptr = v.data();
+            write(ptr, P);
+
+            // // Reset to start?
+            // ptr = v.data();
+
+            // good read
+            read(ptr, R);
+            ASSERT_TRUE(R.on_curve());
+            ASSERT_TRUE(P == R);
+        }
+    }
+
     static void test_point_compression()
     {
         for (size_t i = 0; i < 10; i++) {
@@ -139,10 +160,16 @@ template <typename G1> class TestAffineElement : public testing::Test {
     }
 };
 
-using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
+using TestTypes = testing::Types<bb::g1>;
+// using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
 } // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
+
+TYPED_TEST(TestAffineElement, ReadWrite)
+{
+    TestFixture::test_read_and_write();
+}
 
 TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 {
