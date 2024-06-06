@@ -447,7 +447,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_note_hashes(&mut self, num_new_note_hashes: u64) {
+    pub fn append_siloed_note_hashes(&mut self, num_new_note_hashes: u32) {
         let index_offset = self.new_note_hashes.len();
         for i in 0..self.new_note_hashes.max_len() {
             if i < num_new_note_hashes {
@@ -527,7 +527,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_l2_to_l1_msgs(&mut self, num: u64) {
+    pub fn append_siloed_l2_to_l1_msgs(&mut self, num: u32) {
         let index_offset = self.new_l2_to_l1_msgs.len();
         for i in 0..self.new_l2_to_l1_msgs.max_len() {
             if i < num {

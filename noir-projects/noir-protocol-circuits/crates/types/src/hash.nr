@@ -65,7 +65,7 @@ pub fn compute_siloed_note_hash(address: AztecAddress, unique_note_hash: Field) 
     )
 }
 
-pub fn silo_note_hash(note_hash: ScopedNoteHash, first_nullifier: Field, index: u64) -> Field {
+pub fn silo_note_hash(note_hash: ScopedNoteHash, first_nullifier: Field, index: u32) -> Field {
     if note_hash.contract_address.is_zero() {
         0
     } else {
