@@ -70,6 +70,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::EMITNOTEHASH, getter_format },  // TODO: new format for these
     { OpCode::EMITNULLIFIER, getter_format }, // TODO: new format for these
     { OpCode::EMITUNENCRYPTEDLOG, getter_format },
+    { OpCode::SENDL2TOL1MSG, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::SLOAD, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::SSTORE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     /*TODO: leafIndexOffset is not constrained*/
@@ -132,6 +133,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // REVERT,
+    { OpCode::REVERT, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // Misc
     { OpCode::DEBUGLOG,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
@@ -233,7 +235,8 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         } else {
             auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
             if (iter == OPCODE_WIRE_FORMAT.end()) {
-                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode));
+                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " +
+                               to_string(opcode));
             }
             inst_format = iter->second;
         }

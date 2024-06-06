@@ -1008,51 +1008,45 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 // Positive test with POSEIDON2_PERM.
 TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 {
-
     // Test vectors taken from barretenberg/permutation/test
     std::vector<FF> calldata{ FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")) };
 
-    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +   // opcode CALL DATA COPY
-                               "00"                             // Indirect Flag
-                               "00000000"                       // cd_offset
-                               "00000003"                       // copy_size
-                               "00000001"                       // dst_offset 1
-                               + to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY (for 4th input)
-                               "00"                             // Indirect Flag
-                               "00000003"                       // cd_offset
-                               "00000001"                       // copy_size
-                               "00000004" +                     // dst_offset 4
-                               to_hex(OpCode::SET) +            // opcode SET for indirect src (input)
-                               "00"                             // Indirect flag
-                               "03"                             // U32
-                               "00000001"                       // value 1 (i.e. where the src will be read from)
-                               "00000024"                       // dst_offset 36
-                               + to_hex(OpCode::SET) +          // opcode SET for indirect dst (output)
-                               "00"                             // Indirect flag
-                               "03"                             // U32
-                               "00000009"                       // value 9 (i.e. where the ouput will be written to)
-                               "00000023"                       // dst_offset 35
-                               + to_hex(OpCode::POSEIDON2) +    // opcode POSEIDON2
-                               "03"                             // Indirect flag (first 2 operands indirect)
-                               "00000024"                       // input offset (indirect 36)
-                               "00000023"                       // output offset (indirect 35)
-                               + to_hex(OpCode::RETURN) +       // opcode RETURN
-                               "00"                             // Indirect flag
-                               "00000009"                       // ret offset 256
-                               "00000004";                      // ret size 8
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY
+                               "00"                           // Indirect Flag
+                               "00000000"                     // cd_offset
+                               "00000004"                     // copy_size
+                               "00000001"                     // dst_offset 1
+                               + to_hex(OpCode::SET) +        // opcode SET for indirect src (input)
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000001"                     // value 1 (i.e. where the src will be read from)
+                               "00000024"                     // dst_offset 36
+                               + to_hex(OpCode::SET) +        // opcode SET for indirect dst (output)
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000009"                     // value 9 (i.e. where the ouput will be written to)
+                               "00000023"                     // dst_offset 35
+                               + to_hex(OpCode::POSEIDON2) +  // opcode POSEIDON2
+                               "03"                           // Indirect flag (first 2 operands indirect)
+                               "00000024"                     // input offset (indirect 36)
+                               "00000023"                     // output offset (indirect 35)
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "00000009"                     // ret offset 256
+                               "00000004";                    // ret size 8
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    // 2 CALLDATACOPY for input + 2 SET for setting up indirects + 1 POSEIDON2 + 1 RETURN
-    ASSERT_THAT(instructions, SizeIs(6));
+    // 1 CALLDATACOPY for input + 2 SET for setting up indirects + 1 POSEIDON2 + 1 RETURN
+    ASSERT_THAT(instructions, SizeIs(5));
 
     // POSEIDON2_PERM
     EXPECT_THAT(
-        instructions.at(4),
+        instructions.at(3),
         AllOf(Field(&Instruction::op_code, OpCode::POSEIDON2),
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(3), VariantWith<uint32_t>(36), VariantWith<uint32_t>(35)))));
@@ -1668,6 +1662,10 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
                                + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITNOTEHASH
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
+                               + to_hex(OpCode::SENDL2TOL1MSG) +      // opcode EMITNOTEHASH
+                               "00"                                   // Indirect flag
+                               "00000001"                             // src offset 1
+                               "00000001"                             // src offset 1
                                + to_hex(OpCode::RETURN) +             // opcode RETURN
                                "00"                                   // Indirect flag
                                "00000000"                             // ret offset 0
@@ -1676,7 +1674,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(6));
+    ASSERT_THAT(instructions, SizeIs(7));
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
@@ -1720,6 +1718,20 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
     EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
 
+    // CHECK SEND L2 TO L1 MSG
+    auto send_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_l2_to_l1_msg == 1; });
+    EXPECT_EQ(send_row->avm_main_ia, 1);
+    EXPECT_EQ(send_row->avm_main_ib, 1);
+    EXPECT_EQ(send_row->avm_kernel_side_effect_counter, 3);
+
+    auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
+        return r.avm_main_clk == AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET;
+    });
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 3);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1);
+
     validate_trace(std::move(trace));
 }
 
@@ -1760,8 +1772,8 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for Sload operation
-    ExecutionHints execution_hints = {};
-    execution_hints.side_effect_hints[0] = FF(42); // side effect counter 0 = value 42
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
@@ -1842,10 +1854,7 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for Sload operation
-    ExecutionHints execution_hints = {};
-    execution_hints.side_effect_hints[0] = 1; // Side effect counter 0 = true
-    execution_hints.side_effect_hints[1] = 1; // Side effect counter 1 = true
-    execution_hints.side_effect_hints[2] = 1; // Side effect counter 2 = true
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
@@ -1953,8 +1962,8 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for call operation
-    ExecutionHints execution_hints = {};
-    execution_hints.returndata_hints.push_back({ 9, 8 }); // Return data
+    auto execution_hints = ExecutionHints().with_externalcall_hints(
+        { { .success = 1, .return_data = { 9, 8 }, .l2_gas_used = 0, .da_gas_used = 0 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
@@ -1991,9 +2000,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for call operation
-    ExecutionHints execution_hints = {};
-    ContractInstanceHint contract_instance_hint = { 1, 1, 2, 3, 4, 5 }; // The first one represents true
-    execution_hints.contract_instance_hints.insert({ address, contract_instance_hint });
+    auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, { 1, 1, 2, 3, 4, 5 } } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5 })); // The first one represents true
