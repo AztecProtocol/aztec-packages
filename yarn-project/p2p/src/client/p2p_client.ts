@@ -1,6 +1,7 @@
 import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
 import { getP2PConfigEnvVars } from '../config.js';
@@ -102,7 +103,8 @@ export class P2PClient implements P2P {
   /**
    * The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped.
    */
-  private runningPromise!: Promise<void>;
+  // private runningPromise!: Promise<void>;
+  private runningPromise!: RunningPromise;
 
   private currentState = P2PClientState.IDLE;
   private syncPromise = Promise.resolve();
@@ -168,14 +170,13 @@ export class P2PClient implements P2P {
     this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
 
     // start looking for further blocks
-    const blockProcess = async () => {
-      while (!this.stopping) {
-        const blocks = await this.blockDownloader.getBlocks();
-        await this.handleL2Blocks(blocks);
-      }
+    const processBlocks = async () => {
+      const blocks = await this.blockDownloader.getBlocks();
+      await this.handleL2Blocks(blocks);
     };
-    this.runningPromise = blockProcess();
+    this.runningPromise = new RunningPromise(processBlocks);
     this.blockDownloader.start(blockToDownloadFrom);
+    this.runningPromise.start();
     this.log.verbose(`Started block downloader from block ${blockToDownloadFrom}`);
 
     return this.syncPromise;
@@ -192,7 +193,7 @@ export class P2PClient implements P2P {
     this.log.debug('Stopped p2p service');
     await this.blockDownloader.stop();
     this.log.debug('Stopped block downloader');
-    await this.runningPromise;
+    await this.runningPromise.stop();
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped...');
   }
@@ -278,7 +279,6 @@ export class P2PClient implements P2P {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
       await this.txPool.deleteTxs(txHashes);
-      this.p2pService.settledTxs(txHashes);
     }
   }
 
