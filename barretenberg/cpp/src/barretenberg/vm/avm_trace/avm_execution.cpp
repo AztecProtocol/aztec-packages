@@ -303,6 +303,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     // is determined by this value which require read access to the code below.
     uint32_t pc = 0;
     while ((pc = trace_builder.getPc()) < instructions.size()) {
+        info("PC is ", pc);
         auto inst = instructions.at(pc);
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
@@ -485,7 +486,10 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_emit_nullifier(std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SLOAD:
-            trace_builder.op_sload(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
+                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint32_t>(inst.operands.at(2)),
+                                   std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::SSTORE:
             trace_builder.op_sstore(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));

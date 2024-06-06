@@ -19,9 +19,9 @@ abstract class BaseStorageInstruction extends Instruction {
 
   constructor(
     protected indirect: number,
-    protected aOffset: number,
+    protected srcOffset: number,
     protected /*temporary*/ size: number,
-    protected bOffset: number,
+    protected slotOffset: number,
   ) {
     super();
   }
@@ -31,8 +31,8 @@ export class SStore extends BaseStorageInstruction {
   static readonly type: string = 'SSTORE';
   static readonly opcode = Opcode.SSTORE;
 
-  constructor(indirect: number, srcOffset: number, /*temporary*/ srcSize: number, slotOffset: number) {
-    super(indirect, srcOffset, srcSize, slotOffset);
+  constructor(indirect: number, srcOffset: number, /*temporary*/ size: number, slotOffset: number) {
+    super(indirect, srcOffset, size, slotOffset);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -44,7 +44,7 @@ export class SStore extends BaseStorageInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [srcOffset, slotOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.bOffset], memory);
+    const [srcOffset, slotOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.slotOffset], memory);
 
     const slot = memory.get(slotOffset).toFr();
     const data = memory.getSlice(srcOffset, this.size).map(field => field.toFr());
@@ -73,7 +73,7 @@ export class SLoad extends BaseStorageInstruction {
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
     const [aOffset, size, bOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.size, this.bOffset],
+      [this.srcOffset, this.size, this.slotOffset],
       memory,
     );
 
