@@ -11,12 +11,17 @@ import {
   type Wallet,
   computeSecretHash,
   retryUntil,
+  AccountManager,
+  type ContractInstanceWithAddress,
+  type ContractArtifact,
 } from '@aztec/aztec.js';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
 import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { EcdsaAccountContract } from '@aztec/accounts/ecdsa';
 
 const TIMEOUT = 120_000;
 
@@ -365,5 +370,32 @@ describe('e2e_2_pxes', () => {
       sharedAccountAddress.address,
       transferAmount1 - transferAmount2,
     );
+  });
+
+  it.only('adds and uses a nullified note', async () => {
+    // 1. Deploys ECDSA account contract via PXE A
+    let pubKeyNote: ExtendedNote;
+    let contractInstance: ContractInstanceWithAddress;
+    let contractArtifact: ContractArtifact;
+    {
+      const secretKey = Fr.random();
+      const account = new EcdsaAccountContract(randomBytes(32))
+      const manager = new AccountManager(pxeA, secretKey, account);
+      const {txHash, wallet} = await manager.deploy().wait();
+      const notes = await pxeA.getNotes({txHash});
+      expect(notes.length).toBe(1);
+      pubKeyNote = notes[0];
+      contractArtifact = account.getContractArtifact();
+      contractInstance = (await wallet.getContractInstance(wallet.getAddress()))!;
+    }
+    // 2. Adds the deployed contract to PXE B
+    {
+      await pxeB.registerContract({instance: contractInstance, artifact: contractArtifact});
+    }
+    // 3. Adds the nullified note to PXE B
+    {
+      await pxeB.addNullifiedNote(pubKeyNote);
+    }
+    // 4. Calls a function from the deployed account via PXE B
   });
 });
