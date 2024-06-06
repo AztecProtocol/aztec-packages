@@ -1,5 +1,3 @@
-use acir_field::AcirField;
-
 use crate::native_types::Witness;
 use std::cmp::Ordering;
 

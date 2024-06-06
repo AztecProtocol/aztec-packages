@@ -5,7 +5,6 @@
 mod generic_ark;
 
 mod field_element;
-mod generic_ark;
 
 pub use generic_ark::AcirField;
 

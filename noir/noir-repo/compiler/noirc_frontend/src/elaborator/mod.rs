@@ -23,7 +23,6 @@ use crate::{
         function::{FunctionBody, Parameters},
         traits::TraitConstraint,
     },
-    hir_def::{expr::HirIdent, function::Parameters, traits::TraitConstraint},
     macros_api::{
         BlockExpression, Ident, NodeInterner, NoirFunction, NoirStruct, Pattern,
         SecondaryAttribute, StructId,
@@ -581,10 +580,6 @@ impl<'context> Elaborator<'context> {
         let should_fold = func.attributes().is_foldable();
         let has_inline_attribute = has_no_predicates_attribute || should_fold;
         let is_pub_allowed = self.pub_allowed(func);
-        self.add_generics(&func.def.generics);
-
-        let mut trait_constraints = self.resolve_trait_constraints(&func.def.where_clause);
-
         self.add_generics(&func.def.generics);
 
         let mut trait_constraints = self.resolve_trait_constraints(&func.def.where_clause);
