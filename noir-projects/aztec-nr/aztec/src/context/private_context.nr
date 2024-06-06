@@ -1,6 +1,3 @@
-// By updating the import here, you can "switch" between using an oracle for computing the encrypted 
-// logs, or constraining it in the circuit. The interfaces are the exact same, so just flip this.
-// use crate::oracle::logs::compute_encrypted_log;
 use crate::encrypted_logs::{payload::compute_encrypted_note_log};
 
 use crate::{
@@ -325,7 +322,7 @@ impl PrivateContext {
     ) where [Field; N]: LensForEncryptedLog<N, M> {
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
-        // We are currently just encrypting it EXACTLY the same way as if it was a note.
+        // We are currently just encrypting it unconstrained, but otherwise the same way as if it was a note.
         let counter = self.next_counter();
         let encrypted_log: [u8; M] = compute_encrypted_log(
             contract_address,
