@@ -1,5 +1,5 @@
 import { createAccounts } from '@aztec/accounts/testing';
-import { type AccountWallet, AztecAddress, Contract, Fr, retryUntil } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, Contract, Fr, retryUntil } from '@aztec/aztec.js';
 import { EntrypointPayload } from '@aztec/aztec.js/entrypoint';
 import {
   EscrowableTokenContract,
@@ -15,10 +15,13 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
   let teardownB: () => Promise<void>;
 
   const t = new EscrowTokenContractTest('transfer_private');
-  let { asset, tokenSim, wallets, aztecNode } = t;
+  let { asset, tokenSim, wallets, aztecNode, pxe } = t;
 
   let alice!: AccountWallet; // On pxe a
   let bob!: AccountWallet; // On pxe b
+
+  let doubleTroubleA!: AccountWallet; // On both PXE
+  let doubleTroubleB!: AccountWallet; // On both PXE
 
   let escrowAlice!: SimpleEscrowContract;
   let escrowBob!: SimpleEscrowContract;
@@ -34,7 +37,7 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, tokenSim, wallets, aztecNode } = t);
+    ({ asset, tokenSim, wallets, aztecNode, pxe } = t);
 
     // We need a fresh PXE service for the second group of wallets
     const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
@@ -42,6 +45,14 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
 
     alice = wallets[0];
     bob = (await createAccounts(pxeB, 1))[0];
+
+    const secret = Fr.random();
+
+    // :skull: This is a pain to deal with.
+    doubleTroubleA = (await createAccounts(pxe, 1, [secret]))[0];
+    const acc = doubleTroubleA.getAccount();
+    doubleTroubleB = new AccountWallet(pxeB, acc);
+    await pxeB.registerAccount(secret, doubleTroubleB.getCompleteAddress().partialAddress);
 
     // https://i.pinimg.com/originals/e0/a7/1f/e0a71f597967638ffd90698f1fd8aa5a.png
     {
@@ -77,10 +88,11 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
     escrowAlice = await SimpleEscrowContract.deploy(alice, asset.address, alice.getAddress()).send().deployed();
     escrowBob = await SimpleEscrowContract.deploy(bob, asset.address, bob.getAddress()).send().deployed();
 
+    /*
     {
+      // We cannot actually do these because the `addNote` is broken! 💀
       {
         const extendedNotes = await alice.getNotes({ contractAddress: alice.getAddress() });
-        console.log(extendedNotes[0]);
         expect(extendedNotes.length).toEqual(1);
         await bob.addNote(extendedNotes[0]);
       }
@@ -89,7 +101,7 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
         expect(extendedNotes.length).toEqual(1);
         await alice.addNote(extendedNotes[0]);
       }
-    }
+    }*/
 
     // Add to the token
     tokenSim.addAccount(escrowAlice.address);
@@ -259,7 +271,7 @@ describe('e2e_escrowable_token_contract escrow transfer private', () => {
       });
     });
 
-    it.only('Alice blackmails Bob. She transfer funds to him, but is using herself as viewers and nullifier', async () => {
+    it('Alice blackmails Bob. She transfer funds to him, but is using herself as viewers and nullifier', async () => {
       // For this test, we are doing something quite strange.
       // Alice is sending funds to Bob, but setting herself as the `to_incoming_viewer_and_nullifier`
       // This means that Bob will not be used when encrypting the message, e.g., he will not learn that he received something,

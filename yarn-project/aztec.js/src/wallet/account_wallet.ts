@@ -16,6 +16,10 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
+  getAccount(): AccountInterface {
+    return this.account;
+  }
+
   createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
     return this.account.createTxExecutionRequest(exec);
   }

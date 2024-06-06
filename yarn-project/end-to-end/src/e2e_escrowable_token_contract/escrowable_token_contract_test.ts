@@ -8,6 +8,7 @@ import {
   ExtendedNote,
   Fr,
   Note,
+  PXE,
   type TxHash,
   createDebugLogger,
 } from '@aztec/aztec.js';
@@ -78,6 +79,7 @@ export class EscrowTokenContractTest {
   blacklisted!: AccountWallet;
 
   aztecNode!: AztecNode;
+  pxe!: PXE;
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_escrowable_token_contract:${testName}`);
@@ -124,6 +126,7 @@ export class EscrowTokenContractTest {
         this.accounts = await pxe.getRegisteredAccounts();
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         this.aztecNode = aztecNode;
+        this.pxe = pxe;
       },
     );
 
