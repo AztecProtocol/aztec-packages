@@ -9,6 +9,7 @@ struct TxContext {
     chain_id : Field,
     version : Field,
     gas_settings: GasSettings,
+    vk_tree_root: Field,
 }
 // docs:end:tx-context
 
@@ -32,6 +33,7 @@ impl Empty for TxContext {
             chain_id: 0,
             version: 0,
             gas_settings: GasSettings::empty(),
+            vk_tree_root: 0
         }
     }
 }
@@ -43,6 +45,7 @@ impl Serialize<TX_CONTEXT_LENGTH> for TxContext {
         fields.push(self.chain_id);
         fields.push(self.version);
         fields.extend_from_array(self.gas_settings.serialize());
+        fields.push(self.vk_tree_root);
 
         assert_eq(fields.len(), TX_CONTEXT_LENGTH);
 
@@ -59,6 +62,7 @@ impl Deserialize<TX_CONTEXT_LENGTH> for TxContext {
             chain_id: reader.read(),
             version: reader.read(),
             gas_settings: reader.read_struct(GasSettings::deserialize),
+            vk_tree_root: reader.read(),
         };
 
         reader.finish();
