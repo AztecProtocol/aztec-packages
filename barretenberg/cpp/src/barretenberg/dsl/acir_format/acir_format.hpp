@@ -39,27 +39,51 @@ struct AcirFormat {
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
+    // the index (in the opcodes array) of each constraint in logic_constraints.
+    // maybe rename to : "opcode_index_of_logic_constraints"
+    std::vector<size_t> logic_constraints_original_index;
     std::vector<RangeConstraint> range_constraints;
+    std::vector<size_t> range_constraints_original_index;
     std::vector<AES128Constraint> aes128_constraints;
+    std::vector<size_t> aes128_constraints_original_index;
     std::vector<Sha256Constraint> sha256_constraints;
+    std::vector<size_t> sha256_constraints_original_index;
     std::vector<Sha256Compression> sha256_compression;
+    std::vector<size_t> sha256_compression_original_index;
     std::vector<SchnorrConstraint> schnorr_constraints;
+    std::vector<size_t> schnorr_constraints_original_index;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
+    std::vector<size_t> ecdsa_k1_constraints_original_index;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
+    std::vector<size_t> ecdsa_r1_constraints_original_index;
     std::vector<Blake2sConstraint> blake2s_constraints;
+    std::vector<size_t> blake2s_constraints_original_index;
     std::vector<Blake3Constraint> blake3_constraints;
+    std::vector<size_t> blake3_constraints_original_index;
     std::vector<KeccakConstraint> keccak_constraints;
+    std::vector<size_t> keccak_constraints_original_index;
     std::vector<Keccakf1600> keccak_permutations;
+    std::vector<size_t> keccak_permutations_original_index;
     std::vector<PedersenConstraint> pedersen_constraints;
+    std::vector<size_t> pedersen_constraints_original_index;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
+    std::vector<size_t> pedersen_hash_constraints_original_index;
     std::vector<Poseidon2Constraint> poseidon2_constraints;
+    std::vector<size_t> poseidon2_constraints_original_index;
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
+    std::vector<size_t> multi_scalar_mul_constraints_original_index;
     std::vector<EcAdd> ec_add_constraints;
+    std::vector<size_t> ec_add_constraints_original_index;
     std::vector<RecursionConstraint> recursion_constraints;
+    std::vector<size_t> recursion_constraints_original_index;
     std::vector<HonkRecursionConstraint> honk_recursion_constraints;
+    std::vector<size_t> honk_recursion_constraints_original_index;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
+    std::vector<size_t> bigint_from_le_bytes_constraints_original_index;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
+    std::vector<size_t> bigint_to_le_bytes_constraints_original_index;
     std::vector<BigIntOperation> bigint_operations;
+    std::vector<size_t> bigint_operations_original_index;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
@@ -67,10 +91,20 @@ struct AcirFormat {
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>,
                 bb::ContainerSlabAllocator<bb::poly_triple_<bb::curve::BN254::ScalarField>>>
         poly_triple_constraints;
+    std::vector<size_t> poly_triple_constraints_original_index;
+
     std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>,
                 bb::ContainerSlabAllocator<bb::mul_quad_<bb::curve::BN254::ScalarField>>>
         quad_constraints;
+    std::vector<size_t> quad_constraints_original_index;
+
     std::vector<BlockConstraint> block_constraints;
+    // vec of blocks => vec of opcode indices:
+    std::vector<std::vector<size_t>> block_constraints_indices;
+
+    // Number of gates added to the circuit per original opcode.
+    // Has the same length as the opcode vector.
+    std::vector<size_t> gates_per_opcode;
 
     // For serialization, update with any new fields
     MSGPACK_FIELDS(varnum,
@@ -142,7 +176,7 @@ struct AcirProgramStack {
 };
 
 template <typename Builder = bb::UltraCircuitBuilder>
-Builder create_circuit(const AcirFormat& constraint_system,
+Builder create_circuit(AcirFormat& constraint_system,
                        size_t size_hint = 0,
                        WitnessVector const& witness = {},
                        bool honk_recursion = false,
@@ -150,7 +184,7 @@ Builder create_circuit(const AcirFormat& constraint_system,
 
 template <typename Builder>
 void build_constraints(Builder& builder,
-                       AcirFormat const& constraint_system,
+                       AcirFormat& constraint_system,
                        bool has_valid_witness_assignments,
                        bool honk_recursion = false); // honk_recursion means we will honk to recursively verify this
                                                      // circuit. This distinction is needed to not add the default

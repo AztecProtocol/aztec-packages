@@ -323,6 +323,8 @@ void gateCount(const std::string& bytecodePath, bool honk_recursion)
                                     constraint_system.num_acir_opcodes,
                                     ",\n        \"circuit_size\": ",
                                     circuit_size,
+                                    ",\n        \"gates_per_opcode\": ",
+                                    constraint_system.gates_per_opcode,
                                     "\n  }");
 
         // Attach a comma if we still circuit reports to generate
