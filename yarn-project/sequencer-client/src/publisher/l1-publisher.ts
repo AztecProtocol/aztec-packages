@@ -8,7 +8,6 @@ import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import pick from 'lodash.pick';
-import path from 'path';
 
 import { type L2BlockReceiver } from '../receiver.js';
 import { type PublisherConfig } from './config.js';

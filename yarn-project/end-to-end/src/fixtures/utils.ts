@@ -64,13 +64,12 @@ import * as path from 'path';
 import {
   createPublicClient,
   createWalletClient,
-  getContract,
   http,
   type Account,
   type Chain,
   type HDAccount,
   type HttpTransport,
-  type PrivateKeyAccount,
+  type PrivateKeyAccount
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
