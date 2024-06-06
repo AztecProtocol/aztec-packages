@@ -1565,9 +1565,6 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
 
     for (uint32_t i = 0; i < size; i++) {
         FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
-        // info("SE: ", side_effect_counter + i, " value: ", value);
-        // info("SEL_OP_SLOAD: ", i == (size - 1) ? FF(1) : FF(0));
-        // TODO: throw error if incorrect
 
         mem_trace_builder.write_into_memory(
             call_ptr, clk, IntermRegister::IA, direct_dest_offset + i, value, AvmMemoryTag::FF, AvmMemoryTag::FF);
@@ -1602,20 +1599,66 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
     pc++;
 }
 
-void AvmTraceBuilder::op_sstore(uint32_t slot_offset, uint32_t value_offset)
+void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    bool src_offset_is_indirect = is_operand_indirect(indirect, 0);
 
-    Row row =
-        create_kernel_output_opcode_with_metadata(clk, value_offset, AvmMemoryTag::FF, slot_offset, AvmMemoryTag::FF);
-    kernel_trace_builder.op_sstore(clk, side_effect_counter, row.avm_main_ib, row.avm_main_ia);
-    row.avm_main_sel_op_sstore = FF(1);
+    // Resolve loads and indirect
+    auto direct_src_offset = src_offset;
+    if (src_offset_is_indirect) {
+        auto read_ind_src_offset =
+            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, src_offset);
+        direct_src_offset = uint32_t(read_ind_src_offset.val);
+    }
+    auto read_src_value = mem_trace_builder.read_and_load_from_memory(
+        call_ptr, clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
 
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SSTORE);
+    AvmMemTraceBuilder::MemRead read_slot = mem_trace_builder.read_and_load_from_memory(
+        call_ptr, clk, IntermRegister::IB, slot_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
 
-    main_trace.push_back(row);
-    side_effect_counter++;
+    main_trace.push_back(Row{
+        .avm_main_clk = clk,
+        .avm_main_ia = read_src_value.val,
+        .avm_main_ib = read_slot.val,
+        .avm_main_ind_a = src_offset_is_indirect ? src_offset : 0,
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(src_offset_is_indirect)),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_mem_idx_a = FF(direct_src_offset),
+        .avm_main_mem_idx_b = FF(slot_offset),
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_pc = pc, // Use previous PC so that when we actually activate the selector below, it can use pc
+        .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+    });
+    clk++;
+
+    for (uint32_t i = 0; i < size; i++) {
+        AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
+            call_ptr, clk, IntermRegister::IB, src_offset + i, AvmMemoryTag::FF, AvmMemoryTag::U0);
+        Row row = Row{
+            .avm_main_clk = clk,
+            .avm_main_ia = read_slot.val + i, // slot increments each time
+            .avm_main_ib = read_a.val,
+            .avm_main_internal_return_ptr = internal_return_ptr,
+            .avm_main_mem_idx_b = src_offset + i,
+            .avm_main_mem_op_b = 1,
+            .avm_main_pc = pc,
+            .avm_main_q_kernel_output_lookup = 1,
+            .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        };
+        row.avm_main_sel_op_sstore = FF(1);
+        kernel_trace_builder.op_sstore(clk, side_effect_counter, row.avm_main_ib, row.avm_main_ia);
+
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas_lookup(clk, OpCode::SSTORE);
+
+        main_trace.push_back(row);
+        side_effect_counter++;
+        clk++;
+    }
+    pc++;
 }
 
 /**
