@@ -285,7 +285,7 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
 {
     std::vector<uint8_t> content;
     // initial size guess
-    content.resize(1024ull * 128ull);
+    content.resize(1024ULL * 128ULL);
     for (;;) {
         auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
             libdeflate_alloc_decompressor(), libdeflate_free_decompressor
@@ -301,6 +301,7 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
             throw std::invalid_argument("bad gzip data in bb main");
         }
+        content.resize(actual_size);
         break;
     }
     return content;
@@ -314,14 +315,9 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
     auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
     auto witnessMaps = unpack_from_file<std::vector<std::map<std::string, std::string>>>(witnessPath);
 
-    std::cout << "size " << gzippedBincodes.size() << std::endl;
-    std::cout << "witness " << witnessMaps.size() << std::endl;
-
-    ClientIVC ivc;
-    ivc.structured_flag = true;
     // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the future
     std::vector<uint8_t> buffer =
-        decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[0]), gzippedBincodes[0].size()); // NOLINT
+        decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[0][0]), gzippedBincodes[0].size()); // NOLINT
 
     std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
         buffer,
@@ -330,6 +326,9 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
     acir_format::WitnessVectorStack witness_stack{ { 0, witness_map_to_witness_vector(witnessMaps[0]) } };
     acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
 
+    // TODO dedupe this
+    ClientIVC ivc;
+    ivc.structured_flag = true;
     // Accumulate the entire program stack into the IVC
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
@@ -338,6 +337,7 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
         auto circuit = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
+        std::cout << "ACCUM" << std::endl;
         ivc.accumulate(circuit);
 
         program_stack.pop_back();

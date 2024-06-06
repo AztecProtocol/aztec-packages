@@ -64,7 +64,7 @@ export class KernelProver {
   private saveProgramStackAsMsgpack(acirs: Buffer[], witnessStack: WitnessMap[]) {
     // LONDONTODO hack for now
     fs.writeFileSync("/mnt/user-data/adam/acir.msgpack", encode(acirs));
-    fs.writeFileSync("/mnt/user-data/adam/witnesses.msgpack", encode(witnessStack.map((map) => this.mapToDictionary(map))));
+    fs.writeFileSync("/mnt/user-data/adam/witnesses.msgpack", encode(witnessStack.map((map) => serializeWitness(map))));
   }
 
   /**

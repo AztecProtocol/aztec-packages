@@ -1,7 +1,5 @@
 include(FetchContent)
 
-# set(LIBDEFLATE_INCLUDE "${CMAKE_BINARY_DIR}/_deps/libdeflate-src")
-
 FetchContent_Declare(
   libdeflate
   GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git

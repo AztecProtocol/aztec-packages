@@ -42,7 +42,6 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 import {
   BB_RESULT,

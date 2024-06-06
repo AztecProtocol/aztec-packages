@@ -1,7 +1,6 @@
 
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 
-
 set(DSL_DEPENDENCIES
     plonk
     ultra_honk

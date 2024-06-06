@@ -6,7 +6,6 @@ if (NOT(FUZZING) AND NOT(WASM))
         get_grumpkin_crs.cpp
     )
 
-    # include_directories(${LIBDEFLATE_INCLUDE})
     target_link_libraries(
         bb
         PRIVATE
