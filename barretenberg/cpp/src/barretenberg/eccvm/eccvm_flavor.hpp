@@ -681,6 +681,9 @@ class ECCVMFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
+
+        MSGPACK_FIELDS(
+            circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
     };
 
     /**

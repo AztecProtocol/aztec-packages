@@ -870,6 +870,17 @@ class TranslatorFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
+
+        MSGPACK_FIELDS(circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       ordered_extra_range_constraints_numerator,
+                       lagrange_first,
+                       lagrange_last,
+                       lagrange_odd_in_minicircuit,
+                       lagrange_even_in_minicircuit,
+                       lagrange_second,
+                       lagrange_second_to_last_in_minicircuit);
     };
 
     /**

@@ -268,12 +268,15 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     return ivc.prove_and_verify();
 }
 
+// WORKTODO: How are the VK actually retrieved
 void client_ivc_prove_output_all(const std::string& bytecodePath,
                                  const std::string& witnessPath,
                                  const std::string& outputPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
+    using ECCVMVK = ECCVMFlavor::VerificationKey;
+    using TranslatorVK = TranslatorFlavor::VerificationKey;
 
     init_bn254_crs(1 << 18);
     init_grumpkin_crs(1 << 14);
@@ -300,24 +303,33 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     // We have been given a directory, we will write the proof and verification key
     // into the directory in both 'binary' and 'fields' formats (i.e. json format)
-    std::string vkPath = outputPath + "/vk"; // the vk of the last instance
+    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/proof";
-    std::string vkFieldsPath = outputPath + "/vk_fields.json";
+    std::string translatorVkPath = outputPath + "/translator_vk";
+    std::string eccVkPath = outputPath + "/ecc_vk";
+    std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
     std::string proofFieldsPath = outputPath + "/proof_fields.json";
     std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
 
     auto proof = ivc.prove();
     auto accumulator = ivc.verifier_accumulator;
     auto inst_vk = ivc.instance_vk;
+    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
+    // LONDONTODO: we can remove this
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
     info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
     auto buffer_proof = proof.to_buffer();
     write_file(proofPath, to_buffer(buffer_proof));
-    // LONDONTODO(Client?): where do we precompute  this
+
     write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
     auto buffer_acc = accumulator->to_buffer();
     write_file(accPath, to_buffer(buffer_acc));
+
+    write_file(translatorVkPath, to_buffer(translator_vk));
+
+    write_file(eccVkPath, to_buffer(eccvm_vk));
 
     std::string proofJson = to_json(buffer_proof);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
@@ -341,24 +353,35 @@ bool prove_tube(const std::string& outputPath)
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
     using InstanceFlavor = MegaFlavor;
+    using ECCVMVk = ECCVMFlavor::VerificationKey;
+    using TranslatorVk = TranslatorFlavor::VerificationKey;
+    using FoldVerifierInput = ClientIVC::FoldVerifierInput;
+    using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
+    using VerifierInput = ClientIVC::VerifierInput;
     using Builder = UltraCircuitBuilder;
 
     std::string vkPath = outputPath + "/vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/proof";
+    std::string translatorVkPath = outputPath + "/translatorVk";
+    std::string eccVkPath = outputPath + "/eccVk";
     std::string vkFieldsPath = outputPath + "/vk_fields.json";
     std::string proofFieldsPath = outputPath + "/proof_fields.json";
     std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
 
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proofPath));
-    auto verification_key = std::make_shared<InstanceFlavor::VerificationKey>(
+    auto instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
         from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
     auto verifier_accumulator = std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
+    auto eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
+    auto translator_vk = std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(translatorVkPath));
 
+    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
+    GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
+    VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
-    ClientIVC verifier{ builder, verifier_input };
+    ClientIVC verifier{ builder, input };
 
-    // Generate the recursive verification circuit
     verifier.verify(proof);
     return true;
 }
