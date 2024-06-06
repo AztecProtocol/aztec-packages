@@ -364,10 +364,6 @@ impl PrivateContext {
 
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
-        // TODO(#1139 | #6408): perform encryption in the circuit
-        let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
-        emit_encrypted_note_log(note_hash_counter, encrypted_log, counter);
-
         // Current unoptimized size of the encrypted log
         // incoming_tag (32 bytes)
         // outgoing_tag (32 bytes)
@@ -377,12 +373,11 @@ impl PrivateContext {
         // outgoing_body (176 bytes)
         // incoming_body_fixed (64 bytes)
         // incoming_body_variable (N * 32 bytes + 16 bytes padding) 
-        // len of processed log (4 bytes)
+        let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
+        emit_encrypted_note_log(note_hash_counter, encrypted_log, counter);
 
-        // @todo The preimage size should be fetches somewhere else than this.
-        // preimage.len + 64 == NB.
-        let preimage = note.serialize_content();
-        let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
+        // len of processed log (4 bytes)
+        let len = encrypted_log.len() as Field + 4;
 
         let log_hash = sha256_to_field(encrypted_log);
         let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };

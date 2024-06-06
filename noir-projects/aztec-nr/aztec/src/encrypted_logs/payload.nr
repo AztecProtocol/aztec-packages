@@ -80,6 +80,10 @@ fn fr_to_private_key(r: Field) -> GrumpkinPrivateKey {
 }
 
 fn compute_ivpk_app(ivpk: GrumpkinPoint, contract_address: AztecAddress) -> GrumpkinPoint {
+    // It is useless to compute this, it brings no value to derive fully.
+    ivpk
+
+    /*
     // @todo Just setting infinite to false, but it should be checked.
     // for example user could define ivpk = infinity using the registry
     assert((ivpk.x != 0) & (ivpk.y != 0), "ivpk is infinite");
@@ -92,5 +96,5 @@ fn compute_ivpk_app(ivpk: GrumpkinPoint, contract_address: AztecAddress) -> Grum
 
     let embed_result = embedded_curve_add(embed_I, embed_ivpk);
 
-    GrumpkinPoint::new(embed_result.x, embed_result.y)
+    GrumpkinPoint::new(embed_result.x, embed_result.y)*/
 }
