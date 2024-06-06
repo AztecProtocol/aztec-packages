@@ -4,7 +4,6 @@ use dep::types::{
     hash::accumulate_sha256, merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
@@ -122,7 +121,22 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-global TX_EFFECTS_HASH_INPUT_FIELDS = 216;
+// Tx effects hash consists of
+// 1 field for revert code
+// 1 field for transaction fee
+// MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
+// MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
+// MAX_NEW_L2_TO_L1_MSGS_PER_TX fields for L2 to L1 messages
+// MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
+//                                          __
+// 1 note encrypted logs length --> 1 field   |
+// 1 encrypted logs length --> 1 field        | -> 3 types of logs - 3 fields for its lengths
+// 1 unencrypted logs length --> 1 field    __|
+//                                                                                                                                   __
+// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
+// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
+// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
+global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
@@ -132,22 +146,7 @@ pub fn compute_tx_effects_hash(
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
 ) -> Field {
-    // Compute tx effect hash
-    // Consist of
-    // 1 field for revert code
-    // 1 field for transaction fee
-    // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
-    // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-    // 2 l2 -> l1 messages -> 2 fields
-    // 32 public data update requests -> 64 fields
-    // 1 contract deployments -> 3 fields
-    // 1 note encrypted logs length --> 1 field
-    // 1 encrypted logs length --> 1 field
-    // 1 unencrypted logs length --> 1 field
-    // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! 
-    // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!  
-    // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!
-    let mut txs_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
+    let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
     let new_note_hashes = combined.new_note_hashes;
     let new_nullifiers = combined.new_nullifiers;
@@ -165,64 +164,71 @@ pub fn compute_tx_effects_hash(
 
     let mut offset = 0;
 
+    // REVERT CODE
     // upcast to Field to have the same size for the purposes of the hash
-    txs_effects_hash_input[offset] = revert_code as Field;
+    tx_effects_hash_input[offset] = revert_code as Field;
     offset += 1;
 
-    txs_effects_hash_input[offset] = transaction_fee;
+    // TX FEE
+    tx_effects_hash_input[offset] = transaction_fee;
     offset += 1;
 
+    // NOTE HASHES
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-        txs_effects_hash_input[offset + j] = new_note_hashes[j];
+        tx_effects_hash_input[offset + j] = new_note_hashes[j];
     }
     offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 
+    // NULLIFIERS
     for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-        txs_effects_hash_input[offset + j] = new_nullifiers[j];
+        tx_effects_hash_input[offset + j] = new_nullifiers[j];
     }
     offset += MAX_NEW_NULLIFIERS_PER_TX ;
 
+    // L2 TO L1 MESSAGES
     for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
-        txs_effects_hash_input[offset + j] = new_l2_to_l1_msgs[j];
+        tx_effects_hash_input[offset + j] = new_l2_to_l1_msgs[j];
     }
     offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
+    // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        txs_effects_hash_input[offset + j * 2] =
+        tx_effects_hash_input[offset + j * 2] =
                 public_data_update_requests[j].leaf_slot;
-        txs_effects_hash_input[offset + j * 2 + 1] =
+        tx_effects_hash_input[offset + j * 2 + 1] =
                 public_data_update_requests[j].new_value;
     }
     offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
-    txs_effects_hash_input[offset] = note_logs_length;
-
+    // NOTE ENCRYPTED LOGS LENGTH
+    tx_effects_hash_input[offset] = note_logs_length;
     offset += 1;
 
-    txs_effects_hash_input[offset] = encrypted_logs_length;
-
+    // ENCRYPTED LOGS LENGTH
+    tx_effects_hash_input[offset] = encrypted_logs_length;
     offset += 1;
 
-    txs_effects_hash_input[offset] = unencrypted_logs_length;
-
+    // UNENCRYPTED LOGS LENGTH
+    tx_effects_hash_input[offset] = unencrypted_logs_length;
     offset += 1;
 
-    txs_effects_hash_input[offset] = note_encrypted_logs_hash;
+    // NOTE ENCRYPTED LOGS HASH
+    tx_effects_hash_input[offset] = note_encrypted_logs_hash;
+    offset += 1;
 
-    offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
+    // ENCRYPTED LOGS HASH
+    tx_effects_hash_input[offset] = encrypted_logs_hash;
+    offset += 1;
 
-    txs_effects_hash_input[offset] = encrypted_logs_hash;
+    // UNENCRYPTED LOGS HASH
+    tx_effects_hash_input[offset] = unencrypted_logs_hash;
+    offset += 1;
 
-    offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
-
-    txs_effects_hash_input[offset] = unencrypted_logs_hash;
-
-    offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
     assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
 
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
     for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
-        let input_as_bytes = txs_effects_hash_input[offset].to_be_bytes(32);
+        let input_as_bytes = tx_effects_hash_input[offset].to_be_bytes(32);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -244,18 +250,13 @@ fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [Publ
 
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
-    // 1 for revert_code
-    // 1 for transaction_fee
-    // 2 for logs lengths
-    let expected_size = 1
-        + 1
+    let expected_size = 1 // revert code
+        + 1 // transaction fee
         + MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
-        + 3
-        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
-        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+        + 3 // logs lengths
+        + 3; // logs hashes
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");
 }

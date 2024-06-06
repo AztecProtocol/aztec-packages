@@ -975,7 +975,7 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
  */
 
-template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const uint32_t exponent) const
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
 {
     auto* ctx = get_context() ? get_context() : nullptr;
 
@@ -1943,8 +1943,9 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
             const uint512_t modulus(target_basis.modulus);
 
             const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
-            if (remainder_512 != 0)
+            if (remainder_512 != 0) {
                 std::cerr << "bigfield: remainder not zero!" << std::endl;
+            }
             ASSERT(remainder_512 == 0);
             bigfield quotient;
 

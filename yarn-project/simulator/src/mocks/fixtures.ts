@@ -1,8 +1,10 @@
 import { type FunctionCall, type SimulationError, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
+  AvmExecutionHints,
   type AztecAddress,
   CallContext,
+  type ContractStorageRead,
   type ContractStorageUpdateRequest,
   Fr,
   Gas,
@@ -18,6 +20,7 @@ export class PublicExecutionResultBuilder {
   private _execution: PublicExecution;
   private _nestedExecutions: PublicExecutionResult[] = [];
   private _contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
+  private _contractStorageReads: ContractStorageRead[] = [];
   private _returnValues: Fr[] = [];
   private _reverted = false;
   private _revertReason: SimulationError | undefined = undefined;
@@ -31,18 +34,21 @@ export class PublicExecutionResultBuilder {
     returnValues = [new Fr(1n)],
     nestedExecutions = [],
     contractStorageUpdateRequests = [],
+    contractStorageReads = [],
     revertReason = undefined,
   }: {
     request: PublicCallRequest;
     returnValues?: Fr[];
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
+    contractStorageReads?: ContractStorageRead[];
     revertReason?: SimulationError;
   }): PublicExecutionResultBuilder {
     const builder = new PublicExecutionResultBuilder(request);
 
     builder.withNestedExecutions(...nestedExecutions);
     builder.withContractStorageUpdateRequest(...contractStorageUpdateRequests);
+    builder.withContractStorageRead(...contractStorageReads);
     builder.withReturnValues(...returnValues);
     if (revertReason) {
       builder.withReverted(revertReason);
@@ -57,6 +63,7 @@ export class PublicExecutionResultBuilder {
     returnValues = [new Fr(1n)],
     nestedExecutions = [],
     contractStorageUpdateRequests = [],
+    contractStorageReads = [],
     revertReason,
   }: {
     from: AztecAddress;
@@ -64,6 +71,7 @@ export class PublicExecutionResultBuilder {
     returnValues?: Fr[];
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
+    contractStorageReads?: ContractStorageRead[];
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
@@ -75,6 +83,7 @@ export class PublicExecutionResultBuilder {
 
     builder.withNestedExecutions(...nestedExecutions);
     builder.withContractStorageUpdateRequest(...contractStorageUpdateRequests);
+    builder.withContractStorageRead(...contractStorageReads);
     builder.withReturnValues(...returnValues);
     if (revertReason) {
       builder.withReverted(revertReason);
@@ -90,6 +99,11 @@ export class PublicExecutionResultBuilder {
 
   withContractStorageUpdateRequest(...request: ContractStorageUpdateRequest[]): PublicExecutionResultBuilder {
     this._contractStorageUpdateRequests.push(...request);
+    return this;
+  }
+
+  withContractStorageRead(...reads: ContractStorageRead[]): PublicExecutionResultBuilder {
+    this._contractStorageReads.push(...reads);
     return this;
   }
 
@@ -111,6 +125,7 @@ export class PublicExecutionResultBuilder {
       noteHashReadRequests: [],
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],
+      l1ToL2MsgReadRequests: [],
       contractStorageUpdateRequests: this._contractStorageUpdateRequests,
       returnValues: padArrayEnd(this._returnValues, Fr.ZERO, 4), // TODO(#5450) Need to use the proper return values here
       newNoteHashes: [],
@@ -127,6 +142,8 @@ export class PublicExecutionResultBuilder {
       startGasLeft: Gas.test(),
       endGasLeft: Gas.test(),
       transactionFee: Fr.ZERO,
+      calldata: [],
+      avmHints: AvmExecutionHints.empty(),
       ...overrides,
     };
   }

@@ -1,3 +1,4 @@
+import { type TxHash } from '@aztec/circuit-types';
 import { type VerificationKeys } from '@aztec/circuits.js';
 
 import { type BlockProver } from './block-prover.js';
@@ -17,6 +18,10 @@ export type ProverConfig = {
   proverAgentPollInterval: number;
   /** The maximum number of proving jobs to be run in parallel */
   proverAgentConcurrency: number;
+  /** Jobs are retried if not kept alive for this long */
+  proverJobTimeoutMs: number;
+  /** The interval to check job health status */
+  proverJobPollIntervalMs: number;
 };
 
 /**
@@ -31,4 +36,17 @@ export interface ProverClient extends BlockProver {
   getProvingJobSource(): ProvingJobSource;
 
   updateProverConfig(config: Partial<ProverConfig & { vks: VerificationKeys }>): Promise<void>;
+}
+
+export class BlockProofError extends Error {
+  static #name = 'BlockProofError';
+  override name = BlockProofError.#name;
+
+  constructor(message: string, public readonly txHashes: TxHash[]) {
+    super(message);
+  }
+
+  static isBlockProofError(err: any): err is BlockProofError {
+    return err && typeof err === 'object' && err.name === BlockProofError.#name;
+  }
 }

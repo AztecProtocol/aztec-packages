@@ -50,7 +50,7 @@ describe('AVM simulator: injected bytecode', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
-    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 670);
+    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 30);
   });
 
   it('Should halt if runs out of gas', async () => {
@@ -347,10 +347,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ),
         new UnencryptedL2Log(
           context.environment.address,
-          new EventSelector(8),
+          new EventSelector(5),
           Buffer.concat(expectedString.map(f => f.toBuffer())),
         ),
-        new UnencryptedL2Log(context.environment.address, new EventSelector(10), expectedCompressedString),
+        new UnencryptedL2Log(context.environment.address, new EventSelector(5), expectedCompressedString),
       ]);
     });
 

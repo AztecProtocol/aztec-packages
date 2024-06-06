@@ -1,21 +1,24 @@
 import {
+  type ProofAndVerificationKey,
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
   type ProvingRequestResult,
   ProvingRequestType,
-  type PublicInputsAndProof,
+  type PublicInputsAndRecursiveProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
 import type {
+  AvmCircuitInputs,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  PrivateKernelEmptyInputData,
   PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
   RootParityInput,
@@ -24,21 +27,23 @@ import type {
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { AbortedError, TimeoutError } from '@aztec/foundation/error';
+import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { MemoryFifo } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
+import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 
 type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = {
   id: string;
   request: T;
   signal?: AbortSignal;
   attempts: number;
+  heartbeat: number;
 } & PromiseWithResolvers<ProvingRequestResult<T['type']>>;
 
 const MAX_RETRIES = 3;
 
 const defaultIdGenerator = () => randomBytes(4).toString('hex');
+const defaultTimeSource = () => Date.now();
 
 /**
  * A helper class that sits in between services that need proofs created and agents that can create them.
@@ -49,9 +54,44 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   private queue = new MemoryFifo<ProvingJobWithResolvers>();
   private jobsInProgress = new Map<string, ProvingJobWithResolvers>();
 
-  constructor(private generateId = defaultIdGenerator) {}
+  private runningPromise: RunningPromise;
 
-  async getProvingJob({ timeoutSec = 1 } = {}): Promise<ProvingJob<ProvingRequest> | undefined> {
+  constructor(
+    /** Timeout the job if an agent doesn't report back in this time */
+    private jobTimeoutMs = 60 * 1000,
+    /** How often to check for timed out jobs */
+    pollingIntervalMs = 1000,
+    private generateId = defaultIdGenerator,
+    private timeSource = defaultTimeSource,
+  ) {
+    this.runningPromise = new RunningPromise(this.poll, pollingIntervalMs);
+  }
+
+  public start() {
+    if (this.runningPromise.isRunning()) {
+      this.log.warn('Proving queue is already running');
+      return;
+    }
+
+    this.runningPromise.start();
+    this.log.info('Proving queue started');
+  }
+
+  public async stop() {
+    if (!this.runningPromise.isRunning()) {
+      this.log.warn('Proving queue is already stopped');
+      return;
+    }
+
+    await this.runningPromise.stop();
+    this.log.info('Proving queue stopped');
+  }
+
+  public async getProvingJob({ timeoutSec = 1 } = {}): Promise<ProvingJob<ProvingRequest> | undefined> {
+    if (!this.runningPromise.isRunning()) {
+      throw new Error('Proving queue is not running. Start the queue before getting jobs.');
+    }
+
     try {
       const job = await this.queue.get(timeoutSec);
       if (!job) {
@@ -59,10 +99,10 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
       }
 
       if (job.signal?.aborted) {
-        this.log.debug(`Job ${job.id} type=${job.request.type} has been aborted`);
         return undefined;
       }
 
+      job.heartbeat = this.timeSource();
       this.jobsInProgress.set(job.id, job);
       return {
         id: job.id,
@@ -78,25 +118,33 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   }
 
   resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResult<T>): Promise<void> {
-    const job = this.jobsInProgress.get(jobId);
-    if (!job) {
-      return Promise.reject(new Error('Job not found'));
+    if (!this.runningPromise.isRunning()) {
+      throw new Error('Proving queue is not running.');
     }
 
-    this.jobsInProgress.delete(jobId);
-
-    if (job.signal?.aborted) {
+    const job = this.jobsInProgress.get(jobId);
+    if (!job) {
+      this.log.warn(`Job id=${jobId} not found. Can't resolve`);
       return Promise.resolve();
     }
 
-    job.resolve(result);
+    this.jobsInProgress.delete(jobId);
+    if (!job.signal?.aborted) {
+      job.resolve(result);
+    }
+
     return Promise.resolve();
   }
 
   rejectProvingJob(jobId: string, err: any): Promise<void> {
+    if (!this.runningPromise.isRunning()) {
+      throw new Error('Proving queue is not running.');
+    }
+
     const job = this.jobsInProgress.get(jobId);
     if (!job) {
-      return Promise.reject(new Error('Job not found'));
+      this.log.warn(`Job id=${jobId} not found. Can't reject`);
+      return Promise.resolve();
     }
 
     this.jobsInProgress.delete(jobId);
@@ -120,10 +168,50 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return Promise.resolve();
   }
 
+  public heartbeat(jobId: string): Promise<void> {
+    if (!this.runningPromise.isRunning()) {
+      throw new Error('Proving queue is not running.');
+    }
+
+    const job = this.jobsInProgress.get(jobId);
+    if (job) {
+      job.heartbeat = this.timeSource();
+    }
+
+    return Promise.resolve();
+  }
+
+  public isJobRunning(jobId: string): boolean {
+    return this.jobsInProgress.has(jobId);
+  }
+
+  private poll = () => {
+    const now = this.timeSource();
+
+    for (const job of this.jobsInProgress.values()) {
+      if (job.signal?.aborted) {
+        this.jobsInProgress.delete(job.id);
+        continue;
+      }
+
+      if (job.heartbeat + this.jobTimeoutMs < now) {
+        this.log.warn(`Job ${job.id} type=${ProvingRequestType[job.request.type]} has timed out`);
+
+        this.jobsInProgress.delete(job.id);
+        job.heartbeat = 0;
+        this.queue.put(job);
+      }
+    }
+  };
+
   private enqueue<T extends ProvingRequest>(
     request: T,
     signal?: AbortSignal,
   ): Promise<ProvingRequestResult<T['type']>> {
+    if (!this.runningPromise.isRunning()) {
+      return Promise.reject(new Error('Proving queue is not running.'));
+    }
+
     const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResult<T['type']>>();
     const item: ProvingJobWithResolvers<T> = {
       id: this.generateId(),
@@ -133,10 +221,11 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
       resolve,
       reject,
       attempts: 1,
+      heartbeat: 0,
     };
 
     if (signal) {
-      signal.addEventListener('abort', () => reject(new AbortedError('Operation has been aborted')));
+      signal.addEventListener('abort', () => reject(new AbortError('Operation has been aborted')));
     }
 
     this.log.debug(
@@ -148,6 +237,13 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     }
 
     return promise;
+  }
+
+  getEmptyPrivateKernelProof(
+    inputs: PrivateKernelEmptyInputData,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+    return this.enqueue({ type: ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs }, signal);
   }
 
   /**
@@ -191,7 +287,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getBaseRollupProof(
     input: BaseRollupInputs,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return this.enqueue(
       {
         type: ProvingRequestType.BASE_ROLLUP,
@@ -208,7 +304,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getMergeRollupProof(
     input: MergeRollupInputs,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return this.enqueue(
       {
         type: ProvingRequestType.MERGE_ROLLUP,
@@ -225,7 +321,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getRootRollupProof(
     input: RootRollupInputs,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<RootRollupPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
     return this.enqueue(
       {
         type: ProvingRequestType.ROOT_ROLLUP,
@@ -242,7 +338,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<PublicKernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
     return this.enqueue(
       {
         type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL,
@@ -260,12 +356,25 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
     signal?: AbortSignal,
-  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     return this.enqueue(
       {
         type: ProvingRequestType.PUBLIC_KERNEL_TAIL,
         kernelType: kernelRequest.type,
         inputs: kernelRequest.inputs,
+      },
+      signal,
+    );
+  }
+
+  /**
+   * Creates an AVM proof.
+   */
+  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal | undefined): Promise<ProofAndVerificationKey> {
+    return this.enqueue(
+      {
+        type: ProvingRequestType.PUBLIC_VM,
+        inputs,
       },
       signal,
     );

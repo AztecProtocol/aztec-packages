@@ -1,9 +1,8 @@
 use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
 use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::traits::{Deserialize, Empty};
+use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
-use crate::context::interface::{ContextInterface, PublicContextInterface};
 use crate::context::gas::GasOpts;
 
 struct PublicContext {
@@ -29,11 +28,17 @@ impl PublicContext {
     *
     * @param event_selector The event selector for the log.
     * @param message The message to emit in the log.
-    * Should be automatically convertible to [Field; N]. For example str<N> works with
-    * one char per field. Otherwise you can use CompressedString.
     */
-    pub fn emit_unencrypted_log_with_selector<T>(&mut self, event_selector: Field, log: T) {
-        emit_unencrypted_log(event_selector, log);
+    pub fn emit_unencrypted_log_with_selector<T,N>(
+        &mut self,
+        event_selector: Field,
+        log: T
+    ) where T: Serialize<N> {
+        emit_unencrypted_log(event_selector, Serialize::serialize(log).as_slice());
+    }
+    // For compatibility with the selector-less API. We'll probably rename the above one.
+    pub fn emit_unencrypted_log<T,N>(&mut self, log: T) where T: Serialize<N> {
+        self.emit_unencrypted_log_with_selector(/*event_selector=*/ 5, log);
     }
     pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
         note_hash_exists(note_hash, leaf_index) == 1
@@ -41,35 +46,13 @@ impl PublicContext {
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
-}
 
-impl PublicContextInterface for PublicContext {
     fn block_number(self) -> Field {
         block_number()
     }
 
     fn timestamp(self) -> u64 {
         timestamp()
-    }
-
-    fn coinbase(self) -> EthAddress {
-        assert(false, "'coinbase' not implemented!");
-        EthAddress::zero()
-    }
-
-    fn fee_recipient(self) -> AztecAddress {
-        assert(false, "'fee_recipient' not implemented!");
-        AztecAddress::zero()
-    }
-
-    fn fee_per_da_gas(self) -> Field {
-        assert(false, "'fee_per_da_gas' not implemented!");
-        0
-    }
-
-    fn fee_per_l2_gas(self) -> Field {
-        assert(false, "'fee_per_l2_gas' not implemented!");
-        0
     }
 
     fn transaction_fee(self) -> Field {
@@ -80,26 +63,31 @@ impl PublicContextInterface for PublicContext {
         nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
-    fn emit_unencrypted_log<T,N,M>(&mut self, log: T) {
-        let event_selector = 5;  // Matches current PublicContext.
-        self.emit_unencrypted_log_with_selector(event_selector, log);
-    }
-
-    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
+    fn consume_l1_to_l2_message(
+        &mut self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        leaf_index: Field
+    ) {
         let secret_hash = compute_secret_hash(secret);
         let message_hash = compute_message_hash(
             sender,
             self.chain_id(),
-            /*recipient=*/self.this_address(),
+            /*recipient=*/ self.this_address(),
             self.version(),
             content,
             secret_hash
         );
         let nullifier = compute_message_nullifier(message_hash, secret, leaf_index);
 
-        assert(!self.nullifier_exists(nullifier, self.this_address()), "L1-to-L2 message is already nullified");
-        assert(self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message");
-        
+        assert(
+            !self.nullifier_exists(nullifier, self.this_address()), "L1-to-L2 message is already nullified"
+        );
+        assert(
+            self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message"
+        );
+
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, 0);
     }
@@ -114,7 +102,7 @@ impl PublicContextInterface for PublicContext {
         temporary_function_selector: FunctionSelector,
         args: [Field],
         gas_opts: GasOpts
-    ) -> FunctionReturns<RETURNS_COUNT> {        
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
@@ -155,9 +143,7 @@ impl PublicContextInterface for PublicContext {
         assert(false, "'delegate_call_public_function' not implemented!");
         FunctionReturns::new([0; RETURNS_COUNT])
     }
-}
 
-impl ContextInterface for PublicContext {
     fn push_new_note_hash(&mut self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
@@ -249,7 +235,7 @@ unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
 unconstrained fn emit_nullifier(nullifier: Field) {
     emit_nullifier_opcode(nullifier)
 }
-unconstrained fn emit_unencrypted_log<T>(event_selector: Field, message: T) {
+unconstrained fn emit_unencrypted_log(event_selector: Field, message: [Field]) {
     emit_unencrypted_log_opcode(event_selector, message)
 }
 unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {
@@ -334,7 +320,7 @@ fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8 {}
 fn emit_nullifier_opcode(nullifier: Field) {}
 
 #[oracle(amvOpcodeEmitUnencryptedLog)]
-fn emit_unencrypted_log_opcode<T>(event_selector: Field, message: T) {}
+fn emit_unencrypted_log_opcode(event_selector: Field, message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
 fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}

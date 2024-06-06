@@ -1,6 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { getBaseGasCost, getMemoryGasCost, sumGas } from '../avm_gas.js';
-import { Field, type MemoryOperations, TaggedMemory, TypeTag } from '../avm_memory_types.js';
+import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
@@ -115,12 +114,17 @@ export class CMov extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const a = memory.get(this.aOffset);
-    const b = memory.get(this.bOffset);
-    const cond = memory.get(this.condOffset);
+    const [aOffset, bOffset, condOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.aOffset, this.bOffset, this.condOffset, this.dstOffset],
+      memory,
+    );
+
+    const a = memory.get(aOffset);
+    const b = memory.get(bOffset);
+    const cond = memory.get(condOffset);
 
     // TODO: reconsider toBigInt() here
-    memory.set(this.dstOffset, cond.toBigInt() > 0 ? a : b);
+    memory.set(dstOffset, cond.toBigInt() > 0 ? a : b);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
@@ -131,8 +135,8 @@ export class Cast extends TwoOperandInstruction {
   static readonly type: string = 'CAST';
   static readonly opcode = Opcode.CAST;
 
-  constructor(indirect: number, dstTag: number, aOffset: number, dstOffset: number) {
-    super(indirect, dstTag, aOffset, dstOffset);
+  constructor(indirect: number, dstTag: number, srcOffset: number, dstOffset: number) {
+    super(indirect, dstTag, srcOffset, dstOffset);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -140,13 +144,14 @@ export class Cast extends TwoOperandInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const a = memory.get(this.aOffset);
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.dstOffset], memory);
 
-    // TODO: consider not using toBigInt()
+    const a = memory.get(srcOffset);
+
     const casted =
       this.inTag == TypeTag.FIELD ? new Field(a.toBigInt()) : TaggedMemory.integralFromTag(a.toBigInt(), this.inTag);
 
-    memory.set(this.dstOffset, casted);
+    memory.set(dstOffset, casted);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
@@ -205,21 +210,16 @@ export class CalldataCopy extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], memory);
+    // We don't need to check tags here because: (1) the calldata is NOT in memory, and (2) we are the ones writing to destination.
+    const [cdOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.cdOffset, this.dstOffset], memory);
 
     const transformedData = context.environment.calldata
-      .slice(this.cdOffset, this.cdOffset + this.copySize)
+      .slice(cdOffset, cdOffset + this.copySize)
       .map(f => new Field(f));
 
     memory.setSlice(dstOffset, transformedData);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
-  }
-
-  protected override gasCost(memoryOps: Partial<MemoryOperations & { indirect: number }> = {}) {
-    const baseGasCost = getBaseGasCost(this.opcode);
-    const memoryGasCost = getMemoryGasCost(memoryOps);
-    return sumGas(baseGasCost, memoryGasCost);
   }
 }

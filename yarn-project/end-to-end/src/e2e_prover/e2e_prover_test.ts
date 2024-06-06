@@ -53,8 +53,8 @@ type ProvenSetup = {
  */
 
 export class FullProverTest {
-  static TOKEN_NAME = 'Aztec Token';
-  static TOKEN_SYMBOL = 'AZT';
+  static TOKEN_NAME = 'USDC';
+  static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
   logger: DebugLogger;
@@ -72,7 +72,7 @@ export class FullProverTest {
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
 
-  constructor(testName: string) {
+  constructor(testName: string, private minNumberOfTxsPerBlock: number) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(`full_prover_integration/${testName}`, dataPath);
   }
@@ -120,6 +120,7 @@ export class FullProverTest {
 
         this.tokenSim = new TokenSimulator(
           this.fakeProofsAsset,
+          this.wallets[0],
           this.logger,
           this.accounts.map(a => a.address),
         );
@@ -151,9 +152,9 @@ export class FullProverTest {
 
     this.logger.debug(`Configuring the node for real proofs...`);
     await this.aztecNode.setConfig({
-      proverAgentConcurrency: 1,
+      proverAgentConcurrency: 2,
       realProofs: true,
-      minTxsPerBlock: 2, // min 2 txs per block
+      minTxsPerBlock: this.minNumberOfTxsPerBlock,
     });
 
     this.logger.debug(`Main setup completed, initializing full prover PXE and Node...`);
@@ -311,6 +312,7 @@ export class FullProverTest {
           enabled: true,
           runs: 200,
         },
+        evmVersion: 'paris',
         outputSelection: {
           '*': {
             '*': ['evm.bytecode.object', 'abi'],

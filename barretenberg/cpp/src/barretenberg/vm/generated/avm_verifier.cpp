@@ -248,6 +248,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_radix);
     commitments.avm_conversion_to_radix_le_sel =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_to_radix_le_sel);
+    commitments.avm_gas_da_gas_fixed_table =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_da_gas_fixed_table);
+    commitments.avm_gas_gas_cost_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_gas_cost_sel);
+    commitments.avm_gas_l2_gas_fixed_table =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_l2_gas_fixed_table);
     commitments.avm_keccakf1600_clk =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_keccakf1600_clk);
     commitments.avm_keccakf1600_input =
@@ -282,6 +288,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_note_hash_exist_write_offset);
     commitments.avm_kernel_nullifier_exists_write_offset = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_nullifier_exists_write_offset);
+    commitments.avm_kernel_nullifier_non_exists_write_offset = transcript->template receive_from_prover<Commitment>(
+        commitment_labels.avm_kernel_nullifier_non_exists_write_offset);
     commitments.avm_kernel_q_public_input_kernel_add_to_table = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_q_public_input_kernel_add_to_table);
     commitments.avm_kernel_q_public_input_kernel_out_add_to_table =
@@ -303,6 +311,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_bin_sel);
     commitments.avm_main_call_ptr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_call_ptr);
+    commitments.avm_main_da_gas_op =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_gas_op);
+    commitments.avm_main_da_gas_remaining =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_gas_remaining);
+    commitments.avm_main_gas_cost_active =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_gas_cost_active);
     commitments.avm_main_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ia);
     commitments.avm_main_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ib);
     commitments.avm_main_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ic);
@@ -324,6 +338,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.avm_main_internal_return_ptr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_internal_return_ptr);
     commitments.avm_main_inv = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_inv);
+    commitments.avm_main_l2_gas_op =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_l2_gas_op);
+    commitments.avm_main_l2_gas_remaining =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_l2_gas_remaining);
     commitments.avm_main_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_last);
     commitments.avm_main_mem_idx_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_a);
@@ -335,6 +353,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_d);
     commitments.avm_main_mem_op_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_a);
+    commitments.avm_main_mem_op_activate_gas =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_activate_gas);
     commitments.avm_main_mem_op_b =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_b);
     commitments.avm_main_mem_op_c =
@@ -343,6 +363,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_d);
     commitments.avm_main_op_err =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_op_err);
+    commitments.avm_main_opcode_val =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_opcode_val);
     commitments.avm_main_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_pc);
     commitments.avm_main_q_kernel_lookup =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_q_kernel_lookup);
@@ -356,6 +378,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.avm_main_rwd = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_rwd);
     commitments.avm_main_sel_cmov =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_cmov);
+    commitments.avm_main_sel_external_call =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_external_call);
     commitments.avm_main_sel_halt =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_halt);
     commitments.avm_main_sel_internal_call =
@@ -364,6 +388,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_internal_return);
     commitments.avm_main_sel_jump =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_jump);
+    commitments.avm_main_sel_jumpi =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_jumpi);
     commitments.avm_main_sel_mov =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_mov);
     commitments.avm_main_sel_mov_a =
@@ -384,6 +410,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_chain_id);
     commitments.avm_main_sel_op_coinbase =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_coinbase);
+    commitments.avm_main_sel_op_dagasleft =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_dagasleft);
     commitments.avm_main_sel_op_div =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_div);
     commitments.avm_main_sel_op_emit_l2_to_l1_msg =
@@ -402,10 +430,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_da_gas);
     commitments.avm_main_sel_op_fee_per_l2_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_l2_gas);
+    commitments.avm_main_sel_op_get_contract_instance =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_get_contract_instance);
     commitments.avm_main_sel_op_keccak =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_keccak);
     commitments.avm_main_sel_op_l1_to_l2_msg_exists =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_l1_to_l2_msg_exists);
+    commitments.avm_main_sel_op_l2gasleft =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_l2gasleft);
     commitments.avm_main_sel_op_lt =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_lt);
     commitments.avm_main_sel_op_lte =
@@ -420,6 +452,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_nullifier_exists);
     commitments.avm_main_sel_op_or =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_or);
+    commitments.avm_main_sel_op_pedersen =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_pedersen);
     commitments.avm_main_sel_op_poseidon2 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_poseidon2);
     commitments.avm_main_sel_op_radix_le =
@@ -436,6 +470,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sload);
     commitments.avm_main_sel_op_sstore =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sstore);
+    commitments.avm_main_sel_op_storage_address =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_storage_address);
     commitments.avm_main_sel_op_sub =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sub);
     commitments.avm_main_sel_op_timestamp =
@@ -509,6 +545,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.avm_mem_val = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_val);
     commitments.avm_mem_w_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_w_in_tag);
+    commitments.avm_pedersen_clk =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_pedersen_clk);
+    commitments.avm_pedersen_input =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_pedersen_input);
+    commitments.avm_pedersen_output =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_pedersen_output);
+    commitments.avm_pedersen_pedersen_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_pedersen_pedersen_sel);
     commitments.avm_poseidon2_clk =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_poseidon2_clk);
     commitments.avm_poseidon2_input =
@@ -530,6 +574,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
     commitments.lookup_byte_operations_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations_counts);
+    commitments.lookup_opcode_gas_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_opcode_gas_counts);
     commitments.kernel_output_lookup_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_output_lookup_counts);
     commitments.lookup_into_kernel_counts =
@@ -609,6 +655,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);
     commitments.perm_main_pos2_perm =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pos2_perm);
+    commitments.perm_main_pedersen =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pedersen);
     commitments.perm_main_mem_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_a);
     commitments.perm_main_mem_b =
@@ -629,6 +677,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations);
+    commitments.lookup_opcode_gas =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_opcode_gas);
     commitments.kernel_output_lookup =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_output_lookup);
     commitments.lookup_into_kernel =
@@ -695,6 +745,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("failed sumcheck");
         return false;
     }
 
@@ -703,13 +754,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     FF avm_kernel_kernel_inputs__is_public_evaluation =
         evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_inputs__is_public_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
+        info("failed kernel inputs public inputs");
         return false;
     }
 
-    FF avm_kernel_kernel_metadata_out__is_public_evaluation =
+    FF avm_kernel_kernel_value_out__is_public_evaluation =
         evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
-    if (avm_kernel_kernel_metadata_out__is_public_evaluation !=
-        claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
+    if (avm_kernel_kernel_value_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
+        info("failed value out inputs");
         return false;
     }
 
@@ -717,13 +770,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_side_effect_out__is_public_evaluation !=
         claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
+        info("failed side effect inputs");
         return false;
     }
 
-    FF avm_kernel_kernel_value_out__is_public_evaluation =
+    FF avm_kernel_kernel_metadata_out__is_public_evaluation =
         evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
-    if (avm_kernel_kernel_value_out__is_public_evaluation !=
-        claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
+    if (avm_kernel_kernel_metadata_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
+        info("failed kernel metadata inputs");
         return false;
     }
 
