@@ -56,8 +56,8 @@ data "terraform_remote_state" "l1_contracts" {
 locals {
   publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
-  #node_count             = length(local.publisher_private_keys)
-  node_count           = 1
+  node_count             = length(local.publisher_private_keys)
+  #node_count           = 1
   data_dir             = "/usr/src/yarn-project/aztec/data"
   agents_per_sequencer = var.AGENTS_PER_SEQUENCER
 }
@@ -201,7 +201,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*,libp2p:*,discv5:*"
+        "value": "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -279,10 +279,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
       {
         "name": "P2P_TCP_LISTEN_IP",
         "value": "0.0.0.0"
-      },
-      {
-        "name": "P2P_ANNOUNCE_TCP_HOSTNAME",
-        "value": "/ip4/${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}"
       },
       {
         "name": "P2P_ANNOUNCE_PORT",
@@ -544,9 +540,6 @@ resource "aws_security_group_rule" "allow-node-udp-out" {
 #     target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
 #   }
 # }
-
-
-
 
 
 
