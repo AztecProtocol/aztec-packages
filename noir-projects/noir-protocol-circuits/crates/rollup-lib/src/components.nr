@@ -1,7 +1,7 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
-    hash::accumulate_sha256,
+    hash::accumulate_sha256, merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
@@ -91,18 +91,20 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
 }
 
 pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> Field {
-    let mut out_hash_inputs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX] = combined.new_l2_to_l1_msgs;
-
-    let mut hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
-    for offset in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
-        let input_as_bytes = out_hash_inputs[offset].to_be_bytes(32);
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+    // TODO: reinstate below when we sort l2_to_l2_msgs in the tail
+    // let non_empty_items = array_length(combined.new_l2_to_l1_msgs);
+    let mut non_empty_items = 0;
+    let mut found_non_empty = false;
+    for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
+        // Working backwards, we find the last non-empty, and assume the rest are messages
+        let j = MAX_NEW_L2_TO_L1_MSGS_PER_TX - i;
+        if (combined.new_l2_to_l1_msgs[j - 1] != 0) & (!found_non_empty) {
+            non_empty_items = j;
+            found_non_empty = true;
         }
     }
-
-    let sha_digest = dep::types::hash::sha256_to_field(hash_input_flattened);
-    sha_digest
+    let merkle_tree = VariableMerkleTree::new_sha(combined.new_l2_to_l1_msgs, non_empty_items);
+    merkle_tree.get_root()
 }
 
 /**
@@ -120,7 +122,7 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-global TX_EFFECTS_HASH_INPUT_FIELDS = 202;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 216;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization

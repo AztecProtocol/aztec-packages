@@ -20,7 +20,7 @@ import {
   PublicDataWitness,
   PublicSimulationOutput,
   type SequencerConfig,
-  type SiblingPath,
+  SiblingPath,
   type Tx,
   type TxEffect,
   type TxHash,
@@ -46,6 +46,8 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
@@ -475,20 +477,50 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+    const l2ToL1Messages = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
+    let indexOfMsgTx = -1;
+    let indexOfMsgInSubtree = -1;
 
-    const indexOfL2ToL1Message = BigInt(
-      l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message)),
+    // Construct message subtrees
+    let l2toL1Subtrees = await Promise.all(
+      l2ToL1Messages.map(async (msgs, i) => {
+        if (msgs.find(msg => msg.equals(l2ToL1Message))) {
+          indexOfMsgInSubtree = msgs.findIndex(msg => msg.equals(l2ToL1Message));
+          indexOfMsgTx = i;
+        }
+        const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
+        const tree = new StandardTree(
+          openTmpStore(true),
+          new SHA256Trunc(),
+          `temp_msgs_subtrees_${i}`,
+          treeHeight,
+          0n,
+          Fr,
+        );
+        await tree.appendLeaves(msgs);
+        return tree;
+      }),
     );
 
-    if (indexOfL2ToL1Message === -1n) {
+    if (indexOfMsgTx === -1) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
+    // path of the input msg from leaf -> first out hash calculated in base rolllup
+    const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
+      BigInt(indexOfMsgInSubtree),
+      true,
+    );
 
-    // Match how l2ToL1TreeHeight is calculated in Rollup.sol.
-    const treeHeight = block.header.contentCommitment.txTreeHeight.toNumber() + 1;
+    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
+    const treeHeight = block.header.contentCommitment.txTreeHeight.toNumber();
+    // NOTE: This padding only works assuming that an 'empty' out hash is H(0,0)
+    const paddedl2toL1SubtreeRoots = padArrayEnd(
+      l2toL1SubtreeRoots,
+      Fr.fromBuffer(sha256Trunc(Buffer.alloc(64))),
+      2 ** treeHeight,
+    );
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
-    const tree = new StandardTree(
+    const outHashTree = new StandardTree(
       openTmpStore(true),
       new SHA256Trunc(),
       'temp_outhash_sibling_path',
@@ -496,9 +528,15 @@ export class AztecNodeService implements AztecNode {
       0n,
       Fr,
     );
-    await tree.appendLeaves(l2ToL1Messages);
+    await outHashTree.appendLeaves(paddedl2toL1SubtreeRoots);
 
-    return [indexOfL2ToL1Message, await tree.getSiblingPath(indexOfL2ToL1Message, true)];
+    const pathOfTxinOutHashTree = await outHashTree.getSiblingPath(BigInt(indexOfMsgTx), true);
+    // Append subtree path to out hash tree path
+    const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxinOutHashTree.toBufferArray());
+    // Append binary index of subtree path to binary index of out hash tree path
+    const mergedIndex = parseInt(indexOfMsgTx.toString(2).concat(indexOfMsgInSubtree.toString(2)), 2);
+
+    return [BigInt(mergedIndex), new SiblingPath(mergedPath.length, mergedPath)];
   }
 
   /**
