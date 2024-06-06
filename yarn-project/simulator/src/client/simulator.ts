@@ -133,6 +133,7 @@ export class AcirSimulator {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The note type identifier.
    * @param note - The note.
+   * @param includeNullifier - A flag indicating whether to compute the nullifier or not.
    * @returns The nullifier.
    */
   public async computeNoteHashAndNullifier(
@@ -141,6 +142,7 @@ export class AcirSimulator {
     storageSlot: Fr,
     noteTypeId: Fr,
     note: Note,
+    includeNullifier = true,
   ) {
     const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
       contractAddress,
@@ -175,7 +177,14 @@ export class AcirSimulator {
       selector: FunctionSelector.empty(),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
-      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
+      args: encodeArguments(artifact, [
+        contractAddress,
+        nonce,
+        storageSlot,
+        noteTypeId,
+        extendedNoteItems,
+        includeNullifier,
+      ]),
       returnTypes: artifact.returnTypes,
     };
 

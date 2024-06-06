@@ -324,6 +324,7 @@ export class PXEService implements PXE {
         note.storageSlot,
         note.noteTypeId,
         note.note,
+        true,
       );
 
       const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
@@ -347,6 +348,53 @@ export class PXEService implements PXE {
           nonce,
           innerNoteHash,
           siloedNullifier,
+          index,
+          owner.publicKeys.masterIncomingViewingPublicKey,
+        ),
+      );
+    }
+  }
+
+  public async addNullifiedNote(note: ExtendedNote) {
+    const owner = await this.db.getCompleteAddress(note.owner);
+    if (!owner) {
+      throw new Error(`Unknown account: ${note.owner.toString()}`);
+    }
+
+    const nonces = await this.getNoteNonces(note);
+    if (nonces.length === 0) {
+      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
+    }
+
+    for (const nonce of nonces) {
+      const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
+        note.contractAddress,
+        nonce,
+        note.storageSlot,
+        note.noteTypeId,
+        note.note,
+        false,
+      );
+
+      if (!innerNullifier.equals(Fr.ZERO)) {
+        throw new Error('Unexpectedly received non-zero nullifier.');
+      }
+
+      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
+      if (index === undefined) {
+        throw new Error('Note does not exist.');
+      }
+
+      await this.db.addNullifiedNote(
+        new IncomingNoteDao(
+          note.note,
+          note.contractAddress,
+          note.storageSlot,
+          note.noteTypeId,
+          note.txHash,
+          nonce,
+          innerNoteHash,
+          Fr.ZERO, // We are not able to derive
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
         ),
