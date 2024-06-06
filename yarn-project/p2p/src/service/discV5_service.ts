@@ -1,5 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { type ENR, SignableENR } from '@chainsafe/enr';
@@ -37,9 +38,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   private currentState = PeerDiscoveryState.STOPPED;
 
   private bootstrapNodes: string[];
-
-  // Marks the time that the node was started
-  private startTime: number = 0;
 
   constructor(private peerId: PeerId, config: P2PConfig, private logger = createDebugLogger('aztec:discv5_service')) {
     super();
@@ -87,14 +85,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     });
 
     this.runningPromise = new RunningPromise(async () => {
-      // First, check if some time has passed since starting the node
-      // reference: https://github.com/ChainSafe/lodestar/issues/3423
-      const timeToWait = 1000;
-      if (this.startTime + timeToWait < Date.now()) {
-        await this.discv5.findRandomNode();
-      } else {
-        this.logger.info(`Waiting to start peer discovery...`);
-      }
+      await this.discv5.findRandomNode();
     }, config.p2pPeerCheckIntervalMS);
   }
 
@@ -104,7 +95,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     }
     this.logger.info('Starting DiscV5');
     await this.discv5.start();
-    this.startTime = Date.now();
 
     this.logger.info('DiscV5 started');
     this.currentState = PeerDiscoveryState.RUNNING;
@@ -120,6 +110,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         this.logger.error(`Error adding bootnode ENRs: ${e}`);
       }
     }
+
+    // First, wait some time before starting the peer discovery
+    // reference: https://github.com/ChainSafe/lodestar/issues/3423
+    await sleep(2000);
 
     this.runningPromise.start();
   }

@@ -9,23 +9,7 @@
  * @returns A multiaddr compliant string.
  */
 export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): string {
-  let addr: string;
-  let port: string;
-
-  if (address.startsWith('[')) {
-    // IPv6 address enclosed in square brackets
-    const match = address.match(/^\[([^\]]+)\]:(\d+)$/);
-    if (!match) {
-      throw new Error(`Invalid IPv6 address format:${address}. Expected format: [<addr>]:<port>`);
-    }
-    [, addr, port] = match;
-  } else {
-    // IPv4 address
-    [addr, port] = address.split(':');
-    if (!addr || !port) {
-      throw new Error(`Invalid address format: ${address}. Expected format: <addr>:<port>`);
-    }
-  }
+  const [addr, port] = splitAddressPort(address, false);
 
   let multiaddrPrefix: string;
 
@@ -40,6 +24,32 @@ export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): st
   }
 
   return `/${multiaddrPrefix}/${addr}/${protocol}/${port}`;
+}
+
+/**
+ * Splits an <address>:<port> string into its components.
+ * @returns The ip6 or ip4 address & port separately
+ */
+export function splitAddressPort(address: string, allowEmptyAddress: boolean): [string, string] {
+  let addr: string;
+  let port: string;
+
+  if (address.startsWith('[')) {
+    // IPv6 address enclosed in square brackets
+    const match = address.match(/^\[([^\]]+)\]:(\d+)$/);
+    if (!match) {
+      throw new Error(`Invalid IPv6 address format:${address}. Expected format: [<addr>]:<port>`);
+    }
+    [, addr, port] = match;
+  } else {
+    // IPv4 address
+    [addr, port] = address.split(':');
+    if ((!addr && !allowEmptyAddress) || !port) {
+      throw new Error(`Invalid address format: ${address}. Expected format: <addr>:<port>`);
+    }
+  }
+
+  return [addr, port];
 }
 
 /**

@@ -7,7 +7,7 @@ import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService, DummyPeerDiscoveryService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { getPublicIp } from '../util.js';
+import { getPublicIp, splitAddressPort } from '../util.js';
 
 export * from './p2p_client.js';
 
@@ -28,15 +28,20 @@ export const createP2PClient = async (
       queryForIp,
     } = config;
 
+    // create variable for re-use if needed
+    let publicIp;
+
     // check if no announce IP was provided
-    const splitTcpAnnounceAddress = configTcpAnnounceAddress?.split(':') || [];
+    const splitTcpAnnounceAddress = splitAddressPort(configTcpAnnounceAddress || '', true);
     if (splitTcpAnnounceAddress.length == 2 && splitTcpAnnounceAddress[0] === '') {
       if (queryForIp) {
-        const publicIp = await getPublicIp();
+        publicIp = await getPublicIp();
         const tcpAnnounceAddress = `${publicIp}:${splitTcpAnnounceAddress[1]}`;
         config.tcpAnnounceAddress = tcpAnnounceAddress;
       } else {
-        throw new Error('No announceTcpAddress provided');
+        throw new Error(
+          `Invalid announceTcpAddress provided: ${splitTcpAnnounceAddress}. Expected format: <addr>:<port>`,
+        );
       }
     }
 
@@ -46,8 +51,8 @@ export const createP2PClient = async (
       if (!queryForIp && config.tcpAnnounceAddress) {
         config.udpAnnounceAddress = config.tcpAnnounceAddress;
       } else if (queryForIp) {
-        const publicIp = await getPublicIp();
-        const udpAnnounceAddress = `${publicIp}:${splitUdpAnnounceAddress[1]}`;
+        const udpPublicIp = publicIp || (await getPublicIp());
+        const udpAnnounceAddress = `${udpPublicIp}:${splitUdpAnnounceAddress[1]}`;
         config.udpAnnounceAddress = udpAnnounceAddress;
       }
     }
