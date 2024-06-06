@@ -90,7 +90,7 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < Flavor::MAX_LOG_CIRCUIT_SIZE; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
         }
