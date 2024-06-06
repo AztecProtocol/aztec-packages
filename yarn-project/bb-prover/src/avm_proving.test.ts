@@ -79,6 +79,14 @@ describe('AVM WitGen, proof generation and verification', () => {
   );
 
   it(
+    'Should prove read storage list',
+    async () => {
+      await proveAndVerifyAvmTestContract('read_storage_list', [new Fr(1), new Fr(2), new Fr(3)]);
+    },
+    TIMEOUT,
+  );
+
+  it(
     'Should prove get environment opcode',
     async () => {
       await proveAndVerifyAvmTestContract('get_address');
