@@ -398,6 +398,13 @@ template <typename PCS> class ZeroMorphProver_ {
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, q_k_commitments[idx]);
         }
+        // TODO(CONSTANT_PROOF_SIZE): Send some BS q_ks (We dont have Flavor tho.. ick)
+        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+        for (size_t idx = log_N; idx < MAX_LOG_CIRCUIT_SIZE; ++idx) {
+            auto buffer_element = Commitment::one();
+            std::string label = "ZM:C_q_" + std::to_string(idx);
+            transcript->send_to_verifier(label, buffer_element);
+        }
 
         // Get challenge y
         FF y_challenge = transcript->template get_challenge<FF>("ZM:y");
@@ -673,6 +680,11 @@ template <typename PCS> class ZeroMorphVerifier_ {
         C_q_k.reserve(log_N);
         for (size_t i = 0; i < log_N; ++i) {
             C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
+        }
+        // TODO(CONSTANT_PROOF_SIZE): Recieve some BS C_qs (dont need to do anything with them)
+        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+        for (size_t i = log_N; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+            transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i));
         }
 
         // Challenge y

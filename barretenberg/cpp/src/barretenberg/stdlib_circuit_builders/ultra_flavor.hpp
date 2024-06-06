@@ -764,7 +764,7 @@ class UltraFlavor {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            size_t log_n = numeric::get_msb(circuit_size);
+            // size_t log_n = numeric::get_msb(circuit_size);
 
             public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
@@ -784,7 +784,7 @@ class UltraFlavor {
                                                                                                  num_frs_read));
             }
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
                 zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -799,7 +799,7 @@ class UltraFlavor {
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            size_t log_n = numeric::get_msb(circuit_size);
+            // size_t log_n = numeric::get_msb(circuit_size);
             serialize_to_buffer(circuit_size, proof_data);
             serialize_to_buffer(public_input_size, proof_data);
             serialize_to_buffer(pub_inputs_offset, proof_data);
@@ -817,7 +817,7 @@ class UltraFlavor {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
             serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
                 serialize_to_buffer(zm_cq_comms[i], proof_data);
             }
             serialize_to_buffer(zm_cq_comm, proof_data);
