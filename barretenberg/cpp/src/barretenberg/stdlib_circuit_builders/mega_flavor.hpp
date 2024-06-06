@@ -209,6 +209,24 @@ class MegaFlavor {
         {
             return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         }
+
+        MSGPACK_FIELDS(this->w_l,
+                       this->w_r,
+                       this->w_o,
+                       this->w_4,
+                       this->sorted_accum,
+                       this->z_perm,
+                       this->z_lookup,
+                       this->ecc_op_wire_1,
+                       this->ecc_op_wire_2,
+                       this->ecc_op_wire_3,
+                       this->ecc_op_wire_4,
+                       this->calldata,
+                       this->calldata_read_counts,
+                       this->calldata_inverses,
+                       this->return_data,
+                       this->return_data_read_counts,
+                       this->return_data_inverses);
     };
 
     template <typename DataType> class ShiftedEntities {
@@ -459,6 +477,8 @@ class MegaFlavor {
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
+
+        VerificationKey(const VerificationKey& vk) = default;
 
         VerificationKey(ProvingKey& proving_key)
         {

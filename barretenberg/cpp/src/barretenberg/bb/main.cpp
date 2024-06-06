@@ -5,6 +5,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "config.hpp"
@@ -335,18 +336,32 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
  * @return true
  * @return false
  */
-// bool prove_tube(const std::string& outputPath)
-// {
-// std::string vkPath = outputPath + "/vk"; // the vk of the last instance
-// std::string accPath = outputPath + "/pg_acc";
-// std::string proofPath = outputPath + "/proof";
-// std::string vkFieldsPath = outputPath + "/vk_fields.json";
-// std::string proofFieldsPath = outputPath + "/proof_fields.json";
-// std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
+bool prove_tube(const std::string& outputPath)
+{
+    using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
+    using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
+    using InstanceFlavor = MegaFlavor;
+    using Builder = UltraCircuitBuilder;
 
-// auto proof = from_buffer<std::vector<bb::fr>>(read_file(proofPath));
-// auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vkPath)));
-// }
+    std::string vkPath = outputPath + "/vk"; // the vk of the last instance
+    std::string accPath = outputPath + "/pg_acc";
+    std::string proofPath = outputPath + "/proof";
+    std::string vkFieldsPath = outputPath + "/vk_fields.json";
+    std::string proofFieldsPath = outputPath + "/proof_fields.json";
+    std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
+
+    auto proof = from_buffer<std::vector<bb::fr>>(read_file(proofPath));
+    auto verification_key = std::make_shared<InstanceFlavor::VerificationKey>(
+        from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
+    auto verifier_accumulator = std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
+
+    auto builder = std::make_shared<Builder>();
+    ClientIVC verifier{ builder, verifier_input };
+
+    // Generate the recursive verification circuit
+    verifier.verify(proof);
+    return true;
+}
 
 /**
  * @brief Creates a proof for an ACIR circuit
