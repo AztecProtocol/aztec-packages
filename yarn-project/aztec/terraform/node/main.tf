@@ -277,12 +277,12 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "value": "0.0.0.0:${var.NODE_P2P_UDP_PORT + count.index}"
       },
       {
-        "name": "P2P_ANNOUNCE_TCP_HOSTNAME",
-        "value": "/ip4/${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}"
+        "name": "P2P_TCP_ANNOUNCE_ADDR",
+        "value": ":${var.NODE_P2P_TCP_PORT + count.index}"
       },
       {
-        "name": "P2P_ANNOUNCE_PORT",
-        "value": "${var.NODE_P2P_TCP_PORT + count.index}"
+        "name": "P2P_UDP_ANNOUNCE_ADDR",
+        "value": ":${var.NODE_P2P_UDP_PORT + count.index}"
       },
       {
         "name": "P2P_QUERY_FOR_IP",
