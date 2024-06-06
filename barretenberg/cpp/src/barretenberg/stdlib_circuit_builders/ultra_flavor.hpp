@@ -778,7 +778,7 @@ class UltraFlavor {
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
                 sumcheck_univariates.push_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
                                                                                                  num_frs_read));
@@ -813,7 +813,7 @@ class UltraFlavor {
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
             serialize_to_buffer(z_lookup_comm, proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
             serialize_to_buffer(sumcheck_evaluations, proof_data);

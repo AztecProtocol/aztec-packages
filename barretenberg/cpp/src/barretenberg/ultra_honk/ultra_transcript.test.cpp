@@ -78,7 +78,7 @@ class UltraTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < Flavor::MAX_LOG_CIRCUIT_SIZE; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
