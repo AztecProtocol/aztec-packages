@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717680924513,
+  "lastUpdate": 1717681344443,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -26720,6 +26720,78 @@ window.BENCHMARK_DATA = {
             "value": 163552076,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163552076 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16deef6a83a9fe41e1f865e79e17c2f671604bb0",
+          "message": "chore: fix issue #6929 (off-by-one error in `UltraCircuitBuilder::create_range_constraint`) (#6931)\n\nFix small bug that creates innaccurate range constraints for small\r\nscalar values in UltraCircuitBuilder",
+          "timestamp": "2024-06-06T14:29:02+01:00",
+          "tree_id": "c6eef14f27681ba9d979e0e7302bbf9bc78c1eff",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/16deef6a83a9fe41e1f865e79e17c2f671604bb0"
+        },
+        "date": 1717681343241,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15475.903744999981,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10858.560201000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5541.68614000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5178.99044 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49941.29863300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49941301000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17152.521189,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17152521000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5119115830,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5119115830 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198537342,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198537342 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4271196975,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4271196975 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163992607,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163992607 ns\nthreads: 1"
           }
         ]
       }
