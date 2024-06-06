@@ -58,7 +58,7 @@ describe('benchmarks/tx_size_fees', () => {
   });
 
   it.each<[string, () => FeePaymentMethod | undefined, bigint]>([
-    ['no', () => undefined, /*200021120n*/],
+    ['no', () => undefined /*200021120n*/],
     [
       'native fee',
       () => new NativeFeePaymentMethod(aliceWallet.getAddress()),
@@ -85,7 +85,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
   ] as const)(
     'sends a tx with a fee with %s payment method',
-    async (_name, createPaymentMethod, /*expectedTransactionFee) => {
+    async (_name, createPaymentMethod /*expectedTransactionFee*/) => {
       const paymentMethod = createPaymentMethod();
       const gasSettings = GasSettings.default();
       const tx = await token.methods
