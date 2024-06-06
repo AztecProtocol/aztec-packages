@@ -51,19 +51,18 @@ contract KeyRegistry {
         let npk_m_y_registry = storage.npk_m_y_registry.at(address);
         let ivpk_m_x_registry = storage.ivpk_m_x_registry.at(address);
         let ivpk_m_y_registry = storage.ivpk_m_y_registry.at(address);
-        // let ovpk_m_x_registry = storage.ovpk_m_x_registry.at(address);
-        // let ovpk_m_y_registry = storage.ovpk_m_y_registry.at(address);
-        // let tpk_m_x_registry = storage.tpk_m_x_registry.at(address);
-        // let tpk_m_y_registry = storage.tpk_m_y_registry.at(address);
+        let ovpk_m_x_registry = storage.ovpk_m_x_registry.at(address);
+        let ovpk_m_y_registry = storage.ovpk_m_y_registry.at(address);
+        let tpk_m_x_registry = storage.tpk_m_x_registry.at(address);
+        let tpk_m_y_registry = storage.tpk_m_y_registry.at(address);
 
         npk_m_x_registry.schedule_value_change(keys.npk_m.x);
         npk_m_y_registry.schedule_value_change(keys.npk_m.y);
         ivpk_m_x_registry.schedule_value_change(keys.ivpk_m.x);
         ivpk_m_y_registry.schedule_value_change(keys.ivpk_m.y);
-        // Commented out as we hit the max enqueued public calls limit when not done so
-        // ovpk_m_x_registry.schedule_value_change(ovpk_m.x);
-        // ovpk_m_y_registry.schedule_value_change(ovpk_m.y);
-        // tpk_m_x_registry.schedule_value_change(tpk_m.x);
-        // tpk_m_y_registry.schedule_value_change(tpk_m.y);
+        ovpk_m_x_registry.schedule_value_change(keys.ovpk_m.x);
+        ovpk_m_y_registry.schedule_value_change(keys.ovpk_m.y);
+        tpk_m_x_registry.schedule_value_change(keys.tpk_m.x);
+        tpk_m_y_registry.schedule_value_change(keys.tpk_m.y);
     }
 }

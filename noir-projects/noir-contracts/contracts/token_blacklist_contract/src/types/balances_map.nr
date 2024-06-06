@@ -1,9 +1,7 @@
-use dep::aztec::prelude::{
-    AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateContext,
-    PrivateSet, Map
-};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map};
 use dep::aztec::{
-    hash::pedersen_hash, protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    context::{PrivateContext, UnconstrainedContext}, hash::pedersen_hash,
+    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{note_getter::view_notes, note_getter_options::SortOrder}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
@@ -25,7 +23,7 @@ impl<T, Context> BalancesMap<T, Context> {
     }
 }
 
-impl<T> BalancesMap<T, ()> {
+impl<T> BalancesMap<T, UnconstrainedContext> {
     unconstrained pub fn balance_of<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress
@@ -57,14 +55,16 @@ impl<T> BalancesMap<T, ()> {
     }
 }
 
-impl<T, Context> BalancesMap<T, &mut PrivateContext> {
+impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
+        outgoing_viewer: AztecAddress,
         owner: AztecAddress,
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
         let header = context.get_header();
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(context, owner);
 
         // We fetch the nullifier public key hash from the registry / from our PXE
@@ -72,7 +72,7 @@ impl<T, Context> BalancesMap<T, &mut PrivateContext> {
         let mut addend_note = T::new(addend, owner_npk_m_hash);
 
         // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true, owner_ivpk_m);
+        self.map.at(owner).insert(&mut addend_note, outgoing_viewer_ovpk_m, owner_ivpk_m);
         // docs:end:insert
     }
 
@@ -108,7 +108,7 @@ impl<T, Context> BalancesMap<T, &mut PrivateContext> {
         // without the == true, it includes 'minuend.ge(subtrahend)' as part of the error.
         assert(minuend >= subtrahend, "Balance too low");
 
-        self.add(owner, minuend - subtrahend);
+        self.add(owner, owner, minuend - subtrahend);
     }
 }
 

@@ -23,6 +23,7 @@ use crate::{
         function::{FunctionBody, Parameters},
         traits::TraitConstraint,
     },
+    hir_def::{expr::HirIdent, function::Parameters, traits::TraitConstraint},
     macros_api::{
         BlockExpression, Ident, NodeInterner, NoirFunction, NoirStruct, Pattern,
         SecondaryAttribute, StructId,
@@ -584,6 +585,10 @@ impl<'context> Elaborator<'context> {
 
         let mut trait_constraints = self.resolve_trait_constraints(&func.def.where_clause);
 
+        self.add_generics(&func.def.generics);
+
+        let mut trait_constraints = self.resolve_trait_constraints(&func.def.where_clause);
+
         let mut generics = vecmap(&self.generics, |(_, typevar, _)| typevar.clone());
         let mut parameters = Vec::new();
         let mut parameter_types = Vec::new();
@@ -801,6 +806,7 @@ impl<'context> Elaborator<'context> {
             self.push_err(DefCollectorErrorKind::MutableReferenceInTraitImpl { span });
         }
 
+        assert!(trait_impl.trait_id.is_some());
         if let Some(trait_id) = trait_impl.trait_id {
             self.generics = trait_impl.resolved_generics.clone();
             self.collect_trait_impl_methods(trait_id, trait_impl);

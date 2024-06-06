@@ -1,6 +1,10 @@
 import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  type ProtocolContractAddresses,
+} from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
@@ -8,6 +12,7 @@ import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type ExtendedNote } from '../notes/index.js';
 import { type NoteFilter } from '../notes/note_filter.js';
+import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
@@ -276,6 +281,11 @@ export interface PXE {
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
+   * Returns information about this PXE.
+   */
+  getPXEInfo(): Promise<PXEInfo>;
+
+  /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
    * @returns True if there are no outstanding blocks to be synched.
    * @remarks This indicates that blocks and transactions are synched even if notes are not. Compares local block number with the block number from aztec node.
@@ -301,6 +311,12 @@ export interface PXE {
    * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
    */
   getSyncStatus(): Promise<SyncStatus>;
+
+  /**
+   * Returns the note processor stats.
+   * @returns The note processor stats for notes for each public key being tracked.
+   */
+  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
 
   /**
    * Returns a Contact Instance given its address, which includes the contract class identifier,
@@ -335,3 +351,17 @@ export interface PXE {
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
 }
 // docs:end:pxe-interface
+
+/**
+ * Provides basic information about the running PXE.
+ */
+export interface PXEInfo {
+  /**
+   * Version as tracked in the aztec-packages repository.
+   */
+  pxeVersion: string;
+  /**
+   * Protocol contract addresses
+   */
+  protocolContractAddresses: ProtocolContractAddresses;
+}

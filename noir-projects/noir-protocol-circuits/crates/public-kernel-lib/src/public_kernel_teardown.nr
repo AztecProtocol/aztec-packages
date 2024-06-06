@@ -154,7 +154,7 @@ mod tests {
         public_data_update_request::PublicDataUpdateRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::silo_unencrypted_log,
+        contrakt::storage_read::StorageRead, hash::compute_siloed_unencrypted_log_hash,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
@@ -171,7 +171,7 @@ mod tests {
 
     impl PublicKernelTeardownCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
@@ -427,8 +427,8 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(
+        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
@@ -437,7 +437,7 @@ mod tests {
             builder.previous_kernel.unencrypted_logs_hashes.storage[0].log_hash, builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
         ];
         // silo the new log hash
-        expected_unencrypted_logs[1].value = silo_unencrypted_log(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
+        expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
         let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
 
@@ -548,23 +548,32 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn correctly_updates_revert_code() {
+    unconstrained fn correctly_updates_revert_code_0() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         let public_inputs = builder.execute();
         assert_eq(public_inputs.revert_code, 0);
+    }
 
+    #[test]
+    unconstrained fn correctly_updates_revert_code_1() {
         // Case where we carry forward a revert code from app logic
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.previous_kernel.revert_code = 1;
         let public_inputs = builder.execute();
         assert_eq(public_inputs.revert_code, 1);
+    }
 
+    #[test]
+    unconstrained fn correctly_updates_revert_code_2() {
         // Case where there is a new error in teardown
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 1;
         let public_inputs = builder.execute();
         assert_eq(public_inputs.revert_code, 2);
+    }
 
+    #[test]
+    unconstrained fn correctly_updates_revert_code_3() {
         // Case where there is an error in both app logic and teardown
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.previous_kernel.revert_code = 1;

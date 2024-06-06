@@ -90,7 +90,7 @@ mod tests {
         public_call_data::PublicCallData, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::silo_unencrypted_log,
+        contrakt::storage_read::StorageRead, hash::compute_siloed_unencrypted_log_hash,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
@@ -107,7 +107,7 @@ mod tests {
 
     impl PublicKernelSetupCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
@@ -371,7 +371,7 @@ mod tests {
 
         builder.stub_teardown_call();
         let non_revertible_call_stack = [
-            builder.previous_kernel.public_call_stack.get(0),
+            builder.previous_kernel.public_call_requests.get(0),
             storage[0], storage[1]
         ];
 
@@ -443,8 +443,8 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(
+        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
@@ -453,7 +453,7 @@ mod tests {
             builder.previous_kernel.unencrypted_logs_hashes.storage[0].log_hash, builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
         ];
         // silo the new log hash
-        expected_unencrypted_logs[1].value = silo_unencrypted_log(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
+        expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
         let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
 

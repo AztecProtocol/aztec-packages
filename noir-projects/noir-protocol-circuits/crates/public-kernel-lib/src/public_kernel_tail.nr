@@ -5,10 +5,14 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::{
-    accumulated_data::CombinedAccumulatedData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    public_kernel_data::PublicKernelData
+    accumulated_data::{CombinedAccumulatedData, CombineHints},
+    kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
+    public_data_update_request::PublicDataUpdateRequest, side_effect::Ordered
 },
-    constants::{MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
+    constants::{
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+},
     data::public_data_hint::PublicDataHint,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
     partial_state_reference::PartialStateReference, utils::{arrays::array_length}, address::AztecAddress
@@ -21,6 +25,7 @@ struct PublicKernelTailCircuitPrivateInputs {
     public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_HINTS],
     public_data_read_request_hints: PublicDataReadRequestHints,
     start_state: PartialStateReference,
+    combine_hints: CombineHints
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
@@ -46,10 +51,10 @@ impl PublicKernelTailCircuitPrivateInputs {
 
     fn propagate_accumulated_data(self) -> CombinedAccumulatedData {
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        // TODO: Sort the combined data.
         CombinedAccumulatedData::combine(
             previous_public_inputs.end_non_revertible,
-            previous_public_inputs.end
+            previous_public_inputs.end,
+            self.combine_hints
         )
     }
 
@@ -98,7 +103,9 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
-        nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage
+        nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage,
+        accumulated_data::{CombinedAccumulatedData, CombineHints},
+        public_data_update_request::PublicDataUpdateRequest, note_hash::NoteHash, log_hash::LogHash
     },
         address::AztecAddress,
         constants::{
@@ -108,11 +115,11 @@ mod tests {
         PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     },
-        hash::{silo_nullifier, sha256_to_field},
+        hash::{compute_siloed_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-        tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
-        traits::is_empty, partial_state_reference::PartialStateReference, utils::arrays::array_merge,
-        merkle_tree::MembershipWitness
+        tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree, sort::sort_get_sorted_hints},
+        traits::is_empty, partial_state_reference::PartialStateReference,
+        utils::arrays::{array_length, array_merge}, merkle_tree::MembershipWitness
     };
 
     fn build_nullifier_tree<N>() -> NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT> {
@@ -240,7 +247,7 @@ mod tests {
         pub fn read_non_existent_nullifier(&mut self, unsiloed_nullifier: Field) {
             self.previous_kernel.add_non_existent_read_request_for_nullifier(unsiloed_nullifier);
             self.sync_counters();
-            let siloed_nullifier = silo_nullifier(
+            let siloed_nullifier = compute_siloed_nullifier(
                 self.previous_kernel.storage_contract_address,
                 unsiloed_nullifier
             );
@@ -292,13 +299,58 @@ mod tests {
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
+            // Note: note hashes are a bit odd here: whereas we'd like to use `combined` and then
+            // sort the result, we cannot because we lose the side effect counters when we combine.
+            let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.new_note_hashes,
+                previous_kernel.public_inputs.end.new_note_hashes
+            );
+            let sorted = sort_get_sorted_hints(merged, |a: NoteHash, b: NoteHash| a.counter() < b.counter());
+            let sorted_note_hashes = sorted.sorted_array;
+            let sorted_note_hashes_indexes = sorted.sorted_index_hints;
+
+            let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.unencrypted_logs_hashes,
+                previous_kernel.public_inputs.end.unencrypted_logs_hashes
+            );
+            let sorted = sort_get_sorted_hints(merged, |a: LogHash, b: LogHash| a.counter() < b.counter());
+            let sorted_unencrypted_logs_hashes = sorted.sorted_array;
+            let sorted_unencrypted_logs_hashes_indexes = sorted.sorted_index_hints;
+
+            let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.public_data_update_requests,
+                previous_kernel.public_inputs.end.public_data_update_requests
+            );
+
+            let mut deduped_public_data_update_requests_runs = [0; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+            let mut sorted_public_data_update_requests_indexes = [0; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+            let array_length = array_length(merged);
+            for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+                if i < array_length {
+                    deduped_public_data_update_requests_runs[i] = 1;
+                }
+                sorted_public_data_update_requests_indexes[i] = i;
+            }
+
+            let combine_hints = CombineHints {
+                sorted_note_hashes,
+                sorted_note_hashes_indexes,
+                sorted_unencrypted_logs_hashes,
+                sorted_unencrypted_logs_hashes_indexes,
+                sorted_public_data_update_requests: merged,
+                sorted_public_data_update_requests_indexes,
+                deduped_public_data_update_requests: merged,
+                deduped_public_data_update_requests_runs
+            };
+
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
                 public_data_hints: self.public_data_hints.storage,
                 public_data_read_request_hints: self.public_data_read_request_hints_builder.to_hints(),
-                start_state: self.start_state
+                start_state: self.start_state,
+                combine_hints
             };
 
             kernel.public_kernel_tail()
@@ -328,15 +380,15 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_revertible.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_revertible.set_unencrypted_logs(
+        builder.previous_revertible.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_revertible.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
         // Logs for the current call stack.
         let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
-        builder.previous_revertible.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
+        builder.previous_revertible.add_unencrypted_log_hash(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         let public_inputs = builder.execute();
 

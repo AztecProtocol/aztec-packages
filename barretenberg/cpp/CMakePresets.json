@@ -71,7 +71,7 @@
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
       "inherits": "clang16",
-      "binaryDir": "build",
+      "binaryDir": "build-debug",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-gdwarf-4",
@@ -88,6 +88,7 @@
       "displayName": "Optimized debug build with Clang-16",
       "description": "Build with globally installed Clang-16 in optimized debug mode",
       "inherits": "clang16-dbg",
+      "binaryDir": "build-debug-fast",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-O2 -gdwarf",
@@ -96,7 +97,18 @@
       }
     },
     {
+      "name": "clang16-dbg-fast-circuit-check-traces",
+      "displayName": "Optimized debug build with Clang-16 with stack traces for failing circuit checks",
+      "description": "Build with globally installed Clang-16 in optimized debug mode with stack traces for failing circuit checks",
+      "inherits": "clang16-dbg-fast",
+      "binaryDir": "build-debug-fast-circuit-check-traces",
+      "cacheVariables": {
+        "CHECK_CIRCUIT_STACKTRACES": "ON"
+      }
+    },
+    {
       "name": "clang16-assert",
+      "binaryDir": "build-assert",
       "displayName": "Build with Clang-16 using RelWithAssert",
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "clang16",
@@ -404,6 +416,11 @@
       "configurePreset": "clang16-dbg-fast"
     },
     {
+      "name": "clang16-dbg-fast-circuit-check-traces",
+      "inherits": "clang16-dbg-fast",
+      "configurePreset": "clang16-dbg-fast-circuit-check-traces"
+    },
+    {
       "name": "clang16-assert",
       "inherits": "default",
       "configurePreset": "clang16-assert"
@@ -478,13 +495,7 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm",
-        "acvm_backend.wasm",
-        "barretenberg",
-        "wasi",
-        "env"
-      ]
+      "targets": ["barretenberg.wasm", "barretenberg", "wasi", "env"]
     },
     {
       "name": "wasm-dbg",

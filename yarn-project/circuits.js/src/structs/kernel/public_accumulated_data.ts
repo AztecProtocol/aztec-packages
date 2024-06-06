@@ -1,4 +1,5 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -27,42 +28,59 @@ export class PublicAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public newNoteHashes: Tuple<NoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public readonly newNoteHashes: Tuple<NoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public readonly newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public readonly newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted note logs hashes from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    public readonly noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     /**
      * Accumulated encrypted logs hashes from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public readonly encryptedLogsHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
      * Accumulated unencrypted logs hashes from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public readonly unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public readonly publicDataUpdateRequests: Tuple<
+      PublicDataUpdateRequest,
+      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    >,
     /**
      * Current public call stack.
      */
     public readonly publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     /** Gas used so far by the transaction. */
-    public gasUsed: Gas,
+    public readonly gasUsed: Gas,
   ) {}
+
+  getSize() {
+    return (
+      arraySerializedSizeOfNonEmpty(this.newNoteHashes) +
+      arraySerializedSizeOfNonEmpty(this.newNullifiers) +
+      arraySerializedSizeOfNonEmpty(this.newL2ToL1Msgs) +
+      arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.publicDataUpdateRequests) +
+      arraySerializedSizeOfNonEmpty(this.publicCallStack) +
+      this.gasUsed.toBuffer().length
+    );
+  }
 
   toBuffer() {
     return serializeToBuffer(
