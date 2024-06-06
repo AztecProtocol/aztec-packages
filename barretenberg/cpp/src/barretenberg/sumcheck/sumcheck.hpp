@@ -191,10 +191,19 @@ template <typename Flavor> class SumcheckProver {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
 
+        // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
+        // univariates that would be there if the input circuit size were 1<<Flavor::MAX_LOG_CIRCUIT_SIZE.
+        const size_t num_padding_univariates = Flavor::MAX_LOG_CIRCUIT_SIZE - multivariate_d;
+        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        for (size_t idx = 0; idx < num_padding_univariates; idx++) {
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+        }
+
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
-        transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+        transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(num_padding_univariates),
+                                     round_univariate);
         FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
@@ -202,11 +211,12 @@ template <typename Flavor> class SumcheckProver {
         round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                   // release memory?        // All but final round
                                                   // We operate on partially_evaluated_polynomials in place.
-        for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
+        for (size_t idx = num_padding_univariates + 1; idx < Flavor::MAX_LOG_CIRCUIT_SIZE; idx++) {
             // Write the round univariate to the transcript
+            const size_t round_idx = idx - num_padding_univariates;
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
@@ -386,20 +396,24 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
 
-        for (size_t round_idx = 0; round_idx < multivariate_d; round_idx++) {
+        const size_t num_padding_univariates = Flavor::MAX_LOG_CIRCUIT_SIZE - multivariate_d;
+        for (size_t round_idx = 0; round_idx < Flavor::MAX_LOG_CIRCUIT_SIZE; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
 
-            bool checked = round.check_sum(round_univariate);
-            verified = verified && checked;
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            multivariate_challenge.emplace_back(round_challenge);
+            // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
+            if (round_idx >= num_padding_univariates) {
+                bool checked = round.check_sum(round_univariate);
+                verified = verified && checked;
+                FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+                multivariate_challenge.emplace_back(round_challenge);
 
-            round.compute_next_target_sum(round_univariate, round_challenge);
-            pow_univariate.partially_evaluate(round_challenge);
+                round.compute_next_target_sum(round_univariate, round_challenge);
+                pow_univariate.partially_evaluate(round_challenge);
+            }
         }
 
         // Final round
