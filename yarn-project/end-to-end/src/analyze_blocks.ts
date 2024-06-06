@@ -18,10 +18,10 @@ export function analyzeBodies(bodies: Body[]) {
   const txEffects = bodies.flatMap(b => b.txEffects);
   console.log('Num tx effects: ', txEffects.length);
 
-  // key = {num_nullifiers}_[log_0_length-log1_length-...-log_n_length]_[log_0_value-log_1_value-...-log_n_value]...
+  // key = nullifiers:{num_nullifiers}_[log_0_length-log1_length-...-log_n_length]_[log_0_value-log_1_value-...-log_n_value]...
   const logLengths = new Map<string, number>();
-  for (const { noteEncryptedLogs, nullifiers } of txEffects) {
-    let key = `nullifiers:{${nullifiers.length}}-log_lengths:`;
+  for (const { noteEncryptedLogs, nullifiers, publicDataWrites } of txEffects) {
+    let key = `nullifiers:{${nullifiers.length}}-publicDataWrites:{${publicDataWrites.length}}-log_lengths:`;
     for (const functionLog of noteEncryptedLogs.functionLogs) {
       key += "["
       if (functionLog.logs.length === 0) {
