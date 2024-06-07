@@ -61,7 +61,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    info("Checking circuit");
     circuit_builder.check_circuit();
 
     auto composer = AvmComposer();
@@ -302,7 +301,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     // is determined by this value which require read access to the code below.
     uint32_t pc = 0;
     while ((pc = trace_builder.getPc()) < instructions.size()) {
-        info("PC is ", pc);
         auto inst = instructions.at(pc);
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
