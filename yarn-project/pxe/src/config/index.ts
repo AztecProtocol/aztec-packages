@@ -1,8 +1,8 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 /**
  * Temporary configuration until WASM can be used instead of native

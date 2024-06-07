@@ -22,6 +22,7 @@ import {
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
@@ -31,7 +32,6 @@ import { type WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,

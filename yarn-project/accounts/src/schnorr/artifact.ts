@@ -1,8 +1,8 @@
 import { type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 const artifactPath = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/SchnorrAccount.json');
 
