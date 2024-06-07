@@ -1,8 +1,8 @@
 use crate::{traits::Empty, hash::accumulate_sha256};
 // N = maximum leaves
 // For now we only care about the root
-struct VariableMerkleTree<N> {
-    leaves: [Field; N],
+struct VariableMerkleTree {
+    // leaves: [Field; N],
     root: Field,
 }
 
@@ -21,7 +21,7 @@ unconstrained fn get_height(input: u32, start: u8) -> u8 {
 // Since we cannot isolate branches, it doesn't cost fewer gates than using
 // MerkleTree on the full array of elements N, but is slightly cheaper on-chain
 // and cleaner elsewhere.
-impl<N> VariableMerkleTree<N> {
+impl<N> VariableMerkleTree {
     // Example - tx_0 with 3 msgs | tx_1 with 2 msgs creates:
     //               
     //        tx0oh           tx1oh
@@ -35,7 +35,7 @@ impl<N> VariableMerkleTree<N> {
         // Find size of tree required
         let height = get_height(num_non_empty_leaves, 0);
         let next_power_2 = 2 << height;
-        let prev_power_2 = if height == 0 { 1 } else { next_power_2 / 2 };
+        let prev_power_2 = next_power_2 / 2;
         // If we have no num_non_empty_leaves, we use a 'tree' of 2 leaves
         // TODO perhaps we just return 0 in this case?
         assert(
@@ -78,7 +78,7 @@ impl<N> VariableMerkleTree<N> {
             }
         }
 
-        VariableMerkleTree { leaves, root }
+        VariableMerkleTree { root }
     }
 
     fn get_root(self) -> Field {
