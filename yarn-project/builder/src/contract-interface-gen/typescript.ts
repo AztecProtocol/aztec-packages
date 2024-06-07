@@ -336,7 +336,6 @@ export function generateTypescriptContractInterface(input: ContractArtifact, art
 /* eslint-disable */
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 import {
   AztecAddress,
@@ -354,6 +353,7 @@ import {
   EthAddress,
   EthAddressLike,
   FieldLike,
+  fileURLToPath,
   Fr,
   EventSelector,
   FunctionSelector,
