@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -160,17 +161,13 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
     }
     Fq x;
     Fq y;
-
-    // for serialization: update with new fields
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-    MSGPACK_FIELDS(x, y);
 };
 
 template <typename B, typename Fq_, typename Fr_, typename Params>
 inline void read(B& it, group_elements::affine_element<Fq_, Fr_, Params>& element)
 {
     using serialize::read;
-    std::vector<uint8_t> buffer;
+    std::array<uint8_t, sizeof(element)> buffer;
     read(it, buffer);
     element = group_elements::affine_element<Fq_, Fr_, Params>::serialize_from_buffer(buffer.data());
 }
@@ -179,7 +176,7 @@ template <typename B, typename Fq_, typename Fr_, typename Params>
 inline void write(B& it, group_elements::affine_element<Fq_, Fr_, Params> const& element)
 {
     using serialize::write;
-    std::vector<uint8_t> buffer(64);
+    std::array<uint8_t, sizeof(element)> buffer;
     group_elements::affine_element<Fq_, Fr_, Params>::serialize_to_buffer(element, buffer.data());
     write(it, buffer);
 }

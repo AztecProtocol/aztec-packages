@@ -73,15 +73,17 @@ template <typename G1> class TestAffineElement : public testing::Test {
             affine_element P = affine_element(element::random_element());
             [[maybe_unused]] affine_element R;
 
-            std::vector<uint8_t> v(64);
+            std::vector<uint8_t> v(sizeof(R));
             uint8_t* ptr = v.data();
             write(ptr, P);
+            ASSERT_TRUE(P.on_curve());
 
             // // Reset to start?
             // ptr = v.data();
 
+            const uint8_t* read_ptr = v.data();
             // good read
-            read(ptr, R);
+            read(read_ptr, R);
             ASSERT_TRUE(R.on_curve());
             ASSERT_TRUE(P == R);
         }
@@ -129,17 +131,6 @@ template <typename G1> class TestAffineElement : public testing::Test {
 
         P.self_set_infinity();
         EXPECT_NE(P < Q, Q < P);
-    }
-
-    /**
-     * @brief Check that msgpack encoding is consistent with decoding
-     *
-     */
-    static void test_msgpack_roundtrip()
-    {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-        auto [actual, expected] = msgpack_roundtrip(affine_element{ 1, 1 });
-        EXPECT_EQ(actual, expected);
     }
 
     /**
@@ -197,11 +188,6 @@ TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
 TYPED_TEST(TestAffineElement, InfinityOrderingRegression)
 {
     TestFixture::test_infinity_ordering_regression();
-}
-
-TYPED_TEST(TestAffineElement, Msgpack)
-{
-    TestFixture::test_msgpack_roundtrip();
 }
 
 namespace bb::group_elements {
