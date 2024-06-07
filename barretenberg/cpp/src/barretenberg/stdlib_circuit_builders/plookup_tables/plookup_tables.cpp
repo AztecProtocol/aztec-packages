@@ -132,6 +132,23 @@ const MultiTable& create_table(const MultiTableId id)
     return MULTI_TABLES[id];
 }
 
+/**
+ * @brief Given a table ID and the key(s) for a key-value lookup, return the lookup accumulators
+ * @details In general the number of bits in key/value is greater than what can be efficiently supported in lookup
+ * tables. For this reason we actually perform lookups on the corresponding limbs. However, since we're interested in
+ * the full values and not the limbs, its convenient to structure the witnesses of lookup gates to store the former.
+ * This way we don't have to waste gates reaccumulating the limbs to compute the actual value of interest. The way to do
+ * this is to populate the wires with 'accumulator' values such that the first gate in the series contains the full
+ * accumulated values, and successive gates contain prior stages of the accumulator such that wire_i - r*wire_{i-1} =
+ * v_i, where r = num limb bits and v_i is a limb that explicitly appears in one of the lookup tables. See the detailed
+ * comment block below for more explanation.
+ *
+ * @param id
+ * @param key_a
+ * @param key_b
+ * @param is_2_to_1_lookup
+ * @return ReadData<bb::fr>
+ */
 ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
                                          const fr& key_a,
                                          const fr& key_b,
@@ -157,14 +174,14 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
         column_2_raw_values.emplace_back(is_2_to_1_lookup ? key_b_slices[i] : values[0]);
         column_3_raw_values.emplace_back(is_2_to_1_lookup ? values[0] : values[1]);
 
-        // Question: why are we storing the key slices twice?
-        const BasicTable::KeyEntry key_entry{ { key_a_slices[i], key_b_slices[i] }, values };
+        // Question: why are we storing the key slices twice? // WORKTODO: resolve question?
+        const BasicTable::LookupEntry key_entry{ { key_a_slices[i], key_b_slices[i] }, values };
         lookup.key_entries.emplace_back(key_entry);
     }
 
-    lookup[ColumnIdx::C1].resize(num_lookups);
-    lookup[ColumnIdx::C2].resize(num_lookups);
-    lookup[ColumnIdx::C3].resize(num_lookups);
+    lookup[C1].resize(num_lookups);
+    lookup[C2].resize(num_lookups);
+    lookup[C3].resize(num_lookups);
 
     /**
      * A multi-table consists of multiple basic tables (say L = 6).
@@ -178,8 +195,9 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
      *        s1      s2      s3      s4      s5      s6
      *
      * Note that different basic tables can be of different sizes. Every lookup query generates L output slices (one for
-     * each basic table, here, s1, s2, ..., s6). In other words, every lookup query add L lookup gates to the program.
-     * Let the input slices/keys be (a1, b1), (a2, b2), ..., (a6, b6). The lookup gate structure is as follows:
+     * each basic table, here, s1, s2, ..., s6). In other words, every lookup query adds L lookup gates to the program.
+     * For example, to look up the XOR of 32-bit inputs, we actually perform 6 individual lookups on the 6-bit XOR basic
+     * table. Let the input slices/keys be (a1, b1), (a2, b2), ..., (a6, b6). The lookup gate structure is as follows:
      *
      * +---+-----------------------------------+----------------------------------+-----------------------------------+
      * | s | key_a                             | key_b                            | output                            |
@@ -193,34 +211,25 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
      * +---+-----------------------------------+----------------------------------+-----------------------------------+
      *
      * Note that we compute the accumulating sums of the slices so as to avoid using additonal gates for the purpose of
-     * reconstructing inputs/outputs. Here, (p, q, r) are referred to as column coefficients/step sizes.
-     * In the next few lines, we compute these accumulating sums from raw column values (a1, ..., a6), (b1, ..., b6),
-     * (s1, ..., s6) and column coefficients (p, q, r).
+     * reconstructing the original inputs/outputs. I.e. the output value at the 0th index in the above table is the
+     * actual value we were interested in computing in the first place. Importantly, the structure of the remaining rows
+     * is such that row_i - r*row_{i+1} produces an entry {a_j, b_j, s_j} that exactly corresponds to an entry in a
+     * BasicTable. This is what gives rise to the wire_i - scalar*wire_i_shift structure in the lookup relation. Here,
+     * (p, q, r) are referred to as column coefficients/step sizes. In the next few lines, we compute these accumulating
+     * sums from raw column values (a1, ..., a6), (b1, ..., b6), (s1, ..., s6) and column coefficients (p, q, r).
      *
      * For more details: see
      * https://app.gitbook.com/o/-LgCgJ8TCO7eGlBr34fj/s/-MEwtqp3H6YhHUTQ_pVJ/plookup-gates-for-ultraplonk/lookup-table-structures
      *
      */
-    lookup[ColumnIdx::C1][num_lookups - 1] = column_1_raw_values[num_lookups - 1];
-    lookup[ColumnIdx::C2][num_lookups - 1] = column_2_raw_values[num_lookups - 1];
-    lookup[ColumnIdx::C3][num_lookups - 1] = column_3_raw_values[num_lookups - 1];
+    lookup[C1][num_lookups - 1] = column_1_raw_values[num_lookups - 1];
+    lookup[C2][num_lookups - 1] = column_2_raw_values[num_lookups - 1];
+    lookup[C3][num_lookups - 1] = column_3_raw_values[num_lookups - 1];
 
-    for (size_t i = 1; i < num_lookups; ++i) {
-        const auto& previous_1 = lookup[ColumnIdx::C1][num_lookups - i];
-        const auto& previous_2 = lookup[ColumnIdx::C2][num_lookups - i];
-        const auto& previous_3 = lookup[ColumnIdx::C3][num_lookups - i];
-
-        auto& current_1 = lookup[ColumnIdx::C1][num_lookups - 1 - i];
-        auto& current_2 = lookup[ColumnIdx::C2][num_lookups - 1 - i];
-        auto& current_3 = lookup[ColumnIdx::C3][num_lookups - 1 - i];
-
-        const auto& raw_1 = column_1_raw_values[num_lookups - 1 - i];
-        const auto& raw_2 = column_2_raw_values[num_lookups - 1 - i];
-        const auto& raw_3 = column_3_raw_values[num_lookups - 1 - i];
-
-        current_1 = raw_1 + previous_1 * multi_table.column_1_step_sizes[num_lookups - i];
-        current_2 = raw_2 + previous_2 * multi_table.column_2_step_sizes[num_lookups - i];
-        current_3 = raw_3 + previous_3 * multi_table.column_3_step_sizes[num_lookups - i];
+    for (size_t i = num_lookups - 1; i > 0; --i) {
+        lookup[C1][i - 1] = column_1_raw_values[i - 1] + lookup[C1][i] * multi_table.column_1_step_sizes[i];
+        lookup[C2][i - 1] = column_2_raw_values[i - 1] + lookup[C2][i] * multi_table.column_2_step_sizes[i];
+        lookup[C3][i - 1] = column_3_raw_values[i - 1] + lookup[C3][i] * multi_table.column_3_step_sizes[i];
     }
     return lookup;
 }
