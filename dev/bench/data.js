@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717752168355,
+  "lastUpdate": 1717752392305,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -28568,6 +28568,78 @@ window.BENCHMARK_DATA = {
             "value": 163463634,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163463634 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d35ee2ed87967a5161ef52d892856900a55de0b9",
+          "message": "fix: Fixing 0 naf (#6950)\n\nCreating a naf in biggroup for 0 was incorrect because of the\r\nintricasies of NAF construction. I change the uint to be equal to the\r\nmodulus in case of 0 and it worked",
+          "timestamp": "2024-06-07T10:11:50+01:00",
+          "tree_id": "3e9c2362d5c4b48fffd0c2543fedf9aa0f78cf04",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d35ee2ed87967a5161ef52d892856900a55de0b9"
+        },
+        "date": 1717752390598,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15367.211384,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10721.482647 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5587.284394000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5156.995212000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48092.49218099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48092494000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17192.480051,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17192479000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5162317656,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5162317656 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197876654,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197876654 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4272073792,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4272073792 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163751125,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163751125 ns\nthreads: 1"
           }
         ]
       }
