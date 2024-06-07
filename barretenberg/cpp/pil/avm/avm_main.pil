@@ -454,6 +454,9 @@ namespace avm_main(256);
     //       Note: External call gas cost is not constrained
     pol commit gas_cost_active;
     pol commit mem_op_activate_gas; // TODO: remove this one
+    // TODO: remove sload and sstore from here
+    // This temporarily disables gas tracking for sload and sstore because our gas
+    // tracking doesn't work properly for instructions that span multiple rows
     gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - sel_op_sload - sel_op_sstore - mem_op_activate_gas = 0;
 
     // Program counter must increment if not jumping or returning
