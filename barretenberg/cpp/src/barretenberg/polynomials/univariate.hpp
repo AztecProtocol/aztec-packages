@@ -510,19 +510,19 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     auto end() const { return evaluations.end(); }
 };
 
-// template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
-// inline void read(B& it, Univariate<Fr, domain_end, domain_start>& univariate)
-// {
-//     using serialize::read;
-//     read(it, univariate.evaluations);
-// }
+template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
+inline void read(B& it, Univariate<Fr, domain_end, domain_start>& univariate)
+{
+    using serialize::read;
+    read(it, univariate.evaluations);
+}
 
-// template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
-// inline void write(B& it, Univariate<Fr, domain_end, domain_start> const& univariate)
-// {
-//     using serialize::write;
-//     write(it, univariate.evaluations);
-// }
+template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
+inline void write(B& it, Univariate<Fr, domain_end, domain_start> const& univariate)
+{
+    using serialize::write;
+    write(it, univariate.evaluations);
+}
 
 template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0> class UnivariateView {
   public:
