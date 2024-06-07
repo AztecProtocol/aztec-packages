@@ -29,41 +29,10 @@ import { type CompiledCircuit, type InputMap, Noir } from '@noir-lang/noir_js';
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-import EmptyNestedJson from './target/empty_nested.json' assert { type: 'json' };
-import EmptyNestedSimulatedJson from './target/empty_nested_simulated.json' assert { type: 'json' };
-import BaseParityJson from './target/parity_base.json' assert { type: 'json' };
-import RootParityJson from './target/parity_root.json' assert { type: 'json' };
-import PrivateKernelEmptyJson from './target/private_kernel_empty.json' assert { type: 'json' };
-import PrivateKernelEmptySimulatedJson from './target/private_kernel_empty_simulated.json' assert { type: 'json' };
-import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
-import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
-import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
-import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
-import PrivateKernelResetJson from './target/private_kernel_reset.json' assert { type: 'json' };
-import PrivateKernelResetBigJson from './target/private_kernel_reset_big.json' assert { type: 'json' };
-import PrivateKernelResetMediumJson from './target/private_kernel_reset_medium.json' assert { type: 'json' };
-import PrivateKernelResetSimulatedJson from './target/private_kernel_reset_simulated.json' assert { type: 'json' };
-import PrivateKernelResetBigSimulatedJson from './target/private_kernel_reset_simulated_big.json' assert { type: 'json' };
-import PrivateKernelResetMediumSimulatedJson from './target/private_kernel_reset_simulated_medium.json' assert { type: 'json' };
-import PrivateKernelResetSmallSimulatedJson from './target/private_kernel_reset_simulated_small.json' assert { type: 'json' };
-import PrivateKernelResetSmallJson from './target/private_kernel_reset_small.json' assert { type: 'json' };
-import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
-import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
-import PrivateKernelTailToPublicJson from './target/private_kernel_tail_to_public.json' assert { type: 'json' };
-import PrivateKernelTailToPublicSimulatedJson from './target/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
-import PublicKernelAppLogicJson from './target/public_kernel_app_logic.json' assert { type: 'json' };
-import PublicKernelAppLogicSimulatedJson from './target/public_kernel_app_logic_simulated.json' assert { type: 'json' };
-import PublicKernelSetupJson from './target/public_kernel_setup.json' assert { type: 'json' };
-import PublicKernelSetupSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
-import PublicKernelTailJson from './target/public_kernel_tail.json' assert { type: 'json' };
-import PublicKernelTailSimulatedJson from './target/public_kernel_tail_simulated.json' assert { type: 'json' };
-import PublicKernelTeardownJson from './target/public_kernel_teardown.json' assert { type: 'json' };
-import PublicKernelTeardownSimulatedJson from './target/public_kernel_teardown_simulated.json' assert { type: 'json' };
-import BaseRollupJson from './target/rollup_base.json' assert { type: 'json' };
-import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
-import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' };
-import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
   mapBaseParityInputsToNoir,
@@ -105,6 +74,47 @@ import {
   PrivateKernelTailToPublic as executePrivateKernelTailToPublicWithACVM,
   PrivateKernelTail as executePrivateKernelTailWithACVM,
 } from './types/index.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function loadCircuit(name: string) {
+  const path = resolve(__dirname, `./target/${name}.json`);
+  return JSON.parse(readFileSync(path).toString());
+}
+
+const EmptyNestedJson = loadCircuit('empty_nested');
+const EmptyNestedSimulatedJson = loadCircuit('empty_nested_simulated');
+const BaseParityJson = loadCircuit('parity_base');
+const RootParityJson = loadCircuit('parity_root');
+const PrivateKernelEmptyJson = loadCircuit('private_kernel_empty');
+const PrivateKernelEmptySimulatedJson = loadCircuit('private_kernel_empty_simulated');
+const PrivateKernelInitJson = loadCircuit('private_kernel_init');
+const PrivateKernelInitSimulatedJson = loadCircuit('private_kernel_init_simulated');
+const PrivateKernelInnerJson = loadCircuit('private_kernel_inner');
+const PrivateKernelInnerSimulatedJson = loadCircuit('private_kernel_inner_simulated');
+const PrivateKernelResetJson = loadCircuit('private_kernel_reset');
+const PrivateKernelResetBigJson = loadCircuit('private_kernel_reset_big');
+const PrivateKernelResetMediumJson = loadCircuit('private_kernel_reset_medium');
+const PrivateKernelResetSimulatedJson = loadCircuit('private_kernel_reset_simulated');
+const PrivateKernelResetBigSimulatedJson = loadCircuit('private_kernel_reset_simulated_big');
+const PrivateKernelResetMediumSimulatedJson = loadCircuit('private_kernel_reset_simulated_medium');
+const PrivateKernelResetSmallSimulatedJson = loadCircuit('private_kernel_reset_simulated_small');
+const PrivateKernelResetSmallJson = loadCircuit('private_kernel_reset_small');
+const PrivateKernelTailJson = loadCircuit('private_kernel_tail');
+const PrivateKernelTailSimulatedJson = loadCircuit('private_kernel_tail_simulated');
+const PrivateKernelTailToPublicJson = loadCircuit('private_kernel_tail_to_public');
+const PrivateKernelTailToPublicSimulatedJson = loadCircuit('private_kernel_tail_to_public_simulated');
+const PublicKernelAppLogicJson = loadCircuit('public_kernel_app_logic');
+const PublicKernelAppLogicSimulatedJson = loadCircuit('public_kernel_app_logic_simulated');
+const PublicKernelSetupJson = loadCircuit('public_kernel_setup');
+const PublicKernelSetupSimulatedJson = loadCircuit('public_kernel_setup_simulated');
+const PublicKernelTailJson = loadCircuit('public_kernel_tail');
+const PublicKernelTailSimulatedJson = loadCircuit('public_kernel_tail_simulated');
+const PublicKernelTeardownJson = loadCircuit('public_kernel_teardown');
+const PublicKernelTeardownSimulatedJson = loadCircuit('public_kernel_teardown_simulated');
+const BaseRollupJson = loadCircuit('rollup_base');
+const BaseRollupSimulatedJson = loadCircuit('rollup_base_simulated');
+const MergeRollupJson = loadCircuit('rollup_merge');
+const RootRollupJson = loadCircuit('rollup_root');
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
