@@ -243,11 +243,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
+    logger.debug(`kernel Data proof: ${input.kernelData.proof}`);
     input.kernelData.proof = await this.ensureValidProof(
       input.kernelData.proof,
       'BaseRollupArtifact',
       input.kernelData.vk,
     );
+    logger.debug(`kernel Data proof after ensureValidProof: ${input.kernelData.proof}`);
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
@@ -639,7 +641,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+      const numPublicInputs = vk.numPublicInputs;
       const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
 
@@ -671,7 +673,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         encoding: 'utf-8',
       });
       const json = JSON.parse(proofString);
-      const fields = json.slice(numPublicInputs).map(Fr.fromString);
+      const fields = json
+        .slice(0, 3)
+        .map(Fr.fromString)
+        .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
       return new RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
         fields,
         new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
@@ -745,13 +750,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     ]);
     const json = JSON.parse(proofString);
     const vkData = await this.verificationKeys.get(circuitType);
+    logger.debug(`vkData: 9999900000000000000000000000000000000 ${vkData}`);
     if (!vkData) {
       throw new Error(`Invalid verification key for ${circuitType}`);
     }
-    const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
-      ? vkData.numPublicInputs
-      : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromString);
+    const numPublicInputs = vkData.numPublicInputs;
+    const fieldsWithoutPublicInputs = json
+      .slice(0, 3)
+      .map(Fr.fromString)
+      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+    logger.debug(
+      `num pub inputs ${vkData.numPublicInputs} and without aggregation ${CIRCUITS_WITHOUT_AGGREGATION.has(
+        circuitType,
+      )}`,
+    );
     logger.debug(
       `Circuit type: ${circuitType}, complete proof length: ${json.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

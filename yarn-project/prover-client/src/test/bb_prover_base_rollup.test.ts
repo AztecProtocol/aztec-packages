@@ -45,6 +45,7 @@ describe('prover/bb_prover/base-rollup', () => {
       paddingTxPublicInputsAndProof.verificationKey,
     );
     logger.verbose('Proving base rollups');
+    logger.debug(`proof: ${baseRollupInputs.kernelData.proof}`);
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
     await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();

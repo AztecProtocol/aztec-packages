@@ -279,6 +279,7 @@ export class BBNativeProofCreator implements ProofCreator {
       Buffer.from(compiledCircuit.bytecode, 'base64'),
       circuitType,
     );
+    this.log.debug(`proof length: ${proofOutput.proof.proof.length}`);
     if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
       throw new Error(`Incorrect proof length`);
     }
@@ -386,8 +387,9 @@ export class BBNativeProofCreator implements ProofCreator {
     ]);
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
-    const numPublicInputs =
-      circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    const numPublicInputs = vkData.numPublicInputs;
+    // const numPublicInputs =
+    //   circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.debug(
       `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
