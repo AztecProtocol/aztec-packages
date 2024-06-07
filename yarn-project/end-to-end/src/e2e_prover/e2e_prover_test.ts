@@ -36,6 +36,7 @@ import {
 import { setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
+process.env.AVM_PROVING_STRICT = '1';
 const { E2E_DATA_PATH: dataPath } = process.env;
 
 const SALT = 1;
