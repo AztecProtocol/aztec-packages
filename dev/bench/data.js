@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717787573698,
+  "lastUpdate": 1717787620685,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -31040,6 +31040,78 @@ window.BENCHMARK_DATA = {
             "value": 163142288,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163142288 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c6cbe39eed23dc845aef898e937e99de43f71675",
+          "message": "feat: affine_element read/write with proper handling of point at infinity (#6963)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.\r\n\r\n---------\r\n\r\nCo-authored-by: codygunton <codygunton@gmail.com>\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>\r\nCo-authored-by: ludamad <domuradical@gmail.com>",
+          "timestamp": "2024-06-07T15:01:46-04:00",
+          "tree_id": "5768c20ca7382255465941a68ae8d58a9492208d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c6cbe39eed23dc845aef898e937e99de43f71675"
+        },
+        "date": 1717787618938,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15415.686615999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10800.758832 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5502.720539999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5129.021595 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49199.991032,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49199993000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16923.587474999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16923587000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5176032233,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5176032233 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199496564,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199496564 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4284055731,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4284055731 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163757838,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163757838 ns\nthreads: 1"
           }
         ]
       }
