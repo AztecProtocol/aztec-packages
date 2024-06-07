@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717764393826,
+  "lastUpdate": 1717764397563,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -29880,6 +29880,74 @@ window.BENCHMARK_DATA = {
             "value": 165831345,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165831345 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "843013f899ef8c5aa4626d4651b4e2dcf9cabbea",
+          "message": "Fix on ALU pil relation TWO_LINE_OP_NO_OVERLAP",
+          "timestamp": "2024-06-07T11:57:38Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6968/commits/843013f899ef8c5aa4626d4651b4e2dcf9cabbea"
+        },
+        "date": 1717764395727,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15428.967481999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10787.443572 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5498.779812999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5106.852641 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49146.48744399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49146489000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17051.523093,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17051524000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5165990753,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5165990753 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216188175,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216188175 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4274055790,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4274055790 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165871713,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165871713 ns\nthreads: 1"
           }
         ]
       }
