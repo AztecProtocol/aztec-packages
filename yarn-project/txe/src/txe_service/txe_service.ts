@@ -82,8 +82,10 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  setContractAddress(address = AztecAddress.random()) {
-    this.contractAddress = address;
+  setContractAddress(address: ForeignCallSingle) {
+    const typedAddress = AztecAddress.fromField(fromSingle(address));
+    this.contractAddress = typedAddress;
+    (this.typedOracle as TXE).setContractAddress(typedAddress);
     return toForeignCallResult([]);
   }
 
@@ -105,8 +107,10 @@ export class TXEService {
 
   async reset() {
     this.blockNumber = 0;
+    this.contractAddress = AztecAddress.random();
     this.store = openTmpStore(true);
     this.trees = await MerkleTrees.new(this.store, this.logger);
+
     this.typedOracle = new TXE(
       this.logger,
       this.trees,
@@ -221,6 +225,7 @@ export class TXEService {
     }
 
     const contractAddress = noteDatas[0]?.contractAddress ?? Fr.ZERO;
+    console.log(`injected header: ${contractAddress}`);
 
     // Values indicates whether the note is settled or transient.
     const noteTypes = {
@@ -257,7 +262,7 @@ export class TXEService {
       fromSingle(innerNoteHash),
       fromSingle(counter).toNumber(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(new Fr(0))]);
   }
 
   async notifyNullifiedNote(
@@ -270,7 +275,7 @@ export class TXEService {
       fromSingle(innerNoteHash),
       fromSingle(counter).toNumber(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(new Fr(0))]);
   }
 
   async checkNullifierExists(innerNullifier: ForeignCallSingle) {

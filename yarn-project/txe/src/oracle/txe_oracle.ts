@@ -48,6 +48,10 @@ export class TXE implements TypedOracle {
     this.noteCache = noteCache;
   }
 
+  setContractAddress(contractAddress: AztecAddress) {
+    this.contractAddress = contractAddress;
+  }
+
   getRandomField() {
     return Fr.random();
   }
@@ -144,6 +148,7 @@ export class TXE implements TypedOracle {
     _status: NoteStatus,
   ) {
     // Nullified pending notes are already removed from the list.
+    console.log(`fecthing notes for ${this.contractAddress}`);
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
     // const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
