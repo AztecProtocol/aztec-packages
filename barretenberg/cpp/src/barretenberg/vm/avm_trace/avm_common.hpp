@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
@@ -167,6 +168,11 @@ struct ExecutionHints {
         std::map<FF, ContractInstanceHint> contract_instance_hints;
         for (const auto& instance : contract_instance_hints_vec) {
             contract_instance_hints[instance.address] = instance;
+        }
+
+        if (it != data.data() + data.size()) {
+            throw_or_abort("Failed to deserialize ExecutionHints: only read" + std::to_string(it - data.data()) +
+                           " bytes out of " + std::to_string(data.size()) + " bytes");
         }
 
         return { std::move(storage_value_hints),    std::move(note_hash_exists_hints),
