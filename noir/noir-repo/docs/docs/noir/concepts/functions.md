@@ -192,7 +192,7 @@ A few supported attributes include:
 - **oracle**: mark the function as _oracle_; meaning it is an external unconstrained function, implemented in noir_js. See [Unconstrained](./unconstrained.md) and [NoirJS](../../reference/NoirJS/noir_js/index.md) for more details.
 - **test**: mark the function as unit tests. See [Tests](../../tooling/testing.md) for more details
 
-See the Noir compiler for the full list of supported attributes [here](https://github.com/noir-lang/noir/blob/master/compiler/noirc_frontend/src/lexer/token.rs#L631) (the `attribute` match inside the `Attribute` implementation).
+See the Noir compiler for the full list of supported attributes [here](https://github.com/noir-lang/noir/blob/master/compiler/noirc_frontend/src/lexer/token.rs) (inside `let attribute = match &word_segments[..]` at the time of writing).
 
 ### Field Attribute
 
