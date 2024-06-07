@@ -1,3 +1,4 @@
+import { type ContractInstanceStore } from '@aztec/archiver';
 import {
   MerkleTreeId,
   Note,
@@ -8,7 +9,7 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type CompleteAddress,
+  CompleteAddress,
   type Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -42,6 +43,7 @@ export class TXE implements TypedOracle {
     private trees: MerkleTrees,
     private packedValuesCache: PackedValuesCache,
     private noteCache: ExecutionNoteCache,
+    private contractInstanceStore: ContractInstanceStore,
     private contractAddress: AztecAddress,
   ) {
     this.packedValuesCache = packedValuesCache;
@@ -68,8 +70,12 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
-    throw new Error('Method not implemented.');
+  getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    const contractInstance = this.contractInstanceStore.getContractInstance(address);
+    if (!contractInstance) {
+      throw new Error(`Contract instance not found for address ${address}`);
+    }
+    return Promise.resolve(contractInstance);
   }
 
   getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
@@ -115,8 +121,8 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
-    throw new Error('Method not implemented.');
+  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+    return Promise.resolve(CompleteAddress.fromSecretKeyAndPartialAddress(Fr.ZERO, account));
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {

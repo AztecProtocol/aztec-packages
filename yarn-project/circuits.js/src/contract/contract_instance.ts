@@ -27,7 +27,6 @@ export function getContractInstanceFromDeployParams(
   const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
-
   const contractClass = getContractClassFromArtifact(artifact);
   const contractClassId = computeContractClassId(contractClass);
   const initializationHash = computeInitializationHash(constructorArtifact, args);

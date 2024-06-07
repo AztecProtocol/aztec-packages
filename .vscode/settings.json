@@ -167,5 +167,5 @@
     "**/barretenberg/cpp/build*/**": true
   },
   "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
-  "noir.nargoPath": "./noir/noir-repo/target/release/nargo"
+  "noir.nargoPath": "/mnt/user-data/grego/.nargo/bin/nargo"
 }

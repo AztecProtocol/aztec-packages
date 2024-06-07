@@ -37,4 +37,25 @@ contract Counter {
         balance_utils::get_balance(counters.at(owner).set)
     }
     // docs:end:get_counter
+
+    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    use dep::aztec::oracle::{storage::{storage_read, storage_write}};
+    use dep::aztec::keys::PublicKeys;
+    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
+    use dep::aztec::protocol_types::address::PartialAddress;
+
+    #[test]
+    fn test_initialize() {
+        let mut env = TestEnvironment::new();
+        let owner = env.get_address_with_keys(AztecAddress::from_field(13));
+        let outgoing_viewer = env.get_address_with_keys(AztecAddress::from_field(14));
+        cheatcodes::advance_blocks(30);
+        let initializer = Counter::interface().initialize(5, owner, outgoing_viewer);
+        let _contract_address = cheatcodes::deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer, 30);
+        let counter_slot = Counter::storage().counters.slot;
+        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
+        let stored: [Field; 1] = storage_read(owner_slot);
+        assert(stored[0] == 5);
+    }
 }

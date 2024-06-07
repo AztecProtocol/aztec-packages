@@ -160,7 +160,7 @@ fn transform_module(
         // Apply transformations to the function based on collected attributes
         if is_private || is_public {
             let fn_type = if is_private { "Private" } else { "Public" };
-            let stub_src = stub_function(fn_type, func, is_static);
+            let stub_src = stub_function(fn_type, func, is_static, is_initializer);
             stubs.push((stub_src, Location { file: *file_id, span: func.name_ident().span() }));
 
             export_fn_abi(&mut module.types, func)?;
