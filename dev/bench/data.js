@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717754228718,
+  "lastUpdate": 1717755513863,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -28848,6 +28848,78 @@ window.BENCHMARK_DATA = {
             "value": 164410389,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164410389 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "db49ed57d1d4165ce47e6af01b6fd67239121aa4",
+          "message": "feat: contract storage reads serialize with side effect counter (#6961)",
+          "timestamp": "2024-06-07T06:02:37-04:00",
+          "tree_id": "5650f433127ae861e16d9e5f71451a48a4f8a201",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/db49ed57d1d4165ce47e6af01b6fd67239121aa4"
+        },
+        "date": 1717755512480,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15409.975885000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10695.38161 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5497.855282000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5110.107924000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48991.92181199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48991924000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17056.140169,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17056141000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5138241644,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5138241644 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197959246,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197959246 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4276730655,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4276730655 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163262231,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163262231 ns\nthreads: 1"
           }
         ]
       }
