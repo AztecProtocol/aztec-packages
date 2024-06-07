@@ -7,7 +7,7 @@ use dep::types::{
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
-    utils::uint256::U256,
+    utils::{uint256::U256, arrays::array_length},
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
     public_data_update_request::PublicDataUpdateRequest
@@ -90,18 +90,7 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
 }
 
 pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> Field {
-    // TODO: reinstate below when we sort l2_to_l2_msgs in the tail
-    // let non_empty_items = array_length(combined.new_l2_to_l1_msgs);
-    let mut non_empty_items = 0;
-    let mut found_non_empty = false;
-    for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
-        // Working backwards, we find the last non-empty, and assume the rest are messages
-        let j = MAX_NEW_L2_TO_L1_MSGS_PER_TX - i;
-        if (combined.new_l2_to_l1_msgs[j - 1] != 0) & (!found_non_empty) {
-            non_empty_items = j;
-            found_non_empty = true;
-        }
-    }
+    let non_empty_items = array_length(combined.new_l2_to_l1_msgs);
     let merkle_tree = VariableMerkleTree::new_sha(combined.new_l2_to_l1_msgs, non_empty_items);
     merkle_tree.get_root()
 }

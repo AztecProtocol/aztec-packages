@@ -1075,7 +1075,9 @@ mod tests {
     #[test]
     unconstrained fn nonempty_block_out_hash() {
         let mut end = CombinedAccumulatedData::empty();
-        end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
+        for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
+            end.new_l2_to_l1_msgs[i] = 10 + i as Field;
+        }
 
         let out_hash = compute_kernel_out_hash(end);
         // Since we fill the tree completely, we know to expect a full tree as below

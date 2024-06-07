@@ -487,6 +487,7 @@ export class AztecNodeService implements AztecNode {
    * @remarks This tree is considered ephemeral because it is created on-demand by: taking all the l2ToL1 messages
    * in a single block, and then using them to make a variable depth append-only tree with these messages as leaves.
    * The tree is discarded immediately after calculating what we need from it.
+   * TODO: Handle the case where two messages in the same tx have the same hash.
    * @param blockNumber - The block number at which to get the data.
    * @param l2ToL1Message - The l2ToL1Message get the index / sibling path for.
    * @returns A tuple of the index and the sibling path of the L2ToL1Message.
@@ -502,16 +503,22 @@ export class AztecNodeService implements AztecNode {
     }
 
     const l2ToL1Messages = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-    let indexOfMsgTx = -1;
+
+    // Find index of message
     let indexOfMsgInSubtree = -1;
+    const indexOfMsgTx = l2ToL1Messages.findIndex(msgs => {
+      const idx = msgs.findIndex(msg => msg.equals(l2ToL1Message));
+      indexOfMsgInSubtree = Math.max(indexOfMsgInSubtree, idx);
+      return idx !== -1;
+    });
+
+    if (indexOfMsgTx === -1) {
+      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
+    }
 
     // Construct message subtrees
     const l2toL1Subtrees = await Promise.all(
       l2ToL1Messages.map(async (msgs, i) => {
-        if (msgs.find(msg => msg.equals(l2ToL1Message))) {
-          indexOfMsgInSubtree = msgs.findIndex(msg => msg.equals(l2ToL1Message));
-          indexOfMsgTx = i;
-        }
         const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
         const tree = new StandardTree(
           openTmpStore(true),
@@ -526,9 +533,6 @@ export class AztecNodeService implements AztecNode {
       }),
     );
 
-    if (indexOfMsgTx === -1) {
-      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
-    }
     // path of the input msg from leaf -> first out hash calculated in base rolllup
     const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
       BigInt(indexOfMsgInSubtree),
@@ -554,14 +558,13 @@ export class AztecNodeService implements AztecNode {
     );
     await outHashTree.appendLeaves(paddedl2toL1SubtreeRoots);
 
-    const pathOfTxinOutHashTree = await outHashTree.getSiblingPath(BigInt(indexOfMsgTx), true);
+    const pathOfTxInOutHashTree = await outHashTree.getSiblingPath(BigInt(indexOfMsgTx), true);
     // Append subtree path to out hash tree path
-    const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxinOutHashTree.toBufferArray());
+    const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxInOutHashTree.toBufferArray());
     // Append binary index of subtree path to binary index of out hash tree path
     const mergedIndex = parseInt(
       indexOfMsgTx
         .toString(2)
-        .padStart(outHashTree.getDepth(), '0')
         .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
       2,
     );

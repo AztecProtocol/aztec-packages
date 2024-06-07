@@ -5,6 +5,7 @@ pragma solidity >=0.8.18;
 // Libraries
 import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
+import {Constants} from "../libraries/ConstantsGen.sol";
 import {MerkleLib} from "../libraries/MerkleLib.sol";
 import {Hash} from "../libraries/Hash.sol";
 import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
@@ -109,8 +110,9 @@ contract Outbox is IOutbox {
 
     // Max height = height of rollup layers + 4
     // The max num of messages (16) will require a subtree of height 4
-    if (treeHeight + 4 < _path.length) {
-      revert Errors.Outbox__InvalidPathLength(treeHeight, _path.length);
+    uint256 maxSubtreeHeight = calculateTreeHeightFromSize(Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX);
+    if (treeHeight + maxSubtreeHeight < _path.length) {
+      revert Errors.Outbox__InvalidPathLength(treeHeight + maxSubtreeHeight, _path.length);
     }
 
     bytes32 messageHash = _message.sha256ToField();
@@ -135,5 +137,23 @@ contract Outbox is IOutbox {
     returns (bool)
   {
     return roots[_l2BlockNumber].nullified[_leafIndex];
+  }
+
+  /**
+   * @notice Calculates a tree height from the amount of elements in the tree
+   * @dev - This mirrors the function in TestUtil, but assumes _size is an exact power of 2
+   * @param _size - The number of elements in the tree
+   */
+  function calculateTreeHeightFromSize(uint256 _size) internal pure returns (uint256) {
+    /// We need the height of the tree that will contain all of our leaves,
+    /// hence the next highest power of two from the amount of leaves - Math.ceil(Math.log2(x))
+    uint256 height = 0;
+
+    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of calculating Math.Floor(Math.log2(x))
+    while (_size > 1) {
+      _size >>= 1;
+      height++;
+    }
+    return height;
   }
 }
