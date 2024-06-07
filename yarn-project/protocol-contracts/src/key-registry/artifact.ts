@@ -1,6 +1,12 @@
 import { loadContractArtifact } from '@aztec/types/abi';
 import { type NoirCompiledContract } from '@aztec/types/noir';
 
-import KeyRegistryJson from '../artifacts/KeyRegistry.json' assert { type: 'json' };
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-export const KeyRegistryArtifact = loadContractArtifact(KeyRegistryJson as NoirCompiledContract);
+const artifactPath = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/KeyRegistry.json');
+
+export const KeyRegistryArtifact = loadContractArtifact(
+  JSON.parse(readFileSync(artifactPath, 'utf-8').toString()) as NoirCompiledContract,
+);

@@ -1,5 +1,11 @@
 import { type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js';
 
-import SchnorrAccountContractJson from '../artifacts/SchnorrAccount.json' assert { type: 'json' };
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-export const SchnorrAccountContractArtifact = loadContractArtifact(SchnorrAccountContractJson as NoirCompiledContract);
+const artifactPath = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/SchnorrAccount.json');
+
+export const SchnorrAccountContractArtifact = loadContractArtifact(
+  JSON.parse(readFileSync(artifactPath, 'utf-8').toString()) as NoirCompiledContract,
+);

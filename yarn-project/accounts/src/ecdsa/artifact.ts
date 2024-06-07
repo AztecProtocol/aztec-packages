@@ -1,5 +1,11 @@
 import { type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js';
 
-import EcdsaAccountContractJson from '../artifacts/EcdsaAccount.json' assert { type: 'json' };
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-export const EcdsaAccountContractArtifact = loadContractArtifact(EcdsaAccountContractJson as NoirCompiledContract);
+const artifactPath = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/EcdsaAccount.json');
+
+export const EcdsaAccountContractArtifact = loadContractArtifact(
+  JSON.parse(readFileSync(artifactPath, 'utf-8').toString()) as NoirCompiledContract,
+);
