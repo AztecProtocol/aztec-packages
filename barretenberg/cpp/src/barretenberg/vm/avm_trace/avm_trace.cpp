@@ -1596,7 +1596,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         .avm_main_mem_idx_b = FF(slot_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
-        .avm_main_pc = pc, // Use previous PC so that when we actually activate the selector below, it can use pc
+        .avm_main_pc = pc, // No PC increment here since this is the same opcode as the rows created below
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
     });
@@ -1665,7 +1665,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         .avm_main_mem_idx_b = FF(slot_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
-        .avm_main_pc = pc, // Use previous PC so that when we actually activate the selector below, it can use pc
+        .avm_main_pc = pc, // No PC increment here since this is the same opcode as the rows created below
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
     });
@@ -4103,7 +4103,6 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         curr.avm_main_sel_op_emit_l2_to_l1_msg = static_cast<uint32_t>(src.op_emit_l2_to_l1_msg);
         curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
         curr.avm_main_sel_op_sstore = static_cast<uint32_t>(src.op_sstore);
-        // curr.avm_kernel_side_effect_counter = src.side_effect_counter;
 
         if (clk < main_trace_size) {
             Row& next = main_trace.at(clk + 1);
