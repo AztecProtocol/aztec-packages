@@ -1390,16 +1390,19 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
     bool tag_match = true;
     uint32_t direct_data_offset = data_offset;
     uint32_t direct_metadata_offset = metadata_offset;
-    if (indirect) {
+    if (indirect_a_flag) {
         auto read_a_ind_dst =
             mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, data_offset);
+        direct_data_offset = static_cast<uint32_t>(read_a_ind_dst.val);
+
+        tag_match = tag_match && read_a_ind_dst.tag_match;
+    }
+    if (indirect_b_flag) {
         auto read_b_ind_dst = mem_trace_builder.indirect_read_and_load_from_memory(
             call_ptr, clk, IndirectRegister::IND_B, metadata_offset);
+        direct_metadata_offset = static_cast<uint32_t>(read_b_ind_dst.val);
 
-        direct_data_offset = uint32_t(read_a_ind_dst.val);
-        direct_metadata_offset = uint32_t(read_b_ind_dst.val);
-
-        tag_match = tag_match && read_a_ind_dst.tag_match && read_b_ind_dst.tag_match;
+        tag_match = tag_match && read_b_ind_dst.tag_match;
     }
 
     AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
@@ -1444,16 +1447,20 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
     bool tag_match = true;
     uint32_t direct_data_offset = data_offset;
     uint32_t direct_metadata_offset = metadata_offset;
-    if (indirect) {
+    if (indirect_a_flag) {
         auto read_a_ind_dst =
             mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, data_offset);
+        direct_data_offset = uint32_t(read_a_ind_dst.val);
+
+        tag_match = tag_match && read_a_ind_dst.tag_match;
+    }
+
+    if (indirect_b_flag) {
         auto read_b_ind_dst = mem_trace_builder.indirect_read_and_load_from_memory(
             call_ptr, clk, IndirectRegister::IND_B, metadata_offset);
-
-        direct_data_offset = uint32_t(read_a_ind_dst.val);
         direct_metadata_offset = uint32_t(read_b_ind_dst.val);
 
-        tag_match = tag_match && read_a_ind_dst.tag_match && read_b_ind_dst.tag_match;
+        tag_match = tag_match && read_b_ind_dst.tag_match;
     }
 
     AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
