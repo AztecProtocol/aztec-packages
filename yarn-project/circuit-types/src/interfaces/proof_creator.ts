@@ -103,6 +103,8 @@ export interface ProofCreator {
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>>;
 
+  createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>>;
+
   /**
    * Creates a proof for an app circuit.
    *

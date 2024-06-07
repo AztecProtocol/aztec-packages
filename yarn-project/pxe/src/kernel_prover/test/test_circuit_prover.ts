@@ -23,12 +23,18 @@ import {
   executeTail,
   executeTailForPublic,
 } from '@aztec/noir-protocol-circuits-types';
+import { type WitnessMap } from '@noir-lang/types';
 
 /**
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
 export class TestProofCreator implements ProofCreator {
-  constructor(private log = createDebugLogger('aztec:test_proof_creator')) {}
+  constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
+
+  // LONDONTODO not doing this for offsite
+  createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    throw new Error('Method not implemented.');
+  }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const contractAddress = publicInputs.callContext.storageContractAddress;

@@ -32,8 +32,6 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { ClientCircuitArtifacts, PrivateResetTagToArtifactName } from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 import { type WitnessMap } from '@noir-lang/types';
-import { encode } from "@msgpack/msgpack";
-import * as fs from 'fs';
 
 import {
   buildPrivateKernelInitHints,
@@ -42,7 +40,6 @@ import {
   buildPrivateKernelTailHints,
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
-import { serializeWitness } from '@noir-lang/noirc_abi';
 
 /**
  * The KernelProver class is responsible for generating kernel proofs.
@@ -55,11 +52,6 @@ export class KernelProver {
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) { }
 
-  private saveProgramStackAsMsgpack(acirs: Buffer[], witnessStack: WitnessMap[]) {
-    // LONDONTODO hack for now
-    fs.writeFileSync("/mnt/user-data/adam/acir.msgpack", encode(acirs));
-    fs.writeFileSync("/mnt/user-data/adam/witnesses.msgpack", encode(witnessStack.map((map) => serializeWitness(map))));
-  }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -190,11 +182,12 @@ export class KernelProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     // LONDONTODO this will instead become part of our stack of programs
+    // LONDONTODO createProofTail won't be called in the future - this is redundantly proving
     const tailOutput = await this.proofCreator.createProofTail(privateInputs);
     acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
-    this.saveProgramStackAsMsgpack(acirs, witnessStack);
-    return tailOutput;
+
+    return await this.proofCreator.createClientIvcProof(acirs, witnessStack);
   }
 
   private needsReset(executionStack: ExecutionResult[], output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {

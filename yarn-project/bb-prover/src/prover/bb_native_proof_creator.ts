@@ -38,10 +38,10 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { WASMSimulator } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
-
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
+import { encode } from "@msgpack/msgpack";
 
 import {
   BB_RESULT,
@@ -50,9 +50,11 @@ import {
   generateKeyForNoirCircuit,
   generateProof,
   verifyProof,
+  executeBbClientIvcProof,
 } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+import path from 'path';
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -66,13 +68,57 @@ export class BBNativeProofCreator implements ProofCreator {
     Promise<VerificationKeyData>
   >();
 
-  // private stackForFolding: StackForFolding = new this.stackForFolding;
-
   constructor(
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private log = createDebugLogger('aztec:bb-native-prover'),
-  ) {}
+  ) { }
+
+  private async createIvcProof(
+    directory: string,
+    acirs: Buffer[],
+    witnessStack: WitnessMap[],
+  ): Promise<{
+    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+    verificationKey: VerificationKeyAsFields;
+  }> {
+    await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
+    await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
+    const provingResult = await executeBbClientIvcProof(
+      this.bbBinaryPath,
+      directory,
+      path.join(directory, "acir.msgpack"),
+      path.join(directory, "witnesses.msgpack"),
+      this.log.debug
+    );
+
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      this.log.error(`Failed to generate client ivc proof`);
+      throw new Error(provingResult.reason);
+    }
+
+    // LONDONTODO do we cache this?
+    const vkData = await extractVkData(directory);
+    // LONDONTODO we pass App but this is a total hack
+    const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, 'App', vkData);
+
+    this.log.debug(`Generated proof`, {
+      duration: provingResult.duration,
+      eventName: 'circuit-proving',
+      circuitSize: vkData.circuitSize,
+      numPublicInputs: vkData.numPublicInputs,
+    } as CircuitProvingStats);
+
+    return { proof, verificationKey: vkData.keyAsFields };
+  }
+
+  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const operation = async (directory: string) => {
+      return await this.createIvcProof(directory, acirs, witnessStack);
+    };
+    const x = await runInDirectory(this.bbWorkingDirectory, operation);
+    return { ...x, publicInputs: {} as any, outputWitness: new Map() };
+  }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const contractAddress = publicInputs.callContext.storageContractAddress;
@@ -185,7 +231,7 @@ export class BBNativeProofCreator implements ProofCreator {
   private async verifyProofFromKey(
     verificationKey: Buffer,
     proof: Proof,
-    logFunction: (message: string) => void = () => {},
+    logFunction: (message: string) => void = () => { },
   ) {
     const operation = async (bbWorkingDirectory: string) => {
       const proofFileName = `${bbWorkingDirectory}/proof`;
@@ -254,12 +300,12 @@ export class BBNativeProofCreator implements ProofCreator {
   private async generateWitnessAndCreateProof<
     I extends { toBuffer: () => Buffer },
     O extends { toBuffer: () => Buffer },
-  >(
-    inputs: I,
-    circuitType: ClientProtocolArtifact,
-    directory: string,
-    convertInputs: (inputs: I) => WitnessMap,
-    convertOutputs: (outputs: WitnessMap) => O,
+    >(
+      inputs: I,
+      circuitType: ClientProtocolArtifact,
+      directory: string,
+      convertInputs: (inputs: I) => WitnessMap,
+      convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
     // LONDONTODO(Client): This compiled circuit now needs to have a #fold appended

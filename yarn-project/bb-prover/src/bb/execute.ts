@@ -186,6 +186,63 @@ export async function generateKeyForNoirCircuit(
   return res;
 }
 
+// LONDONTODO comment this etc (really just take inspiration from this and rewrite it all O:))
+export async function executeBbClientIvcProof(
+  pathToBB: string,
+  workingDirectory: string,
+  bytecodeStackPath: string,
+  witnessStackPath: string,
+  log: LogFn,
+): Promise<BBFailure|BBSuccess> {
+  // Check that the working directory exists
+  try {
+    await fs.access(workingDirectory);
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
+
+  // The proof is written to e.g. /workingDirectory/proof
+  const outputPath = `${workingDirectory}`;
+
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+  }
+
+  try {
+    // Write the bytecode to the working directory
+    log(`bytecodePath ${bytecodeStackPath}`);
+    log(`outputPath ${outputPath}`);
+    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
+    const timer = new Timer();
+    const logFunction = (message: string) => {
+      log(`client ivc proof BB out - ${message}`);
+    };
+
+    const result = await executeBB(pathToBB, 'client_ivc_prove_output_all2', args, logFunction);
+    const duration = timer.ms();
+
+    if (result.status == BB_RESULT.SUCCESS) {
+      return {
+        status: BB_RESULT.SUCCESS,
+        duration,
+        proofPath: `${outputPath}`,
+        pkPath: undefined,
+        vkPath: `${outputPath}`,
+      };
+    }
+    // Not a great error message here but it is difficult to decipher what comes from bb
+    return {
+      status: BB_RESULT.FAILURE,
+      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+    };
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
+}
 /**
  * Used for generating proofs of noir circuits.
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
