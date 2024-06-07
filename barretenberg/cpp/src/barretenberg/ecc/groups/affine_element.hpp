@@ -104,13 +104,14 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
      */
     static void serialize_to_buffer(const affine_element& value, uint8_t* buffer)
     {
+        using namespace serialize;
         if (value.is_point_at_infinity()) {
             // if we are infinity, just set all buffer bits to 1
             // we only need this case because the below gets mangled converting from montgomery for infinity points
             memset(buffer, 255, sizeof(Fq) * 2);
         } else {
-            Fq::serialize_to_buffer(value.y, buffer);
-            Fq::serialize_to_buffer(value.x, buffer + sizeof(Fq));
+            write(buffer, value.x);
+            write(buffer, value.y);
         }
     }
 
@@ -126,8 +127,9 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
      *
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      */
-    static affine_element serialize_from_buffer(uint8_t* buffer)
+    static affine_element serialize_from_buffer(const uint8_t* buffer)
     {
+        using namespace serialize;
         // Does the buffer consist entirely of set bits? If so, we have a point at infinity
         // Note that if it isn't, this loop should end early.
         // We only need this case because the below gets mangled converting to montgomery for infinity points
@@ -137,8 +139,8 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
             return affine_element::infinity();
         }
         affine_element result;
-        result.y = Fq::serialize_from_buffer(buffer);
-        result.x = Fq::serialize_from_buffer(buffer + sizeof(Fq));
+        read(buffer, result.x);
+        read(buffer, result.y);
         return result;
     }
 
@@ -166,7 +168,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
 template <typename B, typename Fq_, typename Fr_, typename Params>
 inline void read(B& it, group_elements::affine_element<Fq_, Fr_, Params>& element)
 {
-    using serialize::read;
+    using namespace serialize;
     std::array<uint8_t, sizeof(element)> buffer;
     read(it, buffer);
     element = group_elements::affine_element<Fq_, Fr_, Params>::serialize_from_buffer(buffer.data());
@@ -175,7 +177,7 @@ inline void read(B& it, group_elements::affine_element<Fq_, Fr_, Params>& elemen
 template <typename B, typename Fq_, typename Fr_, typename Params>
 inline void write(B& it, group_elements::affine_element<Fq_, Fr_, Params> const& element)
 {
-    using serialize::write;
+    using namespace serialize;
     std::array<uint8_t, sizeof(element)> buffer;
     group_elements::affine_element<Fq_, Fr_, Params>::serialize_to_buffer(element, buffer.data());
     write(it, buffer);
