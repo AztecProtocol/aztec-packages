@@ -1,9 +1,17 @@
 fn main(x: Field) {
-    let mut acc = x;
-    for i in 0..100 {
-        acc = dep::std::hash::pedersen_hash([acc]);
-    }
-    assert_eq(acc * 2, 28);
-    assert_eq(acc * 3, 42);
+    assert_eq(
+        foo(x)+bar(x)+baz(x), 27
+    );
 }
 
+fn foo(x: Field) -> Field {
+    dep::std::hash::pedersen_hash([x]) + 1
+}
+
+fn bar(x: Field) -> Field {
+    dep::std::hash::pedersen_hash([x]) + 2
+}
+
+fn baz(x: Field) -> Field {
+    dep::std::hash::pedersen_hash([x]) + 3
+}

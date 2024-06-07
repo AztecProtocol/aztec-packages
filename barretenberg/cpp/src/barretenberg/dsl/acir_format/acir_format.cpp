@@ -230,7 +230,9 @@ void build_constraints(Builder& builder,
         auto proof_size_no_pub_inputs = recursion_proof_size_without_public_inputs();
 
         // Add recursion constraints
-        for (auto constraint : constraint_system.recursion_constraints) {
+        for (size_t constraint_idx = 0; constraint_idx < constraint_system.recursion_constraints.size();
+             ++constraint_idx) {
+            auto constraint = constraint_system.recursion_constraints[constraint_idx];
             // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
             // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
             // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
@@ -271,6 +273,8 @@ void build_constraints(Builder& builder,
                                                                              nested_aggregation_object,
                                                                              has_valid_witness_assignments);
             current_input_aggregation_object = current_output_aggregation_object;
+            constraint_system.gates_per_opcode[constraint_system.recursion_constraints_original_index[constraint_idx]] =
+                compute_gate_diff();
         }
 
         // Now that the circuit has been completely built, we add the output aggregation as public
@@ -310,11 +314,12 @@ void build_constraints(Builder& builder,
         };
 
         // Add recursion constraints
-        for (auto constraint : constraint_system.honk_recursion_constraints) {
-            // A proof passed into the constraint should be stripped of its inner public inputs, but not the nested
-            // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
-            // state are a circuit constant. The user tells us they how they want these constants set by keeping the
-            // nested aggregation object attached to the proof as public inputs.
+        for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); ++i) {
+            auto constraint = constraint_system.honk_recursion_constraints[i];
+            // A proof passed into the constraint should be stripped of its inner public inputs, but not the
+            // nested aggregation object itself. The verifier circuit requires that the indices to a nested
+            // proof aggregation state are a circuit constant. The user tells us they how they want these
+            // constants set by keeping the nested aggregation object attached to the proof as public inputs.
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 // Set the nested aggregation object indices to witness indices from the proof
@@ -334,6 +339,8 @@ void build_constraints(Builder& builder,
                                                                            current_aggregation_object,
                                                                            nested_aggregation_object,
                                                                            has_valid_witness_assignments);
+            constraint_system.gates_per_opcode[constraint_system.honk_recursion_constraints_original_index[i]] =
+                compute_gate_diff();
         }
 
         // Now that the circuit has been completely built, we add the output aggregation as public

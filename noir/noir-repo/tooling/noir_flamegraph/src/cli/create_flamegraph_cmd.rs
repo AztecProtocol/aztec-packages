@@ -99,12 +99,16 @@ fn add_locations_to_folded_stack_items(
     gates: usize,
 ) {
     let mut child_map = stack_items;
-    for location in locations {
+    for (index, location) in locations.iter().enumerate() {
         let current_item = child_map
-            .entry(location)
+            .entry(location.clone())
             .or_insert(FoldedStackItem { total_gates: 0, nested_items: HashMap::new() });
-        current_item.total_gates += gates;
+
         child_map = &mut current_item.nested_items;
+
+        if index == locations.len() - 1 {
+            current_item.total_gates += gates;
+        }
     }
 }
 
@@ -116,7 +120,7 @@ fn to_folded_lines(
         .iter()
         .flat_map(move |(location, folded_stack_item)| {
             let frame_list: Vec<String> =
-                std::iter::once(location.clone()).chain(parent_stacks.clone()).collect();
+                parent_stacks.iter().cloned().chain(std::iter::once(location.clone())).collect();
             let line: String =
                 format!("{} {}", frame_list.join(";"), folded_stack_item.total_gates);
 
@@ -140,8 +144,9 @@ pub(crate) fn run(args: CreateFlamegraphCommand) -> Result<(), String> {
         .arg(args.artifact_path)
         .output()
         .expect("failed to execute process");
+    println!("BB gates raw response {:?}", bb_gates_response);
 
-    // println!("BB gates response {}", String::from_utf8(bb_gates_response.stdout.clone()).unwrap());
+    println!("BB gates response {}", String::from_utf8(bb_gates_response.stdout.clone()).unwrap());
     // Parse the bb gates stdout as json
     let bb_gates_response: BBGatesResponse =
         serde_json::from_slice(&bb_gates_response.stdout).map_err(|err| err.to_string())?;
@@ -150,6 +155,8 @@ pub(crate) fn run(args: CreateFlamegraphCommand) -> Result<(), String> {
     let gates: BBGatesReport = bb_gates_response.functions.into_iter().next().unwrap();
 
     let mut folded_stack_items = HashMap::new();
+
+    println!("Total gates {}", gates.gates_per_opcode.iter().sum::<usize>());
 
     gates.gates_per_opcode.into_iter().enumerate().for_each(|(opcode_index, gates)| {
         let call_stack = &program.debug_symbols.debug_infos[0]
