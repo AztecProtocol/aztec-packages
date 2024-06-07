@@ -201,7 +201,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
+        "value": "-json-rpc:json_proxy:*,-aztec:avm_simulator:*,-aztec:archiver:block_store"
+      },
+      {
+        "name": "LOG_LEVEL",
+        "value": "verbose"
       },
       {
         "name": "ETHEREUM_HOST",
