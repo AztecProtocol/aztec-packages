@@ -102,8 +102,8 @@ export class LibP2PService implements P2PService {
 
     // Start running promise for peer discovery
     this.discoveryRunningPromise = new RunningPromise(() => {
-      return this.peerManager.discover();
-    }, 5_000);
+      this.peerManager.discover();
+    }, this.config.p2pPeerCheckIntervalMS);
     this.discoveryRunningPromise.start();
   }
 

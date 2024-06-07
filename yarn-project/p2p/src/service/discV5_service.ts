@@ -34,8 +34,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   /** This instance's ENR */
   private enr: SignableENR;
 
-  // private runningPromise: RunningPromise;
-
   private currentState = PeerDiscoveryState.STOPPED;
 
   private bootstrapNodes: string[];
@@ -87,10 +85,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       const multiAddrUdp = await enr.getFullMultiaddr('udp');
       this.logger.debug(`ENR multiaddr: ${multiAddrTcp?.toString()}, ${multiAddrUdp?.toString()}`);
     });
-
-    // this.runningPromise = new RunningPromise(async () => {
-    // await this.discv5.findRandomNode();
-    // }, config.p2pPeerCheckIntervalMS);
   }
 
   public async start(): Promise<void> {
