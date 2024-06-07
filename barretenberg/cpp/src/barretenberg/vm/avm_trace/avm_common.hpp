@@ -46,8 +46,8 @@ static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
 struct ExternalCallHint {
     FF success;
     std::vector<FF> return_data;
-    FF l2_gas_used;
-    FF da_gas_used;
+    uint32_t l2_gas_used;
+    uint32_t da_gas_used;
 };
 
 // Add support for deserialization of ExternalCallHint. This is implicitly used by serialize::read
