@@ -2,12 +2,15 @@ use std::collections::BTreeMap;
 
 use acvm::acir::circuit::Program;
 use acvm::FieldElement;
+use codespan_reporting::files::{Error, Files, SimpleFile};
 use fm::FileId;
+use fm::PathString;
 use noirc_abi::Abi;
 use noirc_driver::CompiledProgram;
 use noirc_driver::DebugFile;
 use noirc_errors::debug_info::ProgramDebugInfo;
 use serde::{Deserialize, Serialize};
+use std::ops::Range;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProgramArtifact {
@@ -65,5 +68,33 @@ impl From<ProgramArtifact> for CompiledProgram {
             warnings: vec![],
             names: program.names,
         }
+    }
+}
+
+impl<'a> Files<'a> for ProgramArtifact {
+    type FileId = FileId;
+    type Name = PathString;
+    type Source = &'a str;
+
+    fn name(&self, file_id: Self::FileId) -> Result<Self::Name, Error> {
+        self.file_map.get(&file_id).ok_or(Error::FileMissing).map(|file| file.path.clone().into())
+    }
+
+    fn source(&'a self, file_id: Self::FileId) -> Result<Self::Source, Error> {
+        self.file_map.get(&file_id).ok_or(Error::FileMissing).map(|file| file.source.as_ref())
+    }
+
+    fn line_index(&self, file_id: Self::FileId, byte_index: usize) -> Result<usize, Error> {
+        self.file_map.get(&file_id).ok_or(Error::FileMissing).and_then(|file| {
+            SimpleFile::new(PathString::from(file.path.clone()), file.source.clone())
+                .line_index((), byte_index)
+        })
+    }
+
+    fn line_range(&self, file_id: Self::FileId, line_index: usize) -> Result<Range<usize>, Error> {
+        self.file_map.get(&file_id).ok_or(Error::FileMissing).and_then(|file| {
+            SimpleFile::new(PathString::from(file.path.clone()), file.source.clone())
+                .line_range((), line_index)
+        })
     }
 }

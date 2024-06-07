@@ -22,6 +22,7 @@ members = [
     "tooling/noirc_abi",
     "tooling/noirc_abi_wasm",
     "tooling/acvm_cli",
+    "tooling/noir_flamegraph",
     # ACVM
     "acvm-repo/acir_field",
     "acvm-repo/acir",
