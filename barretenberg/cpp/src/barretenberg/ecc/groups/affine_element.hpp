@@ -69,6 +69,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
     static affine_element infinity();
     constexpr affine_element set_infinity() const noexcept;
     constexpr void self_set_infinity() noexcept;
+    constexpr void set_point_at_infinity() { self_set_infinity(); };
 
     [[nodiscard]] constexpr bool is_point_at_infinity() const noexcept;
 
