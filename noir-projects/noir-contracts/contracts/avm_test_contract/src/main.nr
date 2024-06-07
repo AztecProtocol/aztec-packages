@@ -281,6 +281,16 @@ contract AvmTest {
         context.timestamp()
     }
 
+    #[aztec(public)]
+    fn get_l2_gas_left() -> Field {
+        context.l2_gas_left()
+    }
+
+    #[aztec(public)]
+    fn get_da_gas_left() -> Field {
+        context.da_gas_left()
+    }
+
     // #[aztec(public)]
     // fn get_contract_call_depth() -> Field {
     //     context.contract_call_depth()
@@ -300,10 +310,10 @@ contract AvmTest {
 
     #[aztec(public)]
     fn emit_unencrypted_log() {
-        context.emit_unencrypted_log_with_selector(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log_with_selector(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log_with_selector(/*event_selector=*/ 10, /*message=*/ s);
+        context.emit_unencrypted_log(/*message=*/ s);
     }
 
     #[aztec(public)]
