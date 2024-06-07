@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
@@ -21,8 +22,8 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
 
     std::shared_ptr<VerificationKey> verification_key;
     RelationParameters<FF> relation_parameters;
-    RelationSeparator alphas;
-    bool is_accumulator = false;
+    RelationSeparator alphas;    // for folding flavor it's always going to be std::vector<FF>
+    bool is_accumulator = false; // this is going to be a problem
     std::vector<FF> public_inputs;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
@@ -31,8 +32,19 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
+
+    VerifierInstance_() = default;
     VerifierInstance_(std::shared_ptr<VerificationKey> vk)
         : verification_key(std::move(vk))
     {}
+
+    MSGPACK_FIELDS(verification_key,
+                   relation_parameters,
+                   alphas,
+                   is_accumulator,
+                   public_inputs,
+                   gate_challenges,
+                   target_sum,
+                   witness_commitments);
 };
 } // namespace bb
