@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717752392305,
+  "lastUpdate": 1717753147552,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -28640,6 +28640,78 @@ window.BENCHMARK_DATA = {
             "value": 163751125,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163751125 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "662187d1d6960b734a71aaf365e7f20d471dc4c9",
+          "message": "feat(avm): get contract instance now works e2e with avm proving (#6911)",
+          "timestamp": "2024-06-07T05:25:36-04:00",
+          "tree_id": "eb16e3369c81af6ad50776ae76262c70a63a44f7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/662187d1d6960b734a71aaf365e7f20d471dc4c9"
+        },
+        "date": 1717753146352,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15433.952809000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10755.206794999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5493.520692000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5138.7638369999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49368.39731000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49368399000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17068.85526,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17068856000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5176271791,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5176271791 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 211429476,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 211429476 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4269358306,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4269358306 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163968408,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163968408 ns\nthreads: 1"
           }
         ]
       }
