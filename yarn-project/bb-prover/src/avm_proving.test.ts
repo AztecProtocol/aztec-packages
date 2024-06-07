@@ -60,7 +60,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     ['note_hash_exists', [new Fr(1), new Fr(2)]],
     ['test_get_contract_instance', []],
     ['set_storage_single', [new Fr(1)]],
-    ['set_storage_list', [new Fr(1)]],
+    ['set_storage_list', [new Fr(1), new Fr(2)]],
     ['read_storage_single', [new Fr(1)]],
     ['read_storage_list', [new Fr(1)]],
     ['new_note_hash', [new Fr(1)]],
