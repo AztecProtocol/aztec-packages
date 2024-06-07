@@ -138,7 +138,6 @@ contract PendingNoteHashes {
         context.encrypt_and_emit_note(
             context.this_address(),
             note.get_header().storage_slot,
-            ValueNote::get_note_type_id(),
             outgoing_viewer_ovpk_m,
             owner_ivpk_m,
             note
@@ -372,7 +371,6 @@ contract PendingNoteHashes {
         context.encrypt_and_emit_note(
             context.this_address(),
             existing_note_header.storage_slot,
-            ValueNote::get_note_type_id(),
             outgoing_viewer_ovpk_m,
             owner_ivpk_m,
             bad_note
@@ -410,7 +408,7 @@ contract PendingNoteHashes {
     }
 
     #[contract_library_method]
-    fn max_notes_per_call() -> u64 {
+    fn max_notes_per_call() -> u32 {
         if MAX_NEW_NOTE_HASHES_PER_CALL > MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
             MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
         } else {
