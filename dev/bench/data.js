@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717763345389,
+  "lastUpdate": 1717764393826,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -29808,6 +29808,78 @@ window.BENCHMARK_DATA = {
             "value": 163277043,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163277043 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f330bffa80b6da5f037cea3cf469ef1c7b6d9d03",
+          "message": "feat(avm): indirect support for kernel output opcodes (#6962)\n\nAdds indirect support to kernel output opcodes, apart from sload and\r\nsstore, being separately handled by @IlyasRidhuan",
+          "timestamp": "2024-06-07T12:33:40Z",
+          "tree_id": "156ebc9d9d54d4c6df9c90f63bc43b8ed0101e3a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f330bffa80b6da5f037cea3cf469ef1c7b6d9d03"
+        },
+        "date": 1717764391839,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15521.012100000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10854.084472 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5538.467191999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5182.726379000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49618.263493,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49618264000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17110.402145000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17110403000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5076518428,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5076518428 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 234278266,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 234278266 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4224565028,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4224565028 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165831345,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165831345 ns\nthreads: 1"
           }
         ]
       }
