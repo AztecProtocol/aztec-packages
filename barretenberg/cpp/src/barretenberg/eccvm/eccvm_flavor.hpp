@@ -661,6 +661,7 @@ class ECCVMFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
@@ -682,8 +683,13 @@ class ECCVMFlavor {
             }
         }
 
-        MSGPACK_FIELDS(
-            circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
+        MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       lagrange_first,
+                       lagrange_second,
+                       lagrange_last);
     };
 
     /**

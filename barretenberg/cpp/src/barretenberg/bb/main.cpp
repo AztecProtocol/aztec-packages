@@ -317,29 +317,18 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto inst_vk = ivc.instance_vk;
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-    // LONDONTODO: we can remove this
+
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
     info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
-    auto buffer_proof = proof.to_buffer();
-    write_file(proofPath, to_buffer(buffer_proof));
+
+    write_file(proofPath, to_buffer(proof));
 
     write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
-    auto buffer_acc = accumulator->to_buffer();
-    write_file(accPath, to_buffer(buffer_acc));
+    write_file(accPath, to_buffer(accumulator));
 
     write_file(translatorVkPath, to_buffer(translator_vk));
 
     write_file(eccVkPath, to_buffer(eccvm_vk));
-
-    std::string proofJson = to_json(buffer_proof);
-    write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-
-    auto inst_vk_as_fields = inst_vk->to_field_elements();
-    std::string vk_json = to_json(inst_vk_as_fields);
-    write_file(vkFieldsPath, { vk_json.begin(), vk_json.end() });
-
-    std::string acc_json = to_json(buffer_acc);
-    write_file(accFieldsPath, { acc_json.begin(), acc_json.end() });
 }
 
 /**
@@ -359,23 +348,24 @@ bool prove_tube(const std::string& outputPath)
     using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
     using VerifierInput = ClientIVC::VerifierInput;
     using Builder = UltraCircuitBuilder;
+    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = outputPath + "/vk"; // the vk of the last instance
+    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/proof";
-    std::string translatorVkPath = outputPath + "/translatorVk";
-    std::string eccVkPath = outputPath + "/eccVk";
-    std::string vkFieldsPath = outputPath + "/vk_fields.json";
-    std::string proofFieldsPath = outputPath + "/proof_fields.json";
-    std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
+    std::string translatorVkPath = outputPath + "/translator_vk";
+    std::string eccVkPath = outputPath + "/ecc_vk";
+    // std::string vkFieldsPath = outputPath + "/vk_fields.json";
+    init_bn254_crs(1 << 20);
+    init_grumpkin_crs(1 << 16); // is this even enough?
 
-    auto proof = from_buffer<std::vector<bb::fr>>(read_file(proofPath));
+    auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
     auto instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
         from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
     auto verifier_accumulator = std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
+    auto translator_vk = std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
     auto eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
-    auto translator_vk = std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(translatorVkPath));
-
+    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(1 << 16);
     FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
@@ -383,6 +373,16 @@ bool prove_tube(const std::string& outputPath)
     ClientIVC verifier{ builder, input };
 
     verifier.verify(proof);
+    info("num gates: ", builder->get_num_gates());
+    info("generating proof");
+    using Prover = UltraProver_<UltraFlavor>;
+    Prover prover{ *builder };
+    auto tube_proof = prover.construct_proof();
+    std::string tubeProofPath = outputPath + "/tube_proof";
+    write_file(tubeProofPath, to_buffer(tube_proof));
+
+    auto verification_key = std::make_shared<typename UltraFlavor::VerificationKey>(prover.key);
+
     return true;
 }
 
@@ -997,6 +997,10 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./proofs");
             info(output_path);
             client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
+        } else if (command == "prove_tube") {
+            std::string output_path = get_option(args, "-o", "./proofs");
+            info(output_path);
+            prove_tube(output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path, honk_recursion);
         } else if (command == "verify") {

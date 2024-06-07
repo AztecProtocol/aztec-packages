@@ -118,7 +118,6 @@ class TranslatorFlavor {
       public:
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
-
                               ordered_extra_range_constraints_numerator, // column 0
                               lagrange_first,                            // column 1
                               lagrange_last,                             // column 2
@@ -854,6 +853,7 @@ class TranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
@@ -872,6 +872,7 @@ class TranslatorFlavor {
         }
 
         MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        ordered_extra_range_constraints_numerator,

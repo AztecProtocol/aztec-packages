@@ -563,6 +563,7 @@ class MegaFlavor {
             this->databus_id = databus_id;
         }
         MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,

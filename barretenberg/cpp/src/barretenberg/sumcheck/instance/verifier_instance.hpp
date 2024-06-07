@@ -38,39 +38,13 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
         : verification_key(std::move(vk))
     {}
 
-    std::vector<FF> to_buffer()
-    {
-        std::vector<FF> result;
-        const auto insert = [&result](const std::vector<FF>& buf) {
-            result.insert(result.end(), buf.begin(), buf.end());
-        };
-
-        auto serialised_vk = verification_key->to_field_elements();
-        insert(serialised_vk);
-        insert({ relation_parameters.eta,
-                 relation_parameters.eta_two,
-                 relation_parameters.eta_three,
-                 relation_parameters.beta,
-                 relation_parameters.gamma,
-                 relation_parameters.public_input_delta,
-                 relation_parameters.lookup_grand_product_delta }); // technically this should be enough?
-        result.insert(result.end(), alphas.begin(), alphas.end());
-        insert(public_inputs);
-        insert(gate_challenges);
-        result.emplace_back(target_sum);
-
-        std::vector<FF> witness_commitments_as_field;
-        for (auto comm : witness_commitments.get_all()) {
-            std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
-            witness_commitments_as_field.insert(
-                witness_commitments_as_field.end(), comm_elements.begin(), comm_elements.end());
-        }
-        insert(witness_commitments_as_field);
-
-        return result;
-    }
-
-    MSGPACK_FIELDS(
-        verification_key, relation_parameters, alphas, public_inputs, gate_challenges, target_sum, witness_commitments);
+    MSGPACK_FIELDS(verification_key,
+                   relation_parameters,
+                   alphas,
+                   is_accumulator,
+                   public_inputs,
+                   gate_challenges,
+                   target_sum,
+                   witness_commitments);
 };
 } // namespace bb

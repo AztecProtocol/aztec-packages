@@ -52,20 +52,22 @@ class ClientIVC {
          *
          * @return std::vector<FF>
          */
-        std::vector<FF> to_buffer() const
-        {
-            size_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();
+        // std::vector<FF> to_buffer() const
+        // {
+        //     size_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();
 
-            std::vector<FF> result;
-            result.reserve(proof_size);
-            const auto insert = [&result](const std::vector<FF>& buf) {
-                result.insert(result.end(), buf.begin(), buf.end());
-            };
-            insert(folding_proof);
-            insert(decider_proof);
-            insert(goblin_proof.to_buffer());
-            return result;
-        }
+        //     std::vector<FF> result;
+        //     result.reserve(proof_size);
+        //     const auto insert = [&result](const std::vector<FF>& buf) {
+        //         result.insert(result.end(), buf.begin(), buf.end());
+        //     };
+        //     insert(folding_proof);
+        //     insert(decider_proof);
+        //     insert(goblin_proof.to_buffer());
+        //     return result;
+        // }
+
+        MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
 
   private:
@@ -94,6 +96,10 @@ class ClientIVC {
     Proof prove();
 
     bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
+    bool verify_special(Proof& proof,
+                        std::shared_ptr<ECCVMVerificationKey> eccvm_vkey,
+                        std::shared_ptr<TranslatorVerificationKey> translator_vkey,
+                        const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
 
     bool prove_and_verify();
 

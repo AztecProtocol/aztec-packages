@@ -523,6 +523,7 @@ class UltraFlavor {
 
         // For serialising and deserialising data
         MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,
