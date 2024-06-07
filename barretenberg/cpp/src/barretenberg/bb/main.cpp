@@ -5,8 +5,10 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#endif
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
