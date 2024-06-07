@@ -454,7 +454,7 @@ namespace avm_main(256);
     //       Note: External call gas cost is not constrained
     pol commit gas_cost_active;
     pol commit mem_op_activate_gas; // TODO: remove this one
-    gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - sel_op_sload - mem_op_activate_gas = 0;
+    gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - sel_op_sload - sel_op_sstore - mem_op_activate_gas = 0;
 
     // Program counter must increment if not jumping or returning
     #[PC_INCREMENT]

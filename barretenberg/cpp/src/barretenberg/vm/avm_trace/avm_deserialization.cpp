@@ -189,7 +189,6 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
 
         auto const opcode = static_cast<OpCode>(opcode_byte);
         std::vector<OperandType> inst_format;
-        info("start of loop pc: ", instructions.size(), " Opcode: " + to_string(opcode));
 
         if (opcode == OpCode::SET) {
             // Small hack here because of the structure of SET (where Indirect is the first flag).

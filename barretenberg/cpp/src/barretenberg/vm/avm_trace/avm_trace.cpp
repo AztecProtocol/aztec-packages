@@ -1580,8 +1580,6 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
             .avm_main_q_kernel_output_lookup = 1,
             .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
             .avm_main_rwa = 1,
-            // only raise the opcode selector for the last sload row
-            // that way we only enfoced PC+1 when transitioning to the next opcode
             .avm_main_sel_op_sload = FF(1),
             .avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         };
@@ -1614,7 +1612,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
     auto read_src_value = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
 
-    AvmMemTraceBuilder::MemRead read_slot = mem_trace_builder.read_and_load_from_memory(
+    auto read_slot = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IB, slot_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
 
     main_trace.push_back(Row{
@@ -1635,15 +1633,16 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
     clk++;
 
     for (uint32_t i = 0; i < size; i++) {
-        AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
-            call_ptr, clk, IntermRegister::IB, src_offset + i, AvmMemoryTag::FF, AvmMemoryTag::U0);
+        auto read_a = mem_trace_builder.read_and_load_from_memory(
+            call_ptr, clk, IntermRegister::IA, direct_src_offset + i, AvmMemoryTag::FF, AvmMemoryTag::U0);
+
         Row row = Row{
             .avm_main_clk = clk,
-            .avm_main_ia = read_slot.val + i, // slot increments each time
-            .avm_main_ib = read_a.val,
+            .avm_main_ia = read_a.val,
+            .avm_main_ib = read_slot.val + i, // slot increments each time
             .avm_main_internal_return_ptr = internal_return_ptr,
-            .avm_main_mem_idx_b = src_offset + i,
-            .avm_main_mem_op_b = 1,
+            .avm_main_mem_idx_a = direct_src_offset + i,
+            .avm_main_mem_op_a = 1,
             .avm_main_pc = pc,
             .avm_main_q_kernel_output_lookup = 1,
             .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
@@ -1709,7 +1708,6 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
     // Constrain gas cost
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::CAST);
 
-    info("pc beefore cast: ", pc);
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(dst_tag)),
@@ -1732,7 +1730,6 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .avm_main_w_in_tag = FF(static_cast<uint32_t>(dst_tag)),
     });
-    info("pc after cast: ", pc);
 }
 /**
  * @brief Integer division with direct or indirect memory access.
@@ -4032,8 +4029,8 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         // to be the same as the previous row This satisfies the `offset' - (offset + operation_selector) = 0`
         // constraints
         for (size_t j = kernel_padding_main_trace_bottom; j < clk; j++) {
-            auto const& prev = main_trace.at(j - 1);
-            auto& dest = main_trace.at(j);
+            auto const& prev = main_trace.at(j);
+            auto& dest = main_trace.at(j + 1);
 
             dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
@@ -4065,8 +4062,9 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         curr.avm_main_sel_op_l1_to_l2_msg_exists = static_cast<uint32_t>(src.op_l1_to_l2_msg_exists);
         curr.avm_main_sel_op_emit_unencrypted_log = static_cast<uint32_t>(src.op_emit_unencrypted_log);
         curr.avm_main_sel_op_emit_l2_to_l1_msg = static_cast<uint32_t>(src.op_emit_l2_to_l1_msg);
-        // curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
+        curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
         curr.avm_main_sel_op_sstore = static_cast<uint32_t>(src.op_sstore);
+        // curr.avm_kernel_side_effect_counter = src.side_effect_counter;
 
         if (clk < main_trace_size) {
             Row& next = main_trace.at(clk + 1);
