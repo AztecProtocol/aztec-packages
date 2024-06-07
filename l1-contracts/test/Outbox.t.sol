@@ -148,10 +148,10 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
-    NaiveMerkle biggerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
+    NaiveMerkle smallerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
     tree.insertLeaf(leaf);
 
-    (bytes32[] memory path,) = biggerTree.computeSiblingPath(0);
+    (bytes32[] memory path,) = smallerTree.computeSiblingPath(0);
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Outbox__InvalidPathLength.selector, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT - 1

@@ -506,7 +506,7 @@ export class AztecNodeService implements AztecNode {
     let indexOfMsgInSubtree = -1;
 
     // Construct message subtrees
-    let l2toL1Subtrees = await Promise.all(
+    const l2toL1Subtrees = await Promise.all(
       l2ToL1Messages.map(async (msgs, i) => {
         if (msgs.find(msg => msg.equals(l2ToL1Message))) {
           indexOfMsgInSubtree = msgs.findIndex(msg => msg.equals(l2ToL1Message));
