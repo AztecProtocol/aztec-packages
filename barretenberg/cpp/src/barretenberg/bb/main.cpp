@@ -321,13 +321,14 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
+    using Program = acir_format::AcirProgram;
 
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 14);
 
     auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
     auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
-    acir_format::AcirProgramStack program_stack{ {}, {} };
+    std::vector<Program> folding_stack;
     for (size_t i = 0; i < gzippedBincodes.size(); i++) {
         // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the
         // future
@@ -341,27 +342,19 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
         std::vector<uint8_t> witnessBuffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
         acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
-        for (auto& constraint : constraint_systems) {
-            program_stack.constraint_systems.push_back(constraint);
-        }
-        for (auto& witness : witness_stack) {
-            program_stack.witness_stack.push_back(witness);
-        }
+        acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
+        folding_stack.push_back(program_stack.back());
     }
     // TODO dedupe this
     ClientIVC ivc;
     ivc.structured_flag = true;
     // Accumulate the entire program stack into the IVC
-    for (size_t i = 0; i < program_stack.size(); i++) {
+    for (Program& program : folding_stack) {
         // auto& stack_item = program_stack.witness_stack[i];
 
         // Construct a bberg circuit from the acir representation
         auto circuit =
-            acir_format::create_circuit<Builder>(program_stack.constraint_systems[program_stack.witness_stack[i].first],
-                                                 0,
-                                                 program_stack.witness_stack[i].second,
-                                                 false,
-                                                 ivc.goblin.op_queue);
+            acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
 
         std::cout << "ACCUM" << std::endl;
         if (!bb::CircuitChecker::check(circuit)) {

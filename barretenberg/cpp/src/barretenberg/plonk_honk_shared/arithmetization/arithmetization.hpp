@@ -355,7 +355,7 @@ template <typename FF_> class UltraHonkArith {
         // circuits differ in structure but are also both designed to be "full" within the 2^17 size.
         std::array<uint32_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
-            3000,    // pub_inputs;
+            30000,   // pub_inputs;
             355000,  // arithmetic;
             140000,  // delta_range;
             600000,  // elliptic;
