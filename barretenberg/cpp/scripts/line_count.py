@@ -2,27 +2,41 @@
 import csv
 from os import listdir, system
 from pathlib import Path
-
+import copy
+import re
 BASE_DIR = Path("src/barretenberg")
 PER_FILE_REPORT_PATH = Path("build/per_file_report.csv")
 
 # validate that directory structure hasn't changed since last run
 all_dirs = listdir("src/barretenberg")
-last_all_dirs = ['bb', 'benchmark', 'commitment_schemes', 'common', 'crypto', 'dsl', 'ecc', 'eccvm', 'env', 'examples', 'flavor', 'goblin', 'grumpkin_srs_gen', 'honk', 'numeric', 'plonk', 'polynomials', 'protogalaxy', 'relations', 'serialize',
-                 'smt_verification', 'solidity_helpers', 'srs', 'stdlib', 'sumcheck', 'transcript', 'ultra_honk', 'wasi', 'circuit_checker', 'client_ivc', 'translator_vm', 'vm', 'execution_trace', 'plonk_honk_shared', 'stdlib_circuit_builders', 'proof_system', 'build']
-assert (all_dirs == last_all_dirs)
+all_dirs_copy=copy.deepcopy(all_dirs)
+for dir in all_dirs_copy:
+    if re.match(r'build.*',dir):
+        all_dirs.remove(dir)
+        
+last_all_dirs = ['bb', 'benchmark', 'commitment_schemes', 'common', 'crypto', 'dsl', 'ecc', 'eccvm','eccvm_recursion', 'env', 'examples', 'flavor', 'goblin', 'grumpkin_srs_gen', 'honk', 'numeric', 'plonk', 'polynomials', 'protogalaxy', 'relations', 'serialize',
+                 'smt_verification', 'solidity_helpers', 'srs', 'stdlib', 'sumcheck', 'transcript', 'ultra_honk', 'wasi', 'circuit_checker', 'client_ivc', 'translator_vm','translator_vm_recursion', 'vm', 'execution_trace', 'plonk_honk_shared', 'stdlib_circuit_builders' ]
+try:
+    assert (set(all_dirs) == set(last_all_dirs))
+except AssertionError:
+    all_dirs_set=set(all_dirs)
+    last_all_dirs_set = set(last_all_dirs)
+    print ("New folders: ",all_dirs_set-last_all_dirs_set)
+    print ("Deleted folders: ",last_all_dirs_set-all_dirs_set)
+    exit()
 
 # mark directories that will be covered in an audit of Barretenberg
 # calculated the total number of lines weighted by complexity, with maximum complexity equal to 1
-dirs_to_audit = [
+dirs_to_audit = set([
     'bb',
     # 'benchmark',
     'commitment_schemes',
-    # 'common',
+    'common',
     'crypto',
     # 'dsl',
     'ecc',
     'eccvm',
+    'eccvm_recursion',
     # 'env',
     # 'examples',
     'flavor',
@@ -46,12 +60,13 @@ dirs_to_audit = [
     'circuit_checker',
     'client_ivc',
     'translator_vm',
+    'translator_vm_recursion',
     'vm',
     'execution_trace',
     'plonk_honk_shared',
     'stdlib_circuit_builders',
     'proof_system'
-]
+])
 weights = {directory: 1 for directory in dirs_to_audit}
 weights["circuit_checker"] = 0.3
 weights["srs"] = 0.3
@@ -60,6 +75,7 @@ weights["numeric"] = 0.3
 weights["ecc"] = 0.5
 weights["crypto"] = 0.5
 weights["bb"] = 0.3
+weights["common"] = 0.3
 
 TOTAL_NUM_CODE_LINES = 0
 # use cloc to count the lines in every file to be audited in the current agreement
@@ -72,7 +88,7 @@ with open(PER_FILE_REPORT_PATH, newline='') as csvfile:
             path = Path(row['filename']).relative_to(BASE_DIR).parts[0]
             if path in dirs_to_audit:
                 TOTAL_NUM_CODE_LINES += int(row['code']) * weights[path]
-
+print("TOTAL LINES:",TOTAL_NUM_CODE_LINES)
 TO_AUDIT_NOW = [
     "src/barretenberg/stdlib/primitives/bigfield/bigfield.hpp",
     "src/barretenberg/stdlib/primitives/bigfield/bigfield_impl.hpp",
