@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717758827208,
+  "lastUpdate": 1717758862767,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -29328,6 +29328,78 @@ window.BENCHMARK_DATA = {
             "value": 163505057,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163505057 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f7a46c0d8de2e58b7e76576a76eb85f52b266966",
+          "message": "feat: Support disabling aztec vm in non-wasm builds  (#6965)\n\nAs in the title.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2024-06-07T06:59:27-04:00",
+          "tree_id": "b01f64aa55a7c7ee9466d145c117e67a2a5f53de",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f7a46c0d8de2e58b7e76576a76eb85f52b266966"
+        },
+        "date": 1717758861362,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15416.535248000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10803.585907 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5704.053578000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5098.498498999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49866.076504,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49866078000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17077.889358,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17077890000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5104920356,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5104920356 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197448709,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197448709 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4224584917,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4224584917 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163354888,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163354888 ns\nthreads: 1"
           }
         ]
       }
