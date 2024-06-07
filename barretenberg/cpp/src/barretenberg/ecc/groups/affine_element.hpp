@@ -102,7 +102,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      *
      */
-    static void serialize_to_buffer(const affine_element& value, uint8_t* buffer)
+    static void serialize_to_buffer(const affine_element& value, uint8_t* buffer, bool write_x_first = false)
     {
         using namespace serialize;
         if (value.is_point_at_infinity()) {
@@ -110,8 +110,10 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
             // we only need this case because the below gets mangled converting from montgomery for infinity points
             memset(buffer, 255, sizeof(Fq) * 2);
         } else {
-            write(buffer, value.x);
-            write(buffer, value.y);
+            // Note: for historic reasons we will need to redo downstream hashes if we want this to always be written in
+            // the same order in our various serialization flows
+            write(buffer, write_x_first ? value.x : value.y);
+            write(buffer, write_x_first ? value.y : value.x);
         }
     }
 
@@ -127,7 +129,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
      *
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      */
-    static affine_element serialize_from_buffer(const uint8_t* buffer)
+    static affine_element serialize_from_buffer(const uint8_t* buffer, bool write_x_first = false)
     {
         using namespace serialize;
         // Does the buffer consist entirely of set bits? If so, we have a point at infinity
@@ -139,8 +141,10 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
             return affine_element::infinity();
         }
         affine_element result;
-        read(buffer, result.x);
-        read(buffer, result.y);
+        // Note: for historic reasons we will need to redo downstream hashes if we want this to always be read in the
+        // same order in our various serialization flows
+        read(buffer, write_x_first ? result.x : result.y);
+        read(buffer, write_x_first ? result.y : result.x);
         return result;
     }
 
@@ -171,7 +175,8 @@ inline void read(B& it, group_elements::affine_element<Fq_, Fr_, Params>& elemen
     using namespace serialize;
     std::array<uint8_t, sizeof(element)> buffer;
     read(it, buffer);
-    element = group_elements::affine_element<Fq_, Fr_, Params>::serialize_from_buffer(buffer.data());
+    element = group_elements::affine_element<Fq_, Fr_, Params>::serialize_from_buffer(
+        buffer.data(), /* use legacy field order */ true);
 }
 
 template <typename B, typename Fq_, typename Fr_, typename Params>
@@ -179,7 +184,8 @@ inline void write(B& it, group_elements::affine_element<Fq_, Fr_, Params> const&
 {
     using namespace serialize;
     std::array<uint8_t, sizeof(element)> buffer;
-    group_elements::affine_element<Fq_, Fr_, Params>::serialize_to_buffer(element, buffer.data());
+    group_elements::affine_element<Fq_, Fr_, Params>::serialize_to_buffer(
+        element, buffer.data(), /* use legacy field order */ true);
     write(it, buffer);
 }
 } // namespace bb::group_elements
