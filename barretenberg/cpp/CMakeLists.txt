@@ -145,7 +145,7 @@ include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/backward-cpp.cmake)
 
-if (NOT WASM)
+if (WASM)
     set(DISABLE_AZTEC_VM ON)
 endif()
 if(DISABLE_AZTEC_VM)
