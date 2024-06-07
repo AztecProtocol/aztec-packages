@@ -6,7 +6,7 @@ struct VariableMerkleTree<N> {
     leaves: [Field; N],
     root: Field,
 }
-unconstrained fn get_surrounding_pwrs_2(input: u64) -> (u64, u64, u8) {
+unconstrained fn get_surrounding_pwrs_2(input: u32) -> (u32, u32, u8) {
     let mut next_power_2 = 0;
     let mut prev_power_2 = 0;
     let mut height = 0;
@@ -30,7 +30,7 @@ unconstrained fn get_surrounding_pwrs_2(input: u64) -> (u64, u64, u8) {
 // MerkleTree on the full array of elements N, but is slightly cheaper on-chain
 // and cleaner elsewhere.
 impl<N> VariableMerkleTree<N> {
-    pub fn new_sha(leaves: [Field; N], num_non_empty_leaves: u64) -> Self {
+    pub fn new_sha(leaves: [Field; N], num_non_empty_leaves: u32) -> Self {
         // Find size of tree required
         let (prev_power_2, next_power_2, height) = get_surrounding_pwrs_2(num_non_empty_leaves);
         // If we have no num_non_empty_leaves, we use a 'tree' of 2 leaves
@@ -87,7 +87,7 @@ mod tests {
         hash::accumulate_sha256
     };
 
-    fn generate_test_array(non_empty_items: u64) -> [Field; 100] {
+    fn generate_test_array(non_empty_items: u32) -> [Field; 100] {
         let mut items: [Field; 100] = [0; 100];
         let mut stop = false;
         for i in 0..100 {

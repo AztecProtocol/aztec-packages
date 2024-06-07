@@ -558,7 +558,13 @@ export class AztecNodeService implements AztecNode {
     // Append subtree path to out hash tree path
     const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxinOutHashTree.toBufferArray());
     // Append binary index of subtree path to binary index of out hash tree path
-    const mergedIndex = parseInt(indexOfMsgTx.toString(2).concat(indexOfMsgInSubtree.toString(2)), 2);
+    const mergedIndex = parseInt(
+      indexOfMsgTx
+        .toString(2)
+        .padStart(outHashTree.getDepth(), '0')
+        .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
+      2,
+    );
 
     return [BigInt(mergedIndex), new SiblingPath(mergedPath.length, mergedPath)];
   }

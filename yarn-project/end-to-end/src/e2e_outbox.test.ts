@@ -156,6 +156,8 @@ describe('E2E Outbox Tests', () => {
   });
 
   it('Inserts two transactions with total four out messages, and verifies sibling paths of two new messages', async () => {
+    // Force txs to be in the same block
+    await aztecNode.setConfig({ minTxsPerBlock: 2 });
     const [[recipient1, content1], [recipient2, content2], [recipient3, content3], [recipient4, content4]] = [
       [EthAddress.random(), Fr.random()],
       [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
@@ -271,6 +273,8 @@ describe('E2E Outbox Tests', () => {
   });
 
   it('Inserts two out messages in two transactions and verifies sibling paths of both the new messages', async () => {
+    // Force txs to be in the same block
+    await aztecNode.setConfig({ minTxsPerBlock: 2 });
     // recipient2 = msg.sender, so we can consume it later
     const [[recipient1, content1], [recipient2, content2]] = [
       [EthAddress.random(), Fr.random()],
