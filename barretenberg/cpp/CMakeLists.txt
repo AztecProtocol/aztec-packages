@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.41.0 # x-release-please-version
+    VERSION 0.42.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -27,6 +27,7 @@ endif(DOXYGEN_FOUND)
 
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
+option(DISABLE_AZTEC_VM "Don't build Aztec VM (acceptable if iterating on core proving)" ON)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)
@@ -136,6 +137,12 @@ include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
+if (NOT WASM)
+    set(DISABLE_AZTEC_VM ON)
+endif()
+if(DISABLE_AZTEC_VM)
+    add_definitions(-DDISABLE_AZTEC_VM=1)
+endif()
 add_subdirectory(src)
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-16)

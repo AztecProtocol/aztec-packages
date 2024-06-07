@@ -57,10 +57,11 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
+import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 
@@ -76,6 +77,8 @@ export class PXEService implements PXE {
   // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
+
+  private fakeProofCreator = new TestProofCreator();
 
   constructor(
     private keyStore: KeyStore,
@@ -121,11 +124,7 @@ export class PXEService implements PXE {
       }
 
       count++;
-      this.synchronizer.addAccount(
-        address.publicKeys.masterIncomingViewingPublicKey,
-        this.keyStore,
-        this.config.l2StartingBlock,
-      );
+      await this.synchronizer.addAccount(address.address, this.keyStore, this.config.l2StartingBlock);
     }
 
     if (count > 0) {
@@ -184,10 +183,7 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(
-        accountCompleteAddress.address,
-      );
-      this.synchronizer.addAccount(masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
+      await this.synchronizer.addAccount(accountCompleteAddress.address, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
@@ -293,10 +289,10 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.publicKey),
+          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.ivpkM),
         );
         if (completeAddresses === undefined) {
-          throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
+          throw new Error(`Cannot find complete address for IvpkM ${dao.ivpkM.toString()}`);
         }
         owner = completeAddresses.address;
       }
@@ -337,7 +333,7 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNote(
-        new NoteDao(
+        new IncomingNoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
@@ -416,8 +412,14 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
-    return (await this.simulateTx(txRequest, simulatePublic)).tx;
+  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.jobQueue.put(async () => {
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined);
+      if (simulatePublic) {
+        simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+      }
+      return simulatedTx.tx;
+    });
   }
 
   public async simulateTx(
@@ -426,16 +428,15 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
-      // We log only if the msgSender is undefined, as simulating with a different msgSender
-      // is unlikely to be a real transaction, and likely to be only used to read data.
-      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
-      // If we log, the `getTxHash` function will throw.
-
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
       }
 
+      // We log only if the msgSender is undefined, as simulating with a different msgSender
+      // is unlikely to be a real transaction, and likely to be only used to read data.
+      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+      // If we log, the `getTxHash` function will throw.
       if (!msgSender) {
         this.log.info(`Executed local simulation for ${simulatedTx.tx.getTxHash()}`);
       }
@@ -652,18 +653,22 @@ export class PXEService implements PXE {
    * the function will also include the new contract's public functions in the transaction object.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
-   * @param signature - The ECDSA signature for the transaction request.
+   * @param proofCreator - The proof creator to use for proving the execution.
    * @param msgSender - (Optional) The message sender to use for the simulation.
-   * @returns An object tract contains:
+   * @returns An object that contains:
    * A private transaction object containing the proof, public inputs, and encrypted logs.
    * The return values of the private execution
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
+  async #simulateAndProve(
+    txExecutionRequest: TxExecutionRequest,
+    proofCreator: ProofCreator,
+    msgSender?: AztecAddress,
+  ): Promise<SimulatedTx> {
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
-    const kernelProver = new KernelProver(kernelOracle, this.proofCreator);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 

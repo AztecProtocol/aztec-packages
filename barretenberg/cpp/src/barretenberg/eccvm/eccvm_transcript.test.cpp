@@ -140,7 +140,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
             manifest_expected.add_challenge(round, label);
         }
 
-        for (size_t i = 0; i < log_n; ++i) {
+        const size_t MAX_LOG_CIRCUIT_SIZE = 28; // TODO(CONSTANT_PROOF_SIZE)
+        for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
             round++;
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
@@ -153,7 +154,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
         }

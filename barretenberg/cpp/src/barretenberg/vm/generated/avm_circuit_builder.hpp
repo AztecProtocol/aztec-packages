@@ -211,6 +211,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_kernel_l1_to_l2_msg_exists_write_offset{};
     FF avm_kernel_note_hash_exist_write_offset{};
     FF avm_kernel_nullifier_exists_write_offset{};
+    FF avm_kernel_nullifier_non_exists_write_offset{};
     FF avm_kernel_q_public_input_kernel_add_to_table{};
     FF avm_kernel_q_public_input_kernel_out_add_to_table{};
     FF avm_kernel_side_effect_counter{};
@@ -278,6 +279,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_cast{};
     FF avm_main_sel_op_chain_id{};
     FF avm_main_sel_op_coinbase{};
+    FF avm_main_sel_op_dagasleft{};
     FF avm_main_sel_op_div{};
     FF avm_main_sel_op_emit_l2_to_l1_msg{};
     FF avm_main_sel_op_emit_note_hash{};
@@ -287,8 +289,10 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
+    FF avm_main_sel_op_get_contract_instance{};
     FF avm_main_sel_op_keccak{};
     FF avm_main_sel_op_l1_to_l2_msg_exists{};
+    FF avm_main_sel_op_l2gasleft{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
     FF avm_main_sel_op_mul{};
@@ -305,6 +309,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_shr{};
     FF avm_main_sel_op_sload{};
     FF avm_main_sel_op_sstore{};
+    FF avm_main_sel_op_storage_address{};
     FF avm_main_sel_op_sub{};
     FF avm_main_sel_op_timestamp{};
     FF avm_main_sel_op_transaction_fee{};
@@ -498,6 +503,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_kernel_l1_to_l2_msg_exists_write_offset_shift{};
     FF avm_kernel_note_hash_exist_write_offset_shift{};
     FF avm_kernel_nullifier_exists_write_offset_shift{};
+    FF avm_kernel_nullifier_non_exists_write_offset_shift{};
     FF avm_kernel_side_effect_counter_shift{};
     FF avm_kernel_sload_write_offset_shift{};
     FF avm_kernel_sstore_write_offset_shift{};
@@ -523,8 +529,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 430;
-    static constexpr size_t num_polys = 366;
+    static constexpr size_t num_fixed_columns = 436;
+    static constexpr size_t num_polys = 371;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -672,6 +678,8 @@ class AvmCircuitBuilder {
             polys.avm_kernel_l1_to_l2_msg_exists_write_offset[i] = rows[i].avm_kernel_l1_to_l2_msg_exists_write_offset;
             polys.avm_kernel_note_hash_exist_write_offset[i] = rows[i].avm_kernel_note_hash_exist_write_offset;
             polys.avm_kernel_nullifier_exists_write_offset[i] = rows[i].avm_kernel_nullifier_exists_write_offset;
+            polys.avm_kernel_nullifier_non_exists_write_offset[i] =
+                rows[i].avm_kernel_nullifier_non_exists_write_offset;
             polys.avm_kernel_q_public_input_kernel_add_to_table[i] =
                 rows[i].avm_kernel_q_public_input_kernel_add_to_table;
             polys.avm_kernel_q_public_input_kernel_out_add_to_table[i] =
@@ -741,6 +749,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_cast[i] = rows[i].avm_main_sel_op_cast;
             polys.avm_main_sel_op_chain_id[i] = rows[i].avm_main_sel_op_chain_id;
             polys.avm_main_sel_op_coinbase[i] = rows[i].avm_main_sel_op_coinbase;
+            polys.avm_main_sel_op_dagasleft[i] = rows[i].avm_main_sel_op_dagasleft;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
             polys.avm_main_sel_op_emit_l2_to_l1_msg[i] = rows[i].avm_main_sel_op_emit_l2_to_l1_msg;
             polys.avm_main_sel_op_emit_note_hash[i] = rows[i].avm_main_sel_op_emit_note_hash;
@@ -750,8 +759,10 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
+            polys.avm_main_sel_op_get_contract_instance[i] = rows[i].avm_main_sel_op_get_contract_instance;
             polys.avm_main_sel_op_keccak[i] = rows[i].avm_main_sel_op_keccak;
             polys.avm_main_sel_op_l1_to_l2_msg_exists[i] = rows[i].avm_main_sel_op_l1_to_l2_msg_exists;
+            polys.avm_main_sel_op_l2gasleft[i] = rows[i].avm_main_sel_op_l2gasleft;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
             polys.avm_main_sel_op_mul[i] = rows[i].avm_main_sel_op_mul;
@@ -768,6 +779,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
             polys.avm_main_sel_op_sload[i] = rows[i].avm_main_sel_op_sload;
             polys.avm_main_sel_op_sstore[i] = rows[i].avm_main_sel_op_sstore;
+            polys.avm_main_sel_op_storage_address[i] = rows[i].avm_main_sel_op_storage_address;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
             polys.avm_main_sel_op_timestamp[i] = rows[i].avm_main_sel_op_timestamp;
             polys.avm_main_sel_op_transaction_fee[i] = rows[i].avm_main_sel_op_transaction_fee;
@@ -920,6 +932,8 @@ class AvmCircuitBuilder {
             Polynomial(polys.avm_kernel_note_hash_exist_write_offset.shifted());
         polys.avm_kernel_nullifier_exists_write_offset_shift =
             Polynomial(polys.avm_kernel_nullifier_exists_write_offset.shifted());
+        polys.avm_kernel_nullifier_non_exists_write_offset_shift =
+            Polynomial(polys.avm_kernel_nullifier_non_exists_write_offset.shifted());
         polys.avm_kernel_side_effect_counter_shift = Polynomial(polys.avm_kernel_side_effect_counter.shifted());
         polys.avm_kernel_sload_write_offset_shift = Polynomial(polys.avm_kernel_sload_write_offset.shifted());
         polys.avm_kernel_sstore_write_offset_shift = Polynomial(polys.avm_kernel_sstore_write_offset.shifted());
