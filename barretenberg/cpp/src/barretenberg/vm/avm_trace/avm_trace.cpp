@@ -1570,7 +1570,8 @@ void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_of
 
 void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset)
 {
-    bool dest_offset_is_indirect = is_operand_indirect(indirect, 2);
+    // TODO: align usage of indirect with simulator
+    bool dest_offset_is_indirect = is_operand_indirect(indirect, 1);
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto direct_dest_offset = dest_offset;
