@@ -39,13 +39,11 @@ void build_constraints(Builder& builder,
                 "encountered earlier.");
         }
 
-        size_t gate_diff = total_gate_diff;
-
         table_size_of_this_type += table_diff;
 
         size_t remainder = first ? table_size_of_this_type % num_constraints_of_this_type : 0;
         size_t amortised_gate_diff =
-            (gate_diff - table_diff) + (table_size_of_this_type / num_constraints_of_this_type) + remainder;
+            (total_gate_diff - table_diff) + (table_size_of_this_type / num_constraints_of_this_type) + remainder;
 
         if (total_gate_diff < table_diff) {
             // This means that before this constraint was added, the number of normal gates exceeded the (table size +
@@ -53,7 +51,7 @@ void build_constraints(Builder& builder,
             // dominating size.
 
             // treat the whole diff as though it's a table
-            table_size_of_this_type += total_gate_diff;
+            table_size_of_this_type = table_size_of_this_type - table_diff + total_gate_diff;
 
             remainder = first ? table_size_of_this_type % num_constraints_of_this_type : 0;
 
