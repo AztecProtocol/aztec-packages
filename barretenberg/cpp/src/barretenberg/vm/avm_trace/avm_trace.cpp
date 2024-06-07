@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 #include <sys/types.h>
+#include <unordered_map>
 #include <vector>
 
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -3676,7 +3677,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         dest.avm_alu_op_eq_diff_inv = FF(src.alu_op_eq_diff_inv);
 
         // Not all rows in ALU are enabled with a selector. For instance,
-        // multiplication over u128 is taking two lines.
+        // multiplication over u128 and cast is taking two lines.
         if (AvmAluTraceBuilder::is_alu_row_enabled(src)) {
             dest.avm_alu_alu_sel = FF(1);
         }
@@ -3726,6 +3727,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_alu_a_hi = FF(src.hi_lo_limbs.at(1));
             dest.avm_alu_p_sub_a_lo = FF(src.hi_lo_limbs.at(2));
             dest.avm_alu_p_sub_a_hi = FF(src.hi_lo_limbs.at(3));
+            dest.avm_alu_p_a_borrow = FF(static_cast<uint8_t>(src.p_a_borrow));
             dest.avm_alu_rng_chk_lookup_selector = FF(1);
         }
 
