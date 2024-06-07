@@ -352,20 +352,22 @@ bool foldAndVerifyProgramAcirWitnessVector(const std::string& bytecodePath, cons
     ClientIVC ivc;
     ivc.structured_flag = true;
     // Accumulate the entire program stack into the IVC
-    while (!program_stack.empty()) {
-        auto stack_item = program_stack.back();
+    for (size_t i = 0; i < program_stack.size(); i++) {
+        // auto& stack_item = program_stack.witness_stack[i];
 
         // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        auto circuit =
+            acir_format::create_circuit<Builder>(program_stack.constraint_systems[program_stack.witness_stack[i].first],
+                                                 0,
+                                                 program_stack.witness_stack[i].second,
+                                                 false,
+                                                 ivc.goblin.op_queue);
 
         std::cout << "ACCUM" << std::endl;
         if (!bb::CircuitChecker::check(circuit)) {
             std::cout << "BAD" << std::endl;
         }
         ivc.accumulate(circuit);
-
-        program_stack.pop_back();
     }
     return ivc.prove_and_verify();
 }
