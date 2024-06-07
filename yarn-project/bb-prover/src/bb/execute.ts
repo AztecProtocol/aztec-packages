@@ -235,7 +235,8 @@ export async function generateProof(
       log(`${circuitName} BB out - ${message}`);
     };
 
-    // LONDONTODO(TUBE)
+    // LONDONTODO(TUBE): I think I have to call prove_tube here, client_ivc_prove_output_all needs to be called in the client
+
     const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
     const duration = timer.ms();
 

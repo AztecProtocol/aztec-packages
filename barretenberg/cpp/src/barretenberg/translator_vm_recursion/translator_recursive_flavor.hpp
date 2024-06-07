@@ -136,8 +136,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
             this->pub_inputs_offset = native_key->pub_inputs_offset;
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
-                info(native_comm);
-                info(native_comm.on_curve());
                 comm = Commitment::from_witness(builder, native_comm);
             }
         }

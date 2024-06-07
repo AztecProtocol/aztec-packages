@@ -6,8 +6,10 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
+#ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#endif
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
@@ -305,12 +307,12 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     // into the directory in both 'binary' and 'fields' formats (i.e. json format)
     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/proof";
+    std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
     std::string eccVkPath = outputPath + "/ecc_vk";
-    std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
-    std::string proofFieldsPath = outputPath + "/proof_fields.json";
-    std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
+    // std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
+    // std::string proofFieldsPath = outputPath + "/proof_fields.json";
+    // std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
 
     auto proof = ivc.prove();
     auto accumulator = ivc.verifier_accumulator;
@@ -352,12 +354,12 @@ bool prove_tube(const std::string& outputPath)
 
     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/proof";
+    std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
     std::string eccVkPath = outputPath + "/ecc_vk";
     // std::string vkFieldsPath = outputPath + "/vk_fields.json";
-    init_bn254_crs(1 << 20);
-    init_grumpkin_crs(1 << 16); // is this even enough?
+    init_bn254_crs(1 << 25);
+    init_grumpkin_crs(1 << 18); // is this even enough?
 
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
     auto instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
@@ -376,13 +378,21 @@ bool prove_tube(const std::string& outputPath)
     info("num gates: ", builder->get_num_gates());
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
-    Prover prover{ *builder };
-    auto tube_proof = prover.construct_proof();
-    std::string tubeProofPath = outputPath + "/tube_proof";
-    write_file(tubeProofPath, to_buffer(tube_proof));
+    // using Verifier = UltraVerifier_<UltraFlavor>;
 
-    auto verification_key = std::make_shared<typename UltraFlavor::VerificationKey>(prover.key);
+    Prover tube_prover{ *builder };
+    auto tube_proof = tube_prover.construct_proof();
+    std::string tubeProofPath = outputPath + "/proof";
+    write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
+    std::string tubeVkPath = outputPath + "/vk";
+    auto tube_verification_key =
+        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
+    write_file(tubeVkPath, to_buffer(tube_verification_key));
+
+    // Verifier tube_verifier(tube_verification_key);
+    // bool verified = tube_verifier.verify_proof(tube_proof);
+    // info(verified);
     return true;
 }
 
@@ -633,6 +643,7 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
     }
 }
 
+#ifndef DISABLE_AZTEC_VM
 /**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
@@ -705,6 +716,7 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     vinfo("verified: ", verified);
     return verified;
 }
+#endif
 
 /**
  * @brief Creates a proof for an ACIR circuit
@@ -769,6 +781,8 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+    // init_bn254_crs(1 << 25);
+    // init_grumpkin_crs(1 << 18);
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
@@ -1001,6 +1015,11 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./proofs");
             info(output_path);
             prove_tube(output_path);
+        } else if (command == "verify_tube") {
+            std::string output_path = get_option(args, "-o", "./proofs");
+            auto tube_proof_path = output_path + "/proof";
+            auto tube_vk_path = output_path + "/vk";
+            return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
             gateCount(bytecode_path, honk_recursion);
         } else if (command == "verify") {
@@ -1020,6 +1039,7 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
+#ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "--avm-bytecode", "./target/avm_bytecode.bin");
             std::filesystem::path avm_calldata_path = get_option(args, "--avm-calldata", "./target/avm_calldata.bin");
@@ -1031,6 +1051,7 @@ int main(int argc, char* argv[])
             avm_prove(avm_bytecode_path, avm_calldata_path, avm_public_inputs_path, avm_hints_path, output_path);
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
+#endif
         } else if (command == "prove_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path);

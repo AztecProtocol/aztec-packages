@@ -29,108 +29,122 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AvmSimulator, type PublicExecutionResult } from '@aztec/simulator';
-import { getAvmTestContractBytecode, initContext, initExecutionEnvironment } from '@aztec/simulator/avm/fixtures';
+import { AvmSimulator, type PublicContractsDB, type PublicExecutionResult } from '@aztec/simulator';
+import {
+  getAvmTestContractBytecode,
+  initContext,
+  initExecutionEnvironment,
+  initHostStorage,
+} from '@aztec/simulator/avm/fixtures';
 
+import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
+import { AvmPersistableStateManager } from '../../simulator/src/avm/journal/journal.js';
 import {
   convertAvmResultsToPxResult,
   createPublicExecution,
 } from '../../simulator/src/public/transitional_adaptors.js';
+import { SerializableContractInstance } from '../../types/src/contracts/contract_instance.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
 import { extractVkData } from './verification_key/verification_key_data.js';
 
 const TIMEOUT = 30_000;
 
 describe('AVM WitGen, proof generation and verification', () => {
-  it(
-    'Should prove valid execution contract function that performs addition',
-    async () => {
-      await proveAndVerifyAvmTestContract('add_args_return', [new Fr(1), new Fr(2)]);
+  const avmFunctionsAndCalldata: [string, Fr[]][] = [
+    ['add_args_return', [new Fr(1), new Fr(2)]],
+    ['get_address', []],
+    ['note_hash_exists', [new Fr(1), new Fr(2)]],
+    ['test_get_contract_instance', []],
+    ['new_note_hash', [new Fr(1)]],
+    ['new_nullifier', [new Fr(1)]],
+    ['nullifier_exists', [new Fr(1)]],
+    ['l1_to_l2_msg_exists', [new Fr(1), new Fr(2)]],
+    ['send_l2_to_l1_msg', [new Fr(1), new Fr(2)]],
+    ['to_radix_le', [new Fr(10)]],
+  ];
+
+  it.each(avmFunctionsAndCalldata)(
+    'Should prove %s',
+    async (name, calldata) => {
+      await proveAndVerifyAvmTestContract(name, calldata);
     },
     TIMEOUT,
   );
 
-  it(
-    'Should prove kernel get environment opcode',
+  it.skip(
+    'Should prove a keccak hash evaluation',
     async () => {
-      await proveAndVerifyAvmTestContract('get_address');
+      await proveAndVerifyAvmTestContract('keccak_hash', [
+        new Fr(0),
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+        new Fr(5),
+        new Fr(6),
+        new Fr(7),
+        new Fr(8),
+        new Fr(9),
+      ]);
     },
     TIMEOUT,
   );
 
-  it(
-    'Should prove with note hash exists with hints',
-    async () => {
-      await proveAndVerifyAvmTestContract('note_hash_exists', [new Fr(1), new Fr(2)]);
-    },
-    TIMEOUT,
-  );
+  /************************************************************************
+   * AvmContext functions
+   ************************************************************************/
+  describe('AVM Context functions', () => {
+    const avmContextFunctions = [
+      'get_address',
+      'get_storage_address',
+      'get_sender',
+      'get_fee_per_l2_gas',
+      'get_fee_per_da_gas',
+      'get_transaction_fee',
+      'get_chain_id',
+      'get_version',
+      'get_block_number',
+      'get_timestamp',
+      'get_l2_gas_left',
+      'get_da_gas_left',
+    ];
 
-  it(
-    'Should prove new note hash',
-    async () => {
-      await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
-    },
-    TIMEOUT,
-  );
-
-  it(
-    'Should prove new note hash',
-    async () => {
-      await proveAndVerifyAvmTestContract('new_note_hash', [new Fr(1)]);
-    },
-    TIMEOUT,
-  );
-
-  it(
-    'Should prove new nullifier',
-    async () => {
-      await proveAndVerifyAvmTestContract('new_nullifier', [new Fr(1)]);
-    },
-    TIMEOUT,
-  );
-
-  it(
-    'Should prove nullifier exists',
-    async () => {
-      await proveAndVerifyAvmTestContract('nullifier_exists', [new Fr(1)]);
-    },
-    TIMEOUT,
-  );
-
-  it(
-    'Should prove l1 to l2 msg exists',
-    async () => {
-      await proveAndVerifyAvmTestContract('l1_to_l2_msg_exists', [new Fr(1), new Fr(2)]);
-    },
-    TIMEOUT,
-  );
-
-  it(
-    'Should prove send l2 to l1 msg',
-    async () => {
-      await proveAndVerifyAvmTestContract('send_l2_to_l1_msg', [new Fr(1), new Fr(2)]);
-    },
-    TIMEOUT,
-  );
-
-  // TODO: requires revert
-  // it("Should prove to radix",
-  //   async () => {
-  //     await proveAndVerifyAvmTestContract('to_radix_le', [new Fr(10)]);
-  //   },
-  //   TIMEOUT
-  // )
+    it.each(avmContextFunctions)(
+      'Should prove %s',
+      async contextFunction => {
+        await proveAndVerifyAvmTestContract(contextFunction);
+      },
+      TIMEOUT,
+    );
+  });
 });
+
+/************************************************************************
+ * Helpers
+ ************************************************************************/
 
 const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[] = []) => {
   const startSideEffectCounter = 0;
   const environment = initExecutionEnvironment({ calldata });
-  const context = initContext({ env: environment });
+
+  const contractsDb = mock<PublicContractsDB>();
+  const contractInstance = new SerializableContractInstance({
+    version: 1,
+    salt: new Fr(0x123),
+    deployer: new Fr(0x456),
+    contractClassId: new Fr(0x789),
+    initializationHash: new Fr(0x101112),
+    publicKeysHash: new Fr(0x161718),
+  }).withAddress(environment.address);
+  contractsDb.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
+
+  const hostStorage = initHostStorage({ contractsDb });
+  const persistableState = new AvmPersistableStateManager(hostStorage);
+  const context = initContext({ env: environment, persistableState });
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
   const oldPublicExecution = createPublicExecution(startSideEffectCounter, environment, calldata);
