@@ -338,8 +338,7 @@ void client_ivc_prove_output_all2(const std::string& bytecodePath,
         // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the
         // future
         std::vector<uint8_t> buffer =
-            decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); //
-        NOLINT
+            decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
         std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
             buffer,

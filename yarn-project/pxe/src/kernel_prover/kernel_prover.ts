@@ -187,7 +187,11 @@ export class KernelProver {
     acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
-    return await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+    // LONDONTODO this is hacky but necessary for now to meet the requirements of rest of stack
+    ivcProof.outputWitness = tailOutput.outputWitness;
+    ivcProof.publicInputs = tailOutput.publicInputs;
+    return ivcProof;
   }
 
   private needsReset(executionStack: ExecutionResult[], output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {

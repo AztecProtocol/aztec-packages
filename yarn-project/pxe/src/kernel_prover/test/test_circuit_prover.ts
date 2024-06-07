@@ -31,9 +31,15 @@ import { type WitnessMap } from '@noir-lang/types';
 export class TestProofCreator implements ProofCreator {
   constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
 
-  // LONDONTODO not doing this for offsite
+  // LONDONTODO hacky for offsite
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      publicInputs: {} as any,
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      // LONDONTODO reconsider jamming this everywhere
+      outputWitness: new Map()
+    });
   }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {

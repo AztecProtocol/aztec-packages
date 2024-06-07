@@ -356,7 +356,7 @@ template <typename FF_> class UltraHonkArith {
         std::array<uint32_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
             30000,   // pub_inputs;
-            355000,  // arithmetic;
+            755000,  // arithmetic;
             140000,  // delta_range;
             600000,  // elliptic;
             1000000, // aux;
@@ -409,12 +409,15 @@ template <typename FF_> class UltraHonkArith {
 
         void check_within_fixed_sizes()
         {
+            int i = 0;
             for (auto block : this->get()) {
                 if (block.size() > block.get_fixed_size()) {
                     info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
                          "not be constructed correctly!");
+                    info("Block index: ", i);
                     ASSERT(false);
                 }
+                i++;
             }
         }
 
