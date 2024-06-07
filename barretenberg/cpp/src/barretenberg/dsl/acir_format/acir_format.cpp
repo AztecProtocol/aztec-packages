@@ -20,14 +20,25 @@ void build_constraints(Builder& builder,
                        bool honk_recursion)
 {
     constraint_system.gates_per_opcode = std::vector<size_t>(constraint_system.num_acir_opcodes);
-    size_t prev_gate_count = 0;
+    size_t prev_total_gate_count = 0;
+    size_t prev_normal_gate_count = 0; // excludes tables, lookup gates, public inputs
+    size_t prev_public_input_count = 0;
     size_t prev_table_size = 0;
+    size_t prev_lookups_gate_count = 0;
 
+    // This should be refactored
     auto compute_gate_diff = [&](size_t const num_constraints_of_this_type, size_t& table_size_of_this_type) -> size_t {
-        size_t new_gate_count = builder.get_total_circuit_size();
+        size_t new_total_gate_count = builder.get_total_circuit_size();
+        size_t new_normal_gate_count = builder.get_num_gates();
+        size_t new_public_input_count = builder.public_inputs.size();
         size_t new_table_size = builder.get_tables_size();
-        size_t gate_diff = new_gate_count - prev_gate_count;
+        size_t new_lookups_gate_count = builder.get_lookups_size();
+
+        size_t total_gate_diff = new_total_gate_count - prev_total_gate_count;
+        size_t normal_gate_diff = new_normal_gate_count - prev_normal_gate_count;
+        size_t public_input_diff = new_public_input_count - prev_public_input_count;
         size_t table_diff = new_table_size - prev_table_size;
+        size_t lookups_diff = new_lookups_gate_count - prev_lookups_gate_count;
 
         if (table_diff > 0 && table_size_of_this_type > 0) {
             throw_or_abort(
@@ -35,16 +46,26 @@ void build_constraints(Builder& builder,
                 "encountered earlier.");
         }
 
-        if (gate_diff < table_diff) {
-            throw_or_abort("Unexpected error");
+        size_t gate_diff = total_gate_diff;
+
+        if (total_gate_diff < table_diff) {
+            // This means that before this constraint was added, the number of normal gates exceeded the (table size +
+            // num lookup gates). After this constraint has been added, the table size + num lookup gates is the
+            // dominating size.
+            gate_diff = std::max(normal_gate_diff + public_input_diff, lookups_diff);
         }
 
         table_size_of_this_type += table_diff;
+        size_t remainder = table_diff > 0 ? table_size_of_this_type % num_constraints_of_this_type : 0;
         size_t amortised_gate_diff =
-            (gate_diff - table_diff) + (table_size_of_this_type / num_constraints_of_this_type);
+            (gate_diff - table_diff) + (table_size_of_this_type / num_constraints_of_this_type) + remainder;
 
-        prev_gate_count = new_gate_count;
+        prev_total_gate_count = new_total_gate_count;
+        prev_normal_gate_count = new_normal_gate_count;
+        prev_public_input_count = new_public_input_count;
         prev_table_size = new_table_size;
+        prev_lookups_gate_count = new_lookups_gate_count;
+
         return amortised_gate_diff;
     };
 
