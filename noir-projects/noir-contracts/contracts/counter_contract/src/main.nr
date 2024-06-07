@@ -44,18 +44,22 @@ contract Counter {
     use dep::aztec::keys::PublicKeys;
     use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     use dep::aztec::protocol_types::address::PartialAddress;
+    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
+    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
 
     #[test]
     fn test_initialize() {
         let mut env = TestEnvironment::new();
         let owner = env.get_address_with_keys(AztecAddress::from_field(13));
         let outgoing_viewer = env.get_address_with_keys(AztecAddress::from_field(14));
-        cheatcodes::advance_blocks(30);
+        cheatcodes::advance_blocks(2);
         let initializer = Counter::interface().initialize(5, owner, outgoing_viewer);
-        let _contract_address = cheatcodes::deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer, 30);
+        let _contract_address = cheatcodes::deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer, 1);
         let counter_slot = Counter::storage().counters.slot;
         let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let stored: [Field; 1] = storage_read(owner_slot);
-        assert(stored[0] == 5);
+        let mut options = NoteViewerOptions::new();
+        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(owner_slot, options);
+
+        assert(opt_notes[0].unwrap().value == 5);
     }
 }

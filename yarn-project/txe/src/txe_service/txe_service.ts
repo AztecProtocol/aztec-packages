@@ -3,7 +3,9 @@ import { L2Block, MerkleTreeId, PublicDataWrite } from '@aztec/circuit-types';
 import {
   Fr,
   Header,
+  KeyValidationRequest,
   PUBLIC_DATA_SUBTREE_HEIGHT,
+  Point,
   PrivateContextInputs,
   PublicDataTreeLeaf,
   getContractInstanceFromDeployParams,
@@ -11,6 +13,7 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
+import { KeyStore } from '@aztec/key-store';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
@@ -36,6 +39,7 @@ export class TXEService {
     private store: AztecKVStore,
     private trees: MerkleTrees,
     private contractInstanceStore: ContractInstanceStore,
+    private keyStore: KeyStore,
     private contractAddress: AztecAddress,
   ) {}
 
@@ -45,9 +49,10 @@ export class TXEService {
     const packedValuesCache = new PackedValuesCache();
     const noteCache = new ExecutionNoteCache();
     const contractInstanceStore = new ContractInstanceStore(store);
+    const keyStore = new KeyStore(store);
     logger.info(`TXE service initialized`);
-    const txe = new TXE(logger, trees, packedValuesCache, noteCache, contractInstanceStore, contractAddress);
-    const service = new TXEService(logger, txe, store, trees, contractInstanceStore, contractAddress);
+    const txe = new TXE(logger, trees, packedValuesCache, noteCache, contractInstanceStore, keyStore, contractAddress);
+    const service = new TXEService(logger, txe, store, trees, contractInstanceStore, keyStore, contractAddress);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
   }
@@ -97,20 +102,24 @@ export class TXEService {
     this.store = openTmpStore(true);
     this.trees = await MerkleTrees.new(this.store, this.logger);
     this.contractInstanceStore = new ContractInstanceStore(this.store);
+    this.keyStore = new KeyStore(this.store);
     this.typedOracle = new TXE(
       this.logger,
       this.trees,
       new PackedValuesCache(),
       new ExecutionNoteCache(),
       this.contractInstanceStore,
+      this.keyStore,
       this.contractAddress,
     );
     await this.timeTravel(toSingle(new Fr(1)));
     return toForeignCallResult([]);
   }
 
-  setContractAddress(address = AztecAddress.random()) {
-    this.contractAddress = address;
+  setContractAddress(address: ForeignCallSingle) {
+    const typedAddress = AztecAddress.fromField(fromSingle(address));
+    this.contractAddress = typedAddress;
+    (this.typedOracle as TXE).setContractAddress(typedAddress);
     return toForeignCallResult([]);
   }
 
@@ -327,7 +336,7 @@ export class TXEService {
       fromSingle(innerNoteHash),
       fromSingle(counter).toNumber(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(new Fr(0))]);
   }
 
   async notifyNullifiedNote(
@@ -340,7 +349,7 @@ export class TXEService {
       fromSingle(innerNoteHash),
       fromSingle(counter).toNumber(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(new Fr(0))]);
   }
 
   async checkNullifierExists(innerNullifier: ForeignCallSingle) {
@@ -366,5 +375,57 @@ export class TXEService {
     const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
 
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
+  }
+
+  async getKeyValidationRequest(pkMHash: ForeignCallSingle) {
+    const keyValidationRequest = await this.typedOracle.getKeyValidationRequest(fromSingle(pkMHash));
+    return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
+  }
+
+  computeEncryptedLog(
+    contractAddress: ForeignCallSingle,
+    storageSlot: ForeignCallSingle,
+    noteTypeId: ForeignCallSingle,
+    ovskApp: ForeignCallSingle,
+    ovpkMX: ForeignCallSingle,
+    ovpkMY: ForeignCallSingle,
+    ivpkMX: ForeignCallSingle,
+    ivpkMY: ForeignCallSingle,
+    preimage: ForeignCallArray,
+  ) {
+    const ovpkM = new Point(fromSingle(ovpkMX), fromSingle(ovpkMY));
+    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(fromSingle(ovskApp).toString()));
+    const ivpkM = new Point(fromSingle(ivpkMX), fromSingle(ivpkMY));
+    const encLog = this.typedOracle.computeEncryptedLog(
+      AztecAddress.fromString(fromSingle(contractAddress).toString()),
+      Fr.fromString(fromSingle(storageSlot).toString()),
+      Fr.fromString(fromSingle(noteTypeId).toString()),
+      ovKeys,
+      ivpkM,
+      fromArray(preimage),
+    );
+    const bytes: Fr[] = [];
+
+    encLog.forEach(v => {
+      bytes.push(new Fr(v));
+    });
+    return toForeignCallResult([toArray(bytes)]);
+  }
+
+  emitEncryptedLog(
+    contractAddress: ForeignCallSingle,
+    randomandomness: ForeignCallSingle,
+    encryptedLog: ForeignCallSingle,
+    counter: ForeignCallSingle,
+  ) {
+    return toForeignCallResult([]);
+  }
+
+  emitEncryptedNoteLog(
+    noteHashCounter: ForeignCallSingle,
+    encryptedNote: ForeignCallArray,
+    counter: ForeignCallSingle,
+  ) {
+    return toForeignCallResult([]);
   }
 }

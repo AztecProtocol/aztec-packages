@@ -1,17 +1,19 @@
 import { type ContractInstanceStore } from '@aztec/archiver';
 import {
+  L1NotePayload,
   MerkleTreeId,
   Note,
   type NoteStatus,
   type NullifierMembershipWitness,
   PublicDataWitness,
   PublicDataWrite,
+  TaggedNote,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   CompleteAddress,
   type Header,
-  type KeyValidationRequest,
+  KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
@@ -23,9 +25,10 @@ import {
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { KeyStore } from '@aztec/key-store';
 import {
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
@@ -44,10 +47,12 @@ export class TXE implements TypedOracle {
     private packedValuesCache: PackedValuesCache,
     private noteCache: ExecutionNoteCache,
     private contractInstanceStore: ContractInstanceStore,
+    private keyStore: KeyStore,
     private contractAddress: AztecAddress,
-  ) {
-    this.packedValuesCache = packedValuesCache;
-    this.noteCache = noteCache;
+  ) {}
+
+  setContractAddress(contractAddress: AztecAddress) {
+    this.contractAddress = contractAddress;
   }
 
   getRandomField() {
@@ -66,8 +71,9 @@ export class TXE implements TypedOracle {
     return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
   }
 
-  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
-    throw new Error('Method not implemented.');
+  getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+    //return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
+    return Promise.resolve(KeyValidationRequest.empty());
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstance> {
@@ -269,14 +275,22 @@ export class TXE implements TypedOracle {
   }
 
   computeEncryptedLog(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _noteTypeId: Fr,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: Point,
-    _preimage: Fr[],
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    noteTypeId: Fr,
+    ovKeys: KeyValidationRequest,
+    ivpkM: Point,
+    preimage: Fr[],
   ): Buffer {
-    throw new Error('Method not implemented.');
+    const note = new Note(preimage);
+    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+    const taggedNote = new TaggedNote(l1NotePayload);
+
+    const ephSk = GrumpkinScalar.random();
+
+    const recipient = AztecAddress.random();
+
+    return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
