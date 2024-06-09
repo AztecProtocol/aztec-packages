@@ -781,8 +781,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     FF avm_kernel_kernel_inputs__is_public_evaluation =
         evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_inputs__is_public_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
-<<<<<<< HEAD
-=======
         return false;
     }
 
@@ -797,33 +795,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_side_effect_out__is_public_evaluation !=
         claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
->>>>>>> d8b3b547e5 (6902: PIL relations for gas remaining checks)
-        return false;
-    }
-
-    FF avm_kernel_kernel_value_out__is_public_evaluation =
-<<<<<<< HEAD
-        evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
-<<<<<<< HEAD
-    if (avm_kernel_kernel_metadata_out__is_public_evaluation !=
-        claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
-        return false;
-    }
-
-    FF avm_kernel_kernel_side_effect_out__is_public_evaluation =
-        evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
-    if (avm_kernel_kernel_side_effect_out__is_public_evaluation !=
-        claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
         return false;
     }
 
     FF avm_kernel_kernel_value_out__is_public_evaluation =
         evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
-=======
->>>>>>> d8b3b547e5 (6902: PIL relations for gas remaining checks)
-=======
-        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
->>>>>>> 92b8ae4733 (6902: handle out of gas range check and error boolean in witness generation)
     if (avm_kernel_kernel_value_out__is_public_evaluation !=
         claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
         return false;

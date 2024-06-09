@@ -1580,14 +1580,6 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(139);
 
-<<<<<<< HEAD
-            auto tmp = (((((((avm_main_sel_op_note_hash_exists + avm_main_sel_op_emit_note_hash) +
-                             avm_main_sel_op_nullifier_exists) +
-                            avm_main_sel_op_emit_nullifier) +
-                           avm_main_sel_op_l1_to_l2_msg_exists) +
-                          avm_main_sel_op_emit_unencrypted_log) +
-                         avm_main_sel_op_emit_l2_to_l1_msg) *
-=======
             auto tmp =
                 (avm_main_sel_op_sload * (avm_kernel_kernel_out_offset - (avm_kernel_sload_write_offset + FF(144))));
             tmp *= scaling_factor;
@@ -1622,15 +1614,12 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(143);
 
-            auto tmp = (((((((((avm_main_sel_op_note_hash_exists + avm_main_sel_op_emit_note_hash) +
-                               avm_main_sel_op_nullifier_exists) +
-                              avm_main_sel_op_emit_nullifier) +
-                             avm_main_sel_op_l1_to_l2_msg_exists) +
-                            avm_main_sel_op_emit_unencrypted_log) +
-                           avm_main_sel_op_emit_l2_to_l1_msg) +
-                          avm_main_sel_op_sload) +
-                         avm_main_sel_op_sstore) *
->>>>>>> d8b3b547e5 (6902: PIL relations for gas remaining checks)
+            auto tmp = (((((((avm_main_sel_op_note_hash_exists + avm_main_sel_op_emit_note_hash) +
+                             avm_main_sel_op_nullifier_exists) +
+                            avm_main_sel_op_emit_nullifier) +
+                           avm_main_sel_op_l1_to_l2_msg_exists) +
+                          avm_main_sel_op_emit_unencrypted_log) +
+                         avm_main_sel_op_emit_l2_to_l1_msg) *
                         (avm_kernel_side_effect_counter_shift - (avm_kernel_side_effect_counter + FF(1))));
             tmp *= scaling_factor;
             std::get<143>(evals) += tmp;
