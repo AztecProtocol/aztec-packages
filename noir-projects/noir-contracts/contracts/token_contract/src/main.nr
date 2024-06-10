@@ -197,7 +197,8 @@ contract Token {
             context.msg_sender(),
             context.msg_sender(),
             U128::from_integer(amount)
-        );
+        ).emit(&mut context);
+
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
@@ -289,7 +290,7 @@ contract Token {
         // Add the token note to user's balances set
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
         // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
-        storage.balances.add(context.msg_sender(), to, U128::from_integer(amount));
+        storage.balances.add(context.msg_sender(), to, U128::from_integer(amount)).emit(&mut context);
     }
     // docs:end:redeem_shield
 
@@ -302,7 +303,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(&mut context);
 
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -320,10 +321,8 @@ contract Token {
         // docs:end:assert_current_call_valid_authwit
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount);
-        // docs:start:increase_private_balance
-        storage.balances.add(from, to, amount);
-        // docs:end:increase_private_balance
+        storage.balances.sub(from, amount).emit(&mut context);
+        storage.balances.add(from, to, amount).emit(&mut context);
     }
     // docs:end:transfer
 
@@ -336,7 +335,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(&mut context);
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

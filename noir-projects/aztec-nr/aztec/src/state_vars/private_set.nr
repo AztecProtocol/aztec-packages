@@ -39,13 +39,8 @@ impl<Note> PrivateSet<Note, &mut PublicContext> {
 
 impl<Note> PrivateSet<Note, &mut PrivateContext> {
     // docs:start:insert
-    pub fn insert<N, M>(
-        self,
-        note: &mut Note,
-        ovpk_m: GrumpkinPoint,
-        ivpk_m: GrumpkinPoint
-    ) where Note: NoteInterface<N, M> {
-        create_note(self.context, self.storage_slot, note, ovpk_m, ivpk_m);
+    pub fn insert<N, M>(self, note: &mut Note) where Note: NoteInterface<N, M> {
+        create_note(self.context, self.storage_slot, note);
     }
     // docs:end:insert
 

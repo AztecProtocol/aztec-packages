@@ -9,9 +9,7 @@ use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 pub fn create_note<Note, N, M>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    note: &mut Note,
-    ovpk_m: GrumpkinPoint,
-    ivpk_m: GrumpkinPoint
+    note: &mut Note
 ) where Note: NoteInterface<N, M> {
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
@@ -36,7 +34,7 @@ pub fn create_note<Note, N, M>(
 
     context.push_new_note_hash(inner_note_hash);
 
-    Note::broadcast(*note, context, storage_slot, ovpk_m, ivpk_m);
+    // Note::broadcast(*note, context, storage_slot, ovpk_m, ivpk_m);
 }
 
 pub fn create_note_hash_from_public<Note, N, M>(
