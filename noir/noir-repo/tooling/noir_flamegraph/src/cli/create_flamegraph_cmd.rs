@@ -141,7 +141,7 @@ pub(crate) fn run(args: CreateFlamegraphCommand) -> Result<(), String> {
     let bb_gates_response = Command::new(args.backend_path)
         .arg("gates")
         .arg("-b")
-        .arg(args.artifact_path)
+        .arg(&args.artifact_path)
         .output()
         .expect("failed to execute process");
     println!("BB gates raw response {:?}", bb_gates_response);
@@ -182,8 +182,16 @@ pub(crate) fn run(args: CreateFlamegraphCommand) -> Result<(), String> {
     let folded_lines = to_folded_lines(&folded_stack_items, Default::default());
     // println!("folded lines {}", folded_lines.join("\n"));
 
+    let mut options = Options::default();
+    options.hash = true;
+    options.deterministic = true;
+    options.title = format!("{}-{}", &args.artifact_path, program.names[0].clone());
+    options.subtitle = Some("Sample = Gate".to_string());
+    options.frame_height = 24;
+    options.color_diffusion = true;
+
     from_lines(
-        &mut Options::default(),
+        &mut options,
         folded_lines.iter().map(|as_string| as_string.as_str()),
         flamegraph_writer,
     )
