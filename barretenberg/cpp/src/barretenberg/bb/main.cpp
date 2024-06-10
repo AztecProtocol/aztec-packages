@@ -310,8 +310,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
         program_stack.pop_back();
     }
 
-    // Write the proof and verification keys into the working directory in  'binary' format (in practice this directory
-    // is going to be given by transcript)
+    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
+    // directory is passed by bb.js)
     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/client_ivc_proof";
