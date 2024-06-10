@@ -156,7 +156,16 @@ pub(crate) fn run(args: CreateFlamegraphCommand) -> Result<(), String> {
 
     let mut folded_stack_items = HashMap::new();
 
+    gates.gates_per_opcode.iter().enumerate().for_each(|(opcode_idx, gate_count)| {
+        if *gate_count > 1000000 {
+            let opcode = &program.bytecode.functions[0].opcodes[opcode_idx];
+            println!("PROBLEM {}", opcode);
+        }
+    });
+
+    println!("GONNA PRINT TOTAL GATES");
     println!("Total gates {}", gates.gates_per_opcode.iter().sum::<usize>());
+    println!("GONNA PRINT TOTAL GATES");
 
     gates.gates_per_opcode.into_iter().enumerate().for_each(|(opcode_index, gates)| {
         let call_stack = &program.debug_symbols.debug_infos[0]
