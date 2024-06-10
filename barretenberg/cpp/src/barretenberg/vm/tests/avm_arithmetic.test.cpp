@@ -665,7 +665,6 @@ TEST_F(AvmArithmeticTestsU8, addition)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(91));
 
-    log_avm_trace(trace, 0, 10);
     validate_trace(std::move(trace));
 }
 
