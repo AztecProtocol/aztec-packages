@@ -7,6 +7,7 @@ import {
   type LogFilter,
   type NoteFilter,
   type PXE,
+  type PXEInfo,
   type SimulatedTx,
   type SyncStatus,
   type Tx,
@@ -15,6 +16,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -64,6 +66,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
     return this.pxe.getContractClass(id);
+  }
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    return this.pxe.getContractArtifact(id);
   }
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
@@ -158,6 +163,9 @@ export abstract class BaseWallet implements Wallet {
   getSyncStatus(): Promise<SyncStatus> {
     return this.pxe.getSyncStatus();
   }
+  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }> {
+    return this.pxe.getSyncStats();
+  }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
   }
@@ -169,5 +177,8 @@ export abstract class BaseWallet implements Wallet {
   }
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return this.pxe.isContractPubliclyDeployed(address);
+  }
+  getPXEInfo(): Promise<PXEInfo> {
+    return this.pxe.getPXEInfo();
   }
 }

@@ -10,7 +10,7 @@ import {
   sortByCounterGetSortedHints,
 } from '@aztec/circuits.js';
 
-export function buildPrivateKernelTailHints(publicInputs: PrivateKernelCircuitPublicInputs) {
+export function buildPrivateKernelTailHints(publicInputs: PrivateKernelCircuitPublicInputs): PrivateKernelTailHints {
   const [sortedNoteHashes, sortedNoteHashesIndexes] = sortByCounterGetSortedHints(
     publicInputs.end.newNoteHashes,
     MAX_NEW_NOTE_HASHES_PER_TX,
@@ -39,7 +39,10 @@ export function buildPrivateKernelTailHints(publicInputs: PrivateKernelCircuitPu
   const [sortedCallRequests, sortedCallRequestsIndexes] = sortByCounterGetSortedHints(
     publicInputs.end.publicCallStack,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    /* ascending */ false,
+    {
+      ascending: false,
+      hintIndexesBy: 'sorted',
+    },
   );
 
   return new PrivateKernelTailHints(

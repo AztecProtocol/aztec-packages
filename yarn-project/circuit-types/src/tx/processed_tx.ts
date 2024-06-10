@@ -2,6 +2,7 @@ import {
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
+  type PublicInputsAndRecursiveProof,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -9,16 +10,20 @@ import {
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
+  type AvmExecutionHints,
   Fr,
   type Gas,
   type GasFees,
   type Header,
   KernelCircuitPublicInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type PublicDataUpdateRequest,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
+  type RecursiveProof,
+  type VerificationKeyData,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 
@@ -26,11 +31,11 @@ import {
  * Used to communicate to the prover which type of circuit to prove
  */
 export enum PublicKernelType {
-  NON_PUBLIC,
-  SETUP,
-  APP_LOGIC,
-  TEARDOWN,
-  TAIL,
+  NON_PUBLIC = 'non-public',
+  SETUP = 'setup',
+  APP_LOGIC = 'app-logic',
+  TEARDOWN = 'teardown',
+  TAIL = 'tail',
 }
 
 export type PublicKernelTailRequest = {
@@ -44,6 +49,18 @@ export type PublicKernelNonTailRequest = {
 };
 
 export type PublicKernelRequest = PublicKernelTailRequest | PublicKernelNonTailRequest;
+
+export const AVM_REQUEST = 'AVM' as const;
+
+export type AvmProvingRequest = {
+  type: typeof AVM_REQUEST;
+  bytecode: Buffer;
+  calldata: Fr[];
+  avmHints: AvmExecutionHints;
+  kernelRequest: PublicKernelNonTailRequest;
+};
+
+export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
@@ -67,15 +84,18 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    */
   revertReason: SimulationError | undefined;
   /**
-   * The collection of public kernel circuit inputs for simulation/proving
+   * The inputs for AVM and kernel proving.
    */
-  publicKernelRequests: PublicKernelRequest[];
+  publicProvingRequests: PublicProvingRequest[];
   /**
    * Gas usage per public execution phase.
    * Doesn't account for any base costs nor DA gas used in private execution.
    */
   gasUsed: Partial<Record<PublicKernelType, Gas>>;
-  /** All public data updates for this transaction, including those created or updated by the protocol, such as balance updates from fee payments. */
+  /**
+   * All public data updates for this transaction, including those created
+   * or updated by the protocol, such as balance updates from fee payments.
+   */
   finalPublicDataUpdateRequests: PublicDataUpdateRequest[];
 };
 
@@ -129,7 +149,7 @@ export function makeProcessedTx(
   tx: Tx,
   kernelOutput: KernelCircuitPublicInputs,
   proof: Proof,
-  publicKernelRequests: PublicKernelRequest[],
+  publicProvingRequests: PublicProvingRequest[],
   revertReason?: SimulationError,
   gasUsed: ProcessedTx['gasUsed'] = {},
   finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
@@ -144,9 +164,39 @@ export function makeProcessedTx(
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
-    publicKernelRequests,
+    publicProvingRequests,
     gasUsed,
     finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
+  };
+}
+
+export type PaddingProcessedTx = ProcessedTx & {
+  verificationKey: VerificationKeyData;
+  recursiveProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+};
+
+/**
+ * Makes a padding empty tx with a valid proof.
+ * @returns A valid padding processed tx.
+ */
+export function makePaddingProcessedTx(
+  kernelOutput: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>,
+): PaddingProcessedTx {
+  const hash = new TxHash(Fr.ZERO.toBuffer());
+  return {
+    hash,
+    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.empty(),
+    unencryptedLogs: UnencryptedTxL2Logs.empty(),
+    data: kernelOutput.inputs,
+    proof: kernelOutput.proof.binaryProof,
+    isEmpty: true,
+    revertReason: undefined,
+    publicProvingRequests: [],
+    gasUsed: {},
+    finalPublicDataUpdateRequests: [],
+    verificationKey: kernelOutput.verificationKey,
+    recursiveProof: kernelOutput.proof,
   };
 }
 
@@ -171,7 +221,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     proof: emptyProof,
     isEmpty: true,
     revertReason: undefined,
-    publicKernelRequests: [],
+    publicProvingRequests: [],
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
   };

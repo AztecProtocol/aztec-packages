@@ -10,6 +10,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -32,6 +35,9 @@
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../prover-client"

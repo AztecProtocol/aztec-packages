@@ -2,6 +2,7 @@ import {
   type AuthWitness,
   type AztecNode,
   EncryptedL2Log,
+  EncryptedL2NoteLog,
   L1NotePayload,
   Note,
   type NoteStatus,
@@ -12,6 +13,7 @@ import {
   CallContext,
   FunctionSelector,
   type Header,
+  type KeyValidationRequest,
   PrivateContextInputs,
   PublicCallRequest,
   type TxContext,
@@ -28,7 +30,7 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import { CountedLog, type CountedNoteLog, type ExecutionResult, type NoteAndSlot } from './execution_result.js';
+import { CountedLog, CountedNoteLog, type ExecutionResult, type NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -349,12 +351,12 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Emit encrypted note data
-   * @param noteHash - The note hash.
+   * @param noteHashCounter - The note hash counter.
    * @param encryptedNote - The encrypted note data.
-   * @param counter - The effects counter.
+   * @param counter - The log counter.
    */
-  public override emitEncryptedNoteLog(noteHash: Fr, encryptedNote: Buffer, counter: number) {
-    const encryptedLog = this.noteCache.addNewLog(encryptedNote, counter, noteHash);
+  public override emitEncryptedNoteLog(noteHashCounter: number, encryptedNote: Buffer, counter: number) {
+    const encryptedLog = new CountedNoteLog(new EncryptedL2NoteLog(encryptedNote), counter, noteHashCounter);
     this.noteEncryptedLogs.push(encryptedLog);
   }
 
@@ -363,14 +365,16 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
    * @param noteTypeId - The type ID of the note.
-   * @param ivpk - The master incoming viewing public key.
+   * @param ovKeys - The outgoing viewing keys to use to encrypt.
+   * @param ivpkM - The master incoming viewing public key.
    * @param preimage - The note preimage.
    */
   public override computeEncryptedLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: Fr,
-    ivpk: Point,
+    ovKeys: KeyValidationRequest,
+    ivpkM: Point,
     preimage: Fr[],
   ) {
     const note = new Note(preimage);
@@ -379,11 +383,12 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const ephSk = GrumpkinScalar.random();
 
-    // @todo Issue(#6410) Right now we are completely ignoring the outgoing log. Just drawing random data.
-    const ovsk = GrumpkinScalar.random();
+    // @todo This should be populated properly.
+    // Note that this encryption function SHOULD not be used, but is currently used
+    // as oracle for encrypted event logs.
     const recipient = AztecAddress.random();
 
-    return taggedNote.encrypt(ephSk, recipient, ivpk, ovsk);
+    return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
 
   /**

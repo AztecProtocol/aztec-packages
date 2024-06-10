@@ -11,6 +11,7 @@ using namespace testing;
 
 class AvmCastTests : public ::testing::Test {
   protected:
+    VmPublicInputs public_inputs{};
     AvmTraceBuilder trace_builder;
     std::vector<Row> trace;
     size_t main_idx;
@@ -18,7 +19,15 @@ class AvmCastTests : public ::testing::Test {
     size_t mem_idx_c;
 
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+    void SetUp() override
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
+        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
+        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
+        std::get<0>(public_inputs) = kernel_inputs;
+        trace_builder = AvmTraceBuilder(public_inputs);
+    };
 
     void gen_trace(
         uint128_t const& a, uint32_t src_address, uint32_t dst_address, AvmMemoryTag src_tag, AvmMemoryTag dst_tag)
@@ -57,7 +66,7 @@ class AvmCastTests : public ::testing::Test {
                              uint32_t dst_address,
                              AvmMemoryTag src_tag,
                              AvmMemoryTag dst_tag,
-                             bool force_proof = true
+                             bool force_proof = false
 
     )
     {
@@ -107,7 +116,7 @@ class AvmCastTests : public ::testing::Test {
         // We still want the ability to enable proving through the environment variable and therefore we do not pass
         // the boolean variable force_proof to validate_trace second argument.
         if (force_proof) {
-            validate_trace(std::move(trace), {}, true);
+            validate_trace(std::move(trace), public_inputs, true);
         } else {
             validate_trace(std::move(trace));
         }
@@ -147,6 +156,14 @@ TEST_F(AvmCastTests, sameTagU128)
     gen_trace(a, 0, 1, AvmMemoryTag::U128, AvmMemoryTag::U128);
     validate_cast_trace(
         uint256_t::from_uint128(a), FF(uint256_t::from_uint128(a)), 0, 1, AvmMemoryTag::U128, AvmMemoryTag::U128);
+}
+
+TEST_F(AvmCastTests, U128toFFWithBorrow)
+{
+    uint128_t const a = (uint128_t{ 0x30644E72E131A029LLU } << 64) + uint128_t{ 0xB85045B68181585DLLU };
+    gen_trace(a, 0, 1, AvmMemoryTag::U128, AvmMemoryTag::FF);
+    validate_cast_trace(
+        uint256_t::from_uint128(a), FF(uint256_t::from_uint128(a)), 0, 1, AvmMemoryTag::U128, AvmMemoryTag::FF);
 }
 
 TEST_F(AvmCastTests, noTruncationFFToU32)

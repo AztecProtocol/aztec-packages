@@ -104,6 +104,7 @@ include(GNUInstallDirs)
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
+    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:client_ivc_objects>
@@ -153,7 +154,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_recursion_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT WASM)
+if(NOT DISABLE_AZTEC_VM)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
 endif()
@@ -181,30 +182,22 @@ if(WASM)
         $<TARGET_OBJECTS:wasi_objects>
     )
 
-    add_executable(
-        acvm_backend.wasm
-        $<TARGET_OBJECTS:wasi_objects>
-        $<TARGET_OBJECTS:env_objects>
-        $<TARGET_OBJECTS:common_objects>
-        $<TARGET_OBJECTS:numeric_objects>
-        $<TARGET_OBJECTS:ecc_objects>
-        $<TARGET_OBJECTS:crypto_aes128_objects>
-        $<TARGET_OBJECTS:crypto_blake2s_objects>
-        $<TARGET_OBJECTS:crypto_keccak_objects>
-        $<TARGET_OBJECTS:crypto_schnorr_objects>
-        $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
-        $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
-    )
-
     target_link_options(
         barretenberg.wasm
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic
     )
 
-    target_link_options(
-        acvm_backend.wasm
-        PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
-    )
+    if(CHECK_CIRCUIT_STACKTRACES)
+        target_link_libraries(
+            barretenberg.wasm
+            PUBLIC
+            Backward::Interface
+        )
+        target_link_options(
+            barretenberg.wasm
+            PRIVATE
+            -ldw -lelf
+        )
+    endif()
 endif()

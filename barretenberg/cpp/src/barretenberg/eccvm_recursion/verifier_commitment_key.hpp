@@ -1,7 +1,5 @@
 #pragma once
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 namespace bb {
 
 /**
@@ -9,25 +7,29 @@ namespace bb {
  *
  * @tparam Builder
  */
-template <typename Builder> class VerifierCommitmentKey<stdlib::bn254<Builder>> {
-    using Commitment = stdlib::cycle_group<Builder>;
+template <typename Curve> class VerifierCommitmentKey {
+    using Builder = Curve::Builder;
+    using Commitment = Curve::AffineElement;
+    using NativeEmbeddedCurve = typename Builder::EmbeddedCurve;
 
   public:
     /**
-     * @brief Construct a new Verifier Commitment Key object from its native counterpart. instantiated on Grumpkin. This
-     * will potentially be part of the ECCVMRecursiveFlavor once implemented.
+     * @brief Construct a new Verifier Commitment Key object from its native counterpart. instantiated on Grumpkin.
+     * This will be part of the ECCVMRecursiveFlavor once implemented. The Grumpkin SRS points are represented after
+     * applying the pippenger point table so the values at odd indices contain the point {srs[i-1].x * beta,
+     * srs[i-1].y}, where beta is the endomorphism. We retrieve only the original SRS for IPA verification.
      *
-     * @details The Grumpkin SRS points will be initialised as constants in the circuit but might be subsequently turned
-     * into constant witnesses to make operations in the circuit more efficient.
+     * @details The Grumpkin SRS points will be initialised as constants in the circuit but might be subsequently
+     * turned into constant witnesses to make operations in the circuit more efficient.
      */
     VerifierCommitmentKey([[maybe_unused]] Builder* builder,
                           size_t num_points,
-                          std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>>& native_pcs_verification_key)
+                          std::shared_ptr<VerifierCommitmentKey<NativeEmbeddedCurve>>& native_pcs_verification_key)
         : first_g1(Commitment(native_pcs_verification_key->get_first_g1()))
     {
 
         auto* native_points = native_pcs_verification_key->get_monomial_points();
-        for (size_t i = 0; i < num_points; i++) {
+        for (size_t i = 0; i < num_points * 2; i += 2) {
             monomial_points.emplace_back(Commitment(native_points[i]));
         }
     }

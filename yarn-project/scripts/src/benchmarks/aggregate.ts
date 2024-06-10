@@ -9,6 +9,7 @@
 // And then run this script from the yarn-project/scripts folder
 // LOG_FOLDER=../end-to-end/log yarn bench-aggregate
 import {
+  type AvmSimulationStats,
   BENCHMARK_BLOCK_SIZES,
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
@@ -25,6 +26,7 @@ import {
   type NodeSyncedChainHistoryStats,
   type NoteProcessorCaughtUpStats,
   type ProofConstructed,
+  type PublicDBAccessStats,
   type Stats,
   type TreeInsertionStats,
   type TxAddedToPoolStats,
@@ -67,8 +69,20 @@ function append(
 
 /** Processes an entry with event name 'acir-proof-generated' and updates results */
 function processAcirProofGenerated(entry: ProofConstructed, results: BenchmarkCollectedResults) {
-  if (entry.acir_test === 'sha256') {
-    append(results, `proof_construction_time_sha256`, entry.threads, entry.value);
+  if (entry.acir_test === 'bench_sha256') {
+    append(results, 'proof_construction_time_sha256_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_sha256_30') {
+    append(results, 'proof_construction_time_sha256_30_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_sha256_100') {
+    append(results, 'proof_construction_time_sha256_100_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash') {
+    append(results, 'proof_construction_time_poseidon_hash_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash_30') {
+    append(results, 'proof_construction_time_poseidon_hash_30_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash_100') {
+    append(results, 'proof_construction_time_poseidon_hash_100_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_eddsa') {
+    append(results, 'proof_construction_time_eddsa_poseidon_ms', entry.threads, entry.value);
   }
 }
 
@@ -137,6 +151,14 @@ function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCol
   }
 }
 
+function processAvmSimulation(entry: AvmSimulationStats, results: BenchmarkCollectedResults) {
+  append(results, 'avm_simulation_time_ms', entry.appCircuitName, entry.duration);
+}
+
+function processDbAccess(entry: PublicDBAccessStats, results: BenchmarkCollectedResults) {
+  append(results, 'public_db_access_time_ms', entry.operation, entry.duration);
+}
+
 /**
  * Processes an entry with event name 'circuit-proving' and updates results
  * Buckets are circuit names
@@ -159,8 +181,8 @@ function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, r
  * Processes an entry with event name 'note-processor-caught-up' and updates results
  */
 function processNoteProcessorCaughtUp(entry: NoteProcessorCaughtUpStats, results: BenchmarkCollectedResults) {
-  const { decrypted, blocks, dbSize } = entry;
-  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && decrypted > 0) {
+  const { decryptedIncoming, decryptedOutgoing, blocks, dbSize } = entry;
+  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && (decryptedIncoming > 0 || decryptedOutgoing > 0)) {
     append(results, 'pxe_database_size_in_bytes', blocks, dbSize);
   }
 }
@@ -246,6 +268,10 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
       return processTxAddedToPool(entry, results);
     case 'tree-insertion':
       return processTreeInsertion(entry, results);
+    case 'avm-simulation':
+      return processAvmSimulation(entry, results);
+    case 'public-db-access':
+      return processDbAccess(entry, results);
     default:
       return;
   }

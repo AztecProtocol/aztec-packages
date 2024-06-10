@@ -4,7 +4,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { convertAvmResultsToPxResult, createPublicExecution } from '../../public/transitional_adaptors.js';
 import type { AvmContext } from '../avm_context.js';
 import { gasLeftToGas } from '../avm_gas.js';
-import { Field, Uint8 } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint8 } from '../avm_memory_types.js';
 import { type AvmContractCallResults } from '../avm_message_call_result.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { RethrownError } from '../errors.js';
@@ -53,9 +53,15 @@ abstract class ExternalCall extends Instruction {
       [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.retOffset, this.successOffset],
       memory,
     );
+    memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
+    memory.checkTag(TypeTag.FIELD, addrOffset);
+    memory.checkTag(TypeTag.UINT32, argsSizeOffset);
+    memory.checkTag(TypeTag.FIELD, this.functionSelectorOffset);
+
+    const calldataSize = memory.get(argsSizeOffset).toNumber();
+    memory.checkTagsRange(TypeTag.FIELD, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
-    const calldataSize = memory.get(argsSizeOffset).toNumber();
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
     const functionSelector = memory.getAs<Field>(this.functionSelectorOffset).toFr();
     // If we are already in a static call, we propagate the environment.
@@ -86,13 +92,15 @@ abstract class ExternalCall extends Instruction {
     const startSideEffectCounter = nestedContext.persistableState.trace.accessCounter;
 
     const oldStyleExecution = createPublicExecution(startSideEffectCounter, nestedContext.environment, calldata);
-    const nestedCallResults: AvmContractCallResults = await new AvmSimulator(nestedContext).execute();
+    const simulator = new AvmSimulator(nestedContext);
+    const nestedCallResults: AvmContractCallResults = await simulator.execute();
     const pxResults = convertAvmResultsToPxResult(
       nestedCallResults,
       startSideEffectCounter,
       oldStyleExecution,
       Gas.from(allocatedGas),
       nestedContext,
+      simulator.getBytecode(),
     );
     // store the old PublicExecutionResult object to maintain a recursive data structure for the old kernel
     context.persistableState.transitionalExecutionResult.nestedExecutions.push(pxResults);
