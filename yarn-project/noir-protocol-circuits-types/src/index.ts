@@ -180,7 +180,6 @@ export const PrivateResetTagToArtifactName: Record<PrivateKernelResetTags, Priva
   small: 'PrivateKernelResetSmallArtifact',
 };
 
-// LONDONTODO(Tube): Need to modify here
 export type ServerProtocolArtifact =
   | 'EmptyNestedArtifact'
   | 'PrivateKernelEmptyArtifact'

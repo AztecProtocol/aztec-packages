@@ -21,15 +21,15 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
     fs.readFile(path.join(vkDirectoryPath, VK_FIELDS_FILENAME), { encoding: 'utf-8' }),
     fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
   ]);
-  const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromString);
+  // const fieldsJson = JSON.parse(rawFields);
+  // const fields = fieldsJson.map(Fr.fromString);
   // The first item is the hash, this is not part of the actual VK
-  const vkHash = fields[0];
-  const actualVk = fields.slice(1);
-  const vkAsFields = new VerificationKeyAsFields(
-    actualVk as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>,
-    vkHash,
-  );
+  // const vkHash = fields[0];
+  // const actualVk = fields.slice(1);
+  // const vkAsFields = new VerificationKeyAsFields(
+  //   actualVk as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+  //   vkHash,
+  // );
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }

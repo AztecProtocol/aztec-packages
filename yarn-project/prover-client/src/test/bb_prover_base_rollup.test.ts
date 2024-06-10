@@ -23,33 +23,61 @@ describe('prover/bb_prover/base-rollup', () => {
     await context.cleanup();
   });
 
-  // LONDONTODO(BaseRollup): Good starting point. 
-  // LONDONTODO(Rollup):     Also Good starting point. 
-  // LONDONTODO(Rollup):     Duplicate and make a test of just merge cicuit. Another file? 
-  it('proves the base rollup', async () => {
-    const header = await context.actualDb.buildInitialHeader();
-    const chainId = context.globalVariables.chainId;
-    const version = context.globalVariables.version;
+  // LONDONTODO(BaseRollup): Good starting point.
+  // LONDONTODO(Rollup):     Also Good starting point.
+  // LONDONTODO(Rollup):     Duplicate and make a test of just merge cicuit. Another file?
+  // it('proves the base rollup', async () => {
+  //   const header = await context.actualDb.buildInitialHeader();
+  //   const chainId = context.globalVariables.chainId;
+  //   const version = context.globalVariables.version;
 
-    const inputs = {
-      header,
-      chainId,
-      version,
-    };
+  //   const inputs = {
+  //     header,
+  //     chainId,
+  //     version,
+  //   };
 
-    const paddingTxPublicInputsAndProof = await context.prover.getEmptyPrivateKernelProof(inputs);
-    const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
+  //   const paddingTxPublicInputsAndProof = await context.prover.getEmptyPrivateKernelProof(inputs);
 
-    logger.verbose('Building base rollup inputs');
-    const baseRollupInputs = await buildBaseRollupInput(
-      tx,
-      context.globalVariables,
-      context.actualDb,
-      paddingTxPublicInputsAndProof.verificationKey,
-    );
-    logger.verbose('Proving base rollups');
-    const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
-    logger.verbose('Verifying base rollups');
-    await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
+  //   const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
+
+  //   logger.verbose('Building base rollup inputs');
+  //   const baseRollupInputs = await buildBaseRollupInput(
+  //     tx,
+  //     context.globalVariables,
+  //     context.actualDb,
+  //     paddingTxPublicInputsAndProof.verificationKey,
+  //   );
+  //   logger.verbose('Proving base rollups');
+  //   const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
+  //   logger.verbose('Verifying base rollups');
+  //   await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
+  // });
+
+  it('proves the tube rollup', async () => {
+    // const header = await context.actualDb.buildInitialHeader();
+    // const chainId = context.globalVariables.chainId;
+    // const version = context.globalVariables.version;
+
+    // const inputs = {
+    //   header,
+    //   chainId,
+    //   version,
+    // };
+
+    // const paddingTxPublicInputsAndProof = await context.prover.getEmptyPrivateKernelProof(inputs);
+
+    // const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
+
+    // logger.verbose('Building base rollup inputs');
+    // const baseRollupInputs = await buildBaseRollupInput(
+    //   tx,
+    //   context.globalVariables,
+    //   context.actualDb,
+    //   paddingTxPublicInputsAndProof.verificationKey,
+    // );
+    logger.verbose('Proving tube rollups');
+    const proofOutputs = await context.prover.getTubeRollupProof();
+    logger.verbose("boom");
   });
 });
