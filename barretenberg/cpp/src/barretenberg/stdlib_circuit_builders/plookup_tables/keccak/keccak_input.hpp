@@ -132,7 +132,7 @@ class KeccakInput {
         table.id = id;
         for (size_t i = 0; i < num_entries; ++i) {
             table.slice_sizes.emplace_back(1 << 8);
-            table.lookup_ids.emplace_back(KECCAK_INPUT);
+            table.basic_table_ids.emplace_back(KECCAK_INPUT);
             table.get_table_values.emplace_back(&get_keccak_input_values);
         }
         return table;

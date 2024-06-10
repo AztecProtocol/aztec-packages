@@ -85,10 +85,10 @@ inline MultiTable get_honk_dummy_multitable()
                      number_of_lookups);
     table.id = id;
     table.slice_sizes.emplace_back(number_of_elements_in_argument);
-    table.lookup_ids.emplace_back(HONK_DUMMY_BASIC1);
+    table.basic_table_ids.emplace_back(HONK_DUMMY_BASIC1);
     table.get_table_values.emplace_back(&get_value_from_key<HONK_DUMMY_BASIC1>);
     table.slice_sizes.emplace_back(number_of_elements_in_argument);
-    table.lookup_ids.emplace_back(HONK_DUMMY_BASIC2);
+    table.basic_table_ids.emplace_back(HONK_DUMMY_BASIC2);
     table.get_table_values.emplace_back(&get_value_from_key<HONK_DUMMY_BASIC2>);
     return table;
 }

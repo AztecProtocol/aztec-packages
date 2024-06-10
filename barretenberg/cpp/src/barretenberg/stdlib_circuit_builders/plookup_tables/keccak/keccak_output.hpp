@@ -162,7 +162,7 @@ class KeccakOutput {
         table.id = id;
         for (size_t i = 0; i < num_tables_per_multitable; ++i) {
             table.slice_sizes.emplace_back(numeric::pow64(BASE, TABLE_BITS));
-            table.lookup_ids.emplace_back(KECCAK_OUTPUT);
+            table.basic_table_ids.emplace_back(KECCAK_OUTPUT);
             table.get_table_values.emplace_back(
                 &sparse_tables::get_sparse_normalization_values<BASE, OUTPUT_NORMALIZATION_TABLE>);
         }

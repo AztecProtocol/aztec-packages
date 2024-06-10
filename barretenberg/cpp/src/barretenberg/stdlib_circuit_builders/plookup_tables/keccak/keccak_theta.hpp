@@ -244,7 +244,7 @@ class Theta {
         table.id = id;
         for (size_t i = 0; i < num_tables_per_multitable; ++i) {
             table.slice_sizes.emplace_back(numeric::pow64(BASE, TABLE_BITS));
-            table.lookup_ids.emplace_back(KECCAK_THETA);
+            table.basic_table_ids.emplace_back(KECCAK_THETA);
             table.get_table_values.emplace_back(&get_theta_renormalization_values);
         }
         return table;

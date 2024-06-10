@@ -633,13 +633,14 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
     const uint32_t key_a_index,
     std::optional<uint32_t> key_b_index)
 {
-    const auto& multi_table = plookup::create_table(id);
+    const auto& multi_table = plookup::get_multitable(id);
     const size_t num_lookups = read_values[plookup::ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
     for (size_t i = 0; i < num_lookups; ++i) {
-        auto& table = get_table(multi_table.lookup_ids[i]);
+        // get basic lookup table; construct and add to builder.lookup_tables if not already present
+        auto& table = get_table(multi_table.basic_table_ids[i]);
 
-        table.lookup_gates.emplace_back(read_values.key_entries[i]);
+        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
 
         const auto first_idx = (i == 0) ? key_a_index : this->add_variable(read_values[plookup::ColumnIdx::C1][i]);
         const auto second_idx = (i == 0 && (key_b_index.has_value()))

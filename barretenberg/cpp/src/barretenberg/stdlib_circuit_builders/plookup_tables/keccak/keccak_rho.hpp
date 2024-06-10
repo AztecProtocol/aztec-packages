@@ -264,7 +264,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
 
             table.slice_sizes.push_back(scaled_base);
             table.get_table_values.emplace_back(&get_rho_renormalization_values);
-            table.lookup_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
+            table.basic_table_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
         });
 
         // generate table selector values for the 'left' slice
@@ -284,7 +284,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
 
             table.slice_sizes.push_back(scaled_base);
             table.get_table_values.emplace_back(&get_rho_renormalization_values);
-            table.lookup_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
+            table.basic_table_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
         });
 
         return table;

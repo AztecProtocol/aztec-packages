@@ -243,13 +243,13 @@ template <size_t multitable_index, size_t num_bits> MultiTable table::get_fixed_
     MultiTable table(MAX_TABLE_SIZE, 0, 0, NUM_TABLES);
     table.id = id;
     table.get_table_values.resize(NUM_TABLES);
-    table.lookup_ids.resize(NUM_TABLES);
+    table.basic_table_ids.resize(NUM_TABLES);
     for (size_t i = 0; i < NUM_TABLES; ++i) {
         table.slice_sizes.emplace_back(MAX_TABLE_SIZE);
         table.get_table_values[i] = get_values_from_key_table[multitable_index][i];
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
         size_t idx = i + static_cast<size_t>(basic_table_ids[multitable_index]);
-        table.lookup_ids[i] = static_cast<plookup::BasicTableId>(idx);
+        table.basic_table_ids[i] = static_cast<plookup::BasicTableId>(idx);
     }
     return table;
 }

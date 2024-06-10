@@ -702,7 +702,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                                       std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
 
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
-    plookup::MultiTable& create_table(const plookup::MultiTableId id);
+    plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,

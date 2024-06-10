@@ -26,7 +26,7 @@ std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES> MULTI_TABLES;
 bool initialised = false;
 #ifndef NO_MULTITHREADING
 
-// The multitables initialisation procedure is not thread-sage, so we need to make sure only 1 thread gets to initialize
+// The multitables initialisation procedure is not thread-safe, so we need to make sure only 1 thread gets to initialize
 // them.
 std::mutex multi_table_mutex;
 #endif
@@ -123,7 +123,16 @@ void init_multi_tables()
     initialised = true;
 }
 } // namespace
-const MultiTable& create_table(const MultiTableId id)
+/**
+ * @brief Return the multitable with the provided ID; construct all MultiTables if not constructed already
+ * @details The multitables are relatively light objects (they do not themselves store raw table data) so the first time
+ * we use one of them we simply construct all of them (regardless of which of them will actually be used) and store in
+ * MULTI_TABLES array.
+ *
+ * @param id The index of a MultiTable in the MULTI_TABLES array
+ * @return const MultiTable&
+ */
+const MultiTable& get_multitable(const MultiTableId id)
 {
     if (!initialised) {
         init_multi_tables();
@@ -155,8 +164,8 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
                                          const bool is_2_to_1_lookup)
 {
     // return multi-table, populating global array of all multi-tables if need be
-    const auto& multi_table = create_table(id);
-    const size_t num_lookups = multi_table.lookup_ids.size();
+    const auto& multi_table = get_multitable(id);
+    const size_t num_lookups = multi_table.basic_table_ids.size();
 
     ReadData<bb::fr> lookup;
     const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
@@ -175,8 +184,8 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
         column_3_raw_values.emplace_back(is_2_to_1_lookup ? values[0] : values[1]);
 
         // Question: why are we storing the key slices twice? // WORKTODO: resolve question?
-        const BasicTable::LookupEntry key_entry{ { key_a_slices[i], key_b_slices[i] }, values };
-        lookup.key_entries.emplace_back(key_entry);
+        const BasicTable::LookupEntry lookup_entry{ { key_a_slices[i], key_b_slices[i] }, values };
+        lookup.lookup_entries.emplace_back(lookup_entry);
     }
 
     lookup[C1].resize(num_lookups);

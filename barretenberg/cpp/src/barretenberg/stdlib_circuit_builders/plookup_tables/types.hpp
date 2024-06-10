@@ -123,7 +123,7 @@ enum MultiTableId {
 
 /**
  * @brief Container for managing multiple BasicTables plus the data needed to combine basic table outputs (limbs) into
- * accumulators
+ * accumulators. Does not store actual raw table data.
  * @details As a simple example, consider using lookups to compute XOR on uint32_t inputs. To do this we decompose the
  * inputs into 6 limbs and use a BasicTable for 6-bit XOR lookups. In this case the MultiTable simply manages 6 basic
  * tables, all of which are the XOR BasicTable. (In many cases all of the BasicTables managed by a MultiTable are
@@ -140,7 +140,7 @@ struct MultiTable {
     std::vector<bb::fr> column_2_coefficients;
     std::vector<bb::fr> column_3_coefficients;
     MultiTableId id;
-    std::vector<BasicTableId> lookup_ids;
+    std::vector<BasicTableId> basic_table_ids;
     std::vector<uint64_t> slice_sizes;
     std::vector<bb::fr> column_1_step_sizes;
     std::vector<bb::fr> column_2_step_sizes;
@@ -341,7 +341,7 @@ template <class DataType> class ReadData {
     std::vector<DataType>& operator[](ColumnIdx idx) { return columns[static_cast<size_t>(idx)]; };
     const std::vector<DataType>& operator[](ColumnIdx idx) const { return columns[static_cast<size_t>(idx)]; };
 
-    std::vector<BasicTable::LookupEntry> key_entries;
+    std::vector<BasicTable::LookupEntry> lookup_entries;
 
   private:
     std::array<std::vector<DataType>, 3> columns;
