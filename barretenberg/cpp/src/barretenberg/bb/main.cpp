@@ -370,9 +370,10 @@ void prove_tube(const std::string& outputPath)
     std::shared_ptr<TranslatorVk> translator_vk =
         std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
     std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
-    // We don't serialise and deserialise the Grumkin SRS so for now we initialise with a dummy size to be able to
-    // recursively verify IPA
-    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(1 << 16);
+    // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
+    // IPA. The + 1 is to satisfy IPA verification key requirements.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
+    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
 
     FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
