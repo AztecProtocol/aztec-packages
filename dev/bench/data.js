@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718021552656,
+  "lastUpdate": 1718022854297,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -32000,6 +32000,78 @@ window.BENCHMARK_DATA = {
             "value": 163809193,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163809193 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e11f88004e2c31cb2b2ae376095513e94584a4dc",
+          "message": "chore(avm): add debugging info and trace dump (#6979)\n\nNow if you pass `--avm-dump-trace /tmp/trace.csv` you'll get a dump of\nthe whole trace.\n\nYou will also get extra debug logs _on debug builds_ once\nhttps://github.com/AztecProtocol/aztec-packages/issues/6978 is fixed.",
+          "timestamp": "2024-06-10T13:23:09+01:00",
+          "tree_id": "0aa1b67ff243431ed0d806bb370ebdf50b4f3f6b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e11f88004e2c31cb2b2ae376095513e94584a4dc"
+        },
+        "date": 1718022852632,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15446.683994000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10696.729009000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5510.997164000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5164.582551 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49439.936005999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49439938000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16968.040258,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16968040000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5141787120,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5141787120 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200807389,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200807389 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4300980192,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4300980192 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163342714,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163342714 ns\nthreads: 1"
           }
         ]
       }
