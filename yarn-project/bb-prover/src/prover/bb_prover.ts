@@ -61,6 +61,7 @@ import { NativeACVMSimulator } from '@aztec/simulator';
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
+import { info } from 'console';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -339,6 +340,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyNestedArtifact');
     await this.verifyProof('EmptyNestedArtifact', proof.binaryProof);
+    logger.debug(`EmptyNestedData proof size: ${proof.proof.length}`);
+    logger.debug(`EmptyNestedData proof: ${proof.proof}`);
+    logger.debug(`EmptyNestedData vk size: ${verificationKey.keyAsFields.key.length}`);
+    logger.debug(`EmptyNestedData vk: ${verificationKey.keyAsFields.key}`);
 
     return new EmptyNestedData(proof, verificationKey.keyAsFields);
   }
@@ -353,7 +358,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
-
+    info(`proof: ${proof.proof}`);
     const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
     await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
 
@@ -569,6 +574,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
+    info(`vkey in: ${verificationKey.keyAsFields.key}`);
     return await this.verifyWithKey(verificationKey, proof);
   }
 
@@ -641,7 +647,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs;
+      // const numPublicInputs = vk.numPublicInputs;
+      const numPublicInputs = vk.numPublicInputs; // - AGGREGATION_OBJECT_LENGTH;
       const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
 
@@ -755,6 +762,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       throw new Error(`Invalid verification key for ${circuitType}`);
     }
     const numPublicInputs = vkData.numPublicInputs;
+    // const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
+    //   ? vkData.numPublicInputs
+    //   : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
       .map(Fr.fromString)
@@ -764,6 +774,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         circuitType,
       )}`,
     );
+    const publicInputs = json.slice(3, 3 + numPublicInputs).map(Fr.fromString);
+    logger.debug(`public inputs: ${publicInputs}`);
     logger.debug(
       `Circuit type: ${circuitType}, complete proof length: ${json.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

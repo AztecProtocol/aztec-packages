@@ -134,7 +134,7 @@ export async function generateKeyForNoirCircuit(
     if (!binaryPresent) {
       return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
     }
-    log(`here in generateKeyForNoirCircuit`)
+    log(`here in generateKeyForNoirCircuit`);
     // We are now going to generate the key
     try {
       const bytecodePath = `${circuitOutputDirectory}/${bytecodeFilename}`;
@@ -144,7 +144,8 @@ export async function generateKeyForNoirCircuit(
       // args are the output path and the input bytecode path
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
-      let result = await executeBB(pathToBB, `write_${key}_ultra_honk_fake`, args, log);
+      let result = await executeBB(pathToBB, `write_${key}_ultra_honk`, args, log);
+      log(`write vk result: ${result.status}`);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS && key === 'vk') {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
@@ -231,7 +232,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'prove_ultra_honk_output_all_fake', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove_ultra_honk_output_all', args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {

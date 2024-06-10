@@ -11,5 +11,6 @@ if (NOT(FUZZING))
         PRIVATE
         barretenberg
         env
+        circuit_checker
     )
 endif()
