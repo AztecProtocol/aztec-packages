@@ -630,7 +630,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     {
         size_t tables_size = 0;
         for (const auto& table : lookup_tables) {
-            tables_size += table.size;
+            tables_size += table.size();
         }
         return tables_size;
     }

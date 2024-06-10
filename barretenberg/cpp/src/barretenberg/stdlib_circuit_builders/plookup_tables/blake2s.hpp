@@ -35,7 +35,6 @@ inline BasicTable generate_xor_rotate_table(BasicTableId id, const size_t table_
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    table.size = base * base;
     table.use_twin_keys = true;
 
     for (uint64_t i = 0; i < base; ++i) {

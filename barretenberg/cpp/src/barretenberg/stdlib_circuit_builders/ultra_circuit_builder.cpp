@@ -2815,7 +2815,7 @@ template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithm
         const FF table_index(table.table_index);
         info("Table no: ", table.table_index);
         std::vector<std::vector<FF>> tmp_table;
-        for (size_t i = 0; i < table.size; ++i) {
+        for (size_t i = 0; i < table.size(); ++i) {
             tmp_table.push_back({ table.column_1[i], table.column_2[i], table.column_3[i] });
         }
         cir.lookup_tables.push_back(tmp_table);
