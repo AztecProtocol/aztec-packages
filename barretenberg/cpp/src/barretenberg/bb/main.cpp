@@ -940,7 +940,7 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
     auto proofAsFields = acir_composer.serialize_proof_into_fields(proof, vk->as_data().num_public_inputs);
     std::string proofJson = to_json(proofAsFields);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    vinfo("proof as fields written to: ", proofFieldsPath);
+    info("proof as fields written to: ", proofFieldsPath);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(*vk);
