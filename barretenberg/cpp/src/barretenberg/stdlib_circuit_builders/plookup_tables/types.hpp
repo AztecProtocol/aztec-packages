@@ -122,8 +122,8 @@ enum MultiTableId {
 };
 
 /**
- * @brief Container for managing multiple BasicTables plus the data needed to combine basic table outputs (limbs) into
- * accumulators. Does not store actual raw table data.
+ * @brief Container for managing multiple BasicTables plus the data needed to combine basic table outputs (e.g. limbs)
+ * into accumulators. Does not store actual raw table data.
  * @details As a simple example, consider using lookups to compute XOR on uint32_t inputs. To do this we decompose the
  * inputs into 6 limbs and use a BasicTable for 6-bit XOR lookups. In this case the MultiTable simply manages 6 basic
  * tables, all of which are the XOR BasicTable. (In many cases all of the BasicTables managed by a MultiTable are
@@ -343,9 +343,46 @@ template <class DataType> class ReadData {
 
     std::vector<BasicTable::LookupEntry> lookup_entries;
 
-  private:
+    //   private:
     // Container for the lookup accumulators; 0th index of each column contains full accumulated value
     std::array<std::vector<DataType>, 3> columns;
+};
+
+struct LookupHashTable {
+    using FF = bb::fr;
+    using Key = std::array<FF, 3>;
+    using Value = size_t;
+    struct HashFunction {
+        static constexpr FF mult_const = FF(uint256_t(0x1337, 0x1336, 0x1335, 0x1334));
+        static constexpr FF const_sqr = mult_const.sqr();
+
+        size_t operator()(const Key& entry) const
+        {
+            FF result = entry[0] + mult_const * entry[1] + const_sqr * entry[2];
+            return static_cast<size_t>(result.reduce_once().data[0]);
+        }
+    };
+
+    std::unordered_map<Key, Value, HashFunction> index_map;
+
+    LookupHashTable(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3)
+    {
+        for (size_t i = 0; i < column_1.size(); ++i) {
+            index_map[{ column_1[i], column_2[i], column_3[i] }] = i;
+        }
+    }
+
+    // Value find(Key key) { return index_map[key]; }
+    Value find(const Key& key) const
+    {
+        auto it = index_map.find(key);
+        if (it != index_map.end()) {
+            return it->second;
+        } else {
+            info(" KEY NOT FOUND!");
+            return 0;
+        }
+    }
 };
 
 } // namespace bb::plookup

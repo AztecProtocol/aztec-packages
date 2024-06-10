@@ -2,6 +2,7 @@
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial_store.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 #include <memory>
 
@@ -109,6 +110,42 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
         }
     }
     return sorted_polynomials;
+}
+
+/**
+ * @brief WORKTODO
+ *
+ */
+template <typename Flavor>
+typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::CircuitBuilder& circuit,
+                                                         const size_t dyadic_circuit_size)
+{
+    using Polynomial = typename Flavor::Polynomial;
+    using HashTable = plookup::LookupHashTable;
+    Polynomial read_counts{ dyadic_circuit_size };
+
+    size_t table_offset = 0; // offset of the present table in the table polynomials
+    for (auto& table : circuit.lookup_tables) {
+        HashTable index_map{ table.column_1, table.column_2, table.column_3 };
+
+        for (auto& entry : table.lookup_gates) {
+            info("entry");
+            auto data = entry.to_sorted_list_components(table.use_twin_keys);
+            info("data[0] = ", data[0]);
+            info("data[1] = ", data[1]);
+            info("data[2] = ", data[2]);
+
+            // find the index of the current lookup gate in the table
+            auto index_in_table = index_map.find(data);
+
+            // increment the read count at the corresponding index in the full polynomial
+            size_t index_in_poly = table_offset + index_in_table;
+            read_counts[index_in_poly]++;
+        }
+        table_offset += table.size;
+    }
+
+    return read_counts;
 }
 
 } // namespace bb
