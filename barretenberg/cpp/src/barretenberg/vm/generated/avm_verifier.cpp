@@ -757,7 +757,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     FF avm_kernel_kernel_metadata_out__is_public_evaluation =
-        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
+        evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_metadata_out__is_public_evaluation !=
         claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
         return false;
@@ -771,7 +771,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     FF avm_kernel_kernel_value_out__is_public_evaluation =
-        evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
+        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_value_out__is_public_evaluation !=
         claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
         return false;

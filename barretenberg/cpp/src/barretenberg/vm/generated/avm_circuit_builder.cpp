@@ -389,71 +389,6 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "lookup_div_u16_5_counts",
              "lookup_div_u16_6_counts",
              "lookup_div_u16_7_counts",
-             "avm_alu_a_hi_shift",
-             "avm_alu_a_lo_shift",
-             "avm_alu_alu_sel_shift",
-             "avm_alu_b_hi_shift",
-             "avm_alu_b_lo_shift",
-             "avm_alu_cmp_rng_ctr_shift",
-             "avm_alu_cmp_sel_shift",
-             "avm_alu_div_rng_chk_selector_shift",
-             "avm_alu_div_u16_r0_shift",
-             "avm_alu_div_u16_r1_shift",
-             "avm_alu_div_u16_r2_shift",
-             "avm_alu_div_u16_r3_shift",
-             "avm_alu_div_u16_r4_shift",
-             "avm_alu_div_u16_r5_shift",
-             "avm_alu_div_u16_r6_shift",
-             "avm_alu_div_u16_r7_shift",
-             "avm_alu_op_add_shift",
-             "avm_alu_op_cast_prev_shift",
-             "avm_alu_op_cast_shift",
-             "avm_alu_op_div_shift",
-             "avm_alu_op_mul_shift",
-             "avm_alu_op_shl_shift",
-             "avm_alu_op_shr_shift",
-             "avm_alu_op_sub_shift",
-             "avm_alu_p_sub_a_hi_shift",
-             "avm_alu_p_sub_a_lo_shift",
-             "avm_alu_p_sub_b_hi_shift",
-             "avm_alu_p_sub_b_lo_shift",
-             "avm_alu_rng_chk_lookup_selector_shift",
-             "avm_alu_rng_chk_sel_shift",
-             "avm_alu_u16_r0_shift",
-             "avm_alu_u16_r1_shift",
-             "avm_alu_u16_r2_shift",
-             "avm_alu_u16_r3_shift",
-             "avm_alu_u16_r4_shift",
-             "avm_alu_u16_r5_shift",
-             "avm_alu_u16_r6_shift",
-             "avm_alu_u8_r0_shift",
-             "avm_alu_u8_r1_shift",
-             "avm_binary_acc_ia_shift",
-             "avm_binary_acc_ib_shift",
-             "avm_binary_acc_ic_shift",
-             "avm_binary_mem_tag_ctr_shift",
-             "avm_binary_op_id_shift",
-             "avm_kernel_emit_l2_to_l1_msg_write_offset_shift",
-             "avm_kernel_emit_note_hash_write_offset_shift",
-             "avm_kernel_emit_nullifier_write_offset_shift",
-             "avm_kernel_emit_unencrypted_log_write_offset_shift",
-             "avm_kernel_l1_to_l2_msg_exists_write_offset_shift",
-             "avm_kernel_note_hash_exist_write_offset_shift",
-             "avm_kernel_nullifier_exists_write_offset_shift",
-             "avm_kernel_nullifier_non_exists_write_offset_shift",
-             "avm_kernel_side_effect_counter_shift",
-             "avm_kernel_sload_write_offset_shift",
-             "avm_kernel_sstore_write_offset_shift",
-             "avm_main_da_gas_remaining_shift",
-             "avm_main_internal_return_ptr_shift",
-             "avm_main_l2_gas_remaining_shift",
-             "avm_main_pc_shift",
-             "avm_mem_glob_addr_shift",
-             "avm_mem_mem_sel_shift",
-             "avm_mem_rw_shift",
-             "avm_mem_tag_shift",
-             "avm_mem_tsp_shift",
-             "avm_mem_val_shift",
              "" };
 }
 
@@ -666,50 +601,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
            << field_to_string(row.lookup_div_u16_0_counts) << "," << field_to_string(row.lookup_div_u16_1_counts) << ","
            << field_to_string(row.lookup_div_u16_2_counts) << "," << field_to_string(row.lookup_div_u16_3_counts) << ","
            << field_to_string(row.lookup_div_u16_4_counts) << "," << field_to_string(row.lookup_div_u16_5_counts) << ","
-           << field_to_string(row.lookup_div_u16_6_counts) << "," << field_to_string(row.lookup_div_u16_7_counts) << ","
-           << field_to_string(row.avm_alu_a_hi_shift) << "," << field_to_string(row.avm_alu_a_lo_shift) << ","
-           << field_to_string(row.avm_alu_alu_sel_shift) << "," << field_to_string(row.avm_alu_b_hi_shift) << ","
-           << field_to_string(row.avm_alu_b_lo_shift) << "," << field_to_string(row.avm_alu_cmp_rng_ctr_shift) << ","
-           << field_to_string(row.avm_alu_cmp_sel_shift) << ","
-           << field_to_string(row.avm_alu_div_rng_chk_selector_shift) << ","
-           << field_to_string(row.avm_alu_div_u16_r0_shift) << "," << field_to_string(row.avm_alu_div_u16_r1_shift)
-           << "," << field_to_string(row.avm_alu_div_u16_r2_shift) << ","
-           << field_to_string(row.avm_alu_div_u16_r3_shift) << "," << field_to_string(row.avm_alu_div_u16_r4_shift)
-           << "," << field_to_string(row.avm_alu_div_u16_r5_shift) << ","
-           << field_to_string(row.avm_alu_div_u16_r6_shift) << "," << field_to_string(row.avm_alu_div_u16_r7_shift)
-           << "," << field_to_string(row.avm_alu_op_add_shift) << "," << field_to_string(row.avm_alu_op_cast_prev_shift)
-           << "," << field_to_string(row.avm_alu_op_cast_shift) << "," << field_to_string(row.avm_alu_op_div_shift)
-           << "," << field_to_string(row.avm_alu_op_mul_shift) << "," << field_to_string(row.avm_alu_op_shl_shift)
-           << "," << field_to_string(row.avm_alu_op_shr_shift) << "," << field_to_string(row.avm_alu_op_sub_shift)
-           << "," << field_to_string(row.avm_alu_p_sub_a_hi_shift) << ","
-           << field_to_string(row.avm_alu_p_sub_a_lo_shift) << "," << field_to_string(row.avm_alu_p_sub_b_hi_shift)
-           << "," << field_to_string(row.avm_alu_p_sub_b_lo_shift) << ","
-           << field_to_string(row.avm_alu_rng_chk_lookup_selector_shift) << ","
-           << field_to_string(row.avm_alu_rng_chk_sel_shift) << "," << field_to_string(row.avm_alu_u16_r0_shift) << ","
-           << field_to_string(row.avm_alu_u16_r1_shift) << "," << field_to_string(row.avm_alu_u16_r2_shift) << ","
-           << field_to_string(row.avm_alu_u16_r3_shift) << "," << field_to_string(row.avm_alu_u16_r4_shift) << ","
-           << field_to_string(row.avm_alu_u16_r5_shift) << "," << field_to_string(row.avm_alu_u16_r6_shift) << ","
-           << field_to_string(row.avm_alu_u8_r0_shift) << "," << field_to_string(row.avm_alu_u8_r1_shift) << ","
-           << field_to_string(row.avm_binary_acc_ia_shift) << "," << field_to_string(row.avm_binary_acc_ib_shift) << ","
-           << field_to_string(row.avm_binary_acc_ic_shift) << "," << field_to_string(row.avm_binary_mem_tag_ctr_shift)
-           << "," << field_to_string(row.avm_binary_op_id_shift) << ","
-           << field_to_string(row.avm_kernel_emit_l2_to_l1_msg_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_emit_note_hash_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_emit_nullifier_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_emit_unencrypted_log_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_l1_to_l2_msg_exists_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_note_hash_exist_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_nullifier_exists_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_nullifier_non_exists_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_side_effect_counter_shift) << ","
-           << field_to_string(row.avm_kernel_sload_write_offset_shift) << ","
-           << field_to_string(row.avm_kernel_sstore_write_offset_shift) << ","
-           << field_to_string(row.avm_main_da_gas_remaining_shift) << ","
-           << field_to_string(row.avm_main_internal_return_ptr_shift) << ","
-           << field_to_string(row.avm_main_l2_gas_remaining_shift) << "," << field_to_string(row.avm_main_pc_shift)
-           << "," << field_to_string(row.avm_mem_glob_addr_shift) << "," << field_to_string(row.avm_mem_mem_sel_shift)
-           << "," << field_to_string(row.avm_mem_rw_shift) << "," << field_to_string(row.avm_mem_tag_shift) << ","
-           << field_to_string(row.avm_mem_tsp_shift) << "," << field_to_string(row.avm_mem_val_shift)
+           << field_to_string(row.lookup_div_u16_6_counts) << "," << field_to_string(row.lookup_div_u16_7_counts)
            << ","
               "";
 }
