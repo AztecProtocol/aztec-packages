@@ -5,11 +5,10 @@ use dep::protocol_types::{
 };
 
 use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
-use crate::test::helpers::cheatcodes;
+use crate::test::helpers::{cheatcodes, types::Deployer};
 use crate::keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}};
 
 struct TestEnvironment {
-    block_number: u32,
     contract_address: Option<AztecAddress>,
     args_hash: Option<Field>,
     function_selector: Option<FunctionSelector>
@@ -19,12 +18,11 @@ impl TestEnvironment {
     fn new() -> Self {
         cheatcodes::reset();
 
-        Self {
-            block_number: 1,
-            contract_address: Option::none(),
-            args_hash: Option::none(),
-            function_selector: Option::none()
-        }
+        Self { contract_address: Option::none(), args_hash: Option::none(), function_selector: Option::none() }
+    }
+
+    fn block_number(self) -> u32 {
+        cheatcodes::get_block_number()
     }
 
     fn contract_address(&mut self, contract_address: AztecAddress) -> Self {
@@ -43,12 +41,11 @@ impl TestEnvironment {
     }
 
     fn advance_block_to(&mut self, block_number: u32) {
-        let difference = block_number - self.block_number;
+        let difference = block_number - cheatcodes::get_block_number();
         self.advance_block_by(difference);
     }
 
     fn advance_block_by(&mut self, blocks: u32) {
-        self.block_number += blocks;
         cheatcodes::advance_blocks(blocks);
     }
 
@@ -61,11 +58,11 @@ impl TestEnvironment {
     }
 
     fn private(&mut self) -> PrivateContext {
-        self.private_at(self.block_number)
+        self.private_at(cheatcodes::get_block_number())
     }
 
     fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
-        if historical_block_number >= self.block_number {
+        if historical_block_number >= cheatcodes::get_block_number() {
             self.advance_block_to(historical_block_number + 1);
         }
 
@@ -121,5 +118,9 @@ impl TestEnvironment {
         };
 
         AztecAddress::compute(keys.hash(), PartialAddress::from_field(1))
+    }
+
+    fn deploy<N>(self, path: str<N>) -> Deployer<N> {
+        cheatcodes::deploy(path)
     }
 }

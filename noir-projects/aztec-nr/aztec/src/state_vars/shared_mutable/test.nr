@@ -92,7 +92,7 @@ fn test_get_current_value_in_private_before_change() {
 
     let (_, block_of_change) = public_state_var.get_scheduled_value_in_public();
 
-    let schedule_block_number = env.block_number;
+    let schedule_block_number = env.block_number();
 
     let private_state_var = in_private(&mut env, schedule_block_number);
     assert_eq(private_state_var.get_current_value_in_private(), 0);

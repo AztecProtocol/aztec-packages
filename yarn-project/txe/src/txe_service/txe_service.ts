@@ -413,18 +413,18 @@ export class TXEService {
   }
 
   emitEncryptedLog(
-    contractAddress: ForeignCallSingle,
-    randomandomness: ForeignCallSingle,
-    encryptedLog: ForeignCallSingle,
-    counter: ForeignCallSingle,
+    _contractAddress: ForeignCallSingle,
+    _randomandomness: ForeignCallSingle,
+    _encryptedLog: ForeignCallSingle,
+    _counter: ForeignCallSingle,
   ) {
     return toForeignCallResult([]);
   }
 
   emitEncryptedNoteLog(
-    noteHashCounter: ForeignCallSingle,
-    encryptedNote: ForeignCallArray,
-    counter: ForeignCallSingle,
+    _noteHashCounter: ForeignCallSingle,
+    _encryptedNote: ForeignCallArray,
+    _counter: ForeignCallSingle,
   ) {
     return toForeignCallResult([]);
   }

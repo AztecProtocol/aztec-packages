@@ -128,7 +128,7 @@ export class TXE implements TypedOracle {
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.resolve(CompleteAddress.fromSecretKeyAndPartialAddress(Fr.ZERO, account));
+    return Promise.resolve(CompleteAddress.fromSecretKeyAndPartialAddress(Fr.ONE, account));
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
