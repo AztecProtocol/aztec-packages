@@ -1,15 +1,17 @@
-use acir::circuit::OpcodeLocation;
-use clap::Args;
-use codespan_reporting::files::Files;
-use nargo::errors::Location;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufWriter;
 use std::path::Path;
 use std::process::Command;
 
+use clap::Args;
+use codespan_reporting::files::Files;
+use color_eyre::eyre::{self};
 use inferno::flamegraph::{from_lines, Options};
+use serde::{Deserialize, Serialize};
+
+use acir::circuit::OpcodeLocation;
 use nargo::artifacts::program::ProgramArtifact;
+use nargo::errors::Location;
 
 #[derive(Debug, Clone, Args)]
 pub(crate) struct CreateFlamegraphCommand {
@@ -21,20 +23,9 @@ pub(crate) struct CreateFlamegraphCommand {
     #[clap(long, short)]
     backend_path: String,
 
-    /// The output file for the flamegraph
+    /// The output folder for the flamegraph
     #[clap(long, short)]
     output: String,
-}
-
-pub(crate) fn read_program_from_file<P: AsRef<Path>>(
-    circuit_path: P,
-) -> Result<ProgramArtifact, String> {
-    let file_path = circuit_path.as_ref().with_extension("json");
-
-    let input_string = std::fs::read(&file_path).map_err(|err| err.to_string())?;
-    let program = serde_json::from_slice(&input_string).map_err(|err| err.to_string())?;
-
-    Ok(program)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,11 +40,98 @@ struct BBGatesResponse {
     functions: Vec<BBGatesReport>,
 }
 
-fn read_location<'files>(
+struct FoldedStackItem {
+    total_gates: usize,
+    nested_items: HashMap<String, FoldedStackItem>,
+}
+
+pub(crate) fn run(args: CreateFlamegraphCommand) -> eyre::Result<()> {
+    let program = read_program_from_file(&args.artifact_path)?;
+    let bb_gates_response = Command::new(args.backend_path)
+        .arg("gates")
+        .arg("-b")
+        .arg(&args.artifact_path)
+        .output()
+        .expect("failed to execute process");
+
+    // Parse the bb gates stdout as json
+    let bb_gates_response: BBGatesResponse = serde_json::from_slice(&bb_gates_response.stdout)?;
+
+    for (func_idx, func_gates) in bb_gates_response.functions.into_iter().enumerate() {
+        let mut folded_stack_items = HashMap::new();
+
+        println!(
+            "Total gates in the {} opcodes {} of total gates {}",
+            func_gates.acir_opcodes,
+            func_gates.gates_per_opcode.iter().sum::<usize>(),
+            func_gates.circuit_size
+        );
+
+        func_gates.gates_per_opcode.into_iter().enumerate().for_each(|(opcode_index, gates)| {
+            let call_stack = &program.debug_symbols.debug_infos[func_idx]
+                .locations
+                .get(&OpcodeLocation::Acir(opcode_index));
+            let location_names = if let Some(call_stack) = call_stack {
+                call_stack
+                    .iter()
+                    .map(|location| location_to_callsite_label(*location, &program))
+                    .collect::<Vec<String>>()
+            } else {
+                // println!(
+                //     "No call stack found for opcode {} with index {}",
+                //     program.bytecode.functions[func_idx].opcodes[opcode_index], opcode_index
+                // );
+                vec!["unknown".to_string()]
+            };
+
+            add_locations_to_folded_stack_items(&mut folded_stack_items, location_names, gates);
+        });
+
+        let output_path =
+            Path::new(&args.output).join(Path::new(&format!("{}.svg", &program.names[func_idx])));
+        let flamegraph_file = std::fs::File::create(output_path)?;
+
+        let flamegraph_writer = BufWriter::new(flamegraph_file);
+
+        let folded_lines = to_folded_lines(&folded_stack_items, Default::default());
+
+        let mut options = Options::default();
+        options.hash = true;
+        options.deterministic = true;
+        options.title = format!("{}-{}", &args.artifact_path, program.names[func_idx].clone());
+        options.subtitle = Some("Sample = Gate".to_string());
+        options.frame_height = 24;
+        options.color_diffusion = true;
+
+        from_lines(
+            &mut options,
+            folded_lines.iter().map(|as_string| as_string.as_str()),
+            flamegraph_writer,
+        )?;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn read_program_from_file<P: AsRef<Path>>(
+    circuit_path: P,
+) -> eyre::Result<ProgramArtifact> {
+    let file_path = circuit_path.as_ref().with_extension("json");
+
+    let input_string = std::fs::read(file_path)?;
+    let program = serde_json::from_slice(&input_string)?;
+
+    Ok(program)
+}
+
+fn location_to_callsite_label<'files>(
     location: Location,
     files: &'files impl Files<'files, FileId = fm::FileId>,
 ) -> String {
-    let path = files.name(location.file).expect("should get file path");
+    let filename = Path::new(&files.name(location.file).expect("should get file path").to_string())
+        .file_name()
+        .map(|os_str| os_str.to_string_lossy().to_string())
+        .unwrap_or("unknown".to_string());
     let source = files.source(location.file).expect("should get file source");
 
     let code_slice = source
@@ -65,7 +143,7 @@ fn read_location<'files>(
 
     let (line, column) = line_and_column_from_span(source.as_ref(), location.span.start());
 
-    format!("{}", code_slice)
+    format!("{}:{}:{}::{}", filename, line, column, code_slice)
 }
 
 fn line_and_column_from_span(source: &str, span_start: u32) -> (u32, u32) {
@@ -86,11 +164,6 @@ fn line_and_column_from_span(source: &str, span_start: u32) -> (u32, u32) {
     }
 
     (line, column)
-}
-
-struct FoldedStackItem {
-    total_gates: usize,
-    nested_items: HashMap<String, FoldedStackItem>,
 }
 
 fn add_locations_to_folded_stack_items(
@@ -130,81 +203,7 @@ fn to_folded_lines(
             let child_lines: Vec<String> =
                 to_folded_lines(&folded_stack_item.nested_items, new_parent_stacks);
 
-            std::iter::once(line).chain(child_lines.into_iter())
+            std::iter::once(line).chain(child_lines)
         })
         .collect()
-}
-
-pub(crate) fn run(args: CreateFlamegraphCommand) -> Result<(), String> {
-    let program = read_program_from_file(&args.artifact_path)?;
-    // println!("Got program");
-    let bb_gates_response = Command::new(args.backend_path)
-        .arg("gates")
-        .arg("-b")
-        .arg(&args.artifact_path)
-        .output()
-        .expect("failed to execute process");
-    println!("BB gates raw response {:?}", bb_gates_response);
-
-    println!("BB gates response {}", String::from_utf8(bb_gates_response.stdout.clone()).unwrap());
-    // Parse the bb gates stdout as json
-    let bb_gates_response: BBGatesResponse =
-        serde_json::from_slice(&bb_gates_response.stdout).map_err(|err| err.to_string())?;
-
-    // Consume first
-    let gates: BBGatesReport = bb_gates_response.functions.into_iter().next().unwrap();
-
-    let mut folded_stack_items = HashMap::new();
-
-    gates.gates_per_opcode.iter().enumerate().for_each(|(opcode_idx, gate_count)| {
-        if *gate_count > 1000000 {
-            let opcode = &program.bytecode.functions[0].opcodes[opcode_idx];
-            println!("PROBLEM {}", opcode);
-        }
-    });
-
-    println!("GONNA PRINT TOTAL GATES");
-    println!("Total gates {}", gates.gates_per_opcode.iter().sum::<usize>());
-    println!("GONNA PRINT TOTAL GATES");
-
-    gates.gates_per_opcode.into_iter().enumerate().for_each(|(opcode_index, gates)| {
-        let call_stack = &program.debug_symbols.debug_infos[0]
-            .locations
-            .get(&OpcodeLocation::Acir(opcode_index));
-        let location_names = if let Some(call_stack) = call_stack {
-            call_stack
-                .iter()
-                .map(|location| read_location(*location, &program))
-                .collect::<Vec<String>>()
-        } else {
-            vec!["unknown".to_string()]
-        };
-
-        add_locations_to_folded_stack_items(&mut folded_stack_items, location_names, gates);
-    });
-
-    // println!("writing flamegraph to {:?}", args.output);
-    let flamegraph_file = std::fs::File::create(&args.output).map_err(|err| err.to_string())?;
-
-    let flamegraph_writer = BufWriter::new(flamegraph_file);
-
-    let folded_lines = to_folded_lines(&folded_stack_items, Default::default());
-    // println!("folded lines {}", folded_lines.join("\n"));
-
-    let mut options = Options::default();
-    options.hash = true;
-    options.deterministic = true;
-    options.title = format!("{}-{}", &args.artifact_path, program.names[0].clone());
-    options.subtitle = Some("Sample = Gate".to_string());
-    options.frame_height = 24;
-    options.color_diffusion = true;
-
-    from_lines(
-        &mut options,
-        folded_lines.iter().map(|as_string| as_string.as_str()),
-        flamegraph_writer,
-    )
-    .map_err(|err| err.to_string())?;
-
-    Ok(())
 }

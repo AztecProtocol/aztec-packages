@@ -17,8 +17,6 @@ name = "noir_flamegraph"
 path = "src/main.rs"
 
 [dependencies]
-thiserror.workspace = true
-toml.workspace = true
 color-eyre = "0.6.2"
 clap.workspace = true
 nargo.workspace = true
