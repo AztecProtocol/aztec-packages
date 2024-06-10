@@ -16,7 +16,8 @@ contract Token {
 
     use dep::aztec::{
         hash::compute_secret_hash,
-        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress}
+        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
+        encrypted_logs::encrypted_note_emission::with_az_enc
     };
 
     // docs:start:import_authwit
@@ -193,11 +194,8 @@ contract Token {
     // TODO: Nuke this - test functions do not belong to token contract!
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
-        storage.balances.add(
-            context.msg_sender(),
-            context.msg_sender(),
-            U128::from_integer(amount)
-        ).emit(&mut context);
+        let caller = context.msg_sender();
+        storage.balances.add(caller, U128::from_integer(amount)).emit(with_az_enc(&mut context, caller, caller));
 
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
@@ -290,7 +288,8 @@ contract Token {
         // Add the token note to user's balances set
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
         // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
-        storage.balances.add(context.msg_sender(), to, U128::from_integer(amount)).emit(&mut context);
+        let from = context.msg_sender();
+        storage.balances.add(to, U128::from_integer(amount)).emit(with_az_enc(&mut context, from, to));
     }
     // docs:end:redeem_shield
 
@@ -303,7 +302,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(&mut context);
+        storage.balances.sub(from, U128::from_integer(amount)).emit(with_az_enc(&mut context, from, from));
 
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -321,8 +320,8 @@ contract Token {
         // docs:end:assert_current_call_valid_authwit
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(&mut context);
-        storage.balances.add(from, to, amount).emit(&mut context);
+        storage.balances.sub(from, amount).emit(with_az_enc(&mut context, from, from));
+        storage.balances.add(to, amount).emit(with_az_enc(&mut context, from, to));
     }
     // docs:end:transfer
 
@@ -335,7 +334,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(&mut context);
+        storage.balances.sub(from, U128::from_integer(amount)).emit(with_az_enc(&mut context, from, from));
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

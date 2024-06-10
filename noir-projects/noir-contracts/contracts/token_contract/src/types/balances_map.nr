@@ -2,9 +2,9 @@ use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, No
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext}, hash::pedersen_hash,
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder}
+    note::{note_getter::view_notes, note_getter_options::SortOrder, note_emission::NoteEmission}
 };
-use crate::types::{token_note::{TokenNote, OwnedNote}, emission::NoteEmission};
+use crate::types::{token_note::{TokenNote, OwnedNote}};
 
 struct BalancesMap<T, Context> {
     map: Map<AztecAddress, PrivateSet<T, Context>, Context>
@@ -58,31 +58,19 @@ impl<T> BalancesMap<T, UnconstrainedContext> {
 impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
-        outgoing_viewer: AztecAddress,
         owner: AztecAddress,
         addend: U128
     ) -> NoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
         let header = context.get_header();
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(context, owner);
 
         // We fetch the nullifier public key hash from the registry / from our PXE
         let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
         let mut addend_note = T::new(addend, owner_npk_m_hash);
 
-        let owner_storage = self.map.at(owner);
-
         // docs:start:insert
-        owner_storage.insert(&mut addend_note);
+        self.map.at(owner).insert(&mut addend_note)
         // docs:end:insert
-
-        NoteEmission::new(
-            owner_storage.storage_slot,
-            addend_note,
-            outgoing_viewer_ovpk_m,
-            owner_ivpk_m
-        )
     }
 
     pub fn sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
@@ -117,7 +105,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         // without the == true, it includes 'minuend.ge(subtrahend)' as part of the error.
         assert(minuend >= subtrahend, "Balance too low");
 
-        self.add(owner, owner, minuend - subtrahend)
+        self.add(owner, minuend - subtrahend)
     }
 }
 

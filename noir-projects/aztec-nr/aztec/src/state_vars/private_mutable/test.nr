@@ -2,6 +2,7 @@ use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 use crate::{context::PrivateContext, state_vars::private_mutable::PrivateMutable};
 use crate::test::{mocks::mock_note::MockNote, helpers::context_builder::ContextBuilder};
 use dep::std::{unsafe::zeroed, test::OracleMock};
+use crate::encrypted_logs::encrypted_note_emission::with_az_enc_with_keys;
 
 global contract_address = AztecAddress::from_field(13);
 global storage_slot = 17;
@@ -27,7 +28,7 @@ fn test_initialize_or_replace_without_nullifier() {
     let mut note = MockNote::new(value).contract_address(contract_address).storage_slot(storage_slot).build();
 
     OracleMock::mock("checkNullifierExists").returns(0);
-    state_var.initialize_or_replace(&mut note, ovpk_m, ivpk_m);
+    state_var.initialize_or_replace(&mut note).emit(with_az_enc_with_keys(state_var.context, ovpk_m, ivpk_m));
 
     // Since we reported there was no nullifier, we should initialize and see the following side-effects:
     // - a new note being created
