@@ -1,6 +1,6 @@
 [package]
 name = "noir_flamegraph"
-description = "The hackity hack hack hack"
+description = "Creates a flamegraph of gates for noir circuits"
 # x-release-please-start-version
 version = "0.40.0"
 # x-release-please-end

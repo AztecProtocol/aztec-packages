@@ -4,13 +4,13 @@ use const_format::formatcp;
 
 mod create_flamegraph_cmd;
 
-const ACVM_VERSION: &str = env!("CARGO_PKG_VERSION");
+const FLAMEGRAPH_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-static VERSION_STRING: &str = formatcp!("version = {}\n", ACVM_VERSION,);
+static VERSION_STRING: &str = formatcp!("version = {}\n", FLAMEGRAPH_VERSION,);
 
 #[derive(Parser, Debug)]
-#[command(name="acvm", author, version=VERSION_STRING, about, long_about = None)]
-struct CreateFlamegraphCli {
+#[command(name="Gates flamegraph", author, version=VERSION_STRING, about, long_about = None)]
+struct GatesFlamegraphCli {
     #[command(subcommand)]
     command: CreateFlamegraphCommand,
 }
@@ -23,7 +23,7 @@ enum CreateFlamegraphCommand {
 
 #[cfg(not(feature = "codegen-docs"))]
 pub(crate) fn start_cli() -> eyre::Result<()> {
-    let CreateFlamegraphCli { command } = CreateFlamegraphCli::parse();
+    let GatesFlamegraphCli { command } = GatesFlamegraphCli::parse();
 
     match command {
         CreateFlamegraphCommand::CreateFlamegraph(args) => create_flamegraph_cmd::run(args),
