@@ -609,6 +609,14 @@ uint32_t UltraCircuitBuilder_<Arithmetization>::put_constant_variable(const FF& 
     }
 }
 
+/**
+ * @brief Get the basic table with provided ID from the set of tables for the present circuit; create it if it doesnt
+ * yet exist
+ *
+ * @tparam Arithmetization
+ * @param id
+ * @return plookup::BasicTable&
+ */
 template <typename Arithmetization>
 plookup::BasicTable& UltraCircuitBuilder_<Arithmetization>::get_table(const plookup::BasicTableId id)
 {
@@ -619,7 +627,7 @@ plookup::BasicTable& UltraCircuitBuilder_<Arithmetization>::get_table(const ploo
     }
     // Table doesn't exist! So try to create it.
     lookup_tables.emplace_back(plookup::create_basic_table(id, lookup_tables.size()));
-    return lookup_tables[lookup_tables.size() - 1];
+    return lookup_tables.back();
 }
 
 /**

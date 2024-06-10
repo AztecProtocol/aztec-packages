@@ -128,8 +128,8 @@ enum MultiTableId {
  * inputs into 6 limbs and use a BasicTable for 6-bit XOR lookups. In this case the MultiTable simply manages 6 basic
  * tables, all of which are the XOR BasicTable. (In many cases all of the BasicTables managed by a MultiTable are
  * identical, however there are some cases where more than 1 type is required, e.g. if a certain limb has to be handled
- * differently). This class also stores the scalars needed to reconstruct full values from the limbs that are contained
- * in the basic lookup tables.
+ * differently etc.). This class also stores the scalars needed to reconstruct full values from the components that are
+ * contained in the basic lookup tables.
  * @note Note that a MultiTable does not actually *store* any table data. Rather it stores a set of basic table IDs, the
  * methods used to compute the basic table entries, plus some metadata.
  *
@@ -147,6 +147,7 @@ struct MultiTable {
     std::vector<bb::fr> column_3_step_sizes;
     typedef std::array<bb::fr, 2> table_out;
     typedef std::array<uint64_t, 2> table_in;
+    // Methods for computing the value from a key for each basic table
     std::vector<table_out (*)(table_in)> get_table_values;
 
   private:
@@ -163,8 +164,6 @@ struct MultiTable {
 
         bb::fr::batch_invert(&coefficient_inverses[0], num_lookups * 3);
 
-        // WORKTODO: in simple cases like XOR, I think every one of these values is 1 << 6. Confirm this. If so, is it
-        // worth adding logic to not do all this computation? Probably not but it might at least make the code clearer.
         for (size_t i = 1; i < num_lookups; ++i) {
             column_1_step_sizes.emplace_back(column_1_coefficients[i] * coefficient_inverses[i - 1]);
             column_2_step_sizes.emplace_back(column_2_coefficients[i] * coefficient_inverses[num_lookups + i - 1]);
@@ -270,7 +269,8 @@ struct MultiTable {
 // }
 
 /**
- * @brief The structure contains the most basic table serving one function (for, example an xor table)
+ * @brief A basic table from which we can perform lookups (for example, an xor table)
+ * @details Also stores the lookup gate data for all lookups performed on this table
  *
  * @details You can find initialization example at
  * ../ultra_plonk_composer.cpp#UltraPlonkComposer::initialize_precomputed_table(..)
@@ -311,9 +311,9 @@ struct BasicTable {
     bb::fr column_2_step_size = bb::fr(0);
     bb::fr column_3_step_size = bb::fr(0);
     std::vector<bb::fr> column_1;
-    std::vector<bb::fr> column_3;
     std::vector<bb::fr> column_2;
-    std::vector<LookupEntry> lookup_gates;
+    std::vector<bb::fr> column_3;
+    std::vector<LookupEntry> lookup_gates; // wire data for all lookup gates created for lookups on this table
 
     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
 
@@ -344,6 +344,7 @@ template <class DataType> class ReadData {
     std::vector<BasicTable::LookupEntry> lookup_entries;
 
   private:
+    // Container for the lookup accumulators; 0th index of each column contains full accumulated value
     std::array<std::vector<DataType>, 3> columns;
 };
 
