@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718030488420,
+  "lastUpdate": 1718031931704,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -32344,6 +32344,78 @@ window.BENCHMARK_DATA = {
             "value": 163447706,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163447706 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5713f4e25ef8bf09cb91632bd210cd46bb7a77c3",
+          "message": "fix: Bugfix for Keccak opcode related to reading bytes from input (#6989)",
+          "timestamp": "2024-06-10T14:55:58Z",
+          "tree_id": "b9c902f7b48c368de8179ee592b405431bba1e05",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5713f4e25ef8bf09cb91632bd210cd46bb7a77c3"
+        },
+        "date": 1718031929775,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15414.060621999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10692.775202 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5498.606014999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5108.395252 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49785.543778,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49785545000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16913.729470000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16913729000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5160409779,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5160409779 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197731822,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197731822 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4299850322,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4299850322 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163395614,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163395614 ns\nthreads: 1"
           }
         ]
       }
