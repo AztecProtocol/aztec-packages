@@ -45,6 +45,7 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -52,6 +53,11 @@ import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
+import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
+import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import { TxProver } from '@aztec/prover-client';
 import { type GlobalVariableBuilder, SequencerClient, getGlobalVariableBuilder } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator } from '@aztec/simulator';
@@ -59,6 +65,7 @@ import {
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
+  type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
 import {
   MerkleTrees,
@@ -68,7 +75,7 @@ import {
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
-import { type AztecNodeConfig } from './config.js';
+import { type AztecNodeConfig, getPackageInfo } from './config.js';
 import { getSimulationProvider } from './simulator-factory.js';
 import { MetadataTxValidator } from './tx_validator/tx_metadata_validator.js';
 import { TxProofValidator } from './tx_validator/tx_proof_validator.js';
@@ -77,6 +84,8 @@ import { TxProofValidator } from './tx_validator/tx_proof_validator.js';
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode {
+  private packageVersion: string;
+
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
@@ -95,6 +104,7 @@ export class AztecNodeService implements AztecNode {
     private txValidator: TxValidator,
     private log = createDebugLogger('aztec:node'),
   ) {
+    this.packageVersion = getPackageInfo().version;
     const message =
       `Started Aztec Node against chain 0x${chainId.toString(16)} with contracts - \n` +
       `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
@@ -161,7 +171,14 @@ export class AztecNodeService implements AztecNode {
     const simulationProvider = await getSimulationProvider(config, log);
     const prover = config.disableProver
       ? undefined
-      : await TxProver.new(config, await proofVerifier.getVerificationKeys(), worldStateSynchronizer);
+      : await TxProver.new(
+          config,
+          await proofVerifier.getVerificationKeys(),
+          worldStateSynchronizer,
+          await archiver
+            .getBlock(-1)
+            .then(b => b?.header ?? worldStateSynchronizer.getCommitted().buildInitialHeader()),
+        );
 
     if (!prover && !config.disableSequencer) {
       throw new Error("Can't start a sequencer without a prover");
@@ -254,6 +271,14 @@ export class AztecNodeService implements AztecNode {
    */
   public async getBlockNumber(): Promise<number> {
     return await this.blockSource.getBlockNumber();
+  }
+
+  /**
+   * Method to fetch the version of the package.
+   * @returns The node package version
+   */
+  public getNodeVersion(): Promise<string> {
+    return Promise.resolve(this.packageVersion);
   }
 
   /**
@@ -728,6 +753,20 @@ export class AztecNodeService implements AztecNode {
     }
 
     this.config = newConfig;
+  }
+
+  public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
+    return Promise.resolve({
+      classRegisterer: getCanonicalClassRegisterer().address,
+      gasToken: getCanonicalGasToken().address,
+      instanceDeployer: getCanonicalInstanceDeployer().address,
+      keyRegistry: getCanonicalKeyRegistryAddress(),
+      multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
+    });
+  }
+
+  public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    return this.contractDataSource.addContractArtifact(address, artifact);
   }
 
   /**

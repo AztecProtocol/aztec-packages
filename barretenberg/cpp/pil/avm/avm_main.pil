@@ -24,6 +24,7 @@ namespace avm_main(256);
     // CALL CONTEXT
     pol commit sel_op_sender;
     pol commit sel_op_address;
+    pol commit sel_op_storage_address;
 
     // FEES
     pol commit sel_op_fee_per_l2_gas;
@@ -37,6 +38,10 @@ namespace avm_main(256);
     pol commit sel_op_coinbase;
     pol commit sel_op_timestamp;
 
+    // MACHINE STATE - GAS
+    pol commit sel_op_l2gasleft;
+    pol commit sel_op_dagasleft;
+
     //===== KERNEL OUTPUTS ========================================================
     pol commit q_kernel_output_lookup;
 
@@ -47,6 +52,7 @@ namespace avm_main(256);
     pol commit sel_op_l1_to_l2_msg_exists;
     pol commit sel_op_emit_unencrypted_log;
     pol commit sel_op_emit_l2_to_l1_msg;
+    pol commit sel_op_get_contract_instance;
 
     pol commit sel_op_sload;
     pol commit sel_op_sstore;
@@ -116,6 +122,7 @@ namespace avm_main(256);
     pol commit sel_internal_return;
     pol commit sel_jump;
     pol commit sel_jumpi;
+    pol commit sel_external_call;
     
     // Halt program execution
     pol commit sel_halt;
@@ -229,6 +236,7 @@ namespace avm_main(256);
     // opcode decomposition.
     sel_op_sender * (1 - sel_op_sender) = 0;
     sel_op_address * (1 - sel_op_address) = 0;
+    sel_op_storage_address * (1 - sel_op_storage_address) = 0;
     sel_op_chain_id * (1 - sel_op_chain_id) = 0;
     sel_op_version * (1 - sel_op_version) = 0;
     sel_op_block_number * (1 - sel_op_block_number) = 0;
@@ -238,6 +246,10 @@ namespace avm_main(256);
     sel_op_fee_per_da_gas * (1 - sel_op_fee_per_da_gas) = 0;
     sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
 
+    // MACHINE STATE - GAS
+    sel_op_l2gasleft * (1 - sel_op_l2gasleft) = 0;
+    sel_op_dagasleft * (1 - sel_op_dagasleft) = 0;
+
     sel_op_note_hash_exists * (1 - sel_op_note_hash_exists) = 0;
     sel_op_emit_note_hash * (1 - sel_op_emit_note_hash) = 0;
     sel_op_nullifier_exists * (1 - sel_op_nullifier_exists) = 0;
@@ -245,6 +257,7 @@ namespace avm_main(256);
     sel_op_l1_to_l2_msg_exists * (1 - sel_op_l1_to_l2_msg_exists) = 0;
     sel_op_emit_unencrypted_log * (1 - sel_op_emit_unencrypted_log) = 0;
     sel_op_emit_l2_to_l1_msg * (1 - sel_op_emit_l2_to_l1_msg) = 0;
+    sel_op_get_contract_instance * (1 - sel_op_get_contract_instance) = 0;
 
     sel_op_sload * (1 - sel_op_sload) = 0;
     sel_op_sstore * (1 - sel_op_sstore) = 0;
@@ -276,6 +289,7 @@ namespace avm_main(256);
     sel_jump * (1 - sel_jump) = 0;
     sel_jumpi * (1 - sel_jumpi) = 0;
     sel_halt * (1 - sel_halt) = 0;
+    sel_external_call * (1 - sel_external_call) = 0;
 
     // Might be removed if derived from opcode based on a lookup of constants
     sel_mov * ( 1 - sel_mov) = 0;
@@ -302,10 +316,19 @@ namespace avm_main(256);
     ind_op_c * (1 - ind_op_c) = 0;
     ind_op_d * (1 - ind_op_d) = 0;
 
-    // TODO - Constraints:
-    // - mem_idx_a, mem_idx_b, mem_idx_c, mem_idx_d to u32 type
-    // - ind_a, ind_b, ind_c, ind_d to u32 type
-    // - 0 <= r_in_tag, w_in_tag <= 6 // Maybe not needed as probably derived by the operation decomposition.
+    // TODO - Potential constraints to be implemented:
+    // - mem_idx_a, mem_idx_b, mem_idx_c, mem_idx_d to u32 type:
+    //    - For direct memory accesses, this should be enforced by bytecode validation
+    //      and instruction decomposition. Namely, in this case, only 32-bit immediate
+    //      values should be written into these memory indices.
+    //    - For indirect memory accesses, the memory trace constraints ensure that
+    //      loaded values come from memory addresses with tag u32. This is enforced in the memory trace
+    //      where each memory entry with flag ind_op_x (for x = a,b,c,d) constrains r_int_tag == 3 (u32).
+    //
+    // - ind_a, ind_b, ind_c, ind_d to u32 type: Should be guaranteed by bytecode validation and
+    // instruction decomposition as only immediate 32-bit values should be written into the indirect registers.
+    //
+    // - 0 <= r_in_tag, w_in_tag <= 6 // This should be constrained by the operation decomposition.
 
     //====== COMPARATOR OPCODES CONSTRAINTS =====================================
     // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
@@ -359,7 +382,7 @@ namespace avm_main(256);
     
     //===== KERNEL LOOKUPS =======================================================
     pol KERNEL_INPUT_SELECTORS = (
-        sel_op_sender + sel_op_address + sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + 
+        sel_op_sender + sel_op_address + sel_op_storage_address + sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + 
         sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
     );
     // Ensure that only one kernel lookup is active when the kernel_in_offset is active
@@ -368,7 +391,7 @@ namespace avm_main(256);
 
     pol KERNEL_OUTPUT_SELECTORS = (
         sel_op_note_hash_exists + sel_op_emit_note_hash + sel_op_nullifier_exists + sel_op_emit_nullifier + sel_op_l1_to_l2_msg_exists +
-        sel_op_emit_unencrypted_log + sel_op_emit_l2_to_l1_msg + sel_op_sload + sel_op_sstore
+        sel_op_emit_unencrypted_log + sel_op_emit_l2_to_l1_msg
     );
     #[KERNEL_OUTPUT_ACTIVE_CHECK]
     KERNEL_OUTPUT_SELECTORS * (1 - q_kernel_output_lookup) = 0;
@@ -415,10 +438,12 @@ namespace avm_main(256);
     pol INTERNAL_CALL_STACK_SELECTORS = (first + sel_internal_call + sel_internal_return + sel_halt);
     pol ALL_CTRL_FLOW_SEL = sel_jump + sel_jumpi + sel_internal_call + sel_internal_return;
 
+    pol ALL_LEFTGAS_SEL = sel_op_dagasleft + sel_op_l2gasleft;
     pol ALL_BINARY_SEL = sel_op_and + sel_op_or + sel_op_xor;
     pol ALL_GADGET_SEL = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak + sel_op_pedersen;
     pol ALL_MEMORY_SEL = sel_cmov + sel_mov;
-    pol OPCODE_SELECTORS = sel_op_fdiv + ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS;
+    pol OPCODE_SELECTORS = sel_op_fdiv + ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL
+                         + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + ALL_LEFTGAS_SEL;
 
     // TODO: gas_cost_active is activating gas accounting on a given row. All opcode with selectors
     //       are activated through the relation below. The other opcodes which are implemented purely
@@ -426,9 +451,13 @@ namespace avm_main(256);
     //       setting a newly introduced boolean mem_op_activate_gas which is set in witness generation.
     //       We should remove this shortcut and constrain this activation through bytecode decomposition.
     //       Alternatively, we introduce a boolean selector for the three opcodes mentioned above.
+    //       Note: External call gas cost is not constrained
     pol commit gas_cost_active;
     pol commit mem_op_activate_gas; // TODO: remove this one
-    gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - mem_op_activate_gas = 0;
+    // TODO: remove sload and sstore from here
+    // This temporarily disables gas tracking for sload and sstore because our gas
+    // tracking doesn't work properly for instructions that span multiple rows
+    gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - sel_op_sload - sel_op_sstore - mem_op_activate_gas = 0;
 
     // Program counter must increment if not jumping or returning
     #[PC_INCREMENT]
@@ -494,6 +523,11 @@ namespace avm_main(256);
     ALU_R_TAG_SEL * (alu_in_tag - r_in_tag) = 0;
     ALU_W_TAG_SEL * (alu_in_tag - w_in_tag) = 0;
 
+    //===== GASLEFT OPCODES =====================================================
+    #[L2GASLEFT]
+    sel_op_l2gasleft * (ia - l2_gas_remaining') = 0;
+    #[DAGASLEFT]
+    sel_op_dagasleft * (ia - da_gas_remaining') = 0;
 
     //===== KERNEL INPUTS CONSTRAINTS ===========================================
     // The general pattern for environment lookups is as follows:
@@ -507,6 +541,9 @@ namespace avm_main(256);
 
     #[ADDRESS_KERNEL]
     sel_op_address * (avm_kernel.kernel_in_offset - constants.ADDRESS_SELECTOR) = 0;
+
+    #[STORAGE_ADDRESS_KERNEL]
+    sel_op_storage_address * (avm_kernel.kernel_in_offset - constants.STORAGE_ADDRESS_SELECTOR) = 0;
 
     // FEES
     #[FEE_DA_GAS_KERNEL]
@@ -546,8 +583,9 @@ namespace avm_main(256);
     first * avm_kernel.emit_note_hash_write_offset = 0;
 
     #[NULLIFIER_EXISTS_KERNEL_OUTPUT]
-    sel_op_nullifier_exists * (avm_kernel.kernel_out_offset - (avm_kernel.START_NULLIFIER_EXISTS_OFFSET + avm_kernel.nullifier_exists_write_offset)) = 0;
+    sel_op_nullifier_exists * (avm_kernel.kernel_out_offset - ((ib * (avm_kernel.START_NULLIFIER_EXISTS_OFFSET + avm_kernel.nullifier_exists_write_offset)) + ((1 - ib) * (avm_kernel.START_NULLIFIER_NON_EXISTS_OFFSET + avm_kernel.nullifier_non_exists_write_offset)))) = 0;
     first * avm_kernel.nullifier_exists_write_offset = 0;
+    first * avm_kernel.nullifier_non_exists_write_offset = 0;
 
     #[EMIT_NULLIFIER_KERNEL_OUTPUT]
     sel_op_emit_nullifier * (avm_kernel.kernel_out_offset - (avm_kernel.START_EMIT_NULLIFIER_WRITE_OFFSET + avm_kernel.emit_nullifier_write_offset)) = 0;
@@ -560,6 +598,8 @@ namespace avm_main(256);
     #[EMIT_UNENCRYPTED_LOG_KERNEL_OUTPUT]
     sel_op_emit_unencrypted_log * (avm_kernel.kernel_out_offset - (avm_kernel.START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + avm_kernel.emit_unencrypted_log_write_offset)) = 0;
     first * avm_kernel.emit_unencrypted_log_write_offset = 0;
+
+    // TODO: Add the equivalent for GETCONTRACTINSTANCE?
 
     #[EMIT_L2_TO_L1_MSGS_KERNEL_OUTPUT]
     sel_op_emit_l2_to_l1_msg * (avm_kernel.kernel_out_offset - (avm_kernel.START_EMIT_L2_TO_l1_MSG + avm_kernel.emit_l2_to_l1_msg_write_offset)) = 0;

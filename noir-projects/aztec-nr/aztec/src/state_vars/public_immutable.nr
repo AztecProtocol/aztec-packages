@@ -1,5 +1,5 @@
 use crate::{
-    context::PublicContext, public_storage, oracle::{storage::{storage_read, storage_write}},
+    context::{PublicContext, UnconstrainedContext}, oracle::{storage::{storage_read, storage_write}},
     state_vars::storage::Storage
 };
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
@@ -56,18 +56,12 @@ impl <T> PublicImmutable<T, &mut PublicContext> {
     }
 }
 
-impl<T> PublicImmutable<T, ()> {
-    // Note that this is the exact same implementation as for public execution, though it might change in the future
-    // since unconstrained execution might not rely on the same oracles as used for public execution (which 
-    // transpile to AVM opcodes).
-
+impl<T> PublicImmutable<T, UnconstrainedContext> {
     pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
-        assert(self.is_initialized(), "PublicImmutable not initialized");
-        public_storage::read(self.storage_slot)
-    }
-
-    pub fn is_initialized(self) -> bool {
-        let init_slot_contents: Field = public_storage::read(self.get_initialization_slot());
-        init_slot_contents != 0
+        // This looks the same as the &mut PublicContext impl, but is actually very different. In public execution the
+        // storage read oracle gets transpiled to SLOAD opcodes, whereas in unconstrained execution the PXE returns
+        // historical data.
+        let fields = storage_read(self.storage_slot);
+        T::deserialize(fields)
     }
 }

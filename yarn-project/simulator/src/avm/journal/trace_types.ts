@@ -1,4 +1,5 @@
 import { type Fr } from '@aztec/foundation/fields';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 //export type TracedContractCall = {
 //  callPointer: Fr;
@@ -71,6 +72,7 @@ export type TracedL1toL2MessageCheck = {
   leafIndex: Fr;
   msgHash: Fr;
   exists: boolean;
+  counter: Fr;
   //endLifetime: Fr;
 };
 
@@ -85,3 +87,5 @@ export type TracedUnencryptedL2Log = {
 //  leafIndex: Fr;
 //  leaf: Fr;
 //};
+
+export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;

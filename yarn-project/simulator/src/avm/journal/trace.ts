@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import {
+  type TracedContractInstance,
   type TracedL1toL2MessageCheck,
   type TracedNoteHash,
   type TracedNoteHashCheck,
@@ -23,6 +24,7 @@ export class WorldStateAccessTrace {
   public newNullifiers: TracedNullifier[] = [];
   public l1ToL2MessageChecks: TracedL1toL2MessageCheck[] = [];
   public newLogsHashes: TracedUnencryptedL2Log[] = [];
+  public gotContractInstances: TracedContractInstance[] = [];
 
   //public contractCalls: TracedContractCall[] = [];
   //public archiveChecks: TracedArchiveLeafCheck[] = [];
@@ -131,6 +133,7 @@ export class WorldStateAccessTrace {
       leafIndex: msgLeafIndex,
       msgHash: msgHash,
       exists: exists,
+      counter: new Fr(this.accessCounter),
       //endLifetime: Fr.ZERO, // FIXME
     };
     this.l1ToL2MessageChecks.push(traced);
@@ -143,6 +146,11 @@ export class WorldStateAccessTrace {
       counter: new Fr(this.accessCounter),
     };
     this.newLogsHashes.push(traced);
+    this.incrementAccessCounter();
+  }
+
+  public traceGetContractInstance(instance: TracedContractInstance) {
+    this.gotContractInstances.push(instance);
     this.incrementAccessCounter();
   }
 
@@ -166,6 +174,7 @@ export class WorldStateAccessTrace {
     this.newNullifiers.push(...incomingTrace.newNullifiers);
     this.l1ToL2MessageChecks.push(...incomingTrace.l1ToL2MessageChecks);
     this.newLogsHashes.push(...incomingTrace.newLogsHashes);
+    this.gotContractInstances.push(...incomingTrace.gotContractInstances);
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
     this.accessCounter = incomingTrace.accessCounter;
   }

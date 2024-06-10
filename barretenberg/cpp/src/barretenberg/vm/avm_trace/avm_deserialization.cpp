@@ -17,11 +17,22 @@ namespace {
 const std::vector<OperandType> three_operand_format = {
     OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32,
 };
+const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
 
 const std::vector<OperandType> getter_format = {
     OperandType::INDIRECT,
     OperandType::UINT32,
 };
+
+const std::vector<OperandType> external_call_format = { OperandType::INDIRECT,
+                                                        /*gasOffset=*/OperandType::UINT32,
+                                                        /*addrOffset=*/OperandType::UINT32,
+                                                        /*argsOffset=*/OperandType::UINT32,
+                                                        /*argsSize=*/OperandType::UINT32,
+                                                        /*retOffset=*/OperandType::UINT32,
+                                                        /*retSize*/ OperandType::UINT32,
+                                                        /*successOffset=*/OperandType::UINT32,
+                                                        /*functionSelector=*/OperandType::UINT32 };
 
 // Contrary to TS, the format does not contain the opcode byte which prefixes any instruction.
 // The format for OpCode::SET has to be handled separately as it is variable based on the tag.
@@ -53,6 +64,32 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::FEEPERL2GAS, getter_format },
     { OpCode::FEEPERDAGAS, getter_format },
     { OpCode::TRANSACTIONFEE, getter_format },
+
+    { OpCode::GETCONTRACTINSTANCE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    // TODO: ordering inline with spec
+    { OpCode::EMITNOTEHASH, getter_format },  // TODO: new format for these
+    { OpCode::EMITNULLIFIER, getter_format }, // TODO: new format for these
+    { OpCode::EMITUNENCRYPTEDLOG, getter_format },
+    { OpCode::SENDL2TOL1MSG, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SLOAD, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SSTORE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    /*TODO: leafIndexOffset is not constrained*/
+    { OpCode::NOTEHASHEXISTS,
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT32,
+        OperandType::UINT32 } },
+
+    { OpCode::NULLIFIEREXISTS,
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        /*TODO: Address is not constrained*/ OperandType::UINT32,
+        OperandType::UINT32 } },
+    { OpCode::L1TOL2MSGEXISTS,
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT32,
+        OperandType::UINT32 } },
     // CONTRACTCALLDEPTH, -- not in simulator
     // Execution Environment - Globals
     { OpCode::CHAINID, getter_format },
@@ -91,11 +128,12 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // EMITUNENCRYPTEDLOG,
     // SENDL2TOL1MSG,
     // Control Flow - Contract Calls
-    // CALL,
+    { OpCode::CALL, external_call_format },
     // STATICCALL,
     // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // REVERT,
+    { OpCode::REVERT, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // Misc
     { OpCode::DEBUGLOG,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
@@ -197,7 +235,8 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         } else {
             auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
             if (iter == OPCODE_WIRE_FORMAT.end()) {
-                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode));
+                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " +
+                               to_string(opcode));
             }
             inst_format = iter->second;
         }
@@ -220,7 +259,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 uint8_t tag_u8 = bytecode.at(pos);
                 if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
-                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_hex(opcode));
+                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
                 }
                 operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
                 break;

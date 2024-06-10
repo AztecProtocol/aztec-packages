@@ -4,7 +4,6 @@ import {
   type PublicInputsAndRecursiveProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
-  PublicKernelType,
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
@@ -181,7 +180,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
     const kernelOps = PublicKernelArtifactMapping[kernelRequest.type];
     if (kernelOps === undefined) {
-      throw new Error(`Unable to prove kernel type ${PublicKernelType[kernelRequest.type]}`);
+      throw new Error(`Unable to prove kernel type ${kernelRequest.type}`);
     }
 
     // We may need to convert the recursive proof into fields format
@@ -465,13 +464,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.debug(`Proving avm-circuit...`);
 
-    const provingResult = await generateAvmProof(
-      this.config.bbBinaryPath,
-      workingDirectory,
-      input.bytecode,
-      input.calldata,
-      logger.debug,
-    );
+    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger.debug);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for avm-circuit: ${provingResult.reason}`);

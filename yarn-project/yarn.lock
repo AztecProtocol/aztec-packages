@@ -55,6 +55,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -114,6 +115,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
@@ -369,6 +371,7 @@ __metadata:
     "@types/node": ^18.7.23
     "@types/semver": ^7.5.2
     "@types/source-map-support": ^0.5.10
+    axios: ^1.7.2
     commander: ^9.0.0
     jest: ^29.5.0
     jest-mock-extended: ^3.0.5
@@ -2977,12 +2980,12 @@ __metadata:
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.30.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=50aa1b&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=17d6ef&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@noir-lang/acvm_js": 0.46.0
     "@noir-lang/noirc_abi": 0.30.0
     "@noir-lang/types": 0.30.0
-  checksum: fc5f0f3d0aeb38275053ba98306866b9c532989b8e2abc751d9b5113b9c6914f159c186bfcee6173a89511385baeb952c88e55b8bfa9f9b8979643e927db25f6
+  checksum: 112f68952038ae06e9e8f3f063be73bf6a527dff4cc352874b1d35d7d6b98845a8979e49cbd092e830f76a0c00fa78c411101ceaf01990cc077acb42c41c3193
   languageName: node
   linkType: hard
 
@@ -4947,6 +4950,17 @@ __metadata:
   dependencies:
     possible-typed-array-names: ^1.0.0
   checksum: 1aa3ffbfe6578276996de660848b6e95669d9a95ad149e3dd0c0cda77db6ee1dbd9d1dd723b65b6d277b882dd0c4b91a654ae9d3cf9e1254b7e93e4908d78fd3
+  languageName: node
+  linkType: hard
+
+"axios@npm:^1.7.2":
+  version: 1.7.2
+  resolution: "axios@npm:1.7.2"
+  dependencies:
+    follow-redirects: ^1.15.6
+    form-data: ^4.0.0
+    proxy-from-env: ^1.1.0
+  checksum: e457e2b0ab748504621f6fa6609074ac08c824bf0881592209dfa15098ece7e88495300e02cd22ba50b3468fd712fe687e629dcb03d6a3f6a51989727405aedf
   languageName: node
   linkType: hard
 
@@ -7606,7 +7620,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.12.1":
+"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.12.1, follow-redirects@npm:^1.15.6":
   version: 1.15.6
   resolution: "follow-redirects@npm:1.15.6"
   peerDependenciesMeta:
