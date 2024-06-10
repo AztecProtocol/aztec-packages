@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718038301569,
+  "lastUpdate": 1718039000938,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -32688,6 +32688,78 @@ window.BENCHMARK_DATA = {
             "value": 162968456,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162968456 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5713f4e25ef8bf09cb91632bd210cd46bb7a77c3",
+          "message": "fix: Bugfix for Keccak opcode related to reading bytes from input (#6989)",
+          "timestamp": "2024-06-10T14:55:58Z",
+          "tree_id": "b9c902f7b48c368de8179ee592b405431bba1e05",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5713f4e25ef8bf09cb91632bd210cd46bb7a77c3"
+        },
+        "date": 1718038999396,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15458.805657999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10772.014817 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5560.9278720000075,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5163.1447339999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49965.056142,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49965058000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16931.711897,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16931712000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5113192487,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5113192487 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199372877,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199372877 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4222063610,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4222063610 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163337581,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163337581 ns\nthreads: 1"
           }
         ]
       }
