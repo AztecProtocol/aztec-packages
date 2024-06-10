@@ -54,6 +54,7 @@ export class ExecutionNoteCache {
     let nullifiedNoteHashCounter: number | undefined = undefined;
     // Find and remove the matching new note and log(s) if the emitted innerNoteHash is not empty.
     if (!innerNoteHash.equals(Fr.ZERO)) {
+      console.log('DELETING A NOTE');
       const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
       const noteIndexToRemove = notes.findIndex(n => n.note.innerNoteHash.equals(innerNoteHash));
       if (noteIndexToRemove === -1) {
@@ -62,6 +63,8 @@ export class ExecutionNoteCache {
       const note = notes.splice(noteIndexToRemove, 1)[0];
       nullifiedNoteHashCounter = note.counter;
       this.newNotes.set(contractAddress.toBigInt(), notes);
+    } else {
+      console.log('NOT DELETING A NOTE');
     }
 
     return nullifiedNoteHashCounter;

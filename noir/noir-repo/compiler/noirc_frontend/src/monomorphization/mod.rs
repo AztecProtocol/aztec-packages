@@ -246,7 +246,12 @@ impl<'interner> Monomorphizer<'interner> {
                         }
                     }
                     FunctionKind::Recursive => {
-                        unreachable!("Only main can be specified as recursive, which should already be checked");
+                        // let func = self.interner.function_meta(&id);
+                        // println!("{:#?}", func.name);
+                        let id =
+                            self.queue_function(id, expr_id, typ, turbofish_generics, trait_method);
+                        Definition::Function(id)
+                        //unreachable!("wtf");
                     }
                 }
             }

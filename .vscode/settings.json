@@ -158,15 +158,13 @@
     "avm-transpiler/Cargo.toml"
   ],
   "files.watcherExclude": {
-    "**/.git/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
     "**/node_modules/**": true,
     "**/.hg/store/**": true,
     "**/target/**": true,
     "**/l1-contracts/lib/**": true,
-    "**/barretenberg/cpp/build*/**": true,
-    "**/barretenberg/cpp/src/wasi-sdk*/**": true,
-    "**/dest/**": true,
-    "**/noir/noir-repo/docs/versioned_docs/**": true
+    "**/barretenberg/cpp/build*/**": true
   },
   "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
   "noir.nargoPath": "./noir/noir-repo/target/release/nargo"
