@@ -40,12 +40,7 @@ use crate::utils::{
 // }
 //
 // The selector placeholder has to be replaced with the actual function signature after type checking in the next macro pass
-pub fn stub_function(
-    aztec_visibility: &str,
-    func: &NoirFunction,
-    is_static_call: bool,
-    is_initializer: bool,
-) -> (String, bool) {
+pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call: bool) -> String {
     let fn_name = func.name().to_string();
     let fn_parameters = func
         .parameters()
@@ -93,7 +88,7 @@ pub fn stub_function(
         .collect::<Vec<_>>()
         .join("");
 
-    let param_types = if parameters.len() > 0 {
+    let param_types = if !parameters.is_empty() {
         parameters
             .iter()
             .map(|param| param.pattern.name_ident().0.contents.clone())
@@ -185,21 +180,19 @@ pub fn stub_function(
             args, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
         )
     };
-    (
-        format!(
-            "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface<{},{} {{
+
+    format!(
+        "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface<{},{} {{
                 {}
         }}",
-            fn_name,
-            fn_parameters,
-            aztec_visibility,
-            is_static,
-            is_void,
-            fn_name.len(),
-            generics,
-            fn_body
-        ),
-        is_initializer,
+        fn_name,
+        fn_parameters,
+        aztec_visibility,
+        is_static,
+        is_void,
+        fn_name.len(),
+        generics,
+        fn_body
     )
 }
 
@@ -209,7 +202,7 @@ pub fn stub_function(
 pub fn generate_contract_interface(
     module: &mut SortedModule,
     module_name: &str,
-    stubs: &[((String, bool), Location)],
+    stubs: &[(String, Location)],
     has_storage_layout: bool,
 ) -> Result<(), AztecMacroError> {
     let storage_layout_getter = format!(
@@ -256,7 +249,7 @@ pub fn generate_contract_interface(
         {3}
     ",
         module_name,
-        stubs.iter().map(|((src, _), _)| src.to_owned()).collect::<Vec<String>>().join("\n"),
+        stubs.iter().map(|(src, _)| src.to_owned()).collect::<Vec<String>>().join("\n"),
         if has_storage_layout { storage_layout_getter.clone() } else { "".to_string() },
         if has_storage_layout { format!("#[contract_library_method]\n{}", storage_layout_getter) } else { "".to_string() } 
     );

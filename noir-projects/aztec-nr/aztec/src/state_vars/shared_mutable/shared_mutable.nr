@@ -121,7 +121,7 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
         // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
 
-        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage();
+        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage(*self.context);
 
         // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
         // takes into consideration any scheduled delay changes. 
@@ -139,26 +139,29 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
         value_change.get_current_at(historical_block_number)
     }
 
-    fn historical_read_from_public_storage(self) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField {
-        let header = self.context.get_header();
+    fn historical_read_from_public_storage(
+        self,
+        context: PrivateContext
+    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField {
+        let header = context.get_header();
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let value_change_slot = self.get_value_change_storage_slot();
         let mut raw_value_change_fields = [0; 3];
         for i in 0..3 {
             raw_value_change_fields[i] = header.public_storage_historical_read(
                 value_change_slot + i as Field,
-                self.context.this_address()
+                context.this_address()
             );
         }
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let delay_change_slot = self.get_delay_change_storage_slot();
-        let raw_delay_change_fields = [header.public_storage_historical_read(delay_change_slot, self.context.this_address())];
+        let raw_delay_change_fields = [header.public_storage_historical_read(delay_change_slot, context.this_address())];
 
         let value_change = ScheduledValueChange::deserialize(raw_value_change_fields);
         let delay_change = ScheduledDelayChange::deserialize(raw_delay_change_fields);
 
-        let historical_block_number = self.context.historical_header.global_variables.block_number as u32;
+        let historical_block_number = context.historical_header.global_variables.block_number as u32;
 
         (value_change, delay_change, historical_block_number)
     }
