@@ -333,10 +333,10 @@ impl PrivateContext {
             preimage
         );
 
-        self.emit_raw_log_with_masked_address(randomness, encrypted_log);
+        self.emit_raw_event_log_with_masked_address(randomness, encrypted_log);
     }
 
-    pub fn emit_raw_log_with_masked_address<M>(
+    pub fn emit_raw_event_log_with_masked_address<M>(
         &mut self,
         randomness: Field,
         encrypted_log: [u8; M]
@@ -370,20 +370,11 @@ impl PrivateContext {
         let contract_address = self.this_address();
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
-        // Current unoptimized size of the encrypted log
-        // incoming_tag (32 bytes)
-        // outgoing_tag (32 bytes)
-        // eph_pk (64 bytes)
-        // incoming_header (48 bytes)
-        // outgoing_header (48 bytes)
-        // outgoing_body (176 bytes)
-        // incoming_body_fixed (64 bytes)
-        // incoming_body_variable (N * 32 bytes + 16 bytes padding) 
         let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
-        self.emit_raw_log(note_hash_counter, encrypted_log);
+        self.emit_raw_note_log(note_hash_counter, encrypted_log);
     }
 
-    pub fn emit_raw_log<M>(&mut self, note_hash_counter: u32, encrypted_log: [u8; M]) {
+    pub fn emit_raw_note_log<M>(&mut self, note_hash_counter: u32, encrypted_log: [u8; M]) {
         let counter = self.next_counter();
         let len = encrypted_log.len() as Field + 4;
         let log_hash = sha256_to_field(encrypted_log);
