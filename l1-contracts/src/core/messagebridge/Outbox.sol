@@ -108,8 +108,8 @@ contract Outbox is IOutbox {
       revert Errors.Outbox__InvalidPathLength(treeHeight, _path.length);
     }
 
-    // Max height = height of rollup layers + 4
-    // The max num of messages (16) will require a subtree of height 4
+    // Max height = height of rollup layers + max possible subtree height
+    // The max num of messages N will require a subtree of height log2(N)
     uint256 maxSubtreeHeight = calculateTreeHeightFromSize(Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX);
     if (treeHeight + maxSubtreeHeight < _path.length) {
       revert Errors.Outbox__InvalidPathLength(treeHeight + maxSubtreeHeight, _path.length);
