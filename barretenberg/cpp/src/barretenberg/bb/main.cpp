@@ -270,7 +270,14 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     return ivc.prove_and_verify();
 }
 
-// WORKTODO: How are the VK actually retrieved
+/**
+ * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
+ *
+ * @param bytecodePath Path to the serialised circuit
+ * @param witnessPath Path to witness data
+ * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
+ * going to be specified when bb main is called, i.e. as the working directory in typescript).
+ */
 void client_ivc_prove_output_all(const std::string& bytecodePath,
                                  const std::string& witnessPath,
                                  const std::string& outputPath)
@@ -303,43 +310,35 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
         program_stack.pop_back();
     }
 
-    // We have been given a directory, we will write the proof and verification key
-    // into the directory in both 'binary' and 'fields' formats (i.e. json format)
+    // Write the proof and verification keys into the working directory in  'binary' format (in practice this directory
+    // is going to be given by transcript)
     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
     std::string eccVkPath = outputPath + "/ecc_vk";
-    // std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
-    // std::string proofFieldsPath = outputPath + "/proof_fields.json";
-    // std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
 
     auto proof = ivc.prove();
-    auto accumulator = ivc.verifier_accumulator;
-    auto inst_vk = ivc.instance_vk;
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
-    info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
+    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
+    vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-
-    write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
-    write_file(accPath, to_buffer(accumulator));
-
+    write_file(vkPath, to_buffer(ivc.instance_vk)); // maybe dereference
+    write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
-
     write_file(eccVkPath, to_buffer(eccvm_vk));
 }
 
 /**
- * @brief
+ * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
  *
- * @return true
- * @return false
+ * @param outputPath the working directory from which the proof and verification data are read
  */
-bool prove_tube(const std::string& outputPath)
+void prove_tube(const std::string& outputPath)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
@@ -357,10 +356,12 @@ bool prove_tube(const std::string& outputPath)
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
     std::string eccVkPath = outputPath + "/ecc_vk";
-    // std::string vkFieldsPath = outputPath + "/vk_fields.json";
-    init_bn254_crs(1 << 25);
-    init_grumpkin_crs(1 << 18); // is this even enough?
 
+    // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
+    init_bn254_crs(1 << 25);
+    init_grumpkin_crs(1 << 18);
+
+    // Read the proof  and verification data from given files
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
     auto instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
         from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
@@ -378,10 +379,10 @@ bool prove_tube(const std::string& outputPath)
     info("num gates: ", builder->get_num_gates());
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
-    // using Verifier = UltraVerifier_<UltraFlavor>;
 
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
+
     std::string tubeProofPath = outputPath + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
@@ -389,11 +390,6 @@ bool prove_tube(const std::string& outputPath)
     auto tube_verification_key =
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
-
-    // Verifier tube_verifier(tube_verification_key);
-    // bool verified = tube_verifier.verify_proof(tube_proof);
-    // info(verified);
-    return true;
 }
 
 /**
@@ -756,7 +752,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
     } else {
-        write_file(outputPath, to_buffer</*include_size=t*/ true>(proof));
+        write_file(outputPath, to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to: ", outputPath);
     }
 }
@@ -781,8 +777,6 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-    // init_bn254_crs(1 << 25);
-    // init_grumpkin_crs(1 << 18);
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
@@ -972,7 +966,6 @@ int main(int argc, char* argv[])
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
-        std::string acc_path = get_option(args, "-a", "./target/pg_acc");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         bool honk_recursion = flag_present(args, "-h");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
@@ -1009,11 +1002,9 @@ int main(int argc, char* argv[])
             prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "client_ivc_prove_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
-            info(output_path);
             client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
-            info(output_path);
             prove_tube(output_path);
         } else if (command == "verify_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
