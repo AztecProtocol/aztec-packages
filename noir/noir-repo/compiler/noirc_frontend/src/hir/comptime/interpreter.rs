@@ -247,8 +247,7 @@ impl<'a> Interpreter<'a> {
         argument: Value,
         location: Location,
     ) -> IResult<()> {
-        // Temporarily disabled since this fails on generic types
-        // self.type_check(typ, &argument, location)?;
+        self.type_check(typ, &argument, location)?;
         self.current_scope_mut().insert(id, argument);
         Ok(())
     }
