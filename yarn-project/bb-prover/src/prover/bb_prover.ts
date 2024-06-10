@@ -301,10 +301,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BaseRollupArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
     );
-    logger.info("reading verification key");
+    logger.info('reading verification key');
     const verificationKey = await this.getTubeVerificationKey(provingResult.vkPath!);
-    logger.info("verifying proof");
-    await this.verifyTubeProof( proof.binaryProof, verificationKey);
+    logger.info('verifying proof');
+    await this.verifyTubeProof(proof.binaryProof, verificationKey);
 
     // Verification key needs to be read from a file
     // return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
@@ -562,7 +562,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param convertOutput - Function for parsing the output witness to it's corresponding object
    * @returns The circuits output object and it's proof
    */
-  private async  createRecursiveProof<
+  private async createRecursiveProof<
     PROOF_LENGTH extends number,
     CircuitInputType extends { toBuffer: () => Buffer },
     CircuitOutputType extends { toBuffer: () => Buffer },
@@ -634,7 +634,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     verificationKey: VerificationKeyData,
     verificationFunction: VerificationFunction,
   ) {
-    const operation = async (bbWorkingDirectory: string) => {   
+    const operation = async (bbWorkingDirectory: string) => {
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
 
@@ -777,11 +777,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async getTubeVerificationKey(filePath: string): Promise<VerificationKeyData> {
-    let promise = this.verificationKeys.get(circuitType);
-    if (!promise) {
-      promise = extractVkData(filePath);
-      this.verificationKeys.set(circuitType, promise);
-    }
+    promise = extractVkData(filePath);
     return promise;
   }
 

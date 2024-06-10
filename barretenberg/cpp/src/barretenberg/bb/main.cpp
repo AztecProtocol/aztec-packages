@@ -502,10 +502,14 @@ bool prove_tube(const std::string& outputPath)
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
-    // Verifier tube_verifier(tube_verification_key);
-    // bool verified = tube_verifier.verify_proof(tube_proof);
-    // info(verified);
-    return true;
+    std::string tubeAsFieldsVkPath = outputPath + "/vk_as_fields";
+    std::vector<bb::fr> data = to_json(tube_verification_key->to_field_elements());
+    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() })
+
+        // Verifier tube_verifier(tube_verification_key);
+        // bool verified = tube_verifier.verify_proof(tube_proof);
+        // info(verified);
+        return true;
 }
 
 /**
