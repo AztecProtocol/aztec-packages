@@ -61,7 +61,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    info("Checking circuit");
     circuit_builder.check_circuit();
 
     auto composer = AvmComposer();
@@ -471,31 +470,42 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::NOTEHASHEXISTS:
-            trace_builder.op_note_hash_exists(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                              std::get<uint32_t>(inst.operands.at(1)),
                                               // TODO: leaf offset exists
                                               // std::get<uint32_t>(inst.operands.at(2))
                                               std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNOTEHASH:
-            trace_builder.op_emit_note_hash(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::NULLIFIEREXISTS:
-            trace_builder.op_nullifier_exists(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                              std::get<uint32_t>(inst.operands.at(1)),
                                               // std::get<uint32_t>(inst.operands.at(2))
                                               /**TODO: Address offset for siloing */
                                               std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNULLIFIER:
-            trace_builder.op_emit_nullifier(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SLOAD:
-            trace_builder.op_sload(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
+                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint32_t>(inst.operands.at(2)),
+                                   std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::SSTORE:
-            trace_builder.op_sstore(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::L1TOL2MSGEXISTS:
-            trace_builder.op_l1_to_l2_msg_exists(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                  // TODO: leaf offset exists
                                                  // std::get<uint32_t>(inst.operands.at(2))
                                                  std::get<uint32_t>(inst.operands.at(3)));
@@ -506,10 +516,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                                    std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::EMITUNENCRYPTEDLOG:
-            trace_builder.op_emit_unencrypted_log(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
+                                                  std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SENDL2TOL1MSG:
-            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
                                                std::get<uint32_t>(inst.operands.at(2)));
             break;
             // Machine State - Internal Control Flow

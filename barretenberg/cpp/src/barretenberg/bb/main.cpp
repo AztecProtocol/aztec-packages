@@ -643,7 +643,7 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 }
 
 #ifndef DISABLE_AZTEC_VM
-/**git
+/**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
  * Communication:
