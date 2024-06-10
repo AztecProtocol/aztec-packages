@@ -28,7 +28,7 @@ it('end-to-end proof creation and verification (outer)', async () => {
   const proof = await backend.generateProof(witness);
 
   // Proof verification
-  const isValid = await prover.verifyProof(proof);
+  const isValid = await backend.verifyProof(proof);
   expect(isValid).to.be.true;
 });
 
