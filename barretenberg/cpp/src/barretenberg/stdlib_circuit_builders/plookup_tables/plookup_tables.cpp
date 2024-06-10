@@ -176,14 +176,14 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
     std::vector<fr> column_3_raw_values;
 
     for (size_t i = 0; i < num_lookups; ++i) {
-        // get i-th table query function and then submit query
+        // compute the value(s) corresponding to the key(s) using on the i-th basic table query function
         const auto values = multi_table.get_table_values[i]({ key_a_slices[i], key_b_slices[i] });
         // store all query data in raw columns and key entry
         column_1_raw_values.emplace_back(key_a_slices[i]);
         column_2_raw_values.emplace_back(is_2_to_1_lookup ? key_b_slices[i] : values[0]);
         column_3_raw_values.emplace_back(is_2_to_1_lookup ? values[0] : values[1]);
 
-        // Question: why are we storing the key slices twice? // WORKTODO: resolve question?
+        // Store the lookup entries for use in constructing the sorted table/lookup polynomials later on
         const BasicTable::LookupEntry lookup_entry{ { key_a_slices[i], key_b_slices[i] }, values };
         lookup.lookup_entries.emplace_back(lookup_entry);
     }

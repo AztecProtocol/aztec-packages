@@ -648,7 +648,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
         // get basic lookup table; construct and add to builder.lookup_tables if not already present
         auto& table = get_table(multi_table.basic_table_ids[i]);
 
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
+        table.lookup_gates.emplace_back(read_values.lookup_entries[i]); // used for constructing sorted polynomials
 
         const auto first_idx = (i == 0) ? key_a_index : this->add_variable(read_values[plookup::ColumnIdx::C1][i]);
         const auto second_idx = (i == 0 && (key_b_index.has_value()))
