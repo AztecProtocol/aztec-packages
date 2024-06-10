@@ -22,8 +22,8 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
 
     std::shared_ptr<VerificationKey> verification_key;
     RelationParameters<FF> relation_parameters;
-    RelationSeparator alphas;    // for folding flavor it's always going to be std::vector<FF>
-    bool is_accumulator = false; // this is going to be a problem
+    RelationSeparator alphas;
+    bool is_accumulator = false;
     std::vector<FF> public_inputs;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
