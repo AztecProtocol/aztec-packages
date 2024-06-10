@@ -132,9 +132,8 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  // LONDONTODO(Client): This is the first proof created
   public async createAppCircuitProof(
-    partialWitness: WitnessMap, // from simulation
+    partialWitness: WitnessMap,
     bytecode: Buffer,
     appCircuitName?: string,
   ): Promise<AppCircuitProofOutput> {

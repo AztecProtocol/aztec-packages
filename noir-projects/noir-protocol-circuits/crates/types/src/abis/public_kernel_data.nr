@@ -10,7 +10,6 @@ struct PublicKernelData {
     vk_path: [Field; VK_TREE_HEIGHT],
 }
 
-// LONDONTODO(Client)
 impl Verifiable for PublicKernelData {
   fn verify(self) {
     let inputs = PublicKernelCircuitPublicInputs::serialize(self.public_inputs);

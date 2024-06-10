@@ -25,55 +25,6 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  // LONDONTODO(Client): Change prover to implement this function.
-  // LONDONTODO(Client): Delete this ill-placed test.
-  it(
-    'constructs a private transaction',
-    async () => {
-      logger.info(
-        `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
-      );
-      const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
-      const privateSendAmount = privateBalance / 2n;
-      expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(
-        accounts[0].address,
-        accounts[1].address,
-        privateSendAmount,
-        0,
-      );
-
-      const [privateTx] = await Promise.all([privateInteraction.prove()]);
-
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying private kernel tail proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
-
-      // LONDONTODO(Client): Generate a client proof.
-      // if (isGenerateTestDataEnabled()) {
-      //   const blockResults = getTestData('blockResults');
-      //   // the first blocks were setup blocks with fake proofs
-      //   // the last block is the one that was actually proven to the end
-      //   const blockResult: any = blockResults.at(-1);
-
-      //   if (!blockResult) {
-      //     // fail the test. User asked for fixtures but we don't have any
-      //     throw new Error('No block result found in test data');
-      //   }
-
-      //   writeTestData(
-      //     'yarn-project/end-to-end/src/fixtures/dumps/block_result.json',
-      //     JSON.stringify({
-      //       block: blockResult.block.toString(),
-      //       proof: blockResult.proof.toString(),
-      //       aggregationObject: blockResult.aggregationObject.map((x: Fr) => x.toString()),
-      //     }),
-      //   );
-      // }
-    },
-    TIMEOUT,
-  );
-
   it(
     'makes both public and private transfers',
     async () => {

@@ -26,7 +26,6 @@ struct PrivateCallData {
     acir_hash: Field,
 }
 
-// LONDONTODO(Client)
 impl Verifiable for PrivateCallData {
   fn verify(self) {
     let inputs = PrivateCircuitPublicInputs::serialize(self.call_stack_item.public_inputs);

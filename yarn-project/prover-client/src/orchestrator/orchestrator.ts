@@ -859,7 +859,6 @@ export class ProvingOrchestrator {
           // Take the final public tail proof and verification key and pass them to the base rollup
           txProvingState.baseRollupInputs.kernelData.proof = result.proof;
           txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
-          // LONDONTODO(BaseRollup)
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
           return;
         }

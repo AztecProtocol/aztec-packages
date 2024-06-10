@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -8,13 +8,10 @@ import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 import { basename, dirname, join } from 'path';
 
-// LONDONTODO(Tube) add paths for client ivc
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
-export const ACC_FILENAME = 'pg_acc';
-export const ACC_FIELDS_FILENAME = 'pg_acc_fields.json';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -234,9 +231,6 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-
-    // LONDONTODO(TUBE): I think I have to call prove_tube here, client_ivc_prove_output_all needs to be called in the client
-
     const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
     const duration = timer.ms();
 
@@ -271,8 +265,7 @@ export async function generateProof(
 export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
-  bytecode: Buffer,
-  calldata: Fr[],
+  input: AvmCircuitInputs,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -283,8 +276,10 @@ export async function generateAvmProof(
   }
 
   // Paths for the inputs
-  const calldataPath = join(workingDirectory, 'calldata.bin');
   const bytecodePath = join(workingDirectory, 'avm_bytecode.bin');
+  const calldataPath = join(workingDirectory, 'avm_calldata.bin');
+  const publicInputsPath = join(workingDirectory, 'avm_public_inputs.bin');
+  const avmHintsPath = join(workingDirectory, 'avm_hints.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -302,19 +297,45 @@ export async function generateAvmProof(
 
   try {
     // Write the inputs to the working directory.
-    await fs.writeFile(bytecodePath, bytecode);
+    await fs.writeFile(bytecodePath, input.bytecode);
     if (!filePresent(bytecodePath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${bytecodePath}` };
     }
     await fs.writeFile(
       calldataPath,
-      calldata.map(fr => fr.toBuffer()),
+      input.calldata.map(fr => fr.toBuffer()),
     );
     if (!filePresent(calldataPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
     }
 
-    const args = ['-b', bytecodePath, '-d', calldataPath, '-o', outputPath];
+    // public inputs are used directly as a vector of fields in C++,
+    // so we serialize them as such here instead of just using toBuffer
+    await fs.writeFile(
+      publicInputsPath,
+      input.publicInputs.toFields().map(fr => fr.toBuffer()),
+    );
+    if (!filePresent(publicInputsPath)) {
+      return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
+    }
+
+    await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
+    if (!filePresent(avmHintsPath)) {
+      return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
+    }
+
+    const args = [
+      '--avm-bytecode',
+      bytecodePath,
+      '--avm-calldata',
+      calldataPath,
+      '--avm-public-inputs',
+      publicInputsPath,
+      '--avm-hints',
+      avmHintsPath,
+      '-o',
+      outputPath,
+    ];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`AvmCircuit (prove) BB out - ${message}`);

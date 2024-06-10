@@ -93,7 +93,6 @@ export class KernelProver {
         currentExecution.callStackItem.functionData.selector,
       );
 
-      // LONDONTODO: This runs throught he user's call stack
       const proofOutput = await this.proofCreator.createAppCircuitProof(
         currentExecution.partialWitness,
         currentExecution.acir,

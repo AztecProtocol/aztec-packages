@@ -64,7 +64,6 @@ export enum ProvingRequestType {
   ROOT_PARITY,
 }
 
-// LONDONTODO(Tube): 
 export type ProvingRequest =
   | {
       type: ProvingRequestType.PUBLIC_VM;

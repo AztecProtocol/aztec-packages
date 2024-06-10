@@ -241,7 +241,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getBaseRollupProof(
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
-    // HEEEEEEEEEEEEREEEEEEEEEE
     // We may need to convert the recursive proof into fields format
     input.kernelData.proof = await this.ensureValidProof(
       input.kernelData.proof,
@@ -257,46 +256,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertBaseRollupOutputsFromWitnessMap,
     );
 
-    // LONDONTODO(Tube): this is verifier instance, how?!
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
 
     await this.verifyProof('BaseRollupArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
-
-  // /**
-  //  * Simulates the base rollup circuit from its inputs.
-  //  * @param input - Inputs to the circuit.
-  //  * @returns The public inputs as outputs of the simulation.
-  //  */
-  // // LONDONTODO(BaseRollup): implement verifyClientProof function and use here
-  // // Kernel circuit PIs coming from private kernels
-  // // Outputs have converted proof type
-  // public async getTubeRollupProof(
-  //   input: KernelCircuitPublicInputs,
-  // ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-  //   // We may need to convert the recursive proof into fields format
-  //   input.kernelData.proof = await this.ensureValidProof(
-  //     input.kernelData.proof,
-  //     'BaseRollupArtifact',
-  //     input.kernelData.vk,
-  //   );
-
-  //   const { circuitOutput, proof } = await this.createRecursiveProof(
-  //     input,
-  //     'BaseRollupArtifact',
-  //     NESTED_RECURSIVE_PROOF_LENGTH,
-  //     convertBaseRollupInputsToWitnessMap,
-  //     convertBaseRollupOutputsFromWitnessMap,
-  //   );
-
-  //   const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
-
-  //   await this.verifyProof('BaseRollupArtifact', proof.binaryProof);
-
-  //   return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
-  // }
 
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -561,7 +526,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: CircuitInputType) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
-    // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       const {
         provingResult,
@@ -721,7 +685,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param circuitType - The type of circuit for which the verification key is required
    * @returns The verification key data
    */
-  // LONDONTODO(Tube): Modify this,
   private async getVerificationKeyDataForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyData> {
     let promise = this.verificationKeys.get(circuitType);
     if (!promise) {
