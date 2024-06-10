@@ -13,7 +13,7 @@ use transforms::{
     },
     note_interface::{generate_note_interface_impl, inject_note_exports},
     storage::{
-        assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
+        self, assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
         generate_storage_implementation, generate_storage_layout, inject_context_in_storage,
     },
 };
@@ -109,9 +109,9 @@ fn transform_module(
         // Make sure we're only generating the storage layout for the root crate
         // In case we got a contract importing other contracts for their interface, we
         // don't want to generate the storage layout for them
-        if crate_id == context.root_crate_id() {
-            generate_storage_layout(module, storage_struct_name.clone())?;
-        }
+        // if crate_id == context.root_crate_id() {
+        generate_storage_layout(module, storage_struct_name.clone(), module_name)?;
+        //}
     }
 
     for structure in module.types.iter_mut() {
@@ -219,7 +219,7 @@ fn transform_module(
             });
         }
 
-        generate_contract_interface(module, module_name, &stubs)?;
+        generate_contract_interface(module, module_name, &stubs, storage_defined)?;
     }
 
     Ok(has_transformed_module)

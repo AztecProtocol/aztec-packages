@@ -497,6 +497,7 @@ pub fn assign_storage_slots(
 pub fn generate_storage_layout(
     module: &mut SortedModule,
     storage_struct_name: String,
+    module_name: &str,
 ) -> Result<(), AztecMacroError> {
     let definition = module
         .types
@@ -520,11 +521,12 @@ pub fn generate_storage_layout(
         }}
 
         #[abi(storage)]
-        global STORAGE_LAYOUT = StorageLayout {{
+        global {}_STORAGE_LAYOUT = StorageLayout {{
             {}
         }};
     ",
         storable_fields.join(",\n"),
+        module_name,
         storable_fields_impl.join(",\n")
     );
 

@@ -142,7 +142,11 @@ pub fn stub_function(
                 call_args
             )
         } else {
-            "let args_hash = 0;".to_string()
+            "
+            let mut args_acc: [Field] = &[];
+            let args_hash = 0;
+            "
+            .to_string()
         };
 
         format!(
@@ -206,7 +210,15 @@ pub fn generate_contract_interface(
     module: &mut SortedModule,
     module_name: &str,
     stubs: &[((String, bool), Location)],
+    has_storage_layout: bool,
 ) -> Result<(), AztecMacroError> {
+    let storage_layout_getter = format!(
+        "#[contract_library_method]
+        pub fn storage() -> StorageLayout {{
+            {}_STORAGE_LAYOUT
+        }}",
+        module_name,
+    );
     let contract_interface = format!(
         "
         struct {0} {{
@@ -226,9 +238,7 @@ pub fn generate_contract_interface(
                 Self {{ target_contract: dep::aztec::protocol_types::address::AztecAddress::zero() }}
             }}
 
-            pub fn storage() -> StorageLayout {{
-                STORAGE_LAYOUT
-            }}
+            {2}
         }}
 
         #[contract_library_method]
@@ -243,13 +253,12 @@ pub fn generate_contract_interface(
             {0} {{ target_contract: dep::aztec::protocol_types::address::AztecAddress::zero() }}
         }}
 
-        #[contract_library_method]
-        pub fn storage() -> StorageLayout {{
-            STORAGE_LAYOUT
-        }}
+        {3}
     ",
         module_name,
         stubs.iter().map(|((src, _), _)| src.to_owned()).collect::<Vec<String>>().join("\n"),
+        if has_storage_layout { storage_layout_getter.clone() } else { "".to_string() },
+        if has_storage_layout { format!("#[contract_library_method]\n{}", storage_layout_getter) } else { "".to_string() } 
     );
 
     let (contract_interface_ast, errors) = parse_program(&contract_interface);
