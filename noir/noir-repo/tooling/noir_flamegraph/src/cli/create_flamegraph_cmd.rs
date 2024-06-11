@@ -93,7 +93,7 @@ pub(crate) fn run(args: CreateFlamegraphCommand) -> eyre::Result<()> {
 
         let flamegraph_writer = BufWriter::new(flamegraph_file);
 
-        let folded_lines = to_folded_lines(&folded_stack_items, Default::default());
+        let folded_lines = to_folded_sorted_lines(&folded_stack_items, Default::default());
 
         let mut options = Options::default();
         options.hash = true;
@@ -185,7 +185,7 @@ fn add_locations_to_folded_stack_items(
     }
 }
 
-fn to_folded_lines(
+fn to_folded_sorted_lines(
     folded_stack_items: &HashMap<String, FoldedStackItem>,
     parent_stacks: im::Vector<String>,
 ) -> Vec<String> {
@@ -201,7 +201,7 @@ fn to_folded_lines(
             new_parent_stacks.push_back(location.clone());
 
             let child_lines: Vec<String> =
-                to_folded_lines(&folded_stack_item.nested_items, new_parent_stacks);
+                to_folded_sorted_lines(&folded_stack_item.nested_items, new_parent_stacks);
 
             std::iter::once(line).chain(child_lines)
         })
