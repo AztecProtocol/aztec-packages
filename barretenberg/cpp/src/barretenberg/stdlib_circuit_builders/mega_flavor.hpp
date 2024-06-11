@@ -13,6 +13,7 @@
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
@@ -66,7 +67,7 @@ class MegaFlavor {
                                   bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    using LogDerivLookupRelation = bb::DatabusLookupRelation<FF>;
+    using LogDerivLookupRelation = LogDerivLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();

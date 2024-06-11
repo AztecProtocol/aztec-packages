@@ -1,4 +1,5 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 
 namespace bb {
 
@@ -143,10 +144,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
-    // compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
-    //     key->polynomials, relation_parameters, key->circuit_size);
+    compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+        proving_key.polynomials, relation_parameters, proving_key.circuit_size);
 
-    proving_key.polynomials.lookup_inverses[0] = 25;
     witness_commitments.lookup_inverses = commitment_key->commit(proving_key.polynomials.lookup_inverses);
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);

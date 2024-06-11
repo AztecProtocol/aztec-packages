@@ -294,7 +294,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
-    // check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }
 
 TEST_F(UltraRelationCorrectnessTests, Mega)
