@@ -14,7 +14,7 @@ use crate::utils::{
     },
 };
 
-// Check if "compute_note_hash_and_optionally_a_nullifier(AztecAddress,Field,Field,Field,[Field; N]) -> [Field; 4]" is defined
+// Check if "compute_note_hash_and_optionally_a_nullifier(AztecAddress,Field,Field,Field,bool,[Field; N]) -> [Field; 4]" is defined
 fn check_for_compute_note_hash_and_optionally_a_nullifier_definition(
     crate_id: &CrateId,
     context: &HirContext,
@@ -23,7 +23,7 @@ fn check_for_compute_note_hash_and_optionally_a_nullifier_definition(
         let func_data = context.def_interner.function_meta(funct_id);
         let func_name = context.def_interner.function_name(funct_id);
         func_name == "compute_note_hash_and_optionally_a_nullifier"
-                && func_data.parameters.len() == 5
+                && func_data.parameters.len() == 6
                 && func_data.parameters.0.first().is_some_and(| (_, typ, _) | match typ {
                     Type::Struct(struct_typ, _) => struct_typ.borrow().name.0.contents == "AztecAddress",
                     _ => false
@@ -31,8 +31,9 @@ fn check_for_compute_note_hash_and_optionally_a_nullifier_definition(
                 && func_data.parameters.0.get(1).is_some_and(|(_, typ, _)| typ.is_field())
                 && func_data.parameters.0.get(2).is_some_and(|(_, typ, _)| typ.is_field())
                 && func_data.parameters.0.get(3).is_some_and(|(_, typ, _)|  typ.is_field())
-                // checks if the 5th parameter is an array and contains only fields
-                && func_data.parameters.0.get(4).is_some_and(|(_, typ, _)|  match typ {
+                && func_data.parameters.0.get(4).is_some_and(|(_, typ, _)|  typ.is_bool())
+                // checks if the 6th parameter is an array and contains only fields
+                && func_data.parameters.0.get(5).is_some_and(|(_, typ, _)|  match typ {
                     Type::Array(_, inner_type) => inner_type.to_owned().is_field(),
                     _ => false
                 })
@@ -124,7 +125,8 @@ pub fn inject_compute_note_hash_and_optionally_a_nullifier(
             notes_and_lengths.iter().map(|(note_type, _)| note_type.clone()).collect::<Vec<_>>();
 
         // We can now generate a version of compute_note_hash_and_optionally_a_nullifier tailored for the contract in this crate.
-        let func = generate_compute_note_hash_and_optionally_a_nullifier(&note_types, max_note_length);
+        let func =
+            generate_compute_note_hash_and_optionally_a_nullifier(&note_types, max_note_length);
 
         // And inject the newly created function into the contract.
 
