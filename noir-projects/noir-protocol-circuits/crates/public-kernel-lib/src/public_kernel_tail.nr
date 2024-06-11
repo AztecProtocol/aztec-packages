@@ -15,8 +15,7 @@ use dep::types::{
 },
     data::public_data_hint::PublicDataHint,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
-    partial_state_reference::PartialStateReference,
-    utils::{arrays::{array_length, assert_sorted_array}}, address::AztecAddress
+    partial_state_reference::PartialStateReference, utils::{arrays::array_length}, address::AztecAddress
 };
 
 struct PublicKernelTailCircuitPrivateInputs {
@@ -116,7 +115,7 @@ mod tests {
         PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     },
-        hash::{silo_nullifier, sha256_to_field},
+        hash::{compute_siloed_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree, sort::sort_get_sorted_hints},
         traits::is_empty, partial_state_reference::PartialStateReference,
@@ -206,13 +205,13 @@ mod tests {
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
 
-        pub fn append_nullifiers_revertible(&mut self, num_nullifiers: u64) {
+        pub fn append_nullifiers_revertible(&mut self, num_nullifiers: u32) {
             self.previous_revertible.append_siloed_nullifiers(num_nullifiers);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
 
-        pub fn append_nullifiers_non_revertible(&mut self, num_nullifiers: u64) {
+        pub fn append_nullifiers_non_revertible(&mut self, num_nullifiers: u32) {
             self.previous_kernel.append_siloed_nullifiers(num_nullifiers);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
@@ -226,7 +225,7 @@ mod tests {
             self.nullifier_non_existent_read_request_hints_builder.set_nullifiers(nullifiers);
         }
 
-        pub fn add_pending_revertible_nullifier_read_request(&mut self, nullifier_index: u64) {
+        pub fn add_pending_revertible_nullifier_read_request(&mut self, nullifier_index: u32) {
             let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
             self.sync_counters();
             let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
@@ -236,7 +235,7 @@ mod tests {
             self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
         }
 
-        pub fn add_pending_non_revertible_nullifier_read_request(&mut self, nullifier_index: u64) {
+        pub fn add_pending_non_revertible_nullifier_read_request(&mut self, nullifier_index: u32) {
             let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
             self.sync_counters();
             let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
@@ -248,14 +247,14 @@ mod tests {
         pub fn read_non_existent_nullifier(&mut self, unsiloed_nullifier: Field) {
             self.previous_kernel.add_non_existent_read_request_for_nullifier(unsiloed_nullifier);
             self.sync_counters();
-            let siloed_nullifier = silo_nullifier(
+            let siloed_nullifier = compute_siloed_nullifier(
                 self.previous_kernel.storage_contract_address,
                 unsiloed_nullifier
             );
             self.nullifier_non_existent_read_request_hints_builder.add_value_read(siloed_nullifier);
         }
 
-        pub fn add_public_data_hint_for_settled_public_data(&mut self, leaf_index: u64) {
+        pub fn add_public_data_hint_for_settled_public_data(&mut self, leaf_index: u32) {
             let leaf_preimage = get_settled_public_data_leaves()[leaf_index];
             let membership_witness = MembershipWitness { leaf_index: leaf_index as Field, sibling_path: self.public_data_tree.get_sibling_path(leaf_index) };
             let hint = PublicDataHint {
@@ -268,7 +267,7 @@ mod tests {
             self.public_data_hints.push(hint);
         }
 
-        pub fn add_public_data_hint_for_non_existent_public_data(&mut self, leaf_slot: Field, low_leaf_index: u64) {
+        pub fn add_public_data_hint_for_non_existent_public_data(&mut self, leaf_slot: Field, low_leaf_index: u32) {
             let leaf_preimage = get_settled_public_data_leaves()[low_leaf_index];
             let membership_witness = MembershipWitness {
                 leaf_index: low_leaf_index as Field,
@@ -278,7 +277,7 @@ mod tests {
             self.public_data_hints.push(hint);
         }
 
-        pub fn add_pending_public_data_read_request(&mut self, public_date_update_request_index: u64) {
+        pub fn add_pending_public_data_read_request(&mut self, public_date_update_request_index: u32) {
             let read_request_index = self.previous_kernel.add_read_request_for_pending_public_data(public_date_update_request_index);
             let hint_index = self.public_data_read_request_hints_builder.pending_read_hints.len();
             let hint = PendingReadHint { read_request_index, pending_value_index: public_date_update_request_index };

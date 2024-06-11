@@ -7,6 +7,7 @@ import {
   type LogFilter,
   type NoteFilter,
   type PXE,
+  type PXEInfo,
   type SimulatedTx,
   type SyncStatus,
   type Tx,
@@ -65,6 +66,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
     return this.pxe.getContractClass(id);
+  }
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    return this.pxe.getContractArtifact(id);
   }
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
@@ -173,5 +177,8 @@ export abstract class BaseWallet implements Wallet {
   }
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return this.pxe.isContractPubliclyDeployed(address);
+  }
+  getPXEInfo(): Promise<PXEInfo> {
+    return this.pxe.getPXEInfo();
   }
 }

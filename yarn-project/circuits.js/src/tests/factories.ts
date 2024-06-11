@@ -2,6 +2,7 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Bufferable } from '@aztec/foundation/serialize';
 import {
   type ContractClassPublic,
   type ExecutablePrivateFunctionWithMembershipProof,
@@ -15,6 +16,11 @@ import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
   AppendOnlyTreeSnapshot,
+  AvmCircuitInputs,
+  AvmContractInstanceHint,
+  AvmExecutionHints,
+  AvmExternalCallHint,
+  AvmKeyValueHint,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
@@ -128,6 +134,7 @@ import {
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
+  Vector,
   VerificationKey,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -294,7 +301,7 @@ export function makeContractStorageUpdateRequest(seed = 1): ContractStorageUpdat
  * @returns A contract storage read.
  */
 export function makeContractStorageRead(seed = 1): ContractStorageRead {
-  return new ContractStorageRead(fr(seed), fr(seed + 1));
+  return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
 export function makeValidationRequests(seed = 1) {
@@ -1249,6 +1256,92 @@ function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     vkHash: fr(seed + 2),
   };
+}
+
+export function makeArray<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+  return Array.from({ length }, (_: any, i: number) => fn(i + offset));
+}
+
+export function makeVector<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+  return new Vector(makeArray(length, fn, offset));
+}
+
+/**
+ * Makes arbitrary AvmKeyValueHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmKeyValueHint.
+ */
+export function makeAvmKeyValueHint(seed = 0): AvmKeyValueHint {
+  return new AvmKeyValueHint(new Fr(seed), new Fr(seed + 1));
+}
+
+/**
+ * Makes arbitrary AvmExternalCallHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmExternalCallHint.
+ */
+export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
+  return new AvmExternalCallHint(
+    new Fr(seed % 2),
+    makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
+    new Gas(seed + 0x200, seed),
+  );
+}
+
+/**
+ * Makes arbitrary AvmContractInstanceHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmContractInstanceHint.
+ */
+export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
+  return new AvmContractInstanceHint(
+    new Fr(seed),
+    new Fr(seed + 0x1),
+    new Fr(seed + 0x2),
+    new Fr(seed + 0x3),
+    new Fr(seed + 0x4),
+    new Fr(seed + 0x5),
+    new Fr(seed + 0x6),
+  );
+}
+
+/**
+ * Creates arbitrary AvmExecutionHints.
+ * @param seed - The seed to use for generating the hints.
+ * @returns the execution hints.
+ */
+export function makeAvmExecutionHints(
+  seed = 0,
+  overrides: Partial<FieldsOf<AvmExecutionHints>> = {},
+): AvmExecutionHints {
+  const lengthOffset = 10;
+  const lengthSeedMod = 10;
+  const baseLength = lengthOffset + (seed % lengthSeedMod);
+
+  return AvmExecutionHints.from({
+    storageValues: makeVector(baseLength, makeAvmKeyValueHint, seed + 0x4200),
+    noteHashExists: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4300),
+    nullifierExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4400),
+    l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
+    externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
+    contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    ...overrides,
+  });
+}
+
+/**
+ * Creates arbitrary AvmCircuitInputs.
+ * @param seed - The seed to use for generating the hints.
+ * @returns the execution hints.
+ */
+export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
+  return AvmCircuitInputs.from({
+    bytecode: makeBytes((seed % 100) + 100, seed),
+    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
+    publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
+    avmHints: makeAvmExecutionHints(seed + 0x3000),
+    ...overrides,
+  });
 }
 
 /**

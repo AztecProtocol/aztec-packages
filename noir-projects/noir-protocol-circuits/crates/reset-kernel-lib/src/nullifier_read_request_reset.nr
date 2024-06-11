@@ -7,13 +7,13 @@ use dep::types::{
 };
 
 struct NullifierSettledReadHint {
-    read_request_index: u64,
+    read_request_index: u32,
     membership_witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>,
     leaf_preimage: NullifierLeafPreimage,
 }
 
 impl ReadValueHint for NullifierSettledReadHint {
-    fn read_request_index(self) -> u64 {
+    fn read_request_index(self) -> u32 {
         self.read_request_index
     }
 }
@@ -27,7 +27,7 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
         self.leaf_preimage
     }
 
-    fn nada(read_request_len: u64) -> Self {
+    fn nada(read_request_len: u32) -> Self {
         NullifierSettledReadHint {
             read_request_index: read_request_len,
             membership_witness: MembershipWitness::empty(),
@@ -48,15 +48,15 @@ mod tests {
     use dep::types::{
         address::AztecAddress,
         abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequest},
-        constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier, merkle_tree::MembershipWitness,
-        tests::merkle_tree_utils::NonEmptyMerkleTree
+        constants::NULLIFIER_TREE_HEIGHT, hash::compute_siloed_nullifier,
+        merkle_tree::MembershipWitness, tests::merkle_tree_utils::NonEmptyMerkleTree
     };
 
     global contract_address = AztecAddress::from_field(123);
 
     // Create 4 nullifiers. 10 and 11 are settled. 12 and 13 are pending.
     global inner_nullifiers = [10, 11, 12, 13];
-    global nullifiers = inner_nullifiers.map(|n| silo_nullifier(contract_address, n));
+    global nullifiers = inner_nullifiers.map(|n| compute_siloed_nullifier(contract_address, n));
 
     // Create 5 read requests. 0 and 3 are reading settled nullifiers. 1, 2 and 4 are reading pending nullifiers.
     global read_requests = [

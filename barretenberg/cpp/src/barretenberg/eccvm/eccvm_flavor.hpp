@@ -661,13 +661,17 @@ class ECCVMFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
+            // IPA verification key requires one more point.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
+            // how many points they need
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
             this->circuit_size = proving_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key->num_public_inputs;
@@ -678,6 +682,14 @@ class ECCVMFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
+
+        MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       lagrange_first,
+                       lagrange_second,
+                       lagrange_last);
     };
 
     /**
