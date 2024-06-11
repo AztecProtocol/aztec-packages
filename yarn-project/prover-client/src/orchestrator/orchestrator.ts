@@ -882,5 +882,3 @@ function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
   );
   return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LENGTH, Fr);
 }
-
-// TUBE: I need to enque thet tubero llup

@@ -75,10 +75,6 @@ class ClientIVC {
     Proof prove();
 
     bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
-    bool verify_special(Proof& proof,
-                        std::shared_ptr<ECCVMVerificationKey> eccvm_vkey,
-                        std::shared_ptr<TranslatorVerificationKey> translator_vkey,
-                        const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
 
     bool prove_and_verify();
 

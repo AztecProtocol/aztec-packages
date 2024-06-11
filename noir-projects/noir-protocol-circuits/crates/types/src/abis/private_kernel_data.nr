@@ -26,7 +26,6 @@ struct PrivateKernelData {
 impl Verifiable for PrivateKernelData {
   fn verify(self) {
     let inputs = PrivateKernelCircuitPublicInputs::serialize(self.public_inputs);
-    // LONDONTODO(Client)
     dep::std::verify_proof(
         self.vk.key.as_slice(),
         self.proof.fields.as_slice(),

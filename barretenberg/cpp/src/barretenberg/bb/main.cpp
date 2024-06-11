@@ -270,221 +270,6 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     return ivc.prove_and_verify();
 }
 
-// WORKTODO: How are the VK actually retrieved
-// void client_ivc_prove_output_all(const std::string& bytecodePath,
-//                                  const std::string& witnessPath,
-//                                  const std::string& outputPath)
-// {
-//     using Flavor = MegaFlavor; // This is the only option
-//     using Builder = Flavor::CircuitBuilder;
-//     using Program = acir_format::AcirProgram;
-//     using ECCVMVK = ECCVMFlavor::VerificationKey;
-//     using TranslatorVK = TranslatorFlavor::VerificationKey;
-
-//     init_bn254_crs(1 << 24);
-//     init_grumpkin_crs(1 << 14);
-
-//     auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
-//     auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
-//     std::vector<Program> folding_stack;
-//     for (size_t i = 0; i < gzippedBincodes.size(); i++) {
-//         // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the
-//         // future
-//         std::vector<uint8_t> buffer =
-//             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); //
-//         NOLINT
-
-//         std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
-//             buffer,
-//             false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-//                     // this assumes that folding is never done with ultrahonk.
-//         std::vector<uint8_t> witnessBuffer =
-//             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
-//         acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
-//         acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
-//         folding_stack.push_back(program_stack.back());
-//     }
-//     // TODO dedupe this
-//     ClientIVC ivc;
-//     ivc.structured_flag = true;
-//     // Accumulate the entire program stack into the IVC
-//     for (Program& program : folding_stack) {
-//         // auto& stack_item = program_stack.witness_stack[i];
-
-//         // Construct a bberg circuit from the acir representation
-//         auto circuit =
-//             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false,
-//             ivc.goblin.op_queue);
-
-//         std::cout << "ACCUM" << std::endl;
-//         if (!bb::CircuitChecker::check(circuit)) {
-//             std::cout << "BAD" << std::endl;
-//         }
-//         ivc.accumulate(circuit);
-//     }
-
-//     // We have been given a directory, we will write the proof and verification key
-//     // into the directory in both 'binary' and 'fields' formats (i.e. json format)
-//     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-//     std::string accPath = outputPath + "/pg_acc";
-//     std::string proofPath = outputPath + "/client_ivc_proof";
-//     std::string translatorVkPath = outputPath + "/translator_vk";
-//     std::string eccVkPath = outputPath + "/ecc_vk";
-//     // std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
-//     // std::string proofFieldsPath = outputPath + "/proof_fields.json";
-//     // std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
-
-//     auto proof = ivc.prove();
-//     auto accumulator = ivc.verifier_accumulator;
-//     auto inst_vk = ivc.instance_vk;
-//     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
-//     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-
-//     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
-//     info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
-
-//     write_file(proofPath, to_buffer(proof));
-
-//     write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
-//     write_file(accPath, to_buffer(accumulator));
-
-//     write_file(translatorVkPath, to_buffer(translator_vk));
-
-//     write_file(eccVkPath, to_buffer(eccvm_vk));
-// }
-
-// // WORKTODO: How are the VK actually retrieved
-void client_ivc_prove_output_all(const std::string& bytecodePath,
-                                 const std::string& witnessPath,
-                                 const std::string& outputPath)
-{
-    using Flavor = MegaFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
-    using ECCVMVK = ECCVMFlavor::VerificationKey;
-    using TranslatorVK = TranslatorFlavor::VerificationKey;
-
-    init_bn254_crs(1 << 18);
-    init_grumpkin_crs(1 << 14);
-
-    ClientIVC ivc;
-    ivc.structured_flag = true;
-
-    auto program_stack = acir_format::get_acir_program_stack(
-        bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
-                                           // assumes that folding is never done with ultrahonk.
-
-    // Accumulate the entire program stack into the IVC
-    while (!program_stack.empty()) {
-        auto stack_item = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
-
-        ivc.accumulate(circuit);
-
-        program_stack.pop_back();
-    }
-
-    // We have been given a directory, we will write the proof and verification key
-    // into the directory in both 'binary' and 'fields' formats (i.e. json format)
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-    std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
-    // std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
-    // std::string proofFieldsPath = outputPath + "/proof_fields.json";
-    // std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
-
-    auto proof = ivc.prove();
-    auto accumulator = ivc.verifier_accumulator;
-    auto inst_vk = ivc.instance_vk;
-    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
-    info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
-
-    write_file(proofPath, to_buffer(proof));
-
-    write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
-    write_file(accPath, to_buffer(accumulator));
-
-    write_file(translatorVkPath, to_buffer(translator_vk));
-
-    write_file(eccVkPath, to_buffer(eccvm_vk));
-}
-
-/**
- * @brief
- *
- * @return true
- * @return false
- */
-bool prove_tube(const std::string& outputPath)
-{
-    using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
-    using InstanceFlavor = MegaFlavor;
-    using ECCVMVk = ECCVMFlavor::VerificationKey;
-    using TranslatorVk = TranslatorFlavor::VerificationKey;
-    using FoldVerifierInput = ClientIVC::FoldVerifierInput;
-    using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
-    using VerifierInput = ClientIVC::VerifierInput;
-    using Builder = UltraCircuitBuilder;
-    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
-
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-    std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
-    // std::string vkFieldsPath = outputPath + "/vk_fields.json";
-    init_bn254_crs(1 << 25);
-    init_grumpkin_crs(1 << 18); // is this even enough?
-
-    auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
-    auto instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
-        from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
-    auto verifier_accumulator = std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
-    auto translator_vk = std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
-    auto eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
-    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(1 << 16);
-    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
-    GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
-    VerifierInput input{ fold_verifier_input, goblin_verifier_input };
-    auto builder = std::make_shared<Builder>();
-    ClientIVC verifier{ builder, input };
-
-    verifier.verify(proof);
-    info("num gates: ", builder->get_num_gates());
-    info("generating proof");
-    using Prover = UltraProver_<UltraFlavor>;
-    using Verifier = UltraVerifier_<UltraFlavor>;
-
-    Prover tube_prover{ *builder };
-    auto tube_proof = tube_prover.construct_proof();
-    std::string tubeProofPath = outputPath + "/proof";
-    write_file(tubeProofPath, to_buffer<true>(tube_proof));
-
-    std::string tubeVkPath = outputPath + "/vk";
-    auto tube_verification_key =
-        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
-    write_file(tubeVkPath, to_buffer(tube_verification_key));
-
-    std::string tubeAsFieldsVkPath = outputPath + "/vk_as_fields";
-    auto field_els = tube_verification_key->to_field_elements();
-    info("verificaton key length in fields:", field_els.size());
-    auto data = to_json(field_els);
-    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
-
-    Verifier tube_verifier(tube_verification_key);
-    bool verified = tube_verifier.verify_proof(tube_proof);
-    info("Tube proof verification: ", verified);
-    return true;
-}
-
 /**
  * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
  *
@@ -502,8 +287,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
 
-    init_bn254_crs(1 << 18);
-    init_grumpkin_crs(1 << 14);
+    init_bn254_crs(1 << 22);
+    init_grumpkin_crs(1 << 16);
 
     ClientIVC ivc;
     ivc.structured_flag = true;
@@ -600,17 +385,31 @@ void prove_tube(const std::string& outputPath)
     info("num gates: ", builder->get_num_gates());
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
+    using Verifier = UltraVerifier_<UltraFlavor>;
 
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
-
     std::string tubeProofPath = outputPath + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
+
+    std::string tubeProofAsFieldsPath = outputPath + "/proof_fields.json";
+    auto proof_data = to_json(tube_proof);
+    write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = outputPath + "/vk";
     auto tube_verification_key =
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
+
+    std::string tubeAsFieldsVkPath = outputPath + "/vk_fields.json";
+    auto field_els = tube_verification_key->to_field_elements();
+    info("verificaton key length in fields:", field_els.size());
+    auto data = to_json(field_els);
+    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
+
+    Verifier tube_verifier(tube_verification_key);
+    bool verified = tube_verifier.verify_proof(tube_proof);
+    info("Tube proof verification: ", verified);
 }
 
 /**
@@ -983,7 +782,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
     } else {
-        write_file(outputPath, to_buffer</*include_size=t*/ true>(proof));
+        write_file(outputPath, to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to: ", outputPath);
     }
 }
@@ -1008,8 +807,6 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-    // init_bn254_crs(1 << 25);
-    // init_grumpkin_crs(1 << 18);
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
@@ -1199,7 +996,6 @@ int main(int argc, char* argv[])
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
-        std::string acc_path = get_option(args, "-a", "./target/pg_acc");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         bool honk_recursion = flag_present(args, "-h");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
