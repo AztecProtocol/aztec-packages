@@ -11,17 +11,12 @@ import {
   type Wallet,
   computeSecretHash,
   retryUntil,
-  AccountManager,
-  type ContractInstanceWithAddress,
-  type ContractArtifact,
 } from '@aztec/aztec.js';
-import { ChildContract, TokenContract } from '@aztec/noir-contracts.js';
+import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { jest } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 
 import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { EcdsaAccountContract } from '@aztec/accounts/ecdsa';
 
 const TIMEOUT = 120_000;
 
@@ -358,51 +353,46 @@ describe('e2e_2_pxes', () => {
     );
   });
 
-  it.only('adds and uses a nullified note', async () => {
-    // 1. Deploys ECDSA account contract via PXE A
-    let pubKeyNote: ExtendedNote;
-    let contractInstance: ContractInstanceWithAddress;
-    let contractArtifact: ContractArtifact;
+  it('adds and fetches a nullified note', async () => {
+    // 1. Deploys test contract through PXE A
+    const testContract = await TestContract.deploy(walletA).send().deployed();
+
+    // 2. Create a note
+    const noteStorageSlot = 10;
+    const noteValue = 5;
+    let note: ExtendedNote;
     {
-      const secretKey = Fr.random();
-      const account = new EcdsaAccountContract(randomBytes(32))
-      const manager = new AccountManager(pxeA, secretKey, account);
-      const {txHash, wallet} = await manager.deploy().wait();
-      const notes = await pxeA.getNotes({txHash});
-      expect(notes.length).toBe(1);
-      pubKeyNote = notes[0];
-      contractArtifact = account.getContractArtifact();
-      contractInstance = (await wallet.getContractInstance(wallet.getAddress()))!;
-      walletA = wallet;
-    }
-    
-    // 2. Adds the deployed contract to PXE B
-    {
-      await pxeB.registerContract({instance: contractInstance, artifact: contractArtifact});
+      const receipt = await testContract.methods
+        .call_create_note(noteValue, walletA.getAddress(), walletA.getAddress(), noteStorageSlot)
+        .send()
+        .wait({ debug: true });
+      const notes = receipt.debugInfo?.visibleNotes;
+      expect(notes).toHaveLength(1);
+      note = notes![0];
     }
 
-    // 3. Adds ecdsa account as recipient to PXE B
+    // 3. Nullify the note
     {
+      const receipt = await testContract.methods.call_destroy_note(noteStorageSlot).send().wait({ debug: true });
+      // Check that we got 2 nullifiers - 1 for tx hash, 1 for the note
+      expect(receipt.debugInfo?.nullifiers).toHaveLength(2);
+    }
+
+    // 4. Adds the nullified public key note to PXE B
+    {
+      // We need to register the recipient to be able to obtain IvpkM for the note
       await pxeB.registerRecipient(walletA.getCompleteAddress());
+      // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_nullifier(...)
+      await pxeB.registerContract(testContract);
+      await pxeB.addNullifiedNote(note);
     }
-    
-    // 3. Adds the nullified public key note to PXE B
+
+    // 5. Try fetching the nullified note
     {
-      await pxeB.addNullifiedNote(pubKeyNote);
-    }
-    
-    // 4. We deploy token contract via PXE A and we add it to PXE B
-    const token = await deployTokenContract(10n, walletA.getAddress(), pxeA);
-    await pxeB.registerContract(token);
-
-    // 5. We create authwit and add it to PXE B
-    {
-      const action = token.withWallet(walletB).methods.transfer(walletA.getAddress(), walletB.getAddress(), 1n, 0);
-      const witness = await walletA.createAuthWit({caller: walletB.getAddress(), action});
-      await walletB.addAuthWitness(witness);
-
-
-      await action.simulate();
+      const testContractWithWalletB = await TestContract.at(testContract.address, walletB);
+      const noteValue = await testContractWithWalletB.methods.call_get_notes(noteStorageSlot, true).simulate();
+      expect(noteValue).toBe(noteValue);
+      // --> We have successfully obtained the nullified note from PXE B verifying that pxe.addNullifiedNote(...) works
     }
   });
 });
