@@ -54,10 +54,16 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
     elif grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null || grep 'Error response from daemon: removal of container earthly-buildkitd is already in progress: exit status 1' $OUTPUT_FILE >/dev/null ; then
       echo "Detected earthly bootstrap happening in parallel and failing, waiting and trying again."
       sleep 20
-    elif grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null; then
+    elif grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null || grep 'could not determine buildkit address - is Docker or Podman running?' $OUTPUT_FILE >/dev/null ; then
       echo "Detected corrupted docker images. Wiping and trying again."
       # Based on https://stackoverflow.com/a/75849307
-      sudo rm -rf /var/lib/docker/image/overlay2/layerdb/sha256/* /var/lib/docker/image/overlay2/imagedb/content/sha256/*
+      # wipe everything but volumes where we have earthly cache
+      sudo service docker stop
+      sudo bash -c 'rm -rf /var/lib/docker/{buildkit,containers,image,network,overlay2,plugins.runtimes,swarm,tmp,trust}/*'
+      # restart docker - might take down builds, but we need to recover anyway
+      sudo service docker restart
+      # wait for other docker restarts
+      sleep 20
     else
       # If other errors, exit the script
       echo "Errors may exist in other jobs. Please see the run summary page and check for Build Summary. If there are no errors, it may be because runs were interrupted due to runner going down (please report this)."
