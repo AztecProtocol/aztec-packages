@@ -4,6 +4,7 @@
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -29,9 +30,8 @@ void ensure_non_zero(auto& polynomial)
  * @brief Check that a given relation is satified for a set of polynomials
  *
  * @tparam relation_idx Index into a tuple of provided relations
- * @tparam Flavor
  */
-template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
+template <typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
 {
     for (size_t i = 0; i < circuit_size; i++) {
         // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
@@ -285,18 +285,16 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     ensure_non_zero(proving_key.polynomials.q_elliptic);
     ensure_non_zero(proving_key.polynomials.q_aux);
 
-    // Construct the round for applying sumcheck relations and results for storing computed results
-    using Relations = typename Flavor::Relations;
-
     auto& prover_polynomials = instance->proving_key.polynomials;
     auto params = instance->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<LookupRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
+    // check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }
 
 TEST_F(UltraRelationCorrectnessTests, Mega)
@@ -351,19 +349,18 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     ensure_non_zero(proving_key.polynomials.return_data_read_counts);
     ensure_non_zero(proving_key.polynomials.return_data_inverses);
 
-    // Construct the round for applying sumcheck relations and results for storing computed results
-    using Relations = typename Flavor::Relations;
     auto& prover_polynomials = instance->proving_key.polynomials;
     auto params = instance->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
-    check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
-    check_linearly_dependent_relation<Flavor, std::tuple_element_t<7, Relations>>(
-        circuit_size, prover_polynomials, params);
+    check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<LookupRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<EccOpQueueRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<Poseidon2ExternalRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<Poseidon2InternalRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_linearly_dependent_relation<Flavor, DatabusLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }
