@@ -3,6 +3,7 @@ import {
   EncryptedTxL2Logs,
   PublicDataWrite,
   type PublicInputsAndRecursiveProof,
+  type PublicInputsAndTubeProof,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -175,6 +176,7 @@ export type PaddingProcessedTx = ProcessedTx & {
   recursiveProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 };
 
+// TODO: double check that this is still in use
 /**
  * Makes a padding empty tx with a valid proof.
  * @returns A valid padding processed tx.
@@ -199,6 +201,32 @@ export function makePaddingProcessedTx(
     recursiveProof: kernelOutput.proof,
   };
 }
+
+/**
+ * Makes a padding empty tx with a valid proof.
+ * @returns A valid padding processed tx.
+ */
+export function makePaddingProcessedTxFromTubeProof(
+  kernelOutput: PublicInputsAndTubeProof<KernelCircuitPublicInputs>,
+): PaddingProcessedTx {
+  const hash = new TxHash(Fr.ZERO.toBuffer());
+  return {
+    hash,
+    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.empty(),
+    unencryptedLogs: UnencryptedTxL2Logs.empty(),
+    data: kernelOutput.inputs,
+    proof: kernelOutput.proof.binaryProof,
+    isEmpty: true,
+    revertReason: undefined,
+    publicProvingRequests: [],
+    gasUsed: {},
+    finalPublicDataUpdateRequests: [],
+    verificationKey: kernelOutput.verificationKey,
+    recursiveProof: kernelOutput.proof,
+  };
+}
+
 
 /**
  * Makes an empty tx from an empty kernel circuit public inputs.

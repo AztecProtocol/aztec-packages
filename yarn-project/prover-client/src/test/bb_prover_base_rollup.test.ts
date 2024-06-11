@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makePaddingProcessedTx } from '@aztec/circuit-types';
+import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -36,7 +36,7 @@ describe('prover/bb_prover/base-rollup', () => {
 
 
     const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
-    const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
+    const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
     const baseRollupInputs = await buildBaseRollupInput(

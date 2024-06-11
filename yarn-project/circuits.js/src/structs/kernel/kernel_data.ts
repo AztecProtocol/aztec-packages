@@ -2,12 +2,13 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
+import { TUBE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
 
+// TODO: bad name
 export class KernelData {
   constructor(
     /**
@@ -17,7 +18,7 @@ export class KernelData {
     /**
      * Proof of the previous kernel.
      */
-    public proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
     /**
      * Verification key of the previous kernel.
      */
@@ -35,7 +36,7 @@ export class KernelData {
   static empty(): KernelData {
     return new this(
       KernelCircuitPublicInputs.empty(),
-      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
       VerificationKeyData.makeFake(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
@@ -46,7 +47,7 @@ export class KernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
       reader.readObject(KernelCircuitPublicInputs),
-      RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
+      RecursiveProof.fromBuffer(reader, TUBE_PROOF_LENGTH),
       reader.readObject(VerificationKeyData),
       reader.readNumber(),
       reader.readArray(VK_TREE_HEIGHT, Fr),

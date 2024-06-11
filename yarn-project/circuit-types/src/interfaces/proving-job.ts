@@ -10,6 +10,7 @@ import {
   type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
+  type TUBE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
@@ -31,9 +32,10 @@ export type PublicInputsAndRecursiveProof<T> = {
   verificationKey: VerificationKeyData;
 };
 
+// TODO: This is a template?
 export type PublicInputsAndTubeProof<T> = {
   inputs: T;
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
   verificationKey: VerificationKeyData;
 };
 
