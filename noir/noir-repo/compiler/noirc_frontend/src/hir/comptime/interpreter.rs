@@ -149,8 +149,8 @@ impl<'a> Interpreter<'a> {
         let mut scope = Vec::new();
         if self.scopes.len() > 1 {
             scope = self.scopes.drain(1..).collect();
-            self.push_scope();
         }
+        self.push_scope();
         (std::mem::take(&mut self.in_loop), scope)
     }
 
