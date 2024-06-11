@@ -15,15 +15,15 @@ use nargo::errors::Location;
 
 #[derive(Debug, Clone, Args)]
 pub(crate) struct CreateFlamegraphCommand {
-    /// The path to the artifact file
+    /// The path to the artifact JSON file
     #[clap(long, short)]
     artifact_path: String,
 
-    /// Path to the binary of noir's backend
+    /// Path to the noir backend binary
     #[clap(long, short)]
     backend_path: String,
 
-    /// The output folder for the flamegraph
+    /// The output folder for the flamegraph svg files
     #[clap(long, short)]
     output: String,
 }

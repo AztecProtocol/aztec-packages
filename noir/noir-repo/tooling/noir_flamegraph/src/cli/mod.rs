@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;
 use const_format::formatcp;
+use noirc_frontend as _;
 
 mod create_flamegraph_cmd;
 
