@@ -96,6 +96,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
     // Get commitments to sorted list accumulator and fourth wire
     witness_comms.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.sorted_accum);
+    witness_comms.lookup_read_counts =
+        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
+    witness_comms.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_tags);
     witness_comms.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_4);
 }
 

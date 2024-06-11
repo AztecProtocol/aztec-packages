@@ -121,6 +121,8 @@ typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polyno
                                                          typename Flavor::Polynomial& read_tags,
                                                          typename Flavor::CircuitBuilder& circuit)
 {
+    // WORKTODO: this wont work; the counts need to reflect the sturcture of the actual table polys (which are shifted
+    // to the bottom of the trace) so we should just construct these at the same time as the table polys.
     size_t table_offset = 0; // offset of the present table in the table polynomials
     for (auto& table : circuit.lookup_tables) {
         table.initialize_index_map();

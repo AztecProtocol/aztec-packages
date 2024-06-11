@@ -37,12 +37,12 @@ class UltraFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 43;
+    static constexpr size_t NUM_ALL_ENTITIES = 45;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 9;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -142,13 +142,15 @@ class UltraFlavor {
     template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              w_l,          // column 0
-                              w_r,          // column 1
-                              w_o,          // column 2
-                              w_4,          // column 3
-                              sorted_accum, // column 4
-                              z_perm,       // column 5
-                              z_lookup)     // column 6
+                              w_l,                // column 0
+                              w_r,                // column 1
+                              w_o,                // column 2
+                              w_4,                // column 3
+                              sorted_accum,       // column 4
+                              z_perm,             // column 5
+                              z_lookup,           // column 6
+                              lookup_read_counts, // column 6
+                              lookup_read_tags)   // column 6
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
     };
@@ -222,6 +224,8 @@ class UltraFlavor {
                               sorted_accum,       // column 29
                               z_perm,             // column 30
                               z_lookup,           // column 31
+                              lookup_read_counts, // column 6
+                              lookup_read_tags,   // column 6
                               table_1_shift,      // column 32
                               table_2_shift,      // column 33
                               table_3_shift,      // column 34
@@ -245,12 +249,40 @@ class UltraFlavor {
         // Gemini-specific getters.
         auto get_unshifted()
         {
-            return RefArray{ q_m,           q_c,   q_l,      q_r,     q_o,     q_4,          q_arith, q_delta_range,
-                             q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
-                             id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
-                             lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
-
-            };
+            return RefArray{ q_m,
+                             q_c,
+                             q_l,
+                             q_r,
+                             q_o,
+                             q_4,
+                             q_arith,
+                             q_delta_range,
+                             q_elliptic,
+                             q_aux,
+                             q_lookup,
+                             sigma_1,
+                             sigma_2,
+                             sigma_3,
+                             sigma_4,
+                             id_1,
+                             id_2,
+                             id_3,
+                             id_4,
+                             table_1,
+                             table_2,
+                             table_3,
+                             table_4,
+                             lagrange_first,
+                             lagrange_last,
+                             w_l,
+                             w_r,
+                             w_o,
+                             w_4,
+                             sorted_accum,
+                             z_perm,
+                             z_lookup,
+                             lookup_read_counts,
+                             lookup_read_tags };
         };
 
         auto get_precomputed()
@@ -263,7 +295,10 @@ class UltraFlavor {
             };
         }
 
-        auto get_witness() { return RefArray{ w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup }; };
+        auto get_witness()
+        {
+            return RefArray{ w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup, lookup_read_counts, lookup_read_tags };
+        };
         auto get_to_be_shifted()
         {
             return RefArray{ table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
@@ -295,7 +330,8 @@ class UltraFlavor {
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
-        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+        { // Initialize all unshifted polynomials to the zero polynomial and initialize the
+          // shifted polys
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };
             }
@@ -380,8 +416,8 @@ class UltraFlavor {
         /**
          * @brief Add plookup memory records to the fourth wire polynomial
          *
-         * @details This operation must be performed after the first three wires have been committed to, hence the
-         * dependence on the `eta` challenge.
+         * @details This operation must be performed after the first three wires have been
+         * committed to, hence the dependence on the `eta` challenge.
          *
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
@@ -410,7 +446,8 @@ class UltraFlavor {
         }
 
         /**
-         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup polynomials
+         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup
+         * polynomials
          *
          * @param relation_parameters
          */
@@ -458,7 +495,8 @@ class UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
+        // up.
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
@@ -582,7 +620,8 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
+            // Storage is only needed after the first partial evaluation, hence polynomials of
+            // size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
             }
@@ -628,6 +667,8 @@ class UltraFlavor {
             z_perm = "Z_PERM";
             z_lookup = "Z_LOOKUP";
             sorted_accum = "SORTED_ACCUM";
+            lookup_read_counts = "LOOKUP_READ_COUNTS";
+            lookup_read_tags = "LOOKUP_READ_TAGS";
 
             q_c = "Q_C";
             q_l = "Q_L";
@@ -721,6 +762,8 @@ class UltraFlavor {
         Commitment w_r_comm;
         Commitment w_o_comm;
         Commitment sorted_accum_comm;
+        Commitment lookup_read_counts_comm;
+        Commitment lookup_read_tags_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
@@ -753,8 +796,9 @@ class UltraFlavor {
         };
 
         /**
-         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables that compose the
-         * structure. Must be called in order to access the structure of the proof.
+         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
+         * that compose the structure. Must be called in order to access the structure of the
+         * proof.
          *
          */
         void deserialize_full_transcript()
@@ -773,6 +817,8 @@ class UltraFlavor {
             w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -789,8 +835,9 @@ class UltraFlavor {
             kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
         /**
-         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called only if
-         * deserialize_full_transcript() was called and some transcript variable was modified.
+         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called
+         * only if deserialize_full_transcript() was called and some transcript variable was
+         * modified.
          *
          */
         void serialize_full_transcript()
@@ -808,6 +855,8 @@ class UltraFlavor {
             serialize_to_buffer(w_r_comm, proof_data);
             serialize_to_buffer(w_o_comm, proof_data);
             serialize_to_buffer(sorted_accum_comm, proof_data);
+            serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            serialize_to_buffer(lookup_read_tags_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
             serialize_to_buffer(z_lookup_comm, proof_data);

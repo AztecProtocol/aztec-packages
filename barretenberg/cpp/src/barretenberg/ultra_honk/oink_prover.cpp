@@ -121,9 +121,15 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial
     witness_commitments.sorted_accum = commitment_key->commit(proving_key.polynomials.sorted_accum);
+    witness_commitments.lookup_read_counts = commitment_key->commit(proving_key.polynomials.lookup_read_counts);
+    witness_commitments.lookup_read_tags = commitment_key->commit(proving_key.polynomials.lookup_read_tags);
     witness_commitments.w_4 = commitment_key->commit(proving_key.polynomials.w_4);
 
     transcript->send_to_verifier(domain_separator + commitment_labels.sorted_accum, witness_commitments.sorted_accum);
+    transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_counts,
+                                 witness_commitments.lookup_read_counts);
+    transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_tags,
+                                 witness_commitments.lookup_read_tags);
     transcript->send_to_verifier(domain_separator + commitment_labels.w_4, witness_commitments.w_4);
 }
 
