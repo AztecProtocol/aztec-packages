@@ -492,69 +492,6 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 // }
 
 /**
- * @brief
- *
- * @return true
- * @return false
- */
-bool prove_tube(const std::string& outputPath)
-{
-    using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
-    using InstanceFlavor = MegaFlavor;
-    using ECCVMVk = ECCVMFlavor::VerificationKey;
-    using TranslatorVk = TranslatorFlavor::VerificationKey;
-    using FoldVerifierInput = ClientIVC::FoldVerifierInput;
-    using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
-    using VerifierInput = ClientIVC::VerifierInput;
-    using Builder = UltraCircuitBuilder;
-    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
-
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-    std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
-    // std::string vkFieldsPath = outputPath + "/vk_fields.json";
-    init_bn254_crs(1 << 25);
-    init_grumpkin_crs(1 << 18); // is this even enough?
-
-    auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
-    auto instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
-        from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
-    auto verifier_accumulator = std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
-    auto translator_vk = std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
-    auto eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
-    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(1 << 16);
-    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
-    GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
-    VerifierInput input{ fold_verifier_input, goblin_verifier_input };
-    auto builder = std::make_shared<Builder>();
-    ClientIVC verifier{ builder, input };
-
-    verifier.verify(proof);
-    info("num gates: ", builder->get_num_gates());
-    info("generating proof");
-    using Prover = UltraProver_<UltraFlavor>;
-    // using Verifier = UltraVerifier_<UltraFlavor>;
-
-    Prover tube_prover{ *builder };
-    auto tube_proof = tube_prover.construct_proof();
-    std::string tubeProofPath = outputPath + "/proof";
-    write_file(tubeProofPath, to_buffer<true>(tube_proof));
-
-    std::string tubeVkPath = outputPath + "/vk";
-    auto tube_verification_key =
-        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
-    write_file(tubeVkPath, to_buffer(tube_verification_key));
-
-    // Verifier tube_verifier(tube_verification_key);
-    // bool verified = tube_verifier.verify_proof(tube_proof);
-    // info(verified);
-    return true;
-}
-
-/**
  * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
  *
  * @param bytecodePath Path to the serialised circuit
