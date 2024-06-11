@@ -1,8 +1,5 @@
 import {
-  Fr,
-  TUBE_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  TubeVerificationKeyAsFields,
-  TubeVerificationKeyData,
+  Fr,å
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -34,25 +31,5 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
     vkHash,
   );
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
-  return vk;
-}
-
-/**
- * Reads the verification key data stored at the specified location and parses into a VerificationKeyData
- * @param vkDirectoryPath - The directory containing the verification key data files
- * @returns The verification key data
- */
-export async function extractTubeVkData(vkDirectoryPath: string): Promise<TubeVerificationKeyData> {
-  const [rawFields, rawBinary] = await Promise.all([
-    fs.readFile(path.join(vkDirectoryPath, VK_FIELDS_FILENAME), { encoding: 'utf-8' }),
-    fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
-  ]);
-  const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromString);
-  // The first item is the hash, this is not part of the actual VK
-  const vkAsFields = new TubeVerificationKeyAsFields(
-    fields as Tuple<Fr, typeof TUBE_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
-  );
-  const vk = new TubeVerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }
