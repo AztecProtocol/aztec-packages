@@ -433,18 +433,6 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
-    // I was doing this to check whether the final gate count matches the sum of the amortised gate counts. It doesn't.
-    // size_t sum = 0;
-    // for (size_t i : constraint_system.gates_per_opcode) {
-    //     sum += i;
-    // }
-    // // if (builder.get_total_circuit_size() != sum) {
-    // //     throw_or_abort("Badly counted num gates!!");
-    // // }
-    // constraint_system.gates_per_opcode[constraint_system.gates_per_opcode.size() - 1] =
-    //     builder.get_total_circuit_size();
-    // constraint_system.gates_per_opcode[constraint_system.gates_per_opcode.size() - 2] = sum;
-
     return builder;
 };
 

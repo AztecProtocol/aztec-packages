@@ -24,6 +24,12 @@
 
 namespace acir_format {
 
+/**
+ * @brief Indices of the original opcode that originated each constraint in AcirFormat.
+ * @details Contains one array of indices per opcode type. The length of each array is equal to the number of
+ * constraints of that type. The relationship between the opcodes and constraints is assumed to be one to one, except
+ * for block constraints.
+ */
 struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> logic_constraints;
     std::vector<size_t> range_constraints;
@@ -71,49 +77,26 @@ struct AcirFormat {
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
-    // the index (in the opcodes array) of each constraint in logic_constraints.
-    // maybe rename to : "opcode_index_of_logic_constraints"
-
     std::vector<RangeConstraint> range_constraints;
-
     std::vector<AES128Constraint> aes128_constraints;
-
     std::vector<Sha256Constraint> sha256_constraints;
-
     std::vector<Sha256Compression> sha256_compression;
-
     std::vector<SchnorrConstraint> schnorr_constraints;
-
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
-
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
-
     std::vector<Blake2sConstraint> blake2s_constraints;
-
     std::vector<Blake3Constraint> blake3_constraints;
-
     std::vector<KeccakConstraint> keccak_constraints;
-
     std::vector<Keccakf1600> keccak_permutations;
-
     std::vector<PedersenConstraint> pedersen_constraints;
-
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
-
     std::vector<Poseidon2Constraint> poseidon2_constraints;
-
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
-
     std::vector<EcAdd> ec_add_constraints;
-
     std::vector<RecursionConstraint> recursion_constraints;
-
     std::vector<HonkRecursionConstraint> honk_recursion_constraints;
-
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
-
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
-
     std::vector<BigIntOperation> bigint_operations;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -122,17 +105,16 @@ struct AcirFormat {
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>,
                 bb::ContainerSlabAllocator<bb::poly_triple_<bb::curve::BN254::ScalarField>>>
         poly_triple_constraints;
-
     std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>,
                 bb::ContainerSlabAllocator<bb::mul_quad_<bb::curve::BN254::ScalarField>>>
         quad_constraints;
-
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
     // Has the same length as the opcode vector.
     std::vector<size_t> gates_per_opcode;
 
+    // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
 
     // For serialization, update with any new fields

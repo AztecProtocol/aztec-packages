@@ -1,6 +1,9 @@
 const path = require("path");
 const fs = require("fs").promises;
 
+// Simple script to extract a contract function as a separate Noir artifact.
+// We need to use this since the transpiling that we do on public functions make the contract artifacts
+// unreadable by noir tooling, since they are no longer following the noir artifact format.
 async function main() {
   let [contractArtifactPath, functionName] = process.argv.slice(2);
   if (!contractArtifactPath || !functionName) {

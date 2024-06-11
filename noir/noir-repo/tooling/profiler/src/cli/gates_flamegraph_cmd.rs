@@ -74,10 +74,6 @@ pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
                     .map(|location| location_to_callsite_label(*location, &program))
                     .collect::<Vec<String>>()
             } else {
-                // println!(
-                //     "No call stack found for opcode {} with index {}",
-                //     program.bytecode.functions[func_idx].opcodes[opcode_index], opcode_index
-                // );
                 vec!["unknown".to_string()]
             };
 
