@@ -112,7 +112,34 @@ Builder create_inner_circuit()
                                   .bigint_operations = {},
                                   .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
                                   .quad_constraints = {},
-                                  .block_constraints = {} };
+                                  .block_constraints = {},
+                                  .original_opcode_indices = AcirFormatOriginalOpcodeIndices{
+                                      .logic_constraints = { 0 },
+                                      .range_constraints = { 1, 2 },
+                                      .aes128_constraints = {},
+                                      .sha256_constraints = {},
+                                      .sha256_compression = {},
+                                      .schnorr_constraints = {},
+                                      .ecdsa_k1_constraints = {},
+                                      .ecdsa_r1_constraints = {},
+                                      .blake2s_constraints = {},
+                                      .blake3_constraints = {},
+                                      .keccak_constraints = {},
+                                      .keccak_permutations = {},
+                                      .pedersen_constraints = {},
+                                      .pedersen_hash_constraints = {},
+                                      .poseidon2_constraints = {},
+                                      .multi_scalar_mul_constraints = {},
+                                      .ec_add_constraints = {},
+                                      .recursion_constraints = {},
+                                      .honk_recursion_constraints = {},
+                                      .bigint_from_le_bytes_constraints = {},
+                                      .bigint_to_le_bytes_constraints = {},
+                                      .bigint_operations = {},
+                                      .poly_triple_constraints = { 3, 4, 5, 6 },
+                                      .quad_constraints = {},
+                                      .block_constraints = {},
+                                  } };
 
     uint256_t inverse_of_five = fr(5).invert();
     WitnessVector witness{
@@ -239,6 +266,9 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         witness_offset = key_indices_start_idx + key_witnesses.size();
     }
 
+    std::vector<size_t> recursion_opcode_indices(recursion_constraints.size());
+    std::iota(recursion_opcode_indices.begin(), recursion_opcode_indices.end(), 0);
+
     AcirFormat constraint_system{ .varnum = static_cast<uint32_t>(witness.size()),
                                   .recursive = false,
                                   .num_acir_opcodes = static_cast<uint32_t>(recursion_constraints.size()),
@@ -267,7 +297,34 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                   .bigint_operations = {},
                                   .poly_triple_constraints = {},
                                   .quad_constraints = {},
-                                  .block_constraints = {} };
+                                  .block_constraints = {},
+                                  .original_opcode_indices = AcirFormatOriginalOpcodeIndices{
+                                      .logic_constraints = {},
+                                      .range_constraints = {},
+                                      .aes128_constraints = {},
+                                      .sha256_constraints = {},
+                                      .sha256_compression = {},
+                                      .schnorr_constraints = {},
+                                      .ecdsa_k1_constraints = {},
+                                      .ecdsa_r1_constraints = {},
+                                      .blake2s_constraints = {},
+                                      .blake3_constraints = {},
+                                      .keccak_constraints = {},
+                                      .keccak_permutations = {},
+                                      .pedersen_constraints = {},
+                                      .pedersen_hash_constraints = {},
+                                      .poseidon2_constraints = {},
+                                      .multi_scalar_mul_constraints = {},
+                                      .ec_add_constraints = {},
+                                      .recursion_constraints = recursion_opcode_indices,
+                                      .honk_recursion_constraints = {},
+                                      .bigint_from_le_bytes_constraints = {},
+                                      .bigint_to_le_bytes_constraints = {},
+                                      .bigint_operations = {},
+                                      .poly_triple_constraints = {},
+                                      .quad_constraints = {},
+                                      .block_constraints = {},
+                                  } };
 
     auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 

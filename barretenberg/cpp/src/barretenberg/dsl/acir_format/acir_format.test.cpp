@@ -64,6 +64,34 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .poly_triple_constraints = { constraint },
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{
+                .logic_constraints = {},
+                .range_constraints = {},
+                .aes128_constraints = {},
+                .sha256_constraints = {},
+                .sha256_compression = {},
+                .schnorr_constraints = {},
+                .ecdsa_k1_constraints = {},
+                .ecdsa_r1_constraints = {},
+                .blake2s_constraints = {},
+                .blake3_constraints = {},
+                .keccak_constraints = {},
+                .keccak_permutations = {},
+                .pedersen_constraints = {},
+                .pedersen_hash_constraints = {},
+                .poseidon2_constraints = {},
+                .multi_scalar_mul_constraints = {},
+                .ec_add_constraints = {},
+                .recursion_constraints = {},
+                .honk_recursion_constraints = {},
+                .bigint_from_le_bytes_constraints = {},
+                .bigint_to_le_bytes_constraints = {},
+                .bigint_operations = {},
+                .poly_triple_constraints = { 0 },
+                .quad_constraints = {},
+                .block_constraints = {},
+            },
     };
 
     WitnessVector witness{ 0, 0, 1 };
@@ -154,35 +182,65 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     // EXPR [ (1, _4, _6) (-1, _4) 0 ]
     // EXPR [ (-1, _6) 1 ]
 
-    AcirFormat constraint_system{ .varnum = 6,
-                                  .recursive = false,
-                                  .num_acir_opcodes = 7,
-                                  .public_inputs = { 1 },
-                                  .logic_constraints = { logic_constraint },
-                                  .range_constraints = { range_a, range_b },
-                                  .aes128_constraints = {},
-                                  .sha256_constraints = {},
-                                  .sha256_compression = {},
-                                  .schnorr_constraints = {},
-                                  .ecdsa_k1_constraints = {},
-                                  .ecdsa_r1_constraints = {},
-                                  .blake2s_constraints = {},
-                                  .blake3_constraints = {},
-                                  .keccak_constraints = {},
-                                  .keccak_permutations = {},
-                                  .pedersen_constraints = {},
-                                  .pedersen_hash_constraints = {},
-                                  .poseidon2_constraints = {},
-                                  .multi_scalar_mul_constraints = {},
-                                  .ec_add_constraints = {},
-                                  .recursion_constraints = {},
-                                  .honk_recursion_constraints = {},
-                                  .bigint_from_le_bytes_constraints = {},
-                                  .bigint_to_le_bytes_constraints = {},
-                                  .bigint_operations = {},
-                                  .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
-                                  .quad_constraints = {},
-                                  .block_constraints = {} };
+    AcirFormat constraint_system{
+        .varnum = 6,
+        .recursive = false,
+        .num_acir_opcodes = 7,
+        .public_inputs = { 1 },
+        .logic_constraints = { logic_constraint },
+        .range_constraints = { range_a, range_b },
+        .aes128_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .honk_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
+        .quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{
+                .logic_constraints = { 0 },
+                .range_constraints = { 1, 2 },
+                .aes128_constraints = {},
+                .sha256_constraints = {},
+                .sha256_compression = {},
+                .schnorr_constraints = {},
+                .ecdsa_k1_constraints = {},
+                .ecdsa_r1_constraints = {},
+                .blake2s_constraints = {},
+                .blake3_constraints = {},
+                .keccak_constraints = {},
+                .keccak_permutations = {},
+                .pedersen_constraints = {},
+                .pedersen_hash_constraints = {},
+                .poseidon2_constraints = {},
+                .multi_scalar_mul_constraints = {},
+                .ec_add_constraints = {},
+                .recursion_constraints = {},
+                .honk_recursion_constraints = {},
+                .bigint_from_le_bytes_constraints = {},
+                .bigint_to_le_bytes_constraints = {},
+                .bigint_operations = {},
+                .poly_triple_constraints = { 3, 4, 5, 6 },
+                .quad_constraints = {},
+                .block_constraints = {},
+            },
+    };
 
     uint256_t inverse_of_five = fr(5).invert();
     WitnessVector witness{
@@ -202,11 +260,14 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
 TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
 {
     std::vector<RangeConstraint> range_constraints;
+    std::vector<size_t> range_opcode_indices;
+    size_t current_opcode = 0;
     for (uint32_t i = 0; i < 10; i++) {
         range_constraints.push_back(RangeConstraint{
             .witness = i,
             .num_bits = 15,
         });
+        range_opcode_indices.push_back(current_opcode++);
     }
 
     std::array<uint32_t, 64> signature;
@@ -216,6 +277,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
             .witness = value,
             .num_bits = 15,
         });
+        range_opcode_indices.push_back(current_opcode++);
     }
 
     SchnorrConstraint schnorr_constraint{
@@ -225,44 +287,74 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .result = 76,
         .signature = signature,
     };
-    AcirFormat constraint_system{ .varnum = 81,
-                                  .recursive = false,
-                                  .num_acir_opcodes = 75,
-                                  .public_inputs = {},
-                                  .logic_constraints = {},
-                                  .range_constraints = range_constraints,
-                                  .aes128_constraints = {},
-                                  .sha256_constraints = {},
-                                  .sha256_compression = {},
-                                  .schnorr_constraints = { schnorr_constraint },
-                                  .ecdsa_k1_constraints = {},
-                                  .ecdsa_r1_constraints = {},
-                                  .blake2s_constraints = {},
-                                  .blake3_constraints = {},
-                                  .keccak_constraints = {},
-                                  .keccak_permutations = {},
-                                  .pedersen_constraints = {},
-                                  .pedersen_hash_constraints = {},
-                                  .poseidon2_constraints = {},
-                                  .multi_scalar_mul_constraints = {},
-                                  .ec_add_constraints = {},
-                                  .recursion_constraints = {},
-                                  .honk_recursion_constraints = {},
-                                  .bigint_from_le_bytes_constraints = {},
-                                  .bigint_to_le_bytes_constraints = {},
-                                  .bigint_operations = {},
-                                  .poly_triple_constraints = { poly_triple{
-                                      .a = schnorr_constraint.result,
-                                      .b = schnorr_constraint.result,
-                                      .c = schnorr_constraint.result,
-                                      .q_m = 0,
-                                      .q_l = 0,
-                                      .q_r = 0,
-                                      .q_o = 1,
-                                      .q_c = fr::neg_one(),
-                                  } },
-                                  .quad_constraints = {},
-                                  .block_constraints = {} };
+    AcirFormat constraint_system{
+        .varnum = 81,
+        .recursive = false,
+        .num_acir_opcodes = 76,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = range_constraints,
+        .aes128_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = { schnorr_constraint },
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .honk_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = { poly_triple{
+            .a = schnorr_constraint.result,
+            .b = schnorr_constraint.result,
+            .c = schnorr_constraint.result,
+            .q_m = 0,
+            .q_l = 0,
+            .q_r = 0,
+            .q_o = 1,
+            .q_c = fr::neg_one(),
+        } },
+        .quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{
+                .logic_constraints = {},
+                .range_constraints = range_opcode_indices,
+                .aes128_constraints = {},
+                .sha256_constraints = {},
+                .sha256_compression = {},
+                .schnorr_constraints = { current_opcode++ },
+                .ecdsa_k1_constraints = {},
+                .ecdsa_r1_constraints = {},
+                .blake2s_constraints = {},
+                .blake3_constraints = {},
+                .keccak_constraints = {},
+                .keccak_permutations = {},
+                .pedersen_constraints = {},
+                .pedersen_hash_constraints = {},
+                .poseidon2_constraints = {},
+                .multi_scalar_mul_constraints = {},
+                .ec_add_constraints = {},
+                .recursion_constraints = {},
+                .honk_recursion_constraints = {},
+                .bigint_from_le_bytes_constraints = {},
+                .bigint_to_le_bytes_constraints = {},
+                .bigint_operations = {},
+                .poly_triple_constraints = { current_opcode++ },
+                .quad_constraints = {},
+                .block_constraints = {},
+            },
+    };
 
     std::string message_string = "tenletters";
     schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
@@ -299,11 +391,15 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
 TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
 {
     std::vector<RangeConstraint> range_constraints;
+    std::vector<size_t> range_opcode_indices;
+    size_t current_opcode = 0;
+
     for (uint32_t i = 0; i < 10; i++) {
         range_constraints.push_back(RangeConstraint{
             .witness = i,
             .num_bits = 8,
         });
+        range_opcode_indices.push_back(current_opcode++);
     }
 
     std::array<uint32_t, 64> signature;
@@ -313,6 +409,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
             .witness = value,
             .num_bits = 8,
         });
+        range_opcode_indices.push_back(current_opcode++);
     }
 
     SchnorrConstraint schnorr_constraint{
@@ -325,7 +422,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     AcirFormat constraint_system{
         .varnum = 81,
         .recursive = false,
-        .num_acir_opcodes = 75,
+        .num_acir_opcodes = 76,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = range_constraints,
@@ -361,6 +458,34 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         } },
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{
+                .logic_constraints = {},
+                .range_constraints = range_opcode_indices,
+                .aes128_constraints = {},
+                .sha256_constraints = {},
+                .sha256_compression = {},
+                .schnorr_constraints = { current_opcode++ },
+                .ecdsa_k1_constraints = {},
+                .ecdsa_r1_constraints = {},
+                .blake2s_constraints = {},
+                .blake3_constraints = {},
+                .keccak_constraints = {},
+                .keccak_permutations = {},
+                .pedersen_constraints = {},
+                .pedersen_hash_constraints = {},
+                .poseidon2_constraints = {},
+                .multi_scalar_mul_constraints = {},
+                .ec_add_constraints = {},
+                .recursion_constraints = {},
+                .honk_recursion_constraints = {},
+                .bigint_from_le_bytes_constraints = {},
+                .bigint_to_le_bytes_constraints = {},
+                .bigint_operations = {},
+                .poly_triple_constraints = { current_opcode++ },
+                .quad_constraints = {},
+                .block_constraints = {},
+            },
     };
 
     std::string message_string = "tenletters";
@@ -469,6 +594,34 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .poly_triple_constraints = { dummy },
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{
+                .logic_constraints = {},
+                .range_constraints = { 0, 1, 2, 3 },
+                .aes128_constraints = {},
+                .sha256_constraints = {},
+                .sha256_compression = {},
+                .schnorr_constraints = {},
+                .ecdsa_k1_constraints = {},
+                .ecdsa_r1_constraints = {},
+                .blake2s_constraints = {},
+                .blake3_constraints = {},
+                .keccak_constraints = { 4 },
+                .keccak_permutations = {},
+                .pedersen_constraints = {},
+                .pedersen_hash_constraints = {},
+                .poseidon2_constraints = {},
+                .multi_scalar_mul_constraints = {},
+                .ec_add_constraints = {},
+                .recursion_constraints = {},
+                .honk_recursion_constraints = {},
+                .bigint_from_le_bytes_constraints = {},
+                .bigint_to_le_bytes_constraints = {},
+                .bigint_operations = {},
+                .poly_triple_constraints = { 5 },
+                .quad_constraints = {},
+                .block_constraints = {},
+            },
     };
 
     WitnessVector witness{ 4, 2, 6, 2 };
@@ -518,7 +671,34 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .bigint_operations = {},
                                   .poly_triple_constraints = {},
                                   .quad_constraints = {},
-                                  .block_constraints = {} };
+                                  .block_constraints = {},
+                                  .original_opcode_indices = AcirFormatOriginalOpcodeIndices{
+                                      .logic_constraints = {},
+                                      .range_constraints = {},
+                                      .aes128_constraints = {},
+                                      .sha256_constraints = {},
+                                      .sha256_compression = {},
+                                      .schnorr_constraints = {},
+                                      .ecdsa_k1_constraints = {},
+                                      .ecdsa_r1_constraints = {},
+                                      .blake2s_constraints = {},
+                                      .blake3_constraints = {},
+                                      .keccak_constraints = {},
+                                      .keccak_permutations = { 0 },
+                                      .pedersen_constraints = {},
+                                      .pedersen_hash_constraints = {},
+                                      .poseidon2_constraints = {},
+                                      .multi_scalar_mul_constraints = {},
+                                      .ec_add_constraints = {},
+                                      .recursion_constraints = {},
+                                      .honk_recursion_constraints = {},
+                                      .bigint_from_le_bytes_constraints = {},
+                                      .bigint_to_le_bytes_constraints = {},
+                                      .bigint_operations = {},
+                                      .poly_triple_constraints = {},
+                                      .quad_constraints = {},
+                                      .block_constraints = {},
+                                  } };
 
     WitnessVector witness{ 1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17,
                            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
