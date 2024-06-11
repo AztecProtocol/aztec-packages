@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    encrypted_logs::payload::compute_encrypted_note_log
+    encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog
 };
 use dep::protocol_types::{
     address::AztecAddress, grumpkin_point::GrumpkinPoint, abis::note_hash::NoteHash,
@@ -9,12 +9,13 @@ use dep::protocol_types::{
 
 fn emit_with_keys<Note, N, NB, M>(
     context: &mut PrivateContext,
-    storage_slot: Field,
     note: Note,
     ovpk: GrumpkinPoint,
     ivpk: GrumpkinPoint
-) where Note: NoteInterface<N, NB> {
-    let note_hash_counter = note.get_header().note_hash_counter;
+) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
+    let note_header = note.get_header();
+    let note_hash_counter = note_header.note_hash_counter;
+    let storage_slot = note_header.storage_slot;
 
     let note_exists_index = find_index(
         context.new_note_hashes.storage,
@@ -32,25 +33,25 @@ fn emit_with_keys<Note, N, NB, M>(
     context.emit_raw_note_log(note_hash_counter, encrypted_log);
 }
 
-pub fn with_az_enc<Note, N, NB>(
+pub fn with_az_enc<Note, N, NB, M>(
     context: &mut PrivateContext,
     ov: AztecAddress,
     iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB> {
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
         let header = context.get_header();
         let ovpk = header.get_ovpk_m(context, ov);
         let ivpk = header.get_ivpk_m(context, iv);
-        emit_with_keys(context, e.storage_slot, e.note, ovpk, ivpk);
+        emit_with_keys(context, e.note, ovpk, ivpk);
     }
 }
 
-pub fn with_az_enc_with_keys<Note, N, NB>(
+pub fn with_az_enc_with_keys<Note, N, NB, M>(
     context: &mut PrivateContext,
     ovpk: GrumpkinPoint,
     ivpk: GrumpkinPoint
-) -> fn[(&mut PrivateContext, GrumpkinPoint, GrumpkinPoint)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB> {
+) -> fn[(&mut PrivateContext, GrumpkinPoint, GrumpkinPoint)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
-        emit_with_keys(context, e.storage_slot, e.note, ovpk, ivpk);
+        emit_with_keys(context, e.note, ovpk, ivpk);
     }
 }

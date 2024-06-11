@@ -9,6 +9,7 @@ contract PendingNoteHashes {
     use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     use dep::aztec::protocol_types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL};
     use dep::aztec::encrypted_logs::encrypted_note_emission::{with_az_enc, with_az_enc_with_keys};
+    use dep::aztec::note::note_emission::NoteEmission;
 
     #[aztec(storage)]
     struct Storage {
@@ -355,12 +356,7 @@ contract PendingNoteHashes {
         let existing_note_header = good_note.get_header();
         bad_note.set_header(existing_note_header);
 
-        context.encrypt_and_emit_note(
-            existing_note_header.storage_slot,
-            outgoing_viewer_ovpk_m,
-            owner_ivpk_m,
-            bad_note
-        );
+        NoteEmission::new(bad_note).emit(with_az_enc_with_keys(&mut context, outgoing_viewer_ovpk_m, owner_ivpk_m));
     }
 
     #[contract_library_method]

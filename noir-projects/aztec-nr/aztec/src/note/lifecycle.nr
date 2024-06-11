@@ -3,7 +3,7 @@ use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
     utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption},
-    note_emission::NoteEmission
+    note_emission::{NoteEmission, OuterNoteEmission}
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
@@ -35,7 +35,7 @@ pub fn create_note<Note, N, M>(
 
     context.push_new_note_hash(inner_note_hash);
 
-    NoteEmission::new(storage_slot, *note)
+    NoteEmission::new(*note)
 }
 
 pub fn create_note_hash_from_public<Note, N, M>(

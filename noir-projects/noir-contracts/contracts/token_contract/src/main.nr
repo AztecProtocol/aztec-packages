@@ -17,7 +17,7 @@ contract Token {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::encrypted_note_emission::with_az_enc
+        encrypted_logs::encrypted_note_emission::{with_az_enc, with_az_enc_with_keys}
     };
 
     // docs:start:import_authwit
@@ -319,9 +319,16 @@ contract Token {
         }
         // docs:end:assert_current_call_valid_authwit
 
+        // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
+        // be needed twice.
+        let header = context.get_header();
+        let from_ovpk = header.get_ovpk_m(&mut context, from);
+        let from_ivpk = header.get_ivpk_m(&mut context, from);
+        let to_ivpk = header.get_ivpk_m(&mut context, to);
+
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(with_az_enc(&mut context, from, from));
-        storage.balances.add(to, amount).emit(with_az_enc(&mut context, from, to));
+        storage.balances.sub(from, amount).emit(with_az_enc_with_keys(&mut context, from_ovpk, from_ivpk));
+        storage.balances.add(to, amount).emit(with_az_enc_with_keys(&mut context, from_ovpk, to_ivpk));
     }
     // docs:end:transfer
 
