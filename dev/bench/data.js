@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718104833767,
+  "lastUpdate": 1718105102572,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -33992,6 +33992,74 @@ window.BENCHMARK_DATA = {
             "value": 164171962,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164171962 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "a932bb144de33fa6dac86fe62140b71f5b143cd3",
+          "message": "feat: Add gate profiler for noir circuits",
+          "timestamp": "2024-06-11T10:15:34Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7004/commits/a932bb144de33fa6dac86fe62140b71f5b143cd3"
+        },
+        "date": 1718105101204,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15424.14326399998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10732.943186 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5550.5498760000055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5080.257815000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49507.87953499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49507881000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17093.617178999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17093617000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5161813483,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5161813483 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202025971,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202025971 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4283634280,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4283634280 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163243655,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163243655 ns\nthreads: 1"
           }
         ]
       }
