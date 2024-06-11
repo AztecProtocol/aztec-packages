@@ -6,6 +6,8 @@ The easiest way to start developing on Aztec locally is through `npx aztec-app`.
 
 If you'd like to develop remotely (for example, if you're on Windows or have trouble working with Docker), follow the [codespaces guide](./getting_started/codespaces.md).
 
+To locally install the Sandbox without other tools, see [here](./getting_started/manual_install.md).
+
 ## Prerequisites
 
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
@@ -23,7 +25,7 @@ This script gives you some options to bootstrap a new project, start/stop the sa
 
 ## What's next?
 
-Now you have a development network running,, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
+Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
 
 To follow the series of tutorials, start with the private voting contract [here](./tutorials/contract_tutorials/private_voting_contract.md).
 
