@@ -5,6 +5,7 @@ use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector:
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
 use crate::auth::{IS_VALID_SELECTOR, compute_outer_authwit_hash};
 
+// @todo Remove the `approved_action`
 struct AccountActions<Context> {
   context: Context,
   is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
@@ -66,6 +67,8 @@ impl AccountActions<&mut PrivateContext> {
     // docs:end:spend_private_authwit
 }
 
+
+// @todo We can entirely remove this one when the other is working.
 impl AccountActions<&mut PublicContext> {
     // docs:start:spend_public_authwit
     pub fn spend_public_authwit(self, inner_hash: Field) -> Field {

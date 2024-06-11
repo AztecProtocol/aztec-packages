@@ -2,12 +2,9 @@ import { type AllowedFunction } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { type L1ContractAddresses, NULL_KEY } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { EcdsaAccountContractArtifact } from '@aztec/noir-contracts.js/EcdsaAccount';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { SchnorrAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrAccount';
-import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
-import { SchnorrSingleKeyAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrSingleKeyAccount';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
 import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { type Hex } from 'viem';
@@ -140,21 +137,10 @@ function parseSequencerAllowList(value: string): AllowedFunction[] {
 
 function getDefaultAllowedSetupFunctions(): AllowedFunction[] {
   return [
+    // needed for authwit checks.
     {
-      classId: getContractClassFromArtifact(SchnorrAccountContractArtifact).id,
-      selector: FunctionSelector.fromSignature('approve_public_authwit(Field)'),
-    },
-    {
-      classId: getContractClassFromArtifact(SchnorrHardcodedAccountContractArtifact).id,
-      selector: FunctionSelector.fromSignature('approve_public_authwit(Field)'),
-    },
-    {
-      classId: getContractClassFromArtifact(SchnorrSingleKeyAccountContractArtifact).id,
-      selector: FunctionSelector.fromSignature('approve_public_authwit(Field)'),
-    },
-    {
-      classId: getContractClassFromArtifact(EcdsaAccountContractArtifact).id,
-      selector: FunctionSelector.fromSignature('approve_public_authwit(Field)'),
+      address: AuthRegistryAddress,
+      selector: FunctionSelector.fromSignature('consume((Field),Field)'),
     },
     // needed for claiming on the same tx as a spend
     {

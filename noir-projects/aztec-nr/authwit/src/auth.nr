@@ -1,6 +1,7 @@
 use dep::aztec::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::{GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER}, hash::pedersen_hash
+    constants::{GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER, CANONICAL_AUTH_REGISTRY_ADDRESS},
+    hash::pedersen_hash
 };
 use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
 
@@ -19,14 +20,14 @@ pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf
 // docs:start:assert_current_call_valid_authwit_public
 // Assert that `on_behalf_of` have authorized the current call in a public context
 pub fn assert_current_call_valid_authwit_public(context: &mut PublicContext, on_behalf_of: AztecAddress) {
-    let function_selector = FunctionSelector::from_signature("spend_public_authwit(Field)");
     let inner_hash = compute_inner_authwit_hash(
         [(*context).msg_sender().to_field(), (*context).selector().to_field(), (*context).get_args_hash()]
     );
+
     let result: Field = context.call_public_function(
-        on_behalf_of,
-        function_selector,
-        [inner_hash].as_slice(),
+        AztecAddress::from_field(CANONICAL_AUTH_REGISTRY_ADDRESS),
+        FunctionSelector::from_signature("consume((Field),Field)"),
+        [on_behalf_of.to_field(), inner_hash].as_slice(),
         GasOpts::default()
     ).deserialize_into();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");

@@ -23,23 +23,10 @@ contract SchnorrSingleKeyAccount {
         actions.spend_private_authwit(inner_hash)
     }
 
-    #[aztec(public)]
-    fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.spend_public_authwit(inner_hash)
-    }
-
     #[aztec(private)]
     #[aztec(internal)]
     fn cancel_authwit(outer_hash: Field) {
         context.push_new_nullifier(outer_hash, 0);
-    }
-
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.approve_public_authwit(outer_hash)
     }
 
     #[contract_library_method]
