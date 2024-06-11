@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718129754401,
+  "lastUpdate": 1718131815063,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -35292,6 +35292,78 @@ window.BENCHMARK_DATA = {
             "value": 162175303,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162175303 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "838ceed3b6ccf1bb7d89552a147db92c3514f0c1",
+          "message": "chore: Small fixes for the tube flows (#7014)\n\nSmall fixes for #6934 \r\n\r\nRemove TODO + hack in ECCVM Verifier which was resolved by #6963 and add\r\nthe `prove_then_verify_tube` to the Earthfile for testing.",
+          "timestamp": "2024-06-11T18:39:20Z",
+          "tree_id": "9740d9192e1b0e030739ea5b381a76f4cf57e721",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/838ceed3b6ccf1bb7d89552a147db92c3514f0c1"
+        },
+        "date": 1718131813458,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15450.595531000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10668.888657 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5498.785033999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5071.428708000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49481.58893599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49481590000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16923.335813,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16923337000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5167112870,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5167112870 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197704674,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197704674 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4254507211,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4254507211 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163543048,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163543048 ns\nthreads: 1"
           }
         ]
       }
