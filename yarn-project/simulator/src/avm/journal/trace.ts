@@ -1,7 +1,7 @@
-import { AvmExecutionHints, AvmHint, Vector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
+  type TracedContractInstance,
   type TracedL1toL2MessageCheck,
   type TracedNoteHash,
   type TracedNoteHashCheck,
@@ -24,6 +24,7 @@ export class WorldStateAccessTrace {
   public newNullifiers: TracedNullifier[] = [];
   public l1ToL2MessageChecks: TracedL1toL2MessageCheck[] = [];
   public newLogsHashes: TracedUnencryptedL2Log[] = [];
+  public gotContractInstances: TracedContractInstance[] = [];
 
   //public contractCalls: TracedContractCall[] = [];
   //public archiveChecks: TracedArchiveLeafCheck[] = [];
@@ -148,6 +149,11 @@ export class WorldStateAccessTrace {
     this.incrementAccessCounter();
   }
 
+  public traceGetContractInstance(instance: TracedContractInstance) {
+    this.gotContractInstances.push(instance);
+    this.incrementAccessCounter();
+  }
+
   private incrementAccessCounter() {
     this.accessCounter++;
   }
@@ -168,17 +174,8 @@ export class WorldStateAccessTrace {
     this.newNullifiers.push(...incomingTrace.newNullifiers);
     this.l1ToL2MessageChecks.push(...incomingTrace.l1ToL2MessageChecks);
     this.newLogsHashes.push(...incomingTrace.newLogsHashes);
+    this.gotContractInstances.push(...incomingTrace.gotContractInstances);
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
     this.accessCounter = incomingTrace.accessCounter;
-  }
-
-  // TODO(dbanks12): should only return hints for one call.... shouldn't include nested calls (merged in traces)
-  public toHints(): AvmExecutionHints {
-    return new AvmExecutionHints(
-      new Vector(this.publicStorageReads.map(read => new AvmHint(read.counter, read.value))),
-      new Vector(this.noteHashChecks.map(check => new AvmHint(check.counter, new Fr(check.exists ? 1 : 0)))),
-      new Vector(this.nullifierChecks.map(check => new AvmHint(check.counter, new Fr(check.exists ? 1 : 0)))),
-      new Vector(this.l1ToL2MessageChecks.map(check => new AvmHint(check.counter, new Fr(check.exists ? 1 : 0)))),
-    );
   }
 }

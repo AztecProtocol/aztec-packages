@@ -67,6 +67,9 @@ export abstract class BaseWallet implements Wallet {
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
     return this.pxe.getContractClass(id);
   }
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    return this.pxe.getContractArtifact(id);
+  }
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
   }
@@ -130,6 +133,9 @@ export abstract class BaseWallet implements Wallet {
   }
   addNote(note: ExtendedNote): Promise<void> {
     return this.pxe.addNote(note);
+  }
+  addNullifiedNote(note: ExtendedNote): Promise<void> {
+    return this.pxe.addNullifiedNote(note);
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);

@@ -29,7 +29,11 @@ use crate::{
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT,
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
-    hash::silo_nullifier, header::Header, merkle_tree::membership::MembershipWitness,
+    hash::{
+    compute_l2_to_l1_hash, compute_tx_logs_hash, compute_tx_note_logs_hash, compute_siloed_nullifier,
+    silo_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash
+},
+    header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
@@ -425,7 +429,15 @@ impl FixtureBuilder {
         );
     }
 
-    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
+    pub fn add_siloed_note_hash(&mut self, value: Field) {
+        let first_nullifier = self.new_nullifiers.get(0).value();
+        let index = self.new_note_hashes.len();
+        let note_hash = NoteHash { value, counter: 0 }.scope(0, self.storage_contract_address);
+        let siloed_value = silo_note_hash(note_hash, first_nullifier, index);
+        self.add_new_note_hash(siloed_value, 0);
+    }
+
+    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u32) {
         let index_offset = self.new_note_hashes.len();
         for i in 0..self.new_note_hashes.max_len() {
             if i < num_new_note_hashes {
@@ -435,7 +447,17 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_new_note_hashes_with_logs(&mut self, num_new_note_hashes: u64) {
+    pub fn append_siloed_note_hashes(&mut self, num_new_note_hashes: u32) {
+        let index_offset = self.new_note_hashes.len();
+        for i in 0..self.new_note_hashes.max_len() {
+            if i < num_new_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_siloed_note_hash(value);
+            }
+        }
+    }
+
+    pub fn append_new_note_hashes_with_logs(&mut self, num_new_note_hashes: u32) {
         let index_offset = self.new_note_hashes.len();
         for i in 0..self.new_note_hashes.max_len() {
             if i < num_new_note_hashes {
@@ -454,11 +476,11 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_nullifier(&mut self, value: Field) {
-        let siloed_value = silo_nullifier(self.storage_contract_address, value);
+        let siloed_value = compute_siloed_nullifier(self.storage_contract_address, value);
         self.add_nullifier(siloed_value);
     }
 
-    pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {
+    pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u32) {
         let index_offset = self.new_nullifiers.len();
         for i in 0..self.new_nullifiers.max_len() {
             if i < num_extra_nullifier {
@@ -468,7 +490,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_nullifiers(&mut self, num_extra_nullifier: u64) {
+    pub fn append_siloed_nullifiers(&mut self, num_extra_nullifier: u32) {
         let index_offset = self.new_nullifiers.len();
         for i in 0..self.new_nullifiers.max_len() {
             if i < num_extra_nullifier {
@@ -484,7 +506,18 @@ impl FixtureBuilder {
         );
     }
 
-    pub fn append_new_l2_to_l1_msgs(&mut self, num: u64) {
+    pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        let siloed_content = compute_l2_to_l1_hash(
+            self.storage_contract_address,
+            recipient,
+            content,
+            self.tx_context.version,
+            self.tx_context.chain_id
+        );
+        self.add_l2_to_l1_message(siloed_content, recipient);
+    }
+
+    pub fn append_new_l2_to_l1_msgs(&mut self, num: u32) {
         let index_offset = self.new_l2_to_l1_msgs.len();
         for i in 0..self.new_l2_to_l1_msgs.max_len() {
             if i < num {
@@ -494,12 +527,22 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn append_siloed_l2_to_l1_msgs(&mut self, num: u32) {
+        let index_offset = self.new_l2_to_l1_msgs.len();
+        for i in 0..self.new_l2_to_l1_msgs.max_len() {
+            if i < num {
+                let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
+                self.add_siloed_l2_to_l1_message(content, recipient);
+            }
+        }
+    }
+
     pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {
         let update_request = PublicDataUpdateRequest { leaf_slot, new_value: value, counter: self.next_counter() };
         self.public_data_update_requests.push(update_request);
     }
 
-    pub fn append_public_data_update_requests(&mut self, num_updates: u64) {
+    pub fn append_public_data_update_requests(&mut self, num_updates: u32) {
         let index_offset = self.public_data_update_requests.len();
         for i in 0..self.public_data_update_requests.max_len() {
             if i < num_updates {
@@ -509,7 +552,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_public_data_read_requests(&mut self, num_reads: u64) {
+    pub fn append_public_data_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.public_data_reads.len();
         for i in 0..self.public_data_reads.max_len() {
             if i < num_reads {
@@ -519,7 +562,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u64) -> u64 {
+    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
         let value = self.mock_note_hash_value(note_hash_index);
         let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
@@ -527,7 +570,7 @@ impl FixtureBuilder {
         read_request_index
     }
 
-    pub fn append_note_hash_read_requests(&mut self, num_reads: u64) {
+    pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.note_hash_read_requests.len();
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
@@ -538,7 +581,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
+    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
         let nullifier = self.mock_nullifier_value(nullifier_index);
         let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
@@ -551,7 +594,7 @@ impl FixtureBuilder {
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 
-    pub fn append_nullifier_read_requests(&mut self, num_reads: u64) {
+    pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.nullifier_read_requests.len();
         for i in 0..self.nullifier_read_requests.max_len() {
             if i < num_reads {
@@ -562,7 +605,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_public_data(&mut self, public_date_update_request_index: u64) -> u64 {
+    pub fn add_read_request_for_pending_public_data(&mut self, public_date_update_request_index: u32) -> u32 {
         let new_read_request_index = self.public_data_reads.len();
         let public_write = self.public_data_update_requests.get(public_date_update_request_index);
         let read_request = PublicDataRead { leaf_slot: public_write.leaf_slot, value: public_write.new_value };
@@ -570,7 +613,7 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u64 {
+    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u32 {
         let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
@@ -580,7 +623,7 @@ impl FixtureBuilder {
         new_request_index
     }
 
-    pub fn append_key_validation_requests(&mut self, num_requests: u64) {
+    pub fn append_key_validation_requests(&mut self, num_requests: u32) {
         let index_offset = self.scoped_key_validation_requests_and_generators.len();
         for i in 0..self.scoped_key_validation_requests_and_generators.max_len() {
             if i < num_requests {
@@ -596,7 +639,7 @@ impl FixtureBuilder {
         self.encrypted_log_preimages_length += length;
     }
 
-    pub fn append_note_encrypted_log_hashes(&mut self, num: u64) {
+    pub fn append_note_encrypted_log_hashes(&mut self, num: u32) {
         let index_offset = self.note_encrypted_logs_hashes.len();
         for i in 0..self.note_encrypted_logs_hashes.max_len() {
             if i < num {
@@ -606,13 +649,18 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn hash_note_encrypted_log_hashes(&mut self) {
+        let log_hashes = self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public());
+        self.note_encrypted_logs_hash = compute_tx_note_logs_hash(log_hashes);
+    }
+
     pub fn add_encrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 };
         self.encrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
         self.encrypted_log_preimages_length += length;
     }
 
-    pub fn append_encrypted_log_hashes(&mut self, num: u64) {
+    pub fn append_encrypted_log_hashes(&mut self, num: u32) {
         let index_offset = self.encrypted_logs_hashes.len();
         for i in 0..self.encrypted_logs_hashes.max_len() {
             if i < num {
@@ -622,13 +670,24 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn hash_encrypted_log_hashes(&mut self) {
+        let mut log_hashes = self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public());
+        for i in 0..self.encrypted_logs_hashes.max_len() {
+            let log_hash = self.encrypted_logs_hashes.storage[i];
+            if !log_hash.contract_address.is_zero() {
+                log_hashes[i].value = silo_encrypted_log_hash(log_hash);
+            }
+        }
+        self.encrypted_logs_hash = compute_tx_logs_hash(log_hashes);
+    }
+
     pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
         self.unencrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
         self.unencrypted_log_preimages_length += length;
     }
 
-    pub fn append_unencrypted_log_hashes(&mut self, num: u64) {
+    pub fn append_unencrypted_log_hashes(&mut self, num: u32) {
         let index_offset = self.unencrypted_logs_hashes.len();
         for i in 0..self.unencrypted_logs_hashes.max_len() {
             if i < num {
@@ -636,6 +695,17 @@ impl FixtureBuilder {
                 self.add_unencrypted_log_hash(log_hash, length);
             }
         }
+    }
+
+    pub fn hash_unencrypted_log_hashes(&mut self) {
+        let mut log_hashes = self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.inner());
+        for i in 0..self.unencrypted_logs_hashes.max_len() {
+            let log_hash = self.unencrypted_logs_hashes.storage[i];
+            if !log_hash.contract_address.is_zero() {
+                log_hashes[i].value = silo_unencrypted_log_hash(log_hash);
+            }
+        }
+        self.unencrypted_logs_hash = compute_tx_logs_hash(log_hashes);
     }
 
     pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
@@ -663,7 +733,7 @@ impl FixtureBuilder {
         );
     }
 
-    pub fn append_private_call_requests(&mut self, num: u64) {
+    pub fn append_private_call_requests(&mut self, num: u32) {
         let index_offset = self.private_call_requests.len();
         for i in 0..self.private_call_requests.max_len() {
             if i < num {
@@ -673,7 +743,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_private_call_requests_delegate(&mut self, num: u64) {
+    pub fn append_private_call_requests_delegate(&mut self, num: u32) {
         let index_offset = self.private_call_requests.len();
         for i in 0..self.private_call_requests.max_len() {
             if i < num {
@@ -688,7 +758,7 @@ impl FixtureBuilder {
         self.public_call_requests.push(call_request);
     }
 
-    pub fn append_public_call_requests(&mut self, num: u64) {
+    pub fn append_public_call_requests(&mut self, num: u32) {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
@@ -698,7 +768,7 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_public_call_requests_delegate(&mut self, num: u64) {
+    pub fn append_public_call_requests_delegate(&mut self, num: u32) {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
@@ -757,76 +827,76 @@ impl FixtureBuilder {
         }
     }
 
-    fn mock_note_hash_read_value(self, index: u64) -> Field {
+    fn mock_note_hash_read_value(self, index: u32) -> Field {
         789 + self.value_offset + index as Field
     }
 
-    fn mock_nullifier_read_value(self, index: u64) -> Field {
+    fn mock_nullifier_read_value(self, index: u32) -> Field {
         22334 + self.value_offset + index as Field
     }
 
-    fn mock_key_validation_request(self, index: u64) -> KeyValidationRequestAndGenerator {
+    fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndGenerator {
         let value_offset = 3030 + self.value_offset + index as Field;
         let request = KeyValidationRequest { pk_m: GrumpkinPoint { x: value_offset, y: 1 + value_offset }, sk_app: 2 + value_offset };
         KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
     }
 
-    fn mock_public_data_read(self, index: u64) -> PublicDataRead {
+    fn mock_public_data_read(self, index: u32) -> PublicDataRead {
         let value_offset = 4545 + self.value_offset + index as Field;
         PublicDataRead { leaf_slot: value_offset, value: 1 + value_offset }
     }
 
-    fn mock_public_data_write(self, index: u64) -> (Field, Field) {
+    fn mock_public_data_write(self, index: u32) -> (Field, Field) {
         let value_offset = 7788 + self.value_offset + index as Field;
         let leaf_slot = value_offset;
         let value = 1 + value_offset;
         (leaf_slot, value)
     }
 
-    fn mock_note_hash_value(self, index: u64) -> Field {
+    fn mock_note_hash_value(self, index: u32) -> Field {
         212121 + self.value_offset + index as Field
     }
 
-    fn mock_nullifier_value(self, index: u64) -> Field {
+    fn mock_nullifier_value(self, index: u32) -> Field {
         5678 + self.value_offset + index as Field
     }
 
-    fn mock_nullifier_value_non_revertible(self, index: u64) -> Field {
+    fn mock_nullifier_value_non_revertible(self, index: u32) -> Field {
         9876 + self.value_offset + index as Field
     }
 
-    fn mock_l2_to_l1_msg(self, index: u64) -> (Field, EthAddress) {
+    fn mock_l2_to_l1_msg(self, index: u32) -> (Field, EthAddress) {
         let value_offset = 72727 + self.value_offset + index as Field;
         (value_offset, EthAddress::from_field(1 + value_offset))
     }
 
-    fn mock_note_encrypted_log(self, index: u64) -> (Field, Field) {
+    fn mock_note_encrypted_log(self, index: u32) -> (Field, Field) {
         let log_hash = 282828 + self.value_offset + index as Field;
         let length = 5 + index as Field;
         (log_hash, length)
     }
 
-    fn mock_encrypted_log(self, index: u64) -> (Field, Field) {
+    fn mock_encrypted_log(self, index: u32) -> (Field, Field) {
         let log_hash = 50403 + self.value_offset + index as Field;
         let length = 3 + index as Field;
         (log_hash, length)
     }
 
-    fn mock_unencrypted_log(self, index: u64) -> (Field, Field) {
+    fn mock_unencrypted_log(self, index: u32) -> (Field, Field) {
         let log_hash = 199199 + self.value_offset + index as Field;
         let length = 1 + index as Field;
         (log_hash, length)
     }
 
-    fn mock_private_call_request_hash(self, index: u64) -> Field {
+    fn mock_private_call_request_hash(self, index: u32) -> Field {
         766766 + self.value_offset + index as Field
     }
 
-    fn mock_public_call_request_hash(self, index: u64) -> Field {
+    fn mock_public_call_request_hash(self, index: u32) -> Field {
         636363 + self.value_offset + index as Field
     }
 
-    fn mock_public_teardown_call_request_hash(self, index: u64) -> Field {
+    fn mock_public_teardown_call_request_hash(self, index: u32) -> Field {
         54345 + self.value_offset + index as Field
     }
 

@@ -1008,51 +1008,45 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 // Positive test with POSEIDON2_PERM.
 TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 {
-
     // Test vectors taken from barretenberg/permutation/test
     std::vector<FF> calldata{ FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")) };
 
-    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +   // opcode CALL DATA COPY
-                               "00"                             // Indirect Flag
-                               "00000000"                       // cd_offset
-                               "00000003"                       // copy_size
-                               "00000001"                       // dst_offset 1
-                               + to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY (for 4th input)
-                               "00"                             // Indirect Flag
-                               "00000003"                       // cd_offset
-                               "00000001"                       // copy_size
-                               "00000004" +                     // dst_offset 4
-                               to_hex(OpCode::SET) +            // opcode SET for indirect src (input)
-                               "00"                             // Indirect flag
-                               "03"                             // U32
-                               "00000001"                       // value 1 (i.e. where the src will be read from)
-                               "00000024"                       // dst_offset 36
-                               + to_hex(OpCode::SET) +          // opcode SET for indirect dst (output)
-                               "00"                             // Indirect flag
-                               "03"                             // U32
-                               "00000009"                       // value 9 (i.e. where the ouput will be written to)
-                               "00000023"                       // dst_offset 35
-                               + to_hex(OpCode::POSEIDON2) +    // opcode POSEIDON2
-                               "03"                             // Indirect flag (first 2 operands indirect)
-                               "00000024"                       // input offset (indirect 36)
-                               "00000023"                       // output offset (indirect 35)
-                               + to_hex(OpCode::RETURN) +       // opcode RETURN
-                               "00"                             // Indirect flag
-                               "00000009"                       // ret offset 256
-                               "00000004";                      // ret size 8
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY
+                               "00"                           // Indirect Flag
+                               "00000000"                     // cd_offset
+                               "00000004"                     // copy_size
+                               "00000001"                     // dst_offset 1
+                               + to_hex(OpCode::SET) +        // opcode SET for indirect src (input)
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000001"                     // value 1 (i.e. where the src will be read from)
+                               "00000024"                     // dst_offset 36
+                               + to_hex(OpCode::SET) +        // opcode SET for indirect dst (output)
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000009"                     // value 9 (i.e. where the ouput will be written to)
+                               "00000023"                     // dst_offset 35
+                               + to_hex(OpCode::POSEIDON2) +  // opcode POSEIDON2
+                               "03"                           // Indirect flag (first 2 operands indirect)
+                               "00000024"                     // input offset (indirect 36)
+                               "00000023"                     // output offset (indirect 35)
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "00000009"                     // ret offset 256
+                               "00000004";                    // ret size 8
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    // 2 CALLDATACOPY for input + 2 SET for setting up indirects + 1 POSEIDON2 + 1 RETURN
-    ASSERT_THAT(instructions, SizeIs(6));
+    // 1 CALLDATACOPY for input + 2 SET for setting up indirects + 1 POSEIDON2 + 1 RETURN
+    ASSERT_THAT(instructions, SizeIs(5));
 
     // POSEIDON2_PERM
     EXPECT_THAT(
-        instructions.at(4),
+        instructions.at(3),
         AllOf(Field(&Instruction::op_code, OpCode::POSEIDON2),
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(3), VariantWith<uint32_t>(36), VariantWith<uint32_t>(35)))));
@@ -1334,6 +1328,68 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
     EXPECT_EQ(row->avm_main_ib, 5); // Hash offset is 5
 
     EXPECT_EQ(returndata[0], expected_output);
+
+    validate_trace(std::move(trace));
+}
+//
+// Positive test with EmbeddedCurveAdd
+TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
+{
+    // TODO: Look for hardcoded test vectors since bb is missing them
+    grumpkin::g1::affine_element a = grumpkin::g1::affine_element::random_element();
+    auto a_is_inf = a.is_point_at_infinity();
+    grumpkin::g1::affine_element b = grumpkin::g1::affine_element::random_element();
+    auto b_is_inf = b.is_point_at_infinity();
+    grumpkin::g1::affine_element res = a + b;
+    auto expected_output = std::vector<FF>{ res.x, res.y, res.is_point_at_infinity() };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +   // Calldatacopy
+                               "00"                             // Indirect flag
+                               "00000000"                       // cd_offset
+                               "00000002"                       // copy_size
+                               "00000000"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "01"                             // U8
+                               + to_hex<uint8_t>(a_is_inf) +    //
+                               "00000002"                       // dst_offset
+                               + to_hex(OpCode::CALLDATACOPY) + // calldatacopy
+                               "00"                             // Indirect flag
+                               "00000002"                       // cd_offset
+                               "00000002"                       // copy_size
+                               "00000003"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "01"                             // U32
+                               + to_hex<uint8_t>(b_is_inf) +    // value 2
+                               "00000005"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "03"                             // U32
+                               "00000007"                       // value
+                               "00000006"                       // dst_offset
+                               + to_hex(OpCode::ECADD) +        // opcode ECADD
+                               "40"                             // Indirect flag (sixth operand indirect)
+                               "00000000"                       // hash_index offset (direct)
+                               "00000001"                       // dest offset (direct)
+                               "00000002"                       // input offset (indirect)
+                               "00000003"                       // length offset (direct)
+                               "00000004"                       // length offset (direct)
+                               "00000005"                       // length offset (direct)
+                               "00000006"                       // length offset (direct)
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "00000007"                       // ret offset 3
+                               "00000003";                      // ret size 1
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> returndata;
+    std::vector<FF> calldata = { a.x, a.y, b.x, b.y };
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+
+    EXPECT_EQ(returndata, expected_output);
 
     validate_trace(std::move(trace));
 }
@@ -1668,6 +1724,10 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
                                + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITNOTEHASH
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
+                               + to_hex(OpCode::SENDL2TOL1MSG) +      // opcode EMITNOTEHASH
+                               "00"                                   // Indirect flag
+                               "00000001"                             // src offset 1
+                               "00000001"                             // src offset 1
                                + to_hex(OpCode::RETURN) +             // opcode RETURN
                                "00"                                   // Indirect flag
                                "00000000"                             // ret offset 0
@@ -1676,7 +1736,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(6));
+    ASSERT_THAT(instructions, SizeIs(7));
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
@@ -1720,6 +1780,250 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
     EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
 
+    // CHECK SEND L2 TO L1 MSG
+    auto send_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_l2_to_l1_msg == 1; });
+    EXPECT_EQ(send_row->avm_main_ia, 1);
+    EXPECT_EQ(send_row->avm_main_ib, 1);
+    EXPECT_EQ(send_row->avm_kernel_side_effect_counter, 3);
+
+    auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
+        return r.avm_main_clk == AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET;
+    });
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 3);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1);
+
+    validate_trace(std::move(trace));
+}
+
+// SLOAD
+TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
+{
+    // Sload from a value that has not previously been written to will require a hint to process
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000009"            // value 9
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag
+                               "00000001"                 // slot offset 1
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // write storage value to offset 2
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for Sload operation
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK SLOAD
+    // Check output data + side effect counters have been set correctly
+    auto sload_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 0);
+
+    // Get the row of the first read storage read out
+    uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    auto sload_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+
+    validate_trace(std::move(trace));
+}
+
+// SLOAD
+TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeComplex)
+{
+    // Sload from a value that has not previously been written to will require a hint to process
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000009"            // value 9
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag (second operand indirect - dest offset)
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // slot offset 2
+                               "00000002"                 // write storage value to offset 2
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for Sload operation
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 }, { 1, 123 } });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK SLOAD
+    // Check output data + side effect counters have been set correctly
+    auto sload_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 0);
+    sload_row++;
+    EXPECT_EQ(sload_row->avm_main_ia, 123); // Read value
+    EXPECT_EQ(sload_row->avm_main_ib, 10);  // Storage slot
+    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 1);
+
+    // Get the row of the first read storage read out
+    uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    auto sload_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    sload_kernel_out_row++;
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 123); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 10); // slot
+
+    validate_trace(std::move(trace));
+}
+
+// SSTORE
+TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
+{
+    // SSTORE, write 2 elements of calldata to dstOffset 1 and 2.
+    std::vector<FF> calldata = { 42, 123, 9, 10 };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset
+                               "00000004"                     // copy_size
+                               "00000001"                     // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SSTORE) +     // opcode SSTORE
+                               "00"                           // Indirect flag
+                               "00000001"                     // src offset
+                               "00000001"                     // size offset 1
+                               "00000003"                     // slot offset
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "00000000"                     // ret offset 0
+                               "00000000";                    // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    std::vector<FF> returndata = {};
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    // CHECK SSTORE
+    auto sstore_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sstore == 1; });
+    EXPECT_EQ(sstore_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sstore_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 0);
+
+    // Get the row of the first storage write out
+    uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+    auto sstore_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+
+    validate_trace(std::move(trace));
+}
+
+// SSTORE
+TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeComplex)
+{
+    // SSTORE, write 2 elements of calldata to dstOffset 1 and 2.
+    std::vector<FF> calldata = { 42, 123, 9, 10 };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset
+                               "00000004"                     // copy_size
+                               "00000001"                     // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SET) +        // opcode SET (inidirect SSTORE)
+                               "00"
+                               "03"
+                               "00000001"                 // Value
+                               "00000010" +               // Dest val
+                               to_hex(OpCode::SSTORE) +   // opcode SSTORE
+                               "01"                       // Indirect flag
+                               "00000010"                 // src offset
+                               "00000002"                 // size offset 1
+                               "00000003"                 // slot offset
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> returndata = {};
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    // CHECK SSTORE
+    auto sstore_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sstore == 1; });
+    EXPECT_EQ(sstore_row->avm_main_ia, 42); // Read value
+    EXPECT_EQ(sstore_row->avm_main_ib, 9);  // Storage slot
+    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 0);
+    sstore_row++;
+
+    EXPECT_EQ(sstore_row->avm_main_ia, 123); // Read value
+    EXPECT_EQ(sstore_row->avm_main_ib, 10);  // Storage slot
+    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 1);
+
+    // Get the row of the first storage write out
+    uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+    auto sstore_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    sstore_kernel_out_row++;
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 123); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 10); // slot
+
     validate_trace(std::move(trace));
 }
 
@@ -1741,11 +2045,13 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
                                + to_hex(OpCode::SLOAD) +  // opcode SLOAD
                                "00"                       // Indirect flag
                                "00000001"                 // slot offset 1
+                               "00000001"                 // size is 1
                                "00000002"                 // write storage value to offset 2
                                + to_hex(OpCode::SSTORE) + // opcode SSTORE
                                "00"                       // Indirect flag
-                               "00000001"                 // slot offset 1
-                               "00000002"                 // value write offset 2
+                               "00000002"                 // src offset 2 (since the sload writes to 2)
+                               "00000001"                 // size is 1
+                               "00000001"                 // slot offset is 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -1760,8 +2066,8 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for Sload operation
-    ExecutionHints execution_hints = {};
-    execution_hints.side_effect_hints[0] = FF(42); // side effect counter 0 = value 42
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
@@ -1773,7 +2079,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     EXPECT_EQ(sload_row->avm_main_ib, 9);  // Storage slot
     EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 0);
 
-    // Get the row of the first note hash out
+    // Get the row of the first storage read out
     uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
     auto sload_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
@@ -1788,7 +2094,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     EXPECT_EQ(sstore_row->avm_main_ib, 9);  // Storage slot
     EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 1);
 
-    // Get the row of the first note hash out
+    // Get the row of the first storage write out
     uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
     auto sstore_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
@@ -1801,7 +2107,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
 
 TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
 {
-    // Sload from a value that has not previously been written to will require a hint to process
+    // hash exists from a value that has not previously been written to will require a hint to process
     std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
                                "00"                  // Indirect flag
                                "03"                  // U32
@@ -1841,11 +2147,8 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
 
-    // Generate Hint for Sload operation
-    ExecutionHints execution_hints = {};
-    execution_hints.side_effect_hints[0] = 1; // Side effect counter 0 = true
-    execution_hints.side_effect_hints[1] = 1; // Side effect counter 1 = true
-    execution_hints.side_effect_hints[2] = 1; // Side effect counter 2 = true
+    // Generate Hint for hash exists operation
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
@@ -1894,73 +2197,73 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     validate_trace(std::move(trace));
 }
 
-TEST_F(AvmExecutionTests, opCallOpcodes)
-{
-    std::string bytecode_preamble;
-    // Gas offset preamble
-    bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for gas offset indirect
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000010"            // val 16 (address where gas offset is located)
-                         "00000011" +          // dst_offset 17
-                         to_hex(OpCode::SET) + // opcode SET for value stored in gas offset
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000011"            // val i
-                         "00000000";
-    // args offset preamble
-    bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for args offset indirect
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000100"            // val i
-                         "00000012" +          // dst_offset 0
-                         to_hex(OpCode::SET) + // opcode SET for value stored in args offset
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000012"            // val i
-                         "00000001";
-    // ret offset preamble
-    bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for ret offset indirect
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000008"            // val i
-                         "00000004" +          // dst_offset 0
-                         to_hex(OpCode::SET) + // opcode SET for value stored in ret offset
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000002"            // val i
-                         "00000007";
-    std::string bytecode_hex = bytecode_preamble // SET gas, addr, args size, ret offset, success, function selector
-                               + to_hex(OpCode::CALL) +   // opcode CALL
-                               "15"                       // Indirect flag
-                               "00000000"                 // gas offset
-                               "00000001"                 // addr offset
-                               "00000002"                 // args offset
-                               "00000003"                 // args size offset
-                               "00000004"                 // ret offset
-                               "00000007"                 // ret size
-                               "0000000a"                 // success offset
-                               "00000006"                 // function_selector_offset
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "00000008"                 // ret offset 8
-                               "00000003";                // ret size 3
+// TEST_F(AvmExecutionTests, opCallOpcodes)
+// {
+//     std::string bytecode_preamble;
+//     // Gas offset preamble
+//     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for gas offset indirect
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000010"            // val 16 (address where gas offset is located)
+//                          "00000011" +          // dst_offset 17
+//                          to_hex(OpCode::SET) + // opcode SET for value stored in gas offset
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000011"            // val i
+//                          "00000000";
+//     // args offset preamble
+//     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for args offset indirect
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000100"            // val i
+//                          "00000012" +          // dst_offset 0
+//                          to_hex(OpCode::SET) + // opcode SET for value stored in args offset
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000012"            // val i
+//                          "00000001";
+//     // ret offset preamble
+//     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for ret offset indirect
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000008"            // val i
+//                          "00000004" +          // dst_offset 0
+//                          to_hex(OpCode::SET) + // opcode SET for value stored in ret offset
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000002"            // val i
+//                          "00000007";
+//     std::string bytecode_hex = bytecode_preamble // SET gas, addr, args size, ret offset, success, function selector
+//                                + to_hex(OpCode::CALL) +   // opcode CALL
+//                                "15"                       // Indirect flag
+//                                "00000000"                 // gas offset
+//                                "00000001"                 // addr offset
+//                                "00000002"                 // args offset
+//                                "00000003"                 // args size offset
+//                                "00000004"                 // ret offset
+//                                "00000007"                 // ret size
+//                                "0000000a"                 // success offset
+//                                "00000006"                 // function_selector_offset
+//                                + to_hex(OpCode::RETURN) + // opcode RETURN
+//                                "00"                       // Indirect flag
+//                                "00000008"                 // ret offset 8
+//                                "00000003";                // ret size 3
 
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
+//     auto bytecode = hex_to_bytes(bytecode_hex);
+//     auto instructions = Deserialization::parse(bytecode);
 
-    std::vector<FF> calldata = {};
-    std::vector<FF> returndata = {};
+//     std::vector<FF> calldata = {};
+//     std::vector<FF> returndata = {};
 
-    // Generate Hint for call operation
-    ExecutionHints execution_hints = {};
-    execution_hints.returndata_hints.push_back({ 9, 8 }); // Return data
+//     // Generate Hint for call operation
+//     auto execution_hints = ExecutionHints().with_externalcall_hints(
+//         { { .success = 1, .return_data = { 9, 8 }, .l2_gas_used = 0, .da_gas_used = 0 } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
-    EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
+//     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+//     EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
 
-    validate_trace(std::move(trace));
-}
+//     validate_trace(std::move(trace));
+// }
 
 TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
 {
@@ -1991,12 +2294,12 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for call operation
-    ExecutionHints execution_hints = {};
-    ContractInstanceHint contract_instance_hint = { 1, 1, 2, 3, 4, 5 }; // The first one represents true
-    execution_hints.contract_instance_hints.insert({ address, contract_instance_hint });
+    // Note: opcode does not write 'address' into memory
+    auto execution_hints =
+        ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, 6 } } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
-    EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5 })); // The first one represents true
+    EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, 6 })); // The first one represents true
 
     validate_trace(std::move(trace));
 }

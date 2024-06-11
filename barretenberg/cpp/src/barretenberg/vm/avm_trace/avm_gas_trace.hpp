@@ -98,6 +98,7 @@ static const inline std::unordered_map<OpCode, GasTableEntry> GAS_COST_TABLE = {
     { OpCode::POSEIDON2, temp_default_gas_entry },
     { OpCode::SHA256, temp_default_gas_entry },
     { OpCode::PEDERSEN, temp_default_gas_entry },
+    { OpCode::ECADD, temp_default_gas_entry },
 
     // Conversions
     { OpCode::TORADIXLE, temp_default_gas_entry },
@@ -130,7 +131,7 @@ class AvmGasTraceBuilder {
     std::vector<GasTraceEntry> finalize();
 
     void constrain_gas_lookup(uint32_t clk, OpCode opcode);
-    void constrain_gas_for_external_call(uint32_t clk);
+    void constrain_gas_for_external_call(uint32_t clk, uint32_t nested_l2_gas_cost, uint32_t nested_da_gas_cost);
     void set_initial_gas(uint32_t l2_gas, uint32_t da_gas);
 
     uint32_t get_l2_gas_left();

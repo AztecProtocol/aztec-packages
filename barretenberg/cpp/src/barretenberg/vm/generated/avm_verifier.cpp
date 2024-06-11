@@ -288,6 +288,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_note_hash_exist_write_offset);
     commitments.avm_kernel_nullifier_exists_write_offset = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_nullifier_exists_write_offset);
+    commitments.avm_kernel_nullifier_non_exists_write_offset = transcript->template receive_from_prover<Commitment>(
+        commitment_labels.avm_kernel_nullifier_non_exists_write_offset);
     commitments.avm_kernel_q_public_input_kernel_add_to_table = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_q_public_input_kernel_add_to_table);
     commitments.avm_kernel_q_public_input_kernel_out_add_to_table =
@@ -299,6 +301,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_sload_write_offset);
     commitments.avm_kernel_sstore_write_offset =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_sstore_write_offset);
+    commitments.avm_main_abs_da_rem_gas_hi =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_abs_da_rem_gas_hi);
+    commitments.avm_main_abs_da_rem_gas_lo =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_abs_da_rem_gas_lo);
+    commitments.avm_main_abs_l2_rem_gas_hi =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_abs_l2_rem_gas_hi);
+    commitments.avm_main_abs_l2_rem_gas_lo =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_abs_l2_rem_gas_lo);
     commitments.avm_main_alu_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_alu_in_tag);
     commitments.avm_main_alu_sel =
@@ -313,6 +323,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_gas_op);
     commitments.avm_main_da_gas_remaining =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_gas_remaining);
+    commitments.avm_main_da_out_of_gas =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_out_of_gas);
     commitments.avm_main_gas_cost_active =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_gas_cost_active);
     commitments.avm_main_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ia);
@@ -340,6 +352,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_l2_gas_op);
     commitments.avm_main_l2_gas_remaining =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_l2_gas_remaining);
+    commitments.avm_main_l2_out_of_gas =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_l2_out_of_gas);
     commitments.avm_main_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_last);
     commitments.avm_main_mem_idx_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_a);
@@ -574,6 +588,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations_counts);
     commitments.lookup_opcode_gas_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_opcode_gas_counts);
+    commitments.range_check_l2_gas_hi_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_l2_gas_hi_counts);
+    commitments.range_check_l2_gas_lo_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_l2_gas_lo_counts);
+    commitments.range_check_da_gas_hi_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_da_gas_hi_counts);
+    commitments.range_check_da_gas_lo_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_da_gas_lo_counts);
     commitments.kernel_output_lookup_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_output_lookup_counts);
     commitments.lookup_into_kernel_counts =
@@ -677,6 +699,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations);
     commitments.lookup_opcode_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_opcode_gas);
+    commitments.range_check_l2_gas_hi =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_l2_gas_hi);
+    commitments.range_check_l2_gas_lo =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_l2_gas_lo);
+    commitments.range_check_da_gas_hi =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_da_gas_hi);
+    commitments.range_check_da_gas_lo =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.range_check_da_gas_lo);
     commitments.kernel_output_lookup =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_output_lookup);
     commitments.lookup_into_kernel =
@@ -743,7 +773,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("failed sumcheck");
         return false;
     }
 
@@ -752,23 +781,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     FF avm_kernel_kernel_inputs__is_public_evaluation =
         evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_inputs__is_public_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
-        info("failed kernel inputs public inputs");
-        return false;
-    }
-
-    FF avm_kernel_kernel_value_out__is_public_evaluation =
-        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
-    if (avm_kernel_kernel_value_out__is_public_evaluation !=
-        claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
-        info("failed value out inputs");
-        return false;
-    }
-
-    FF avm_kernel_kernel_side_effect_out__is_public_evaluation =
-        evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
-    if (avm_kernel_kernel_side_effect_out__is_public_evaluation !=
-        claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
-        info("failed side effect inputs");
         return false;
     }
 
@@ -776,7 +788,20 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
     if (avm_kernel_kernel_metadata_out__is_public_evaluation !=
         claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
-        info("failed kernel metadata inputs");
+        return false;
+    }
+
+    FF avm_kernel_kernel_side_effect_out__is_public_evaluation =
+        evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
+    if (avm_kernel_kernel_side_effect_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
+        return false;
+    }
+
+    FF avm_kernel_kernel_value_out__is_public_evaluation =
+        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
+    if (avm_kernel_kernel_value_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
         return false;
     }
 
