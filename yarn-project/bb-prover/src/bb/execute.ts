@@ -254,7 +254,7 @@ export async function generateProof(
 }
 
 /**
- * Used for generating proofs of noir circuits.
+ * Used for generating proofs of the tube circuit
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
  * @param pathToBB - The full path to the bb binary
  * @param workingDirectory - A working directory for use by bb
