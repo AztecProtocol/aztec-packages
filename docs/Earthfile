@@ -22,22 +22,10 @@ build:
   RUN ./scripts/build.sh
   SAVE ARTIFACT build
 
-test:
-  ARG ENV
-  FROM +deps
-  COPY +build/build build
-  COPY ./static static
-  COPY ./src src
-  COPY ./docusaurus.config.js .
-  COPY ./sidebars.js .
-  COPY ./playwright.config.ts .
-  EXPOSE 3000
-  ENTRYPOINT ["yarn", "test"]
-
 serve:
   ARG ENV
-  FROM +deps
-  COPY +build/build build
+  FROM +build
+  COPY ./build build
   COPY ./static static
   COPY ./src src
   COPY ./docusaurus.config.js .
@@ -47,6 +35,36 @@ serve:
   SAVE ARTIFACT /usr/src/docs
   SAVE IMAGE aztecprotocol/docs-server
 
+test-prep:
+  # use the build image to build the project so that nargo has access to the same libc
+  # later on, once everything is built and we don't need nargo, copy to a debian based image
+  # that's supported by playwright
+  FROM ../build-images+build
+
+  # copy the aztec yarn workspace, needed to resolve portal dependencies
+  COPY ../yarn-project+build-dev/usr/src /usr/src
+
+  WORKDIR /usr/src/docs
+
+  COPY . .
+  RUN yarn install --immutable
+
+  SAVE ARTIFACT /usr/src /usr/src
+
+test:
+  ARG ENV
+  FROM node:18.19
+  COPY --dir +test-prep/usr/src /usr
+  WORKDIR /usr/src/docs
+  RUN npx playwright install --with-deps
+
+  COPY ../noir/+nargo/nargo /usr/local/bin/aztec-nargo
+  COPY ../yarn-project+build-dev/usr/src/yarn-project/builder /usr/local/bin/aztec-builder
+  EXPOSE 3000
+  WITH DOCKER \
+    --load aztecprotocol/aztec:latest=../yarn-project/+aztec
+    RUN yarn test
+  END
 
 deploy-preview:
   BUILD ../yarn-project/+scripts-prod

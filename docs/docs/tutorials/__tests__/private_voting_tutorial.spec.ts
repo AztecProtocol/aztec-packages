@@ -1,9 +1,10 @@
 import { test, expect, Page, Locator } from "@playwright/test";
-import { execFileSync } from "child_process";
 import path from "path";
+
+import { execFileSync } from "child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 
-const TEST_FOLDER = path.resolve("tmp", "test_tutorial");
+const TEST_FOLDER = path.resolve("/usr/test");
 
 async function exec(locator: Locator) {
   const content = (await locator.innerText()).trim();
@@ -88,6 +89,4 @@ test("Deploying, setting, and getting a number", async ({ page }) => {
   for (const cmd of await page.getByTestId(RegExp(/[\s\S]/)).all()) {
     await exec(cmd);
   }
-
-  // await shell.wait();
 });

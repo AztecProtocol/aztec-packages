@@ -1,0 +1,17 @@
+version: "3"
+services:
+  docs:
+    image: aztecprotocol/docs:${AZTEC_DOCKER_TAG:-latest}
+    entrypoint: >
+      sh -c '
+        yarn test
+      '
+    environment:
+      DEBUG: "aztec:*"
+      DEBUG_COLORS: "true"
+      ETHEREUM_HOST: http://ethereum:8545
+      CHAIN_ID: 31337
+      PXE_URL: http://aztec:8080
+      BOX: ${BOX:-vanilla}
+      CI: ${CI:-}
+      BROWSER: ${BROWSER:-chromium}
