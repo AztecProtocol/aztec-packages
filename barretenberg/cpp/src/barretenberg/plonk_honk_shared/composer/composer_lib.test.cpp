@@ -72,7 +72,7 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     Polynomial read_counts{ circuit_size };
     Polynomial read_tags{ circuit_size };
 
-    construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder);
+    construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder, circuit_size);
 
     // size_t idx = 0;
     // for (auto& val : read_counts) {
@@ -83,12 +83,15 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     //     ++idx;
     // }
 
+    // The table polys are constructed at the bottom of the trace, thus so to are the counts/tags
+    size_t offset = circuit_size - builder.get_tables_size();
+
     size_t idx = 0;
     for (auto [count, tag] : zip_view(read_counts, read_tags)) {
-        if (idx == 0) {
+        if (idx == (0 + offset)) {
             EXPECT_EQ(count, 5);
             EXPECT_EQ(tag, 1);
-        } else if (idx == 69) {
+        } else if (idx == (69 + offset)) {
             EXPECT_EQ(count, 1);
             EXPECT_EQ(tag, 1);
         } else {

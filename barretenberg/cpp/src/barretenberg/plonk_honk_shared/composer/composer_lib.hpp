@@ -21,6 +21,7 @@ void construct_lookup_table_polynomials(RefArray<typename Flavor::Polynomial, 4>
     //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
+    // WORKTODO: eventually just construct the tables (and therefore the counts) at the top of the trace
     ASSERT(dyadic_circuit_size > circuit.get_tables_size() + additional_offset);
     size_t offset = dyadic_circuit_size - circuit.get_tables_size() - additional_offset;
 
@@ -119,11 +120,13 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
 template <typename Flavor>
 typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                                          typename Flavor::Polynomial& read_tags,
-                                                         typename Flavor::CircuitBuilder& circuit)
+                                                         typename Flavor::CircuitBuilder& circuit,
+                                                         size_t dyadic_circuit_size)
 {
-    // WORKTODO: this wont work; the counts need to reflect the sturcture of the actual table polys (which are shifted
-    // to the bottom of the trace) so we should just construct these at the same time as the table polys.
-    size_t table_offset = 0; // offset of the present table in the table polynomials
+    // WORKTODO: eventually just construct the tables (and therefore the counts) at the top of the trace
+    size_t offset = dyadic_circuit_size - circuit.get_tables_size();
+
+    size_t table_offset = offset; // offset of the present table in the table polynomials
     for (auto& table : circuit.lookup_tables) {
         table.initialize_index_map();
 
