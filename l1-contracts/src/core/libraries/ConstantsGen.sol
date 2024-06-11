@@ -34,11 +34,11 @@ library Constants {
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 32;
-  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 31;
+  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 63;
   uint256 internal constant PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 1;
-  uint256 internal constant MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 32;
+  uint256 internal constant MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 32;
-  uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
+  uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 8;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 128;
@@ -65,10 +65,10 @@ library Constants {
   uint256 internal constant NOTE_HASH_SUBTREE_HEIGHT = 6;
   uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 26;
   uint256 internal constant NULLIFIER_SUBTREE_HEIGHT = 6;
-  uint256 internal constant PUBLIC_DATA_SUBTREE_HEIGHT = 5;
+  uint256 internal constant PUBLIC_DATA_SUBTREE_HEIGHT = 6;
   uint256 internal constant ARCHIVE_HEIGHT = 16;
   uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 14;
-  uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 35;
+  uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 34;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
@@ -102,8 +102,10 @@ library Constants {
     9735143693259978736521448915549382765209954358646272896519366195578572330622;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
     1330791240588942273989478952163154931941860232471291360599950658792066893795;
+  uint256 internal constant REGISTERER_CONTRACT_ADDRESS =
+    12230492553436229472833564540666503591270810173190529382505862577652523721217;
   uint256 internal constant GAS_TOKEN_ADDRESS =
-    15579792265603019607941255406546358293698695592162311788953655054527726682735;
+    21054354231481372816168706751151469079551620620213512837742215289221210616379;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 2;
   uint256 internal constant GAS_LENGTH = 2;
@@ -111,7 +113,7 @@ library Constants {
   uint256 internal constant CALL_CONTEXT_LENGTH = 6;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 4;
   uint256 internal constant CONTRACT_INSTANCE_LENGTH = 5;
-  uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
+  uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 3;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant ETH_ADDRESS_LENGTH = 1;
   uint256 internal constant FUNCTION_DATA_LENGTH = 2;
@@ -146,7 +148,7 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 23;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 457;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 514;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 530;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 460;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
@@ -154,25 +156,25 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
   uint256 internal constant VALIDATION_REQUESTS_LENGTH = 1538;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 231;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 333;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 40;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1128;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2715;
-  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 881;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3566;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 281;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1152;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2739;
+  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3770;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 383;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 14;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 31;
   uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH = 9;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
-  uint256 internal constant PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
+  uint256 internal constant PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP = 4096;
   uint256 internal constant CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP = 32;
   uint256 internal constant CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED = 52;
-  uint256 internal constant L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP = 64;
+  uint256 internal constant L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP = 256;
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
