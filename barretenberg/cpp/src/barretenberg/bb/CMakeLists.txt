@@ -13,4 +13,16 @@ if (NOT(FUZZING))
         env
         circuit_checker
     )
+    if(CHECK_CIRCUIT_STACKTRACES)
+        target_link_libraries(
+            bb
+            PUBLIC
+            Backward::Interface
+        )
+        target_link_options(
+            bb
+            PRIVATE
+            -ldw -lelf
+        )
+    endif()
 endif()
