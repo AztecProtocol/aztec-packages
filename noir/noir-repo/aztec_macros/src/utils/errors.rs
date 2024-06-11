@@ -12,7 +12,7 @@ pub enum AztecMacroError {
     UnsupportedFunctionReturnType { span: Span, typ: ast::UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: ast::UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
-    CouldNotImplementcomputeNoteHashAndOptionallyANullifier { secondary_message: Option<String> },
+    CouldNotImplementComputeNoteHashAndOptionallyANullifier { secondary_message: Option<String> },
     CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
     MultipleStorageDefinitions { span: Option<Span> },
     CouldNotExportStorageLayout { span: Option<Span>, secondary_message: Option<String> },
@@ -57,7 +57,7 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message,
                 span: None,
             },
-            AztecMacroError::CouldNotImplementcomputeNoteHashAndOptionallyANullifier { secondary_message } => MacroError {
+            AztecMacroError::CouldNotImplementComputeNoteHashAndOptionallyANullifier { secondary_message } => MacroError {
                 primary_message: "Could not implement compute_note_hash_and_optionally_a_nullifier automatically, please provide an implementation".to_string(),
                 secondary_message,
                 span: None,

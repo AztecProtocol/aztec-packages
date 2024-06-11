@@ -69,7 +69,7 @@ pub fn inject_compute_note_hash_and_optionally_a_nullifier(
         let max_note_length_const = get_global_numberic_const(context, "MAX_NOTE_FIELDS_LENGTH")
             .map_err(|err| {
                 (
-                    AztecMacroError::CouldNotImplementcomputeNoteHashAndOptionallyANullifier {
+                    AztecMacroError::CouldNotImplementComputeNoteHashAndOptionallyANullifier {
                         secondary_message: Some(err.primary_message),
                     },
                     file_id,
@@ -89,7 +89,7 @@ pub fn inject_compute_note_hash_and_optionally_a_nullifier(
             )
             .map_err(|_err| {
                 (
-                    AztecMacroError::CouldNotImplementcomputeNoteHashAndOptionallyANullifier {
+                    AztecMacroError::CouldNotImplementComputeNoteHashAndOptionallyANullifier {
                         secondary_message: Some(format!(
                             "Failed to get serialized length for note type {}",
                             path
@@ -102,7 +102,7 @@ pub fn inject_compute_note_hash_and_optionally_a_nullifier(
 
             if serialized_len > max_note_length_const {
                 return Err((
-                   AztecMacroError::CouldNotImplementcomputeNoteHashAndOptionallyANullifier {
+                   AztecMacroError::CouldNotImplementComputeNoteHashAndOptionallyANullifier {
                         secondary_message: Some(format!(
                             "Note type {} as {} fields, which is more than the maximum allowed length of {}.",
                             path,
@@ -120,7 +120,7 @@ pub fn inject_compute_note_hash_and_optionally_a_nullifier(
         let max_note_length: u128 =
             *notes_and_lengths.iter().map(|(_, serialized_len)| serialized_len).max().unwrap_or(&0);
 
-        let note_types =
+        let note_types: Vec<String> =
             notes_and_lengths.iter().map(|(note_type, _)| note_type.clone()).collect::<Vec<_>>();
 
         // We can now generate a version of compute_note_hash_and_optionally_a_nullifier tailored for the contract in this crate.
@@ -134,7 +134,7 @@ pub fn inject_compute_note_hash_and_optionally_a_nullifier(
 
         inject_fn(crate_id, context, func, location, module_id, file_id).map_err(|err| {
             (
-                AztecMacroError::CouldNotImplementcomputeNoteHashAndOptionallyANullifier {
+                AztecMacroError::CouldNotImplementComputeNoteHashAndOptionallyANullifier {
                     secondary_message: err.secondary_message,
                 },
                 file_id,
