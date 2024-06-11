@@ -775,7 +775,7 @@ template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_pat
 }
 
 /**
- * @brief Creates a proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format
+ * @brief Creates a proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format.
  *
  * Communication:
  * - Filesystem: The proof is written to the path specified by outputPath
