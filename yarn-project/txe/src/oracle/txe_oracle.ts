@@ -11,7 +11,7 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  CompleteAddress,
+  type CompleteAddress,
   type Header,
   KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -28,7 +28,7 @@ import { type FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
-import { KeyStore } from '@aztec/key-store';
+import { type KeyStore } from '@aztec/key-store';
 import {
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
@@ -37,10 +37,12 @@ import {
   type TypedOracle,
   pickNotes,
 } from '@aztec/simulator';
-import { type ContractInstance } from '@aztec/types/contracts';
+import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 export class TXE implements TypedOracle {
+  private blockNumber = 0;
+
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
@@ -48,11 +50,48 @@ export class TXE implements TypedOracle {
     private noteCache: ExecutionNoteCache,
     private contractInstanceStore: ContractInstanceStore,
     private keyStore: KeyStore,
+    private accountStore: any,
     private contractAddress: AztecAddress,
   ) {}
 
+  // Utils
+
   setContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
+  }
+
+  setBlockNumber(blockNumber: number) {
+    this.blockNumber = blockNumber;
+  }
+
+  getTrees() {
+    return this.trees;
+  }
+
+  getContractInstanceStore() {
+    return this.contractInstanceStore;
+  }
+
+  getKeyStore() {
+    return this.keyStore;
+  }
+
+  getAccountStore() {
+    return this.accountStore;
+  }
+
+  async addContractInstance(contractInstance: ContractInstanceWithAddress) {
+    await this.contractInstanceStore.addContractInstance(contractInstance);
+  }
+
+  // TypedOracle
+
+  getBlockNumber(): Promise<number> {
+    return Promise.resolve(this.blockNumber);
+  }
+
+  getContractAddress(): Promise<AztecAddress> {
+    return Promise.resolve(this.contractAddress);
   }
 
   getRandomField() {
@@ -72,8 +111,7 @@ export class TXE implements TypedOracle {
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
-    //return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
-    return Promise.resolve(KeyValidationRequest.empty());
+    return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstance> {
@@ -128,7 +166,7 @@ export class TXE implements TypedOracle {
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.resolve(CompleteAddress.fromSecretKeyAndPartialAddress(Fr.ONE, account));
+    return Promise.resolve(this.accountStore.getAccount(account));
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {

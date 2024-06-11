@@ -4,9 +4,11 @@ use dep::protocol_types::{
     grumpkin_point::GrumpkinPoint
 };
 
+use crate::oracle::unsafe_rand::unsafe_rand;
+
 use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
-use crate::test::helpers::{cheatcodes, types::Deployer};
-use crate::keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}};
+use crate::test::helpers::{cheatcodes, types::{Deployer, TestAccount}};
+use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 
 struct TestEnvironment {
     contract_address: Option<AztecAddress>,
@@ -85,7 +87,7 @@ impl TestEnvironment {
         PrivateContext::new(inputs, args_hash)
     }
 
-    fn store_master_key(self, key_index: Field, address: AztecAddress) -> GrumpkinPoint {
+    fn store_master_key(self, key_index: Field, address: AztecAddress, key: GrumpkinPoint) {
         let x_coordinate_map_slot = key_index * 2 + 1;
         let y_coordinate_map_slot = x_coordinate_map_slot + 1;
         let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
@@ -93,34 +95,25 @@ impl TestEnvironment {
 
         let canonical_registry_address = AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS);
 
-        let fake_key = GrumpkinPoint { x: 1, y: 2 };
+        cheatcodes::direct_storage_write(canonical_registry_address, x_coordinate_derived_slot, [key.x]);
 
-        cheatcodes::direct_storage_write(
-            canonical_registry_address,
-            x_coordinate_derived_slot,
-            [fake_key.x]
-        );
-
-        cheatcodes::direct_storage_write(
-            canonical_registry_address,
-            y_coordinate_derived_slot,
-            [fake_key.y]
-        );
-        fake_key
+        cheatcodes::direct_storage_write(canonical_registry_address, y_coordinate_derived_slot, [key.y]);
     }
 
-    fn get_address_with_keys(self, address: AztecAddress) -> AztecAddress {
-        let keys = PublicKeys {
-            npk_m: self.store_master_key(NULLIFIER_INDEX, address),
-            ivpk_m: self.store_master_key(INCOMING_INDEX, address),
-            ovpk_m: self.store_master_key(OUTGOING_INDEX, address),
-            tpk_m: self.store_master_key(TAGGING_INDEX, address)
-        };
+    fn get_account(self) -> AztecAddress {
+        let test_account = cheatcodes::add_account(unsafe_rand());
+        let address = test_account.address;
+        let keys = test_account.keys;
 
-        AztecAddress::compute(keys.hash(), PartialAddress::from_field(1))
+        self.store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
+        self.store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
+        self.store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
+        self.store_master_key(TAGGING_INDEX, address, keys.tpk_m);
+
+        test_account.address
     }
 
     fn deploy<N>(self, path: str<N>) -> Deployer<N> {
-        cheatcodes::deploy(path)
+        Deployer { path }
     }
 }

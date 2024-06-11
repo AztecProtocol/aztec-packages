@@ -95,7 +95,7 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
 
     let computed_address = AztecAddress::compute(public_keys.hash(), partial_address);
 
-    //assert(computed_address.eq(address));
+    assert(computed_address.eq(address));
 
     public_keys
 }

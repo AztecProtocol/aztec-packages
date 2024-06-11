@@ -48,8 +48,8 @@ contract Counter {
     fn test_initialize() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.get_address_with_keys(AztecAddress::from_field(13));
-        let outgoing_viewer = env.get_address_with_keys(AztecAddress::from_field(14));
+        let owner = env.get_account();
+        let outgoing_viewer = env.get_account();
 
         // Deploy contract and initialize 
         let initializer = Counter::interface().initialize(5, owner, outgoing_viewer);

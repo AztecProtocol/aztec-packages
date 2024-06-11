@@ -1,6 +1,6 @@
 use dep::protocol_types::address::AztecAddress;
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
-use crate::test::helpers::types::Deployer;
+use crate::test::helpers::types::{Deployer, TestAccount};
 
 unconstrained pub fn reset() {
     oracle_reset();
@@ -30,16 +30,8 @@ unconstrained pub fn get_public_context_inputs() -> PublicContextInputs {
     oracle_get_public_context_inputs()
 }
 
-unconstrained pub fn deploy_inner<N, M>(
-    path: str<N>,
-    initializer: str<M>,
-    args: [Field]
-) -> AztecAddress {
+unconstrained pub fn deploy<N, M>(path: str<N>, initializer: str<M>, args: [Field]) -> AztecAddress {
     oracle_deploy(path, initializer, args)
-}
-
-pub fn deploy<N>(path: str<N>) -> Deployer<N> {
-    Deployer { path }
 }
 
 unconstrained pub fn direct_storage_write<N>(
@@ -48,6 +40,10 @@ unconstrained pub fn direct_storage_write<N>(
     fields: [Field; N]
 ) {
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
+}
+
+unconstrained pub fn add_account(secret: Field) -> TestAccount {
+    oracle_add_account(secret)
 }
 
 #[oracle(reset)]
@@ -80,3 +76,6 @@ fn direct_storage_write_oracle<N>(
     _storage_slot: Field,
     _values: [Field; N]
 ) -> [Field; N] {}
+
+#[oracle(addAccount)]
+fn oracle_add_account(secret: Field) -> TestAccount {}
