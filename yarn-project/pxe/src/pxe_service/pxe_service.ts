@@ -318,14 +318,15 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        true,
-        note.note,
-      );
+      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndOptionallyANullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          true,
+          note.note,
+        );
 
       const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
       if (index === undefined) {
@@ -367,14 +368,15 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        false,
-        note.note,
-      );
+      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndOptionallyANullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          false,
+          note.note,
+        );
 
       if (!innerNullifier.equals(Fr.ZERO)) {
         throw new Error('Unexpectedly received non-zero nullifier.');
@@ -421,7 +423,7 @@ export class PXEService implements PXE {
     // Remove this once notes added from public also include nonces.
     {
       const publicNoteNonce = Fr.ZERO;
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         publicNoteNonce,
         note.storageSlot,
@@ -443,7 +445,7 @@ export class PXEService implements PXE {
       }
 
       const nonce = computeNoteHashNonce(firstNullifier, i);
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,

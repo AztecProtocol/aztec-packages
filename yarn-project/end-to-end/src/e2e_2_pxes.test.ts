@@ -382,7 +382,7 @@ describe('e2e_2_pxes', () => {
     {
       // We need to register the recipient to be able to obtain IvpkM for the note
       await pxeB.registerRecipient(walletA.getCompleteAddress());
-      // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_nullifier(...)
+      // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_optionally_a_nullifier(...)
       await pxeB.registerContract(testContract);
       await pxeB.addNullifiedNote(note);
     }

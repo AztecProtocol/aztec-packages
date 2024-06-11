@@ -50,8 +50,8 @@ describe('Simulator', () => {
     simulator = new AcirSimulator(oracle, node);
   });
 
-  describe('computeNoteHashAndNullifier', () => {
-    const artifact = getFunctionArtifact(TokenContractArtifact, 'compute_note_hash_and_nullifier');
+  describe('computeNoteHashAndOptionallyANullifier', () => {
+    const artifact = getFunctionArtifact(TokenContractArtifact, 'compute_note_hash_and_optionally_a_nullifier');
     const nonce = Fr.random();
     const storageSlot = TokenContractArtifact.storageLayout['balances'].slot;
     const noteTypeId = TokenContractArtifact.notes['TokenNote'].id;
@@ -68,7 +68,7 @@ describe('Simulator', () => {
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
       const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
 
-      const result = await simulator.computeNoteHashAndNullifier(
+      const result = await simulator.computeNoteHashAndOptionallyANullifier(
         contractAddress,
         nonce,
         storageSlot,
@@ -85,16 +85,16 @@ describe('Simulator', () => {
       });
     });
 
-    it('throw if the contract does not implement "compute_note_hash_and_nullifier"', async () => {
+    it('throw if the contract does not implement "compute_note_hash_and_optionally_a_nullifier"', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(undefined);
 
       const note = createNote();
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
-      ).rejects.toThrow(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
+        simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
+      ).rejects.toThrow(/Mandatory implementation of "compute_note_hash_and_optionally_a_nullifier" missing/);
     });
 
-    it('throw if "compute_note_hash_and_nullifier" has the wrong number of parameters', async () => {
+    it('throw if "compute_note_hash_and_optionally_a_nullifier" has the wrong number of parameters', async () => {
       const note = createNote();
 
       const modifiedArtifact: FunctionArtifact = {
@@ -104,15 +104,15 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
+        simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
       ).rejects.toThrow(
         new RegExp(
-          `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 5 in noir contract ${contractAddress}.`,
+          `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_optionally_a_nullifier", but found 5 in noir contract ${contractAddress}.`,
         ),
       );
     });
 
-    it('throw if a note has more fields than "compute_note_hash_and_nullifier" can process', async () => {
+    it('throw if a note has more fields than "compute_note_hash_and_optionally_a_nullifier" can process', async () => {
       const note = createNote();
       const wrongPreimageLength = note.length - 1;
 
@@ -136,9 +136,11 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
+        simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
       ).rejects.toThrow(
-        new RegExp(`"compute_note_hash_and_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`),
+        new RegExp(
+          `"compute_note_hash_and_optionally_a_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`,
+        ),
       );
     });
   });
