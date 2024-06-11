@@ -276,6 +276,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                  instance->relation_parameters.eta_two,
                                                                  instance->relation_parameters.eta_three);
+    instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
@@ -329,7 +330,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                  instance->relation_parameters.eta_two,
                                                                  instance->relation_parameters.eta_three);
-    instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
+    instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
@@ -363,4 +364,5 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     check_relation<Poseidon2ExternalRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<Poseidon2InternalRelation<FF>>(circuit_size, prover_polynomials, params);
     check_linearly_dependent_relation<Flavor, DatabusLookupRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }

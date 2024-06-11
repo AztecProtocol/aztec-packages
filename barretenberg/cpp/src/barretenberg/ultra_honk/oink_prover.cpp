@@ -144,17 +144,15 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
-    compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
-        proving_key.polynomials, relation_parameters, proving_key.circuit_size);
+    // Compute the inverses used in log-derivative lookup relations
+    proving_key.compute_logderivative_inverses(relation_parameters);
 
     witness_commitments.lookup_inverses = commitment_key->commit(proving_key.polynomials.lookup_inverses);
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);
 
+    // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsGoblinFlavor<Flavor>) {
-        // Compute and commit to the logderivative inverse used in DataBus
-        proving_key.compute_logderivative_inverse(relation_parameters);
-
         witness_commitments.calldata_inverses = commitment_key->commit(proving_key.polynomials.calldata_inverses);
         witness_commitments.return_data_inverses = commitment_key->commit(proving_key.polynomials.return_data_inverses);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata_inverses,

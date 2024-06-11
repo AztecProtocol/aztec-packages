@@ -139,9 +139,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                      instance->relation_parameters.eta_two,
                                                                      instance->relation_parameters.eta_three);
-        if constexpr (IsGoblinFlavor<Flavor>) {
-            instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
-        }
+        instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
         instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
         for (auto& alpha : instance->alphas) {

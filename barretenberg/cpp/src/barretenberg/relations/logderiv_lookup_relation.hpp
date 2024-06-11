@@ -147,8 +147,29 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        accumulate_logderivative_lookup_subrelation_contributions<FF, LogDerivLookupRelationImpl<FF>>(
-            accumulator, in, params, scaling_factor);
+        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+
+        const auto inverses = View(in.lookup_inverses);                         // Degree 1
+        const auto read_counts = View(in.lookup_read_counts);                   // Degree 1
+        const auto read_selector = View(in.q_lookup);                           // Degree 1
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 1
+        const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 1
+        const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1
+        const auto write_inverse = inverses * read_term;                        // Degree 2
+        const auto read_inverse = inverses * write_term;                        // Degree 2
+
+        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
+        // if !inverse_exists. Degree 3
+        std::get<0>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor;
+
+        // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
+        // entire trace, not on a per-row basis
+        std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Degree 4
+
+        // ******************
+        // accumulate_logderivative_lookup_subrelation_contributions<FF, LogDerivLookupRelationImpl<FF>>(
+        //     accumulator, in, params, scaling_factor);
     }
 };
 

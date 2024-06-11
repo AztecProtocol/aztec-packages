@@ -461,6 +461,20 @@ class UltraFlavor {
         }
 
         /**
+         * @brief Compute the inverse polynomial used in the log derivative lookup argument
+         *
+         * @tparam Flavor
+         * @param beta
+         * @param gamma
+         */
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            // Compute inverses for conventional lookups
+            compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation>(
+                this->polynomials, relation_parameters, this->circuit_size);
+        }
+
+        /**
          * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup
          * polynomials
          *
