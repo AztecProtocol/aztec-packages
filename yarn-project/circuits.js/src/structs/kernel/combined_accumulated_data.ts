@@ -1,11 +1,11 @@
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 import {
-  type MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -30,7 +30,7 @@ export class CombinedAccumulatedData {
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated encrypted note logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -66,6 +66,22 @@ export class CombinedAccumulatedData {
     /** Gas used during this transaction */
     public gasUsed: Gas,
   ) {}
+
+  getSize() {
+    return (
+      arraySerializedSizeOfNonEmpty(this.newNoteHashes) +
+      arraySerializedSizeOfNonEmpty(this.newNullifiers) +
+      arraySerializedSizeOfNonEmpty(this.newL2ToL1Msgs) +
+      this.noteEncryptedLogsHash.size +
+      this.encryptedLogsHash.size +
+      this.unencryptedLogsHash.size +
+      this.noteEncryptedLogPreimagesLength.size +
+      this.encryptedLogPreimagesLength.size +
+      this.unencryptedLogPreimagesLength.size +
+      arraySerializedSizeOfNonEmpty(this.publicDataUpdateRequests) +
+      this.gasUsed.toBuffer().length
+    );
+  }
 
   static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
     return [
