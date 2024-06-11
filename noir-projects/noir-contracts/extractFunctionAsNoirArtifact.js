@@ -38,10 +38,11 @@ async function main() {
   const outputName =
     path.basename(contractArtifactPath, ".json") + `-${functionName}.json`;
 
-  await fs.writeFile(
-    path.join(outputDir, outputName),
-    JSON.stringify(artifact, null, 2)
-  );
+  const outPath = path.join(outputDir, outputName);
+
+  console.log(`Writing to ${outPath}`);
+
+  await fs.writeFile(outPath, JSON.stringify(artifact, null, 2));
 }
 
 main().catch((err) => {
