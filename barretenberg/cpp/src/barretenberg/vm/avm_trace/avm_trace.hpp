@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_ecc.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_pedersen.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
@@ -28,7 +29,9 @@ using Row = bb::AvmFullRow<bb::fr>;
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {}, ExecutionHints execution_hints = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+                    ExecutionHints execution_hints = {},
+                    uint32_t side_effect_counter = 0);
 
     std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
     void reset();
@@ -192,6 +195,15 @@ class AvmTraceBuilder {
                           uint32_t output_offset,
                           uint32_t input_offset,
                           uint32_t input_size_offset);
+    // Embedded EC Add - the offsets are temporary
+    void op_ec_add(uint8_t indirect,
+                   uint32_t lhs_x_offset,
+                   uint32_t lhs_y_offset,
+                   uint32_t lhs_is_inf_offset,
+                   uint32_t rhs_x_offset,
+                   uint32_t rhs_y_offset,
+                   uint32_t rhs_is_inf_offset,
+                   uint32_t output_offset);
 
   private:
     // Used for the standard indirect address resolution of three operands opcode.
@@ -217,6 +229,7 @@ class AvmTraceBuilder {
     AvmPoseidon2TraceBuilder poseidon2_trace_builder;
     AvmKeccakTraceBuilder keccak_trace_builder;
     AvmPedersenTraceBuilder pedersen_trace_builder;
+    AvmEccTraceBuilder ecc_trace_builder;
 
     /**
      * @brief Create a kernel lookup opcode object
