@@ -79,6 +79,7 @@ export class BBNativeProofCreator implements ProofCreator {
     acirs: Buffer[],
     witnessStack: WitnessMap[],
   ): Promise<{
+    // LONDONTODO(ClientIVCProofSize)
     proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
     verificationKey: VerificationKeyAsFields;
   }> {
@@ -89,7 +90,7 @@ export class BBNativeProofCreator implements ProofCreator {
       directory,
       path.join(directory, "acir.msgpack"),
       path.join(directory, "witnesses.msgpack"),
-      this.log.debug
+      this.log.info
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -100,16 +101,17 @@ export class BBNativeProofCreator implements ProofCreator {
     // LONDONTODO do we cache this?
     const vkData = await extractVkData(directory);
     // LONDONTODO we pass App but this is a total hack
+    // LONDONTODO(ClientIVCProofSize)
     const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, 'App', vkData);
 
-    this.log.debug(`Generated proof`, {
+    this.log.info(`Generated IVC proof`, {
       duration: provingResult.duration,
       eventName: 'circuit-proving',
       circuitSize: vkData.circuitSize,
       numPublicInputs: vkData.numPublicInputs,
     } as CircuitProvingStats);
 
-    return { proof, verificationKey: vkData.keyAsFields };
+    return { proof, verificationKey: vkData.keyAsFields }; // LONDONTODO(Client): What is this vk now?
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
@@ -117,7 +119,7 @@ export class BBNativeProofCreator implements ProofCreator {
       return await this.createIvcProof(directory, acirs, witnessStack);
     };
     const x = await runInDirectory(this.bbWorkingDirectory, operation);
-    return { ...x, publicInputs: {} as any, outputWitness: new Map() };
+    return { publicInputs: {} as any, ...x, outputWitness: new Map() };
   }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {

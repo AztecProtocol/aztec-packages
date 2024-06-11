@@ -27,6 +27,7 @@ export type KernelProofOutput<PublicInputsType> = {
   /**
    * The zk-SNARK proof for the kernel execution.
    */
+  // LONDONTODO(ClientIVCProofSize)
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
   verificationKey: VerificationKeyAsFields;

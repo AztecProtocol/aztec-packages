@@ -53,7 +53,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    return { fold_output.proof, decider_prove(), goblin.prove() };
+    ClientIVC::Proof proof{ fold_output.proof, decider_prove(), goblin.prove() };
+    const size_t the_size_bytes = to_buffer(proof).size();
+    const size_t the_size_elts = proof.size();
+    info("Client IVC proof size serialized to bytes: ", the_size_bytes);
+    info("Client IVC proof size serialized to elts : ", the_size_elts);
+    return proof;
 }
 
 /**
