@@ -64,6 +64,15 @@ fn collapse_constrain_out_of_bounds_index_hint() {
     collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
 }
 
+#[test(should_fail)]
+fn collapse_constrain_hint_to_none() {
+    let original = [Option::some(7), Option::none(), Option::some(3)];
+    let collapsed = BoundedVec::from_array([7, 0]);
+    let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 1]);
+
+    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+}
+
 #[test(should_fail_with="Wrong collapsed vec content")]
 fn collapse_constrain_wrong_vec_content() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
