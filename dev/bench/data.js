@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718061607916,
+  "lastUpdate": 1718089681240,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -33100,6 +33100,78 @@ window.BENCHMARK_DATA = {
             "value": 164111284,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164111284 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "56475716e05973e6b493de427f32eee71c0f8f6a",
+          "message": "feat(avm): gas remaining range check and handling of out of gas (#6944)\n\nResolves #6902",
+          "timestamp": "2024-06-11T08:52:31+02:00",
+          "tree_id": "63aa02826e40d0201bd6a94853c7c768a5973d6a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/56475716e05973e6b493de427f32eee71c0f8f6a"
+        },
+        "date": 1718089679643,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15424.013059000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10781.737818 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5519.8492920000035,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5122.140383 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50248.739262999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50248741000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16995.002447000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16995003000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5172231043,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5172231043 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203391206,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203391206 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4308375286,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4308375286 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164455894,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164455894 ns\nthreads: 1"
           }
         ]
       }
