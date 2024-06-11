@@ -131,7 +131,7 @@ export class LibP2PService implements P2PService {
     txPool: TxPool,
     store: AztecKVStore,
   ) {
-    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
+    const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
     // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
     const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
@@ -176,8 +176,7 @@ export class LibP2PService implements P2PService {
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        // DOCS: There is no way to turn off autodial other than setting minConnections to 0
-        minConnections: config.minPeerCount,
+        minConnections: minPeerCount,
         maxConnections: maxPeerCount,
       },
       services: {
