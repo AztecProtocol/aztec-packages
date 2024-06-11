@@ -60,6 +60,7 @@ import { NativeACVMSimulator } from '@aztec/simulator';
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
+import { info } from 'console';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -73,6 +74,7 @@ import {
   generateAvmProof,
   generateKeyForNoirCircuit,
   generateProof,
+  generateTubeProof,
   verifyAvmProof,
   verifyProof,
   writeProofAsFields,
@@ -80,7 +82,7 @@ import {
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractVkData } from '../verification_key/verification_key_data.js';
+import { extractTubeVkData, extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -261,6 +263,42 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await this.verifyProof('BaseRollupArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
+  /**
+   * Simulates the base rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async getTubeRollupProof() /*: Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>*/ {
+    // HEEEEEEEEEEEEREEEEEEEEEE
+    // We may need to convert the recursive proof into fields format
+    // input.kernelData.proof = await this.ensureValidProof(
+    //   input.kernelData.proof,
+    //   'BaseRollupArtifact',
+    //   input.kernelData.vk,
+    // );
+
+    // const { circuitOutput, proof } = await this.createRecursiveProof(
+    //   input,
+    //   'BaseRollupArtifact',
+    //   NESTED_RECURSIVE_PROOF_LENGTH,
+    //   convertBaseRollupInputsToWitnessMap,
+    //   convertBaseRollupOutputsFromWitnessMap,
+    // );
+
+    // // LONDONTODO(Tube): public inputs?
+    // const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
+
+    const provingResult =
+      // Read the proof as fields
+      await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, 'TubeRollup', logger.debug);
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate proof for TubeRollup: ${provingResult.reason}`);
+      throw new Error(provingResult.reason);
+    }
+
+    // TODO(Mara) : connect with Honk proving
   }
 
   /**
@@ -530,6 +568,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: CircuitInputType) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
+    // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       const {
         provingResult,
@@ -572,6 +611,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
     return await this.verifyWithKey(verificationKey, proof);
   }
+
+  // public async verifyTubeProof(proof: Proof, verification_key: VerificationKeyData) {
+  //   return await this.verifyWithKey(verification_key, proof);
+  // }
 
   public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
     return await this.verifyWithKeyInternal(proof, verificationKey, verifyAvmProof);
@@ -727,6 +770,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
     return promise;
   }
+
+  // private async getTubeVerificationKey(filePath: string): Promise<VerificationKeyData> {
+  //   const promise = extractTubeVkData(filePath);
+  //   return promise;
+  // }
 
   /**
    * Parses and returns the proof data stored at the specified directory

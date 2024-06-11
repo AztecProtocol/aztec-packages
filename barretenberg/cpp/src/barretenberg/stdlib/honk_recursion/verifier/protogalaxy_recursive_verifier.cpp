@@ -11,6 +11,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 {
     // Get circuit parameters and the public inputs
     const auto instance_size = transcript->template receive_from_prover<FF>(domain_separator + "_circuit_size");
+    info("here");
     const auto public_input_size =
         transcript->template receive_from_prover<FF>(domain_separator + "_public_input_size");
     inst->verification_key->circuit_size = uint32_t(instance_size.get_value());

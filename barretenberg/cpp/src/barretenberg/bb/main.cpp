@@ -287,8 +287,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
 
-    init_bn254_crs(1 << 18);
-    init_grumpkin_crs(1 << 14);
+    init_bn254_crs(1 << 22);
+    init_grumpkin_crs(1 << 16);
 
     ClientIVC ivc;
     ivc.structured_flag = true;
@@ -385,17 +385,31 @@ void prove_tube(const std::string& outputPath)
     info("num gates: ", builder->get_num_gates());
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
+    using Verifier = UltraVerifier_<UltraFlavor>;
 
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
-
     std::string tubeProofPath = outputPath + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
+
+    std::string tubeProofAsFieldsPath = outputPath + "/proof_fields.json";
+    auto proof_data = to_json(tube_proof);
+    write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = outputPath + "/vk";
     auto tube_verification_key =
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
+
+    std::string tubeAsFieldsVkPath = outputPath + "/vk_fields.json";
+    auto field_els = tube_verification_key->to_field_elements();
+    info("verificaton key length in fields:", field_els.size());
+    auto data = to_json(field_els);
+    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
+
+    Verifier tube_verifier(tube_verification_key);
+    bool verified = tube_verifier.verify_proof(tube_proof);
+    info("Tube proof verification: ", verified);
 }
 
 /**

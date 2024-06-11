@@ -511,6 +511,8 @@ export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): W
   return initialWitnessMap;
 }
 
+// LONDONTODO(Tube): need to add a thingy here
+
 /**
  * Converts the inputs of the base rollup circuit into a witness map.
  * @param inputs - The base rollup inputs.

@@ -49,10 +49,13 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
+  // LONDONTODO(BaseRollup)
   getBaseRollupProof(
     input: BaseRollupInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
+
+  getTubeRollupProof?(): Promise<void>;
 
   /**
    * Creates a proof for the given input.
