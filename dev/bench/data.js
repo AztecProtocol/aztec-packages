@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718136846302,
+  "lastUpdate": 1718139453139,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -35704,6 +35704,78 @@ window.BENCHMARK_DATA = {
             "value": 163769381,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163769381 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c4c17f804b8735dc017bbae171117ca15df25cc",
+          "message": "fix(avm): correctly generate public inputs in verifier (#7018)\n\nPIL must be compiled with:\nhttps://github.com/AztecProtocol/powdr/pull/69/\n\nNow the `__is_public` suffix is also not needed.",
+          "timestamp": "2024-06-11T21:47:00+01:00",
+          "tree_id": "964046263ea1269079f88d51d661f915b3f580d9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c4c17f804b8735dc017bbae171117ca15df25cc"
+        },
+        "date": 1718139450800,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15478.207642000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10774.154982 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5522.868165000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5146.358275 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50134.630367,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50134632000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16944.91842,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16944919000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5174359344,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5174359344 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199819274,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199819274 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4310898610,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4310898610 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165142373,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165142373 ns\nthreads: 1"
           }
         ]
       }
