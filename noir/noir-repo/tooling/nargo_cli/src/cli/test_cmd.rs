@@ -82,7 +82,7 @@ pub(crate) fn run(args: TestCommand, config: NargoConfig) -> Result<(), CliError
 
     let test_reports: Vec<Vec<(String, TestStatus)>> = workspace
         .into_iter()
-        //.par_bridge()
+        .par_bridge()
         .map(|package| {
             run_tests::<Bn254BlackBoxSolver>(
                 &workspace_file_manager,
@@ -137,7 +137,7 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     println!("[{}] Running {count_all} test function{plural}", package.name);
 
     let test_report: Vec<(String, TestStatus)> = test_functions
-        .into_iter()
+        .into_par_iter()
         .map(|test_name| {
             let status = run_test::<S>(
                 file_manager,
