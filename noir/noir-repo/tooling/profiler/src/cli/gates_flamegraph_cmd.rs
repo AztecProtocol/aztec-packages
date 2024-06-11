@@ -14,7 +14,7 @@ use nargo::artifacts::program::ProgramArtifact;
 use nargo::errors::Location;
 
 #[derive(Debug, Clone, Args)]
-pub(crate) struct CreateFlamegraphCommand {
+pub(crate) struct GatesFlamegraphCommand {
     /// The path to the artifact JSON file
     #[clap(long, short)]
     artifact_path: String,
@@ -29,15 +29,15 @@ pub(crate) struct CreateFlamegraphCommand {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct BBGatesReport {
+struct BackendGatesReport {
     acir_opcodes: usize,
     circuit_size: usize,
     gates_per_opcode: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct BBGatesResponse {
-    functions: Vec<BBGatesReport>,
+struct BackendGatesResponse {
+    functions: Vec<BackendGatesReport>,
 }
 
 struct FoldedStackItem {
@@ -45,23 +45,20 @@ struct FoldedStackItem {
     nested_items: HashMap<String, FoldedStackItem>,
 }
 
-pub(crate) fn run(args: CreateFlamegraphCommand) -> eyre::Result<()> {
+pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
     let program = read_program_from_file(&args.artifact_path)?;
-    let bb_gates_response = Command::new(args.backend_path)
-        .arg("gates")
-        .arg("-b")
-        .arg(&args.artifact_path)
-        .output()
-        .expect("failed to execute process");
+    let backend_gates_response =
+        Command::new(args.backend_path).arg("gates").arg("-b").arg(&args.artifact_path).output()?;
 
-    // Parse the bb gates stdout as json
-    let bb_gates_response: BBGatesResponse = serde_json::from_slice(&bb_gates_response.stdout)?;
+    // Parse the backend gates command stdout as json
+    let backend_gates_response: BackendGatesResponse =
+        serde_json::from_slice(&backend_gates_response.stdout)?;
 
-    for (func_idx, func_gates) in bb_gates_response.functions.into_iter().enumerate() {
+    for (func_idx, func_gates) in backend_gates_response.functions.into_iter().enumerate() {
         let mut folded_stack_items = HashMap::new();
 
         println!(
-            "Total gates in the {} opcodes {} of total gates {}",
+            "Opcode count: {}, Total gates by opcodes: {}, Circuit size: {}",
             func_gates.acir_opcodes,
             func_gates.gates_per_opcode.iter().sum::<usize>(),
             func_gates.circuit_size
@@ -128,11 +125,12 @@ fn location_to_callsite_label<'files>(
     location: Location,
     files: &'files impl Files<'files, FileId = fm::FileId>,
 ) -> String {
-    let filename = Path::new(&files.name(location.file).expect("should get file path").to_string())
-        .file_name()
-        .map(|os_str| os_str.to_string_lossy().to_string())
-        .unwrap_or("unknown".to_string());
-    let source = files.source(location.file).expect("should get file source");
+    let filename =
+        Path::new(&files.name(location.file).expect("should have a file path").to_string())
+            .file_name()
+            .map(|os_str| os_str.to_string_lossy().to_string())
+            .unwrap_or("invalid_path".to_string());
+    let source = files.source(location.file).expect("should have a file source");
 
     let code_slice = source
         .as_ref()

@@ -2686,29 +2686,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "noir_flamegraph"
-version = "0.40.0"
-dependencies = [
- "acir",
- "clap",
- "codespan-reporting",
- "color-eyre",
- "const_format",
- "fm",
- "im",
- "inferno",
- "nargo",
- "noirc_frontend",
- "paste",
- "proptest",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "noir_grumpkin"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2744,6 +2721,29 @@ dependencies = [
  "tokio",
  "tower",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "noir_profiler"
+version = "0.40.0"
+dependencies = [
+ "acir",
+ "clap",
+ "codespan-reporting",
+ "color-eyre",
+ "const_format",
+ "fm",
+ "im",
+ "inferno",
+ "nargo",
+ "noirc_frontend",
+ "paste",
+ "proptest",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]

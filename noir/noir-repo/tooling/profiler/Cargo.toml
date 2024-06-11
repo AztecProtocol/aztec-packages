@@ -1,6 +1,6 @@
 [package]
-name = "noir_flamegraph"
-description = "Creates a flamegraph of gates for noir circuits"
+name = "noir_profiler"
+description = "Analyzer for noir circuits"
 # x-release-please-start-version
 version = "0.40.0"
 # x-release-please-end
@@ -13,7 +13,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "noir_flamegraph"
+name = "noir_profiler"
 path = "src/main.rs"
 
 [dependencies]
