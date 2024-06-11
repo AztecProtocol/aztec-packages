@@ -13,8 +13,8 @@ import {
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { AbstractPhaseManager, PublicKernelPhase, removeRedundantPublicDataWrites } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_executor.js';
+import { AbstractPhaseManager } from './abstract_phase_manager.js';
+import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 export class TailPhaseManager extends AbstractPhaseManager {
@@ -26,7 +26,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    phase: PublicKernelPhase = PublicKernelPhase.TAIL,
+    phase: PublicKernelType = PublicKernelType.TAIL,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
@@ -41,24 +41,17 @@ export class TailPhaseManager extends AbstractPhaseManager {
       },
     );
 
-    // TODO(#3675): This should be done in a public kernel circuit
-    finalKernelOutput.end.publicDataUpdateRequests = removeRedundantPublicDataWrites(
-      finalKernelOutput.end.publicDataUpdateRequests,
-    );
-
     // Return a tail proving request
-    const request: PublicKernelRequest = {
+    const kernelRequest: PublicKernelRequest = {
       type: PublicKernelType.TAIL,
       inputs: inputs,
     };
 
     return {
-      kernelRequests: [request],
+      publicProvingRequests: [kernelRequest],
       publicKernelOutput: previousPublicKernelOutput,
       finalKernelOutput,
-      revertReason: undefined,
       returnValues: [],
-      gasUsed: undefined,
     };
   }
 

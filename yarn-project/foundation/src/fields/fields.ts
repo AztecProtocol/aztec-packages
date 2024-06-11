@@ -42,6 +42,11 @@ abstract class BaseField {
     return this.toBigInt();
   }
 
+  /** Returns the size in bytes. */
+  get size(): number {
+    return BaseField.SIZE_IN_BYTES;
+  }
+
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
     if (value instanceof Buffer) {
       if (value.length > BaseField.SIZE_IN_BYTES) {
@@ -174,8 +179,14 @@ function random<T extends BaseField>(f: DerivedField<T>): T {
 /**
  * Constructs a field from a 0x prefixed hex string.
  */
-function fromString<T extends BaseField>(buf: string, f: DerivedField<T>) {
-  const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
+function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
+  const withoutPrefix = buf.replace(/^0x/i, '');
+  const buffer = Buffer.from(withoutPrefix, 'hex');
+
+  if (buffer.length === 0 && withoutPrefix.length > 0) {
+    throw new Error(`Invalid hex-encoded string: "${buf}"`);
+  }
+
   return new f(buffer);
 }
 
@@ -228,7 +239,7 @@ export class Fr extends BaseField {
   }
 
   static fromString(buf: string) {
-    return fromString(buf, Fr);
+    return fromHexString(buf, Fr);
   }
 
   /** Arithmetic */
@@ -329,7 +340,7 @@ export class Fq extends BaseField {
   }
 
   static fromString(buf: string) {
-    return fromString(buf, Fq);
+    return fromHexString(buf, Fq);
   }
 
   static fromHighLow(high: Fr, low: Fr): Fq {

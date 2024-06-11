@@ -67,6 +67,9 @@ examples:
   WORKDIR ../prove_and_verify
   RUN ./test.sh
 
+  WORKDIR ../recursion
+  RUN ./test.sh
+
 format:
   FROM +nargo
   ENV PATH=$PATH:/usr/src/noir-repo/target/release
@@ -186,7 +189,7 @@ packages-test-node:
       run test:node
 
 packages-test-browser:
-    FROM node:18
+    FROM ../build-images/+base-slim-node
     COPY --dir +packages-test-build/usr/src /usr
     WORKDIR /usr/src/noir/noir-repo
     RUN ./.github/scripts/playwright-install.sh
@@ -199,15 +202,6 @@ packages-test-browser:
 packages-test:
     BUILD +packages-test-node
     BUILD +packages-test-browser
-
-run:
-    # When running the container, mount the users home directory to same location.
-    FROM ubuntu:noble
-    # Install Tini as nargo doesn't handle signals properly.
-    # Install git as nargo needs it to clone.
-    RUN apt-get update && apt-get install -y git tini && rm -rf /var/lib/apt/lists/* && apt-get clean
-    COPY +build/. /usr/src
-    ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/nargo"]
 
 build-acir-tests:
     LOCALLY

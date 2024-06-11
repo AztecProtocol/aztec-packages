@@ -1,4 +1,4 @@
-import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
+import { PublicKernelType, type PublicProvingRequest, type Tx } from '@aztec/circuit-types';
 import {
   type Fr,
   type Gas,
@@ -11,8 +11,8 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_executor.js';
+import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
+import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 /**
@@ -27,14 +27,14 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    phase: PublicKernelPhase = PublicKernelPhase.TEARDOWN,
+    phase: PublicKernelType = PublicKernelType.TEARDOWN,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
   override async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
-    const [kernelInputs, publicKernelOutput, newUnencryptedFunctionLogs, revertReason, _returnValues, gasUsed] =
+    const { publicProvingInformation, kernelOutput, newUnencryptedLogs, revertReason, gasUsed } =
       await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput).catch(
         // the abstract phase manager throws if simulation gives error in a non-revertible phase
         async err => {
@@ -47,25 +47,14 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     } else {
       // TODO(#6464): Should we allow emitting contracts in the public teardown phase?
       // if so, we should insert them here
-      tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+      tx.unencryptedLogs.addFunctionLogs(newUnencryptedLogs);
     }
 
     // Return a list of teardown proving requests
-    const kernelRequests = kernelInputs.map(input => {
-      const request: PublicKernelRequest = {
-        type: PublicKernelType.TEARDOWN,
-        inputs: input,
-      };
-      return request;
+    const publicProvingRequests: PublicProvingRequest[] = publicProvingInformation.map(info => {
+      return makeAvmProvingRequest(info, PublicKernelType.TEARDOWN);
     });
-    return {
-      kernelRequests,
-      kernelInputs,
-      publicKernelOutput,
-      revertReason,
-      returnValues: [],
-      gasUsed,
-    };
+    return { publicProvingRequests, publicKernelOutput: kernelOutput, revertReason, returnValues: [], gasUsed };
   }
 
   protected override getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {

@@ -1,4 +1,7 @@
-use crate::components::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
+use crate::components::{
+    kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer,
+    previous_kernel_validator::PreviousKernelValidator
+};
 use dep::types::{
     abis::{
     private_kernel_data::PrivateKernelData,
@@ -10,23 +13,22 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
-},
-    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
+}
 };
 
 struct PrivateKernelTailToPublicHints {
     sorted_new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_new_note_hashes_indexes: [u32; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    sorted_note_encrypted_log_hashes_indexes: [u32; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes_indexes: [u32; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes_indexes: [u32; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-    sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    sorted_call_requests_indexes: [u32; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
 }
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -36,15 +38,12 @@ struct PrivateKernelTailToPublicCircuitPrivateInputs {
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
-        let previous_public_inputs = self.previous_kernel.public_inputs;
-        let mut total_public_calls = array_length(previous_public_inputs.end.public_call_stack);
-        total_public_calls += if is_empty(self.previous_kernel.public_inputs.public_teardown_call_request) {0} else {1};
-        assert(
-            total_public_calls != 0, "Must have public calls when exporting public kernel data from the tail circuit"
-        );
-
-        // verify/aggregate the previous kernel
-        self.previous_kernel.verify();
+        // Validate inputs.
+        PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
+        if !dep::std::runtime::is_unconstrained() {
+            // verify/aggregate the previous kernel
+            self.previous_kernel.verify();
+        }
 
         KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
@@ -87,8 +86,7 @@ mod tests {
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
         log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
     },
-        address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
+        address::AztecAddress, hash::{silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty_array, grumpkin_point::GrumpkinPoint
     };
@@ -114,27 +112,19 @@ mod tests {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0).value();
             let mut output = [NoteHash::empty(); N];
             for i in 0..N {
-                let note_hash = note_hashes[i];
-                if note_hash.value() != 0 {
-                    let nonce = compute_note_hash_nonce(first_nullifier, i);
-                    let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
-                    output[i] = NoteHash {
-                        value: silo_note_hash(note_hash.contract_address, unique_note_hash),
-                        counter: 0, // Counter is cleared so it's not exposed to the public.
-                    };
-                }
+                output[i] = NoteHash {
+                    value: silo_note_hash(note_hashes[i], first_nullifier, i),
+                    counter: 0, // Counter is cleared so it's not exposed to the public.
+                };
             }
             output
         }
 
-        pub fn compute_output_nullifiers<N>(
-            _self: Self,
-            nullifiers: [ScopedNullifier; N]
-        ) -> [Nullifier; N] {
+        pub fn compute_output_nullifiers<N>(_self: Self, nullifiers: [ScopedNullifier; N]) -> [Nullifier; N] {
             let mut output = [Nullifier::empty(); N];
             output[0].value = nullifiers[0].value();
             for i in 1..N {
-                output[i] = Nullifier { value: silo_nullifier(nullifiers[i].contract_address, nullifiers[i].value()), counter: 0, note_hash: 0 };
+                output[i] = Nullifier { value: silo_nullifier(nullifiers[i]), counter: 0, note_hash: 0 };
             }
             output
         }

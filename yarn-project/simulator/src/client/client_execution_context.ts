@@ -2,10 +2,13 @@ import {
   type AuthWitness,
   type AztecNode,
   EncryptedL2Log,
+  EncryptedL2NoteLog,
+  Event,
+  L1EventPayload,
   L1NotePayload,
   Note,
   type NoteStatus,
-  TaggedNote,
+  TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -29,7 +32,7 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import { CountedLog, type CountedNoteLog, type ExecutionResult, type NoteAndSlot } from './execution_result.js';
+import { CountedLog, CountedNoteLog, type ExecutionResult, type NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -329,13 +332,15 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Emit encrypted data
-   * @param encryptedNote - The encrypted data.
+   * @param contractAddress - The contract emitting the encrypted event.
+   * @param randomness - A value used to mask the contract address we are siloing with.
+   * @param encryptedEvent - The encrypted event data.
    * @param counter - The effects counter.
    */
-  public override emitEncryptedLog(
+  public override emitEncryptedEventLog(
     contractAddress: AztecAddress,
     randomness: Fr,
-    encryptedData: Buffer,
+    encryptedEvent: Buffer,
     counter: number,
   ) {
     // In some cases, we actually want to reveal the contract address we are siloing with:
@@ -344,19 +349,47 @@ export class ClientExecutionContext extends ViewDataOracle {
     const maskedContractAddress = randomness.isZero()
       ? contractAddress.toField()
       : pedersenHash([contractAddress, randomness], 0);
-    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedData, maskedContractAddress), counter);
+    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);
   }
 
   /**
    * Emit encrypted note data
-   * @param noteHash - The note hash.
+   * @param noteHashCounter - The note hash counter.
    * @param encryptedNote - The encrypted note data.
-   * @param counter - The effects counter.
+   * @param counter - The log counter.
    */
-  public override emitEncryptedNoteLog(noteHash: Fr, encryptedNote: Buffer, counter: number) {
-    const encryptedLog = this.noteCache.addNewLog(encryptedNote, counter, noteHash);
+  public override emitEncryptedNoteLog(noteHashCounter: number, encryptedNote: Buffer, counter: number) {
+    const encryptedLog = new CountedNoteLog(new EncryptedL2NoteLog(encryptedNote), counter, noteHashCounter);
     this.noteEncryptedLogs.push(encryptedLog);
+  }
+
+  /**
+   * Encrypt an event
+   * @param contractAddress - The contract emitting the encrypted event.
+   * @param randomness - A value used to mask the contract address we are siloing with.
+   * @param eventTypeId - The type ID of the event (function selector).
+   * @param ovKeys - The outgoing viewing keys to use to encrypt.
+   * @param ivpkM - The master incoming viewing public key.
+   * @param preimage - The event preimage.
+   */
+  public override computeEncryptedEventLog(
+    contractAddress: AztecAddress,
+    randomness: Fr,
+    eventTypeId: Fr,
+    ovKeys: KeyValidationRequest,
+    ivpkM: Point,
+    preimage: Fr[],
+  ) {
+    const event = new Event(preimage);
+    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, eventTypeId);
+    const taggedEvent = new TaggedLog(l1EventPayload);
+
+    const ephSk = GrumpkinScalar.random();
+
+    const recipient = AztecAddress.random();
+
+    return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
 
   /**
@@ -368,7 +401,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param ivpkM - The master incoming viewing public key.
    * @param preimage - The note preimage.
    */
-  public override computeEncryptedLog(
+  public override computeEncryptedNoteLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: Fr,
@@ -378,10 +411,13 @@ export class ClientExecutionContext extends ViewDataOracle {
   ) {
     const note = new Note(preimage);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedNote(l1NotePayload);
+    const taggedNote = new TaggedLog(l1NotePayload);
 
     const ephSk = GrumpkinScalar.random();
 
+    // @todo This should be populated properly.
+    // Note that this encryption function SHOULD not be used, but is currently used
+    // as oracle for encrypted event logs.
     const recipient = AztecAddress.random();
 
     return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);

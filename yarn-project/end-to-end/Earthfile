@@ -49,8 +49,11 @@ E2E_TEST:
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
-e2e-prover:
-  DO +E2E_TEST --test=./src/e2e_prover --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+e2e-prover-full:
+  DO +E2E_TEST --test=./src/e2e_prover/full --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+
+e2e-prover-with-padding:
+  DO +E2E_TEST --test=./src/e2e_prover/with_padding --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
@@ -159,6 +162,9 @@ e2e-public-to-private-messaging:
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts
+
+e2e-logs:
+  DO +E2E_TEST --test=./src/e2e_event_logs.test.ts
 
 e2e-static-calls:
   DO +E2E_TEST --test=./src/e2e_static_calls.test.ts

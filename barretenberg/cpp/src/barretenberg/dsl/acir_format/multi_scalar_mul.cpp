@@ -1,18 +1,20 @@
 #include "multi_scalar_mul.hpp"
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 namespace acir_format {
 
+using namespace bb;
+
 template <typename Builder> void create_multi_scalar_mul_constraint(Builder& builder, const MultiScalarMul& input)
 {
-    using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
-    using cycle_scalar_ct = typename bb::stdlib::cycle_group<Builder>::cycle_scalar;
-    using field_ct = bb::stdlib::field_t<Builder>;
-    using bool_ct = bb::stdlib::bool_t<Builder>;
+    using cycle_group_ct = stdlib::cycle_group<Builder>;
+    using cycle_scalar_ct = typename stdlib::cycle_group<Builder>::cycle_scalar;
+    using field_ct = stdlib::field_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
 
     std::vector<cycle_group_ct> points;
     std::vector<cycle_scalar_ct> scalars;
@@ -34,7 +36,7 @@ template <typename Builder> void create_multi_scalar_mul_constraint(Builder& bui
     }
 
     // Call batch_mul to multiply the points and scalars and sum the results
-    auto output_point = cycle_group_ct::batch_mul(scalars, points);
+    auto output_point = cycle_group_ct::batch_mul(points, scalars).get_standard_form();
 
     // Add the constraints
     builder.assert_equal(output_point.x.get_witness_index(), input.out_point_x);

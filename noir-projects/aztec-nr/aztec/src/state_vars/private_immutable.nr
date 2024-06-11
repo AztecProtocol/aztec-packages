@@ -3,7 +3,7 @@ use dep::protocol_types::{
     constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash
 };
 
-use crate::context::PrivateContext;
+use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
     lifecycle::create_note, note_getter::{get_note, view_notes}, note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions
@@ -47,7 +47,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     pub fn initialize<N, M>(
         self,
         note: &mut Note,
-        broadcast: bool,
         ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
@@ -55,7 +54,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_new_nullifier(nullifier, 0);
 
-        create_note(self.context, self.storage_slot, note, broadcast, ovpk_m, ivpk_m);
+        create_note(self.context, self.storage_slot, note, ovpk_m, ivpk_m);
     }
     // docs:end:initialize
 
@@ -67,7 +66,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:get_note
 }
 
-impl<Note> PrivateImmutable<Note, ()> {
+impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:is_initialized
     unconstrained pub fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();

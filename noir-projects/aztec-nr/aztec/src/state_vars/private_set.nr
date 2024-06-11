@@ -2,7 +2,7 @@ use dep::protocol_types::{
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis::read_request::ReadRequest,
     grumpkin_point::GrumpkinPoint
 };
-use crate::context::{PrivateContext, PublicContext};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE, lifecycle::{create_note, create_note_hash_from_public, destroy_note},
     note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
@@ -42,11 +42,10 @@ impl<Note> PrivateSet<Note, &mut PrivateContext> {
     pub fn insert<N, M>(
         self,
         note: &mut Note,
-        broadcast: bool,
         ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
-        create_note(self.context, self.storage_slot, note, broadcast, ovpk_m, ivpk_m);
+        create_note(self.context, self.storage_slot, note, ovpk_m, ivpk_m);
     }
     // docs:end:insert
 
@@ -86,7 +85,7 @@ impl<Note> PrivateSet<Note, &mut PrivateContext> {
     // docs:end:get_notes
 }
 
-impl<Note> PrivateSet<Note, ()> {
+impl<Note> PrivateSet<Note, UnconstrainedContext> {
     // docs:start:view_notes
     unconstrained pub fn view_notes<N, M>(
         self,

@@ -1,5 +1,6 @@
-#include "avm_helper.hpp"
+#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
+#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 
 namespace bb::avm_trace {
 
@@ -78,6 +79,19 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
             info("diff_mid:           ", trace.at(i).avm_mem_diff_mid);
             info("diff_lo:            ", trace.at(i).avm_mem_diff_lo);
 
+            info("=======GAS ACCOUNTING================================================================");
+            info("opcode active:      ", trace.at(i).avm_main_gas_cost_active);
+            info("l2_gas_remaining:   ", trace.at(i).avm_main_l2_gas_remaining);
+            info("da_gas_remaining:   ", trace.at(i).avm_main_da_gas_remaining);
+            info("l2_gas_op:          ", trace.at(i).avm_main_l2_gas_op);
+            info("da_gas_op:          ", trace.at(i).avm_main_da_gas_op);
+            info("l2_out_of_gas:      ", trace.at(i).avm_main_l2_out_of_gas);
+            info("da_out_of_gas:      ", trace.at(i).avm_main_da_out_of_gas);
+            info("abs_l2_hi_rem_gas:  ", trace.at(i).avm_main_abs_l2_rem_gas_hi);
+            info("abs_l2_lo_rem_gas:  ", trace.at(i).avm_main_abs_l2_rem_gas_lo);
+            info("abs_da_hi_rem_gas:  ", trace.at(i).avm_main_abs_da_rem_gas_hi);
+            info("abs_da_lo_rem_gas:  ", trace.at(i).avm_main_abs_da_rem_gas_lo);
+
             if (enable_selectors) {
                 info("=======SELECTORS======================================================================");
                 info("sel_op_add:           ", trace.at(i).avm_main_sel_op_add);
@@ -89,6 +103,21 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
             }
             info("\n");
         }
+    }
+}
+
+void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path const& filename)
+{
+    std::ofstream file;
+    file.open(filename);
+
+    for (const auto& row_name : Row::names()) {
+        file << row_name << ",";
+    }
+    file << std::endl;
+
+    for (const auto& row : trace) {
+        file << row << std::endl;
     }
 }
 
