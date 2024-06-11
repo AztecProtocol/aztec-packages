@@ -128,7 +128,7 @@ import {
   TxContext,
   type TxRequest,
   ValidationRequests,
-  type VerificationKeyAsFields,
+  VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';

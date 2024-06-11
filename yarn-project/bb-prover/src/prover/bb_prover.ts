@@ -60,6 +60,7 @@ import { NativeACVMSimulator } from '@aztec/simulator';
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
+import { info } from 'console';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -81,7 +82,7 @@ import {
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractVkData } from '../verification_key/verification_key_data.js';
+import { extractTubeVkData, extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -291,20 +292,21 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const provingResult =
       // Read the proof as fields
-      await generateTubeProof(this.config.bbBinaryPath, 'TubeRollup', this.config.bbWorkingDirectory, logger.debug);
+      await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, 'TubeRollup', logger.debug);
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for TubeRollup: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
     }
-    const proof = await this.readProofAsFields(
+    const _proof = await this.readProofAsFields(
       provingResult.proofPath!,
       'BaseRollupArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
     );
-    logger.info('reading verification key');
-    const verificationKey = await this.getTubeVerificationKey(provingResult.vkPath!);
-    logger.info('verifying proof');
-    await this.verifyTubeProof(proof.binaryProof, verificationKey);
+    // logger.info('reading verification key');
+    // const _verificationKey = await this.getTubeVerificationKey(provingResult.vkPath!);
+    // logger.info('verifying proof');
+
+    // await this.verifyTubeProof(proof.binaryProof, verificationKey);
 
     // Verification key needs to be read from a file
     // return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
@@ -617,9 +619,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.verifyWithKey(verificationKey, proof);
   }
 
-  public async verifyTubeProof(proof: Proof, verification_key: VerificationKeyData) {
-    return await this.verifyWithKey(verification_key, proof);
-  }
+  // public async verifyTubeProof(proof: Proof, verification_key: VerificationKeyData) {
+  //   return await this.verifyWithKey(verification_key, proof);
+  // }
 
   public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
     return await this.verifyWithKeyInternal(proof, verificationKey, verifyAvmProof);
@@ -776,10 +778,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return promise;
   }
 
-  private async getTubeVerificationKey(filePath: string): Promise<VerificationKeyData> {
-    promise = extractVkData(filePath);
-    return promise;
-  }
+  // private async getTubeVerificationKey(filePath: string): Promise<VerificationKeyData> {
+  //   const promise = extractTubeVkData(filePath);
+  //   return promise;
+  // }
 
   /**
    * Parses and returns the proof data stored at the specified directory

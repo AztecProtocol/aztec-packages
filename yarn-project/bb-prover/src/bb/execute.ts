@@ -5,6 +5,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
+import { info } from 'console';
 import * as fs from 'fs/promises';
 import { basename, dirname, join } from 'path';
 
@@ -299,7 +300,7 @@ export async function generateTubeProof(
       log(`${circuitName} BB out - ${message}`);
     };
 
-    log(outputPath);
+    log(`Path where I need a proof ${outputPath}`);
 
     const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
     const duration = timer.ms();

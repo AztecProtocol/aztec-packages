@@ -7,7 +7,7 @@ import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js'
 
 const logger = createDebugLogger('aztec:bb-prover-base-rollup');
 
-describe('prover/bb_prover/base-rollup', () => {
+describe('prover/bb_prover/tube-rollup', () => {
   let context: TestContext;
   let prover: BBNativeRollupProver;
 
@@ -77,7 +77,7 @@ describe('prover/bb_prover/base-rollup', () => {
     //   paddingTxPublicInputsAndProof.verificationKey,
     // );
     logger.verbose('Proving tube rollups');
-    const proofOutputs = await context.prover.getTubeRollupProof();
-    logger.verbose("boom");
+    await context.prover.getTubeRollupProof!();
+    logger.verbose('boom');
   });
 });

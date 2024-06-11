@@ -169,6 +169,8 @@ export class TestCircuitProver implements ServerCircuitProver {
     return Promise.resolve(rootParityInput);
   }
 
+  public async getTubeRollupProof(): Promise<void> {}
+
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -234,7 +236,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  // LONDONTODO(Rollup): make rollup proof 
+  // LONDONTODO(Rollup): make rollup proof
   // LONDONTODO(Rollup): same as root rollup
   public async getRootRollupProof(
     input: RootRollupInputs,

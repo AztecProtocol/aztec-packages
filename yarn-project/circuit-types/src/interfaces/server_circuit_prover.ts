@@ -55,7 +55,7 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
-  getBaseRollupProof2(): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
+  getTubeRollupProof?(): Promise<void>;
 
   /**
    * Creates a proof for the given input.

@@ -51,8 +51,14 @@ export const getEnvironmentConfig = async (logger: DebugLogger) => {
       : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/', BB_RELEASE_DIR)}/bb`;
     await fs.access(expectedBBPath, fs.constants.R_OK);
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
-    const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
-    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    const bbWorkingDirectory = BB_BINARY_PATH
+      ? BB_BINARY_PATH
+      : `${path.resolve(
+          path.dirname(fileURLToPath(import.meta.url)),
+          '../../../../barretenberg/',
+          BB_RELEASE_DIR,
+        )}/proofs`;
+    // await fs.mkdir(bbWorkingDirectory, { recursive: true });
     logger.verbose(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
 
     const expectedAcvmPath = ACVM_BINARY_PATH

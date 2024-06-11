@@ -3,7 +3,7 @@ import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+import { TUBE_VERIFICATION_KEY_LENGTH_IN_FIELDS, VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -134,6 +134,52 @@ export class VerificationKeyAsFields {
   }
 }
 
+// TODO: unify, but in Honk we don't have a hash
+export const TUBE_CIRCUIT_SIZE_INDEX = 2;
+export const TUBE_CIRCUIT_PUBLIC_INPUTS_INDEX = 3;
+export const TUBE_CIRCUIT_RECURSIVE_INDEX = 4;
+
+/**
+ * Provides a 'fields' representation of a circuit's verification key
+ */
+export class TubeVerificationKeyAsFields {
+  constructor(public key: Tuple<Fr, typeof TUBE_VERIFICATION_KEY_LENGTH_IN_FIELDS>) {}
+
+  public get numPublicInputs() {
+    return Number(this.key[TUBE_CIRCUIT_PUBLIC_INPUTS_INDEX]);
+  }
+
+  public get circuitSize() {
+    return Number(this.key[TUBE_CIRCUIT_SIZE_INDEX]);
+  }
+
+  // ?
+  public get isRecursive() {
+    return this.key[TUBE_CIRCUIT_RECURSIVE_INDEX] == Fr.ONE;
+  }
+
+  /**
+   * Serialize as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.key);
+  }
+  toFields() {
+    return [...this.key];
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   * @returns The VerificationKeyAsFields.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TubeVerificationKeyAsFields {
+    const reader = BufferReader.asReader(buffer);
+    return new TubeVerificationKeyAsFields(reader.readArray(TUBE_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr));
+  }
+}
+
 export class VerificationKey {
   constructor(
     /**
@@ -254,6 +300,50 @@ export class VerificationKeyData {
 
   public clone() {
     return VerificationKeyData.fromBuffer(this.toBuffer());
+  }
+}
+
+export class TubeVerificationKeyData {
+  constructor(public readonly keyAsFields: TubeVerificationKeyAsFields, public readonly keyAsBytes: Buffer) {}
+
+  public get numPublicInputs() {
+    return this.keyAsFields.numPublicInputs;
+  }
+
+  public get circuitSize() {
+    return this.keyAsFields.circuitSize;
+  }
+
+  public get isRecursive() {
+    return this.keyAsFields.isRecursive;
+  }
+
+  /**
+   * Serialize as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.keyAsFields, this.keyAsBytes.length, this.keyAsBytes);
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): TubeVerificationKeyData {
+    const reader = BufferReader.asReader(buffer);
+    const verificationKeyAsFields = reader.readObject(TubeVerificationKeyAsFields);
+    const length = reader.readNumber();
+    const bytes = reader.readBytes(length);
+    return new TubeVerificationKeyData(verificationKeyAsFields, bytes);
+  }
+
+  static fromString(str: string): TubeVerificationKeyData {
+    return TubeVerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  public clone() {
+    return TubeVerificationKeyData.fromBuffer(this.toBuffer());
   }
 }
 
