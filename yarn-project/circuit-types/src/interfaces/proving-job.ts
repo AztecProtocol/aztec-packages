@@ -31,6 +31,12 @@ export type PublicInputsAndRecursiveProof<T> = {
   verificationKey: VerificationKeyData;
 };
 
+export type PublicInputsAndTubeProof<T> = {
+  inputs: T;
+  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  verificationKey: VerificationKeyData;
+};
+
 export function makePublicInputsAndRecursiveProof<T>(
   inputs: T,
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,

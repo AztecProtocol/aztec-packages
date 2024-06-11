@@ -34,7 +34,8 @@ describe('prover/bb_prover/base-rollup', () => {
       version,
     };
 
-    const paddingTxPublicInputsAndProof = await context.prover.getEmptyPrivateKernelProof(inputs);
+
+    const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
     const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
@@ -50,4 +51,5 @@ describe('prover/bb_prover/base-rollup', () => {
     logger.verbose('Verifying base rollups');
     await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
   });
+
 });

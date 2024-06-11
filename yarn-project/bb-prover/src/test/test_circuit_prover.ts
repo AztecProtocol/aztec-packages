@@ -106,6 +106,25 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  public async getEmptyTubeProof(
+    inputs: PrivateKernelEmptyInputData,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+    const emptyNested = new EmptyNestedData(
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VERIFICATION_KEYS['EmptyNestedArtifact'],
+    );
+    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
+    const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, PrivateKernelEmptyArtifact);
+    const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
+
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFake(),
+    );
+  }
+
   /**
    * Simulates the base parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.

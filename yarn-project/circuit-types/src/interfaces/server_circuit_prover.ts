@@ -95,6 +95,11 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
 
+  getEmptyTubeProof(
+    inputs: PrivateKernelEmptyInputData,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
+
   /**
    * Create a proof for the AVM circuit.
    * @param inputs - Inputs to the AVM circuit.

@@ -97,6 +97,7 @@ export class ConstantRollupData {
 export class BaseRollupInputs {
   constructor(
     /** Data of the 2 kernels that preceded this base rollup circuit. */
+    // LONDONTODO(Rollup): KernelData now contains Honk proofs
     public kernelData: KernelData,
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,

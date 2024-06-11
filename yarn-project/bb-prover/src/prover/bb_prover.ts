@@ -327,6 +327,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return emptyPrivateKernelProof;
   }
 
+  public async getEmptyTubeProof(
+    inputs: PrivateKernelEmptyInputData,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+    const emptyNested = await this.getEmptyNestedProof();
+    const emptyPrivateKernelProof = await this.getEmptyTubeProofFromEmptyNested(
+      PrivateKernelEmptyInputs.from({
+        ...inputs,
+        emptyNested,
+      }),
+    );
+
+    return emptyPrivateKernelProof;
+  }
+
   private async getEmptyNestedProof(): Promise<EmptyNestedData> {
     const inputs = new EmptyNestedCircuitInputs();
     const { proof } = await this.createRecursiveProof(
@@ -346,6 +360,24 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     return new EmptyNestedData(proof, verificationKey.keyAsFields);
   }
+
+  private async getEmptyTubeProofFromEmptyNested(
+    inputs: PrivateKernelEmptyInputs,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      inputs,
+      'PrivateKernelEmptyArtifact',
+      NESTED_RECURSIVE_PROOF_LENGTH,
+      convertPrivateKernelEmptyInputsToWitnessMap,
+      convertPrivateKernelEmptyOutputsFromWitnessMap,
+    );
+    info(`proof: ${proof.proof}`);
+    const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
+    await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
 
   private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
