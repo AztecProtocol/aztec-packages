@@ -327,7 +327,11 @@ contract Token {
         let to_ivpk = header.get_ivpk_m(&mut context, to);
 
         let amount = U128::from_integer(amount);
+        // docs:start:increase_private_balance
+        // docs:start:encrypted
         storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
+        // docs:end:encrypted
+        // docs:end:increase_private_balance
         storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
     }
     // docs:end:transfer
