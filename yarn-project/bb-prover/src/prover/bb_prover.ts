@@ -287,7 +287,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     //   convertBaseRollupOutputsFromWitnessMap,
     // );
 
-    // // LONDONTODO(Tube): this is verifier instance, how?!
+    // // LONDONTODO(Tube): public inputs?
     // const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
 
     const provingResult =
@@ -297,19 +297,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       logger.error(`Failed to generate proof for TubeRollup: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
     }
-    const _proof = await this.readProofAsFields(
-      provingResult.proofPath!,
-      'BaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
-    );
-    // logger.info('reading verification key');
-    // const _verificationKey = await this.getTubeVerificationKey(provingResult.vkPath!);
-    // logger.info('verifying proof');
 
-    // await this.verifyTubeProof(proof.binaryProof, verificationKey);
-
-    // Verification key needs to be read from a file
-    // return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+    // TODO(Mara) : connect with Honk proving
   }
 
   /**
