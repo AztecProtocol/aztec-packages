@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718097641875,
+  "lastUpdate": 1718099217630,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -33580,6 +33580,78 @@ window.BENCHMARK_DATA = {
             "value": 163608866,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163608866 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4b454386a35f4b0cd4c6a9b8003c55e55e50b592",
+          "message": "feat: flows and tests for the tube component (#6934)\n\nAdd a client ivc proving flow as well as flows for proving the tube\r\ncircuit; required adding MSGPACK serialisation to relevant data\r\nstructures in the codebase.",
+          "timestamp": "2024-06-11T09:34:51Z",
+          "tree_id": "74e07c92b1ea8bb581d5ba5c58c905fbd53d4b2a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4b454386a35f4b0cd4c6a9b8003c55e55e50b592"
+        },
+        "date": 1718099215384,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15501.261246000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10789.071911000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5525.893190000033,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5103.445881000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48116.324032,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48116325000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16878.20517,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16878205000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5166585776,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5166585776 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197874228,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197874228 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4263980685,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4263980685 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 176269104,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 176269104 ns\nthreads: 1"
           }
         ]
       }
