@@ -2,7 +2,7 @@ import { type Tx } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import type { AztecKVStore } from '@aztec/kv-store';
 
 import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -28,7 +28,6 @@ export interface PubSubLibp2p extends Libp2p {
     pubsub: PubSub<GossipsubEvents>;
   };
 }
-
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
  * @param privateKey - Optional peer ID private key as hex string
@@ -130,11 +129,14 @@ export class LibP2PService implements P2PService {
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
     txPool: TxPool,
+    store: AztecKVStore,
   ) {
-    const { tcpListenAddress, minPeerCount, maxPeerCount } = config;
+    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
+    // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
+    const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
 
-    const datastore = new AztecDatastore(AztecLmdbStore.open());
+    const datastore = new AztecDatastore(store);
 
     // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
     // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
@@ -155,17 +157,27 @@ export class LibP2PService implements P2PService {
       peerId,
       addresses: {
         listen: [bindAddrTcp],
+        announce: [announceAddrTcp],
       },
       transports: [
         tcp({
           maxConnections: config.maxPeerCount,
+          // socket option: the maximum length of the queue of pending connections
+          // https://nodejs.org/dist/latest-v18.x/docs/api/net.html#serverlisten
+          // it's not safe if we increase this number
+          backlog: 5,
+          closeServerOnMaxConnections: {
+            closeAbove: maxPeerCount ?? Infinity,
+            listenBelow: maxPeerCount ?? Infinity,
+          },
         }),
       ],
       datastore,
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: minPeerCount,
+        // DOCS: There is no way to turn off autodial other than setting minConnections to 0
+        minConnections: config.minPeerCount,
         maxConnections: maxPeerCount,
       },
       services: {

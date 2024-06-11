@@ -39,7 +39,7 @@ export const createP2PClient = async (
         config.tcpAnnounceAddress = tcpAnnounceAddress;
       } else {
         throw new Error(
-          `Invalid announceTcpAddress provided: ${splitTcpAnnounceAddress}. Expected format: <addr>:<port>`,
+          `Invalid announceTcpAddress provided: ${configTcpAnnounceAddress}. Expected format: <addr>:<port>`,
         );
       }
     }
@@ -59,7 +59,7 @@ export const createP2PClient = async (
     // Create peer discovery service
     const peerId = await createLibP2PPeerId(config.peerIdPrivateKey);
     const discoveryService = new DiscV5Service(peerId, config);
-    p2pService = await LibP2PService.new(config, discoveryService, peerId, txPool);
+    p2pService = await LibP2PService.new(config, discoveryService, peerId, txPool, store);
   } else {
     p2pService = new DummyP2PService();
   }
