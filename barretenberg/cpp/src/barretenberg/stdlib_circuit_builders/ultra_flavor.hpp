@@ -37,12 +37,12 @@ class UltraFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 45;
+    static constexpr size_t NUM_ALL_ENTITIES = 46;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 9;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 10;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -149,6 +149,7 @@ class UltraFlavor {
                               sorted_accum,       // column 4
                               z_perm,             // column 5
                               z_lookup,           // column 6
+                              lookup_inverses,    // column 6
                               lookup_read_counts, // column 6
                               lookup_read_tags)   // column 6
 
@@ -224,6 +225,7 @@ class UltraFlavor {
                               sorted_accum,       // column 29
                               z_perm,             // column 30
                               z_lookup,           // column 31
+                              lookup_inverses,    // column 31
                               lookup_read_counts, // column 6
                               lookup_read_tags,   // column 6
                               table_1_shift,      // column 32
@@ -281,6 +283,7 @@ class UltraFlavor {
                              sorted_accum,
                              z_perm,
                              z_lookup,
+                             lookup_inverses,
                              lookup_read_counts,
                              lookup_read_tags };
         };
@@ -297,7 +300,16 @@ class UltraFlavor {
 
         auto get_witness()
         {
-            return RefArray{ w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup, lookup_read_counts, lookup_read_tags };
+            return RefArray{ w_l,
+                             w_r,
+                             w_o,
+                             w_4,
+                             sorted_accum,
+                             z_perm,
+                             z_lookup,
+                             lookup_inverses,
+                             lookup_read_counts,
+                             lookup_read_tags };
         };
         auto get_to_be_shifted()
         {
@@ -666,6 +678,7 @@ class UltraFlavor {
             w_4 = "W_4";
             z_perm = "Z_PERM";
             z_lookup = "Z_LOOKUP";
+            lookup_inverses = "LOOKUP_INVERSES";
             sorted_accum = "SORTED_ACCUM";
             lookup_read_counts = "LOOKUP_READ_COUNTS";
             lookup_read_tags = "LOOKUP_READ_TAGS";
@@ -767,6 +780,7 @@ class UltraFlavor {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
+        Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
@@ -820,6 +834,7 @@ class UltraFlavor {
             lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
@@ -858,6 +873,7 @@ class UltraFlavor {
             serialize_to_buffer(lookup_read_counts_comm, proof_data);
             serialize_to_buffer(lookup_read_tags_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
             serialize_to_buffer(z_lookup_comm, proof_data);
             for (size_t i = 0; i < log_n; ++i) {

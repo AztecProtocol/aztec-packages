@@ -113,6 +113,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
+
+    witness_comms.lookup_inverses =
+        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
+
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
         witness_comms.calldata_inverses =

@@ -40,12 +40,12 @@ class MegaFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 60;
+    static constexpr size_t NUM_ALL_ENTITIES = 61;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 19;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 20;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -182,6 +182,7 @@ class MegaFlavor {
                               sorted_accum,            // column 4
                               z_perm,                  // column 5
                               z_lookup,                // column 6
+                              lookup_inverses,         // column 6
                               lookup_read_counts,      // column 6
                               lookup_read_tags,        // column 6
                               ecc_op_wire_1,           // column 7
@@ -659,6 +660,7 @@ class MegaFlavor {
             w_4 = "W_4";
             z_perm = "Z_PERM";
             z_lookup = "Z_LOOKUP";
+            lookup_inverses = "LOOKUP_INVERSES";
             lookup_read_counts = "LOOKUP_READ_COUNTS";
             lookup_read_tags = "LOOKUP_READ_TAGS";
             sorted_accum = "SORTED_ACCUM";
@@ -754,6 +756,7 @@ class MegaFlavor {
                 this->sorted_accum = commitments.sorted_accum;
                 this->z_perm = commitments.z_perm;
                 this->z_lookup = commitments.z_lookup;
+                this->lookup_inverses = commitments.lookup_inverses;
                 this->lookup_read_counts = commitments.lookup_read_counts;
                 this->lookup_read_tags = commitments.lookup_read_tags;
                 this->ecc_op_wire_1 = commitments.ecc_op_wire_1;
@@ -800,6 +803,7 @@ class MegaFlavor {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
+        Commitment lookup_inverses_comm;
         Commitment lookup_read_counts_comm;
         Commitment lookup_read_tags_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
@@ -858,6 +862,7 @@ class MegaFlavor {
             lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
@@ -901,6 +906,7 @@ class MegaFlavor {
             serialize_to_buffer(lookup_read_counts_comm, proof_data);
             serialize_to_buffer(lookup_read_tags_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
             serialize_to_buffer(z_lookup_comm, proof_data);
             for (size_t i = 0; i < log_n; ++i) {
