@@ -15,6 +15,16 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 
+// LONDONTODO think about this type harder
+// LONDONTODO eventually we will read all these VKs from the data tree instead of passing them
+export type ClientIvcProof = {
+  instVkBuffer: Buffer;
+  pgAccBuffer: Buffer;
+  clientIvcProofBuffer: Buffer;
+  translatorVkBuffer: Buffer;
+  eccVkBuffer: Buffer;
+}
+
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
  * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
@@ -28,7 +38,10 @@ export type KernelProofOutput<PublicInputsType> = {
    * The zk-SNARK proof for the kernel execution.
    */
   // LONDONTODO(ClientIVCProofSize)
+  // LONDONTODO: this is no longer used with client ivc proofs
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+
+  clientIvcProof?: ClientIvcProof;
 
   verificationKey: VerificationKeyAsFields;
 
@@ -104,7 +117,7 @@ export interface ProofCreator {
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>>;
 
-  createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>>;
+  createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
 
   /**
    * Creates a proof for an app circuit.

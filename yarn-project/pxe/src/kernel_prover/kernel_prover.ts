@@ -192,13 +192,9 @@ export class KernelProver {
     );
 
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-    
-    // LONDONTODO this is hacky but necessary for now to meet the requirements of rest of stack
-    ivcProof.publicInputs = tailOutput.publicInputs;
-    // ivcProof.proof = ...;
-    // ivcProof.verificationKey = ...;
-    ivcProof.outputWitness = tailOutput.outputWitness;
-    return ivcProof;
+    // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
+    tailOutput.clientIvcProof = ivcProof;
+    return tailOutput;
   }
 
   private needsReset(executionStack: ExecutionResult[], output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {

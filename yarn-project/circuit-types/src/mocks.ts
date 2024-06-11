@@ -137,6 +137,7 @@ export const mockTx = (
   const tx = new Tx(
     data,
     makeEmptyProof(),
+    undefined, // LONDONTODO need just one proof object
     noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,

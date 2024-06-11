@@ -1,4 +1,4 @@
-import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
+import { ClientIvcProof, type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
@@ -74,15 +74,11 @@ export class BBNativeProofCreator implements ProofCreator {
     private log = createDebugLogger('aztec:bb-native-prover'),
   ) { }
 
-  private async createIvcProof(
+  private async _createClientIvcProof(
     directory: string,
     acirs: Buffer[],
     witnessStack: WitnessMap[],
-  ): Promise<{
-    // LONDONTODO(ClientIVCProofSize)
-    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-    verificationKey: VerificationKeyAsFields;
-  }> {
+  ): Promise<ClientIvcProof> {
     await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
     await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
     const provingResult = await executeBbClientIvcProof(
@@ -98,28 +94,23 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(provingResult.reason);
     }
 
-    // LONDONTODO do we cache this?
-    const vkData = await extractVkData(directory);
-    // LONDONTODO we pass App but this is a total hack
-    // LONDONTODO(ClientIVCProofSize)
-    const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, 'App', vkData);
+    const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
+      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(path => fs.readFile(`${directory}/${path}`))
+    );
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.duration,
       eventName: 'circuit-proving',
-      circuitSize: vkData.circuitSize,
-      numPublicInputs: vkData.numPublicInputs,
-    } as CircuitProvingStats);
+    });
 
-    return { proof, verificationKey: vkData.keyAsFields }; // LONDONTODO(Client): What is this vk now?
+    return { instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer }; // LONDONTODO(Client): What is this vk now?
   }
 
-  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     const operation = async (directory: string) => {
-      return await this.createIvcProof(directory, acirs, witnessStack);
+      return await this._createClientIvcProof(directory, acirs, witnessStack);
     };
-    const x = await runInDirectory(this.bbWorkingDirectory, operation);
-    return { publicInputs: {} as any, ...x, outputWitness: new Map() };
+    return await runInDirectory(this.bbWorkingDirectory, operation);
   }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
@@ -462,6 +453,7 @@ export class BBNativeProofCreator implements ProofCreator {
       fs.readFile(`${filePath}/${PROOF_FILENAME}`),
       fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
     ]);
+    // LONDONTODO we want to parse out the right bytes from proof
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
     const numPublicInputs =

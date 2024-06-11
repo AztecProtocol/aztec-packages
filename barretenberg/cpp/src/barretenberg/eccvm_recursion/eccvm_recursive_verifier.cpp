@@ -18,6 +18,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1007): Finish this
 template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
+    // LONDONTODO call native eccvm verifier if we want to verify data is being passed correctly
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
     RelationParameters<FF> relation_parameters;
 
@@ -121,6 +122,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         univariate_opening_verified =
             PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
     }
+    // LONDONTODO consider adding check circuit here
+    // To confirm ECCVM passes
     ASSERT(sumcheck_verified && multivariate_opening_verified && univariate_opening_verified);
 }
 

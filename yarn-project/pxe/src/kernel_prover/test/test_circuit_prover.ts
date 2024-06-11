@@ -1,4 +1,4 @@
-import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
+import { ClientIvcProof, type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -32,13 +32,13 @@ export class TestProofCreator implements ProofCreator {
   constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
 
   // LONDONTODO hacky for offsite
-  createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve({
-      publicInputs: {} as any,
-      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
-      // LONDONTODO reconsider jamming this everywhere
-      outputWitness: new Map()
+      instVkBuffer: Buffer.from(''),
+      pgAccBuffer: Buffer.from(''),
+      clientIvcProofBuffer: Buffer.from(''),
+      translatorVkBuffer: Buffer.from(''),
+      eccVkBuffer: Buffer.from('')
     });
   }
 

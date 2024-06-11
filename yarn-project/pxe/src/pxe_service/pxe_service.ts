@@ -689,6 +689,7 @@ export class PXEService implements PXE {
     const tx = new Tx(
       publicInputs,
       proof.binaryProof,
+      undefined, // LONDONTODO we need to dedupe this proof
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,

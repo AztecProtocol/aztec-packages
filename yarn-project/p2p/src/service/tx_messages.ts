@@ -134,6 +134,7 @@ export function fromTxMessage(buffer: Buffer): Tx {
   return new Tx(
     publicInputs.obj!,
     proof.obj!,
+    undefined, // LONDONTODO need just one proof object
     noteEncryptedLogs.obj,
     encryptedLogs.obj,
     unencryptedLogs.obj,
