@@ -1,5 +1,6 @@
 #include "bigint_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
@@ -158,52 +159,6 @@ std::tuple<BigIntOperation, BigIntToLeBytes> generate_big_int_op_constraint_with
 
     witness_values.push_back(value);
     return { constraint, to_bytes };
-}
-
-AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices()
-{
-    return AcirFormatOriginalOpcodeIndices{
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_constraints = {},
-        .sha256_compression = {},
-        .schnorr_constraints = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_constraints = {},
-        .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .block_constraints = {},
-    };
-}
-
-void mock_opcode_indices(AcirFormat& constraint_system)
-{
-    size_t current_opcode = 0;
-    for (size_t i = 0; i < constraint_system.bigint_operations.size(); i++) {
-        constraint_system.original_opcode_indices.bigint_operations.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.bigint_from_le_bytes_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.bigint_from_le_bytes_constraints.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.bigint_to_le_bytes_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.push_back(current_opcode++);
-    }
-    constraint_system.num_acir_opcodes = static_cast<uint32_t>(current_opcode);
 }
 
 // Based on TestBigIntConstraintSimple, we generate constraints for multiple operations at the same time.
