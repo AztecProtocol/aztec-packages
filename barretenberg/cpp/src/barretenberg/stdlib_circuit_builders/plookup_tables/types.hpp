@@ -268,6 +268,53 @@ struct MultiTable {
 
 // }
 
+struct LookupHashTable {
+    using FF = bb::fr;
+    using Key = std::array<FF, 3>;
+    using Value = size_t;
+    struct HashFunction {
+        FF mult_const;
+        FF const_sqr;
+
+        HashFunction()
+            : mult_const(FF(uint256_t(0x1337, 0x1336, 0x1335, 0x1334)))
+            , const_sqr(mult_const.sqr())
+        {}
+
+        size_t operator()(const Key& entry) const
+        {
+            FF result = entry[0] + mult_const * entry[1] + const_sqr * entry[2];
+            return static_cast<size_t>(result.reduce_once().data[0]);
+        }
+    };
+
+    std::unordered_map<Key, Value, HashFunction> index_map;
+
+    // Default constructor
+    LookupHashTable() = default;
+
+    void initialize(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3)
+    {
+        for (size_t i = 0; i < column_1.size(); ++i) {
+            index_map[{ column_1[i], column_2[i], column_3[i] }] = i;
+        }
+    }
+
+    Value operator[](const Key& key) const
+    {
+        auto it = index_map.find(key);
+        if (it != index_map.end()) {
+            return it->second;
+        } else {
+            info("LookupHashTable: Key not found!");
+            ASSERT(false);
+            return 0;
+        }
+    }
+
+    bool operator==(const LookupHashTable& other) const = default;
+};
+
 /**
  * @brief A basic table from which we can perform lookups (for example, an xor table)
  * @details Also stores the lookup gate data for all lookups performed on this table
@@ -315,6 +362,10 @@ struct BasicTable {
     std::vector<bb::fr> column_3;
     std::vector<LookupEntry> lookup_gates; // wire data for all lookup gates created for lookups on this table
 
+    LookupHashTable index_map;
+
+    void initialize_index_map() { index_map.initialize(column_1, column_2, column_3); }
+
     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
 
     bool operator==(const BasicTable& other) const = default;
@@ -346,43 +397,6 @@ template <class DataType> class ReadData {
     //   private:
     // Container for the lookup accumulators; 0th index of each column contains full accumulated value
     std::array<std::vector<DataType>, 3> columns;
-};
-
-struct LookupHashTable {
-    using FF = bb::fr;
-    using Key = std::array<FF, 3>;
-    using Value = size_t;
-    struct HashFunction {
-        static constexpr FF mult_const = FF(uint256_t(0x1337, 0x1336, 0x1335, 0x1334));
-        static constexpr FF const_sqr = mult_const.sqr();
-
-        size_t operator()(const Key& entry) const
-        {
-            FF result = entry[0] + mult_const * entry[1] + const_sqr * entry[2];
-            return static_cast<size_t>(result.reduce_once().data[0]);
-        }
-    };
-
-    std::unordered_map<Key, Value, HashFunction> index_map;
-
-    LookupHashTable(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3)
-    {
-        for (size_t i = 0; i < column_1.size(); ++i) {
-            index_map[{ column_1[i], column_2[i], column_3[i] }] = i;
-        }
-    }
-
-    // Value find(Key key) { return index_map[key]; }
-    Value find(const Key& key) const
-    {
-        auto it = index_map.find(key);
-        if (it != index_map.end()) {
-            return it->second;
-        } else {
-            info(" KEY NOT FOUND!");
-            return 0;
-        }
-    }
 };
 
 } // namespace bb::plookup

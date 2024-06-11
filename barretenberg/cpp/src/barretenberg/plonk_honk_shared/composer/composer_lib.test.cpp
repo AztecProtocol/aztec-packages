@@ -44,6 +44,7 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     using Builder = UltraCircuitBuilder;
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
+    using Polynomial = typename Flavor::Polynomial;
     Builder builder;
 
     uint256_t left_val = 1 & 0xffffffffULL;
@@ -68,19 +69,32 @@ TEST_F(ComposerLibTests, LookupReadCounts)
 
     size_t circuit_size = 8192;
 
-    // UltraProver prover(builder);
-    auto read_counts = construct_lookup_read_counts<Flavor>(builder, circuit_size);
-    // info("circuit_size = ", prover.instance->proving_key.circuit_size);
+    Polynomial read_counts{ circuit_size };
+    Polynomial read_tags{ circuit_size };
+
+    construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder);
+
+    // size_t idx = 0;
+    // for (auto& val : read_counts) {
+    //     if (val != 0) {
+    //         info("idx = ", idx);
+    //         info(val);
+    //     }
+    //     ++idx;
+    // }
 
     size_t idx = 0;
-    for (auto& val : read_counts) {
-        if (val != 0) {
-            info("idx = ", idx);
-            info(val);
+    for (auto [count, tag] : zip_view(read_counts, read_tags)) {
+        if (idx == 0) {
+            EXPECT_EQ(count, 5);
+            EXPECT_EQ(tag, 1);
+        } else if (idx == 69) {
+            EXPECT_EQ(count, 1);
+            EXPECT_EQ(tag, 1);
+        } else {
+            EXPECT_EQ(count, 0);
+            EXPECT_EQ(tag, 0);
         }
-        ++idx;
+        idx++;
     }
-
-    EXPECT_EQ(read_counts[0], 5);
-    EXPECT_EQ(read_counts[64 + 5], 1);
 }
