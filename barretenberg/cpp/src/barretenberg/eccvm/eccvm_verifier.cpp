@@ -21,9 +21,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
-        if (!comm.on_curve()) {
-            comm.self_set_infinity();
-        }
     }
 
     // Get challenge for sorted list batching and wire four memory records
