@@ -4,7 +4,7 @@ mod ecdsa_public_key_note;
 // The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, PrivateImmutable};
-    use dep::aztec::encrypted_logs::encrypted_note_emission::with_az_enc;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
 
     use dep::aztec::protocol_types::abis::call_context::CallContext;
     use dep::std;
@@ -35,7 +35,7 @@ contract EcdsaAccount {
         // important.
 
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
-        storage.public_key.initialize(&mut pub_key_note).emit(with_az_enc(&mut context, this, this));
+        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt(&mut context, this, this));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
