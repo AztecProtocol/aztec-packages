@@ -12,6 +12,19 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 The `limit` parameter in `NoteGetterOptions` and `NoteViewerOptions` is now required to be a compile-time constant. This allows performing loops over this value, which leads to reduced circuit gate counts when setting a `limit` value.
 
+### [Aztec.nr] emit encrypted logs
+
+Emitting or broadcasting encrypted notes are no longer done as part of the note creation, but must explicitly be either emitted or discarded instead.
+
+```diff
++ use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt, encode_and_encrypt_with_keys};
+
+- storage.balances.sub(from, amount);
++ storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from, from));
++ storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
++ storage.balances.sub(from, amount).discard();
+```
+
 ## 0.42.0
 
 ### [Aztec.nr] Unconstrained Context

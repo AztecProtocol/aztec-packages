@@ -1,4 +1,5 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
@@ -16,12 +17,16 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <tuple>
 #include <variant>
 #include <vector>
 
 using namespace bb;
+
+// Set in BB's main.cpp.
+std::filesystem::path avm_dump_trace_path;
 
 namespace bb::avm_trace {
 
@@ -56,8 +61,14 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     }
 
     auto instructions = Deserialization::parse(bytecode);
-    std::vector<FF> returndata{};
+    vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
+
+    std::vector<FF> returndata;
     auto trace = gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    if (!avm_dump_trace_path.empty()) {
+        info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
+        dump_trace_as_csv(trace, avm_dump_trace_path);
+    }
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
@@ -105,7 +116,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
  */
 VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_inputs_vec)
 {
-    VmPublicInputs public_inputs = {};
+    VmPublicInputs public_inputs;
 
     // Case where we pass in empty public inputs - this will be used in tests where they are not required
     if (public_inputs_vec.empty()) {
@@ -291,10 +302,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                       ExecutionHints const& execution_hints)
 
 {
+    vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    AvmTraceBuilder trace_builder(public_inputs, execution_hints);
+    uint32_t start_side_effect_counter =
+        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
+                                   : 0;
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -302,6 +317,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     uint32_t pc = 0;
     while ((pc = trace_builder.getPc()) < instructions.size()) {
         auto inst = instructions.at(pc);
+        debug("[@" + std::to_string(pc) + "] " + inst.to_string());
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
         // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
@@ -650,6 +666,16 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(2)),
                                            std::get<uint32_t>(inst.operands.at(3)),
                                            std::get<uint32_t>(inst.operands.at(4)));
+            break;
+        case OpCode::ECADD:
+            trace_builder.op_ec_add(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)),
+                                    std::get<uint32_t>(inst.operands.at(4)),
+                                    std::get<uint32_t>(inst.operands.at(5)),
+                                    std::get<uint32_t>(inst.operands.at(6)),
+                                    std::get<uint32_t>(inst.operands.at(7)));
             break;
         case OpCode::REVERT:
             trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
