@@ -46,6 +46,14 @@ class ClientIVC {
         HonkProof decider_proof;
         GoblinProof goblin_proof;
 
+        size_t size() const
+        {
+            info("folding proof size: ", folding_proof.size());
+            info("decider proof size: ", decider_proof.size());
+            info("goblin  proof size: ", goblin_proof.size());
+            return folding_proof.size() + decider_proof.size() + goblin_proof.size();
+        }
+
         MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
 
