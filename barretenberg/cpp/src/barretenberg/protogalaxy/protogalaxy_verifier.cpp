@@ -177,11 +177,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 }
 
 template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 2>>;
-template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 2>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<MegaFlavor, 2>>;
 
-template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 3>>;
-template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 3>>;
-
-template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 4>>;
-template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 4>>;
 } // namespace bb

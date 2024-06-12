@@ -4,7 +4,7 @@
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
@@ -44,6 +44,7 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_(Circuit& circuit, bool is_structured = false)
     {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
+        circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
 
         // If using a structured trace, ensure that no block exceeds the fixed size

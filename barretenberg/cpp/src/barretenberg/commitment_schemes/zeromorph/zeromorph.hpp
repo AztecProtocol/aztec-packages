@@ -40,8 +40,9 @@ template <typename PCS> class ZeroMorphProver_ {
     using Polynomial = bb::Polynomial<FF>;
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
-    // (Then, eventually, set it based on the real SRS). For now we set it to be large but more or less arbitrary.
-    static const size_t N_max = 1 << 23;
+    // (Then, eventually, set it based on the real SRS). For now we set it to be larger then the Client IVC recursive
+    // verifier circuit.
+    static const size_t N_max = 1 << 25;
 
   public:
     /**
@@ -198,7 +199,7 @@ template <typename PCS> class ZeroMorphProver_ {
      *
      * and concatenation_term = \sum_{i=0}^{num_chunks_per_group}(x^{i * min_N + 1}concatenation_groups_batched_{i})
      *
-     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * @note The concatenation term arises from an implementation detail in the Translator and is not part of the
      * conventional ZM protocol
      * @param input_polynomial
      * @param quotients
@@ -250,7 +251,7 @@ template <typename PCS> class ZeroMorphProver_ {
         // If necessary, add to Z_x the contribution related to concatenated polynomials:
         // \sum_{i=0}^{num_chunks_per_group}(x^{i * min_n + 1}concatenation_groups_batched_{i}).
         // We are effectively reconstructing concatenated polynomials from their chunks now that we know x
-        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
+        // Note: this is an implementation detail related to Translator and is not part of the standard protocol.
         if (!concatenation_groups_batched.empty()) {
             size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
             auto x_to_minicircuit_N =
@@ -507,7 +508,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
      *  concatenation_term = \sum{i=0}^{o-1}\sum_{j=0}^{num_chunks_per_group}(rho^{m+l+i} * x^{j * min_N + 1}
      *                       * concatenation_groups_commitments_{i}_{j})
      *
-     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * @note The concatenation term arises from an implementation detail in the Translator and is not part of the
      * conventional ZM protocol
      * @param first_g1 first element in the SRS
      * @param f_commitments Commitments to unshifted polynomials [f_i]
@@ -541,12 +542,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
         // Add contribution: -v * x * \Phi_n(x) * [1]_1
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = x_challenge.get_context();
-            scalars.emplace_back(FF(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
-        } else {
-            scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
-        }
+        scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
+
         commitments.emplace_back(first_g1);
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
@@ -565,7 +562,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         // If applicable, add contribution from concatenated polynomial commitments
-        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
+        // Note: this is an implementation detail related to Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
             size_t CONCATENATION_GROUP_SIZE = concatenation_groups_commitments[0].size();
             size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
@@ -704,20 +701,18 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
-        FF evaluation;
         if constexpr (Curve::is_stdlib_type) {
+
             // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
-            evaluation = FF(builder, 0);
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
-            evaluation = FF(0);
         }
 
-        return { .opening_pair = { .challenge = x_challenge, .evaluation = evaluation }, .commitment = C_zeta_Z };
+        return { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z };
     }
 
     /**
@@ -782,14 +777,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                       const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                       RefSpan<FF> concatenated_evaluations = {})
     {
-        Commitment first_g1;
-        // Retrieve the first element in the SRS [1]_1 which will be different depending on the curve we operate on
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = multivariate_challenge[0].get_context();
-            first_g1 = Commitment(builder, vk->srs->get_first_g1());
-        } else {
-            first_g1 = vk->srs->get_first_g1();
-        }
+        Commitment first_g1 = vk->get_first_g1();
+
         auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
                                                                          to_be_shifted_commitments,
                                                                          unshifted_evaluations,

@@ -1,14 +1,15 @@
 use dep::aztec::{
-    keys::getters::get_ivpk_m,
     protocol_types::{
     address::AztecAddress, grumpkin_point::GrumpkinPoint, traits::{Deserialize, Serialize},
     constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::unsafe_rand::unsafe_rand, oracle::nullifier_keys::get_nsk_app, context::PrivateContext
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
+// VALUE_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global VALUE_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 // docs:start:value-note-def
 #[aztec(note)]
@@ -20,7 +21,7 @@ struct ValueNote {
 }
 // docs:end:value-note-def
 
-impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
+impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
     // docs:start:nullifier
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
@@ -46,11 +47,10 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
         context.encrypt_and_emit_note(
-            (*context).this_address(),
             slot,
-            Self::get_note_type_id(),
+            ovpk_m,
             ivpk_m,
             self,
         );

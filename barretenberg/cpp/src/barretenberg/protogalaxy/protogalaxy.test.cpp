@@ -118,7 +118,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     }
 
     /**
-     * @brief For a valid circuit, ensures that computing the value of the full UH/UGH relation at each row in its
+     * @brief For a valid circuit, ensures that computing the value of the full UH/MegaHonk relation at each row in its
      * execution trace (with the contribution of the linearly dependent one added tot he first row, in case of
      * Goblin) will be 0.
      *
@@ -456,7 +456,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 };
 } // namespace
 
-using FlavorTypes = testing::Types<UltraFlavor, GoblinUltraFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, MegaFlavor>;
 TYPED_TEST_SUITE(ProtoGalaxyTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyTests, PerturbatorCoefficients)
@@ -513,15 +513,8 @@ TYPED_TEST(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
     TestFixture::test_tampered_accumulator_polynomial();
 }
 
+// We only fold one instance currently due to significant compile time added by multiple instances
 TYPED_TEST(ProtoGalaxyTests, Fold1Instance)
 {
     TestFixture::template test_fold_k_instances<1>();
-}
-TYPED_TEST(ProtoGalaxyTests, Fold2Instances)
-{
-    TestFixture::template test_fold_k_instances<2>();
-}
-TYPED_TEST(ProtoGalaxyTests, Fold3Instances)
-{
-    TestFixture::template test_fold_k_instances<3>();
 }

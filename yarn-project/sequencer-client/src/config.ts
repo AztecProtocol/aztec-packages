@@ -4,11 +4,11 @@ import { type L1ContractAddresses, NULL_KEY } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { EcdsaAccountContractArtifact } from '@aztec/noir-contracts.js/EcdsaAccount';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { SchnorrAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrAccount';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { SchnorrSingleKeyAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrSingleKeyAccount';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { type Hex } from 'viem';
 
@@ -50,6 +50,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     SEQ_MIN_TX_PER_BLOCK,
     SEQ_ALLOWED_SETUP_FN,
     SEQ_ALLOWED_TEARDOWN_FN,
+    SEQ_MAX_BLOCK_SIZE_IN_BYTES,
     AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
@@ -61,6 +62,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     FEE_RECIPIENT,
     ACVM_WORKING_DIRECTORY,
     ACVM_BINARY_PATH,
+    ENFORCE_FEES = '',
   } = process.env;
 
   const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
@@ -82,6 +84,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
   };
 
   return {
+    enforceFees: ['1', 'true'].includes(ENFORCE_FEES),
     rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : '',
     chainId: CHAIN_ID ? +CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     version: VERSION ? +VERSION : 1, // 1 is our default version
@@ -89,6 +92,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     requiredConfirmations: SEQ_REQUIRED_CONFIRMATIONS ? +SEQ_REQUIRED_CONFIRMATIONS : 1,
     l1BlockPublishRetryIntervalMS: SEQ_PUBLISH_RETRY_INTERVAL_MS ? +SEQ_PUBLISH_RETRY_INTERVAL_MS : 1_000,
     transactionPollingIntervalMS: SEQ_TX_POLLING_INTERVAL_MS ? +SEQ_TX_POLLING_INTERVAL_MS : 1_000,
+    maxBlockSizeInBytes: SEQ_MAX_BLOCK_SIZE_IN_BYTES ? +SEQ_MAX_BLOCK_SIZE_IN_BYTES : undefined,
     l1Contracts: addresses,
     publisherPrivateKey,
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
@@ -152,19 +156,16 @@ function getDefaultAllowedSetupFunctions(): AllowedFunction[] {
       classId: getContractClassFromArtifact(EcdsaAccountContractArtifact).id,
       selector: FunctionSelector.fromSignature('approve_public_authwit(Field)'),
     },
-
-    // needed for native payments while they are not yet enshrined
+    // needed for claiming on the same tx as a spend
     {
-      classId: getContractClassFromArtifact(GasTokenContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_fee(Field)'),
+      address: GasTokenAddress,
+      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
-
     // needed for private transfers via FPC
     {
       classId: getContractClassFromArtifact(TokenContractArtifact).id,
       selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
-
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
       selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
@@ -175,16 +176,12 @@ function getDefaultAllowedSetupFunctions(): AllowedFunction[] {
 function getDefaultAllowedTeardownFunctions(): AllowedFunction[] {
   return [
     {
-      classId: getContractClassFromArtifact(GasTokenContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_fee(Field)'),
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
     },
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_fee((Field),Field,(Field))'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_fee_with_shielded_rebate(Field,(Field),Field)'),
+      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
     },
   ];
 }

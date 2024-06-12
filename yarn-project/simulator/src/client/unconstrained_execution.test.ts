@@ -1,6 +1,6 @@
 import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
-import { CompleteAddress, FunctionData, Header } from '@aztec/circuits.js';
-import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { CompleteAddress, Header } from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
@@ -17,6 +17,10 @@ describe('Unconstrained Execution test suite', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
+
+    node = mock<AztecNode>();
+    node.getBlockNumber.mockResolvedValue(42);
+
     acirSimulator = new AcirSimulator(oracle, node);
   });
 
@@ -62,9 +66,13 @@ describe('Unconstrained Execution test suite', () => {
       );
 
       const execRequest: FunctionCall = {
+        name: artifact.name,
         to: contractAddress,
-        functionData: new FunctionData(FunctionSelector.empty(), /*isPrivate=*/ true, /*isStatic=*/ false),
+        selector: FunctionSelector.empty(),
+        type: FunctionType.UNCONSTRAINED,
+        isStatic: false,
         args: encodeArguments(artifact, [owner]),
+        returnTypes: artifact.returnTypes,
       };
 
       const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());

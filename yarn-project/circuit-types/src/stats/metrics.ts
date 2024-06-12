@@ -2,13 +2,13 @@ import { type StatsEventName } from './stats.js';
 
 /** How a metric is grouped in benchmarks: by block size, by length of chain processed, or by circuit name. */
 export type MetricGroupBy =
+  | 'threads'
   | 'block-size'
   | 'chain-length'
   | 'protocol-circuit-name'
   | 'app-circuit-name'
   | 'classes-registered'
   | 'leaf-count'
-  | 'data-writes'
   | 'fee-payment-method';
 
 /** Definition of a metric to track in benchmarks. */
@@ -25,6 +25,60 @@ export interface Metric {
 
 /** Metric definitions to track from benchmarks. */
 export const Metrics = [
+  {
+    name: 'public_db_access_time_ms',
+    groupBy: 'chain-length',
+    description: 'Time to access a database.',
+    events: ['public-db-access'],
+  },
+  {
+    name: 'avm_simulation_time_ms',
+    groupBy: 'app-circuit-name',
+    description: 'Time to simulate an AVM circuit.',
+    events: ['avm-simulation'],
+  },
+  {
+    name: 'proof_construction_time_sha256_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_sha256_30_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_sha256_100_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_30_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_100_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_eddsa_poseidon_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
   {
     name: 'l1_rollup_calldata_size_in_bytes',
     groupBy: 'block-size',
@@ -218,18 +272,6 @@ export const Metrics = [
     groupBy: 'fee-payment-method',
     description: 'Size of txs after fully processing them (including fee payment).',
     events: ['tx-added-to-pool'],
-  },
-  {
-    name: 'tx_pxe_processing_time_ms',
-    groupBy: 'data-writes',
-    description: 'Time to process the private part of a tx.',
-    events: ['tx-pxe-processing'],
-  },
-  {
-    name: 'tx_sequencer_processing_time_ms',
-    groupBy: 'data-writes',
-    description: 'Time to process the public part of a tx.',
-    events: ['tx-sequencer-processing'],
   },
   {
     name: 'batch_insert_into_append_only_tree_16_depth_ms',

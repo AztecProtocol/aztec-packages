@@ -11,6 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   type Header,
+  type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PrivateCallStackItem,
   type PublicCallRequest,
@@ -19,14 +20,6 @@ import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
-
-/** Nullifier keys which both correspond to the same master nullifier secret key. */
-export interface NullifierKeys {
-  /** Master nullifier public key. */
-  masterNullifierPublicKey: PublicKey;
-  /** App nullifier secret key. */
-  appNullifierSecretKey: Fr;
-}
 
 /**
  * Information about a note needed during execution.
@@ -89,8 +82,16 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_npkMHash: Fr): Promise<NullifierKeys> {
-    throw new OracleMethodNotAvailableError('getNullifierKeys');
+  getBlockNumber(): Promise<number> {
+    throw new OracleMethodNotAvailableError('getBlockNumber');
+  }
+
+  getContractAddress(): Promise<AztecAddress> {
+    throw new OracleMethodNotAvailableError('getContractAddress');
+  }
+
+  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
+    throw new OracleMethodNotAvailableError('getKeyValidationRequest');
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
@@ -183,22 +184,39 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedLog(_encryptedNote: Buffer, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedLog');
+  emitEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _encryptedEvent: Buffer,
+    _counter: number,
+  ): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
   }
 
-  emitEncryptedNoteLog(_noteHash: Fr, _encryptedNote: Buffer, _counter: number): void {
+  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
   }
 
-  computeEncryptedLog(
+  computeEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _eventTypeId: Fr,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
+    _preimage: Fr[],
+  ): Buffer {
+    throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
+  }
+
+  computeEncryptedNoteLog(
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
     _noteTypeId: Fr,
-    _publicKey: PublicKey,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
     _preimage: Fr[],
   ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedLog');
+    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {

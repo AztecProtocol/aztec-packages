@@ -1,28 +1,32 @@
 import {
   type Fr,
+  KeyValidationHint,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  NullifierKeyHint,
   PRIVATE_RESET_VARIANTS,
   type PrivateKernelData,
   PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputsVariants,
   PrivateKernelResetHints,
-  type ScopedNullifier,
-  type ScopedNullifierKeyValidationRequest,
-  type ScopedReadRequest,
+  type ReadRequest,
+  type ScopedKeyValidationRequestAndGenerator,
+  ScopedNoteHash,
+  ScopedNullifier,
+  ScopedReadRequest,
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
   buildTransientDataHints,
+  getNonEmptyItems,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
+import type { ExecutionResult } from '@aztec/simulator';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 import { buildPrivateKernelResetOutputs } from './build_private_kernel_reset_outputs.js';
@@ -33,6 +37,7 @@ function getNullifierReadRequestHints<PENDING extends number, SETTLED extends nu
   oracle: ProvingDataOracle,
   sizePending: PENDING,
   sizeSettled: SETTLED,
+  futureNullifiers: ScopedNullifier[],
 ) {
   const getNullifierMembershipWitness = async (nullifier: Fr) => {
     const res = await oracle.getNullifierMembershipWitness(nullifier);
@@ -57,43 +62,54 @@ function getNullifierReadRequestHints<PENDING extends number, SETTLED extends nu
     nullifiers,
     sizePending,
     sizeSettled,
+    futureNullifiers,
   );
 }
 
-async function getMasterNullifierSecretKeys(
-  nullifierKeyValidationRequests: Tuple<
-    ScopedNullifierKeyValidationRequest,
-    typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-  >,
+async function getMasterSecretKeysAndAppKeyGenerators(
+  keyValidationRequests: Tuple<ScopedKeyValidationRequestAndGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
-  const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyHint.empty);
+  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, KeyValidationHint.empty);
 
   let keyIndex = 0;
-  for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
-    const request = nullifierKeyValidationRequests[i].request;
+  for (let i = 0; i < keyValidationRequests.length; ++i) {
+    const request = keyValidationRequests[i].request;
     if (request.isEmpty()) {
       break;
     }
-    keys[keyIndex] = new NullifierKeyHint(
-      await oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey),
-      i,
-    );
+    const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
+    keysHints[keyIndex] = new KeyValidationHint(secretKeys, i);
     keyIndex++;
   }
   return {
     keysCount: keyIndex,
-    keys,
+    keysHints,
   };
 }
 
 export async function buildPrivateKernelResetInputs(
+  executionStack: ExecutionResult[],
   previousKernelData: PrivateKernelData,
   noteHashLeafIndexMap: Map<bigint, bigint>,
+  noteHashNullifierCounterMap: Map<number, number>,
   oracle: ProvingDataOracle,
 ) {
   const publicInputs = previousKernelData.publicInputs;
   // Use max sizes, they will be trimmed down later.
+
+  const futureNoteHashes = collectNested(executionStack, executionResult => {
+    const nonEmptyNoteHashes = getNonEmptyItems(executionResult.callStackItem.publicInputs.newNoteHashes);
+    return nonEmptyNoteHashes.map(
+      noteHash =>
+        new ScopedNoteHash(
+          noteHash,
+          noteHashNullifierCounterMap.get(noteHash.counter) ?? 0,
+          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
+        ),
+    );
+  });
+
   const {
     numPendingReadHints: noteHashPendingReadHints,
     numSettledReadHints: noteHashSettledReadHints,
@@ -105,7 +121,16 @@ export async function buildPrivateKernelResetInputs(
     noteHashLeafIndexMap,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+    futureNoteHashes,
   );
+
+  const futureNullifiers = collectNested(executionStack, executionResult => {
+    const nonEmptyNullifiers = getNonEmptyItems(executionResult.callStackItem.publicInputs.newNullifiers);
+    return nonEmptyNullifiers.map(
+      nullifier =>
+        new ScopedNullifier(nullifier, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
+    );
+  });
 
   const {
     numPendingReadHints: nullifierPendingReadHints,
@@ -117,11 +142,21 @@ export async function buildPrivateKernelResetInputs(
     oracle,
     MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    futureNullifiers,
   );
 
-  const { keysCount: nullifierKeysCount, keys: masterNullifierSecretKeys } = await getMasterNullifierSecretKeys(
-    publicInputs.validationRequests.nullifierKeyValidationRequests,
+  const { keysCount, keysHints } = await getMasterSecretKeysAndAppKeyGenerators(
+    publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators,
     oracle,
+  );
+
+  const futureNoteHashReads = collectNestedReadRequests(
+    executionStack,
+    executionResult => executionResult.callStackItem.publicInputs.noteHashReadRequests,
+  );
+  const futureNullifierReads = collectNestedReadRequests(
+    executionStack,
+    executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
   );
 
   const [
@@ -132,6 +167,8 @@ export async function buildPrivateKernelResetInputs(
     publicInputs.end.newNoteHashes,
     publicInputs.end.newNullifiers,
     publicInputs.end.noteEncryptedLogsHashes,
+    futureNoteHashReads,
+    futureNullifierReads,
     MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -141,6 +178,8 @@ export async function buildPrivateKernelResetInputs(
     previousKernelData.publicInputs.end.newNoteHashes,
     previousKernelData.publicInputs.end.newNullifiers,
     previousKernelData.publicInputs.end.noteEncryptedLogsHashes,
+    transientNullifierIndexesForNoteHashes,
+    transientNoteHashIndexesForNullifiers,
   );
 
   let privateInputs;
@@ -151,7 +190,7 @@ export async function buildPrivateKernelResetInputs(
       hintSizes.NOTE_HASH_SETTLED_AMOUNT >= noteHashSettledReadHints &&
       hintSizes.NULLIFIER_PENDING_AMOUNT >= nullifierPendingReadHints &&
       hintSizes.NULLIFIER_SETTLED_AMOUNT >= nullifierSettledReadHints &&
-      hintSizes.NULLIFIER_KEYS >= nullifierKeysCount
+      hintSizes.NULLIFIER_KEYS >= keysCount
     ) {
       privateInputs = new PrivateKernelResetCircuitPrivateInputs(
         previousKernelData,
@@ -162,7 +201,7 @@ export async function buildPrivateKernelResetInputs(
           transientNoteHashIndexesForLogs,
           noteHashReadRequestHints,
           nullifierReadRequestHints,
-          masterNullifierSecretKeys,
+          keysHints,
         ).trimToSizes(
           hintSizes.NOTE_HASH_PENDING_AMOUNT,
           hintSizes.NOTE_HASH_SETTLED_AMOUNT,
@@ -181,4 +220,31 @@ export async function buildPrivateKernelResetInputs(
   }
 
   return privateInputs as PrivateKernelResetCircuitPrivateInputsVariants;
+}
+
+function collectNested<T>(
+  executionStack: ExecutionResult[],
+  extractExecutionItems: (execution: ExecutionResult) => T[],
+): T[] {
+  const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
+
+  return thisExecutionReads.concat(
+    executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
+  );
+}
+
+function collectNestedReadRequests(
+  executionStack: ExecutionResult[],
+  extractReadRequests: (execution: ExecutionResult) => ReadRequest[],
+): ScopedReadRequest[] {
+  return collectNested(executionStack, executionResult => {
+    const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
+    return nonEmptyReadRequests.map(
+      readRequest =>
+        new ScopedReadRequest(
+          readRequest,
+          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
+        ),
+    );
+  });
 }

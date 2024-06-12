@@ -10,10 +10,10 @@ import {
   KernelData,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -26,24 +26,27 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PreviousRollupData,
-  type Proof,
+  PublicDataHint,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  PublicDataUpdateRequest,
   ROLLUP_VK_TREE_HEIGHT,
-  RollupTypes,
+  type RecursiveProof,
   type RootParityInput,
   RootRollupInputs,
   type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
   VK_TREE_HEIGHT,
-  type VerificationKey,
+  type VerificationKeyAsFields,
+  type VerificationKeyData,
+  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
-
-import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
@@ -66,6 +69,7 @@ export async function buildBaseRollupInput(
   tx: ProcessedTx,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
+  kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
   const constants = await getConstantRollupData(globalVariables, db);
@@ -84,6 +88,17 @@ export async function buildBaseRollupInput(
   const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
     i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
+
+  // Create data hint for reading fee payer initial balance in gas tokens
+  // If no fee payer is set, read hint should be empty
+  // If there is already a public data write for this slot, also skip the read hint
+  const hintsBuilder = new HintsBuilder(db);
+  const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+  const existingBalanceWrite = tx.data.end.publicDataUpdateRequests.find(write => write.leafSlot.equals(leafSlot));
+  const feePayerGasTokenBalanceReadHint =
+    leafSlot.isZero() || existingBalanceWrite
+      ? PublicDataHint.empty()
+      : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -150,10 +165,10 @@ export async function buildBaseRollupInput(
   );
 
   return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, getVerificationKeys()),
+    kernelData: getKernelDataFor(tx, kernelVk),
     start,
     stateDiffHints,
-
+    feePayerGasTokenBalanceReadHint,
     sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
@@ -166,14 +181,12 @@ export async function buildBaseRollupInput(
 }
 
 export function createMergeRollupInputs(
-  left: [BaseOrMergeRollupPublicInputs, Proof],
-  right: [BaseOrMergeRollupPublicInputs, Proof],
+  left: [BaseOrMergeRollupPublicInputs, RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, VerificationKeyAsFields],
+  right: [BaseOrMergeRollupPublicInputs, RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, VerificationKeyAsFields],
 ) {
-  const vks = getVerificationKeys();
-  const vk = left[0].rollupType === RollupTypes.Base ? vks.baseRollupCircuit : vks.mergeRollupCircuit;
   const mergeInputs = new MergeRollupInputs([
-    getPreviousRollupDataFromPublicInputs(left[0], left[1], vk),
-    getPreviousRollupDataFromPublicInputs(right[0], right[1], vk),
+    getPreviousRollupDataFromPublicInputs(left[0], left[1], left[2]),
+    getPreviousRollupDataFromPublicInputs(right[0], right[1], right[2]),
   ]);
   return mergeInputs;
 }
@@ -206,20 +219,20 @@ export async function validateState(state: StateReference, db: MerkleTreeOperati
 // Builds the inputs for the root rollup circuit, without making any changes to trees
 export async function getRootRollupInput(
   rollupOutputLeft: BaseOrMergeRollupPublicInputs,
-  rollupProofLeft: Proof,
+  rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  verificationKeyLeft: VerificationKeyAsFields,
   rollupOutputRight: BaseOrMergeRollupPublicInputs,
-  rollupProofRight: Proof,
+  rollupProofRight: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  verificationKeyRight: VerificationKeyAsFields,
   l1ToL2Roots: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   messageTreeSnapshot: AppendOnlyTreeSnapshot,
   messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   db: MerkleTreeOperations,
 ) {
-  const vks = getVerificationKeys();
-  const vk = rollupOutputLeft.rollupType === RollupTypes.Base ? vks.baseRollupCircuit : vks.mergeRollupCircuit;
   const previousRollupData: RootRollupInputs['previousRollupData'] = [
-    getPreviousRollupDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, vk),
-    getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, vk),
+    getPreviousRollupDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
+    getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
   ];
 
   const getRootTreeSiblingPath = async (treeId: MerkleTreeId) => {
@@ -251,8 +264,8 @@ export async function getRootRollupInput(
 
 export function getPreviousRollupDataFromPublicInputs(
   rollupOutput: BaseOrMergeRollupPublicInputs,
-  rollupProof: Proof,
-  vk: VerificationKey,
+  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  vk: VerificationKeyAsFields,
 ) {
   return new PreviousRollupData(
     rollupOutput,
@@ -288,13 +301,14 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vks: VerificationKeys): KernelData {
+export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
+  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
   return new KernelData(
     tx.data,
-    tx.proof,
+    recursiveProof,
 
     // VK for the kernel circuit
-    vks.privateKernelCircuit,
+    vk,
 
     // MembershipWitness for a VK tree to be implemented in the future
     FUTURE_NUM,
@@ -311,12 +325,18 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
 }
 
 export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeOperations) {
-  const combinedPublicDataUpdateRequests = tx.data.end.publicDataUpdateRequests.map(updateRequest => {
-    return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue);
-  });
+  const allPublicDataUpdateRequests = padArrayEnd(
+    tx.finalPublicDataUpdateRequests,
+    PublicDataUpdateRequest.empty(),
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  );
+
+  const allPublicDataWrites = allPublicDataUpdateRequests.map(
+    ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
+  );
   const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
     MerkleTreeId.PUBLIC_DATA_TREE,
-    combinedPublicDataUpdateRequests.map(x => x.toBuffer()),
+    allPublicDataWrites.map(x => x.toBuffer()),
     // TODO(#3675) remove oldValue from update requests
     PUBLIC_DATA_SUBTREE_HEIGHT,
   );
@@ -325,11 +345,11 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
     throw new Error(`Could not craft public data batch insertion proofs`);
   }
 
-  const sortedPublicDataWrites = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+  const sortedPublicDataWrites = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
     return PublicDataTreeLeaf.fromBuffer(sortedNewLeaves[i]);
   });
 
-  const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+  const sortedPublicDataWritesIndexes = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
     return sortedNewLeavesIndexes[i];
   });
 
@@ -340,8 +360,8 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
 
   const lowPublicDataWritesMembershipWitnesses: Tuple<
     MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-    typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-  > = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+    typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+  > = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
     const witness = lowLeavesWitnessData[i];
     return MembershipWitness.fromBufferArray(
       witness.index,
@@ -349,16 +369,16 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
     );
   });
 
-  const lowPublicDataWritesPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
-    makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
-      return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
-    });
+  const lowPublicDataWritesPreimages: Tuple<
+    PublicDataTreeLeafPreimage,
+    typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+  > = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+    return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
+  });
 
   // validate that the sortedPublicDataWrites and sortedPublicDataWritesIndexes are in the correct order
   // otherwise it will just fail in the circuit
-  assertPermutation(combinedPublicDataUpdateRequests, sortedPublicDataWrites, sortedPublicDataWritesIndexes, (a, b) =>
-    a.equals(b),
-  );
+  assertPermutation(allPublicDataWrites, sortedPublicDataWrites, sortedPublicDataWritesIndexes, (a, b) => a.equals(b));
 
   return {
     lowPublicDataWritesPreimages,

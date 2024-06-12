@@ -105,18 +105,6 @@ jobs:
           command: cond_spot_run_build barretenberg-wasm-linux-clang 128
           aztec_manifest_key: barretenberg-wasm-linux-clang
 
-  barretenberg-x86_64-linux-gcc:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
-          aztec_manifest_key: barretenberg-x86_64-linux-gcc
-
   barretenberg-x86_64-linux-clang:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -129,17 +117,18 @@ jobs:
           command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
           aztec_manifest_key: barretenberg-x86_64-linux-clang
 
-  barretenberg-x86_64-linux-clang-fuzzing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
+  # to be reenabled with https://github.com/AztecProtocol/aztec-packages/issues/6682
+  # barretenberg-x86_64-linux-clang-fuzzing:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Build"
+  #         command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
+  #         aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -253,6 +242,18 @@ jobs:
           name: "Build"
           command: cond_spot_run_build avm-transpiler 32
           aztec_manifest_key: avm-transpiler
+
+  aztec-nargo:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build aztec-nargo 32
+          aztec_manifest_key: aztec-nargo
 
   l1-contracts:
     machine:
@@ -392,7 +393,7 @@ jobs:
           name: "Release to dockerhub"
           command: |
             should_release || exit 0
-            deploy_dockerhub noir
+            deploy_dockerhub aztec-nargo
             deploy_dockerhub aztec
             deploy_dockerhub aztec-builder
       - run:
@@ -484,8 +485,11 @@ workflows:
     #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
     #   equal: [NEVER, << pipeline.parameters.workflow >>]
     when:
-      and:
+      # Run if branch is master or branch name contains 'circle-ci'
+      or:
         - equal: [ master, << pipeline.git.branch >> ]
+        - matches: { pattern: ".*circle-ci.*", value: << pipeline.git.branch >> }
+        - matches: { pattern: ".+", value: << pipeline.git.tag >> }
     jobs:
       # Noir
       - noir-x86_64: *defaults
@@ -501,13 +505,21 @@ workflows:
           <<: *defaults
 
       # Transpiler
-      - avm-transpiler: *defaults
+      - avm-transpiler:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
+
+      # aztec-nargo (nargo & transpiler)
+      - aztec-nargo:
+          requires:
+            - avm-transpiler
+          <<: *defaults
 
       # Barretenberg
-      - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
-      - barretenberg-x86_64-linux-clang-fuzzing: *defaults
+      # - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
       - barretenberg-docs: *defaults
       - bb-js:
@@ -554,10 +566,9 @@ workflows:
       # Everything that must complete before deployment.
       - end:
           requires:
-            - barretenberg-x86_64-linux-gcc
             - barretenberg-x86_64-linux-clang
             - barretenberg-x86_64-linux-clang-assert
-            - barretenberg-x86_64-linux-clang-fuzzing
+            # - barretenberg-x86_64-linux-clang-fuzzing
             - barretenberg-wasm-linux-clang
             - barretenberg-docs
             - e2e-join

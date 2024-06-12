@@ -1,9 +1,9 @@
 ---
-title: Dependencies
+title: Importing Aztec.nr
 sidebar_position: 4
 ---
 
-On this page you will find information about Aztec.nr dependencies and up-to-date paths for use in your `Nargo.toml`.
+On this page you will find information about Aztec.nr libraries and up-to-date paths for use in your `Nargo.toml`.
 
 ## Aztec
 
@@ -19,7 +19,7 @@ This is the core Aztec library that is required for every Aztec.nr smart contrac
 authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 ```
 
-This allows you to use authentication witnesses in your contract. Find more about its usage [here](guides/smart_contracts/writing_contracts/common_patterns/authwit.md).
+This allows you to use authentication witnesses in your contract. Find more about its usage [here](../../guides/smart_contracts/writing_contracts/authwit.md).
 
 ## Address note
 
@@ -51,4 +51,4 @@ This library contains types that are used in the Aztec protocol. Find it on [Git
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
 
-This is a library for a note that stores one arbitrary value. You can see an example of how it might be used in the [token contract tutorial](/tutorials/contract_tutorials/token_contract.md).
+This is a library for a note that stores one arbitrary value. You can see an example of how it might be used in the [token contract tutorial](../../tutorials/contract_tutorials/token_contract.md).

@@ -1,7 +1,7 @@
 import { type FunctionCall } from '@aztec/circuit-types';
-import { FunctionData, type GasSettings } from '@aztec/circuits.js';
+import { type GasSettings } from '@aztec/circuits.js';
 import { computeSecretHash } from '@aztec/circuits.js/hash';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -43,12 +43,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     return this.asset;
   }
 
-  /**
-   * The address which will facilitate the fee payment.
-   * @returns The contract address responsible for holding the fee payment.
-   */
-  getPaymentContract() {
-    return this.paymentContract;
+  getFeePayer(): Promise<AztecAddress> {
+    return Promise.resolve(this.paymentContract);
   }
 
   /**
@@ -64,13 +60,13 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       this.wallet.getChainId(),
       this.wallet.getVersion(),
       {
+        name: 'unshield',
         args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
-          /*isPrivate=*/ true,
-          /*isStatic=*/ false,
-        ),
+        selector: FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
+        type: FunctionType.PRIVATE,
+        isStatic: false,
         to: this.asset,
+        returnTypes: [],
       },
     );
     await this.wallet.createAuthWit(messageHash);
@@ -79,13 +75,13 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
 
     return [
       {
-        to: this.getPaymentContract(),
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
-          /*isPrivate=*/ true,
-          /*isStatic=*/ false,
-        ),
+        name: 'fee_entrypoint_private',
+        to: this.paymentContract,
+        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
+        type: FunctionType.PRIVATE,
+        isStatic: false,
         args: [maxFee, this.asset, secretHashForRebate, nonce],
+        returnTypes: [],
       },
     ];
   }

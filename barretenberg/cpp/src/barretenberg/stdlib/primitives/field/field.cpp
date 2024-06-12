@@ -672,7 +672,6 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
-
     if (is_constant() && other.is_constant()) {
         return (get_value() == other.get_value());
     }
@@ -1177,7 +1176,7 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
 
 template class field_t<bb::StandardCircuitBuilder>;
 template class field_t<bb::UltraCircuitBuilder>;
-template class field_t<bb::GoblinUltraCircuitBuilder>;
+template class field_t<bb::MegaCircuitBuilder>;
 template class field_t<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

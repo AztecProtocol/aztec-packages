@@ -8,6 +8,11 @@ inputs:
   run:
     # command to run once tester available
     required: false
+
+  ttl:
+    required: false
+    description: "Time to live for the tester instance in minutes"
+    default: 30
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -23,7 +28,7 @@ runs:
         echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
         # no github runners, 'bare spot' in action code
         echo "runner_concurrency=0" >> $GITHUB_OUTPUT
-        echo "ttl=30" >> $GITHUB_OUTPUT
+        echo "ttl=${{ inputs.ttl }}" >> $GITHUB_OUTPUT
         SIZE=large
         if [[ $TYPE == 4core-* ]]; then
           SIZE=large
@@ -38,7 +43,7 @@ runs:
         elif [[ $TYPE == 128core-* ]]; then
           SIZE=32xlarge
         fi
-        echo "instance_type=i4i.$SIZE m6a.$SIZE m6i.$SIZE m6id.$SIZE m6idn.$SIZE m6in.$SIZE m7a.$SIZE r6a.$SIZE r6i.$SIZE r6id.$SIZE r6in.$SIZE r7iz.$SIZE" >> $GITHUB_OUTPUT
+        echo "instance_type=m6a.$SIZE m6in.$SIZE r6a.$SIZE r6i.$SIZE r6in.$SIZE" >> $GITHUB_OUTPUT
 
     - name: Start Tester
       uses: ./.github/spot-runner-action
@@ -50,7 +55,7 @@ runs:
         aws_access_key_id: ${{ env.AWS_ACCESS_KEY_ID }}
         aws_secret_access_key: ${{ env.AWS_SECRET_ACCESS_KEY }}
         ec2_key: ${{ env.BUILD_INSTANCE_SSH_KEY }}
-        client_token: ''
+        client_token: ""
         # constants:
         runner_concurrency: ${{ steps.select_instance.outputs.runner_concurrency }}
         ec2_instance_type: ${{ steps.select_instance.outputs.instance_type }}
@@ -61,7 +66,7 @@ runs:
         ec2_subnet_id: subnet-4cfabd25
         ec2_security_group_id: sg-0ccd4e5df0dcca0c9
         ec2_key_name: "build-instance"
-        ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
+        ec2_instance_tags: "[]"
 
     # Set up a context for this run
     - name: Copy Repo to Tester

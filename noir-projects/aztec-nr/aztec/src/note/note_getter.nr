@@ -8,6 +8,8 @@ use crate::note::{
 };
 use crate::oracle;
 
+mod test;
+
 fn extract_property_value_from_selector<N>(
     serialized_note: [Field; N],
     selector: PropertySelector
@@ -29,15 +31,15 @@ fn extract_property_value_from_selector<N>(
     value_field
 }
 
-fn check_note_header<Note, N>(
+fn check_note_header<Note, N, M>(
     context: PrivateContext,
     storage_slot: Field,
     note: Note
-) where Note: NoteInterface<N> {
+) where Note: NoteInterface<N, M> {
     let header = note.get_header();
     let contract_address = context.this_address();
-    assert(header.contract_address.eq(contract_address));
-    assert(header.storage_slot == storage_slot);
+    assert(header.contract_address.eq(contract_address), "Mismatch note header contract address.");
+    assert(header.storage_slot == storage_slot, "Mismatch note header storage slot.");
 }
 
 fn check_note_fields<N>(serialized_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
@@ -84,10 +86,10 @@ fn check_notes_order<N>(
     }
 }
 
-pub fn get_note<Note, N>(
+pub fn get_note<Note, N, M>(
     context: &mut PrivateContext,
     storage_slot: Field
-) -> Note where Note: NoteInterface<N> {
+) -> Note where Note: NoteInterface<N, M> {
     let note = get_note_internal(storage_slot);
 
     check_note_header(*context, storage_slot, note);
@@ -98,28 +100,36 @@ pub fn get_note<Note, N>(
     note
 }
 
-pub fn get_notes<Note, N, FILTER_ARGS>(
+pub fn get_notes<Note, N, M, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+    options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
     let opt_notes = get_notes_internal(storage_slot, options);
 
-    _get_notes_constrain_get_notes_internal(context, storage_slot, opt_notes, options)
+    constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 
-pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
+fn constrain_get_notes_internal<Note, N, M, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+    options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
     let mut returned_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+
+    // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
+    // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
+    // the private kernel will later validate that these note actually exist, so transformations would cause for that
+    // check to fail.
+    let filter_fn = options.filter;
+    let filter_args = options.filter_args;
+    let filtered_notes = filter_fn(opt_notes, filter_args);
 
     let mut num_notes = 0;
     let mut prev_fields = [0; N];
-    for i in 0..opt_notes.len() {
-        let opt_note = opt_notes[i];
+    for i in 0..filtered_notes.len() {
+        let opt_note = filtered_notes[i];
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
             let fields = note.serialize_content();
@@ -135,14 +145,18 @@ pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
 
-            // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the front of the array
-            // We write at returned_notes[num_notes] because num_notes is only advanced when we have a value in opt_notes
+            // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the 
+            // front of the array. This is highly useful because the caller knows that the returned array won't have
+            // more than option.limits notes, and can therefore loop over this limit value instead of the entire array,
+            // resulting in a smaller circuit and faster proving times.
+            // We write at returned_notes[num_notes] because num_notes is only advanced when we have a value in 
+            // filtered_notes.
             returned_notes[num_notes] = Option::some(note);
             num_notes += 1;
         };
     }
     if options.limit != 0 {
-        assert(num_notes <= options.limit, "Invalid number of return notes.");
+        assert(num_notes <= options.limit, "Got more notes than limit.");
     }
 
     assert(num_notes != 0, "Cannot return zero notes");
@@ -150,7 +164,7 @@ pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
     returned_notes
 }
 
-unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where Note: NoteInterface<N> {
+unconstrained fn get_note_internal<Note, N, M>(storage_slot: Field) -> Note where Note: NoteInterface<N, M> {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
@@ -175,15 +189,18 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where N
     )[0].unwrap() // Notice: we don't allow dummies to be returned from get_note (singular).
 }
 
-unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
+unconstrained fn get_notes_internal<Note, N, M, FILTER_ARGS>(
     storage_slot: Field,
-    options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+    options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
+    // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
+
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
-    let opt_notes = oracle::notes::get_notes(
+
+    oracle::notes::get_notes(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -201,17 +218,13 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
         placeholder_opt_notes,
         placeholder_fields,
         placeholder_note_length
-    );
-
-    let filter = options.filter;
-    let filter_args = options.filter_args;
-    filter(opt_notes, filter_args)
+    )
 }
 
-unconstrained pub fn view_notes<Note, N>(
+unconstrained pub fn view_notes<Note, N, M>(
     storage_slot: Field,
-    options: NoteViewerOptions<Note, N>
-) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N> {
+    options: NoteViewerOptions<Note, N, M>
+) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N, M> {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];

@@ -35,6 +35,13 @@ describe('Contract Class', () => {
     chainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
+    protocolContractAddresses: {
+      classRegisterer: AztecAddress.random(),
+      gasToken: AztecAddress.random(),
+      instanceDeployer: AztecAddress.random(),
+      keyRegistry: AztecAddress.random(),
+      multiCallEntrypoint: AztecAddress.random(),
+    },
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -43,7 +50,7 @@ describe('Contract Class', () => {
       {
         name: 'bar',
         isInitializer: false,
-        functionType: FunctionType.SECRET,
+        functionType: FunctionType.PRIVATE,
         isInternal: false,
         isStatic: false,
         debugSymbols: '',
@@ -70,7 +77,7 @@ describe('Contract Class', () => {
         name: 'baz',
         isInitializer: false,
         isStatic: false,
-        functionType: FunctionType.OPEN,
+        functionType: FunctionType.PUBLIC,
         isInternal: false,
         parameters: [],
         returnTypes: [],

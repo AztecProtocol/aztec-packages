@@ -9,6 +9,7 @@ use dep::protocol_types::{
     messaging::l2_to_l1_message::L2ToL1Message, header::Header, address::AztecAddress,
     utils::reader::Reader,
     constants::{
+    MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -80,13 +81,15 @@ pub fn parse_public_call_stack_item_from_oracle(fields: [Field; ENQUEUE_PUBLIC_F
     // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
     let item = PublicCallStackItem {
         contract_address: AztecAddress::from_field(reader.read()),
-        function_data: reader.read_struct(FunctionData::deserialize),
+        function_data: FunctionData { selector: FunctionSelector::from_field(reader.read()), is_private: false },
         public_inputs: PublicCircuitPublicInputs {
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             returns_hash: 0,
+            note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+            l1_to_l2_msg_read_requests: [ReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
             contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
             public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],

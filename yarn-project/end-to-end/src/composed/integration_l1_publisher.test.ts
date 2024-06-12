@@ -27,7 +27,10 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type Proof,
   PublicDataUpdateRequest,
+  getMockVerificationKeys,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { fr, makeProof } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -37,7 +40,6 @@ import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { TxProver } from '@aztec/prover-client';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
-import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -86,7 +88,7 @@ describe('L1Publisher integration', () => {
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
-  let l2Proof: Buffer;
+  let l2Proof: Proof;
 
   let builder: TxProver;
   let builderDb: MerkleTrees;
@@ -143,8 +145,8 @@ describe('L1Publisher integration', () => {
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, new WASMSimulator(), worldStateSynchronizer);
-    l2Proof = Buffer.alloc(0);
+    builder = await TxProver.new(config, getMockVerificationKeys(), worldStateSynchronizer);
+    l2Proof = makeEmptyProof();
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
@@ -166,7 +168,7 @@ describe('L1Publisher integration', () => {
     return tx;
   };
 
-  const makeBloatedProcessedTx = (seed = 0x1) => {
+  const makeBloatedProcessedTx = (seed = 0x1): ProcessedTx => {
     const tx = mockTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
@@ -174,7 +176,7 @@ describe('L1Publisher integration', () => {
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+      i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
       seed + 0x500,
     );
 
@@ -190,7 +192,7 @@ describe('L1Publisher integration', () => {
     return processedTx;
   };
 
-  const sendToL2 = async (content: Fr, recipientAddress: AztecAddress) => {
+  const sendToL2 = async (content: Fr, recipientAddress: AztecAddress): Promise<Fr> => {
     // @todo @LHerskind version hardcoded here (update to bigint or field)
     const recipient = new L2Actor(recipientAddress, 1);
     // getting the 32 byte hex string representation of the content
@@ -231,7 +233,7 @@ describe('L1Publisher integration', () => {
     l1ToL2Content: Fr[],
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
-  ) => {
+  ): void => {
     if (!AZTEC_GENERATE_TEST_DATA) {
       return;
     }
@@ -312,13 +314,8 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
-  const buildBlock = async (
-    globalVariables: GlobalVariables,
-    txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
-    emptyTx: ProcessedTx,
-  ) => {
-    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
+  const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
+    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
@@ -389,7 +386,7 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
+      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
@@ -407,7 +404,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.processL2Block(block, [], l2Proof);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -430,7 +427,8 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${l2Proof.toString('hex')}`,
+          `0x`, // empty aggregation object
+          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
@@ -484,7 +482,7 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
+      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
@@ -495,7 +493,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.processL2Block(block, [], l2Proof);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -518,7 +516,8 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${l2Proof.toString('hex')}`,
+          `0x`, // empty aggregation object
+          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
         ],
       });
       expect(ethTx.input).toEqual(expectedData);

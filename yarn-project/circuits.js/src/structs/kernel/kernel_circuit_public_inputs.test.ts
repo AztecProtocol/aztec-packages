@@ -1,7 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { AggregationObject } from '../aggregation_object.js';
 import { Gas } from '../gas.js';
 import { GasFees } from '../gas_fees.js';
 import { GasSettings } from '../gas_settings.js';
@@ -19,12 +18,11 @@ describe('KernelCircuitPublicInputs', () => {
   describe('Gas and Fees', () => {
     it('empty is empty', () => {
       const i = KernelCircuitPublicInputs.empty();
-      expect(i.transactionFee).toEqual(Fr.ZERO);
+      expect(i.getTransactionFee(GasFees.empty())).toEqual(Fr.ZERO);
     });
 
     it('non-empty is correct', () => {
       const i = new KernelCircuitPublicInputs(
-        AggregationObject.makeFake(),
         RollupValidationRequests.empty(),
         CombinedAccumulatedData.empty(),
         new CombinedConstantData(
@@ -48,9 +46,9 @@ describe('KernelCircuitPublicInputs', () => {
       );
 
       i.end.gasUsed = Gas.from({ daGas: 10, l2Gas: 20 });
-      i.constants.globalVariables.gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
+      const gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
 
-      expect(i.transactionFee).toEqual(new Fr(42 + 2 * 10 + 3 * 20));
+      expect(i.getTransactionFee(gasFees)).toEqual(new Fr(42 + 2 * 10 + 3 * 20));
     });
   });
 });

@@ -4,10 +4,12 @@ use dep::aztec::{
     grumpkin_point::GrumpkinPoint, hash::poseidon2_hash
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::unsafe_rand::unsafe_rand, oracle::nullifier_keys::get_nsk_app, context::PrivateContext
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;
+// ADDRESS_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global ADDRESS_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 // docs:start:address_note_def
 // Stores an address
@@ -19,7 +21,7 @@ struct AddressNote {
     randomness: Field,
 }
 
-impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
+impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
@@ -42,12 +44,11 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
         // docs:start:encrypted
         context.encrypt_and_emit_note(
-            (*context).this_address(),
             slot,
-            Self::get_note_type_id(),
+            ovpk_m,
             ivpk_m,
             self,
         );

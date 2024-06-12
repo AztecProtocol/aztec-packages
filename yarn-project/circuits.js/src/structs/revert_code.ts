@@ -5,11 +5,18 @@ import { inspect } from 'util';
 
 enum RevertCodeEnum {
   OK = 0,
-  REVERTED = 1,
+  APP_LOGIC_REVERTED = 1,
+  TEARDOWN_REVERTED = 2,
+  BOTH_REVERTED = 3,
 }
 
 function isRevertCodeEnum(value: number): value is RevertCodeEnum {
-  return value === RevertCodeEnum.OK || value === RevertCodeEnum.REVERTED;
+  return (
+    value === RevertCodeEnum.OK ||
+    value === RevertCodeEnum.APP_LOGIC_REVERTED ||
+    value === RevertCodeEnum.TEARDOWN_REVERTED ||
+    value === RevertCodeEnum.BOTH_REVERTED
+  );
 }
 
 /**
@@ -21,7 +28,9 @@ export class RevertCode {
     this.code = e.valueOf();
   }
   static readonly OK: RevertCode = new RevertCode(RevertCodeEnum.OK);
-  static readonly REVERTED: RevertCode = new RevertCode(RevertCodeEnum.REVERTED);
+  static readonly APP_LOGIC_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.APP_LOGIC_REVERTED);
+  static readonly TEARDOWN_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.TEARDOWN_REVERTED);
+  static readonly BOTH_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.BOTH_REVERTED);
 
   public equals(other: RevertCode): boolean {
     return this.code === other.code;
@@ -29,6 +38,21 @@ export class RevertCode {
 
   public isOK(): boolean {
     return this.equals(RevertCode.OK);
+  }
+
+  public getDescription() {
+    switch (this.code) {
+      case RevertCodeEnum.OK:
+        return 'OK';
+      case RevertCodeEnum.APP_LOGIC_REVERTED:
+        return 'Application logic reverted';
+      case RevertCodeEnum.TEARDOWN_REVERTED:
+        return 'Teardown reverted';
+      case RevertCodeEnum.BOTH_REVERTED:
+        return 'Both reverted';
+      default:
+        return `Unknown RevertCode: ${this.code}`;
+    }
   }
 
   /**
@@ -80,7 +104,7 @@ export class RevertCode {
     return new RevertCode(code);
   }
 
-  private static readonly NUM_OPTIONS = 2;
+  private static readonly NUM_OPTIONS = 4;
   static random(): RevertCode {
     return new RevertCode(Math.floor(Math.random() * RevertCode.NUM_OPTIONS));
   }

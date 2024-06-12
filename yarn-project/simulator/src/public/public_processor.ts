@@ -3,30 +3,39 @@ import {
   type FailedTx,
   NestedProcessReturnValues,
   type ProcessedTx,
-  type PublicKernelRequest,
+  PublicKernelType,
+  type PublicProvingRequest,
   type SimulationError,
   Tx,
   type TxValidator,
-  makeEmptyProcessedTx,
   makeProcessedTx,
-  toTxEffect,
   validateProcessedTx,
 } from '@aztec/circuit-types';
-import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { type GlobalVariables, type Header, type KernelCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  GAS_TOKEN_ADDRESS,
+  type GlobalVariables,
+  type Header,
+  type KernelCircuitPublicInputs,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PublicDataUpdateRequest,
+} from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
-import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@aztec/simulator';
+import {
+  PublicExecutor,
+  type PublicStateDB,
+  type SimulationProvider,
+  computeFeePayerBalanceLeafSlot,
+  computeFeePayerBalanceStorageSlot,
+} from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import {
-  type AbstractPhaseManager,
-  PublicKernelPhase,
-  publicKernelPhaseToKernelType,
-} from './abstract_phase_manager.js';
+import { type AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_executor.js';
+import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -101,7 +110,7 @@ export class PublicProcessor {
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
-    const returns: NestedProcessReturnValues[] = [];
+    let returns: NestedProcessReturnValues[] = [];
 
     for (const tx of txs) {
       // only process up to the limit of the block
@@ -112,7 +121,14 @@ export class PublicProcessor {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
           ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof, [])]
           : await this.processTxWithPublicCalls(tx);
+
+        // Set fee payment update request into the processed tx
+        processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
+
+        // Commit the state updates from this transaction
+        await this.publicStateDB.commit();
         validateProcessedTx(processedTx);
+
         // Re-validate the transaction
         if (txValidator) {
           // Only accept processed transactions that are not double-spends,
@@ -129,10 +145,10 @@ export class PublicProcessor {
           await blockProver.addNewTx(processedTx);
         }
         result.push(processedTx);
-        returns.push(returnValues?.[0] ?? new NestedProcessReturnValues([]));
+        returns = returns.concat(returnValues ?? []);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
+        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
 
         failed.push({
           tx,
@@ -146,17 +162,55 @@ export class PublicProcessor {
   }
 
   /**
-   * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
-   * @returns A processed tx with empty data.
+   * Creates the final set of data update requests for the transaction. This includes the
+   * set of public data update requests as returned by the public kernel, plus a data update
+   * request for updating fee balance. It also updates the local public state db.
+   * See build_or_patch_payment_update_request in base_rollup_inputs.nr for more details.
    */
-  public makeEmptyProcessedTx(): ProcessedTx {
-    const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.historicalHeader.clone(), chainId, version);
+  private async createFinalDataUpdateRequests(tx: ProcessedTx) {
+    const finalPublicDataUpdateRequests = [
+      ...tx.data.end.publicDataUpdateRequests,
+      ...times(PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => PublicDataUpdateRequest.empty()),
+    ];
+
+    const feePayer = tx.data.feePayer;
+    if (feePayer.isZero()) {
+      return finalPublicDataUpdateRequests;
+    }
+
+    const gasToken = AztecAddress.fromBigInt(GAS_TOKEN_ADDRESS);
+    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+    const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
+    const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
+
+    this.log.debug(`Deducting ${txFee} balance in gas tokens for ${feePayer}`);
+
+    const existingBalanceWriteIndex = finalPublicDataUpdateRequests.findIndex(request =>
+      request.leafSlot.equals(leafSlot),
+    );
+
+    const balance =
+      existingBalanceWriteIndex > -1
+        ? finalPublicDataUpdateRequests[existingBalanceWriteIndex].newValue
+        : await this.publicStateDB.storageRead(gasToken, balanceSlot);
+
+    if (balance.lt(txFee)) {
+      throw new Error(`Not enough balance for fee payer to pay for transaction (got ${balance} needs ${txFee})`);
+    }
+
+    const updatedBalance = balance.sub(txFee);
+    await this.publicStateDB.storageWrite(gasToken, balanceSlot, updatedBalance);
+
+    finalPublicDataUpdateRequests[
+      existingBalanceWriteIndex > -1 ? existingBalanceWriteIndex : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    ] = new PublicDataUpdateRequest(leafSlot, updatedBalance, 0);
+
+    return finalPublicDataUpdateRequests;
   }
 
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     let returnValues: NestedProcessReturnValues[] = [];
-    const publicRequests: PublicKernelRequest[] = [];
+    const publicProvingRequests: PublicProvingRequest[] = [];
     let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
       tx,
       this.db,
@@ -168,22 +222,19 @@ export class PublicProcessor {
       this.publicStateDB,
     );
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-    let proof = tx.proof;
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
-    const timer = new Timer();
     const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
-      const output = await phase.handle(tx, publicKernelPublicInput, proof);
-      gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
-      if (phase.phase === PublicKernelPhase.APP_LOGIC) {
+      const output = await phase.handle(tx, publicKernelPublicInput);
+      gasUsed[phase.phase] = output.gasUsed;
+      if (phase.phase === PublicKernelType.APP_LOGIC) {
         returnValues = output.returnValues;
       }
-      publicRequests.push(...output.kernelRequests);
+      publicProvingRequests.push(...output.publicProvingRequests);
       publicKernelPublicInput = output.publicKernelOutput;
       finalKernelOutput = output.finalKernelOutput;
-      proof = output.publicKernelProof;
       revertReason ??= output.revertReason;
       phase = PhaseManagerFactory.phaseFromOutput(
         publicKernelPublicInput,
@@ -202,17 +253,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, publicRequests, revertReason, gasUsed);
-
-    this.log.debug(`Processed public part of ${tx.getTxHash()}`, {
-      eventName: 'tx-sequencer-processing',
-      duration: timer.ms(),
-      effectsSize: toTxEffect(processedTx).toBuffer().length,
-      publicDataUpdateRequests:
-        processedTx.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
-      ...tx.getStats(),
-    } satisfies TxSequencerProcessingStats);
-
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }
 }

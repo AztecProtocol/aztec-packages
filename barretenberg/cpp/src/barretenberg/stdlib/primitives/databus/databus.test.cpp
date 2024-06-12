@@ -3,16 +3,18 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "databus.hpp"
 
-using Builder = GoblinUltraCircuitBuilder;
+using namespace bb;
+
+using Builder = MegaCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using databus_ct = stdlib::databus<Builder>;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 /**
@@ -31,8 +33,8 @@ TEST(Databus, CallDataAndReturnData)
     // databus mechanism to establish that the return data was indeed formed in this way.
 
     // Define some bus data that conform to the pattern described above
-    std::array<bb::fr, 4> raw_calldata_values = { 4, 5, 6, 7 };
-    std::array<bb::fr, 3> raw_return_data_values = { 4, 5, 13 }; // 13 = 6 + 7
+    std::array<fr, 4> raw_calldata_values = { 4, 5, 6, 7 };
+    std::array<fr, 3> raw_return_data_values = { 4, 5, 13 }; // 13 = 6 + 7
 
     // Populate the calldata in the databus
     std::vector<field_ct> calldata_values;
@@ -87,7 +89,7 @@ TEST(Databus, BadReadFailure)
     databus_ct databus;
 
     // Populate return data with a single arbitrary value
-    bb::fr actual_value = 13;
+    fr actual_value = 13;
     databus.return_data.set_values({ witness_ct(&builder, actual_value) });
 
     // Read the value from the return data
@@ -120,11 +122,11 @@ TEST(Databus, BadCopyFailure)
     databus_ct databus;
 
     // Populate calldata with a single input
-    bb::fr input = 13;
+    fr input = 13;
     databus.calldata.set_values({ witness_ct(&builder, input) });
 
     // Populate return data with an output different from the input
-    bb::fr output = input - 1;
+    fr output = input - 1;
     databus.return_data.set_values({ witness_ct(&builder, output) });
 
     // Attempt to attest that the calldata has been copied into the return data

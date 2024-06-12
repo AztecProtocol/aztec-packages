@@ -42,7 +42,9 @@ build:
     SAVE ARTIFACT /usr/src /usr/src
 
 boxes:
-    FROM node:18.19
+    FROM ../build-images/+base-slim-node
+    # prefetch playwright installs earlier in downloads
+    RUN npx playwright install --with-deps
     COPY --dir +build/usr/src /usr
     WORKDIR /usr/src/boxes
     RUN yarn install-browsers
@@ -80,7 +82,7 @@ BOX_TEST_FROM_CACHE:
   ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
   ENV CI=1
   # need a different project name for each to run in parallel
-  LET project_name=$box_$browser
+  LET project_name="$box"_"$browser"
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
   ELSE

@@ -138,8 +138,8 @@ class lookup_into_kernel_lookup_settings {
                                      in.avm_main_q_kernel_lookup,
                                      in.avm_kernel_q_public_input_kernel_add_to_table,
                                      in.avm_main_ia,
-                                     in.avm_kernel_kernel_sel,
-                                     in.avm_kernel_kernel_inputs__is_public,
+                                     in.avm_kernel_kernel_in_offset,
+                                     in.avm_kernel_kernel_inputs,
                                      in.avm_main_clk);
     }
 
@@ -158,8 +158,8 @@ class lookup_into_kernel_lookup_settings {
                                      in.avm_main_q_kernel_lookup,
                                      in.avm_kernel_q_public_input_kernel_add_to_table,
                                      in.avm_main_ia,
-                                     in.avm_kernel_kernel_sel,
-                                     in.avm_kernel_kernel_inputs__is_public,
+                                     in.avm_kernel_kernel_in_offset,
+                                     in.avm_kernel_kernel_inputs,
                                      in.avm_main_clk);
     }
 };

@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
-    oracle::nullifier_keys::get_nsk_app
+    keys::getters::get_nsk_app
 };
 
 trait OwnedNote {
@@ -12,6 +12,8 @@ trait OwnedNote {
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
+// TOKEN_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 #[aztec(note)]
 struct TokenNote {
@@ -23,7 +25,7 @@ struct TokenNote {
     randomness: Field,
 }
 
-impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
+impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
@@ -47,14 +49,13 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
       // We only bother inserting the note if non-empty to save funds on gas.
       // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
           context.encrypt_and_emit_note(
-              (*context).this_address(),
               slot,
-              Self::get_note_type_id(),
+              ovpk_m,
               ivpk_m,
               self,
           );

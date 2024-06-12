@@ -1,13 +1,16 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <cstddef>
 
 namespace acir_format {
 
+using namespace bb;
+
 template class DSLBigInts<UltraCircuitBuilder>;
-template class DSLBigInts<GoblinUltraCircuitBuilder>;
+template class DSLBigInts<MegaCircuitBuilder>;
 
 template <typename Builder>
 void build_constraints(Builder& builder,
@@ -122,9 +125,9 @@ void build_constraints(Builder& builder,
     }
 
     // RecursionConstraint
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
-    // dealing with proper recursion
-    if constexpr (IsGoblinUltraBuilder<Builder>) {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
+    // not yet dealing with proper recursion
+    if constexpr (IsMegaBuilder<Builder>) {
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
@@ -212,9 +215,9 @@ void build_constraints(Builder& builder,
     }
 
     // HonkRecursionConstraint
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
-    // dealing with proper recursion
-    if constexpr (IsGoblinUltraBuilder<Builder>) {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
+    // not yet dealing with proper recursion
+    if constexpr (IsMegaBuilder<Builder>) {
         if (!constraint_system.honk_recursion_constraints.empty()) {
             info("WARNING: this circuit contains honk_recursion_constraints!");
         }
@@ -222,53 +225,32 @@ void build_constraints(Builder& builder,
         // These are set and modified whenever we encounter a recursion opcode
         //
         // These should not be set by the caller
-        // TODO(maxim): Check if this is always the case. ie I won't receive a proof that will set the first
-        // TODO(maxim): input_aggregation_object to be non-zero.
-        // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
-        // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): this usage of all zeros is a hack and could
+        // use types or enums to properly fix.
         std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         };
 
-        // Get the size of proof with no public inputs prepended to it
-        // This is used while processing recursion constraints to determine whether
-        // the proof we are verifying contains a recursive proof itself
-        auto proof_size_no_pub_inputs = recursion_honk_proof_size_without_public_inputs();
-
         // Add recursion constraints
         for (auto constraint : constraint_system.honk_recursion_constraints) {
-            // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
-            // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
-            // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
-            // The user tells us they how they want these constants set by keeping the nested aggregation object
-            // attached to the proof as public inputs. As this is the only object that can prepended to the proof if the
-            // proof is above the expected size (with public inputs stripped)
+            // A proof passed into the constraint should be stripped of its inner public inputs, but not the nested
+            // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
+            // state are a circuit constant. The user tells us they how they want these constants set by keeping the
+            // nested aggregation object attached to the proof as public inputs.
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
-            // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs !=
-                HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE) {
-                auto error_string = format(
-                    "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
-                    "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                    "which is ",
-                    HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                throw_or_abort(error_string);
-            }
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                // Set the nested aggregation object indices to the current size of the public inputs
-                // This way we know that the nested aggregation object indices will always be the last
-                // indices of the public inputs
-                nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
-                // Attach the nested aggregation object to the end of the public inputs to fill in
-                // the slot where the nested aggregation object index will point into
-                constraint.public_inputs.emplace_back(constraint.proof[i]);
+                // Set the nested aggregation object indices to witness indices from the proof
+                nested_aggregation_object[i] =
+                    static_cast<uint32_t>(constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
+                // Adding the nested aggregation object to the constraint's public inputs
+                constraint.public_inputs.emplace_back(nested_aggregation_object[i]);
             }
             // Remove the aggregation object so that they can be handled as normal public inputs
-            // in they way taht the recursion constraint expects
-            constraint.proof.erase(constraint.proof.begin(),
+            // in they way that the recursion constraint expects
+            constraint.proof.erase(constraint.proof.begin() + HonkRecursionConstraint::inner_public_input_offset,
                                    constraint.proof.begin() +
-                                       static_cast<std::ptrdiff_t>(HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
+                                       static_cast<std::ptrdiff_t>(HonkRecursionConstraint::inner_public_input_offset +
+                                                                   HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
             current_aggregation_object = create_honk_recursion_constraints(builder,
                                                                            constraint,
                                                                            current_aggregation_object,
@@ -305,11 +287,11 @@ void build_constraints(Builder& builder,
             size_t agg_obj_indices_idx = 0;
             for (fq val : aggregation_object_fq_values) {
                 const uint256_t x = val;
-                std::array<bb::fr, fq_ct::NUM_LIMBS> val_limbs = {
+                std::array<fr, fq_ct::NUM_LIMBS> val_limbs = {
                     x.slice(0, fq_ct::NUM_LIMB_BITS),
                     x.slice(fq_ct::NUM_LIMB_BITS, fq_ct::NUM_LIMB_BITS * 2),
                     x.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 3),
-                    x.slice(fq_ct::NUM_LIMB_BITS * 3, bb::stdlib::field_conversion::TOTAL_BITS)
+                    x.slice(fq_ct::NUM_LIMB_BITS * 3, stdlib::field_conversion::TOTAL_BITS)
                 };
                 for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
                     uint32_t idx = builder.add_variable(val_limbs[i]);
@@ -340,7 +322,8 @@ template <>
 UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
                                    size_t size_hint,
                                    WitnessVector const& witness,
-                                   bool honk_recursion)
+                                   bool honk_recursion,
+                                   [[maybe_unused]] std::shared_ptr<ECCOpQueue>)
 {
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
@@ -349,13 +332,11 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
-    builder.finalize_circuit();
-
     return builder;
 };
 
 /**
- * @brief Specialization for creating GoblinUltra circuit from acir constraints and optionally a witness
+ * @brief Specialization for creating Mega circuit from acir constraints and optionally a witness
  *
  * @tparam Builder
  * @param constraint_system
@@ -364,25 +345,22 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
  * @return Builder
  */
 template <>
-GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
-                                         [[maybe_unused]] size_t size_hint,
-                                         WitnessVector const& witness,
-                                         bool honk_recursion)
+MegaCircuitBuilder create_circuit(const AcirFormat& constraint_system,
+                                  [[maybe_unused]] size_t size_hint,
+                                  WitnessVector const& witness,
+                                  bool honk_recursion,
+                                  std::shared_ptr<ECCOpQueue> op_queue)
 {
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto op_queue = std::make_shared<ECCOpQueue>(); // instantiate empty op_queue
-    auto builder =
-        GoblinUltraCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
     acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
-    builder.finalize_circuit();
-
     return builder;
 };
 
-template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool, bool);
+template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat const&, bool, bool);
 
 } // namespace acir_format

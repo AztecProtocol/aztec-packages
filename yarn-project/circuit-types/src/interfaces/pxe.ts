@@ -1,6 +1,10 @@
 import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  type ProtocolContractAddresses,
+} from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
@@ -8,6 +12,7 @@ import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type ExtendedNote } from '../notes/index.js';
 import { type NoteFilter } from '../notes/note_filter.js';
+import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
@@ -61,8 +66,6 @@ export interface PXE {
    */
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
-  rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void>;
-
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
    * a user who hasn't deployed their account contract yet. Since their account is not deployed, their
@@ -106,6 +109,18 @@ export interface PXE {
    * @returns The complete address of the requested recipient.
    */
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Rotates master nullifier keys.
+   * @param address - The address of the account we want to rotate our key for.
+   * @param newNskM - The new master nullifier secret key we want to use.
+   * @remarks - One should not use this function directly without also calling the canonical key registry to rotate
+   * the new master nullifier secret key's derived master nullifier public key.
+   * Therefore, it is preferred to use rotateNullifierKeys on AccountWallet, as that handles the call to the Key Registry as well.
+   *
+   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
+   */
+  rotateNskM(address: AztecAddress, newNskM: Fq): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -225,6 +240,16 @@ export interface PXE {
   addNote(note: ExtendedNote): Promise<void>;
 
   /**
+   * Adds a nullified note to the database.
+   * @throws If the note hash of the note doesn't exist in the tree.
+   * @param note - The note to add.
+   * @dev We are not deriving a nullifier in this function since that would require having the nullifier secret key
+   * which is undesirable. Instead, we are just adding the note to the database as nullified and the nullifier is set
+   * to 0 in the db.
+   */
+  addNullifiedNote(note: ExtendedNote): Promise<void>;
+
+  /**
    * Get the given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
@@ -266,6 +291,11 @@ export interface PXE {
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
+   * Returns information about this PXE.
+   */
+  getPXEInfo(): Promise<PXEInfo>;
+
+  /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
    * @returns True if there are no outstanding blocks to be synched.
    * @remarks This indicates that blocks and transactions are synched even if notes are not. Compares local block number with the block number from aztec node.
@@ -293,6 +323,12 @@ export interface PXE {
   getSyncStatus(): Promise<SyncStatus>;
 
   /**
+   * Returns the note processor stats.
+   * @returns The note processor stats for notes for each public key being tracked.
+   */
+  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
+
+  /**
    * Returns a Contact Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
@@ -307,6 +343,12 @@ export interface PXE {
    * @param id - Identifier of the class.
    */
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined>;
+
+  /**
+   * Returns the contract artifact associated to a contract class.
+   * @param id - Identifier of the class.
+   */
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined>;
 
   /**
    * Queries the node to check whether the contract class with the given id has been publicly registered.
@@ -325,3 +367,17 @@ export interface PXE {
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
 }
 // docs:end:pxe-interface
+
+/**
+ * Provides basic information about the running PXE.
+ */
+export interface PXEInfo {
+  /**
+   * Version as tracked in the aztec-packages repository.
+   */
+  pxeVersion: string;
+  /**
+   * Protocol contract addresses
+   */
+  protocolContractAddresses: ProtocolContractAddresses;
+}

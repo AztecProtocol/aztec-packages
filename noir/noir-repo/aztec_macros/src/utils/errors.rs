@@ -12,10 +12,11 @@ pub enum AztecMacroError {
     UnsupportedFunctionReturnType { span: Span, typ: ast::UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: ast::UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
-    CouldNotImplementComputeNoteHashAndNullifier { secondary_message: Option<String> },
+    CouldNotImplementComputeNoteHashAndOptionallyANullifier { secondary_message: Option<String> },
     CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
     MultipleStorageDefinitions { span: Option<Span> },
     CouldNotExportStorageLayout { span: Option<Span>, secondary_message: Option<String> },
+    CouldNotInjectContextGenericInStorage { secondary_message: Option<String> },
     CouldNotExportFunctionAbi { span: Option<Span>, secondary_message: Option<String> },
     CouldNotGenerateContractInterface { secondary_message: Option<String> },
     EventError { span: Span, message: String },
@@ -56,8 +57,8 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message,
                 span: None,
             },
-            AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier { secondary_message } => MacroError {
-                primary_message: "Could not implement compute_note_hash_and_nullifier automatically, please provide an implementation".to_string(),
+            AztecMacroError::CouldNotImplementComputeNoteHashAndOptionallyANullifier { secondary_message } => MacroError {
+                primary_message: "Could not implement compute_note_hash_and_optionally_a_nullifier automatically, please provide an implementation".to_string(),
                 secondary_message,
                 span: None,
             },
@@ -75,6 +76,11 @@ impl From<AztecMacroError> for MacroError {
                 primary_message: "Could not generate and export storage layout".to_string(),
                 secondary_message,
                 span,
+            },
+            AztecMacroError::CouldNotInjectContextGenericInStorage { secondary_message } => MacroError {
+                primary_message: "Could not inject context generic in storage".to_string(),
+                secondary_message,
+                span: None
             },
             AztecMacroError::CouldNotExportFunctionAbi { secondary_message, span } => MacroError {
                 primary_message: "Could not generate and export function abi".to_string(),

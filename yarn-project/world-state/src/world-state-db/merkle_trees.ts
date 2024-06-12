@@ -9,7 +9,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -171,13 +171,14 @@ export class MerkleTrees implements MerkleTreeDb {
     if (!fromDb) {
       // We are not initializing from db so we need to populate the first leaf of the archive tree which is a hash of
       // the initial header.
-      const initialHeder = await this.buildInitialHeader(true);
-      await this.#updateArchive(initialHeder, true);
+      const initialHeader = await this.buildInitialHeader(true);
+      await this.#updateArchive(initialHeader, true);
     }
 
     await this.#commit();
   }
 
+  // REFACTOR: Make this private. It only makes sense if called at the beginning of the lifecycle of the object.
   public async buildInitialHeader(includeUncommitted: boolean): Promise<Header> {
     const state = await this.getStateReference(includeUncommitted);
     return new Header(
@@ -616,7 +617,7 @@ export class MerkleTrees implements MerkleTreeDb {
           const publicDataWrites = padArrayEnd(
             txEffect.publicDataWrites,
             PublicDataWrite.empty(),
-            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
           );
 
           await publicDataTree.batchInsert(

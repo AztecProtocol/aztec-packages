@@ -17,6 +17,7 @@ struct UltraOp {
     Fr y_hi;
     Fr z_1;
     Fr z_2;
+    bool return_is_infinity;
 };
 
 /**
@@ -374,6 +375,32 @@ class ECCOpQueue {
     }
 
     /**
+     * @brief Write no op (i.e. empty row)
+     *
+     */
+    UltraOp no_op()
+    {
+        // Construct and store the operation in the ultra op format
+        auto ultra_op = construct_and_populate_ultra_ops(NULL_OP, accumulator);
+
+        // Store raw operation
+        raw_ops.emplace_back(ECCVMOperation{
+            .add = false,
+            .mul = false,
+            .eq = false,
+            .reset = false,
+            .base_point = { 0, 0 },
+            .z1 = 0,
+            .z2 = 0,
+            .mul_scalar_full = 0,
+        });
+        num_transcript_rows += 1;
+        update_cached_msms(raw_ops.back());
+
+        return ultra_op;
+    }
+
+    /**
      * @brief Write equality op using internal accumulator point
      *
      * @return current internal accumulator point (prior to reset to 0)
@@ -414,10 +441,10 @@ class ECCOpQueue {
     void update_cached_msms(const ECCVMOperation& op)
     {
         if (op.mul) {
-            if (op.z1 != 0) {
+            if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
                 cached_active_msm_count++;
             }
-            if (op.z2 != 0) {
+            if (op.z2 != 0 && !op.base_point.is_point_at_infinity()) {
                 cached_active_msm_count++;
             }
         } else if (cached_active_msm_count != 0) {
@@ -460,6 +487,7 @@ class ECCOpQueue {
         const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
         auto x_256 = uint256_t(point.x);
         auto y_256 = uint256_t(point.y);
+        ultra_op.return_is_infinity = point.is_point_at_infinity();
         ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
         ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
         ultra_op.y_lo = Fr(y_256.slice(0, CHUNK_SIZE));

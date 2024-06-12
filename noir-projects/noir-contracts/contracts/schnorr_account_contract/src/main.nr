@@ -7,13 +7,11 @@ contract SchnorrAccount {
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
     use dep::aztec::state_vars::{Map, PublicMutable};
-    use dep::aztec::context::Context;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
     };
     use dep::aztec::hash::compute_siloed_nullifier;
-    use dep::aztec::keys::getters::{get_ivpk_m, get_npk_m_hash};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
@@ -31,12 +29,17 @@ contract SchnorrAccount {
     #[aztec(initializer)]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        let this_npk_m_hash = get_npk_m_hash(&mut context, this);
-        let this_ivpk_m = get_ivpk_m(&mut context, this);
+        let header = context.get_header();
+        let this_npk_m_hash = header.get_npk_m_hash(&mut context, this);
+        // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
+        // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
+        // important.
+        let this_ovpk_m = header.get_ovpk_m(&mut context, this);
+        let this_ivpk_m = header.get_ivpk_m(&mut context, this);
 
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
-        storage.signing_public_key.initialize(&mut pub_key_note, true, this_ivpk_m);
+        storage.signing_public_key.initialize(&mut pub_key_note, this_ovpk_m, this_ivpk_m);
         // docs:end:initialize
     }
 
@@ -44,7 +47,7 @@ contract SchnorrAccount {
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
-        let actions = AccountActions::private(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -55,7 +58,7 @@ contract SchnorrAccount {
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::private(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -66,7 +69,7 @@ contract SchnorrAccount {
     #[aztec(public)]
     #[aztec(noinitcheck)]
     fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::public(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -84,7 +87,7 @@ contract SchnorrAccount {
     #[aztec(internal)]
     #[aztec(noinitcheck)]
     fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::public(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -96,7 +99,7 @@ contract SchnorrAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // docs:start:entrypoint
         // Load public key from storage
-        let storage = Storage::init(Context::private(context));
+        let storage = Storage::init(context);
         // docs:start:get_note
         let public_key = storage.signing_public_key.get_note();
         // docs:end:get_note

@@ -1,100 +1,133 @@
 import {
+  AVM_REQUEST,
+  type AvmProvingRequest,
   MerkleTreeId,
   type NestedProcessReturnValues,
-  type PublicKernelRequest,
+  type PublicKernelNonTailRequest,
   PublicKernelType,
+  type PublicProvingRequest,
   type SimulationError,
   type Tx,
   type UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import {
+  type AvmExecutionHints,
   AztecAddress,
   CallRequest,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
+  FunctionData,
   Gas,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
   L2ToL1Message,
   LogHash,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   Nullifier,
-  type Proof,
   PublicCallData,
   type PublicCallRequest,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
-  PublicDataRead,
-  PublicDataUpdateRequest,
   PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
   ReadRequest,
   RevertCode,
   VK_TREE_HEIGHT,
-  VerificationKey,
+  VerificationKeyData,
   makeEmptyProof,
+  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
 import {
   type PublicExecution,
   type PublicExecutionResult,
   type PublicExecutor,
   accumulateReturnValues,
-  collectPublicDataReads,
-  collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
-import { lastSideEffectCounter } from './utils.js';
 
-export enum PublicKernelPhase {
-  SETUP = 'setup',
-  APP_LOGIC = 'app-logic',
-  TEARDOWN = 'teardown',
-  TAIL = 'tail',
-}
-
-export const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
-  [PublicKernelPhase.SETUP]: false,
-  [PublicKernelPhase.APP_LOGIC]: true,
-  [PublicKernelPhase.TEARDOWN]: false,
-  [PublicKernelPhase.TAIL]: false,
+export const PhaseIsRevertible: Record<PublicKernelType, boolean> = {
+  [PublicKernelType.NON_PUBLIC]: false,
+  [PublicKernelType.SETUP]: false,
+  [PublicKernelType.APP_LOGIC]: true,
+  [PublicKernelType.TEARDOWN]: true,
+  [PublicKernelType.TAIL]: false,
 };
 
-// REFACTOR: Unify both enums and move to types or circuit-types.
-export function publicKernelPhaseToKernelType(phase: PublicKernelPhase): PublicKernelType {
-  switch (phase) {
-    case PublicKernelPhase.SETUP:
-      return PublicKernelType.SETUP;
-    case PublicKernelPhase.APP_LOGIC:
-      return PublicKernelType.APP_LOGIC;
-    case PublicKernelPhase.TEARDOWN:
-      return PublicKernelType.TEARDOWN;
-    case PublicKernelPhase.TAIL:
-      return PublicKernelType.TAIL;
-  }
+export type PublicProvingInformation = {
+  calldata: Fr[];
+  bytecode: Buffer;
+  inputs: PublicKernelCircuitPrivateInputs;
+  avmHints: AvmExecutionHints;
+};
+
+export function makeAvmProvingRequest(
+  info: PublicProvingInformation,
+  kernelType: PublicKernelNonTailRequest['type'],
+): AvmProvingRequest {
+  return {
+    type: AVM_REQUEST,
+    bytecode: info.bytecode,
+    calldata: info.calldata,
+    avmHints: info.avmHints,
+    kernelRequest: {
+      type: kernelType,
+      inputs: info.inputs,
+    },
+  };
 }
+
+export type TxPublicCallsResult = {
+  /** Inputs to be used for proving */
+  publicProvingInformation: PublicProvingInformation[];
+  /** The public kernel output at the end of the Tx */
+  kernelOutput: PublicKernelCircuitPublicInputs;
+  /** Unencrypted logs generated during the execution of this Tx */
+  newUnencryptedLogs: UnencryptedFunctionL2Logs[];
+  /** Revert reason, if any */
+  revertReason?: SimulationError;
+  /** Return values of simulating complete callstack */
+  returnValues: NestedProcessReturnValues[];
+  /** Gas used during the execution this Tx */
+  gasUsed?: Gas;
+};
+
+export type PhaseResult = {
+  /** The collection of public proving requests */
+  publicProvingRequests: PublicProvingRequest[];
+  /** The output of the public kernel circuit simulation for this phase */
+  publicKernelOutput: PublicKernelCircuitPublicInputs;
+  /** The final output of the public kernel circuit for this phase */
+  finalKernelOutput?: KernelCircuitPublicInputs;
+  /** Revert reason, if any */
+  revertReason?: SimulationError;
+  /** Return values of simulating complete callstack */
+  returnValues: NestedProcessReturnValues[];
+  /** Gas used during the execution this phase */
+  gasUsed?: Gas;
+};
 
 export abstract class AbstractPhaseManager {
   protected hintsBuilder: HintsBuilder;
@@ -105,55 +138,27 @@ export abstract class AbstractPhaseManager {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
-    public phase: PublicKernelPhase,
+    public phase: PublicKernelType,
   ) {
     this.hintsBuilder = new HintsBuilder(db);
     this.log = createDebugLogger(`aztec:sequencer:${phase}`);
   }
+
   /**
-   *
    * @param tx - the tx to be processed
    * @param publicKernelPublicInputs - the output of the public kernel circuit for the previous phase
-   * @param previousPublicKernelProof - the proof of the public kernel circuit for the previous phase
    */
-  abstract handle(
-    tx: Tx,
-    publicKernelPublicInputs: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
-  ): Promise<{
-    /**
-     * The collection of public kernel requests
-     */
-    kernelRequests: PublicKernelRequest[];
-    /**
-     * the output of the public kernel circuit for this phase
-     */
-    publicKernelOutput: PublicKernelCircuitPublicInputs;
-    /**
-     * the final output of the public kernel circuit for this phase
-     */
-    finalKernelOutput?: KernelCircuitPublicInputs;
-    /**
-     * the proof of the public kernel circuit for this phase
-     */
-    publicKernelProof: Proof;
-    /**
-     * revert reason, if any
-     */
-    revertReason: SimulationError | undefined;
-    returnValues: NestedProcessReturnValues[];
-    /** Gas used during the execution this particular phase. */
-    gasUsed: Gas | undefined;
-  }>;
+  abstract handle(tx: Tx, publicKernelPublicInputs: PublicKernelCircuitPublicInputs): Promise<PhaseResult>;
 
-  public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
+  public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelType, PublicCallRequest[]> {
     const data = tx.data.forPublic;
     if (!data) {
       return {
-        [PublicKernelPhase.SETUP]: [],
-        [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: [],
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: [],
+        [PublicKernelType.APP_LOGIC]: [],
+        [PublicKernelType.TEARDOWN]: [],
+        [PublicKernelType.TAIL]: [],
       };
     }
     const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
@@ -171,10 +176,11 @@ export abstract class AbstractPhaseManager {
 
     if (callRequestsStack.length === 0) {
       return {
-        [PublicKernelPhase.SETUP]: [],
-        [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: [],
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: [],
+        [PublicKernelType.APP_LOGIC]: [],
+        [PublicKernelType.TEARDOWN]: [],
+        [PublicKernelType.TAIL]: [],
       };
     }
 
@@ -187,25 +193,28 @@ export abstract class AbstractPhaseManager {
 
     if (firstRevertibleCallIndex === 0) {
       return {
-        [PublicKernelPhase.SETUP]: [],
-        [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
-        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: [],
+        [PublicKernelType.APP_LOGIC]: publicCallsStack,
+        [PublicKernelType.TEARDOWN]: teardownCallStack,
+        [PublicKernelType.TAIL]: [],
       };
     } else if (firstRevertibleCallIndex === -1) {
       // there's no app logic, split the functions between setup (many) and teardown (just one function call)
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack,
-        [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: publicCallsStack,
+        [PublicKernelType.APP_LOGIC]: [],
+        [PublicKernelType.TEARDOWN]: teardownCallStack,
+        [PublicKernelType.TAIL]: [],
       };
     } else {
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex),
-        [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
-        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex),
+        [PublicKernelType.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
+        [PublicKernelType.TEARDOWN]: teardownCallStack,
+        [PublicKernelType.TAIL]: [],
       };
     }
   }
@@ -216,43 +225,32 @@ export abstract class AbstractPhaseManager {
     return calls;
   }
 
-  // REFACTOR: Do not return an array and instead return a struct with similar shape to that returned by `handle`
   protected async processEnqueuedPublicCalls(
     tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
-  ): Promise<
-    [
-      PublicKernelCircuitPrivateInputs[],
-      PublicKernelCircuitPublicInputs,
-      Proof,
-      UnencryptedFunctionL2Logs[],
-      SimulationError | undefined,
-      NestedProcessReturnValues[],
-      Gas,
-    ]
-  > {
-    let kernelOutput = previousPublicKernelOutput;
-    const kernelProof = previousPublicKernelProof;
-    const publicKernelInputs: PublicKernelCircuitPrivateInputs[] = [];
-
+  ): Promise<TxPublicCallsResult> {
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 
     if (!enqueuedCalls || !enqueuedCalls.length) {
-      return [[], kernelOutput, kernelProof, [], undefined, [], Gas.empty()];
+      return {
+        publicProvingInformation: [],
+        kernelOutput: previousPublicKernelOutput,
+        newUnencryptedLogs: [],
+        returnValues: [],
+        gasUsed: Gas.empty(),
+      };
     }
-
-    const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
-
-    // Transaction fee is zero for all phases except teardown
-    const transactionFee = this.getTransactionFee(tx, previousPublicKernelOutput);
 
     // TODO(#1684): Should multiple separately enqueued public calls be treated as
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
 
+    const provingInformationList: PublicProvingInformation[] = [];
+    const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
+    // Transaction fee is zero for all phases except teardown
+    const transactionFee = this.getTransactionFee(tx, previousPublicKernelOutput);
     let gasUsed = Gas.empty();
-
+    let kernelPublicOutput: PublicKernelCircuitPublicInputs = previousPublicKernelOutput;
     const enqueuedCallResults = [];
 
     for (const enqueuedCall of enqueuedCalls) {
@@ -264,34 +262,29 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-        // TODO(6052): Extract correct new counter from nested calls
-        const sideEffectCounter = lastSideEffectCounter(tx) + 1;
-        const availableGas = this.getAvailableGas(tx, kernelOutput);
-        const pendingNullifiers = this.getSiloedPendingNullifiers(kernelOutput);
-
         const result = isExecutionRequest
           ? await this.publicExecutor.simulate(
               current,
               this.globalVariables,
-              availableGas,
+              /*availableGas=*/ this.getAvailableGas(tx, kernelPublicOutput),
               tx.data.constants.txContext,
-              pendingNullifiers,
+              /*pendingNullifiers=*/ this.getSiloedPendingNullifiers(kernelPublicOutput),
               transactionFee,
-              sideEffectCounter,
+              /*startSideEffectCounter=*/ AbstractPhaseManager.getMaxSideEffectCounter(kernelPublicOutput) + 1,
             )
           : current;
 
+        // Accumulate gas used in this execution
+        gasUsed = gasUsed.add(Gas.from(result.startGasLeft).sub(Gas.from(result.endGasLeft)));
+
         // Sanity check for a current upstream assumption.
         // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
-        const functionSelector = result.execution.functionData.selector.toString();
+        const functionSelector = result.execution.functionSelector.toString();
         if (result.reverted && !result.revertReason) {
           throw new Error(
             `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector} reverted with no reason.`,
           );
         }
-
-        // Accumulate gas used in this execution
-        gasUsed = gasUsed.add(Gas.from(result.startGasLeft).sub(Gas.from(result.endGasLeft)));
 
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
           this.log.debug(
@@ -305,23 +298,29 @@ export abstract class AbstractPhaseManager {
         if (isExecutionRequest) {
           newUnencryptedFunctionLogs.push(result.allUnencryptedLogs);
         }
+        executionStack.push(...result.nestedExecutions);
 
+        // Simulate the public kernel circuit.
         this.log.debug(
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
         );
-        executionStack.push(...result.nestedExecutions);
         const callData = await this.getPublicCallData(result, isExecutionRequest);
+        const [privateInputs, publicInputs] = await this.runKernelCircuit(kernelPublicOutput, callData);
+        kernelPublicOutput = publicInputs;
 
-        const circuitResult = await this.runKernelCircuit(kernelOutput, kernelProof, callData);
-        kernelOutput = circuitResult[1];
+        // Capture the inputs for later proving in the AVM and kernel.
+        const publicProvingInformation: PublicProvingInformation = {
+          calldata: result.calldata,
+          bytecode: result.bytecode!,
+          inputs: privateInputs,
+          avmHints: result.avmHints,
+        };
+        provingInformationList.push(publicProvingInformation);
 
-        // Capture the inputs to the kernel circuit for later proving
-        publicKernelInputs.push(circuitResult[0]);
-
-        // sanity check. Note we can't expect them to just be equal, because e.g.
+        // Sanity check: Note we can't expect them to just be equal, because e.g.
         // if the simulator reverts in app logic, it "resets" and result.reverted will be false when we run teardown,
         // but the kernel carries the reverted flag forward. But if the simulator reverts, so should the kernel.
-        if (result.reverted && kernelOutput.revertCode.isOK()) {
+        if (result.reverted && kernelPublicOutput.revertCode.isOK()) {
           throw new Error(
             `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}, but simulator did.`,
           );
@@ -336,7 +335,14 @@ export abstract class AbstractPhaseManager {
             }`,
           );
           // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
-          return [[], kernelOutput, kernelProof, [], result.revertReason, [], gasUsed];
+          return {
+            publicProvingInformation: [],
+            kernelOutput: kernelPublicOutput,
+            newUnencryptedLogs: [],
+            revertReason: result.revertReason,
+            returnValues: [],
+            gasUsed,
+          };
         }
 
         if (!enqueuedExecutionResult) {
@@ -345,26 +351,18 @@ export abstract class AbstractPhaseManager {
 
         enqueuedCallResults.push(accumulateReturnValues(enqueuedExecutionResult));
       }
-      // HACK(#1622): Manually patches the ordering of public state actions
-      // TODO(#757): Enforce proper ordering of public state actions
-      patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!, this.phase);
     }
 
-    // TODO(#3675): This should be done in a public kernel circuit
-    removeRedundantPublicDataWrites(kernelOutput, this.phase);
-
-    return [
-      publicKernelInputs,
-      kernelOutput,
-      kernelProof,
-      newUnencryptedFunctionLogs,
-      undefined,
-      enqueuedCallResults,
+    return {
+      publicProvingInformation: provingInformationList,
+      kernelOutput: kernelPublicOutput,
+      newUnencryptedLogs: newUnencryptedFunctionLogs,
+      returnValues: enqueuedCallResults,
       gasUsed,
-    ];
+    };
   }
 
-  /** Returns all pending private and public nullifiers.  */
+  /** Returns all pending private and public nullifiers. */
   private getSiloedPendingNullifiers(ko: PublicKernelCircuitPublicInputs) {
     return [...ko.end.newNullifiers, ...ko.endNonRevertibleData.newNullifiers].filter(n => !n.isEmpty());
   }
@@ -380,44 +378,33 @@ export abstract class AbstractPhaseManager {
     return Fr.ZERO;
   }
 
-  protected async runKernelCircuit(
+  private async runKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
     callData: PublicCallData,
   ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
-    return await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
-  }
-
-  protected async getKernelCircuitOutput(
-    previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
-    callData: PublicCallData,
-  ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
-    const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+    const previousKernel = this.getPreviousKernelData(previousOutput);
 
     // We take a deep copy (clone) of these inputs to be passed to the prover
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
     switch (this.phase) {
-      case PublicKernelPhase.SETUP:
+      case PublicKernelType.SETUP:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitSetup(inputs)];
-      case PublicKernelPhase.APP_LOGIC:
+      case PublicKernelType.APP_LOGIC:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitAppLogic(inputs)];
-      case PublicKernelPhase.TEARDOWN:
+      case PublicKernelType.TEARDOWN:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitTeardown(inputs)];
       default:
         throw new Error(`No public kernel circuit for inputs`);
     }
   }
 
-  protected getPreviousKernelData(
-    previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
-  ): PublicKernelData {
-    // TODO(@PhilWindle) Fix once we move this to prover-client
-    const vk = VerificationKey.makeFake();
+  protected getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
+    // The proof and verification key are not used in simulation
+    const vk = VerificationKeyData.makeFake();
+    const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
-    return new PublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
+    return new PublicKernelData(previousOutput, proof, vk, vkIndex, vkSiblingPath);
   }
 
   protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {
@@ -441,6 +428,11 @@ export abstract class AbstractPhaseManager {
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
       returnsHash: computeVarArgsHash(result.returnValues),
+      noteHashReadRequests: padArrayEnd(
+        result.noteHashReadRequests,
+        ReadRequest.empty(),
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+      ),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
         ReadRequest.empty(),
@@ -450,6 +442,11 @@ export abstract class AbstractPhaseManager {
         result.nullifierNonExistentReadRequests,
         ReadRequest.empty(),
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+      ),
+      l1ToL2MsgReadRequests: padArrayEnd(
+        result.l1ToL2MsgReadRequests,
+        ReadRequest.empty(),
+        MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
       ),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
@@ -469,12 +466,12 @@ export abstract class AbstractPhaseManager {
       endGasLeft: Gas.from(result.endGasLeft),
       transactionFee: result.transactionFee,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
-      revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
+      revertCode: result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
     });
 
     return new PublicCallStackItem(
       result.execution.contractAddress,
-      result.execution.functionData,
+      new FunctionData(result.execution.functionSelector, false),
       publicCircuitPublicInputs,
       isExecutionRequest,
     );
@@ -489,6 +486,44 @@ export abstract class AbstractPhaseManager {
     }
 
     return await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
+  }
+
+  /**
+   * Looks at the side effects of a transaction and returns the highest counter
+   * @param tx - A transaction
+   * @returns The highest side effect counter in the transaction so far
+   */
+  static getMaxSideEffectCounter(inputs: PublicKernelCircuitPublicInputs): number {
+    const sideEffectCounters = [
+      ...inputs.endNonRevertibleData.newNoteHashes,
+      ...inputs.endNonRevertibleData.newNullifiers,
+      ...inputs.endNonRevertibleData.noteEncryptedLogsHashes,
+      ...inputs.endNonRevertibleData.encryptedLogsHashes,
+      ...inputs.endNonRevertibleData.unencryptedLogsHashes,
+      ...inputs.endNonRevertibleData.publicCallStack,
+      ...inputs.endNonRevertibleData.publicDataUpdateRequests,
+      ...inputs.end.newNoteHashes,
+      ...inputs.end.newNullifiers,
+      ...inputs.end.noteEncryptedLogsHashes,
+      ...inputs.end.encryptedLogsHashes,
+      ...inputs.end.unencryptedLogsHashes,
+      ...inputs.end.publicCallStack,
+      ...inputs.end.publicDataUpdateRequests,
+    ];
+
+    let max = 0;
+    for (const sideEffect of sideEffectCounters) {
+      if ('startSideEffectCounter' in sideEffect) {
+        // look at both start and end counters because for enqueued public calls start > 0 while end === 0
+        max = Math.max(max, sideEffect.startSideEffectCounter.toNumber(), sideEffect.endSideEffectCounter.toNumber());
+      } else if ('counter' in sideEffect) {
+        max = Math.max(max, sideEffect.counter);
+      } else {
+        throw new Error('Unknown side effect type');
+      }
+    }
+
+    return max;
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -515,88 +550,4 @@ export abstract class AbstractPhaseManager {
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), bytecodeHash);
   }
-}
-
-function removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublicInputs, phase: PublicKernelPhase) {
-  const lastWritesMap = new Map<string, boolean>();
-  const patch = <N extends number>(requests: Tuple<PublicDataUpdateRequest, N>) =>
-    requests.filter(write => {
-      const leafSlot = write.leafSlot.toString();
-      const exists = lastWritesMap.get(leafSlot);
-      lastWritesMap.set(leafSlot, true);
-      return !exists;
-    });
-
-  const [prev, curr] = PhaseIsRevertible[phase]
-    ? [publicInputs.endNonRevertibleData, publicInputs.end]
-    : [publicInputs.end, publicInputs.endNonRevertibleData];
-
-  curr.publicDataUpdateRequests = padArrayEnd(
-    patch(curr.publicDataUpdateRequests.reverse()).reverse(),
-    PublicDataUpdateRequest.empty(),
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
-
-  prev.publicDataUpdateRequests = padArrayEnd(
-    patch(prev.publicDataUpdateRequests.reverse()),
-    PublicDataUpdateRequest.empty(),
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
-}
-
-// HACK(#1622): this is a hack to fix ordering of public state in the call stack. Since the private kernel
-// cannot keep track of side effects that happen after or before a nested call, we override the public
-// state actions it emits with whatever we got from the simulator. As a sanity check, we at least verify
-// that the elements are the same, so we are only tweaking their ordering.
-// See yarn-project/end-to-end/src/e2e_ordering.test.ts
-// See https://github.com/AztecProtocol/aztec-packages/issues/1616
-// TODO(#757): Enforce proper ordering of public state actions
-/**
- * Patch the ordering of storage actions output from the public kernel.
- * @param publicInputs - to be patched here: public inputs to the kernel iteration up to this point
- * @param execResult - result of the top/first execution for this enqueued public call
- */
-function patchPublicStorageActionOrdering(
-  publicInputs: PublicKernelCircuitPublicInputs,
-  execResult: PublicExecutionResult,
-  phase: PublicKernelPhase,
-) {
-  const { publicDataUpdateRequests } = PhaseIsRevertible[phase] ? publicInputs.end : publicInputs.endNonRevertibleData;
-  const { publicDataReads } = publicInputs.validationRequests;
-
-  // Convert ContractStorage* objects to PublicData* objects and sort them in execution order.
-  // Note, this only pulls simulated reads/writes from the current phase,
-  // so the returned result will be a subset of the public kernel output.
-
-  const simPublicDataReads = collectPublicDataReads(execResult);
-
-  const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
-
-  // We only want to reorder the items from the public inputs of the
-  // most recently processed top/enqueued call.
-
-  const effectSet = PhaseIsRevertible[phase] ? 'end' : 'endNonRevertibleData';
-
-  const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isEmpty());
-  const numReadsBeforeThisEnqueuedCall = numReadsInKernel - simPublicDataReads.length;
-  publicInputs.validationRequests.publicDataReads = padArrayEnd(
-    [
-      // do not mess with items from previous top/enqueued calls in kernel output
-      ...publicInputs.validationRequests.publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
-      ...simPublicDataReads,
-    ],
-    PublicDataRead.empty(),
-    MAX_PUBLIC_DATA_READS_PER_TX,
-  );
-
-  const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isEmpty());
-  const numUpdatesBeforeThisEnqueuedCall = numUpdatesInKernel - simPublicDataUpdateRequests.length;
-  publicInputs[effectSet].publicDataUpdateRequests = padArrayEnd(
-    [
-      ...publicInputs[effectSet].publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
-      ...simPublicDataUpdateRequests,
-    ],
-    PublicDataUpdateRequest.empty(),
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
 }

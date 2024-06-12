@@ -60,7 +60,7 @@ To summarize:
 - _Public_ functions altering public state (updatable storage) must be executed at the current "head" of the chain, which only the sequencer can ensure, so these must be executed separately to the _private_ functions.
 - _Private_ and _public_ functions within an Aztec transaction are therefore ordered such that first _private_ functions are executed, and then _public_.
 
-A more comprehensive overview of the interplay between private and public functions and their ability to manipulate data is presented below. It is worth noting that all data reads performed by private functions are historical in nature, and that private functions are not capable of modifying public storage. Conversely, public functions have the capacity to manipulate private storage (e.g., inserting new note hashes, potentially as part of transferring funds from the public domain to the secret domain).
+A more comprehensive overview of the interplay between private and public functions and their ability to manipulate data is presented below. It is worth noting that all data reads performed by private functions are historical in nature, and that private functions are not capable of modifying public storage. Conversely, public functions have the capacity to manipulate private storage (e.g., inserting new note hashes, potentially as part of transferring funds from the public domain to the private domain).
 
 <Image img={require("/img/com-abs-4.png")} />
 
@@ -84,6 +84,6 @@ Many applications rely on some form of access control to function well. USDC hav
 
 Access control like this cannot easily be enforced in the private domain, as reading is also nullifying (to ensure data is up to date). However, as it is possible to read historical public state, one can combine private and public functions to get the desired effect.
 
-This concept is known as [shared state](/reference/smart_contract_reference/storage/shared_state.md), and relies on using delays when changing public data so that it can also be read in private with currentness guarantees. Since values cannot be immediately modified but instead require delays to elapse, it is possible to privately prove that an application is using the current value _as long as the transaction gets included before some time in the future_, which would be the earliest the value could possibly change.
+This concept is known as [shared state](../../../../reference/smart_contract_reference/storage/shared_state.md), and relies on using delays when changing public data so that it can also be read in private with currentness guarantees. Since values cannot be immediately modified but instead require delays to elapse, it is possible to privately prove that an application is using the current value _as long as the transaction gets included before some time in the future_, which would be the earliest the value could possibly change.
 
 If the public state is only changed infrequently, and it is acceptable to have delays when doing so, then shared state is a good solution to this problem.

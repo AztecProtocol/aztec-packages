@@ -19,6 +19,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../builder"
     },
     {
@@ -47,6 +50,9 @@
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../p2p-bootstrap"
     },
     {
       "path": "../protocol-contracts"

@@ -1,13 +1,12 @@
 use crate::{
     abis::{
     accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::RollupValidationRequests, gas::Gas
+    validation_requests::RollupValidationRequests, gas::Gas, gas_fees::GasFees
 },
     address::AztecAddress, partial_state_reference::PartialStateReference,
     traits::{Empty, Eq, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     utils::reader::Reader
 };
-use crate::mocked::AggregationObject;
 
 struct KernelCircuitPublicInputs {
     rollup_validation_requests: RollupValidationRequests,
@@ -19,9 +18,7 @@ struct KernelCircuitPublicInputs {
 }
 
 impl KernelCircuitPublicInputs {
-
-    pub fn compute_transaction_fee(self) -> Field {
-        let gas_fees = self.constants.global_variables.gas_fees;
+    pub fn compute_transaction_fee(self, gas_fees: GasFees) -> Field {
         let inclusion_fee = self.constants.tx_context.gas_settings.inclusion_fee;
         inclusion_fee + self.end.gas_used.compute_fee(gas_fees)
     }
@@ -93,12 +90,11 @@ mod tests {
     };
     use crate::address::AztecAddress;
     use crate::partial_state_reference::PartialStateReference;
-    use crate::mocked::AggregationObject;
 
     #[test]
     unconstrained fn empty_has_zero_gas_and_fee() {
         let empty = KernelCircuitPublicInputs::empty();
-        assert_eq(empty.compute_transaction_fee(), 0);
+        assert_eq(empty.compute_transaction_fee(GasFees::empty()), 0);
     }
 
     #[test]
@@ -119,12 +115,8 @@ mod tests {
 
         inputs.constants.tx_context.gas_settings.inclusion_fee = 42;
 
-        inputs.constants.global_variables.gas_fees = GasFees {
-            fee_per_da_gas: 2,
-            fee_per_l2_gas: 3
-        };
-
-        let transaction_fee = inputs.compute_transaction_fee();
+        let gas_fees = GasFees { fee_per_da_gas: 2, fee_per_l2_gas: 3 };
+        let transaction_fee = inputs.compute_transaction_fee(gas_fees);
         assert_eq(transaction_fee, 42 + 2 * 10 + 3 * 20);
     }
 

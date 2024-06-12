@@ -1,4 +1,9 @@
-import { EncryptedL2BlockL2Logs, TxEffect, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
+import {
+  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  TxEffect,
+  UnencryptedL2BlockL2Logs,
+} from '@aztec/circuit-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -35,6 +40,9 @@ export class Body {
   [inspect.custom]() {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
+  emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
+  emptyTxEffectHash: ${TxEffect.empty().hash().toString('hex')},
+  txsEffectsHash: ${this.getTxsEffectsHash().toString('hex')},
 }`;
   }
 
@@ -76,10 +84,10 @@ export class Body {
     return computeRoot(leaves);
   }
 
-  get noteEncryptedLogs(): EncryptedL2BlockL2Logs {
+  get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.noteEncryptedLogs);
 
-    return new EncryptedL2BlockL2Logs(logs);
+    return new EncryptedNoteL2BlockL2Logs(logs);
   }
 
   get encryptedLogs(): EncryptedL2BlockL2Logs {

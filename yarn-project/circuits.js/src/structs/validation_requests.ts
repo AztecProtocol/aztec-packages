@@ -1,19 +1,21 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { type Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
 } from '../constants.gen.js';
-import { ScopedNullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
 import { PublicDataRead } from './public_data_read_request.js';
 import { ScopedReadRequest } from './read_request.js';
 import { RollupValidationRequests } from './rollup_validation_requests.js';
+import { ScopedKeyValidationRequestAndGenerator } from './scoped_key_validation_request_and_generator.js';
 
 /**
  * Validation requests accumulated during the execution of the transaction.
@@ -41,11 +43,11 @@ export class ValidationRequests {
       typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX
     >,
     /**
-     * All the nullifier key validation requests made in this transaction.
+     * All the key validation requests made in this transaction.
      */
-    public nullifierKeyValidationRequests: Tuple<
-      ScopedNullifierKeyValidationRequest,
-      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    public scopedKeyValidationRequestsAndGenerators: Tuple<
+      ScopedKeyValidationRequestAndGenerator,
+      typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
     >,
     /**
      * All the public data reads made in this transaction.
@@ -53,19 +55,42 @@ export class ValidationRequests {
     public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
+  getSize() {
+    return (
+      this.forRollup.getSize() +
+      arraySerializedSizeOfNonEmpty(this.noteHashReadRequests) +
+      arraySerializedSizeOfNonEmpty(this.nullifierReadRequests) +
+      arraySerializedSizeOfNonEmpty(this.nullifierNonExistentReadRequests) +
+      arraySerializedSizeOfNonEmpty(this.scopedKeyValidationRequestsAndGenerators) +
+      arraySerializedSizeOfNonEmpty(this.publicDataReads)
+    );
+  }
+
   toBuffer() {
     return serializeToBuffer(
       this.forRollup,
       this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.nullifierNonExistentReadRequests,
-      this.nullifierKeyValidationRequests,
+      this.scopedKeyValidationRequestsAndGenerators,
       this.publicDataReads,
     );
   }
 
   toString() {
     return this.toBuffer().toString('hex');
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new ValidationRequests(
+      reader.readObject(RollupValidationRequests),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator),
+      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
+    );
   }
 
   /**
@@ -80,7 +105,7 @@ export class ValidationRequests {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
@@ -100,7 +125,7 @@ export class ValidationRequests {
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest.empty),
+      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
@@ -120,7 +145,7 @@ export class ValidationRequests {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  nullifierKeyValidationRequests: [${this.nullifierKeyValidationRequests
+  scopedKeyValidationRequestsAndGenerators: [${this.scopedKeyValidationRequestsAndGenerators
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],

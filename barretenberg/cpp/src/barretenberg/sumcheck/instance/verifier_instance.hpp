@@ -1,10 +1,11 @@
 #pragma once
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {
 /**
- * @brief The VerifierInstance encapsulates all the necessary information for a Goblin Ultra Honk Verifier to verify a
+ * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
  * proof (sumcheck + Zeromorph). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
  * target sum and gate challenges.
  *
@@ -31,8 +32,19 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
+
+    VerifierInstance_() = default;
     VerifierInstance_(std::shared_ptr<VerificationKey> vk)
         : verification_key(std::move(vk))
     {}
+
+    MSGPACK_FIELDS(verification_key,
+                   relation_parameters,
+                   alphas,
+                   is_accumulator,
+                   public_inputs,
+                   gate_challenges,
+                   target_sum,
+                   witness_commitments);
 };
 } // namespace bb

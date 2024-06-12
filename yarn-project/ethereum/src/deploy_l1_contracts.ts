@@ -1,3 +1,4 @@
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger } from '@aztec/foundation/log';
 
@@ -95,7 +96,7 @@ export interface L1ContractArtifactsForDeployment {
  */
 export function createL1Clients(
   rpcUrl: string,
-  mnemonicOrHdAccount: string | HDAccount,
+  mnemonicOrHdAccount: string | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
 ): { publicClient: PublicClient<HttpTransport, Chain>; walletClient: WalletClient<HttpTransport, Chain, Account> } {
   const hdAccount =
@@ -121,6 +122,7 @@ export function createL1Clients(
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
  * @param contractsToDeploy - The set of L1 artifacts to be deployed
+ * @param args - Arguments for initialization of L1 contracts
  * @returns A list of ETH addresses of the deployed contracts.
  */
 export const deployL1Contracts = async (
@@ -129,6 +131,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
+  args: { l2GasTokenAddress: AztecAddress },
 ): Promise<DeployL1Contracts> => {
   logger.debug('Deploying contracts...');
 
@@ -224,6 +227,24 @@ export const deployL1Contracts = async (
 
   logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
 
+  const gasPortal = getContract({
+    address: gasPortalAddress.toString(),
+    abi: contractsToDeploy.gasPortal.contractAbi,
+    client: walletClient,
+  });
+
+  await publicClient.waitForTransactionReceipt({
+    hash: await gasPortal.write.initialize([
+      registryAddress.toString(),
+      gasTokenAddress.toString(),
+      args.l2GasTokenAddress.toString(),
+    ]),
+  });
+
+  logger.info(
+    `Initialized Gas Portal at ${gasPortalAddress} to bridge between L1 ${gasTokenAddress} to L2 ${args.l2GasTokenAddress}`,
+  );
+
   // fund the rollup contract with gas tokens
   const gasToken = getContract({
     address: gasTokenAddress.toString(),
@@ -277,7 +298,11 @@ export async function deployL1Contract(
   const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
-    throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);
+    throw new Error(
+      `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
+        typeof val === 'bigint' ? String(val) : val,
+      )}`,
+    );
   }
 
   return EthAddress.fromString(receipt.contractAddress!);

@@ -13,7 +13,7 @@ to_keep = [
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",
     "ECCVMProver::construct_proof(t)",
-    "GoblinTranslatorProver::construct_proof(t)",
+    "TranslatorProver::construct_proof(t)",
     "Goblin::merge(t)"
 ]
 with open(PREFIX/IVC_BENCH_JSON, "r") as read_file:
@@ -56,9 +56,9 @@ for key in ['commit(t)', 'compute_combiner(t)', 'compute_perturbator(t)', 'compu
 
 print('\nBreakdown of ProtogalaxyProver::fold_instances:')
 protogalaxy_round_labels = [
-    "ProtoGalaxyProver_::preparation_round(t)", 
-    "ProtoGalaxyProver_::perturbator_round(t)", 
-    "ProtoGalaxyProver_::combiner_quotient_round(t)", 
+    "ProtoGalaxyProver_::preparation_round(t)",
+    "ProtoGalaxyProver_::perturbator_round(t)",
+    "ProtoGalaxyProver_::combiner_quotient_round(t)",
     "ProtoGalaxyProver_::accumulator_update_round(t)"
 ]
 max_label_length = max(len(label) for label in protogalaxy_round_labels)

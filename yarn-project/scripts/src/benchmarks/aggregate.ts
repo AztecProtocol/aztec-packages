@@ -9,6 +9,7 @@
 // And then run this script from the yarn-project/scripts folder
 // LOG_FOLDER=../end-to-end/log yarn bench-aggregate
 import {
+  type AvmSimulationStats,
   BENCHMARK_BLOCK_SIZES,
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
@@ -24,11 +25,11 @@ import {
   type MetricName,
   type NodeSyncedChainHistoryStats,
   type NoteProcessorCaughtUpStats,
+  type ProofConstructed,
+  type PublicDBAccessStats,
   type Stats,
   type TreeInsertionStats,
   type TxAddedToPoolStats,
-  type TxPXEProcessingStats,
-  type TxSequencerProcessingStats,
 } from '@aztec/circuit-types/stats';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
@@ -66,6 +67,25 @@ function append(
   results[metric]![bucket].push(numeric);
 }
 
+/** Processes an entry with event name 'acir-proof-generated' and updates results */
+function processAcirProofGenerated(entry: ProofConstructed, results: BenchmarkCollectedResults) {
+  if (entry.acir_test === 'bench_sha256') {
+    append(results, 'proof_construction_time_sha256_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_sha256_30') {
+    append(results, 'proof_construction_time_sha256_30_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_sha256_100') {
+    append(results, 'proof_construction_time_sha256_100_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash') {
+    append(results, 'proof_construction_time_poseidon_hash_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash_30') {
+    append(results, 'proof_construction_time_poseidon_hash_30_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash_100') {
+    append(results, 'proof_construction_time_poseidon_hash_100_ms', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_eddsa') {
+    append(results, 'proof_construction_time_eddsa_poseidon_ms', entry.threads, entry.value);
+  }
+}
+
 /** Processes an entry with event name 'rollup-published-to-l1' and updates results */
 function processRollupPublished(entry: L1PublishStats, results: BenchmarkCollectedResults) {
   const bucket = entry.txCount;
@@ -98,13 +118,8 @@ function processRollupBlockSynced(entry: L2BlockHandledStats, results: Benchmark
  */
 function processCircuitSimulation(entry: CircuitSimulationStats, results: BenchmarkCollectedResults) {
   if (entry.circuitName === 'app-circuit') {
-    const bucket = entry.appCircuitName;
-    if (!bucket) {
-      return;
-    }
-    append(results, 'app_circuit_simulation_time_in_ms', bucket, entry.duration);
-    append(results, 'app_circuit_input_size_in_bytes', bucket, entry.inputSize);
-    append(results, 'app_circuit_output_size_in_bytes', bucket, entry.outputSize);
+    // app circuits aren't simulated
+    return;
   } else {
     const bucket = entry.circuitName;
     append(results, 'protocol_circuit_simulation_time_in_ms', bucket, entry.duration);
@@ -136,6 +151,14 @@ function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCol
   }
 }
 
+function processAvmSimulation(entry: AvmSimulationStats, results: BenchmarkCollectedResults) {
+  append(results, 'avm_simulation_time_ms', entry.appCircuitName, entry.duration);
+}
+
+function processDbAccess(entry: PublicDBAccessStats, results: BenchmarkCollectedResults) {
+  append(results, 'public_db_access_time_ms', entry.operation, entry.duration);
+}
+
 /**
  * Processes an entry with event name 'circuit-proving' and updates results
  * Buckets are circuit names
@@ -147,6 +170,8 @@ function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, r
       return;
     }
     append(results, 'app_circuit_witness_generation_time_in_ms', bucket, entry.duration);
+    append(results, 'app_circuit_input_size_in_bytes', bucket, entry.inputSize);
+    append(results, 'app_circuit_output_size_in_bytes', bucket, entry.outputSize);
   } else {
     const bucket = entry.circuitName;
     append(results, 'protocol_circuit_witness_generation_time_in_ms', bucket, entry.duration);
@@ -156,8 +181,8 @@ function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, r
  * Processes an entry with event name 'note-processor-caught-up' and updates results
  */
 function processNoteProcessorCaughtUp(entry: NoteProcessorCaughtUpStats, results: BenchmarkCollectedResults) {
-  const { decrypted, blocks, dbSize } = entry;
-  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && decrypted > 0) {
+  const { decryptedIncoming, decryptedOutgoing, blocks, dbSize } = entry;
+  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && (decryptedIncoming > 0 || decryptedOutgoing > 0)) {
     append(results, 'pxe_database_size_in_bytes', blocks, dbSize);
   }
 }
@@ -191,25 +216,6 @@ function processTxAddedToPool(entry: TxAddedToPoolStats, results: BenchmarkColle
   append(results, 'tx_size_in_bytes', entry.classRegisteredCount, entry.size);
 }
 
-/** Process entries for events tx-private-part-processed, grouped by new note hashes */
-function processTxPXEProcessingStats(entry: TxPXEProcessingStats, results: BenchmarkCollectedResults) {
-  append(results, 'tx_pxe_processing_time_ms', entry.newCommitmentCount, entry.duration);
-}
-
-/** Process entries for events tx-public-part-processed, grouped by public data writes */
-function processTxSequencerProcessingStats(
-  entry: TxSequencerProcessingStats,
-  results: BenchmarkCollectedResults,
-  fileName: string,
-) {
-  append(results, 'tx_sequencer_processing_time_ms', entry.publicDataUpdateRequests, entry.duration);
-  // only track specific txs to ensure they're doing the same thing
-  // TODO(alexg): need a better way to identify these txs
-  if (entry.classRegisteredCount === 0 && entry.newCommitmentCount >= 2 && fileName.includes('bench-tx-size')) {
-    append(results, 'tx_with_fee_size_in_bytes', entry.feePaymentMethod, entry.effectsSize);
-  }
-}
-
 /** Process a tree insertion event and updates results */
 function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkCollectedResults) {
   const bucket = entry.batchSize;
@@ -238,8 +244,10 @@ function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkColle
 }
 
 /** Processes a parsed entry from a log-file and updates results */
-function processEntry(entry: Stats, results: BenchmarkCollectedResults, fileName: string) {
+function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
   switch (entry.eventName) {
+    case 'proof_construction_time':
+      return processAcirProofGenerated(entry, results);
     case 'rollup-published-to-l1':
       return processRollupPublished(entry, results);
     case 'l2-block-handled':
@@ -258,12 +266,12 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults, fileName
       return processNodeSyncedChain(entry, results);
     case 'tx-added-to-pool':
       return processTxAddedToPool(entry, results);
-    case 'tx-pxe-processing':
-      return processTxPXEProcessingStats(entry, results);
-    case 'tx-sequencer-processing':
-      return processTxSequencerProcessingStats(entry, results, fileName);
     case 'tree-insertion':
       return processTreeInsertion(entry, results);
+    case 'avm-simulation':
+      return processAvmSimulation(entry, results);
+    case 'public-db-access':
+      return processDbAccess(entry, results);
     default:
       return;
   }
@@ -290,7 +298,7 @@ export async function main() {
 
     for await (const line of rl) {
       const entry = JSON.parse(line);
-      processEntry(entry, collected, path.basename(filePath));
+      processEntry(entry, collected);
     }
   }
 

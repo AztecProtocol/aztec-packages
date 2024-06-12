@@ -5,15 +5,16 @@ use crate::{
 },
     nullifier_read_request_reset::NullifierReadRequestHints,
     nullifier_non_existent_read_request_reset::NullifierNonExistentReadRequestHints,
-    public_data_read_request_reset::PublicDataReadRequestHints, types::public_data_hint::PublicDataHint
+    public_data_read_request_reset::PublicDataReadRequestHints
 };
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, nullifier::Nullifier,
     public_data_update_request::PublicDataUpdateRequest, validation_requests::ValidationRequests
 },
+    data::public_data_hint::PublicDataHint,
     constants::{MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
-    hash::silo_nullifier, traits::is_empty,
+    hash::compute_siloed_nullifier, traits::is_empty,
     utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
 };
 
@@ -88,7 +89,7 @@ impl<N> PublicValidationRequestProcessor<N> {
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
-                read_requests[i].read_request.value = silo_nullifier(read_request.contract_address, read_request.value());
+                read_requests[i].read_request.value = compute_siloed_nullifier(read_request.contract_address, read_request.value());
             }
         }
 

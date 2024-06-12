@@ -1,3 +1,15 @@
+/** Stats associated with an ACIR proof generation.*/
+export type ProofConstructed = {
+  /** Name of the event for metrics purposes */
+  eventName: 'proof_construction_time';
+  /** Name of the program being proven */
+  acir_test: string;
+  /** Number of threads used for proving */
+  threads: number;
+  /** Time spent proving */
+  value: number;
+};
+
 /** Stats associated with an L2 block. */
 export type L2BlockStats = {
   /** Number of txs in the L2 block. */
@@ -66,7 +78,10 @@ export type CircuitName =
   | 'public-kernel-setup'
   | 'public-kernel-app-logic'
   | 'public-kernel-teardown'
-  | 'public-kernel-tail';
+  | 'public-kernel-tail'
+  | 'avm-circuit'
+  | 'empty-nested'
+  | 'private-kernel-empty';
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
@@ -82,6 +97,21 @@ export type CircuitSimulationStats = {
   inputSize: number;
   /** Size in bytes of circuit outputs (aka public inputs). */
   outputSize: number;
+};
+
+export type PublicDBAccessStats = {
+  eventName: 'public-db-access';
+  duration: number;
+  operation: string;
+};
+
+export type AvmSimulationStats = {
+  /** name of the event. */
+  eventName: 'avm-simulation';
+  /** Name of the circuit. */
+  appCircuitName: string;
+  /** Duration in ms. */
+  duration: number;
 };
 
 /** Stats for witness generation. */
@@ -114,8 +144,6 @@ export type CircuitProvingStats = {
   circuitSize: number;
   /** Size in bytes of circuit inputs. */
   inputSize: number;
-  /** Size in bytes of circuit output. */
-  outputSize: number;
   /** Size in bytes of the proof. */
   proofSize: number;
   /** The number of public inputs */
@@ -148,8 +176,8 @@ export type L2BlockHandledStats = {
 export type NoteProcessorCaughtUpStats = {
   /** Name of the event. */
   eventName: 'note-processor-caught-up';
-  /** Public key of the note processor. */
-  publicKey: string;
+  /** Account the note processor belongs to. */
+  account: string;
   /** Total time to catch up with the tip of the chain from scratch in ms. */
   duration: number;
   /** Size of the notes db. */
@@ -162,8 +190,10 @@ export type NoteProcessorStats = {
   seen: number;
   /** How many notes had decryption deferred due to a missing contract */
   deferred: number;
-  /** How many notes were successfully decrypted. */
-  decrypted: number;
+  /** How many incoming notes were successfully decrypted. */
+  decryptedIncoming: number;
+  /** How many outgoing notes were successfully decrypted. */
+  decryptedOutgoing: number;
   /** How many notes failed processing. */
   failed: number;
   /** How many blocks were spanned.  */
@@ -203,29 +233,6 @@ export type TxStats = {
 };
 
 /**
- * Stats for a tx that has been processed by the public processor.
- */
-export type TxPXEProcessingStats = {
-  /** Name of the event. */
-  eventName: 'tx-pxe-processing';
-  /** Duration in ms. */
-  duration: number;
-} & TxStats;
-
-/**
- * Stats for a tx that has been processed by the public processor.
- */
-export type TxSequencerProcessingStats = {
-  /** Name of the event. */
-  eventName: 'tx-sequencer-processing';
-  /** Duration in ms. */
-  duration: number;
-  /** Count of how many public writes this tx has made. Acts as a proxy for how 'heavy' this tx */
-  publicDataUpdateRequests: number;
-  effectsSize: number;
-} & Pick<TxStats, 'classRegisteredCount' | 'newCommitmentCount' | 'feePaymentMethod'>;
-
-/**
  * Stats for tree insertions
  */
 export type TreeInsertionStats = {
@@ -255,18 +262,19 @@ export type TxAddedToPoolStats = {
 
 /** Stats emitted in structured logs with an `eventName` for tracking. */
 export type Stats =
-  | L1PublishStats
-  | NodeSyncedChainHistoryStats
-  | CircuitSimulationStats
+  | AvmSimulationStats
   | CircuitProvingStats
+  | CircuitSimulationStats
   | CircuitWitnessGenerationStats
+  | PublicDBAccessStats
+  | L1PublishStats
   | L2BlockBuiltStats
   | L2BlockHandledStats
+  | NodeSyncedChainHistoryStats
   | NoteProcessorCaughtUpStats
-  | TxAddedToPoolStats
-  | TxPXEProcessingStats
-  | TxSequencerProcessingStats
-  | TreeInsertionStats;
+  | ProofConstructed
+  | TreeInsertionStats
+  | TxAddedToPoolStats;
 
 /** Set of event names across emitted stats. */
 export type StatsEventName = Stats['eventName'];

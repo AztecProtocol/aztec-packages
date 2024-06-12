@@ -15,7 +15,6 @@ mod merkle_tree;
 mod contract_instance;
 
 mod messaging;
-mod mocked;
 mod hash;
 mod traits;
 mod type_serialization;
@@ -33,3 +32,5 @@ mod public_data_tree_leaf_preimage;
 use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs};
 
 mod recursion;
+mod data;
+mod storage;

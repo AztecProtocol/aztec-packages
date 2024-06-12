@@ -1,14 +1,16 @@
 #include "block_constraint.hpp"
+#include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
 
-using namespace bb::plonk;
-
 namespace acir_format {
 
-template <typename Builder> bb::stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)
+using namespace bb::plonk;
+using namespace bb;
+
+template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)
 {
-    using field_ct = bb::stdlib::field_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
 
     ASSERT(poly.q_m == 0);
     ASSERT(poly.q_r == 0);
@@ -23,11 +25,12 @@ template <typename Builder> bb::stdlib::field_t<Builder> poly_to_field_ct(const 
 }
 
 template <typename Builder>
-void create_block_constraints(Builder& builder, const BlockConstraint constraint, bool has_valid_witness_assignments)
+void create_block_constraints(Builder& builder, const BlockConstraint& constraint, bool has_valid_witness_assignments)
 {
-    using field_ct = bb::stdlib::field_t<Builder>;
-    using rom_table_ct = bb::stdlib::rom_table<Builder>;
-    using ram_table_ct = bb::stdlib::ram_table<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+    using rom_table_ct = stdlib::rom_table<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+    using databus_ct = stdlib::databus<Builder>;
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
@@ -77,6 +80,46 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
             }
         }
     } break;
+    case BlockType::CallData: {
+        if constexpr (IsMegaBuilder<Builder>) {
+            databus_ct databus;
+            // Populate the calldata in the databus
+            databus.calldata.set_values(init);
+            for (const auto& op : constraint.trace) {
+                ASSERT(op.access_type == 0);
+                field_ct value = poly_to_field_ct(op.value, builder);
+                field_ct index = poly_to_field_ct(op.index, builder);
+                fr w_value = 0;
+                if (has_valid_witness_assignments) {
+                    // If witness are assigned, we use the correct value for w
+                    w_value = index.get_value();
+                }
+                field_ct w = field_ct::from_witness(&builder, w_value);
+                value.assert_equal(databus.calldata[w]);
+                w.assert_equal(index);
+            }
+        }
+    } break;
+    case BlockType::ReturnData: {
+        if constexpr (IsMegaBuilder<Builder>) {
+            databus_ct databus;
+            // Populate the returndata in the databus
+            databus.return_data.set_values(init);
+            for (const auto& op : constraint.trace) {
+                ASSERT(op.access_type == 0);
+                field_ct value = poly_to_field_ct(op.value, builder);
+                field_ct index = poly_to_field_ct(op.index, builder);
+                fr w_value = 0;
+                if (has_valid_witness_assignments) {
+                    // If witness are assigned, we use the correct value for w
+                    w_value = index.get_value();
+                }
+                field_ct w = field_ct::from_witness(&builder, w_value);
+                value.assert_equal(databus.return_data[w]);
+                w.assert_equal(index);
+            }
+        }
+    } break;
     default:
         ASSERT(false);
         break;
@@ -84,10 +127,10 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
 }
 
 template void create_block_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                            const BlockConstraint constraint,
+                                                            const BlockConstraint& constraint,
                                                             bool has_valid_witness_assignments);
-template void create_block_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                  const BlockConstraint constraint,
-                                                                  bool has_valid_witness_assignments);
+template void create_block_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                           const BlockConstraint& constraint,
+                                                           bool has_valid_witness_assignments);
 
 } // namespace acir_format

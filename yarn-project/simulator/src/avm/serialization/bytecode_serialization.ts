@@ -1,4 +1,5 @@
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
+import { EcAdd } from '../opcodes/ec_add.js';
 import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import type { Instruction } from '../opcodes/index.js';
 import {
@@ -136,7 +137,8 @@ const INSTRUCTION_SET = () =>
     // Misc
     [DebugLog.opcode, DebugLog],
 
-    // //// Gadgets
+    // Gadgets
+    [EcAdd.opcode, EcAdd],
     [Keccak.opcode, Keccak],
     [Poseidon2.opcode, Poseidon2],
     [Sha256.opcode, Sha256],

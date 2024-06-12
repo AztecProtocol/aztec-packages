@@ -1,6 +1,7 @@
 import {
   type Body,
   type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -13,10 +14,10 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
-  TxStatus,
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
@@ -52,7 +53,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the encrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private noteEncryptedLogsPerBlock: EncryptedL2BlockL2Logs[] = [];
+  private noteEncryptedLogsPerBlock: EncryptedNoteL2BlockL2Logs[] = [];
 
   /**
    * An array containing all the encrypted logs that have been fetched so far.
@@ -70,6 +71,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * Contains all L1 to L2 messages.
    */
   private l1ToL2Messages = new L1ToL2MessageStore();
+
+  private contractArtifacts: Map<string, ContractArtifact> = new Map();
 
   private contractClasses: Map<string, ContractClassPublic> = new Map();
 
@@ -191,7 +194,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    noteEncryptedLogs: EncryptedL2BlockL2Logs,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
     encryptedLogs: EncryptedL2BlockL2Logs,
     unencryptedLogs: UnencryptedL2BlockL2Logs,
     blockNumber: number,
@@ -282,7 +285,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
           return Promise.resolve(
             new TxReceipt(
               txHash,
-              TxStatus.MINED,
+              TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
               block.hash().toBuffer(),
@@ -437,5 +440,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
     });
+  }
+
+  public addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    this.contractArtifacts.set(address.toString(), contract);
+    return Promise.resolve();
+  }
+
+  public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return Promise.resolve(this.contractArtifacts.get(address.toString()));
   }
 }

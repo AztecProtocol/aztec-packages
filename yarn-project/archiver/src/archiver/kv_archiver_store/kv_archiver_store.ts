@@ -1,6 +1,7 @@
 import {
   type Body,
   type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -14,6 +15,7 @@ import {
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -28,6 +30,7 @@ import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_s
 import { type DataRetrieval } from '../data_retrieval.js';
 import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
+import { ContractArtifactsStore } from './contract_artifacts_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
@@ -43,6 +46,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
+  #contractArtifactStore: ContractArtifactsStore;
 
   #log = createDebugLogger('aztec:archiver:data-store');
 
@@ -53,6 +57,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+    this.#contractArtifactStore = new ContractArtifactsStore(db);
+  }
+
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return Promise.resolve(this.#contractArtifactStore.getContractArtifact(address));
+  }
+
+  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    return this.#contractArtifactStore.addContractArtifact(address, contract);
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -153,7 +166,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    noteEncryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
     encryptedLogs: EncryptedL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,

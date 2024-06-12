@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -21,10 +21,12 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
+    explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
     // TODO(luke): Eventually this will return something like aggregation_state but I'm simplifying for now until we
     // determine the exact interface. Simply returns the two pairing points.
     PairingPoints verify_proof(const HonkProof& proof);
+    PairingPoints verify_proof(const StdlibProof<Builder>& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

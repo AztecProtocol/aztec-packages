@@ -1,18 +1,17 @@
 import { type FunctionCall, type SimulationError, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
+  AvmExecutionHints,
   type AztecAddress,
   CallContext,
-  CallRequest,
+  type ContractStorageRead,
   type ContractStorageUpdateRequest,
   Fr,
-  FunctionData,
   Gas,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
 } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
+import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
 import { type PublicExecution, type PublicExecutionResult } from '../public/execution.js';
@@ -21,6 +20,7 @@ export class PublicExecutionResultBuilder {
   private _execution: PublicExecution;
   private _nestedExecutions: PublicExecutionResult[] = [];
   private _contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
+  private _contractStorageReads: ContractStorageRead[] = [];
   private _returnValues: Fr[] = [];
   private _reverted = false;
   private _revertReason: SimulationError | undefined = undefined;
@@ -34,17 +34,25 @@ export class PublicExecutionResultBuilder {
     returnValues = [new Fr(1n)],
     nestedExecutions = [],
     contractStorageUpdateRequests = [],
+    contractStorageReads = [],
+    revertReason = undefined,
   }: {
     request: PublicCallRequest;
     returnValues?: Fr[];
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
+    contractStorageReads?: ContractStorageRead[];
+    revertReason?: SimulationError;
   }): PublicExecutionResultBuilder {
     const builder = new PublicExecutionResultBuilder(request);
 
     builder.withNestedExecutions(...nestedExecutions);
     builder.withContractStorageUpdateRequest(...contractStorageUpdateRequests);
+    builder.withContractStorageRead(...contractStorageReads);
     builder.withReturnValues(...returnValues);
+    if (revertReason) {
+      builder.withReverted(revertReason);
+    }
 
     return builder;
   }
@@ -55,6 +63,7 @@ export class PublicExecutionResultBuilder {
     returnValues = [new Fr(1n)],
     nestedExecutions = [],
     contractStorageUpdateRequests = [],
+    contractStorageReads = [],
     revertReason,
   }: {
     from: AztecAddress;
@@ -62,17 +71,19 @@ export class PublicExecutionResultBuilder {
     returnValues?: Fr[];
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
+    contractStorageReads?: ContractStorageRead[];
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, tx.functionData.selector, false, false, 0),
+      callContext: new CallContext(from, tx.to, tx.selector, false, false, 0),
       contractAddress: tx.to,
-      functionData: tx.functionData,
+      functionSelector: tx.selector,
       args: tx.args,
     });
 
     builder.withNestedExecutions(...nestedExecutions);
     builder.withContractStorageUpdateRequest(...contractStorageUpdateRequests);
+    builder.withContractStorageRead(...contractStorageReads);
     builder.withReturnValues(...returnValues);
     if (revertReason) {
       builder.withReverted(revertReason);
@@ -91,6 +102,11 @@ export class PublicExecutionResultBuilder {
     return this;
   }
 
+  withContractStorageRead(...reads: ContractStorageRead[]): PublicExecutionResultBuilder {
+    this._contractStorageReads.push(...reads);
+    return this;
+  }
+
   withReturnValues(...values: Fr[]): PublicExecutionResultBuilder {
     this._returnValues.push(...values);
     return this;
@@ -106,8 +122,10 @@ export class PublicExecutionResultBuilder {
     return {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
+      noteHashReadRequests: [],
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],
+      l1ToL2MsgReadRequests: [],
       contractStorageUpdateRequests: this._contractStorageUpdateRequests,
       returnValues: padArrayEnd(this._returnValues, Fr.ZERO, 4), // TODO(#5450) Need to use the proper return values here
       newNoteHashes: [],
@@ -124,38 +142,19 @@ export class PublicExecutionResultBuilder {
       startGasLeft: Gas.test(),
       endGasLeft: Gas.test(),
       transactionFee: Fr.ZERO,
+      calldata: [],
+      avmHints: AvmExecutionHints.empty(),
       ...overrides,
     };
   }
 }
 
 export const makeFunctionCall = (
+  name = 'function',
   to = makeAztecAddress(30),
   selector = makeSelector(5),
+  type = FunctionType.PUBLIC,
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
-) => ({ to, functionData: new FunctionData(selector, /*isPrivate=*/ false, /*isStatic=*/ false), args });
-
-export function addKernelPublicCallStack(
-  kernelOutput: PrivateKernelTailCircuitPublicInputs,
-  calls: {
-    setupCalls: PublicCallRequest[];
-    appLogicCalls: PublicCallRequest[];
-    teardownCall: PublicCallRequest;
-  },
-) {
-  // the first two calls are non-revertible
-  // the first is for setup, the second is for teardown
-  kernelOutput.forPublic!.endNonRevertibleData.publicCallStack = padArrayEnd(
-    // this is a stack, so the first item is the last call
-    // and callRequests is in the order of the calls
-    [calls.teardownCall.toCallRequest(), ...calls.setupCalls.map(c => c.toCallRequest())],
-    CallRequest.empty(),
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  );
-
-  kernelOutput.forPublic!.end.publicCallStack = padArrayEnd(
-    calls.appLogicCalls.map(c => c.toCallRequest()),
-    CallRequest.empty(),
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  );
-}
+  isStatic = false,
+  returnTypes = [],
+) => ({ name, to, selector, type, args, isStatic, returnTypes });

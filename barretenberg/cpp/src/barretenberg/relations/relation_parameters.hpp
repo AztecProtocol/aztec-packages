@@ -27,12 +27,10 @@ template <typename T> struct RelationParameters {
     // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
     // We can remove this by modifying the relation, but increases complexity
     T eccvm_set_permutation_delta = T(0);
-    std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR> accumulated_result = {
-        T(0), T(0), T(0), T(0)
-    }; // Goblin Translator
+    std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR> accumulated_result = { T(0), T(0), T(0), T(0) }; // Translator
     std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR> evaluation_input_x = {
         T(0), T(0), T(0), T(0), T(0)
-    }; // Goblin Translator
+    }; // Translator
     std::array<std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR>,
                NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR>
         batching_challenge_v = { { { T(0), T(0), T(0), T(0), T(0) },
@@ -80,5 +78,7 @@ template <typename T> struct RelationParameters {
 
         return result;
     }
+
+    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta);
 };
 } // namespace bb

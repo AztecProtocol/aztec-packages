@@ -168,15 +168,56 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_conversion_num_limbs = commitment_key->commit(key->avm_conversion_num_limbs);
     witness_commitments.avm_conversion_radix = commitment_key->commit(key->avm_conversion_radix);
     witness_commitments.avm_conversion_to_radix_le_sel = commitment_key->commit(key->avm_conversion_to_radix_le_sel);
-    witness_commitments.avm_kernel_kernel_inputs__is_public =
-        commitment_key->commit(key->avm_kernel_kernel_inputs__is_public);
-    witness_commitments.avm_kernel_kernel_sel = commitment_key->commit(key->avm_kernel_kernel_sel);
+    witness_commitments.avm_gas_da_gas_fixed_table = commitment_key->commit(key->avm_gas_da_gas_fixed_table);
+    witness_commitments.avm_gas_gas_cost_sel = commitment_key->commit(key->avm_gas_gas_cost_sel);
+    witness_commitments.avm_gas_l2_gas_fixed_table = commitment_key->commit(key->avm_gas_l2_gas_fixed_table);
+    witness_commitments.avm_keccakf1600_clk = commitment_key->commit(key->avm_keccakf1600_clk);
+    witness_commitments.avm_keccakf1600_input = commitment_key->commit(key->avm_keccakf1600_input);
+    witness_commitments.avm_keccakf1600_keccakf1600_sel = commitment_key->commit(key->avm_keccakf1600_keccakf1600_sel);
+    witness_commitments.avm_keccakf1600_output = commitment_key->commit(key->avm_keccakf1600_output);
+    witness_commitments.avm_kernel_emit_l2_to_l1_msg_write_offset =
+        commitment_key->commit(key->avm_kernel_emit_l2_to_l1_msg_write_offset);
+    witness_commitments.avm_kernel_emit_note_hash_write_offset =
+        commitment_key->commit(key->avm_kernel_emit_note_hash_write_offset);
+    witness_commitments.avm_kernel_emit_nullifier_write_offset =
+        commitment_key->commit(key->avm_kernel_emit_nullifier_write_offset);
+    witness_commitments.avm_kernel_emit_unencrypted_log_write_offset =
+        commitment_key->commit(key->avm_kernel_emit_unencrypted_log_write_offset);
+    witness_commitments.avm_kernel_kernel_in_offset = commitment_key->commit(key->avm_kernel_kernel_in_offset);
+    witness_commitments.avm_kernel_kernel_inputs = commitment_key->commit(key->avm_kernel_kernel_inputs);
+    witness_commitments.avm_kernel_kernel_metadata_out = commitment_key->commit(key->avm_kernel_kernel_metadata_out);
+    witness_commitments.avm_kernel_kernel_out_offset = commitment_key->commit(key->avm_kernel_kernel_out_offset);
+    witness_commitments.avm_kernel_kernel_side_effect_out =
+        commitment_key->commit(key->avm_kernel_kernel_side_effect_out);
+    witness_commitments.avm_kernel_kernel_value_out = commitment_key->commit(key->avm_kernel_kernel_value_out);
+    witness_commitments.avm_kernel_l1_to_l2_msg_exists_write_offset =
+        commitment_key->commit(key->avm_kernel_l1_to_l2_msg_exists_write_offset);
+    witness_commitments.avm_kernel_note_hash_exist_write_offset =
+        commitment_key->commit(key->avm_kernel_note_hash_exist_write_offset);
+    witness_commitments.avm_kernel_nullifier_exists_write_offset =
+        commitment_key->commit(key->avm_kernel_nullifier_exists_write_offset);
+    witness_commitments.avm_kernel_nullifier_non_exists_write_offset =
+        commitment_key->commit(key->avm_kernel_nullifier_non_exists_write_offset);
     witness_commitments.avm_kernel_q_public_input_kernel_add_to_table =
         commitment_key->commit(key->avm_kernel_q_public_input_kernel_add_to_table);
+    witness_commitments.avm_kernel_q_public_input_kernel_out_add_to_table =
+        commitment_key->commit(key->avm_kernel_q_public_input_kernel_out_add_to_table);
+    witness_commitments.avm_kernel_side_effect_counter = commitment_key->commit(key->avm_kernel_side_effect_counter);
+    witness_commitments.avm_kernel_sload_write_offset = commitment_key->commit(key->avm_kernel_sload_write_offset);
+    witness_commitments.avm_kernel_sstore_write_offset = commitment_key->commit(key->avm_kernel_sstore_write_offset);
+    witness_commitments.avm_main_abs_da_rem_gas_hi = commitment_key->commit(key->avm_main_abs_da_rem_gas_hi);
+    witness_commitments.avm_main_abs_da_rem_gas_lo = commitment_key->commit(key->avm_main_abs_da_rem_gas_lo);
+    witness_commitments.avm_main_abs_l2_rem_gas_hi = commitment_key->commit(key->avm_main_abs_l2_rem_gas_hi);
+    witness_commitments.avm_main_abs_l2_rem_gas_lo = commitment_key->commit(key->avm_main_abs_l2_rem_gas_lo);
     witness_commitments.avm_main_alu_in_tag = commitment_key->commit(key->avm_main_alu_in_tag);
     witness_commitments.avm_main_alu_sel = commitment_key->commit(key->avm_main_alu_sel);
     witness_commitments.avm_main_bin_op_id = commitment_key->commit(key->avm_main_bin_op_id);
     witness_commitments.avm_main_bin_sel = commitment_key->commit(key->avm_main_bin_sel);
+    witness_commitments.avm_main_call_ptr = commitment_key->commit(key->avm_main_call_ptr);
+    witness_commitments.avm_main_da_gas_op = commitment_key->commit(key->avm_main_da_gas_op);
+    witness_commitments.avm_main_da_gas_remaining = commitment_key->commit(key->avm_main_da_gas_remaining);
+    witness_commitments.avm_main_da_out_of_gas = commitment_key->commit(key->avm_main_da_out_of_gas);
+    witness_commitments.avm_main_gas_cost_active = commitment_key->commit(key->avm_main_gas_cost_active);
     witness_commitments.avm_main_ia = commitment_key->commit(key->avm_main_ia);
     witness_commitments.avm_main_ib = commitment_key->commit(key->avm_main_ib);
     witness_commitments.avm_main_ic = commitment_key->commit(key->avm_main_ic);
@@ -192,28 +233,36 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_ind_op_d = commitment_key->commit(key->avm_main_ind_op_d);
     witness_commitments.avm_main_internal_return_ptr = commitment_key->commit(key->avm_main_internal_return_ptr);
     witness_commitments.avm_main_inv = commitment_key->commit(key->avm_main_inv);
+    witness_commitments.avm_main_l2_gas_op = commitment_key->commit(key->avm_main_l2_gas_op);
+    witness_commitments.avm_main_l2_gas_remaining = commitment_key->commit(key->avm_main_l2_gas_remaining);
+    witness_commitments.avm_main_l2_out_of_gas = commitment_key->commit(key->avm_main_l2_out_of_gas);
     witness_commitments.avm_main_last = commitment_key->commit(key->avm_main_last);
     witness_commitments.avm_main_mem_idx_a = commitment_key->commit(key->avm_main_mem_idx_a);
     witness_commitments.avm_main_mem_idx_b = commitment_key->commit(key->avm_main_mem_idx_b);
     witness_commitments.avm_main_mem_idx_c = commitment_key->commit(key->avm_main_mem_idx_c);
     witness_commitments.avm_main_mem_idx_d = commitment_key->commit(key->avm_main_mem_idx_d);
     witness_commitments.avm_main_mem_op_a = commitment_key->commit(key->avm_main_mem_op_a);
+    witness_commitments.avm_main_mem_op_activate_gas = commitment_key->commit(key->avm_main_mem_op_activate_gas);
     witness_commitments.avm_main_mem_op_b = commitment_key->commit(key->avm_main_mem_op_b);
     witness_commitments.avm_main_mem_op_c = commitment_key->commit(key->avm_main_mem_op_c);
     witness_commitments.avm_main_mem_op_d = commitment_key->commit(key->avm_main_mem_op_d);
     witness_commitments.avm_main_op_err = commitment_key->commit(key->avm_main_op_err);
+    witness_commitments.avm_main_opcode_val = commitment_key->commit(key->avm_main_opcode_val);
     witness_commitments.avm_main_pc = commitment_key->commit(key->avm_main_pc);
     witness_commitments.avm_main_q_kernel_lookup = commitment_key->commit(key->avm_main_q_kernel_lookup);
+    witness_commitments.avm_main_q_kernel_output_lookup = commitment_key->commit(key->avm_main_q_kernel_output_lookup);
     witness_commitments.avm_main_r_in_tag = commitment_key->commit(key->avm_main_r_in_tag);
     witness_commitments.avm_main_rwa = commitment_key->commit(key->avm_main_rwa);
     witness_commitments.avm_main_rwb = commitment_key->commit(key->avm_main_rwb);
     witness_commitments.avm_main_rwc = commitment_key->commit(key->avm_main_rwc);
     witness_commitments.avm_main_rwd = commitment_key->commit(key->avm_main_rwd);
     witness_commitments.avm_main_sel_cmov = commitment_key->commit(key->avm_main_sel_cmov);
+    witness_commitments.avm_main_sel_external_call = commitment_key->commit(key->avm_main_sel_external_call);
     witness_commitments.avm_main_sel_halt = commitment_key->commit(key->avm_main_sel_halt);
     witness_commitments.avm_main_sel_internal_call = commitment_key->commit(key->avm_main_sel_internal_call);
     witness_commitments.avm_main_sel_internal_return = commitment_key->commit(key->avm_main_sel_internal_return);
     witness_commitments.avm_main_sel_jump = commitment_key->commit(key->avm_main_sel_jump);
+    witness_commitments.avm_main_sel_jumpi = commitment_key->commit(key->avm_main_sel_jumpi);
     witness_commitments.avm_main_sel_mov = commitment_key->commit(key->avm_main_sel_mov);
     witness_commitments.avm_main_sel_mov_a = commitment_key->commit(key->avm_main_sel_mov_a);
     witness_commitments.avm_main_sel_mov_b = commitment_key->commit(key->avm_main_sel_mov_b);
@@ -224,21 +273,43 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_sel_op_cast = commitment_key->commit(key->avm_main_sel_op_cast);
     witness_commitments.avm_main_sel_op_chain_id = commitment_key->commit(key->avm_main_sel_op_chain_id);
     witness_commitments.avm_main_sel_op_coinbase = commitment_key->commit(key->avm_main_sel_op_coinbase);
+    witness_commitments.avm_main_sel_op_dagasleft = commitment_key->commit(key->avm_main_sel_op_dagasleft);
     witness_commitments.avm_main_sel_op_div = commitment_key->commit(key->avm_main_sel_op_div);
+    witness_commitments.avm_main_sel_op_emit_l2_to_l1_msg =
+        commitment_key->commit(key->avm_main_sel_op_emit_l2_to_l1_msg);
+    witness_commitments.avm_main_sel_op_emit_note_hash = commitment_key->commit(key->avm_main_sel_op_emit_note_hash);
+    witness_commitments.avm_main_sel_op_emit_nullifier = commitment_key->commit(key->avm_main_sel_op_emit_nullifier);
+    witness_commitments.avm_main_sel_op_emit_unencrypted_log =
+        commitment_key->commit(key->avm_main_sel_op_emit_unencrypted_log);
     witness_commitments.avm_main_sel_op_eq = commitment_key->commit(key->avm_main_sel_op_eq);
     witness_commitments.avm_main_sel_op_fdiv = commitment_key->commit(key->avm_main_sel_op_fdiv);
     witness_commitments.avm_main_sel_op_fee_per_da_gas = commitment_key->commit(key->avm_main_sel_op_fee_per_da_gas);
     witness_commitments.avm_main_sel_op_fee_per_l2_gas = commitment_key->commit(key->avm_main_sel_op_fee_per_l2_gas);
+    witness_commitments.avm_main_sel_op_get_contract_instance =
+        commitment_key->commit(key->avm_main_sel_op_get_contract_instance);
+    witness_commitments.avm_main_sel_op_keccak = commitment_key->commit(key->avm_main_sel_op_keccak);
+    witness_commitments.avm_main_sel_op_l1_to_l2_msg_exists =
+        commitment_key->commit(key->avm_main_sel_op_l1_to_l2_msg_exists);
+    witness_commitments.avm_main_sel_op_l2gasleft = commitment_key->commit(key->avm_main_sel_op_l2gasleft);
     witness_commitments.avm_main_sel_op_lt = commitment_key->commit(key->avm_main_sel_op_lt);
     witness_commitments.avm_main_sel_op_lte = commitment_key->commit(key->avm_main_sel_op_lte);
     witness_commitments.avm_main_sel_op_mul = commitment_key->commit(key->avm_main_sel_op_mul);
     witness_commitments.avm_main_sel_op_not = commitment_key->commit(key->avm_main_sel_op_not);
+    witness_commitments.avm_main_sel_op_note_hash_exists =
+        commitment_key->commit(key->avm_main_sel_op_note_hash_exists);
+    witness_commitments.avm_main_sel_op_nullifier_exists =
+        commitment_key->commit(key->avm_main_sel_op_nullifier_exists);
     witness_commitments.avm_main_sel_op_or = commitment_key->commit(key->avm_main_sel_op_or);
-    witness_commitments.avm_main_sel_op_portal = commitment_key->commit(key->avm_main_sel_op_portal);
+    witness_commitments.avm_main_sel_op_pedersen = commitment_key->commit(key->avm_main_sel_op_pedersen);
+    witness_commitments.avm_main_sel_op_poseidon2 = commitment_key->commit(key->avm_main_sel_op_poseidon2);
     witness_commitments.avm_main_sel_op_radix_le = commitment_key->commit(key->avm_main_sel_op_radix_le);
     witness_commitments.avm_main_sel_op_sender = commitment_key->commit(key->avm_main_sel_op_sender);
+    witness_commitments.avm_main_sel_op_sha256 = commitment_key->commit(key->avm_main_sel_op_sha256);
     witness_commitments.avm_main_sel_op_shl = commitment_key->commit(key->avm_main_sel_op_shl);
     witness_commitments.avm_main_sel_op_shr = commitment_key->commit(key->avm_main_sel_op_shr);
+    witness_commitments.avm_main_sel_op_sload = commitment_key->commit(key->avm_main_sel_op_sload);
+    witness_commitments.avm_main_sel_op_sstore = commitment_key->commit(key->avm_main_sel_op_sstore);
+    witness_commitments.avm_main_sel_op_storage_address = commitment_key->commit(key->avm_main_sel_op_storage_address);
     witness_commitments.avm_main_sel_op_sub = commitment_key->commit(key->avm_main_sel_op_sub);
     witness_commitments.avm_main_sel_op_timestamp = commitment_key->commit(key->avm_main_sel_op_timestamp);
     witness_commitments.avm_main_sel_op_transaction_fee = commitment_key->commit(key->avm_main_sel_op_transaction_fee);
@@ -246,6 +317,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_sel_op_xor = commitment_key->commit(key->avm_main_sel_op_xor);
     witness_commitments.avm_main_sel_rng_16 = commitment_key->commit(key->avm_main_sel_rng_16);
     witness_commitments.avm_main_sel_rng_8 = commitment_key->commit(key->avm_main_sel_rng_8);
+    witness_commitments.avm_main_space_id = commitment_key->commit(key->avm_main_space_id);
     witness_commitments.avm_main_table_pow_2 = commitment_key->commit(key->avm_main_table_pow_2);
     witness_commitments.avm_main_tag_err = commitment_key->commit(key->avm_main_tag_err);
     witness_commitments.avm_main_w_in_tag = commitment_key->commit(key->avm_main_w_in_tag);
@@ -253,6 +325,8 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_mem_clk = commitment_key->commit(key->avm_mem_clk);
     witness_commitments.avm_mem_diff_hi = commitment_key->commit(key->avm_mem_diff_hi);
     witness_commitments.avm_mem_diff_lo = commitment_key->commit(key->avm_mem_diff_lo);
+    witness_commitments.avm_mem_diff_mid = commitment_key->commit(key->avm_mem_diff_mid);
+    witness_commitments.avm_mem_glob_addr = commitment_key->commit(key->avm_mem_glob_addr);
     witness_commitments.avm_mem_ind_op_a = commitment_key->commit(key->avm_mem_ind_op_a);
     witness_commitments.avm_mem_ind_op_b = commitment_key->commit(key->avm_mem_ind_op_b);
     witness_commitments.avm_mem_ind_op_c = commitment_key->commit(key->avm_mem_ind_op_c);
@@ -272,17 +346,39 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_mem_sel_mov_a = commitment_key->commit(key->avm_mem_sel_mov_a);
     witness_commitments.avm_mem_sel_mov_b = commitment_key->commit(key->avm_mem_sel_mov_b);
     witness_commitments.avm_mem_skip_check_tag = commitment_key->commit(key->avm_mem_skip_check_tag);
+    witness_commitments.avm_mem_space_id = commitment_key->commit(key->avm_mem_space_id);
     witness_commitments.avm_mem_tag = commitment_key->commit(key->avm_mem_tag);
     witness_commitments.avm_mem_tag_err = commitment_key->commit(key->avm_mem_tag_err);
     witness_commitments.avm_mem_tsp = commitment_key->commit(key->avm_mem_tsp);
     witness_commitments.avm_mem_val = commitment_key->commit(key->avm_mem_val);
     witness_commitments.avm_mem_w_in_tag = commitment_key->commit(key->avm_mem_w_in_tag);
+    witness_commitments.avm_pedersen_clk = commitment_key->commit(key->avm_pedersen_clk);
+    witness_commitments.avm_pedersen_input = commitment_key->commit(key->avm_pedersen_input);
+    witness_commitments.avm_pedersen_output = commitment_key->commit(key->avm_pedersen_output);
+    witness_commitments.avm_pedersen_pedersen_sel = commitment_key->commit(key->avm_pedersen_pedersen_sel);
+    witness_commitments.avm_poseidon2_clk = commitment_key->commit(key->avm_poseidon2_clk);
+    witness_commitments.avm_poseidon2_input = commitment_key->commit(key->avm_poseidon2_input);
+    witness_commitments.avm_poseidon2_output = commitment_key->commit(key->avm_poseidon2_output);
+    witness_commitments.avm_poseidon2_poseidon_perm_sel = commitment_key->commit(key->avm_poseidon2_poseidon_perm_sel);
+    witness_commitments.avm_sha256_clk = commitment_key->commit(key->avm_sha256_clk);
+    witness_commitments.avm_sha256_input = commitment_key->commit(key->avm_sha256_input);
+    witness_commitments.avm_sha256_output = commitment_key->commit(key->avm_sha256_output);
+    witness_commitments.avm_sha256_sha256_compression_sel =
+        commitment_key->commit(key->avm_sha256_sha256_compression_sel);
+    witness_commitments.avm_sha256_state = commitment_key->commit(key->avm_sha256_state);
     witness_commitments.lookup_byte_lengths_counts = commitment_key->commit(key->lookup_byte_lengths_counts);
     witness_commitments.lookup_byte_operations_counts = commitment_key->commit(key->lookup_byte_operations_counts);
+    witness_commitments.lookup_opcode_gas_counts = commitment_key->commit(key->lookup_opcode_gas_counts);
+    witness_commitments.range_check_l2_gas_hi_counts = commitment_key->commit(key->range_check_l2_gas_hi_counts);
+    witness_commitments.range_check_l2_gas_lo_counts = commitment_key->commit(key->range_check_l2_gas_lo_counts);
+    witness_commitments.range_check_da_gas_hi_counts = commitment_key->commit(key->range_check_da_gas_hi_counts);
+    witness_commitments.range_check_da_gas_lo_counts = commitment_key->commit(key->range_check_da_gas_lo_counts);
+    witness_commitments.kernel_output_lookup_counts = commitment_key->commit(key->kernel_output_lookup_counts);
     witness_commitments.lookup_into_kernel_counts = commitment_key->commit(key->lookup_into_kernel_counts);
     witness_commitments.incl_main_tag_err_counts = commitment_key->commit(key->incl_main_tag_err_counts);
     witness_commitments.incl_mem_tag_err_counts = commitment_key->commit(key->incl_mem_tag_err_counts);
     witness_commitments.lookup_mem_rng_chk_lo_counts = commitment_key->commit(key->lookup_mem_rng_chk_lo_counts);
+    witness_commitments.lookup_mem_rng_chk_mid_counts = commitment_key->commit(key->lookup_mem_rng_chk_mid_counts);
     witness_commitments.lookup_mem_rng_chk_hi_counts = commitment_key->commit(key->lookup_mem_rng_chk_hi_counts);
     witness_commitments.lookup_pow_2_0_counts = commitment_key->commit(key->lookup_pow_2_0_counts);
     witness_commitments.lookup_pow_2_1_counts = commitment_key->commit(key->lookup_pow_2_1_counts);
@@ -437,15 +533,73 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_conversion_radix, witness_commitments.avm_conversion_radix);
     transcript->send_to_verifier(commitment_labels.avm_conversion_to_radix_le_sel,
                                  witness_commitments.avm_conversion_to_radix_le_sel);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_inputs__is_public,
-                                 witness_commitments.avm_kernel_kernel_inputs__is_public);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_sel, witness_commitments.avm_kernel_kernel_sel);
+    transcript->send_to_verifier(commitment_labels.avm_gas_da_gas_fixed_table,
+                                 witness_commitments.avm_gas_da_gas_fixed_table);
+    transcript->send_to_verifier(commitment_labels.avm_gas_gas_cost_sel, witness_commitments.avm_gas_gas_cost_sel);
+    transcript->send_to_verifier(commitment_labels.avm_gas_l2_gas_fixed_table,
+                                 witness_commitments.avm_gas_l2_gas_fixed_table);
+    transcript->send_to_verifier(commitment_labels.avm_keccakf1600_clk, witness_commitments.avm_keccakf1600_clk);
+    transcript->send_to_verifier(commitment_labels.avm_keccakf1600_input, witness_commitments.avm_keccakf1600_input);
+    transcript->send_to_verifier(commitment_labels.avm_keccakf1600_keccakf1600_sel,
+                                 witness_commitments.avm_keccakf1600_keccakf1600_sel);
+    transcript->send_to_verifier(commitment_labels.avm_keccakf1600_output, witness_commitments.avm_keccakf1600_output);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_emit_l2_to_l1_msg_write_offset,
+                                 witness_commitments.avm_kernel_emit_l2_to_l1_msg_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_emit_note_hash_write_offset,
+                                 witness_commitments.avm_kernel_emit_note_hash_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_emit_nullifier_write_offset,
+                                 witness_commitments.avm_kernel_emit_nullifier_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_emit_unencrypted_log_write_offset,
+                                 witness_commitments.avm_kernel_emit_unencrypted_log_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_in_offset,
+                                 witness_commitments.avm_kernel_kernel_in_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_inputs,
+                                 witness_commitments.avm_kernel_kernel_inputs);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_metadata_out,
+                                 witness_commitments.avm_kernel_kernel_metadata_out);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_out_offset,
+                                 witness_commitments.avm_kernel_kernel_out_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_side_effect_out,
+                                 witness_commitments.avm_kernel_kernel_side_effect_out);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_value_out,
+                                 witness_commitments.avm_kernel_kernel_value_out);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_l1_to_l2_msg_exists_write_offset,
+                                 witness_commitments.avm_kernel_l1_to_l2_msg_exists_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_note_hash_exist_write_offset,
+                                 witness_commitments.avm_kernel_note_hash_exist_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_nullifier_exists_write_offset,
+                                 witness_commitments.avm_kernel_nullifier_exists_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_nullifier_non_exists_write_offset,
+                                 witness_commitments.avm_kernel_nullifier_non_exists_write_offset);
     transcript->send_to_verifier(commitment_labels.avm_kernel_q_public_input_kernel_add_to_table,
                                  witness_commitments.avm_kernel_q_public_input_kernel_add_to_table);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_q_public_input_kernel_out_add_to_table,
+                                 witness_commitments.avm_kernel_q_public_input_kernel_out_add_to_table);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_side_effect_counter,
+                                 witness_commitments.avm_kernel_side_effect_counter);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_sload_write_offset,
+                                 witness_commitments.avm_kernel_sload_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_sstore_write_offset,
+                                 witness_commitments.avm_kernel_sstore_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_main_abs_da_rem_gas_hi,
+                                 witness_commitments.avm_main_abs_da_rem_gas_hi);
+    transcript->send_to_verifier(commitment_labels.avm_main_abs_da_rem_gas_lo,
+                                 witness_commitments.avm_main_abs_da_rem_gas_lo);
+    transcript->send_to_verifier(commitment_labels.avm_main_abs_l2_rem_gas_hi,
+                                 witness_commitments.avm_main_abs_l2_rem_gas_hi);
+    transcript->send_to_verifier(commitment_labels.avm_main_abs_l2_rem_gas_lo,
+                                 witness_commitments.avm_main_abs_l2_rem_gas_lo);
     transcript->send_to_verifier(commitment_labels.avm_main_alu_in_tag, witness_commitments.avm_main_alu_in_tag);
     transcript->send_to_verifier(commitment_labels.avm_main_alu_sel, witness_commitments.avm_main_alu_sel);
     transcript->send_to_verifier(commitment_labels.avm_main_bin_op_id, witness_commitments.avm_main_bin_op_id);
     transcript->send_to_verifier(commitment_labels.avm_main_bin_sel, witness_commitments.avm_main_bin_sel);
+    transcript->send_to_verifier(commitment_labels.avm_main_call_ptr, witness_commitments.avm_main_call_ptr);
+    transcript->send_to_verifier(commitment_labels.avm_main_da_gas_op, witness_commitments.avm_main_da_gas_op);
+    transcript->send_to_verifier(commitment_labels.avm_main_da_gas_remaining,
+                                 witness_commitments.avm_main_da_gas_remaining);
+    transcript->send_to_verifier(commitment_labels.avm_main_da_out_of_gas, witness_commitments.avm_main_da_out_of_gas);
+    transcript->send_to_verifier(commitment_labels.avm_main_gas_cost_active,
+                                 witness_commitments.avm_main_gas_cost_active);
     transcript->send_to_verifier(commitment_labels.avm_main_ia, witness_commitments.avm_main_ia);
     transcript->send_to_verifier(commitment_labels.avm_main_ib, witness_commitments.avm_main_ib);
     transcript->send_to_verifier(commitment_labels.avm_main_ic, witness_commitments.avm_main_ic);
@@ -462,31 +616,43 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_internal_return_ptr,
                                  witness_commitments.avm_main_internal_return_ptr);
     transcript->send_to_verifier(commitment_labels.avm_main_inv, witness_commitments.avm_main_inv);
+    transcript->send_to_verifier(commitment_labels.avm_main_l2_gas_op, witness_commitments.avm_main_l2_gas_op);
+    transcript->send_to_verifier(commitment_labels.avm_main_l2_gas_remaining,
+                                 witness_commitments.avm_main_l2_gas_remaining);
+    transcript->send_to_verifier(commitment_labels.avm_main_l2_out_of_gas, witness_commitments.avm_main_l2_out_of_gas);
     transcript->send_to_verifier(commitment_labels.avm_main_last, witness_commitments.avm_main_last);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_idx_a, witness_commitments.avm_main_mem_idx_a);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_idx_b, witness_commitments.avm_main_mem_idx_b);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_idx_c, witness_commitments.avm_main_mem_idx_c);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_idx_d, witness_commitments.avm_main_mem_idx_d);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_a, witness_commitments.avm_main_mem_op_a);
+    transcript->send_to_verifier(commitment_labels.avm_main_mem_op_activate_gas,
+                                 witness_commitments.avm_main_mem_op_activate_gas);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_b, witness_commitments.avm_main_mem_op_b);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_c, witness_commitments.avm_main_mem_op_c);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_d, witness_commitments.avm_main_mem_op_d);
     transcript->send_to_verifier(commitment_labels.avm_main_op_err, witness_commitments.avm_main_op_err);
+    transcript->send_to_verifier(commitment_labels.avm_main_opcode_val, witness_commitments.avm_main_opcode_val);
     transcript->send_to_verifier(commitment_labels.avm_main_pc, witness_commitments.avm_main_pc);
     transcript->send_to_verifier(commitment_labels.avm_main_q_kernel_lookup,
                                  witness_commitments.avm_main_q_kernel_lookup);
+    transcript->send_to_verifier(commitment_labels.avm_main_q_kernel_output_lookup,
+                                 witness_commitments.avm_main_q_kernel_output_lookup);
     transcript->send_to_verifier(commitment_labels.avm_main_r_in_tag, witness_commitments.avm_main_r_in_tag);
     transcript->send_to_verifier(commitment_labels.avm_main_rwa, witness_commitments.avm_main_rwa);
     transcript->send_to_verifier(commitment_labels.avm_main_rwb, witness_commitments.avm_main_rwb);
     transcript->send_to_verifier(commitment_labels.avm_main_rwc, witness_commitments.avm_main_rwc);
     transcript->send_to_verifier(commitment_labels.avm_main_rwd, witness_commitments.avm_main_rwd);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_cmov, witness_commitments.avm_main_sel_cmov);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_external_call,
+                                 witness_commitments.avm_main_sel_external_call);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_halt, witness_commitments.avm_main_sel_halt);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_internal_call,
                                  witness_commitments.avm_main_sel_internal_call);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_internal_return,
                                  witness_commitments.avm_main_sel_internal_return);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_jump, witness_commitments.avm_main_sel_jump);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_jumpi, witness_commitments.avm_main_sel_jumpi);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_mov, witness_commitments.avm_main_sel_mov);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_mov_a, witness_commitments.avm_main_sel_mov_a);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_mov_b, witness_commitments.avm_main_sel_mov_b);
@@ -501,24 +667,53 @@ void AvmProver::execute_wire_commitments_round()
                                  witness_commitments.avm_main_sel_op_chain_id);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_coinbase,
                                  witness_commitments.avm_main_sel_op_coinbase);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_dagasleft,
+                                 witness_commitments.avm_main_sel_op_dagasleft);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_div, witness_commitments.avm_main_sel_op_div);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_emit_l2_to_l1_msg,
+                                 witness_commitments.avm_main_sel_op_emit_l2_to_l1_msg);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_emit_note_hash,
+                                 witness_commitments.avm_main_sel_op_emit_note_hash);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_emit_nullifier,
+                                 witness_commitments.avm_main_sel_op_emit_nullifier);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_emit_unencrypted_log,
+                                 witness_commitments.avm_main_sel_op_emit_unencrypted_log);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_eq, witness_commitments.avm_main_sel_op_eq);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_fdiv, witness_commitments.avm_main_sel_op_fdiv);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_fee_per_da_gas,
                                  witness_commitments.avm_main_sel_op_fee_per_da_gas);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_fee_per_l2_gas,
                                  witness_commitments.avm_main_sel_op_fee_per_l2_gas);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_get_contract_instance,
+                                 witness_commitments.avm_main_sel_op_get_contract_instance);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_keccak, witness_commitments.avm_main_sel_op_keccak);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_l1_to_l2_msg_exists,
+                                 witness_commitments.avm_main_sel_op_l1_to_l2_msg_exists);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_l2gasleft,
+                                 witness_commitments.avm_main_sel_op_l2gasleft);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_lt, witness_commitments.avm_main_sel_op_lt);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_lte, witness_commitments.avm_main_sel_op_lte);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_mul, witness_commitments.avm_main_sel_op_mul);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_not, witness_commitments.avm_main_sel_op_not);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_note_hash_exists,
+                                 witness_commitments.avm_main_sel_op_note_hash_exists);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_nullifier_exists,
+                                 witness_commitments.avm_main_sel_op_nullifier_exists);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_or, witness_commitments.avm_main_sel_op_or);
-    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_portal, witness_commitments.avm_main_sel_op_portal);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_pedersen,
+                                 witness_commitments.avm_main_sel_op_pedersen);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_poseidon2,
+                                 witness_commitments.avm_main_sel_op_poseidon2);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_radix_le,
                                  witness_commitments.avm_main_sel_op_radix_le);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_sender, witness_commitments.avm_main_sel_op_sender);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_sha256, witness_commitments.avm_main_sel_op_sha256);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_shl, witness_commitments.avm_main_sel_op_shl);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_shr, witness_commitments.avm_main_sel_op_shr);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_sload, witness_commitments.avm_main_sel_op_sload);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_sstore, witness_commitments.avm_main_sel_op_sstore);
+    transcript->send_to_verifier(commitment_labels.avm_main_sel_op_storage_address,
+                                 witness_commitments.avm_main_sel_op_storage_address);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_sub, witness_commitments.avm_main_sel_op_sub);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_timestamp,
                                  witness_commitments.avm_main_sel_op_timestamp);
@@ -529,6 +724,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_xor, witness_commitments.avm_main_sel_op_xor);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_rng_16, witness_commitments.avm_main_sel_rng_16);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_rng_8, witness_commitments.avm_main_sel_rng_8);
+    transcript->send_to_verifier(commitment_labels.avm_main_space_id, witness_commitments.avm_main_space_id);
     transcript->send_to_verifier(commitment_labels.avm_main_table_pow_2, witness_commitments.avm_main_table_pow_2);
     transcript->send_to_verifier(commitment_labels.avm_main_tag_err, witness_commitments.avm_main_tag_err);
     transcript->send_to_verifier(commitment_labels.avm_main_w_in_tag, witness_commitments.avm_main_w_in_tag);
@@ -536,6 +732,8 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_mem_clk, witness_commitments.avm_mem_clk);
     transcript->send_to_verifier(commitment_labels.avm_mem_diff_hi, witness_commitments.avm_mem_diff_hi);
     transcript->send_to_verifier(commitment_labels.avm_mem_diff_lo, witness_commitments.avm_mem_diff_lo);
+    transcript->send_to_verifier(commitment_labels.avm_mem_diff_mid, witness_commitments.avm_mem_diff_mid);
+    transcript->send_to_verifier(commitment_labels.avm_mem_glob_addr, witness_commitments.avm_mem_glob_addr);
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_a, witness_commitments.avm_mem_ind_op_a);
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_b, witness_commitments.avm_mem_ind_op_b);
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_c, witness_commitments.avm_mem_ind_op_c);
@@ -555,15 +753,44 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_mem_sel_mov_a, witness_commitments.avm_mem_sel_mov_a);
     transcript->send_to_verifier(commitment_labels.avm_mem_sel_mov_b, witness_commitments.avm_mem_sel_mov_b);
     transcript->send_to_verifier(commitment_labels.avm_mem_skip_check_tag, witness_commitments.avm_mem_skip_check_tag);
+    transcript->send_to_verifier(commitment_labels.avm_mem_space_id, witness_commitments.avm_mem_space_id);
     transcript->send_to_verifier(commitment_labels.avm_mem_tag, witness_commitments.avm_mem_tag);
     transcript->send_to_verifier(commitment_labels.avm_mem_tag_err, witness_commitments.avm_mem_tag_err);
     transcript->send_to_verifier(commitment_labels.avm_mem_tsp, witness_commitments.avm_mem_tsp);
     transcript->send_to_verifier(commitment_labels.avm_mem_val, witness_commitments.avm_mem_val);
     transcript->send_to_verifier(commitment_labels.avm_mem_w_in_tag, witness_commitments.avm_mem_w_in_tag);
+    transcript->send_to_verifier(commitment_labels.avm_pedersen_clk, witness_commitments.avm_pedersen_clk);
+    transcript->send_to_verifier(commitment_labels.avm_pedersen_input, witness_commitments.avm_pedersen_input);
+    transcript->send_to_verifier(commitment_labels.avm_pedersen_output, witness_commitments.avm_pedersen_output);
+    transcript->send_to_verifier(commitment_labels.avm_pedersen_pedersen_sel,
+                                 witness_commitments.avm_pedersen_pedersen_sel);
+    transcript->send_to_verifier(commitment_labels.avm_poseidon2_clk, witness_commitments.avm_poseidon2_clk);
+    transcript->send_to_verifier(commitment_labels.avm_poseidon2_input, witness_commitments.avm_poseidon2_input);
+    transcript->send_to_verifier(commitment_labels.avm_poseidon2_output, witness_commitments.avm_poseidon2_output);
+    transcript->send_to_verifier(commitment_labels.avm_poseidon2_poseidon_perm_sel,
+                                 witness_commitments.avm_poseidon2_poseidon_perm_sel);
+    transcript->send_to_verifier(commitment_labels.avm_sha256_clk, witness_commitments.avm_sha256_clk);
+    transcript->send_to_verifier(commitment_labels.avm_sha256_input, witness_commitments.avm_sha256_input);
+    transcript->send_to_verifier(commitment_labels.avm_sha256_output, witness_commitments.avm_sha256_output);
+    transcript->send_to_verifier(commitment_labels.avm_sha256_sha256_compression_sel,
+                                 witness_commitments.avm_sha256_sha256_compression_sel);
+    transcript->send_to_verifier(commitment_labels.avm_sha256_state, witness_commitments.avm_sha256_state);
     transcript->send_to_verifier(commitment_labels.lookup_byte_lengths_counts,
                                  witness_commitments.lookup_byte_lengths_counts);
     transcript->send_to_verifier(commitment_labels.lookup_byte_operations_counts,
                                  witness_commitments.lookup_byte_operations_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_opcode_gas_counts,
+                                 witness_commitments.lookup_opcode_gas_counts);
+    transcript->send_to_verifier(commitment_labels.range_check_l2_gas_hi_counts,
+                                 witness_commitments.range_check_l2_gas_hi_counts);
+    transcript->send_to_verifier(commitment_labels.range_check_l2_gas_lo_counts,
+                                 witness_commitments.range_check_l2_gas_lo_counts);
+    transcript->send_to_verifier(commitment_labels.range_check_da_gas_hi_counts,
+                                 witness_commitments.range_check_da_gas_hi_counts);
+    transcript->send_to_verifier(commitment_labels.range_check_da_gas_lo_counts,
+                                 witness_commitments.range_check_da_gas_lo_counts);
+    transcript->send_to_verifier(commitment_labels.kernel_output_lookup_counts,
+                                 witness_commitments.kernel_output_lookup_counts);
     transcript->send_to_verifier(commitment_labels.lookup_into_kernel_counts,
                                  witness_commitments.lookup_into_kernel_counts);
     transcript->send_to_verifier(commitment_labels.incl_main_tag_err_counts,
@@ -572,6 +799,8 @@ void AvmProver::execute_wire_commitments_round()
                                  witness_commitments.incl_mem_tag_err_counts);
     transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_lo_counts,
                                  witness_commitments.lookup_mem_rng_chk_lo_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_mid_counts,
+                                 witness_commitments.lookup_mem_rng_chk_mid_counts);
     transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_hi_counts,
                                  witness_commitments.lookup_mem_rng_chk_hi_counts);
     transcript->send_to_verifier(commitment_labels.lookup_pow_2_0_counts, witness_commitments.lookup_pow_2_0_counts);
@@ -624,6 +853,8 @@ void AvmProver::execute_log_derivative_inverse_round()
     witness_commitments.perm_main_alu = commitment_key->commit(key->perm_main_alu);
     witness_commitments.perm_main_bin = commitment_key->commit(key->perm_main_bin);
     witness_commitments.perm_main_conv = commitment_key->commit(key->perm_main_conv);
+    witness_commitments.perm_main_pos2_perm = commitment_key->commit(key->perm_main_pos2_perm);
+    witness_commitments.perm_main_pedersen = commitment_key->commit(key->perm_main_pedersen);
     witness_commitments.perm_main_mem_a = commitment_key->commit(key->perm_main_mem_a);
     witness_commitments.perm_main_mem_b = commitment_key->commit(key->perm_main_mem_b);
     witness_commitments.perm_main_mem_c = commitment_key->commit(key->perm_main_mem_c);
@@ -634,10 +865,17 @@ void AvmProver::execute_log_derivative_inverse_round()
     witness_commitments.perm_main_mem_ind_d = commitment_key->commit(key->perm_main_mem_ind_d);
     witness_commitments.lookup_byte_lengths = commitment_key->commit(key->lookup_byte_lengths);
     witness_commitments.lookup_byte_operations = commitment_key->commit(key->lookup_byte_operations);
+    witness_commitments.lookup_opcode_gas = commitment_key->commit(key->lookup_opcode_gas);
+    witness_commitments.range_check_l2_gas_hi = commitment_key->commit(key->range_check_l2_gas_hi);
+    witness_commitments.range_check_l2_gas_lo = commitment_key->commit(key->range_check_l2_gas_lo);
+    witness_commitments.range_check_da_gas_hi = commitment_key->commit(key->range_check_da_gas_hi);
+    witness_commitments.range_check_da_gas_lo = commitment_key->commit(key->range_check_da_gas_lo);
+    witness_commitments.kernel_output_lookup = commitment_key->commit(key->kernel_output_lookup);
     witness_commitments.lookup_into_kernel = commitment_key->commit(key->lookup_into_kernel);
     witness_commitments.incl_main_tag_err = commitment_key->commit(key->incl_main_tag_err);
     witness_commitments.incl_mem_tag_err = commitment_key->commit(key->incl_mem_tag_err);
     witness_commitments.lookup_mem_rng_chk_lo = commitment_key->commit(key->lookup_mem_rng_chk_lo);
+    witness_commitments.lookup_mem_rng_chk_mid = commitment_key->commit(key->lookup_mem_rng_chk_mid);
     witness_commitments.lookup_mem_rng_chk_hi = commitment_key->commit(key->lookup_mem_rng_chk_hi);
     witness_commitments.lookup_pow_2_0 = commitment_key->commit(key->lookup_pow_2_0);
     witness_commitments.lookup_pow_2_1 = commitment_key->commit(key->lookup_pow_2_1);
@@ -671,6 +909,8 @@ void AvmProver::execute_log_derivative_inverse_round()
     transcript->send_to_verifier(commitment_labels.perm_main_alu, witness_commitments.perm_main_alu);
     transcript->send_to_verifier(commitment_labels.perm_main_bin, witness_commitments.perm_main_bin);
     transcript->send_to_verifier(commitment_labels.perm_main_conv, witness_commitments.perm_main_conv);
+    transcript->send_to_verifier(commitment_labels.perm_main_pos2_perm, witness_commitments.perm_main_pos2_perm);
+    transcript->send_to_verifier(commitment_labels.perm_main_pedersen, witness_commitments.perm_main_pedersen);
     transcript->send_to_verifier(commitment_labels.perm_main_mem_a, witness_commitments.perm_main_mem_a);
     transcript->send_to_verifier(commitment_labels.perm_main_mem_b, witness_commitments.perm_main_mem_b);
     transcript->send_to_verifier(commitment_labels.perm_main_mem_c, witness_commitments.perm_main_mem_c);
@@ -681,10 +921,17 @@ void AvmProver::execute_log_derivative_inverse_round()
     transcript->send_to_verifier(commitment_labels.perm_main_mem_ind_d, witness_commitments.perm_main_mem_ind_d);
     transcript->send_to_verifier(commitment_labels.lookup_byte_lengths, witness_commitments.lookup_byte_lengths);
     transcript->send_to_verifier(commitment_labels.lookup_byte_operations, witness_commitments.lookup_byte_operations);
+    transcript->send_to_verifier(commitment_labels.lookup_opcode_gas, witness_commitments.lookup_opcode_gas);
+    transcript->send_to_verifier(commitment_labels.range_check_l2_gas_hi, witness_commitments.range_check_l2_gas_hi);
+    transcript->send_to_verifier(commitment_labels.range_check_l2_gas_lo, witness_commitments.range_check_l2_gas_lo);
+    transcript->send_to_verifier(commitment_labels.range_check_da_gas_hi, witness_commitments.range_check_da_gas_hi);
+    transcript->send_to_verifier(commitment_labels.range_check_da_gas_lo, witness_commitments.range_check_da_gas_lo);
+    transcript->send_to_verifier(commitment_labels.kernel_output_lookup, witness_commitments.kernel_output_lookup);
     transcript->send_to_verifier(commitment_labels.lookup_into_kernel, witness_commitments.lookup_into_kernel);
     transcript->send_to_verifier(commitment_labels.incl_main_tag_err, witness_commitments.incl_main_tag_err);
     transcript->send_to_verifier(commitment_labels.incl_mem_tag_err, witness_commitments.incl_mem_tag_err);
     transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_lo, witness_commitments.lookup_mem_rng_chk_lo);
+    transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_mid, witness_commitments.lookup_mem_rng_chk_mid);
     transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_hi, witness_commitments.lookup_mem_rng_chk_hi);
     transcript->send_to_verifier(commitment_labels.lookup_pow_2_0, witness_commitments.lookup_pow_2_0);
     transcript->send_to_verifier(commitment_labels.lookup_pow_2_1, witness_commitments.lookup_pow_2_1);

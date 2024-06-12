@@ -14,8 +14,9 @@ namespace bb::stdlib {
 template <typename Builder, typename T> class bigfield {
 
   public:
-    typedef T TParams;
-    typedef bb::field<T> native;
+    using View = bigfield;
+    using TParams = T;
+    using native = bb::field<T>;
 
     struct Basis {
         uint512_t modulus;
@@ -60,6 +61,39 @@ template <typename Builder, typename T> class bigfield {
              const size_t maximum_bitlength = 0);
     bigfield(Builder* parent_context = nullptr);
     bigfield(Builder* parent_context, const uint256_t& value);
+
+    explicit bigfield(const uint256_t& value)
+        : bigfield(nullptr, uint256_t(value))
+    {}
+
+    /**
+     * @brief Constructs a new bigfield object from an int value. We first need to to construct a field element from the
+     * value to avoid bugs that have to do with the value being negative.
+     *
+     */
+    bigfield(const int value)
+        : bigfield(nullptr, uint256_t(native(value)))
+    {}
+
+    // NOLINTNEXTLINE(google-runtime-int) intended behavior
+    bigfield(const unsigned long value)
+        : bigfield(nullptr, value)
+    {}
+
+    // NOLINTNEXTLINE(google-runtime-int) intended behavior
+    bigfield(const unsigned long long value)
+        : bigfield(nullptr, value)
+    {}
+
+    /**
+     * @brief Construct a new bigfield object from bb::fq. We first convert to uint256_t as field elements are in
+     * Montgomery form internally.
+     *
+     * @param value
+     */
+    bigfield(const native value)
+        : bigfield(nullptr, uint256_t(value))
+    {}
 
     // we assume the limbs have already been normalized!
     bigfield(const field_t<Builder>& a,
@@ -211,6 +245,15 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield sqr() const;
     bigfield sqradd(const std::vector<bigfield>& to_add) const;
+    /**
+     * @brief compute 'this ** exponent'
+     * @details The exponent is implicity range constrained to 32 bits.
+     *
+     * @param exponent A 32-bit witness
+     * @return bigfield
+     */
+    bigfield pow(const field_t<Builder>& exponent) const;
+    bigfield pow(const size_t exponent) const;
     bigfield madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const;
 
     static void perform_reductions_for_mult_madd(std::vector<bigfield>& mul_left,
@@ -246,6 +289,12 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;
     bigfield conditional_select(const bigfield& other, const bool_t<Builder>& predicate) const;
+    static bigfield conditional_assign(const bool_t<Builder>& predicate, const bigfield& lhs, const bigfield& rhs)
+    {
+        return rhs.conditional_select(lhs, predicate);
+    }
+
+    bool_t<Builder> operator==(const bigfield& other) const;
 
     void assert_is_in_field() const;
     void assert_less_than(const uint256_t upper_limit) const;
@@ -255,6 +304,13 @@ template <typename Builder, typename T> class bigfield {
     void self_reduce() const;
 
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
+
+    /**
+     * @brief Inverting function with the assumption that the bigfield element we are calling invert on is not zero.
+     *
+     * @return bigfield
+     */
+    bigfield invert() const { return (bigfield(1) / bigfield(*this)); }
 
     /**
      * Create a public one constant

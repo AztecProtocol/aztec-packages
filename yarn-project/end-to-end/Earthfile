@@ -5,9 +5,11 @@ E2E_COMPOSE_TEST:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
+  ARG hardware_concurrency=""
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
+  ENV HARDWARE_CONCURRENCY=$hardware_concurrency
   LET project_name=$(echo $test | sed 's/\./_/g' | sed 's/\//_/g')
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
@@ -29,6 +31,7 @@ E2E_COMPOSE_TEST:
 
 E2E_TEST:
   FUNCTION
+  ARG hardware_concurrency=""
   ARG test
   ARG allow_fail=false
   LOCALLY
@@ -41,10 +44,16 @@ E2E_TEST:
     END
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-  RUN docker run --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
+  RUN docker run -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
 
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
+
+e2e-prover-full:
+  DO +E2E_TEST --test=./src/e2e_prover/full --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+
+e2e-prover-with-padding:
+  DO +E2E_TEST --test=./src/e2e_prover/with_padding --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
@@ -94,6 +103,9 @@ e2e-escrow-contract:
 e2e-key-registry:
   DO +E2E_TEST --test=./src/e2e_key_registry.test.ts
 
+e2e-keys:
+  DO +E2E_TEST --test=./src/e2e_keys.test.ts
+
 e2e-lending-contract:
   DO +E2E_TEST --test=./src/e2e_lending_contract.test.ts
 
@@ -112,9 +124,6 @@ e2e-non-contract-account:
 e2e-note-getter:
   DO +E2E_TEST --test=./src/e2e_note_getter.test.ts
 
-client-prover-integration:
-  DO +E2E_TEST --test=./src/client_prover_integration/client_prover_integration.test.ts
-
 e2e-ordering:
   DO +E2E_TEST --test=./src/e2e_ordering.test.ts
 
@@ -127,8 +136,23 @@ e2e-pending-note-hashes-contract:
 e2e-private-voting-contract:
   DO +E2E_TEST --test=./src/e2e_private_voting_contract.test.ts
 
-e2e-private-payments:
+e2e-fees-private-payments:
   DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
+
+e2e-fees-gas-estimation:
+  DO +E2E_TEST --test=./src/e2e_fees/gas_estimation.test.ts
+
+e2e-fees-dapp-subscription:
+  DO +E2E_TEST --test=./src/e2e_fees/dapp_subscription.test.ts
+
+e2e-fees-failures:
+  DO +E2E_TEST --test=./src/e2e_fees/failures.test.ts
+
+e2e-fees-native-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/native_payments.test.ts
+
+e2e-fees-account-init:
+  DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
 
 e2e-public-cross-chain-messaging:
   DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
@@ -138,6 +162,9 @@ e2e-public-to-private-messaging:
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts
+
+e2e-logs:
+  DO +E2E_TEST --test=./src/e2e_event_logs.test.ts
 
 e2e-static-calls:
   DO +E2E_TEST --test=./src/e2e_static_calls.test.ts
@@ -156,6 +183,10 @@ uniswap-trade-on-l1-from-l2:
 
 integration-l1-publisher:
   DO +E2E_COMPOSE_TEST --test=integration_l1_publisher.test.ts
+
+# Disabled, TODO https://github.com/AztecProtocol/aztec-packages/issues/6624
+# integration-proof-verification:
+#  DO +E2E_COMPOSE_TEST --compose_file=./scripts/docker-compose-no-sandbox.yml --test=integration_proof_verification.test.ts
 
 e2e-browser:
   DO +E2E_COMPOSE_TEST --test=e2e_aztec_js_browser.test.ts
@@ -205,5 +236,5 @@ bench-prover:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH

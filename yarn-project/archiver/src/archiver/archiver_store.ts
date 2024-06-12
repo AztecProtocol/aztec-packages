@@ -1,6 +1,7 @@
 import {
   type Body,
   type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -14,6 +15,7 @@ import {
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
@@ -92,7 +94,7 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    noteEncryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
     encryptedLogs: EncryptedL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
@@ -190,4 +192,7 @@ export interface ArchiverDataStore {
 
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
+
+  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
 }

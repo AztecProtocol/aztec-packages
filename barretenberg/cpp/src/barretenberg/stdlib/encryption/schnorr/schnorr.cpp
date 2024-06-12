@@ -45,7 +45,7 @@ std::array<field_t<C>, 2> schnorr_verify_signature_internal(const byte_array<C>&
     cycle_group<C> g1(grumpkin::g1::one);
     // compute g1 * sig.s + key * sig,e
 
-    auto x_3 = cycle_group<C>::batch_mul({ sig.s, sig.e }, { g1, pub_key }).x;
+    auto x_3 = cycle_group<C>::batch_mul({ g1, pub_key }, { sig.s, sig.e }).x;
     // build input (pedersen(([s]g + [e]pub).x | pub.x | pub.y) | message) to hash function
     // pedersen hash ([r].x | pub.x) to make sure the size of `hash_input` is <= 64 bytes for a 32 byte message
     byte_array<C> hash_input(pedersen_hash<C>::hash({ x_3, pub_key.x, pub_key.y }));
@@ -98,14 +98,14 @@ bool_t<C> schnorr_signature_verification_result(const byte_array<C>& message,
         const schnorr_signature_bits<circuit_type>&)
 VERIFY_SIGNATURE_INTERNAL(bb::StandardCircuitBuilder);
 VERIFY_SIGNATURE_INTERNAL(bb::UltraCircuitBuilder);
-VERIFY_SIGNATURE_INTERNAL(bb::GoblinUltraCircuitBuilder);
+VERIFY_SIGNATURE_INTERNAL(bb::MegaCircuitBuilder);
 #define VERIFY_SIGNATURE(circuit_type)                                                                                 \
     template void schnorr_verify_signature<circuit_type>(const byte_array<circuit_type>&,                              \
                                                          const cycle_group<circuit_type>&,                             \
                                                          const schnorr_signature_bits<circuit_type>&)
 VERIFY_SIGNATURE(bb::StandardCircuitBuilder);
 VERIFY_SIGNATURE(bb::UltraCircuitBuilder);
-VERIFY_SIGNATURE(bb::GoblinUltraCircuitBuilder);
+VERIFY_SIGNATURE(bb::MegaCircuitBuilder);
 #define SIGNATURE_VERIFICATION_RESULT(circuit_type)                                                                    \
     template bool_t<circuit_type> schnorr_signature_verification_result<circuit_type>(                                 \
         const byte_array<circuit_type>&,                                                                               \
@@ -113,11 +113,11 @@ VERIFY_SIGNATURE(bb::GoblinUltraCircuitBuilder);
         const schnorr_signature_bits<circuit_type>&)
 SIGNATURE_VERIFICATION_RESULT(bb::StandardCircuitBuilder);
 SIGNATURE_VERIFICATION_RESULT(bb::UltraCircuitBuilder);
-SIGNATURE_VERIFICATION_RESULT(bb::GoblinUltraCircuitBuilder);
+SIGNATURE_VERIFICATION_RESULT(bb::MegaCircuitBuilder);
 #define CONVERT_SIGNATURE(circuit_type)                                                                                \
     template schnorr_signature_bits<circuit_type> schnorr_convert_signature<circuit_type>(                             \
         circuit_type*, const crypto::schnorr_signature&)
 CONVERT_SIGNATURE(bb::StandardCircuitBuilder);
 CONVERT_SIGNATURE(bb::UltraCircuitBuilder);
-CONVERT_SIGNATURE(bb::GoblinUltraCircuitBuilder);
+CONVERT_SIGNATURE(bb::MegaCircuitBuilder);
 } // namespace bb::stdlib

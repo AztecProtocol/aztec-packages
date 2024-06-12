@@ -22,7 +22,7 @@ const config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec_docs_icons-02.svg",
+  favicon: "img/Aztec_icon_minified.svg",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -55,6 +55,7 @@ const config = {
             );
           },
           routeBasePath: "/",
+          include: ["**/*.{md,mdx}"],
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -297,6 +298,7 @@ const config = {
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [
+          "diff",
           "rust",
           "solidity",
           "cpp",

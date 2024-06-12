@@ -9,6 +9,10 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "circuit_builder_base.hpp"
 #include <optional>
+#include <unordered_set>
+
+#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 
 namespace bb {
 
@@ -22,8 +26,6 @@ template <typename FF> struct non_native_field_witnesses {
     std::array<FF, 5> neg_modulus;
     FF modulus;
 };
-
-using namespace bb;
 
 template <typename Arithmetization_>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_::FF> {
@@ -468,7 +470,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                 .q_o = 0,
                 .q_c = 0,
             });
-            create_new_range_constraint(variable_index, 1ULL << num_bits, msg);
+            create_new_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
         } else {
             decompose_into_default_range(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
@@ -603,6 +605,22 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
+    }
+
+    /**
+     * @brief Dynamically compute the number of gates added by the "add_gates_to_ensure_all_polys_are_non_zero" method
+     * @note This does NOT add the gates to the present builder
+     *
+     */
+    size_t get_num_gates_added_to_ensure_nonzero_polynomials()
+    {
+        UltraCircuitBuilder_<Arithmetization> builder; // instantiate new builder
+
+        size_t num_gates_prior = builder.get_num_gates();
+        builder.add_gates_to_ensure_all_polys_are_non_zero();
+        size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
+
+        return num_gates_post - num_gates_prior;
     }
 
     /**
@@ -796,6 +814,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void process_RAM_arrays();
 
     uint256_t hash_circuit();
+
+    msgpack::sbuffer export_circuit() override;
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

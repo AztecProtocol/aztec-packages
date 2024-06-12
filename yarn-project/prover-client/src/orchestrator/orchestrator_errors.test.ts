@@ -1,5 +1,5 @@
 import { PROVING_STATUS } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Fr, getMockVerificationKeys } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
@@ -33,7 +33,8 @@ describe('prover/orchestrator/errors', () => {
         txs.length,
         context.globalVariables,
         [],
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       for (const tx of txs) {
@@ -79,7 +80,8 @@ describe('prover/orchestrator/errors', () => {
         txs.length,
         context.globalVariables,
         [],
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       for (const tx of txs) {
@@ -98,7 +100,8 @@ describe('prover/orchestrator/errors', () => {
         2,
         context.globalVariables,
         [],
-        await makeEmptyProcessedTestTx(context.actualDb),
+
+        getMockVerificationKeys(),
       );
 
       context.orchestrator.cancelBlock();
@@ -117,7 +120,8 @@ describe('prover/orchestrator/errors', () => {
               blockSize,
               context.globalVariables,
               [],
-              await makeEmptyProcessedTestTx(context.actualDb),
+
+              getMockVerificationKeys(),
             ),
         ).rejects.toThrow(`Length of txs for the block should be a power of two and at least two (got ${blockSize})`);
       },
@@ -132,7 +136,8 @@ describe('prover/orchestrator/errors', () => {
             2,
             context.globalVariables,
             l1ToL2Messages,
-            await makeEmptyProcessedTestTx(context.actualDb),
+
+            getMockVerificationKeys(),
           ),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });

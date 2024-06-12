@@ -1,4 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -69,6 +70,20 @@ export class ViemTxSender implements L1PublisherTxSender {
       abi: RollupAbi,
       client: walletClient,
     });
+  }
+
+  getSenderAddress(): Promise<EthAddress> {
+    return Promise.resolve(EthAddress.fromString(this.account.address));
+  }
+
+  async getSubmitterAddressForBlock(blockNumber: number): Promise<EthAddress> {
+    try {
+      const submitter = await this.rollupContract.read.whoseTurnIsIt([BigInt(blockNumber)]);
+      return EthAddress.fromString(submitter);
+    } catch (err) {
+      this.log.warn(`Failed to get submitter for block ${blockNumber}: ${err}`);
+      return EthAddress.ZERO;
+    }
   }
 
   async getCurrentArchive(): Promise<Buffer> {
@@ -145,6 +160,7 @@ export class ViemTxSender implements L1PublisherTxSender {
     const args = [
       `0x${encodedData.header.toString('hex')}`,
       `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.aggregationObject.toString('hex')}`,
       `0x${encodedData.proof.toString('hex')}`,
     ] as const;
 

@@ -1,5 +1,5 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type CompleteAddress, type Fr } from '@aztec/circuits.js';
+import { type CompleteAddress, type Fq, type Fr } from '@aztec/circuits.js';
 
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
 import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -24,22 +24,26 @@ export class SignerlessWallet extends BaseWallet {
   }
 
   getChainId(): Fr {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getChainId not implemented.');
   }
 
   getVersion(): Fr {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getVersion not implemented.');
   }
 
   getPublicKeysHash(): Fr {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getPublicKeysHash not implemented.');
   }
 
   getCompleteAddress(): CompleteAddress {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getCompleteAddress not implemented.');
   }
 
   createAuthWit(_messageHash: Fr): Promise<AuthWitness> {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method createAuthWit not implemented.');
+  }
+
+  rotateNullifierKeys(_newNskM: Fq): Promise<void> {
+    throw new Error('SignerlessWallet: Method rotateNullifierKeys not implemented.');
   }
 }

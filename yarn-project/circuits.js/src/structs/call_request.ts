@@ -1,9 +1,12 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { CallerContext } from './caller_context.js';
 
+/**
+ * Call request.
+ */
 export class CallRequest {
   constructor(
     /**
@@ -38,6 +41,10 @@ export class CallRequest {
     );
   }
 
+  get counter() {
+    return this.startSideEffectCounter.toNumber();
+  }
+
   /**
    * Deserializes from a buffer or reader.
    * @param buffer - Buffer or reader to read from.
@@ -51,6 +58,17 @@ export class CallRequest {
       reader.readObject(CallerContext),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+    );
+  }
+
+  public static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new CallRequest(
+      reader.readField(),
+      reader.readObject(AztecAddress),
+      reader.readObject(CallerContext),
+      reader.readField(),
+      reader.readField(),
     );
   }
 

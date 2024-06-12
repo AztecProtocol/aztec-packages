@@ -19,10 +19,16 @@
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
 #include "barretenberg/relations/generated/avm/avm_conversion.hpp"
+#include "barretenberg/relations/generated/avm/avm_keccakf1600.hpp"
+#include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
+#include "barretenberg/relations/generated/avm/avm_pedersen.hpp"
+#include "barretenberg/relations/generated/avm/avm_poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/avm_sha256.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
 #include "barretenberg/relations/generated/avm/lookup_div_u16_0.hpp"
@@ -36,6 +42,8 @@
 #include "barretenberg/relations/generated/avm/lookup_into_kernel.hpp"
 #include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_hi.hpp"
 #include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_lo.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_mid.hpp"
+#include "barretenberg/relations/generated/avm/lookup_opcode_gas.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
@@ -66,6 +74,12 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
+#include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
+#include "barretenberg/relations/generated/avm/range_check_da_gas_lo.hpp"
+#include "barretenberg/relations/generated/avm/range_check_l2_gas_hi.hpp"
+#include "barretenberg/relations/generated/avm/range_check_l2_gas_lo.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
@@ -181,13 +195,45 @@ template <typename FF> struct AvmFullRow {
     FF avm_conversion_num_limbs{};
     FF avm_conversion_radix{};
     FF avm_conversion_to_radix_le_sel{};
-    FF avm_kernel_kernel_inputs__is_public{};
-    FF avm_kernel_kernel_sel{};
+    FF avm_gas_da_gas_fixed_table{};
+    FF avm_gas_gas_cost_sel{};
+    FF avm_gas_l2_gas_fixed_table{};
+    FF avm_keccakf1600_clk{};
+    FF avm_keccakf1600_input{};
+    FF avm_keccakf1600_keccakf1600_sel{};
+    FF avm_keccakf1600_output{};
+    FF avm_kernel_emit_l2_to_l1_msg_write_offset{};
+    FF avm_kernel_emit_note_hash_write_offset{};
+    FF avm_kernel_emit_nullifier_write_offset{};
+    FF avm_kernel_emit_unencrypted_log_write_offset{};
+    FF avm_kernel_kernel_in_offset{};
+    FF avm_kernel_kernel_inputs{};
+    FF avm_kernel_kernel_metadata_out{};
+    FF avm_kernel_kernel_out_offset{};
+    FF avm_kernel_kernel_side_effect_out{};
+    FF avm_kernel_kernel_value_out{};
+    FF avm_kernel_l1_to_l2_msg_exists_write_offset{};
+    FF avm_kernel_note_hash_exist_write_offset{};
+    FF avm_kernel_nullifier_exists_write_offset{};
+    FF avm_kernel_nullifier_non_exists_write_offset{};
     FF avm_kernel_q_public_input_kernel_add_to_table{};
+    FF avm_kernel_q_public_input_kernel_out_add_to_table{};
+    FF avm_kernel_side_effect_counter{};
+    FF avm_kernel_sload_write_offset{};
+    FF avm_kernel_sstore_write_offset{};
+    FF avm_main_abs_da_rem_gas_hi{};
+    FF avm_main_abs_da_rem_gas_lo{};
+    FF avm_main_abs_l2_rem_gas_hi{};
+    FF avm_main_abs_l2_rem_gas_lo{};
     FF avm_main_alu_in_tag{};
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
+    FF avm_main_call_ptr{};
+    FF avm_main_da_gas_op{};
+    FF avm_main_da_gas_remaining{};
+    FF avm_main_da_out_of_gas{};
+    FF avm_main_gas_cost_active{};
     FF avm_main_ia{};
     FF avm_main_ib{};
     FF avm_main_ic{};
@@ -203,28 +249,36 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_ind_op_d{};
     FF avm_main_internal_return_ptr{};
     FF avm_main_inv{};
+    FF avm_main_l2_gas_op{};
+    FF avm_main_l2_gas_remaining{};
+    FF avm_main_l2_out_of_gas{};
     FF avm_main_last{};
     FF avm_main_mem_idx_a{};
     FF avm_main_mem_idx_b{};
     FF avm_main_mem_idx_c{};
     FF avm_main_mem_idx_d{};
     FF avm_main_mem_op_a{};
+    FF avm_main_mem_op_activate_gas{};
     FF avm_main_mem_op_b{};
     FF avm_main_mem_op_c{};
     FF avm_main_mem_op_d{};
     FF avm_main_op_err{};
+    FF avm_main_opcode_val{};
     FF avm_main_pc{};
     FF avm_main_q_kernel_lookup{};
+    FF avm_main_q_kernel_output_lookup{};
     FF avm_main_r_in_tag{};
     FF avm_main_rwa{};
     FF avm_main_rwb{};
     FF avm_main_rwc{};
     FF avm_main_rwd{};
     FF avm_main_sel_cmov{};
+    FF avm_main_sel_external_call{};
     FF avm_main_sel_halt{};
     FF avm_main_sel_internal_call{};
     FF avm_main_sel_internal_return{};
     FF avm_main_sel_jump{};
+    FF avm_main_sel_jumpi{};
     FF avm_main_sel_mov{};
     FF avm_main_sel_mov_a{};
     FF avm_main_sel_mov_b{};
@@ -235,21 +289,37 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_cast{};
     FF avm_main_sel_op_chain_id{};
     FF avm_main_sel_op_coinbase{};
+    FF avm_main_sel_op_dagasleft{};
     FF avm_main_sel_op_div{};
+    FF avm_main_sel_op_emit_l2_to_l1_msg{};
+    FF avm_main_sel_op_emit_note_hash{};
+    FF avm_main_sel_op_emit_nullifier{};
+    FF avm_main_sel_op_emit_unencrypted_log{};
     FF avm_main_sel_op_eq{};
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
+    FF avm_main_sel_op_get_contract_instance{};
+    FF avm_main_sel_op_keccak{};
+    FF avm_main_sel_op_l1_to_l2_msg_exists{};
+    FF avm_main_sel_op_l2gasleft{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
     FF avm_main_sel_op_mul{};
     FF avm_main_sel_op_not{};
+    FF avm_main_sel_op_note_hash_exists{};
+    FF avm_main_sel_op_nullifier_exists{};
     FF avm_main_sel_op_or{};
-    FF avm_main_sel_op_portal{};
+    FF avm_main_sel_op_pedersen{};
+    FF avm_main_sel_op_poseidon2{};
     FF avm_main_sel_op_radix_le{};
     FF avm_main_sel_op_sender{};
+    FF avm_main_sel_op_sha256{};
     FF avm_main_sel_op_shl{};
     FF avm_main_sel_op_shr{};
+    FF avm_main_sel_op_sload{};
+    FF avm_main_sel_op_sstore{};
+    FF avm_main_sel_op_storage_address{};
     FF avm_main_sel_op_sub{};
     FF avm_main_sel_op_timestamp{};
     FF avm_main_sel_op_transaction_fee{};
@@ -257,6 +327,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_xor{};
     FF avm_main_sel_rng_16{};
     FF avm_main_sel_rng_8{};
+    FF avm_main_space_id{};
     FF avm_main_table_pow_2{};
     FF avm_main_tag_err{};
     FF avm_main_w_in_tag{};
@@ -264,6 +335,8 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_clk{};
     FF avm_mem_diff_hi{};
     FF avm_mem_diff_lo{};
+    FF avm_mem_diff_mid{};
+    FF avm_mem_glob_addr{};
     FF avm_mem_ind_op_a{};
     FF avm_mem_ind_op_b{};
     FF avm_mem_ind_op_c{};
@@ -283,14 +356,30 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_sel_mov_a{};
     FF avm_mem_sel_mov_b{};
     FF avm_mem_skip_check_tag{};
+    FF avm_mem_space_id{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
     FF avm_mem_tsp{};
     FF avm_mem_val{};
     FF avm_mem_w_in_tag{};
+    FF avm_pedersen_clk{};
+    FF avm_pedersen_input{};
+    FF avm_pedersen_output{};
+    FF avm_pedersen_pedersen_sel{};
+    FF avm_poseidon2_clk{};
+    FF avm_poseidon2_input{};
+    FF avm_poseidon2_output{};
+    FF avm_poseidon2_poseidon_perm_sel{};
+    FF avm_sha256_clk{};
+    FF avm_sha256_input{};
+    FF avm_sha256_output{};
+    FF avm_sha256_sha256_compression_sel{};
+    FF avm_sha256_state{};
     FF perm_main_alu{};
     FF perm_main_bin{};
     FF perm_main_conv{};
+    FF perm_main_pos2_perm{};
+    FF perm_main_pedersen{};
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
     FF perm_main_mem_c{};
@@ -301,10 +390,17 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_ind_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
+    FF lookup_opcode_gas{};
+    FF range_check_l2_gas_hi{};
+    FF range_check_l2_gas_lo{};
+    FF range_check_da_gas_hi{};
+    FF range_check_da_gas_lo{};
+    FF kernel_output_lookup{};
     FF lookup_into_kernel{};
     FF incl_main_tag_err{};
     FF incl_mem_tag_err{};
     FF lookup_mem_rng_chk_lo{};
+    FF lookup_mem_rng_chk_mid{};
     FF lookup_mem_rng_chk_hi{};
     FF lookup_pow_2_0{};
     FF lookup_pow_2_1{};
@@ -335,10 +431,17 @@ template <typename FF> struct AvmFullRow {
     FF lookup_div_u16_7{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
+    FF lookup_opcode_gas_counts{};
+    FF range_check_l2_gas_hi_counts{};
+    FF range_check_l2_gas_lo_counts{};
+    FF range_check_da_gas_hi_counts{};
+    FF range_check_da_gas_lo_counts{};
+    FF kernel_output_lookup_counts{};
     FF lookup_into_kernel_counts{};
     FF incl_main_tag_err_counts{};
     FF incl_mem_tag_err_counts{};
     FF lookup_mem_rng_chk_lo_counts{};
+    FF lookup_mem_rng_chk_mid_counts{};
     FF lookup_mem_rng_chk_hi_counts{};
     FF lookup_pow_2_0_counts{};
     FF lookup_pow_2_1_counts{};
@@ -411,15 +514,32 @@ template <typename FF> struct AvmFullRow {
     FF avm_binary_acc_ic_shift{};
     FF avm_binary_mem_tag_ctr_shift{};
     FF avm_binary_op_id_shift{};
+    FF avm_kernel_emit_l2_to_l1_msg_write_offset_shift{};
+    FF avm_kernel_emit_note_hash_write_offset_shift{};
+    FF avm_kernel_emit_nullifier_write_offset_shift{};
+    FF avm_kernel_emit_unencrypted_log_write_offset_shift{};
+    FF avm_kernel_l1_to_l2_msg_exists_write_offset_shift{};
+    FF avm_kernel_note_hash_exist_write_offset_shift{};
+    FF avm_kernel_nullifier_exists_write_offset_shift{};
+    FF avm_kernel_nullifier_non_exists_write_offset_shift{};
+    FF avm_kernel_side_effect_counter_shift{};
+    FF avm_kernel_sload_write_offset_shift{};
+    FF avm_kernel_sstore_write_offset_shift{};
+    FF avm_main_da_gas_remaining_shift{};
     FF avm_main_internal_return_ptr_shift{};
+    FF avm_main_l2_gas_remaining_shift{};
     FF avm_main_pc_shift{};
-    FF avm_mem_addr_shift{};
+    FF avm_mem_glob_addr_shift{};
     FF avm_mem_mem_sel_shift{};
     FF avm_mem_rw_shift{};
     FF avm_mem_tag_shift{};
     FF avm_mem_tsp_shift{};
     FF avm_mem_val_shift{};
+
+    [[maybe_unused]] static std::vector<std::string> names();
 };
+
+template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
 
 class AvmCircuitBuilder {
   public:
@@ -431,8 +551,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 348;
-    static constexpr size_t num_polys = 296;
+    static constexpr size_t num_fixed_columns = 450;
+    static constexpr size_t num_polys = 385;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -558,14 +678,49 @@ class AvmCircuitBuilder {
             polys.avm_conversion_num_limbs[i] = rows[i].avm_conversion_num_limbs;
             polys.avm_conversion_radix[i] = rows[i].avm_conversion_radix;
             polys.avm_conversion_to_radix_le_sel[i] = rows[i].avm_conversion_to_radix_le_sel;
-            polys.avm_kernel_kernel_inputs__is_public[i] = rows[i].avm_kernel_kernel_inputs__is_public;
-            polys.avm_kernel_kernel_sel[i] = rows[i].avm_kernel_kernel_sel;
+            polys.avm_gas_da_gas_fixed_table[i] = rows[i].avm_gas_da_gas_fixed_table;
+            polys.avm_gas_gas_cost_sel[i] = rows[i].avm_gas_gas_cost_sel;
+            polys.avm_gas_l2_gas_fixed_table[i] = rows[i].avm_gas_l2_gas_fixed_table;
+            polys.avm_keccakf1600_clk[i] = rows[i].avm_keccakf1600_clk;
+            polys.avm_keccakf1600_input[i] = rows[i].avm_keccakf1600_input;
+            polys.avm_keccakf1600_keccakf1600_sel[i] = rows[i].avm_keccakf1600_keccakf1600_sel;
+            polys.avm_keccakf1600_output[i] = rows[i].avm_keccakf1600_output;
+            polys.avm_kernel_emit_l2_to_l1_msg_write_offset[i] = rows[i].avm_kernel_emit_l2_to_l1_msg_write_offset;
+            polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
+            polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;
+            polys.avm_kernel_emit_unencrypted_log_write_offset[i] =
+                rows[i].avm_kernel_emit_unencrypted_log_write_offset;
+            polys.avm_kernel_kernel_in_offset[i] = rows[i].avm_kernel_kernel_in_offset;
+            polys.avm_kernel_kernel_inputs[i] = rows[i].avm_kernel_kernel_inputs;
+            polys.avm_kernel_kernel_metadata_out[i] = rows[i].avm_kernel_kernel_metadata_out;
+            polys.avm_kernel_kernel_out_offset[i] = rows[i].avm_kernel_kernel_out_offset;
+            polys.avm_kernel_kernel_side_effect_out[i] = rows[i].avm_kernel_kernel_side_effect_out;
+            polys.avm_kernel_kernel_value_out[i] = rows[i].avm_kernel_kernel_value_out;
+            polys.avm_kernel_l1_to_l2_msg_exists_write_offset[i] = rows[i].avm_kernel_l1_to_l2_msg_exists_write_offset;
+            polys.avm_kernel_note_hash_exist_write_offset[i] = rows[i].avm_kernel_note_hash_exist_write_offset;
+            polys.avm_kernel_nullifier_exists_write_offset[i] = rows[i].avm_kernel_nullifier_exists_write_offset;
+            polys.avm_kernel_nullifier_non_exists_write_offset[i] =
+                rows[i].avm_kernel_nullifier_non_exists_write_offset;
             polys.avm_kernel_q_public_input_kernel_add_to_table[i] =
                 rows[i].avm_kernel_q_public_input_kernel_add_to_table;
+            polys.avm_kernel_q_public_input_kernel_out_add_to_table[i] =
+                rows[i].avm_kernel_q_public_input_kernel_out_add_to_table;
+            polys.avm_kernel_side_effect_counter[i] = rows[i].avm_kernel_side_effect_counter;
+            polys.avm_kernel_sload_write_offset[i] = rows[i].avm_kernel_sload_write_offset;
+            polys.avm_kernel_sstore_write_offset[i] = rows[i].avm_kernel_sstore_write_offset;
+            polys.avm_main_abs_da_rem_gas_hi[i] = rows[i].avm_main_abs_da_rem_gas_hi;
+            polys.avm_main_abs_da_rem_gas_lo[i] = rows[i].avm_main_abs_da_rem_gas_lo;
+            polys.avm_main_abs_l2_rem_gas_hi[i] = rows[i].avm_main_abs_l2_rem_gas_hi;
+            polys.avm_main_abs_l2_rem_gas_lo[i] = rows[i].avm_main_abs_l2_rem_gas_lo;
             polys.avm_main_alu_in_tag[i] = rows[i].avm_main_alu_in_tag;
             polys.avm_main_alu_sel[i] = rows[i].avm_main_alu_sel;
             polys.avm_main_bin_op_id[i] = rows[i].avm_main_bin_op_id;
             polys.avm_main_bin_sel[i] = rows[i].avm_main_bin_sel;
+            polys.avm_main_call_ptr[i] = rows[i].avm_main_call_ptr;
+            polys.avm_main_da_gas_op[i] = rows[i].avm_main_da_gas_op;
+            polys.avm_main_da_gas_remaining[i] = rows[i].avm_main_da_gas_remaining;
+            polys.avm_main_da_out_of_gas[i] = rows[i].avm_main_da_out_of_gas;
+            polys.avm_main_gas_cost_active[i] = rows[i].avm_main_gas_cost_active;
             polys.avm_main_ia[i] = rows[i].avm_main_ia;
             polys.avm_main_ib[i] = rows[i].avm_main_ib;
             polys.avm_main_ic[i] = rows[i].avm_main_ic;
@@ -581,28 +736,36 @@ class AvmCircuitBuilder {
             polys.avm_main_ind_op_d[i] = rows[i].avm_main_ind_op_d;
             polys.avm_main_internal_return_ptr[i] = rows[i].avm_main_internal_return_ptr;
             polys.avm_main_inv[i] = rows[i].avm_main_inv;
+            polys.avm_main_l2_gas_op[i] = rows[i].avm_main_l2_gas_op;
+            polys.avm_main_l2_gas_remaining[i] = rows[i].avm_main_l2_gas_remaining;
+            polys.avm_main_l2_out_of_gas[i] = rows[i].avm_main_l2_out_of_gas;
             polys.avm_main_last[i] = rows[i].avm_main_last;
             polys.avm_main_mem_idx_a[i] = rows[i].avm_main_mem_idx_a;
             polys.avm_main_mem_idx_b[i] = rows[i].avm_main_mem_idx_b;
             polys.avm_main_mem_idx_c[i] = rows[i].avm_main_mem_idx_c;
             polys.avm_main_mem_idx_d[i] = rows[i].avm_main_mem_idx_d;
             polys.avm_main_mem_op_a[i] = rows[i].avm_main_mem_op_a;
+            polys.avm_main_mem_op_activate_gas[i] = rows[i].avm_main_mem_op_activate_gas;
             polys.avm_main_mem_op_b[i] = rows[i].avm_main_mem_op_b;
             polys.avm_main_mem_op_c[i] = rows[i].avm_main_mem_op_c;
             polys.avm_main_mem_op_d[i] = rows[i].avm_main_mem_op_d;
             polys.avm_main_op_err[i] = rows[i].avm_main_op_err;
+            polys.avm_main_opcode_val[i] = rows[i].avm_main_opcode_val;
             polys.avm_main_pc[i] = rows[i].avm_main_pc;
             polys.avm_main_q_kernel_lookup[i] = rows[i].avm_main_q_kernel_lookup;
+            polys.avm_main_q_kernel_output_lookup[i] = rows[i].avm_main_q_kernel_output_lookup;
             polys.avm_main_r_in_tag[i] = rows[i].avm_main_r_in_tag;
             polys.avm_main_rwa[i] = rows[i].avm_main_rwa;
             polys.avm_main_rwb[i] = rows[i].avm_main_rwb;
             polys.avm_main_rwc[i] = rows[i].avm_main_rwc;
             polys.avm_main_rwd[i] = rows[i].avm_main_rwd;
             polys.avm_main_sel_cmov[i] = rows[i].avm_main_sel_cmov;
+            polys.avm_main_sel_external_call[i] = rows[i].avm_main_sel_external_call;
             polys.avm_main_sel_halt[i] = rows[i].avm_main_sel_halt;
             polys.avm_main_sel_internal_call[i] = rows[i].avm_main_sel_internal_call;
             polys.avm_main_sel_internal_return[i] = rows[i].avm_main_sel_internal_return;
             polys.avm_main_sel_jump[i] = rows[i].avm_main_sel_jump;
+            polys.avm_main_sel_jumpi[i] = rows[i].avm_main_sel_jumpi;
             polys.avm_main_sel_mov[i] = rows[i].avm_main_sel_mov;
             polys.avm_main_sel_mov_a[i] = rows[i].avm_main_sel_mov_a;
             polys.avm_main_sel_mov_b[i] = rows[i].avm_main_sel_mov_b;
@@ -613,21 +776,37 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_cast[i] = rows[i].avm_main_sel_op_cast;
             polys.avm_main_sel_op_chain_id[i] = rows[i].avm_main_sel_op_chain_id;
             polys.avm_main_sel_op_coinbase[i] = rows[i].avm_main_sel_op_coinbase;
+            polys.avm_main_sel_op_dagasleft[i] = rows[i].avm_main_sel_op_dagasleft;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
+            polys.avm_main_sel_op_emit_l2_to_l1_msg[i] = rows[i].avm_main_sel_op_emit_l2_to_l1_msg;
+            polys.avm_main_sel_op_emit_note_hash[i] = rows[i].avm_main_sel_op_emit_note_hash;
+            polys.avm_main_sel_op_emit_nullifier[i] = rows[i].avm_main_sel_op_emit_nullifier;
+            polys.avm_main_sel_op_emit_unencrypted_log[i] = rows[i].avm_main_sel_op_emit_unencrypted_log;
             polys.avm_main_sel_op_eq[i] = rows[i].avm_main_sel_op_eq;
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
+            polys.avm_main_sel_op_get_contract_instance[i] = rows[i].avm_main_sel_op_get_contract_instance;
+            polys.avm_main_sel_op_keccak[i] = rows[i].avm_main_sel_op_keccak;
+            polys.avm_main_sel_op_l1_to_l2_msg_exists[i] = rows[i].avm_main_sel_op_l1_to_l2_msg_exists;
+            polys.avm_main_sel_op_l2gasleft[i] = rows[i].avm_main_sel_op_l2gasleft;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
             polys.avm_main_sel_op_mul[i] = rows[i].avm_main_sel_op_mul;
             polys.avm_main_sel_op_not[i] = rows[i].avm_main_sel_op_not;
+            polys.avm_main_sel_op_note_hash_exists[i] = rows[i].avm_main_sel_op_note_hash_exists;
+            polys.avm_main_sel_op_nullifier_exists[i] = rows[i].avm_main_sel_op_nullifier_exists;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
-            polys.avm_main_sel_op_portal[i] = rows[i].avm_main_sel_op_portal;
+            polys.avm_main_sel_op_pedersen[i] = rows[i].avm_main_sel_op_pedersen;
+            polys.avm_main_sel_op_poseidon2[i] = rows[i].avm_main_sel_op_poseidon2;
             polys.avm_main_sel_op_radix_le[i] = rows[i].avm_main_sel_op_radix_le;
             polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
+            polys.avm_main_sel_op_sha256[i] = rows[i].avm_main_sel_op_sha256;
             polys.avm_main_sel_op_shl[i] = rows[i].avm_main_sel_op_shl;
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
+            polys.avm_main_sel_op_sload[i] = rows[i].avm_main_sel_op_sload;
+            polys.avm_main_sel_op_sstore[i] = rows[i].avm_main_sel_op_sstore;
+            polys.avm_main_sel_op_storage_address[i] = rows[i].avm_main_sel_op_storage_address;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
             polys.avm_main_sel_op_timestamp[i] = rows[i].avm_main_sel_op_timestamp;
             polys.avm_main_sel_op_transaction_fee[i] = rows[i].avm_main_sel_op_transaction_fee;
@@ -635,6 +814,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_xor[i] = rows[i].avm_main_sel_op_xor;
             polys.avm_main_sel_rng_16[i] = rows[i].avm_main_sel_rng_16;
             polys.avm_main_sel_rng_8[i] = rows[i].avm_main_sel_rng_8;
+            polys.avm_main_space_id[i] = rows[i].avm_main_space_id;
             polys.avm_main_table_pow_2[i] = rows[i].avm_main_table_pow_2;
             polys.avm_main_tag_err[i] = rows[i].avm_main_tag_err;
             polys.avm_main_w_in_tag[i] = rows[i].avm_main_w_in_tag;
@@ -642,6 +822,8 @@ class AvmCircuitBuilder {
             polys.avm_mem_clk[i] = rows[i].avm_mem_clk;
             polys.avm_mem_diff_hi[i] = rows[i].avm_mem_diff_hi;
             polys.avm_mem_diff_lo[i] = rows[i].avm_mem_diff_lo;
+            polys.avm_mem_diff_mid[i] = rows[i].avm_mem_diff_mid;
+            polys.avm_mem_glob_addr[i] = rows[i].avm_mem_glob_addr;
             polys.avm_mem_ind_op_a[i] = rows[i].avm_mem_ind_op_a;
             polys.avm_mem_ind_op_b[i] = rows[i].avm_mem_ind_op_b;
             polys.avm_mem_ind_op_c[i] = rows[i].avm_mem_ind_op_c;
@@ -661,17 +843,38 @@ class AvmCircuitBuilder {
             polys.avm_mem_sel_mov_a[i] = rows[i].avm_mem_sel_mov_a;
             polys.avm_mem_sel_mov_b[i] = rows[i].avm_mem_sel_mov_b;
             polys.avm_mem_skip_check_tag[i] = rows[i].avm_mem_skip_check_tag;
+            polys.avm_mem_space_id[i] = rows[i].avm_mem_space_id;
             polys.avm_mem_tag[i] = rows[i].avm_mem_tag;
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
             polys.avm_mem_tsp[i] = rows[i].avm_mem_tsp;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
+            polys.avm_pedersen_clk[i] = rows[i].avm_pedersen_clk;
+            polys.avm_pedersen_input[i] = rows[i].avm_pedersen_input;
+            polys.avm_pedersen_output[i] = rows[i].avm_pedersen_output;
+            polys.avm_pedersen_pedersen_sel[i] = rows[i].avm_pedersen_pedersen_sel;
+            polys.avm_poseidon2_clk[i] = rows[i].avm_poseidon2_clk;
+            polys.avm_poseidon2_input[i] = rows[i].avm_poseidon2_input;
+            polys.avm_poseidon2_output[i] = rows[i].avm_poseidon2_output;
+            polys.avm_poseidon2_poseidon_perm_sel[i] = rows[i].avm_poseidon2_poseidon_perm_sel;
+            polys.avm_sha256_clk[i] = rows[i].avm_sha256_clk;
+            polys.avm_sha256_input[i] = rows[i].avm_sha256_input;
+            polys.avm_sha256_output[i] = rows[i].avm_sha256_output;
+            polys.avm_sha256_sha256_compression_sel[i] = rows[i].avm_sha256_sha256_compression_sel;
+            polys.avm_sha256_state[i] = rows[i].avm_sha256_state;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
+            polys.lookup_opcode_gas_counts[i] = rows[i].lookup_opcode_gas_counts;
+            polys.range_check_l2_gas_hi_counts[i] = rows[i].range_check_l2_gas_hi_counts;
+            polys.range_check_l2_gas_lo_counts[i] = rows[i].range_check_l2_gas_lo_counts;
+            polys.range_check_da_gas_hi_counts[i] = rows[i].range_check_da_gas_hi_counts;
+            polys.range_check_da_gas_lo_counts[i] = rows[i].range_check_da_gas_lo_counts;
+            polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
             polys.lookup_into_kernel_counts[i] = rows[i].lookup_into_kernel_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
             polys.lookup_mem_rng_chk_lo_counts[i] = rows[i].lookup_mem_rng_chk_lo_counts;
+            polys.lookup_mem_rng_chk_mid_counts[i] = rows[i].lookup_mem_rng_chk_mid_counts;
             polys.lookup_mem_rng_chk_hi_counts[i] = rows[i].lookup_mem_rng_chk_hi_counts;
             polys.lookup_pow_2_0_counts[i] = rows[i].lookup_pow_2_0_counts;
             polys.lookup_pow_2_1_counts[i] = rows[i].lookup_pow_2_1_counts;
@@ -746,9 +949,30 @@ class AvmCircuitBuilder {
         polys.avm_binary_acc_ic_shift = Polynomial(polys.avm_binary_acc_ic.shifted());
         polys.avm_binary_mem_tag_ctr_shift = Polynomial(polys.avm_binary_mem_tag_ctr.shifted());
         polys.avm_binary_op_id_shift = Polynomial(polys.avm_binary_op_id.shifted());
+        polys.avm_kernel_emit_l2_to_l1_msg_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_l2_to_l1_msg_write_offset.shifted());
+        polys.avm_kernel_emit_note_hash_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_note_hash_write_offset.shifted());
+        polys.avm_kernel_emit_nullifier_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_nullifier_write_offset.shifted());
+        polys.avm_kernel_emit_unencrypted_log_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_unencrypted_log_write_offset.shifted());
+        polys.avm_kernel_l1_to_l2_msg_exists_write_offset_shift =
+            Polynomial(polys.avm_kernel_l1_to_l2_msg_exists_write_offset.shifted());
+        polys.avm_kernel_note_hash_exist_write_offset_shift =
+            Polynomial(polys.avm_kernel_note_hash_exist_write_offset.shifted());
+        polys.avm_kernel_nullifier_exists_write_offset_shift =
+            Polynomial(polys.avm_kernel_nullifier_exists_write_offset.shifted());
+        polys.avm_kernel_nullifier_non_exists_write_offset_shift =
+            Polynomial(polys.avm_kernel_nullifier_non_exists_write_offset.shifted());
+        polys.avm_kernel_side_effect_counter_shift = Polynomial(polys.avm_kernel_side_effect_counter.shifted());
+        polys.avm_kernel_sload_write_offset_shift = Polynomial(polys.avm_kernel_sload_write_offset.shifted());
+        polys.avm_kernel_sstore_write_offset_shift = Polynomial(polys.avm_kernel_sstore_write_offset.shifted());
+        polys.avm_main_da_gas_remaining_shift = Polynomial(polys.avm_main_da_gas_remaining.shifted());
         polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());
+        polys.avm_main_l2_gas_remaining_shift = Polynomial(polys.avm_main_l2_gas_remaining.shifted());
         polys.avm_main_pc_shift = Polynomial(polys.avm_main_pc.shifted());
-        polys.avm_mem_addr_shift = Polynomial(polys.avm_mem_addr.shifted());
+        polys.avm_mem_glob_addr_shift = Polynomial(polys.avm_mem_glob_addr.shifted());
         polys.avm_mem_mem_sel_shift = Polynomial(polys.avm_mem_mem_sel.shifted());
         polys.avm_mem_rw_shift = Polynomial(polys.avm_mem_rw.shifted());
         polys.avm_mem_tag_shift = Polynomial(polys.avm_mem_tag.shifted());
@@ -840,6 +1064,16 @@ class AvmCircuitBuilder {
                 "avm_conversion", Avm_vm::get_relation_label_avm_conversion);
         };
 
+        auto avm_keccakf1600 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_keccakf1600<FF>>(
+                "avm_keccakf1600", Avm_vm::get_relation_label_avm_keccakf1600);
+        };
+
+        auto avm_kernel = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_kernel<FF>>("avm_kernel",
+                                                                                 Avm_vm::get_relation_label_avm_kernel);
+        };
+
         auto avm_main = [=]() {
             return evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",
                                                                                Avm_vm::get_relation_label_avm_main);
@@ -848,6 +1082,21 @@ class AvmCircuitBuilder {
         auto avm_mem = [=]() {
             return evaluate_relation.template operator()<Avm_vm::avm_mem<FF>>("avm_mem",
                                                                               Avm_vm::get_relation_label_avm_mem);
+        };
+
+        auto avm_pedersen = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_pedersen<FF>>(
+                "avm_pedersen", Avm_vm::get_relation_label_avm_pedersen);
+        };
+
+        auto avm_poseidon2 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_poseidon2<FF>>(
+                "avm_poseidon2", Avm_vm::get_relation_label_avm_poseidon2);
+        };
+
+        auto avm_sha256 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_sha256<FF>>("avm_sha256",
+                                                                                 Avm_vm::get_relation_label_avm_sha256);
         };
 
         auto perm_main_alu = [=]() {
@@ -860,6 +1109,14 @@ class AvmCircuitBuilder {
 
         auto perm_main_conv = [=]() {
             return evaluate_logderivative.template operator()<perm_main_conv_relation<FF>>("PERM_MAIN_CONV");
+        };
+
+        auto perm_main_pos2_perm = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_pos2_perm_relation<FF>>("PERM_MAIN_POS2_PERM");
+        };
+
+        auto perm_main_pedersen = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_pedersen_relation<FF>>("PERM_MAIN_PEDERSEN");
         };
 
         auto perm_main_mem_a = [=]() {
@@ -903,6 +1160,35 @@ class AvmCircuitBuilder {
                 "LOOKUP_BYTE_OPERATIONS");
         };
 
+        auto lookup_opcode_gas = [=]() {
+            return evaluate_logderivative.template operator()<lookup_opcode_gas_relation<FF>>("LOOKUP_OPCODE_GAS");
+        };
+
+        auto range_check_l2_gas_hi = [=]() {
+            return evaluate_logderivative.template operator()<range_check_l2_gas_hi_relation<FF>>(
+                "RANGE_CHECK_L2_GAS_HI");
+        };
+
+        auto range_check_l2_gas_lo = [=]() {
+            return evaluate_logderivative.template operator()<range_check_l2_gas_lo_relation<FF>>(
+                "RANGE_CHECK_L2_GAS_LO");
+        };
+
+        auto range_check_da_gas_hi = [=]() {
+            return evaluate_logderivative.template operator()<range_check_da_gas_hi_relation<FF>>(
+                "RANGE_CHECK_DA_GAS_HI");
+        };
+
+        auto range_check_da_gas_lo = [=]() {
+            return evaluate_logderivative.template operator()<range_check_da_gas_lo_relation<FF>>(
+                "RANGE_CHECK_DA_GAS_LO");
+        };
+
+        auto kernel_output_lookup = [=]() {
+            return evaluate_logderivative.template operator()<kernel_output_lookup_relation<FF>>(
+                "KERNEL_OUTPUT_LOOKUP");
+        };
+
         auto lookup_into_kernel = [=]() {
             return evaluate_logderivative.template operator()<lookup_into_kernel_relation<FF>>("LOOKUP_INTO_KERNEL");
         };
@@ -918,6 +1204,11 @@ class AvmCircuitBuilder {
         auto lookup_mem_rng_chk_lo = [=]() {
             return evaluate_logderivative.template operator()<lookup_mem_rng_chk_lo_relation<FF>>(
                 "LOOKUP_MEM_RNG_CHK_LO");
+        };
+
+        auto lookup_mem_rng_chk_mid = [=]() {
+            return evaluate_logderivative.template operator()<lookup_mem_rng_chk_mid_relation<FF>>(
+                "LOOKUP_MEM_RNG_CHK_MID");
         };
 
         auto lookup_mem_rng_chk_hi = [=]() {
@@ -1044,15 +1335,29 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_conversion));
 
+        relation_futures.emplace_back(std::async(std::launch::async, avm_keccakf1600));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_kernel));
+
         relation_futures.emplace_back(std::async(std::launch::async, avm_main));
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_mem));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_pedersen));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_poseidon2));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_sha256));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_alu));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_bin));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_conv));
+
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_pos2_perm));
+
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_pedersen));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_a));
 
@@ -1074,6 +1379,18 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_operations));
 
+        relation_futures.emplace_back(std::async(std::launch::async, lookup_opcode_gas));
+
+        relation_futures.emplace_back(std::async(std::launch::async, range_check_l2_gas_hi));
+
+        relation_futures.emplace_back(std::async(std::launch::async, range_check_l2_gas_lo));
+
+        relation_futures.emplace_back(std::async(std::launch::async, range_check_da_gas_hi));
+
+        relation_futures.emplace_back(std::async(std::launch::async, range_check_da_gas_lo));
+
+        relation_futures.emplace_back(std::async(std::launch::async, kernel_output_lookup));
+
         relation_futures.emplace_back(std::async(std::launch::async, lookup_into_kernel));
 
         relation_futures.emplace_back(std::async(std::launch::async, incl_main_tag_err));
@@ -1081,6 +1398,8 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, incl_mem_tag_err));
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_mem_rng_chk_lo));
+
+        relation_futures.emplace_back(std::async(std::launch::async, lookup_mem_rng_chk_mid));
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_mem_rng_chk_hi));
 
@@ -1153,15 +1472,29 @@ class AvmCircuitBuilder {
 
         avm_conversion();
 
+        avm_keccakf1600();
+
+        avm_kernel();
+
         avm_main();
 
         avm_mem();
+
+        avm_pedersen();
+
+        avm_poseidon2();
+
+        avm_sha256();
 
         perm_main_alu();
 
         perm_main_bin();
 
         perm_main_conv();
+
+        perm_main_pos2_perm();
+
+        perm_main_pedersen();
 
         perm_main_mem_a();
 
@@ -1183,6 +1516,18 @@ class AvmCircuitBuilder {
 
         lookup_byte_operations();
 
+        lookup_opcode_gas();
+
+        range_check_l2_gas_hi();
+
+        range_check_l2_gas_lo();
+
+        range_check_da_gas_hi();
+
+        range_check_da_gas_lo();
+
+        kernel_output_lookup();
+
         lookup_into_kernel();
 
         incl_main_tag_err();
@@ -1190,6 +1535,8 @@ class AvmCircuitBuilder {
         incl_mem_tag_err();
 
         lookup_mem_rng_chk_lo();
+
+        lookup_mem_rng_chk_mid();
 
         lookup_mem_rng_chk_hi();
 

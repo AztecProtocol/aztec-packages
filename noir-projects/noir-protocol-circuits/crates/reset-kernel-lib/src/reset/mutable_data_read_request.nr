@@ -1,22 +1,16 @@
 use crate::reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus};
 use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest},
-    traits::{Empty, is_empty}
+    data::leaf_data_hint::LeafDataHint, traits::{Empty, is_empty}
 };
 
-trait LeafDataHint {
-    fn leaf_slot(self) -> Field;
-    fn value(self) -> Field;
-    fn override_counter(self) -> u32;
-}
-
 struct LeafDataReadHint {
-    read_request_index: u64,
-    data_hint_index: u64,
+    read_request_index: u32,
+    data_hint_index: u32,
 }
 
 impl LeafDataReadHint {
-    pub fn nada(read_request_len: u64) -> Self {
+    pub fn nada(read_request_len: u32) -> Self {
         LeafDataReadHint { read_request_index: read_request_len, data_hint_index: 0 }
     }
 }
@@ -114,12 +108,15 @@ pub fn reset_mutable_data_read_requests<READ_REQUEST_LEN, PENDING_VALUE_LEN, H, 
 mod tests {
     use crate::reset::{
         mutable_data_read_request::{
-        ensure_all_read_requests_are_verified, reset_mutable_data_read_requests, LeafDataHint,
-        LeafDataReadHint, validate_pending_read_requests, validate_leaf_data_read_requests
+        ensure_all_read_requests_are_verified, reset_mutable_data_read_requests, LeafDataReadHint,
+        validate_pending_read_requests, validate_leaf_data_read_requests
     },
         read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
-    use dep::types::{abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest}};
+    use dep::types::{
+        abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest},
+        data::leaf_data_hint::LeafDataHint
+    };
 
     struct TestLeafDataHint {
         leaf_slot: Field,
@@ -141,10 +138,10 @@ mod tests {
     }
 
     global data_writes = [
-        PublicDataUpdateRequest { leaf_slot: 22, new_value: 200 },
-        PublicDataUpdateRequest { leaf_slot: 11, new_value: 100 },
-        PublicDataUpdateRequest { leaf_slot: 33, new_value: 300 },
-        PublicDataUpdateRequest { leaf_slot: 44, new_value: 400 }
+        PublicDataUpdateRequest { leaf_slot: 22, new_value: 200, counter: 0 },
+        PublicDataUpdateRequest { leaf_slot: 11, new_value: 100, counter: 1 },
+        PublicDataUpdateRequest { leaf_slot: 33, new_value: 300, counter: 2 },
+        PublicDataUpdateRequest { leaf_slot: 44, new_value: 400, counter: 3 }
     ];
 
     global leaf_data_hints = [
@@ -153,9 +150,9 @@ mod tests {
         TestLeafDataHint { leaf_slot: 5, value: 50 },
     ];
 
-    fn create_pending_read_requests<N>(data_write_indices: [u64; N]) -> ([PublicDataRead; N], [PendingReadHint; N]) {
+    fn create_pending_read_requests<N>(data_write_indices: [u32; N]) -> ([PublicDataRead; N], [PendingReadHint; N]) {
         let read_requests = data_write_indices.map(
-            |data_write_index: u64| PublicDataRead { leaf_slot: data_writes[data_write_index].leaf_slot, value: data_writes[data_write_index].new_value }
+            |data_write_index: u32| PublicDataRead { leaf_slot: data_writes[data_write_index].leaf_slot, value: data_writes[data_write_index].new_value }
         );
         let mut hints = BoundedVec::new();
         for i in 0..N {
@@ -164,9 +161,9 @@ mod tests {
         (read_requests, hints.storage)
     }
 
-    fn create_leaf_data_read_requests<N>(data_hint_indices: [u64; N]) -> ([PublicDataRead; N], [LeafDataReadHint; N]) {
+    fn create_leaf_data_read_requests<N>(data_hint_indices: [u32; N]) -> ([PublicDataRead; N], [LeafDataReadHint; N]) {
         let read_requests = data_hint_indices.map(
-            |data_hint_index: u64| PublicDataRead { leaf_slot: leaf_data_hints[data_hint_index].leaf_slot, value: leaf_data_hints[data_hint_index].value }
+            |data_hint_index: u32| PublicDataRead { leaf_slot: leaf_data_hints[data_hint_index].leaf_slot, value: leaf_data_hints[data_hint_index].value }
         );
         let mut hints = BoundedVec::new();
         for i in 0..N {

@@ -1,5 +1,5 @@
 #include "ultra_circuit_checker.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
 #include <unordered_set>
 
@@ -10,9 +10,9 @@ template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<Ult
     return UltraFlavor::AllValues{};
 }
 
-template <> auto UltraCircuitChecker::init_empty_values<GoblinUltraCircuitBuilder_<bb::fr>>()
+template <> auto UltraCircuitChecker::init_empty_values<MegaCircuitBuilder_<bb::fr>>()
 {
-    return GoblinUltraFlavor::AllValues{};
+    return MegaFlavor::AllValues{};
 }
 
 template <typename Builder> bool UltraCircuitChecker::check(const Builder& builder_in)
@@ -40,7 +40,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     size_t block_idx = 0;
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
-        if (result == false) {
+        if (!result) {
             info("Failed at block idx = ", block_idx);
             return false;
         }
@@ -49,7 +49,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
     result = result && check_tag_data(tag_data);
-    if (result == false) {
+    if (!result) {
         info("Failed tag check.");
         return false;
     }
@@ -71,6 +71,14 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     params.eta_two = memory_data.eta_two;
     params.eta_three = memory_data.eta_three;
 
+    auto report_fail = [&](const char* message, size_t row_idx) {
+        info(message, row_idx);
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        block.stack_traces.print(row_idx);
+#endif
+        return false;
+    };
+
     // Perform checks on each gate defined in the builder
     bool result = true;
     for (size_t idx = 0; idx < block.size(); ++idx) {
@@ -78,50 +86,41 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
-        if (result == false) {
-            info("Failed Arithmetic relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Arithmetic relation at row idx = ", idx);
         }
         result = result && check_relation<Elliptic>(values, params);
-        if (result == false) {
-            info("Failed Elliptic relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
         result = result && check_relation<Auxiliary>(values, params);
-        if (result == false) {
-            info("Failed Auxiliary relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Auxiliary relation at row idx = ", idx);
         }
         result = result && check_relation<DeltaRangeConstraint>(values, params);
-        if (result == false) {
-            info("Failed DeltaRangeConstraint relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
         }
         result = result && check_lookup(values, lookup_hash_table);
-        if (result == false) {
-            info("Failed Lookup check relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        if constexpr (IsGoblinUltraBuilder<Builder>) {
+        if constexpr (IsMegaBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
-            if (result == false) {
-                info("Failed PoseidonInternal relation at row idx = ", idx);
-                return false;
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
             }
             result = result && check_relation<PoseidonExternal>(values, params);
-            if (result == false) {
-                info("Failed PoseidonExternal relation at row idx = ", idx);
-                return false;
+            if (!result) {
+                return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
             }
             result = result && check_databus_read(values, builder);
-            if (result == false) {
-                info("Failed databus read at row idx = ", idx);
-                return false;
+            if (!result) {
+                return report_fail("Failed databus read at row idx = ", idx);
             }
         }
-        if (result == false) {
-            info("Failed at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed at row idx = ", idx);
         }
     }
 
@@ -223,8 +222,8 @@ void UltraCircuitChecker::populate_values(
     values.w_l = builder.get_variable(block.w_l()[idx]);
     values.w_r = builder.get_variable(block.w_r()[idx]);
     values.w_o = builder.get_variable(block.w_o()[idx]);
-    // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that we
-    // are indexing into the correct block before updating the w_4 value.
+    // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
+    // we are indexing into the correct block before updating the w_4 value.
     if (block.has_ram_rom && memory_data.read_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(
             values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
@@ -285,7 +284,7 @@ void UltraCircuitChecker::populate_values(
     values.q_elliptic = block.q_elliptic()[idx];
     values.q_aux = block.q_aux()[idx];
     values.q_lookup = block.q_lookup_type()[idx];
-    if constexpr (IsGoblinUltraBuilder<Builder>) {
+    if constexpr (IsMegaBuilder<Builder>) {
         values.q_busread = block.q_busread()[idx];
         values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
         values.q_poseidon2_external = block.q_poseidon2_external()[idx];
@@ -295,6 +294,5 @@ void UltraCircuitChecker::populate_values(
 // Template method instantiations for each check method
 template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
     const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in);
-template bool UltraCircuitChecker::check<GoblinUltraCircuitBuilder_<bb::fr>>(
-    const GoblinUltraCircuitBuilder_<bb::fr>& builder_in);
+template bool UltraCircuitChecker::check<MegaCircuitBuilder_<bb::fr>>(const MegaCircuitBuilder_<bb::fr>& builder_in);
 } // namespace bb

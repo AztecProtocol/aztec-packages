@@ -18,13 +18,9 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable, Deserialize
     };
-    use dep::aztec::{
-        note::note_getter_options::Comparator, context::{PublicContext, Context},
-        keys::getters::{get_npk_m_hash, get_ivpk_m}
-    };
+    use dep::aztec::note::note_getter_options::Comparator;
     use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     // how to import methods from other files/folders within your workspace
-    use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 
     #[aztec(storage)]
@@ -57,7 +53,7 @@ contract DocsExample {
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
     // for documentation purposes only.
-    impl Storage {
+    impl<Context> Storage<Context> {
         fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage-leader-init
@@ -172,43 +168,51 @@ contract DocsExample {
     // docs:start:initialize-private-mutable
     #[aztec(private)]
     fn initialize_private_immutable(randomness: Field, points: u8) {
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let header = context.get_header();
+        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
 
         let mut new_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
-        storage.private_immutable.initialize(&mut new_card, true, msg_sender_ivpk_m);
+        storage.private_immutable.initialize(&mut new_card, msg_sender_ovpk_m, msg_sender_ivpk_m);
     }
     // docs:end:initialize-private-mutable
 
     #[aztec(private)]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let header = context.get_header();
+        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
 
         let mut legendary_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
         // create and broadcast note
-        storage.legendary_card.initialize(&mut legendary_card, true, msg_sender_ivpk_m);
+        storage.legendary_card.initialize(&mut legendary_card, msg_sender_ovpk_m, msg_sender_ivpk_m);
     }
 
     #[aztec(private)]
     fn insert_notes(amounts: [u8; 3]) {
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let header = context.get_header();
+        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
 
         for i in 0..amounts.len() {
             let mut note = CardNote::new(amounts[i], 1, msg_sender_npk_m_hash);
-            storage.set.insert(&mut note, true, msg_sender_ivpk_m);
+            storage.set.insert(&mut note, msg_sender_ovpk_m, msg_sender_ivpk_m);
         }
     }
 
     #[aztec(private)]
     fn insert_note(amount: u8, randomness: Field) {
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let header = context.get_header();
+        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
 
         let mut note = CardNote::new(amount, randomness, msg_sender_npk_m_hash);
-        storage.set.insert(&mut note, true, msg_sender_ivpk_m);
+        storage.set.insert(&mut note, msg_sender_ovpk_m, msg_sender_ivpk_m);
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
@@ -228,11 +232,13 @@ contract DocsExample {
 
     #[aztec(private)]
     fn update_legendary_card(randomness: Field, points: u8) {
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let header = context.get_header();
+        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
 
         let mut new_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
-        storage.legendary_card.replace(&mut new_card, true, msg_sender_ivpk_m);
+        storage.legendary_card.replace(&mut new_card, msg_sender_ovpk_m, msg_sender_ivpk_m);
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
@@ -241,18 +247,20 @@ contract DocsExample {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
 
+        let header = context.get_header();
+        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
+
         // docs:start:state_vars-PrivateMutableGet
-        let card = storage.legendary_card.get_note(false, GrumpkinPoint::zero());
+        let card = storage.legendary_card.get_note(msg_sender_ovpk_m, msg_sender_ivpk_m);
         // docs:end:state_vars-PrivateMutableGet
 
         let points = card.points + 1;
 
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
-
         let mut new_card = CardNote::new(points, card.randomness, msg_sender_npk_m_hash);
         // docs:start:state_vars-PrivateMutableReplace
-        storage.legendary_card.replace(&mut new_card, true, msg_sender_ivpk_m);
+        storage.legendary_card.replace(&mut new_card, msg_sender_ovpk_m, msg_sender_ivpk_m);
         // docs:end:state_vars-PrivateMutableReplace
 
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
@@ -290,7 +298,8 @@ contract DocsExample {
     // docs:end:private_mutable_is_initialized
 
     // docs:start:get_note-private-immutable
-    unconstrained fn get_imm_card() -> pub CardNote {
+    #[aztec(private)]
+    fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
     // docs:end:get_note-private-immutable
@@ -346,7 +355,7 @@ contract DocsExample {
         // docs:end:context-example-context
 
         // docs:start:storage-example-context
-        let mut storage = Storage::init(Context::private(&mut context));
+        let mut storage = Storage::init(&mut context);
         // docs:end:storage-example-context
         // ************************************************************
 

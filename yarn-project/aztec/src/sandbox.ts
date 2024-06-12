@@ -32,17 +32,11 @@ import {
 } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { KeyRegistryContract } from '@aztec/noir-contracts.js/KeyRegistry';
-import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
-import {
-  type HDAccount,
-  type PrivateKeyAccount,
-  createPublicClient,
-  getContract,
-  http as httpViemTransport,
-} from 'viem';
+import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -127,9 +121,10 @@ export async function deployContractsToL1(
   };
 
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts),
+    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
+      l2GasTokenAddress: GasTokenAddress,
+    }),
   );
-  await initL1GasPortal(l1Contracts, getCanonicalGasToken(l1Contracts.l1ContractAddresses.gasPortalAddress).address);
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
 
@@ -137,52 +132,29 @@ export async function deployContractsToL1(
 }
 
 /**
- * Initializes the portal between L1 and L2 used to pay for gas.
- * @param l1Data - The deployed L1 data.
- */
-async function initL1GasPortal(
-  { walletClient, l1ContractAddresses }: DeployL1Contracts,
-  l2GasTokenAddress: AztecAddress,
-) {
-  const gasPortal = getContract({
-    address: l1ContractAddresses.gasPortalAddress.toString(),
-    abi: GasPortalAbi,
-    client: walletClient,
-  });
-
-  await gasPortal.write.initialize(
-    [
-      l1ContractAddresses.registryAddress.toString(),
-      l1ContractAddresses.gasTokenAddress.toString(),
-      l2GasTokenAddress.toString(),
-    ],
-    {} as any,
-  );
-
-  logger.info(
-    `Initialized Gas Portal at ${l1ContractAddresses.gasPortalAddress} to bridge between L1 ${l1ContractAddresses.gasTokenAddress} to L2 ${l2GasTokenAddress}`,
-  );
-}
-
-/**
  * Deploys the contract to pay for gas on L2.
  */
 async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: L1ContractAddresses) {
   const gasPortalAddress = l1ContractAddresses.gasPortalAddress;
-  const canonicalGasToken = getCanonicalGasToken(gasPortalAddress);
+  const canonicalGasToken = getCanonicalGasToken();
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
     return;
   }
 
-  const gasToken = await GasTokenContract.deploy(deployer, gasPortalAddress)
-    .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
+  const gasToken = await GasTokenContract.deploy(deployer)
+    .send({ universalDeploy: true, contractAddressSalt: canonicalGasToken.instance.salt })
     .deployed();
+  await gasToken.methods.set_portal(gasPortalAddress).send().wait();
 
-  if (gasToken.address !== canonicalGasToken.address) {
+  if (!gasToken.address.equals(canonicalGasToken.address)) {
     throw new Error(
       `Deployed Gas Token address ${gasToken.address} does not match expected address ${canonicalGasToken.address}`,
     );
+  }
+
+  if (!(await deployer.isContractPubliclyDeployed(canonicalGasToken.address))) {
+    throw new Error(`Failed to deploy Gas Token to ${canonicalGasToken.address}`);
   }
 
   logger.info(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);

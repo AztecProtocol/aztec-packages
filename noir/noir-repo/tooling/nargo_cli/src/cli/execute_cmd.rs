@@ -1,4 +1,5 @@
 use acvm::acir::native_types::WitnessStack;
+use acvm::FieldElement;
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 
@@ -91,7 +92,7 @@ fn execute_program_and_decode(
     package: &Package,
     prover_name: &str,
     foreign_call_resolver_url: Option<&str>,
-) -> Result<(Option<InputValue>, WitnessStack), CliError> {
+) -> Result<(Option<InputValue>, WitnessStack<FieldElement>), CliError> {
     // Parse the initial witness values from Prover.toml
     let (inputs_map, _) =
         read_inputs_from_file(&package.root_dir, prover_name, Format::Toml, &program.abi)?;
@@ -109,15 +110,13 @@ pub(crate) fn execute_program(
     compiled_program: &CompiledProgram,
     inputs_map: &InputMap,
     foreign_call_resolver_url: Option<&str>,
-) -> Result<WitnessStack, CliError> {
-    let blackbox_solver = Bn254BlackBoxSolver::new();
-
+) -> Result<WitnessStack<FieldElement>, CliError> {
     let initial_witness = compiled_program.abi.encode(inputs_map, None)?;
 
     let solved_witness_stack_err = nargo::ops::execute_program(
         &compiled_program.program,
         initial_witness,
-        &blackbox_solver,
+        &Bn254BlackBoxSolver,
         &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
     );
     match solved_witness_stack_err {
@@ -126,7 +125,6 @@ pub(crate) fn execute_program(
             let debug_artifact = DebugArtifact {
                 debug_symbols: compiled_program.debug.clone(),
                 file_map: compiled_program.file_map.clone(),
-                warnings: compiled_program.warnings.clone(),
             };
 
             if let Some(diagnostic) =

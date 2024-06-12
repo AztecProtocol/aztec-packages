@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <span>
 
+using namespace bb;
+
 namespace acir_format {
 
 template <typename Builder> void create_aes128_constraints(Builder& builder, const AES128Constraint& constraint)
@@ -71,7 +73,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 template void create_aes128_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                              const AES128Constraint& constraint);
 
-template void create_aes128_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                   const AES128Constraint& constraint);
+template void create_aes128_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                            const AES128Constraint& constraint);
 
 } // namespace acir_format

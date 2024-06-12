@@ -3,6 +3,8 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
 namespace bb::stdlib {
 
 using namespace bb::plookup;
@@ -915,8 +917,8 @@ template <typename Builder> void generate_keccak_test_circuit(Builder& builder, 
 
 template class keccak<bb::CircuitSimulatorBN254>;
 template class keccak<bb::UltraCircuitBuilder>;
-template class keccak<bb::GoblinUltraCircuitBuilder>;
+template class keccak<bb::MegaCircuitBuilder>;
 template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
-template void generate_keccak_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
+template void generate_keccak_test_circuit(bb::MegaCircuitBuilder&, size_t);
 
 } // namespace bb::stdlib

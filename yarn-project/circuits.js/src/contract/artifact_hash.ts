@@ -52,7 +52,7 @@ export function computeArtifactHash(
 }
 
 export function computeArtifactHashPreimage(artifact: ContractArtifact) {
-  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.SECRET);
+  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.PRIVATE);
   const unconstrainedFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.UNCONSTRAINED);
   const metadataHash = computeArtifactMetadataHash(artifact);
   return { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash };
@@ -68,6 +68,20 @@ export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   // TODO: #6021 We need to make sure the artifact is deterministic from any specific compiler run. This relates to selectors not being sorted and being
   // apparently random in the order they appear after compiled w/ nargo. We can try to sort this upon loading an artifact.
   if (artifact.name === 'KeyRegistry') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla/gas) The GasToken depends on protocol-circuits/types, which in turn includes the address of the GasToken as a constant.
+  // Even though it is not being used, it seems that it is affecting the generated metadata hash. So we ignore it
+  // for the time being until we can determine whether it's an issue in how Noir deals with unused code in imported packages,
+  // or we move that constant out of protocol-circuits/types and into the rollup-lib, which is the only place where we actually need it.
+  if (artifact.name === 'GasToken') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla) Minimize impact of contract instance deployer and class registerer addresses
+  // changing, using the same trick as in the contracts above.
+  if (artifact.name === 'ContractInstanceDeployer' || artifact.name === 'ContractClassRegisterer') {
     return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
   }
 

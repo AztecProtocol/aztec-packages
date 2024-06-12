@@ -8,7 +8,7 @@ describe('abi/encoder', () => {
   it('serializes fields as fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isInitializer: true,
       isStatic: false,
@@ -32,7 +32,7 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -57,7 +57,7 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -83,7 +83,7 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -119,7 +119,7 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -151,7 +151,7 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -167,14 +167,14 @@ describe('abi/encoder', () => {
     };
     const args = ['garbage'];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid argument "garbage" of type field');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid hex-encoded string: "garbage"');
   });
 
   it('throws when passing string argument as integer', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -191,16 +191,14 @@ describe('abi/encoder', () => {
       returnTypes: [],
     };
     const args = ['garbage'];
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(
-      `Type 'string' with value 'garbage' passed to BaseField ctor.`,
-    );
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(`Cannot convert garbage to a BigInt`);
   });
 
   it('throws when passing object argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [

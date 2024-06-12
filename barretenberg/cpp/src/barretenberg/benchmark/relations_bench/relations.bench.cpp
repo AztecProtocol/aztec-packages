@@ -1,8 +1,8 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
@@ -69,10 +69,10 @@ BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, LookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
 // Goblin-Ultra only relations (PG prover combiner work)
-BENCHMARK(execute_relation_for_pg_univariates<GoblinUltraFlavor, EccOpQueueRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<GoblinUltraFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<GoblinUltraFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<GoblinUltraFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
 
 // Ultra relations (Sumcheck prover work)
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
@@ -83,10 +83,10 @@ BENCHMARK(execute_relation_for_univariates<UltraFlavor, LookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
 // Goblin-Ultra only relations (Sumcheck prover work)
-BENCHMARK(execute_relation_for_univariates<GoblinUltraFlavor, EccOpQueueRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<GoblinUltraFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<GoblinUltraFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<GoblinUltraFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
 
 // Ultra relations (verifier work)
 BENCHMARK(execute_relation_for_values<UltraFlavor, UltraArithmeticRelation<Fr>>);
@@ -97,18 +97,18 @@ BENCHMARK(execute_relation_for_values<UltraFlavor, LookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, UltraPermutationRelation<Fr>>);
 
 // Goblin-Ultra only relations (verifier work)
-BENCHMARK(execute_relation_for_values<GoblinUltraFlavor, EccOpQueueRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinUltraFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinUltraFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinUltraFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, EccOpQueueRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2InternalRelation<Fr>>);
 
 // Translator VM
-BENCHMARK(execute_relation_for_values<GoblinTranslatorFlavor, GoblinTranslatorDecompositionRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinTranslatorFlavor, GoblinTranslatorOpcodeConstraintRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinTranslatorFlavor, GoblinTranslatorAccumulatorTransferRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinTranslatorFlavor, GoblinTranslatorDeltaRangeConstraintRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinTranslatorFlavor, GoblinTranslatorNonNativeFieldRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<GoblinTranslatorFlavor, GoblinTranslatorPermutationRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDecompositionRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorOpcodeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorAccumulatorTransferRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorNonNativeFieldRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorPermutationRelation<Fr>>);
 
 // ECCVM
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMLookupRelation<Fq>>);
@@ -117,6 +117,7 @@ BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMPointTableRelation<Fq>>)
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMSetRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMTranscriptRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMWnafRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMBoolsRelation<Fq>>);
 
 } // namespace bb::benchmark::relations
 
