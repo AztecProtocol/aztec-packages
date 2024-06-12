@@ -15,7 +15,7 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
+import { OutgoingNoteDao } from './outgoing_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -44,6 +44,8 @@ export class KVPxeDatabase implements PxeDatabase {
   #contractArtifacts: AztecMap<string, Buffer>;
   #contractInstances: AztecMap<string, Buffer>;
   #db: AztecKVStore;
+
+  #outgoingNotes: AztecMap<string, Buffer>;
 
   constructor(private db: AztecKVStore) {
     this.#db = db;
@@ -76,6 +78,8 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#deferredNotes = db.openArray('deferred_notes');
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
+
+    this.#outgoingNotes = db.openMap('outgoing_notes');
   }
 
   public async getContract(
@@ -140,8 +144,7 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.addNotes([note], []);
   }
 
-  addNotes(incomingNotes: IncomingNoteDao[], _outgoingNotes: OutgoingNoteDao[]): Promise<void> {
-    // TODO(#6867): store the outgoing note
+  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[]): Promise<void> {
     return this.db.transaction(() => {
       for (const dao of incomingNotes) {
         // store notes by their index in the notes hash tree
@@ -155,6 +158,13 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
         void this.#notesByTxHash.set(dao.txHash.toString(), noteIndex);
         void this.#notesByIvpkM.set(dao.ivpkM.toString(), noteIndex);
+      }
+
+      for (const dao of outgoingNotes) {
+        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+        void this.#outgoingNotes.set(noteIndex, dao.toBuffer());
+        // TODO: add here the other maps (e.g. #outgoingNotesByStorageSlot) once we have the need to build a proper API
+        // for outgoing.
       }
     });
   }
@@ -284,6 +294,14 @@ export class KVPxeDatabase implements PxeDatabase {
 
   getNotes(filter: NoteFilter): Promise<IncomingNoteDao[]> {
     return Promise.resolve(this.#getNotes(filter));
+  }
+
+  getOutgoingNotes(): Promise<OutgoingNoteDao[]> {
+    const outgoingNotes: OutgoingNoteDao[] = [];
+    for (const [_noteIndex, noteBuffer] of this.#outgoingNotes.entries()) {
+      outgoingNotes.push(OutgoingNoteDao.fromBuffer(noteBuffer));
+    }
+    return Promise.resolve(outgoingNotes);
   }
 
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]> {

@@ -8,6 +8,7 @@ import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { type IncomingNoteDao } from './incoming_note_dao.js';
 import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
+import { randomOutgoingNoteDao } from './outgoing_note_dao.test.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -198,7 +199,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    // TODO(#6867): Add tests for outgoing notes
+    it('stores and retrieves outgoing notes', async () => {
+      const notes = [randomOutgoingNoteDao(), randomOutgoingNoteDao()];
+      await database.addNotes([], notes);
+      await expect(database.getOutgoingNotes()).resolves.toEqual(notes);
+    });
 
     describe('block header', () => {
       it('stores and retrieves the block header', async () => {

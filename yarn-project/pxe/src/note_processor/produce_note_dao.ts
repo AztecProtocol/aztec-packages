@@ -58,7 +58,7 @@ export async function produceNoteDaos(
         txHash,
         payload,
         excludedIndices,
-        true, // For incoming we always compute a nullifier.
+        true, // For incoming we compute a nullifier (recipient of incoming is the party that nullifies).
       );
       const index = BigInt(dataStartIndexForTx + noteHashIndex);
       excludedIndices?.add(noteHashIndex);
@@ -113,7 +113,6 @@ export async function produceNoteDaos(
         ovpkM,
       );
     } else {
-      // TODO(benesjan): what about excluded indices here?
       const { noteHashIndex, nonce, innerNoteHash } = await findNoteIndexAndNullifier(
         simulator,
         newNoteHashes,
@@ -123,6 +122,7 @@ export async function produceNoteDaos(
         true, // For outgoing we do not compute a nullifier.
       );
       const index = BigInt(dataStartIndexForTx + noteHashIndex);
+      excludedIndices?.add(noteHashIndex);
       outgoingNote = new OutgoingNoteDao(
         payload.note,
         payload.contractAddress,

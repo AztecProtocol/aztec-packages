@@ -54,6 +54,12 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getNotes(filter: NoteFilter): Promise<IncomingNoteDao[]>;
 
   /**
+   * Gets outgoing notes.
+   * @returns The outgoing notes.
+   */
+  getOutgoingNotes(): Promise<OutgoingNoteDao[]>;
+
+  /**
    * Adds a note to DB.
    * @param note - The note to add.
    */
