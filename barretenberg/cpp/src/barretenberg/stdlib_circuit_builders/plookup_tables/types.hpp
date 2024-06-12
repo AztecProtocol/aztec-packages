@@ -317,7 +317,11 @@ struct BasicTable {
 
     bool operator==(const BasicTable& other) const = default;
 
-    size_t size() const { return column_1.size(); }
+    size_t size() const
+    {
+        ASSERT(column_1.size() == column_2.size() && column_2.size() == column_3.size());
+        return column_1.size();
+    }
 };
 
 enum ColumnIdx { C1, C2, C3 };
