@@ -7,6 +7,7 @@ import {
   type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
+  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type SimulatedTx,
@@ -131,6 +132,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
     return this.pxe.getIncomingNotes(filter);
+  }
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+    return this.pxe.getOutgoingNotes(filter);
   }
   // TODO(#4956): Un-expose this
   getNoteNonces(note: ExtendedNote): Promise<Fr[]> {

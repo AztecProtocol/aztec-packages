@@ -351,7 +351,7 @@ describe('e2e_2_pxes', () => {
         .call_create_note(noteValue, walletA.getAddress(), walletA.getAddress(), noteStorageSlot)
         .send()
         .wait({ debug: true });
-      const notes = receipt.debugInfo?.visibleNotes;
+      const notes = receipt.debugInfo?.visibleIncomingNotes;
       expect(notes).toHaveLength(1);
       note = notes![0];
     }

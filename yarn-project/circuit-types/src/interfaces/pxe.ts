@@ -18,7 +18,7 @@ import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
-import { type ExtendedNote } from '../notes/index.js';
+import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
@@ -229,6 +229,13 @@ export interface PXE {
    * @returns The requested notes.
    */
   getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]>;
 
   /**
    * Finds the nonce(s) for a given note.
