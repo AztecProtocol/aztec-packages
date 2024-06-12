@@ -54,6 +54,7 @@ impl<Note, N, M> NoteViewerOptions<Note, N, M> {
 
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_NOTES_PER_PAGE as u32);
+        assert_constant(limit);
         self.limit = limit;
         *self
     }
