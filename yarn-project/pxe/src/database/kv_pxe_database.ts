@@ -1,4 +1,10 @@
-import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type PublicKey } from '@aztec/circuit-types';
+import {
+  type IncomingNotesFilter,
+  MerkleTreeId,
+  NoteStatus,
+  type OutgoingNotesFilter,
+  type PublicKey,
+} from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -46,6 +52,10 @@ export class KVPxeDatabase implements PxeDatabase {
   #db: AztecKVStore;
 
   #outgoingNotes: AztecMap<string, Buffer>;
+  #outgoingNotesByContract: AztecMultiMap<string, string>;
+  #outgoingNotesByStorageSlot: AztecMultiMap<string, string>;
+  #outgoingNotesByTxHash: AztecMultiMap<string, string>;
+  #outgoingNotesByOvpkM: AztecMultiMap<string, string>;
 
   constructor(private db: AztecKVStore) {
     this.#db = db;
@@ -69,17 +79,21 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#notesByContract = db.openMultiMap('notes_by_contract');
     this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
     this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
-    this.#notesByIvpkM = db.openMultiMap('notes_by_owner');
+    this.#notesByIvpkM = db.openMultiMap('notes_by_ivpk_m');
 
     this.#nullifiedNotesByContract = db.openMultiMap('nullified_notes_by_contract');
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
-    this.#nullifiedNotesByIvpkM = db.openMultiMap('nullified_notes_by_owner');
+    this.#nullifiedNotesByIvpkM = db.openMultiMap('nullified_notes_by_ivpk_m');
 
     this.#deferredNotes = db.openArray('deferred_notes');
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
 
     this.#outgoingNotes = db.openMap('outgoing_notes');
+    this.#outgoingNotesByContract = db.openMultiMap('outgoing_notes_by_contract');
+    this.#outgoingNotesByStorageSlot = db.openMultiMap('outgoing_notes_by_storage_slot');
+    this.#outgoingNotesByTxHash = db.openMultiMap('outgoing_notes_by_tx_hash');
+    this.#outgoingNotesByOvpkM = db.openMultiMap('outgoing_notes_by_ovpk_m');
   }
 
   public async getContract(
@@ -163,8 +177,10 @@ export class KVPxeDatabase implements PxeDatabase {
       for (const dao of outgoingNotes) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         void this.#outgoingNotes.set(noteIndex, dao.toBuffer());
-        // TODO: add here the other maps (e.g. #outgoingNotesByStorageSlot) once we have the need to build a proper API
-        // for outgoing.
+        void this.#outgoingNotesByContract.set(dao.contractAddress.toString(), noteIndex);
+        void this.#outgoingNotesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
+        void this.#outgoingNotesByTxHash.set(dao.txHash.toString(), noteIndex);
+        void this.#outgoingNotesByOvpkM.set(dao.ovpkM.toString(), noteIndex);
       }
     });
   }
@@ -296,12 +312,56 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(this.#getNotes(filter));
   }
 
-  getOutgoingNotes(): Promise<OutgoingNoteDao[]> {
-    const outgoingNotes: OutgoingNoteDao[] = [];
-    for (const [_noteIndex, noteBuffer] of this.#outgoingNotes.entries()) {
-      outgoingNotes.push(OutgoingNoteDao.fromBuffer(noteBuffer));
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]> {
+    const publicKey: PublicKey | undefined = filter.owner
+      ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterOutgoingViewingPublicKey
+      : undefined;
+
+    const candidateNoteSources = [];
+
+    candidateNoteSources.push({
+      ids: publicKey
+        ? this.#outgoingNotesByOvpkM.getValues(publicKey.toString())
+        : filter.txHash
+        ? this.#outgoingNotesByTxHash.getValues(filter.txHash.toString())
+        : filter.contractAddress
+        ? this.#outgoingNotesByContract.getValues(filter.contractAddress.toString())
+        : filter.storageSlot
+        ? this.#outgoingNotesByStorageSlot.getValues(filter.storageSlot.toString())
+        : this.#outgoingNotes.keys(),
+      notes: this.#outgoingNotes,
+    });
+
+    const result: OutgoingNoteDao[] = [];
+    for (const { ids, notes } of candidateNoteSources) {
+      for (const id of ids) {
+        const serializedNote = notes.get(id);
+        if (!serializedNote) {
+          continue;
+        }
+
+        const note = OutgoingNoteDao.fromBuffer(serializedNote);
+        if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
+          continue;
+        }
+
+        if (filter.txHash && !note.txHash.equals(filter.txHash)) {
+          continue;
+        }
+
+        if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
+          continue;
+        }
+
+        if (publicKey && !note.ovpkM.equals(publicKey)) {
+          continue;
+        }
+
+        result.push(note);
+      }
     }
-    return Promise.resolve(outgoingNotes);
+
+    return Promise.resolve(result);
   }
 
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]> {

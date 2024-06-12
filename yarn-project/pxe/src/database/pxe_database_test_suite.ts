@@ -1,4 +1,4 @@
-import { type IncomingNotesFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
+import { type IncomingNotesFilter, NoteStatus, type OutgoingNotesFilter, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM, PublicKeys } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -8,6 +8,7 @@ import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { type IncomingNoteDao } from './incoming_note_dao.js';
 import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
+import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 import { randomOutgoingNoteDao } from './outgoing_note_dao.test.js';
 import { type PxeDatabase } from './pxe_database.js';
 
@@ -108,7 +109,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
       ];
 
-      beforeEach(() => {
+      beforeEach(async () => {
         owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
         contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
@@ -121,9 +122,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
             index: BigInt(i),
           }),
         );
-      });
 
-      beforeEach(async () => {
         for (const owner of owners) {
           await database.addCompleteAddress(owner);
         }
@@ -199,14 +198,68 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    it('stores and retrieves outgoing notes', async () => {
-      const notes = [randomOutgoingNoteDao(), randomOutgoingNoteDao()];
-      await database.addNotes([], notes);
+    describe('outgoing notes', () => {
+      let owners: CompleteAddress[];
+      let contractAddresses: AztecAddress[];
+      let storageSlots: Fr[];
+      let notes: OutgoingNoteDao[];
 
-      // Retrieve notes and expect them to contain all the notes we added, regardless of order
-      const retrievedNotes = await database.getOutgoingNotes();
-      expect(retrievedNotes).toHaveLength(notes.length);
-      expect(new Set(retrievedNotes)).toEqual(new Set(notes));
+      const filteringTests: [() => OutgoingNotesFilter, () => OutgoingNoteDao[]][] = [
+        [() => ({}), () => notes],
+
+        [
+          () => ({ contractAddress: contractAddresses[0] }),
+          () => notes.filter(note => note.contractAddress.equals(contractAddresses[0])),
+        ],
+        [() => ({ contractAddress: AztecAddress.random() }), () => []],
+
+        [
+          () => ({ storageSlot: storageSlots[0] }),
+          () => notes.filter(note => note.storageSlot.equals(storageSlots[0])),
+        ],
+        [() => ({ storageSlot: Fr.random() }), () => []],
+
+        [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
+        [() => ({ txHash: randomTxHash() }), () => []],
+
+        [
+          () => ({ owner: owners[0].address }),
+          () => notes.filter(note => note.ovpkM.equals(owners[0].publicKeys.masterOutgoingViewingPublicKey)),
+        ],
+
+        [
+          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
+          () =>
+            notes.filter(
+              note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
+            ),
+        ],
+        [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
+      ];
+
+      beforeEach(async () => {
+        owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
+        contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
+        storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
+
+        notes = Array.from({ length: 10 }).map((_, i) =>
+          randomOutgoingNoteDao({
+            contractAddress: contractAddresses[i % contractAddresses.length],
+            storageSlot: storageSlots[i % storageSlots.length],
+            ovpkM: owners[i % owners.length].publicKeys.masterOutgoingViewingPublicKey,
+            index: BigInt(i),
+          }),
+        );
+
+        for (const owner of owners) {
+          await database.addCompleteAddress(owner);
+        }
+      });
+
+      it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
+        await database.addNotes([], notes);
+        await expect(database.getOutgoingNotes(getFilter())).resolves.toEqual(getExpected());
+      });
     });
 
     describe('block header', () => {
