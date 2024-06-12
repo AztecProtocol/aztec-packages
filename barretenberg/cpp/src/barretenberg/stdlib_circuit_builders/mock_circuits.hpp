@@ -19,13 +19,22 @@ class MockCircuits {
      * @param num_gates
      */
     template <typename Builder>
-    static void add_arithmetic_gates_with_public_inputs(Builder& builder, const size_t num_gates = 4)
+    static void add_arithmetic_gates_with_public_inputs(Builder& builder,
+                                                        const size_t num_gates = 4,
+                                                        bool random = true)
     {
         // For good measure, include a gate with some public inputs
         for (size_t i = 0; i < num_gates; ++i) {
-            FF a = FF::random_element(&engine);
-            FF b = FF::random_element(&engine);
-            FF c = FF::random_element(&engine);
+            FF a, b, c;
+            if (random) {
+                a = FF::random_element(&engine);
+                b = FF::random_element(&engine);
+                c = FF::random_element(&engine);
+            } else {
+                a = FF(1);
+                b = FF(2);
+                c = FF(3);
+            }
             FF d = a + b + c;
             uint32_t a_idx = builder.add_public_variable(a);
             uint32_t b_idx = builder.add_variable(b);
@@ -42,13 +51,21 @@ class MockCircuits {
      * @param builder
      * @param num_gates
      */
-    template <typename Builder> static void add_arithmetic_gates(Builder& builder, const size_t num_gates = 4)
+    template <typename Builder>
+    static void add_arithmetic_gates(Builder& builder, const size_t num_gates = 4, bool random = true)
     {
         // For good measure, include a gate with some public inputs
         for (size_t i = 0; i < num_gates; ++i) {
-            FF a = FF::random_element(&engine);
-            FF b = FF::random_element(&engine);
-            FF c = FF::random_element(&engine);
+            FF a, b, c;
+            if (random) {
+                a = FF::random_element(&engine);
+                b = FF::random_element(&engine);
+                c = FF::random_element(&engine);
+            } else {
+                a = FF(1);
+                b = FF(2);
+                c = FF(3);
+            }
             FF d = a + b + c;
             uint32_t a_idx = builder.add_variable(a);
             uint32_t b_idx = builder.add_variable(b);
@@ -66,15 +83,18 @@ class MockCircuits {
      * @param num_gates
      */
     template <typename Builder>
-    static void construct_arithmetic_circuit(Builder& builder, const size_t target_log2_dyadic_size = 4)
+    static void construct_arithmetic_circuit(Builder& builder,
+                                             const size_t target_log2_dyadic_size = 4,
+                                             bool random = true,
+                                             bool has_pub_input = true)
     {
         const size_t target_dyadic_size = 1 << target_log2_dyadic_size;
         const size_t num_preamble_gates = builder.num_gates;
         ASSERT(target_dyadic_size >= num_preamble_gates);
 
         // For good measure, include a gate with some public inputs
-        if (target_dyadic_size > num_preamble_gates) {
-            add_arithmetic_gates_with_public_inputs(builder, 1);
+        if (has_pub_input && target_dyadic_size > num_preamble_gates) {
+            add_arithmetic_gates_with_public_inputs(builder, 1, random);
         }
 
         // A proper treatment of this would dynamically calculate how many gates to add given static information about
@@ -90,7 +110,7 @@ class MockCircuits {
         size_t num_gates_to_add = target_dyadic_size - OFFSET_HACK - 1 - num_preamble_gates;
 
         // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates
-        add_arithmetic_gates(builder, num_gates_to_add);
+        add_arithmetic_gates(builder, num_gates_to_add, random);
     }
 
     /**

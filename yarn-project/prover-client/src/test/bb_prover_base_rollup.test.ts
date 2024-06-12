@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makePaddingProcessedTx } from '@aztec/circuit-types';
+import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -34,8 +34,9 @@ describe('prover/bb_prover/base-rollup', () => {
       version,
     };
 
-    const paddingTxPublicInputsAndProof = await context.prover.getEmptyPrivateKernelProof(inputs);
-    const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
+
+    const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
+    const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
     const baseRollupInputs = await buildBaseRollupInput(
@@ -45,8 +46,10 @@ describe('prover/bb_prover/base-rollup', () => {
       paddingTxPublicInputsAndProof.verificationKey,
     );
     logger.verbose('Proving base rollups');
+    logger.debug(`proof: ${baseRollupInputs.kernelData.proof}`);
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
     await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
   });
+
 });

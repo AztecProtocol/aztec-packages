@@ -41,6 +41,7 @@ import {
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -302,7 +303,7 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
 }
 
 export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
-  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
+  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, TUBE_PROOF_LENGTH);
   return new KernelData(
     tx.data,
     recursiveProof,

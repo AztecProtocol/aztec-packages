@@ -1,6 +1,7 @@
 import {
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
+  type PublicInputsAndTubeProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   type Tx,
@@ -97,6 +98,11 @@ export interface ServerCircuitProver {
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
+
+  getEmptyTubeProof(
+    inputs: PrivateKernelEmptyInputData,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndTubeProof<KernelCircuitPublicInputs>>;
 
   /**
    * Create a proof for the AVM circuit.

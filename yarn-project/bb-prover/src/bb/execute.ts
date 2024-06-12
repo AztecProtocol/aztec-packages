@@ -134,7 +134,7 @@ export async function generateKeyForNoirCircuit(
     if (!binaryPresent) {
       return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
     }
-
+    log(`here in generateKeyForNoirCircuit`);
     // We are now going to generate the key
     try {
       const bytecodePath = `${circuitOutputDirectory}/${bytecodeFilename}`;
@@ -144,11 +144,12 @@ export async function generateKeyForNoirCircuit(
       // args are the output path and the input bytecode path
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
-      let result = await executeBB(pathToBB, `write_${key}`, args, log);
+      let result = await executeBB(pathToBB, `write_${key}_ultra_honk`, args, log);
+      log(`write vk result: ${result.status}`);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS && key === 'vk') {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
-        result = await executeBB(pathToBB, `vk_as_fields`, asFieldsArgs, log);
+        result = await executeBB(pathToBB, `vk_as_fields_ultra_honk`, asFieldsArgs, log);
       }
       const duration = timer.ms();
 
@@ -231,7 +232,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove_ultra_honk_output_all', args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -443,7 +444,7 @@ export async function verifyProof(
   verificationKeyPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify', log);
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify_ultra_honk', log);
 }
 
 /**
@@ -476,7 +477,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify' | 'avm_verify',
+  command: 'verify_ultra_honk' | 'avm_verify',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -530,7 +531,7 @@ export async function writeVkAsFields(
   try {
     const args = ['-k', `${verificationKeyPath}/${verificationKeyFilename}`, '-v'];
     const timer = new Timer();
-    const result = await executeBB(pathToBB, 'vk_as_fields', args, log);
+    const result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, duration, vkPath: verificationKeyPath };
@@ -572,7 +573,7 @@ export async function writeProofAsFields(
   try {
     const args = ['-p', `${proofPath}/${proofFileName}`, '-k', vkFilePath, '-v'];
     const timer = new Timer();
-    const result = await executeBB(pathToBB, 'proof_as_fields', args, log);
+    const result = await executeBB(pathToBB, 'proof_as_fields_honk', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, duration, proofPath: proofPath };

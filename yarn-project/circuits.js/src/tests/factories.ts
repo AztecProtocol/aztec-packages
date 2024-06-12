@@ -142,6 +142,7 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
   packBytecode,
+  TUBE_PROOF_LENGTH,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -600,7 +601,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
     VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),

@@ -11,6 +11,7 @@ if (NOT(FUZZING))
         PRIVATE
         barretenberg
         env
+        circuit_checker
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(
