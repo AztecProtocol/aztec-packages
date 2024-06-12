@@ -96,7 +96,7 @@ export class BBNativeProofCreator implements ProofCreator {
     }
 
     const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
-      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(path => fs.readFile(`${directory}/${path}`))
+      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName => fs.readFile(path.join(directory, fileName)))
     );
 
     this.log.info(`Generated IVC proof`, {

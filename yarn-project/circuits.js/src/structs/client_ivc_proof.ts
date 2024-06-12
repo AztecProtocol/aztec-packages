@@ -32,6 +32,13 @@ export class ClientIvcProof {
   }
 
   public toBuffer() {
-    return serializeToBuffer(this.instVkBuffer, this.pgAccBuffer, this.clientIvcProofBuffer, this.translatorVkBuffer, this.eccVkBuffer);
+    return serializeToBuffer(
+      this.instVkBuffer.length, this.instVkBuffer,
+      this.pgAccBuffer.length, this.pgAccBuffer,
+      this.clientIvcProofBuffer.length, this.clientIvcProofBuffer,
+      this.translatorVkBuffer.length, this.translatorVkBuffer,
+      this.eccVkBuffer.length, this.eccVkBuffer
+    );
+
   }
 }

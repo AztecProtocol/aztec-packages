@@ -368,33 +368,26 @@ void client_ivc_prove_output_all2(const std::string& bytecodePath,
         ivc.accumulate(circuit);
     }
 
-    // We have been given a directory, we will write the proof and verification key
-    // into the directory in both 'binary' and 'fields' formats (i.e. json format)
+    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
+    // directory is passed by bb.js)
     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
     std::string eccVkPath = outputPath + "/ecc_vk";
-    // std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
-    // std::string proofFieldsPath = outputPath + "/proof_fields.json";
-    // std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
 
     auto proof = ivc.prove();
-    auto accumulator = ivc.verifier_accumulator;
-    auto inst_vk = ivc.instance_vk;
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
-    info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
+    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
+    vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-
-    write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
-    write_file(accPath, to_buffer(accumulator));
-
+    write_file(vkPath, to_buffer(ivc.instance_vk));
+    write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
-
     write_file(eccVkPath, to_buffer(eccvm_vk));
 }
 
@@ -428,84 +421,18 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     return ivc.prove_and_verify();
 }
 
-// // WORKTODO: How are the VK actually retrieved
-// void client_ivc_prove_output_all(const std::string& bytecodePath,
-//                                  const std::string& witnessPath,
-//                                  const std::string& outputPath)
-// {
-//     using Flavor = MegaFlavor; // This is the only option
-//     using Builder = Flavor::CircuitBuilder;
-//     using ECCVMVK = ECCVMFlavor::VerificationKey;
-//     using TranslatorVK = TranslatorFlavor::VerificationKey;
-
-//     init_bn254_crs(1 << 18);
-//     init_grumpkin_crs(1 << 14);
-
-//     ClientIVC ivc;
-//     ivc.structured_flag = true;
-
-//     auto program_stack = acir_format::get_acir_program_stack(
-//         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
-//                                            // assumes that folding is never done with ultrahonk.
-
-//     // Accumulate the entire program stack into the IVC
-//     while (!program_stack.empty()) {
-//         auto stack_item = program_stack.back();
-
-//         // Construct a bberg circuit from the acir representation
-//         auto circuit = acir_format::create_circuit<Builder>(
-//             stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
-
-//         ivc.accumulate(circuit);
-
-//         program_stack.pop_back();
-//     }
-
-//     // We have been given a directory, we will write the proof and verification key
-//     // into the directory in both 'binary' and 'fields' formats (i.e. json format)
-//     std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-//     std::string accPath = outputPath + "/pg_acc";
-//     std::string proofPath = outputPath + "/client_ivc_proof";
-//     std::string translatorVkPath = outputPath + "/translator_vk";
-//     std::string eccVkPath = outputPath + "/ecc_vk";
-//     // std::string vkFieldsPath = outputPath + "/inst_vk_fields.json";
-//     // std::string proofFieldsPath = outputPath + "/proof_fields.json";
-//     // std::string accFieldsPath = outputPath + "/pg_acc_fields.json";
-
-//     auto proof = ivc.prove();
-//     auto accumulator = ivc.verifier_accumulator;
-//     auto inst_vk = ivc.instance_vk;
-//     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
-//     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-
-//     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(inst_vk);
-//     info("ensure valid proof: ", ivc.verify(proof, { accumulator, last_instance }));
-
-//     write_file(proofPath, to_buffer(proof));
-
-//     write_file(vkPath, to_buffer(inst_vk)); // maybe dereference
-//     write_file(accPath, to_buffer(accumulator));
-
-//     write_file(translatorVkPath, to_buffer(translator_vk));
-
-//     write_file(eccVkPath, to_buffer(eccvm_vk));
-// }
-
-struct
-
-    /**
-     * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC
-     * proof.
-     *
-     * @param bytecodePath Path to the serialised circuit
-     * @param witnessPath Path to witness data
-     * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice
-     * this going to be specified when bb main is called, i.e. as the working directory in typescript).
-     */
-    void
-    client_ivc_prove_output_all(const std::string& bytecodePath,
-                                const std::string& witnessPath,
-                                const std::string& outputPath)
+/**
+ * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC
+ * proof.
+ *
+ * @param bytecodePath Path to the serialised circuit
+ * @param witnessPath Path to witness data
+ * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice
+ * this going to be specified when bb main is called, i.e. as the working directory in typescript).
+ */
+void client_ivc_prove_output_all(const std::string& bytecodePath,
+                                 const std::string& witnessPath,
+                                 const std::string& outputPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
