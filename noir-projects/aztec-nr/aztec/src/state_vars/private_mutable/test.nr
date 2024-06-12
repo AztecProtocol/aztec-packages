@@ -2,7 +2,6 @@ use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 use crate::{context::PrivateContext, state_vars::private_mutable::PrivateMutable};
 use crate::test::{mocks::mock_note::MockNote, helpers::context_builder::ContextBuilder};
 use dep::std::{unsafe::zeroed, test::OracleMock};
-use crate::encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys;
 
 global contract_address = AztecAddress::from_field(13);
 global storage_slot = 17;

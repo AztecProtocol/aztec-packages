@@ -35,7 +35,7 @@ If a note recipient is one of the accounts inside the PXE, we don't need to regi
 
 ### Call emit
 
-To emit encrypted logs you can import the `encode_and_encrypt` or `encode_and_encrypt_with_keys` functions and pass them into the `emit` function after inserting a note. An example is seen in the token example contract transfer function:
+To emit encrypted logs you can import the `encode_and_encrypt` or `encode_and_encrypt_with_keys` functions and pass them into the `emit` function after inserting a note. An example can be seen in the reference token contract's transfer function:
 
 #include_code encrypted /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 

@@ -1,5 +1,5 @@
 /**
- * A note emission struct containing the information required when to emit a note.
+ * A note emission struct containing the information required for emitting a note.
  * The exact `emit` logic is passed in by the application code
  */
 struct NoteEmission<Note> {
@@ -19,11 +19,12 @@ impl<Note> NoteEmission<Note> {
 }
 
 /**
- * A wrapper of the note emission
+ * A struct wrapping note emission in `Option<T>`.
  * This is the struct provided to application codes, which can be used to emit
  * only when a note was actually inserted.
  * It is fairly common to have cases where a function conditionally inserts,
- * and this allows us to keep the same API for emission in both cases.
+ * and this allows us to keep the same API for emission in both cases (e.g. inserting  
+ * a change note in a token's transfer function only when there is "change" left).
  */
 struct OuterNoteEmission<Note> {
     emission: Option<NoteEmission<Note>>,

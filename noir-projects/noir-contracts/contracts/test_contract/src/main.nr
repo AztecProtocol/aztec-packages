@@ -387,9 +387,6 @@ contract Test {
     #[aztec(private)]
     fn set_constant(value: Field) {
         let mut note = TestNote::new(value);
-        // The test note is not being broadcasted (TestNote::broadcast(...) does not actually broadcast) and for this
-        // reason we are passing zero values for the public keys below. This means that if we want to interact with
-        // this note in the future, we will need to manually add it to PXE by calling pxe.addNote(...).
         storage.example_constant.initialize(&mut note).discard();
     }
 
