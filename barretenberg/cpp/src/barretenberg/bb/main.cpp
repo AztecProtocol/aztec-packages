@@ -730,19 +730,9 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
 }
 #endif
 
-/**
- * @brief Creates a proof for an ACIR circuit
- *
- * Communication:
- * - stdout: The proof is written to stdout as a byte array
- * - Filesystem: The proof is written to the path specified by outputPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param witnessPath Path to the file containing the serialized witness
- * @param outputPath Path to write the proof to
- */
-template <IsUltraFlavor Flavor>
-void prove_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
+// WORKTODO: This is a hack; inefficient to construct witnesses twice in prover_then_verify flow
+template <typename Flavor>
+UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const std::string& witnessPath)
 {
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
@@ -762,6 +752,28 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     // Construct Honk proof
     Prover prover{ builder };
+    return prover;
+}
+
+/**
+ * @brief Creates a proof for an ACIR circuit
+ *
+ * Communication:
+ * - stdout: The proof is written to stdout as a byte array
+ * - Filesystem: The proof is written to the path specified by outputPath
+ *
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param outputPath Path to write the proof to
+ */
+template <IsUltraFlavor Flavor>
+void prove_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
+{
+    // using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+
+    // Construct Honk proof
+    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {
@@ -818,24 +830,15 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
+template <IsUltraFlavor Flavor>
+void write_vk_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
-    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
-    bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        honk_recursion = true;
-    }
-    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {}, honk_recursion);
-
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    ProverInstance prover_inst(builder);
+    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
+    ProverInstance& prover_inst = *prover.instance;
     VerificationKey vk(
         prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
 
@@ -1068,7 +1071,7 @@ int main(int argc, char* argv[])
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraFlavor>(bytecode_path, output_path);
+            write_vk_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "prove_mega_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
@@ -1076,7 +1079,7 @@ int main(int argc, char* argv[])
             return verify_honk<MegaFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_mega_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<MegaFlavor>(bytecode_path, output_path);
+            write_vk_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "proof_as_fields_honk") {
             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
             proof_as_fields_honk(proof_path, output_path);
