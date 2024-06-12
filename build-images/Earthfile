@@ -216,6 +216,8 @@ basebox:
           fzf \
           gnupg \
           htop \
+          less \
+          inotify-tools \
           iproute2 \
           iputils-ping \
           less \
