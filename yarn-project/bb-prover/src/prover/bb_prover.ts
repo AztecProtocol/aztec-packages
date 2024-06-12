@@ -254,7 +254,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO: this should be BASE_ROLLUP_PROOF_LENGTH or something like this
       convertBaseRollupInputsToWitnessMap,
       convertBaseRollupOutputsFromWitnessMap,
     );
