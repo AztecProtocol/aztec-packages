@@ -30,6 +30,7 @@ im.workspace = true
 noirc_frontend.workspace = true
 acir.workspace = true
 noirc_errors.workspace = true
+tempfile.workspace = true
 
 # Logs
 tracing-subscriber.workspace = true
@@ -39,6 +40,8 @@ tracing-appender = "0.2.3"
 rand = "0.8.5"
 proptest = "1.2.0"
 paste = "1.0.14"
+noirc_abi.workspace = true
+noirc_driver.workspace = true
 
 
 [features]

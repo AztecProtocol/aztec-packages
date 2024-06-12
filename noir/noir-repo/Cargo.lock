@@ -2736,6 +2736,8 @@ dependencies = [
  "im",
  "inferno",
  "nargo",
+ "noirc_abi",
+ "noirc_driver",
  "noirc_errors",
  "noirc_frontend",
  "paste",
@@ -2743,6 +2745,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "tempfile",
  "tracing-appender",
  "tracing-subscriber",
 ]
