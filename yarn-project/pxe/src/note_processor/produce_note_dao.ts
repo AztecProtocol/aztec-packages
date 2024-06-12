@@ -119,7 +119,7 @@ export async function produceNoteDaos(
         txHash,
         payload,
         excludedIndices,
-        true, // For outgoing we do not compute a nullifier.
+        false, // For outgoing we do not compute a nullifier.
       );
       const index = BigInt(dataStartIndexForTx + noteHashIndex);
       excludedIndices?.add(noteHashIndex);
