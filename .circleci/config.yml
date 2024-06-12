@@ -255,6 +255,18 @@ jobs:
           command: cond_spot_run_build avm-transpiler 32 arm64
           aztec_manifest_key: avm-transpiler
 
+  avm-transpiler-ecr-manifest:
+    machine:
+      image: default
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Create ECR manifest"
+          command: create_ecr_manifest avm-transpiler x86_64,arm64
+          aztec_manifest_key: avm-transpiler
+
   aztec-nargo-x86_64:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -550,10 +562,14 @@ workflows:
           requires:
             - noir-x86_64
           <<: *defaults
-
       - avm-transpiler-arm64:
           requires:
             - noir-arm64
+          <<: *defaults
+      - avm-transpiler-ecr-manifest:
+          requires:
+            - avm-transpiler-x86_64
+            - avm-transpiler-arm64
           <<: *defaults
 
       # aztec-nargo (nargo & transpiler)
@@ -586,7 +602,7 @@ workflows:
 
       - noir-projects:
           requires:
-            - avm-transpiler
+            - avm-transpiler-ecr-manifest
             - noir-ecr-manifest
           <<: *defaults
 
