@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -213,3 +214,25 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };
+
+TEST_F(ClientIVCTests, Proof)
+{
+    ClientIVC ivc;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    auto proof = ivc.prove();
+    write_file("./proof", to_buffer(proof));
+    auto reconstructed_proof = from_buffer<ClientIVC::Proof>(read_file("./proof"));
+    EXPECT_EQ(proof.folding_proof.size(), reconstructed_proof.folding_proof.size());
+    EXPECT_EQ(proof.decider_proof.size(), reconstructed_proof.decider_proof.size());
+    EXPECT_EQ(proof.goblin_proof.size(), reconstructed_proof.goblin_proof.size());
+    auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
+    EXPECT_TRUE(ivc.verify(reconstructed_proof, { ivc.verifier_accumulator, verifier_inst }));
+}
