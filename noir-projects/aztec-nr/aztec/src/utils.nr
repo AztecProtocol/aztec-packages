@@ -55,6 +55,10 @@ fn verify_collapse_hints<T, N>(
                 assert(input_index > last_index.unwrap_unchecked(), "Wrong collapsed vec order");
             }
             last_index = Option::some(input_index);
+        } else {
+            // We don't technically need to check past the length of the BoundedVec since those slots should not be
+            // accessible, but its fairly cheap to prevent dirty data from being stored there.
+            assert_eq(collapsed.get_unchecked(i), dep::std::unsafe::zeroed(), "Dirty collapsed vec");
         }
     }
     // We now know that:

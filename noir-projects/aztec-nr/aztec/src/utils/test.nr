@@ -110,3 +110,15 @@ fn verify_collapse_hints_wrong_vec_order() {
 
     verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
+
+#[test(should_fail_with="Dirty collapsed vec")]
+fn verify_collapse_hints_dirty_storage() {
+    let original = [Option::some(7), Option::none(), Option::some(3)];
+
+    let mut collapsed: BoundedVec<u32, 3> = BoundedVec::from_array([7, 3]);
+    collapsed.storage[2] = 1;
+
+    let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 2]);
+
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
+}
