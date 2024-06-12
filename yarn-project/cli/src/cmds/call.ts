@@ -1,5 +1,6 @@
-import { AztecAddress } from '@aztec/aztec.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type AztecAddress, ContractFunctionInteraction, SignerlessWallet } from '@aztec/aztec.js';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 
@@ -26,7 +27,14 @@ export async function call(
   }
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
+  const { chainId, protocolVersion } = await client.getNodeInfo();
+  const call = new ContractFunctionInteraction(
+    new SignerlessWallet(client, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+    contractAddress,
+    fnArtifact,
+    functionArgs,
+  );
   const from = await getTxSender(client, fromAddress);
-  const result = await client.viewTx(functionName, functionArgs, contractAddress, from);
+  const result = await call.simulate({ from });
   log(format('\nView result: ', result, '\n'));
 }

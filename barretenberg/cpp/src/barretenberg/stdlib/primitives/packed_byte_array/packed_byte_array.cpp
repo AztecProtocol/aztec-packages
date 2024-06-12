@@ -265,8 +265,9 @@ template <typename Builder> std::string packed_byte_array<Builder>::get_value() 
     return bytes;
 }
 
+template class packed_byte_array<bb::CircuitSimulatorBN254>;
 template class packed_byte_array<bb::StandardCircuitBuilder>;
 template class packed_byte_array<bb::UltraCircuitBuilder>;
-template class packed_byte_array<bb::GoblinUltraCircuitBuilder>;
+template class packed_byte_array<bb::MegaCircuitBuilder>;
 
 } // namespace bb::stdlib

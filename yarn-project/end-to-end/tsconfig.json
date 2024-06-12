@@ -19,13 +19,13 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
-    },
-    {
-      "path": "../cli"
     },
     {
       "path": "../entrypoints"
@@ -55,10 +55,16 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../prover-client"
+    },
+    {
       "path": "../pxe"
     },
     {
       "path": "../sequencer-client"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"

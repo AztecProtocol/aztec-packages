@@ -1,91 +1,58 @@
-use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext, emit_encrypted_log};
+use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext};
 use dep::aztec::{
-    note::{utils::compute_note_hash_for_consumption},
-    oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    hash::pedersen_hash, protocol_types::traits::Empty
+    note::{utils::compute_note_hash_for_consumption}, keys::getters::get_nsk_app,
+    protocol_types::{
+    traits::{Empty, Serialize}, grumpkin_point::GrumpkinPoint,
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash
+}
 };
 
 // Shows how to create a custom note
 
 global CARD_NOTE_LEN: Field = 3;
+// CARD_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global CARD_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 // docs:start:state_vars-CardNote
+#[aztec(note)]
 struct CardNote {
     points: u8,
     randomness: Field,
-    owner: AztecAddress,
-    header: NoteHeader,
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    npk_m_hash: Field,
 }
 // docs:end:state_vars-CardNote
 
 impl CardNote {
-    pub fn new(points: u8, randomness: Field, owner: AztecAddress) -> Self {
-        CardNote { points, randomness, owner, header: NoteHeader::empty() }
+    pub fn new(points: u8, randomness: Field, npk_m_hash: Field) -> Self {
+        CardNote { points, randomness, npk_m_hash, header: NoteHeader::empty() }
     }
 }
 
-impl NoteInterface<CARD_NOTE_LEN> for CardNote {
-    fn serialize_content(self) -> [Field; CARD_NOTE_LEN] {
-        [self.points as Field, self.randomness, self.owner.to_field()]
-    }
-
-    fn deserialize_content(serialized_note: [Field; CARD_NOTE_LEN]) -> Self {
-        CardNote {
-            points: serialized_note[0] as u8,
-            randomness: serialized_note[1],
-            owner: AztecAddress::from_field(serialized_note[2]),
-            header: NoteHeader::empty(),
-        }
-    }
-
-    fn compute_note_content_hash(self) -> Field {
-        pedersen_hash(self.serialize_content(), 0)
-    }
-
+impl NoteInterface<CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN> for CardNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        pedersen_hash([
+        let secret = context.request_nsk_app(self.npk_m_hash);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.high,
-            secret.low,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        pedersen_hash([
+        let secret = get_nsk_app(self.npk_m_hash);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.high,
-            secret.low,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
+}
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(note: CardNote) -> NoteHeader {
-        note.header
-    }
-
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key(self.owner);
-        emit_encrypted_log(
-            context,
-            (*context).this_address(),
-            slot,
-            Self::get_note_type_id(),
-            encryption_pub_key,
-            self.serialize_content(),
-        );
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'CardNote')))"
-        679711410078111116101
+impl Serialize<3> for CardNote {
+    fn serialize(self) -> [Field; 3] {
+        [ self.points.to_field(), self.randomness, self.npk_m_hash.to_field() ]
     }
 }

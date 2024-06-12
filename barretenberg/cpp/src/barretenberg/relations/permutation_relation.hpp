@@ -17,6 +17,17 @@ template <typename FF_> class UltraPermutationRelationImpl {
         0  // left-shiftable polynomial sub-relation
     };
 
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        return (in.z_perm - in.z_perm_shift).is_zero();
+    }
+
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
@@ -84,6 +95,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("Permutation::accumulate");
         // Contribution (1)
         [&]() {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;

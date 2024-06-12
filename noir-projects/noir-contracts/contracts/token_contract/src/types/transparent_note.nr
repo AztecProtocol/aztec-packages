@@ -1,87 +1,80 @@
 // docs:start:token_types_all
-use dep::aztec::prelude::{NoteHeader, NoteInterface, PrivateContext};
-use dep::aztec::{note::{utils::compute_note_hash_for_consumption}, hash::{compute_secret_hash, pedersen_hash}};
+use dep::aztec::{
+    note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
+    prelude::{NoteHeader, NoteInterface, PrivateContext},
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
+};
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
+// TRANSPARENT_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global TRANSPARENT_NOTE_BYTES_LEN: Field = 2 * 32 + 64;
 
-// Transparent note represents a note that is created in the clear (public execution),
-// but can only be spent by those that know the preimage of the "secret_hash"
+// Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
+// that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
+// Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
+// can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
+#[aztec(note)]
 struct TransparentNote {
     amount: Field,
     secret_hash: Field,
-    // the secret is just here for ease of use and won't be (de)serialized
-    secret: Field,
-    // header is just here to satisfy the NoteInterface
-    header: NoteHeader,
 }
 
-impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
+struct TransparentNoteProperties {
+    amount: PropertySelector,
+    secret_hash: PropertySelector,
+}
+
+impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for TransparentNote {
+
+    // Custom serialization to avoid disclosing the secret field
     fn serialize_content(self) -> [Field; TRANSPARENT_NOTE_LEN] {
         [self.amount, self.secret_hash]
     }
 
+    // Custom deserialization since we don't have access to the secret plaintext
     fn deserialize_content(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
         TransparentNote {
             amount: serialized_note[0],
             secret_hash: serialized_note[1],
-            secret: 0,
             header: NoteHeader::empty(),
         }
     }
 
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
-    }
-
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): Ensure nullifier collisions are prevented
     fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
         self.compute_nullifier_without_context()
     }
 
+    // Computing a nullifier in a transparent note is not guarded by making secret a part of the nullifier preimage (as
+    // is common in other cases) and instead is guarded by the functionality of "redeem_shield" function. There we do
+    // the following:
+    //      1) We pass the secret as an argument to the function and use it to compute a secret hash,
+    //      2) we fetch a note via the "get_notes" oracle which accepts the secret hash as an argument,
+    //      3) the "get_notes" oracle constrains that the secret hash in the returned note matches the one computed in
+    //         circuit. 
+    // This achieves that the note can only be spent by the party that knows the secret.
     fn compute_nullifier_without_context(self) -> Field {
-        let siloed_note_hash = compute_note_hash_for_consumption(self);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([self.secret, siloed_note_hash],0)
-    }
-
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
-    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        assert(false, "TransparentNote does not support broadcast");
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'TransparentNote')))"
-        84114971101151129711410111011678111116101
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        poseidon2_hash([
+            note_hash_for_nullify,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 }
 
 impl TransparentNote {
-
     // CONSTRUCTORS
-
     pub fn new(amount: Field, secret_hash: Field) -> Self {
-        TransparentNote { amount, secret_hash, secret: 0, header: NoteHeader::empty() }
-    }
-
-    // new oracle call primitive
-    // get me the secret corresponding to this hash
-    pub fn new_from_secret(amount: Field, secret: Field) -> Self {
-        TransparentNote { amount, secret_hash: compute_secret_hash(secret), secret, header: NoteHeader::empty() }
+        TransparentNote { amount, secret_hash, header: NoteHeader::empty() }
     }
 
     // CUSTOM FUNCTIONS FOR THIS NOTE TYPE
-
-    pub fn knows_secret(self, secret: Field) {
-        let hash = compute_secret_hash(secret);
-        assert(self.secret_hash == hash);
+    // Custom serialization forces us to manually create the metadata struct and its getter
+    pub fn properties() -> TransparentNoteProperties {
+        TransparentNoteProperties {
+            amount: PropertySelector { index: 0, offset: 0, length: 32 },
+            secret_hash: PropertySelector { index: 1, offset: 0, length: 32 }
+        }
     }
 }
 // docs:end:token_types_all

@@ -1,4 +1,5 @@
 use dep::std::cmp::Eq;
+use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
 //
@@ -45,9 +46,41 @@ impl ToField for Field {
     }
 }
 
+impl ToField for bool { fn to_field(self) -> Field { self as Field } }
+impl ToField for u1 { fn to_field(self) -> Field { self as Field } }
+impl ToField for u8 { fn to_field(self) -> Field { self as Field } }
+impl ToField for u32 { fn to_field(self) -> Field { self as Field } }
+impl ToField for u64 { fn to_field(self) -> Field { self as Field } }
 impl ToField for U128 {
     fn to_field(self) -> Field {
         self.to_integer()
+    }
+}
+impl<N> ToField for str<N> {
+    fn to_field(self) -> Field {
+        assert(N < 32, "String doesn't fit in a field, consider using Serialize instead");
+        field_from_bytes(self.as_bytes(), true)
+    }
+}
+
+trait FromField {
+    fn from_field(value: Field) -> Self;
+}
+
+impl FromField for Field {
+    fn from_field(value: Field) -> Self {
+        value
+    }
+}
+
+impl FromField for bool { fn from_field(value: Field) -> Self { value as bool } }
+impl FromField for u1 { fn from_field(value: Field) -> Self { value as u1 } }
+impl FromField for u8 { fn from_field(value: Field) -> Self { value as u8 } }
+impl FromField for u32 { fn from_field(value: Field) -> Self { value as u32 } }
+impl FromField for u64 { fn from_field(value: Field) -> Self { value as u64 } }
+impl FromField for U128 {
+    fn from_field(value: Field) -> Self {
+        U128::from_integer(value)
     }
 }
 
@@ -56,6 +89,22 @@ trait Serialize<N> {
     fn serialize(self) -> [Field; N];
 }
 // docs:end:serialize
+
+impl<N> Serialize<N> for [Field; N] {
+    fn serialize(self) -> [Field; N] {
+        self
+    }
+}
+impl<N> Serialize<N> for str<N> {
+    fn serialize(self) -> [Field; N] {
+        let mut result = [0; N];
+        let bytes: [u8; N] = self.as_bytes();
+        for i in 0..N {
+            result[i] = field_from_bytes([bytes[i];1], true);
+        }
+        result
+    }
+}
 
 // docs:start:deserialize
 trait Deserialize<N> {

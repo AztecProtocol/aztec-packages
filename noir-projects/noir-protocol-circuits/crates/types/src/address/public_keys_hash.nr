@@ -1,7 +1,4 @@
-use crate::{
-    constants::GENERATOR_INDEX__PARTIAL_ADDRESS, hash::pedersen_hash, grumpkin_point::GrumpkinPoint,
-    traits::{ToField, Serialize, Deserialize}
-};
+use crate::traits::{ToField, Serialize, Deserialize};
 
 // Public keys hash. Used in the computation of an address.
 struct PublicKeysHash {
@@ -37,18 +34,6 @@ impl PublicKeysHash {
         Self { inner: field }
     }
 
-    pub fn compute(public_key: GrumpkinPoint) -> Self {
-        PublicKeysHash::from_field(
-            pedersen_hash(
-                [
-            public_key.x,
-            public_key.y
-        ],
-                GENERATOR_INDEX__PARTIAL_ADDRESS
-            )
-        )
-    }
-
     pub fn to_field(self) -> Field {
         self.inner
     }
@@ -56,11 +41,4 @@ impl PublicKeysHash {
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
     }
-}
-
-#[test]
-fn compute_public_keys_hash() {
-    let point = GrumpkinPoint { x: 1, y: 2 };
-    let actual = PublicKeysHash::compute(point);
-    assert(actual.to_field() == 0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8);
 }

@@ -1,13 +1,13 @@
 #include "poseidon2_permutation.hpp"
 
-#include "barretenberg/proof_system/arithmetization/gate_data.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb::stdlib {
 
 /**
- * @brief Circuit form of Poseidon2 permutation from https://eprint.iacr.org/2023/323 for GoblinUltraCircuitBuilder.
+ * @brief Circuit form of Poseidon2 permutation from https://eprint.iacr.org/2023/323 for MegaCircuitBuilder.
  * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
  * rounds, and a set of external rounds.
  * @param builder
@@ -17,7 +17,7 @@ namespace bb::stdlib {
 template <typename Params, typename Builder>
 typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
     Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
-    requires IsGoblinBuilder<Builder>
+    requires IsMegaBuilder<Builder>
 {
     // deep copy
     State current_state(input);
@@ -48,6 +48,14 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
         }
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last external gate
+    // from above otherwise expects to read into the first internal gate which is sorted out of sequence
+    builder->create_dummy_gate(builder->blocks.poseidon_external,
+                               current_state[0].witness_index,
+                               current_state[1].witness_index,
+                               current_state[2].witness_index,
+                               current_state[3].witness_index);
+
     // Internal rounds
     const size_t p_end = rounds_f_beginning + rounds_p;
     for (size_t i = rounds_f_beginning; i < p_end; ++i) {
@@ -64,6 +72,14 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
             current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
         }
     }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last internal gate
+    // otherwise expects to read into the next external gate which is sorted out of sequence
+    builder->create_dummy_gate(builder->blocks.poseidon_internal,
+                               current_state[0].witness_index,
+                               current_state[1].witness_index,
+                               current_state[2].witness_index,
+                               current_state[3].witness_index);
 
     // Remaining external rounds
     for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
@@ -85,7 +101,7 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
     // applying a round of Poseidon2 is stored in the next row (the shifted row). As a result, we need this end row to
     // compare with the result from the 64th round of Poseidon2. Note that it does not activate any selectors since it
     // only serves as a comparison through the shifted wires.
-    builder->create_dummy_gate(builder->blocks.main,
+    builder->create_dummy_gate(builder->blocks.poseidon_external,
                                current_state[0].witness_index,
                                current_state[1].witness_index,
                                current_state[2].witness_index,
@@ -104,7 +120,7 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
 template <typename Params, typename Builder>
 typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
     Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
-    requires IsNotGoblinBuilder<Builder>
+    requires IsNotMegaBuilder<Builder>
 {
     // deep copy
     State current_state(input);
@@ -140,7 +156,7 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
 template <typename Params, typename Builder>
 void Poseidon2Permutation<Params, Builder>::add_round_constants(
     State& input, const typename Poseidon2Permutation<Params, Builder>::RoundConstants& rc)
-    requires IsNotGoblinBuilder<Builder>
+    requires IsNotMegaBuilder<Builder>
 
 {
     for (size_t i = 0; i < t; ++i) {
@@ -150,7 +166,7 @@ void Poseidon2Permutation<Params, Builder>::add_round_constants(
 
 template <typename Params, typename Builder>
 void Poseidon2Permutation<Params, Builder>::apply_sbox(State& input)
-    requires IsNotGoblinBuilder<Builder>
+    requires IsNotMegaBuilder<Builder>
 {
     for (auto& in : input) {
         apply_single_sbox(in);
@@ -159,7 +175,7 @@ void Poseidon2Permutation<Params, Builder>::apply_sbox(State& input)
 
 template <typename Params, typename Builder>
 void Poseidon2Permutation<Params, Builder>::apply_single_sbox(field_t<Builder>& input)
-    requires IsNotGoblinBuilder<Builder>
+    requires IsNotMegaBuilder<Builder>
 {
     // hardcoded assumption that d = 5. should fix this or not make d configurable
     auto xx = input.sqr();
@@ -169,7 +185,7 @@ void Poseidon2Permutation<Params, Builder>::apply_single_sbox(field_t<Builder>& 
 
 template <typename Params, typename Builder>
 void Poseidon2Permutation<Params, Builder>::matrix_multiplication_internal(State& input)
-    requires IsNotGoblinBuilder<Builder>
+    requires IsNotMegaBuilder<Builder>
 {
     // for t = 4
     auto sum = input[0];
@@ -294,7 +310,7 @@ void Poseidon2Permutation<Params, Builder>::matrix_multiplication_external(
     state[3] = v4;
 }
 
-template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, GoblinUltraCircuitBuilder>;
+template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, MegaCircuitBuilder>;
 template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, UltraCircuitBuilder>;
 
 } // namespace bb::stdlib

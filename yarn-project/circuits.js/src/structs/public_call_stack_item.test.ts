@@ -1,14 +1,15 @@
+import { randomInt } from '@aztec/foundation/crypto';
 import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { makePublicCallStackItem } from '../tests/factories.js';
-import { AztecAddress, Fr, FunctionData, FunctionSelector, SideEffect } from './index.js';
+import { AztecAddress, Fr, FunctionData, FunctionSelector } from './index.js';
+import { NoteHash } from './note_hash.js';
 import { PublicCallStackItem } from './public_call_stack_item.js';
 
 describe('PublicCallStackItem', () => {
   setupCustomSnapshotSerializers(expect);
   it('serializes to buffer and deserializes it back', () => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    const expected = makePublicCallStackItem(randomInt);
+    const expected = makePublicCallStackItem(randomInt(1000));
     const buffer = expected.toBuffer();
     const res = PublicCallStackItem.fromBuffer(buffer);
     expect(res).toEqual(expected);
@@ -21,13 +22,19 @@ describe('PublicCallStackItem', () => {
     expect(hash).toMatchSnapshot();
   });
 
+  it('computes empty item hash', () => {
+    const item = PublicCallStackItem.empty();
+    const hash = item.hash();
+    expect(hash).toMatchSnapshot();
+  });
+
   it('Computes a callstack item request hash', () => {
     const callStack = PublicCallStackItem.empty();
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
-    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.functionData = new FunctionData(new FunctionSelector(2), /*isPrivate=*/ false);
     callStack.isExecutionRequest = true;
-    callStack.publicInputs.newNoteHashes[0] = new SideEffect(new Fr(1), new Fr(0));
+    callStack.publicInputs.newNoteHashes[0] = new NoteHash(new Fr(1), 0);
 
     const hash = callStack.hash();
     expect(hash.toString()).toMatchSnapshot();
@@ -44,8 +51,8 @@ describe('PublicCallStackItem', () => {
     const callStack = PublicCallStackItem.empty();
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
-    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
-    callStack.publicInputs.newNoteHashes[0] = new SideEffect(new Fr(1), new Fr(0));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), /*isPrivate=*/ false);
+    callStack.publicInputs.newNoteHashes[0] = new NoteHash(new Fr(1), 0);
 
     const hash = callStack.hash();
     expect(hash.toString()).toMatchSnapshot();

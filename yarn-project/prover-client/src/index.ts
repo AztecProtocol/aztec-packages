@@ -1,4 +1,4 @@
-/**
- * A placeholder for the Prover Client.
- */
-export class ProverClient {}
+export { ProverClient } from '@aztec/circuit-types';
+
+export * from './tx-prover/tx-prover.js';
+export * from './config.js';

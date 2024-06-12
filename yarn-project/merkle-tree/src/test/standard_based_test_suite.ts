@@ -1,13 +1,12 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { AztecKVStore } from '@aztec/kv-store';
+import { Fr } from '@aztec/foundation/fields';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { Hasher } from '@aztec/types/interfaces';
-
-import { randomBytes } from 'crypto';
+import { type Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_LEAF, Pedersen } from '../index.js';
-import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
-import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
 
 const TEST_TREE_DEPTH = 2;
@@ -45,7 +44,7 @@ export const standardBasedTreeTestSuite = (
     it('should throw when appending beyond max index', async () => {
       const db = openTmpStore();
       const tree = await createDb(db, pedersen, 'test', 2);
-      const leaves = Array.from({ length: 5 }, _ => randomBytes(32));
+      const leaves = Array.from({ length: 5 }, _ => Fr.random().toBuffer());
       await expect(appendLeaves(tree, leaves)).rejects.toThrow();
     });
 

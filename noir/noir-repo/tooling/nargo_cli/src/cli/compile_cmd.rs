@@ -1,4 +1,6 @@
+use std::io::Write;
 use std::path::Path;
+use std::time::Duration;
 
 use fm::FileManager;
 use nargo::artifacts::program::ProgramArtifact;
@@ -15,11 +17,11 @@ use noirc_frontend::graph::CrateName;
 
 use clap::Args;
 use noirc_frontend::hir::ParsedFiles;
+use notify::{EventKind, RecursiveMode, Watcher};
+use notify_debouncer_full::new_debouncer;
 
-use crate::backends::Backend;
 use crate::errors::CliError;
 
-use super::fs::program::only_acir;
 use super::fs::program::{read_program_from_file, save_contract_to_file, save_program_to_file};
 use super::NargoConfig;
 use rayon::prelude::*;
@@ -31,19 +33,19 @@ pub(crate) struct CompileCommand {
     #[clap(long, conflicts_with = "workspace")]
     package: Option<CrateName>,
 
-    /// Compile all packages in the workspace
+    /// Compile all packages in the workspace.
     #[clap(long, conflicts_with = "package")]
     workspace: bool,
 
     #[clap(flatten)]
     compile_options: CompileOptions,
+
+    /// Watch workspace and recompile on changes.
+    #[clap(long, hide = true)]
+    watch: bool,
 }
 
-pub(crate) fn run(
-    backend: &Backend,
-    args: CompileCommand,
-    config: NargoConfig,
-) -> Result<(), CliError> {
+pub(crate) fn run(args: CompileCommand, config: NargoConfig) -> Result<(), CliError> {
     let toml_path = get_package_manifest(&config.program_dir)?;
     let default_selection =
         if args.workspace { PackageSelection::All } else { PackageSelection::DefaultOrAll };
@@ -54,28 +56,76 @@ pub(crate) fn run(
         selection,
         Some(NOIR_ARTIFACT_VERSION_STRING.to_owned()),
     )?;
-    let circuit_dir = workspace.target_directory_path();
 
+    if args.watch {
+        watch_workspace(&workspace, &args.compile_options)
+            .map_err(|err| CliError::Generic(err.to_string()))?;
+    } else {
+        compile_workspace_full(&workspace, &args.compile_options)?;
+    }
+
+    Ok(())
+}
+
+fn watch_workspace(workspace: &Workspace, compile_options: &CompileOptions) -> notify::Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    // No specific tickrate, max debounce time 1 seconds
+    let mut debouncer = new_debouncer(Duration::from_secs(1), None, tx)?;
+
+    // Add a path to be watched. All files and directories at that path and
+    // below will be monitored for changes.
+    debouncer.watcher().watch(&workspace.root_dir, RecursiveMode::Recursive)?;
+
+    let mut screen = std::io::stdout();
+    write!(screen, "{}", termion::cursor::Save).unwrap();
+    screen.flush().unwrap();
+    let _ = compile_workspace_full(workspace, compile_options);
+    for res in rx {
+        let debounced_events = res.map_err(|mut err| err.remove(0))?;
+
+        // We only want to trigger a rebuild if a noir source file has been modified.
+        let noir_files_modified = debounced_events.iter().any(|event| {
+            let mut event_paths = event.event.paths.iter();
+            let event_affects_noir_file =
+                event_paths.any(|path| path.extension().map_or(false, |ext| ext == "nr"));
+
+            let is_relevant_event_kind = matches!(
+                event.kind,
+                EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+            );
+
+            is_relevant_event_kind && event_affects_noir_file
+        });
+
+        if noir_files_modified {
+            write!(screen, "{}{}", termion::cursor::Restore, termion::clear::AfterCursor).unwrap();
+            screen.flush().unwrap();
+            let _ = compile_workspace_full(workspace, compile_options);
+        }
+    }
+
+    screen.flush().unwrap();
+
+    Ok(())
+}
+
+pub(super) fn compile_workspace_full(
+    workspace: &Workspace,
+    compile_options: &CompileOptions,
+) -> Result<(), CliError> {
     let mut workspace_file_manager = file_manager_with_stdlib(&workspace.root_dir);
-    insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
+    insert_all_files_for_workspace_into_file_manager(workspace, &mut workspace_file_manager);
     let parsed_files = parse_all(&workspace_file_manager);
 
-    let expression_width = args
-        .compile_options
-        .expression_width
-        .unwrap_or_else(|| backend.get_backend_info_or_default());
-    let compiled_workspace = compile_workspace(
-        &workspace_file_manager,
-        &parsed_files,
-        &workspace,
-        &args.compile_options,
-    );
+    let compiled_workspace =
+        compile_workspace(&workspace_file_manager, &parsed_files, workspace, compile_options);
 
     let (compiled_programs, compiled_contracts) = report_errors(
         compiled_workspace,
         &workspace_file_manager,
-        args.compile_options.deny_warnings,
-        args.compile_options.silence_warnings,
+        compile_options.deny_warnings,
+        compile_options.silence_warnings,
     )?;
 
     let (binary_packages, contract_packages): (Vec<_>, Vec<_>) = workspace
@@ -85,14 +135,14 @@ pub(crate) fn run(
         .partition(|package| package.is_binary());
 
     // Save build artifacts to disk.
-    let only_acir = args.compile_options.only_acir;
     for (package, program) in binary_packages.into_iter().zip(compiled_programs) {
-        let program = nargo::ops::transform_program(program, expression_width);
-        save_program(program.clone(), &package, &workspace.target_directory_path(), only_acir);
+        let program = nargo::ops::transform_program(program, compile_options.expression_width);
+        save_program(program.clone(), &package, &workspace.target_directory_path());
     }
+    let circuit_dir = workspace.target_directory_path();
     for (package, contract) in contract_packages.into_iter().zip(compiled_contracts) {
-        let contract = nargo::ops::transform_contract(contract, expression_width);
-        save_contract(contract, &package, &circuit_dir);
+        let contract = nargo::ops::transform_contract(contract, compile_options.expression_width);
+        save_contract(contract, &package, &circuit_dir, compile_options.show_artifact_paths);
     }
 
     Ok(())
@@ -145,25 +195,24 @@ pub(super) fn compile_workspace(
     }
 }
 
-pub(super) fn save_program(
-    program: CompiledProgram,
-    package: &Package,
-    circuit_dir: &Path,
-    only_acir_opt: bool,
-) {
+pub(super) fn save_program(program: CompiledProgram, package: &Package, circuit_dir: &Path) {
     let program_artifact = ProgramArtifact::from(program.clone());
-    if only_acir_opt {
-        only_acir(&program_artifact, circuit_dir);
-    } else {
-        save_program_to_file(&program_artifact, &package.name, circuit_dir);
-    }
+    save_program_to_file(&program_artifact, &package.name, circuit_dir);
 }
 
-fn save_contract(contract: CompiledContract, package: &Package, circuit_dir: &Path) {
+fn save_contract(
+    contract: CompiledContract,
+    package: &Package,
+    circuit_dir: &Path,
+    show_artifact_paths: bool,
+) {
     let contract_name = contract.name.clone();
-    save_contract_to_file(
+    let artifact_path = save_contract_to_file(
         &contract.into(),
         &format!("{}-{}", package.name, contract_name),
         circuit_dir,
     );
+    if show_artifact_paths {
+        println!("Saved contract artifact to: {}", artifact_path.display());
+    }
 }

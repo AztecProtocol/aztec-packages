@@ -1,12 +1,10 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex, PRIVATE_CALL_STACK_ITEM_LENGTH } from '../constants.gen.js';
-import { CallContext } from './call_context.js';
-import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
 
@@ -91,31 +89,6 @@ export class PrivateCallStackItem {
    * @returns Hash.
    */
   public hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(field => field.toBuffer()),
-      GeneratorIndex.CALL_STACK_ITEM,
-    );
-  }
-
-  /**
-   * Creates a new CallRequest with values of the calling contract.
-   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
-   */
-  public toCallRequest(parentCallContext: CallContext) {
-    if (this.isEmpty()) {
-      return CallRequest.empty();
-    }
-
-    const currentCallContext = this.publicInputs.callContext;
-    const callerContext = currentCallContext.isDelegateCall
-      ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
-      : CallerContext.empty();
-    return new CallRequest(
-      this.hash(),
-      parentCallContext.storageContractAddress,
-      callerContext,
-      new Fr(this.publicInputs.callContext.startSideEffectCounter),
-      this.publicInputs.endSideEffectCounter,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.CALL_STACK_ITEM);
   }
 }

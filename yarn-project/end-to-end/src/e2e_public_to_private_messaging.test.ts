@@ -1,4 +1,4 @@
-import { AztecAddress, DebugLogger, EthAddress, sleep } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, type DebugLogger, type EthAddress } from '@aztec/aztec.js';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -7,17 +7,23 @@ describe('e2e_public_to_private_messaging', () => {
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
+  let aztecNode: AztecNode;
   let ethAccount: EthAddress;
-
   let underlyingERC20: any;
-
   let ownerAddress: AztecAddress;
-
   let crossChainTestHarness: CrossChainTestHarness;
 
   beforeEach(async () => {
-    const { pxe, deployL1ContractsValues, wallet, logger: logger_, teardown: teardown_ } = await setup(2);
+    const {
+      aztecNode: aztecNode_,
+      pxe,
+      deployL1ContractsValues,
+      wallet,
+      logger: logger_,
+      teardown: teardown_,
+    } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
+      aztecNode_,
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
@@ -25,14 +31,15 @@ describe('e2e_public_to_private_messaging', () => {
       logger_,
     );
 
+    aztecNode = crossChainTestHarness.aztecNode;
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
     underlyingERC20 = crossChainTestHarness.underlyingERC20;
 
     teardown = teardown_;
     logger = logger_;
-    logger('Successfully deployed contracts and initialized portal');
-  }, 100_000);
+    logger.info('Successfully deployed contracts and initialized portal');
+  });
 
   afterEach(async () => {
     await teardown();
@@ -47,31 +54,30 @@ describe('e2e_public_to_private_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await sleep(5000); /// waiting 5 seconds.
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-    // Perform another unrelated transaction on L2 to progress the rollup.
-    const initialBalance = 1n;
-    await crossChainTestHarness.mintTokensPublicOnL2(initialBalance);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance);
+    // get message leaf index, needed for claiming in public
+    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash, 0n);
+    expect(maybeIndexAndPath).toBeDefined();
+    const messageLeafIndex = maybeIndexAndPath![0];
 
-    await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance + bridgeAmount);
+    await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret, messageLeafIndex);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
 
     // Create the commitment to be spent in the private domain
     await crossChainTestHarness.shieldFundsOnL2(shieldAmount, secretHash);
 
     // Create the transaction spending the commitment
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(shieldAmount, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance + bridgeAmount - shieldAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, shieldAmount);
 
     // Unshield the tokens again, sending them to the same account, however this can be any account.
     await crossChainTestHarness.unshieldTokensOnL2(shieldAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance + bridgeAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, 0n);
-  }, 200_000);
+  });
 });

@@ -1,8 +1,6 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
 import {
-  EthAddress,
+  AztecAddress,
   FunctionSelector,
-  NOTE_HASH_TREE_HEIGHT,
   computeContractAddressFromInstance,
   computeContractClassId,
   computeContractClassIdPreimage,
@@ -13,37 +11,33 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { Pedersen, StandardTree } from '@aztec/merkle-tree';
-import { ContractClass, ContractInstance } from '@aztec/types/contracts';
+import { type ContractClass, type ContractInstance } from '@aztec/types/contracts';
 
 describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);
 
   type FixtureContractData = Omit<ContractClass, 'version' | 'publicFunctions'> &
-    Pick<ContractInstance, 'publicKeysHash' | 'portalContractAddress' | 'salt'> &
+    Pick<ContractInstance, 'publicKeysHash' | 'salt'> &
     Pick<ContractClass, 'privateFunctions'> & { toString: () => string };
 
   const defaultContract: FixtureContractData = {
     artifactHash: new Fr(12345),
-    portalContractAddress: EthAddress.fromField(new Fr(23456)),
     packedBytecode: Buffer.from([3, 4, 5, 6, 7]),
     publicKeysHash: new Fr(45678),
     salt: new Fr(56789),
     privateFunctions: [
-      { selector: FunctionSelector.fromField(new Fr(1010101)), isInternal: false, vkHash: new Fr(0) },
-      { selector: FunctionSelector.fromField(new Fr(2020202)), isInternal: true, vkHash: new Fr(0) },
+      { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(0) },
+      { selector: FunctionSelector.fromField(new Fr(2020202)), vkHash: new Fr(0) },
     ],
     toString: () => 'defaultContract',
   };
 
   const parentContract: FixtureContractData = {
     artifactHash: new Fr(1212),
-    portalContractAddress: EthAddress.fromField(new Fr(2323)),
     packedBytecode: Buffer.from([3, 4, 3, 4]),
     publicKeysHash: new Fr(4545),
     salt: new Fr(5656),
-    privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), isInternal: false, vkHash: new Fr(0) }],
+    privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(0) }],
     toString: () => 'parentContract',
   };
 
@@ -59,7 +53,8 @@ describe('Data generation for noir tests', () => {
     const initializationHash = computeInitializationHashFromEncodedArgs(constructorSelector, []);
     const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
       computeContractClassIdPreimage(contractClass);
-    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId };
+    const deployer = AztecAddress.ZERO;
+    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
     const address = computeContractAddressFromInstance(instance);
     const saltedInitializationHash = computeSaltedInitializationHash(instance);
     const partialAddress = computePartialAddress(instance);
@@ -73,10 +68,10 @@ describe('Data generation for noir tests', () => {
         private_functions_root: privateFunctionsRoot.toString(),
         address: `AztecAddress { inner: ${address.toString()} }`,
         partial_address: `PartialAddress { inner: ${partialAddress.toString()} }`,
-        portal_contract_address: `EthAddress { inner: ${contract.portalContractAddress.toString()} }`,
         contract_class_id: `ContractClassId { inner: ${contractClassId.toString()} }`,
         public_keys_hash: `PublicKeysHash { inner: ${contract.publicKeysHash.toString()} }`,
         salted_initialization_hash: `SaltedInitializationHash { inner: ${saltedInitializationHash.toString()} }`,
+        deployer: `AztecAddress { inner: ${deployer.toString()} }`,
       }),
     ).toMatchSnapshot();
     /* eslint-enable camelcase */
@@ -91,31 +86,5 @@ describe('Data generation for noir tests', () => {
         siblingPath: tree.getSiblingPath(index).map(b => b.toString('hex')),
       })),
     ).toMatchSnapshot();
-  });
-
-  it('Computes a note hash tree', async () => {
-    const indexes = new Array(128).fill(null).map((_, i) => BigInt(i));
-    const leaves = indexes.map(i => new Fr(i + 1n).toBuffer());
-
-    const db = openTmpStore();
-
-    const noteHashTree = new StandardTree(
-      db,
-      new Pedersen(),
-      `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
-      NOTE_HASH_TREE_HEIGHT,
-    );
-
-    await noteHashTree.appendLeaves(leaves);
-
-    const root = noteHashTree.getRoot(true);
-    const siblingPaths = await Promise.all(
-      indexes.map(async index => (await noteHashTree.getSiblingPath(index, true)).toFields()),
-    );
-
-    expect({
-      root: Fr.fromBuffer(root).toString(),
-      siblingPaths: siblingPaths.map(path => path.map(field => field.toString())),
-    }).toMatchSnapshot();
   });
 });

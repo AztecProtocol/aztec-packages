@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { STRING_ENCODING, UInt32 } from '../shared.js';
+import { STRING_ENCODING, type UInt32 } from '../shared.js';
 
 /**
  * Snapshot of an append only tree.
@@ -25,6 +25,10 @@ export class AppendOnlyTreeSnapshot {
      */
     public nextAvailableLeafIndex: UInt32,
   ) {}
+
+  getSize() {
+    return this.root.size + 4;
+  }
 
   toBuffer() {
     return serializeToBuffer(this.root, this.nextAvailableLeafIndex);

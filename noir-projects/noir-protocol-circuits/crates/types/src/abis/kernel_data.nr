@@ -1,52 +1,23 @@
-use crate::mocked::{Proof, VerificationKey};
 use crate::constants::VK_TREE_HEIGHT;
-use crate::abis::kernel_circuit_public_inputs::{
-    PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
-    PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
-};
+use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
+use crate::recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable};
 
-struct PrivateKernelInnerData {
-    // TODO(David): Left a note asking if we need this due to it
-    // already being in the proof.
-    public_inputs : PrivateKernelInnerCircuitPublicInputs,
-
-    // TODO(David): Mentions the dichotomy between a proof created for the 
-    // circuit, which is a sequence of field elements, versus a proof
-    // created for solidity/native verification which is a collection of bytes.
-    // Kev: I've been questioning if we _need_ the sequence of field elements.
-    // It makes verification cheaper, though I have not tested how much cheaper.
-    // Removing it would also reduce complexity on the Noir side, as we have 
-    // special methods to convert "inner proofs" into sequence of field elements. 
-    proof : Proof,
-
-    vk : VerificationKey,
-
-    // TODO(Mike): left a note saying : this index and path are meant to be those of a leaf within the tree of _kernel circuit_ vks; not the tree
-    // of functions within the contract tree.
-    vk_index : u32,
-    vk_path : [Field; VK_TREE_HEIGHT],
+struct KernelData {
+    public_inputs: KernelCircuitPublicInputs,
+    proof: NestedRecursiveProof,
+    vk: VerificationKey,
+    vk_index: u32,
+    vk_path: [Field; VK_TREE_HEIGHT],
 }
 
-struct PrivateKernelTailData {
-    public_inputs : PrivateKernelTailCircuitPublicInputs,
-    proof : Proof,
-    vk : VerificationKey,
-    vk_index : u32,
-    vk_path : [Field; VK_TREE_HEIGHT],
-}
-
-struct PublicKernelData {
-    public_inputs : PublicKernelCircuitPublicInputs,
-    proof : Proof,
-    vk : VerificationKey,
-    vk_index : u32,
-    vk_path : [Field; VK_TREE_HEIGHT],
-}
-
-struct RollupKernelData {
-    public_inputs : RollupKernelCircuitPublicInputs,
-    proof : Proof,
-    vk : VerificationKey,
-    vk_index : u32,
-    vk_path : [Field; VK_TREE_HEIGHT],
+impl Verifiable for KernelData {
+  fn verify(self) {
+    let inputs = KernelCircuitPublicInputs::serialize(self.public_inputs);
+    dep::std::verify_proof(
+        self.vk.key.as_slice(),
+        self.proof.fields.as_slice(),
+        inputs.as_slice(),
+        self.vk.hash
+    );
+  }
 }

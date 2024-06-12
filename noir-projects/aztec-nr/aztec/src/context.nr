@@ -1,36 +1,21 @@
 mod globals;
 mod inputs;
 
+mod packed_returns;
 mod private_context;
 mod public_context;
-mod interface;
-mod avm;
+mod unconstrained_context;
 
+mod call_interfaces;
+mod gas;
+
+use call_interfaces::{
+    PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface, PublicStaticCallInterface,
+    PrivateVoidCallInterface, PrivateStaticVoidCallInterface, PublicVoidCallInterface,
+    PublicStaticVoidCallInterface
+};
 use private_context::PrivateContext;
-use interface::ContextInterface;
+use packed_returns::PackedReturns;
 use public_context::PublicContext;
-use avm::AVMContext;
-
-struct Context {
-    private: Option<&mut PrivateContext>,
-    public: Option<&mut PublicContext>,
-    public_vm: Option<&mut AVMContext>,
-}
-
-impl Context {
-    pub fn private(context: &mut PrivateContext) -> Context {
-        Context { private: Option::some(context), public: Option::none(), public_vm: Option::none() }
-    }
-
-    pub fn public(context: &mut PublicContext) -> Context {
-        Context { public: Option::some(context), private: Option::none(), public_vm: Option::none() }
-    }
-
-    pub fn public_vm(context: &mut AVMContext) -> Context {
-        Context { public_vm: Option::some(context), public: Option::none(), private: Option::none() }
-    }
-
-    pub fn none() -> Context {
-        Context { public: Option::none(), private: Option::none(), public_vm: Option::none() }
-    }
-}
+use public_context::FunctionReturns;
+use unconstrained_context::UnconstrainedContext;

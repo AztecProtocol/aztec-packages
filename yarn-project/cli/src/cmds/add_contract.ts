@@ -1,13 +1,7 @@
-import {
-  AztecAddress,
-  ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  Point,
-  getContractClassFromArtifact,
-} from '@aztec/aztec.js';
-import { computeContractAddressFromInstance, computePublicKeysHash } from '@aztec/circuits.js/contract';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { AztecAddress, type ContractInstanceWithAddress, Fr, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { type PublicKeys } from '@aztec/circuits.js';
+import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { getContractArtifact } from '../utils.js';
@@ -18,8 +12,8 @@ export async function addContract(
   address: AztecAddress,
   initializationHash: Fr,
   salt: Fr,
-  publicKey: Point | undefined,
-  portalContract: EthAddress | undefined,
+  publicKeys: PublicKeys,
+  deployer: AztecAddress | undefined,
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
@@ -29,9 +23,9 @@ export async function addContract(
     salt,
     initializationHash,
     contractClassId: getContractClassFromArtifact(artifact).id,
-    portalContractAddress: portalContract ?? EthAddress.ZERO,
-    publicKeysHash: computePublicKeysHash(publicKey),
+    publicKeysHash: publicKeys?.hash() ?? Fr.ZERO,
     address,
+    deployer: deployer ?? AztecAddress.ZERO,
   };
   const computed = computeContractAddressFromInstance(instance);
   if (!computed.equals(address)) {
@@ -40,6 +34,6 @@ export async function addContract(
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-  await client.addContracts([{ artifact, instance }]);
+  await client.registerContract({ artifact, instance });
   log(`\nContract added to PXE at ${address.toString()} with class ${instance.contractClassId.toString()}\n`);
 }

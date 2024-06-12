@@ -1,201 +1,103 @@
-import { Fr } from '@aztec/circuits.js';
-
 import type { AvmContext } from '../avm_context.js';
 import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
-import { Field } from '../avm_memory_types.js';
-import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
-import { Instruction } from './instruction.js';
+import { Field, type MemoryValue, Uint64 } from '../avm_memory_types.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
+import { GetterInstruction } from './instruction_impl.js';
 
-abstract class GetterInstruction extends Instruction {
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
-
-  constructor(protected indirect: number, protected dstOffset: number) {
-    super();
+abstract class EnvironmentGetterInstruction extends GetterInstruction {
+  protected getValue(context: AvmContext): MemoryValue {
+    return this.getEnvironmentValue(context.environment);
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    const res = new Field(this.getIt(context.environment));
-    context.machineState.memory.set(this.dstOffset, res);
-    context.machineState.incrementPc();
-  }
-
-  protected abstract getIt(env: AvmExecutionEnvironment): Fr | number | bigint;
+  protected abstract getEnvironmentValue(env: AvmExecutionEnvironment): MemoryValue;
 }
 
-export class Address extends GetterInstruction {
+export class Address extends EnvironmentGetterInstruction {
   static type: string = 'ADDRESS';
   static readonly opcode: Opcode = Opcode.ADDRESS;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.address;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.address.toField());
   }
 }
 
-export class StorageAddress extends GetterInstruction {
+export class StorageAddress extends EnvironmentGetterInstruction {
   static type: string = 'STORAGEADDRESS';
   static readonly opcode: Opcode = Opcode.STORAGEADDRESS;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.storageAddress;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.storageAddress.toField());
   }
 }
 
-export class Sender extends GetterInstruction {
+export class Sender extends EnvironmentGetterInstruction {
   static type: string = 'SENDER';
   static readonly opcode: Opcode = Opcode.SENDER;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.sender;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.sender.toField());
   }
 }
 
-export class Origin extends GetterInstruction {
-  static type: string = 'ORIGIN';
-  static readonly opcode: Opcode = Opcode.ORIGIN;
-
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.origin;
-  }
-}
-
-export class FeePerL1Gas extends GetterInstruction {
-  static type: string = 'FEEPERL1GAS';
-  static readonly opcode: Opcode = Opcode.FEEPERL1GAS;
-
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.feePerL1Gas;
-  }
-}
-
-export class FeePerL2Gas extends GetterInstruction {
+export class FeePerL2Gas extends EnvironmentGetterInstruction {
   static type: string = 'FEEPERL2GAS';
   static readonly opcode: Opcode = Opcode.FEEPERL2GAS;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.feePerL2Gas;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.feePerL2Gas);
   }
 }
 
-export class FeePerDAGas extends GetterInstruction {
+export class FeePerDAGas extends EnvironmentGetterInstruction {
   static type: string = 'FEEPERDAGAS';
   static readonly opcode: Opcode = Opcode.FEEPERDAGAS;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.feePerDaGas;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.feePerDaGas);
   }
 }
 
-export class Portal extends GetterInstruction {
-  static type: string = 'PORTAL';
-  static readonly opcode: Opcode = Opcode.PORTAL;
+export class TransactionFee extends EnvironmentGetterInstruction {
+  static type: string = 'TRANSACTIONFEE';
+  static readonly opcode: Opcode = Opcode.TRANSACTIONFEE;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.portal.toField();
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.transactionFee);
   }
 }
 
-export class ChainId extends GetterInstruction {
+export class ChainId extends EnvironmentGetterInstruction {
   static type: string = 'CHAINID';
   static readonly opcode: Opcode = Opcode.CHAINID;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.globals.chainId;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.globals.chainId);
   }
 }
 
-export class Version extends GetterInstruction {
+export class Version extends EnvironmentGetterInstruction {
   static type: string = 'VERSION';
   static readonly opcode: Opcode = Opcode.VERSION;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.globals.version;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.globals.version);
   }
 }
 
-export class BlockNumber extends GetterInstruction {
+export class BlockNumber extends EnvironmentGetterInstruction {
   static type: string = 'BLOCKNUMBER';
   static readonly opcode: Opcode = Opcode.BLOCKNUMBER;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.globals.blockNumber;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Field(env.globals.blockNumber);
   }
 }
 
-export class Timestamp extends GetterInstruction {
+export class Timestamp extends EnvironmentGetterInstruction {
   static type: string = 'TIMESTAMP';
   static readonly opcode: Opcode = Opcode.TIMESTAMP;
 
-  protected getIt(env: AvmExecutionEnvironment) {
-    return env.globals.timestamp;
+  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
+    return new Uint64(env.globals.timestamp.toBigInt());
   }
 }
-
-// export class Coinbase extends GetterInstruction {
-//     static type: string = 'COINBASE';
-//     static numberOfOperands = 1;
-
-//     constructor(private destOffset: number) {
-//         super();
-//     }
-
-//     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-//         const {coinbase} = machineState.executionEnvironment.globals;
-
-//         machineState.memory.set(this.destOffset, coinbase);
-
-//         this.incrementPc(machineState);
-//     }
-// }
-
-// // TODO: are these even needed within the block? (both block gas limit variables - why does the execution env care?)
-// export class BlockL1GasLimit extends GetterInstruction {
-//     static type: string = 'BLOCKL1GASLIMIT';
-//     static numberOfOperands = 1;
-
-//     constructor(private destOffset: number) {
-//         super();
-//     }
-
-//     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-//         const {blockL1GasLimit} = machineState.executionEnvironment.globals;
-
-//         machineState.memory.set(this.destOffset, blockL1GasLimit);
-
-//         this.incrementPc(machineState);
-//     }
-// }
-
-// export class BlockL2GasLimit extends GetterInstruction {
-//     static type: string = 'BLOCKL2GASLIMIT';
-//     static numberOfOperands = 1;
-
-//     constructor(private destOffset: number) {
-//         super();
-//     }
-
-//     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-//         const {blockL2GasLimit} = machineState.executionEnvironment.globals;
-
-//         machineState.memory.set(this.destOffset, blockL2GasLimit);
-
-//         this.incrementPc(machineState);
-//     }
-// }
-
-// export class BlockDAGasLimit extends GetterInstruction {
-//     static type: string = 'BLOCKDAGASLIMIT';
-//     static numberOfOperands = 1;
-
-//     constructor(private destOffset: number) {
-//         super();
-//     }
-
-//     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-//         const {blockDAGasLimit} = machineState.executionEnvironment.globals;
-
-//         machineState.memory.set(this.destOffset, blockDAGasLimit);
-
-//         this.incrementPc(machineState);
-//     }
-// }

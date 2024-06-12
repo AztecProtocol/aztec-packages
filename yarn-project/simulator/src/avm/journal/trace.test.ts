@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 
+import { randomTracedContractInstance } from '../fixtures/index.js';
 import { WorldStateAccessTrace } from './trace.js';
-import { TracedL1toL2MessageCheck, TracedNullifierCheck } from './trace_types.js';
+import { type TracedL1toL2MessageCheck, type TracedNullifier, type TracedNullifierCheck } from './trace_types.js';
 
 describe('world state access trace', () => {
   let trace: WorldStateAccessTrace;
@@ -21,12 +22,12 @@ describe('world state access trace', () => {
 
       expect(trace.noteHashChecks).toEqual([
         {
-          callPointer: expect.any(Fr),
+          // callPointer: expect.any(Fr),
           storageAddress: contractAddress,
           noteHash: noteHash,
           exists: exists,
           counter: Fr.ZERO, // 0th access
-          endLifetime: expect.any(Fr),
+          // endLifetime: expect.any(Fr),
           leafIndex: leafIndex,
         },
       ]);
@@ -35,8 +36,12 @@ describe('world state access trace', () => {
     it('Should trace note hashes', () => {
       const contractAddress = new Fr(1);
       const utxo = new Fr(2);
+
       trace.traceNewNoteHash(contractAddress, utxo);
-      expect(trace.newNoteHashes).toEqual([utxo]);
+
+      expect(trace.newNoteHashes).toEqual([
+        expect.objectContaining({ storageAddress: contractAddress, noteHash: utxo }),
+      ]);
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace nullifier checks', () => {
@@ -47,12 +52,12 @@ describe('world state access trace', () => {
       const leafIndex = new Fr(42);
       trace.traceNullifierCheck(contractAddress, utxo, exists, isPending, leafIndex);
       const expectedCheck: TracedNullifierCheck = {
-        callPointer: Fr.ZERO,
+        // callPointer: Fr.ZERO,
         storageAddress: contractAddress,
         nullifier: utxo,
         exists: exists,
         counter: Fr.ZERO, // 0th access
-        endLifetime: Fr.ZERO,
+        // endLifetime: Fr.ZERO,
         isPending: isPending,
         leafIndex: leafIndex,
       };
@@ -63,7 +68,14 @@ describe('world state access trace', () => {
       const contractAddress = new Fr(1);
       const utxo = new Fr(2);
       trace.traceNewNullifier(contractAddress, utxo);
-      expect(trace.newNullifiers).toEqual([utxo]);
+      const expectedNullifier: TracedNullifier = {
+        // callPointer: Fr.ZERO,
+        storageAddress: contractAddress,
+        nullifier: utxo,
+        counter: new Fr(0),
+        // endLifetime: Fr.ZERO,
+      };
+      expect(trace.newNullifiers).toEqual([expectedNullifier]);
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace L1ToL2 Message checks', () => {
@@ -75,8 +87,15 @@ describe('world state access trace', () => {
         leafIndex: leafIndex,
         msgHash: utxo,
         exists: exists,
+        counter: new Fr(0),
       };
       expect(trace.l1ToL2MessageChecks).toEqual([expectedCheck]);
+      expect(trace.getAccessCounter()).toEqual(1);
+    });
+    it('Should trace get contract instance', () => {
+      const instance = randomTracedContractInstance();
+      trace.traceGetContractInstance(instance);
+      expect(trace.gotContractInstances).toEqual([instance]);
       expect(trace.getAccessCounter()).toEqual(1);
     });
   });
@@ -95,11 +114,12 @@ describe('world state access trace', () => {
     const msgExists = false;
     const msgLeafIndex = Fr.ZERO;
     const msgHash = new Fr(10);
+    const instance = randomTracedContractInstance();
 
     let counter = 0;
     trace.tracePublicStorageWrite(contractAddress, slot, value);
     counter++;
-    trace.tracePublicStorageRead(contractAddress, slot, value);
+    trace.tracePublicStorageRead(contractAddress, slot, value, /*exists=*/ true, /*cached=*/ true);
     counter++;
     trace.traceNoteHashCheck(contractAddress, noteHash, noteHashExists, noteHashLeafIndex);
     counter++;
@@ -113,7 +133,7 @@ describe('world state access trace', () => {
     counter++;
     trace.tracePublicStorageWrite(contractAddress, slot, value);
     counter++;
-    trace.tracePublicStorageRead(contractAddress, slot, value);
+    trace.tracePublicStorageRead(contractAddress, slot, value, /*exists=*/ true, /*cached=*/ true);
     counter++;
     trace.traceNewNoteHash(contractAddress, noteHash);
     counter++;
@@ -122,6 +142,8 @@ describe('world state access trace', () => {
     trace.traceNewNullifier(contractAddress, nullifier);
     counter++;
     trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, msgExists);
+    counter++;
+    trace.traceGetContractInstance(instance);
     counter++;
     expect(trace.getAccessCounter()).toEqual(counter);
   });
@@ -155,6 +177,9 @@ describe('world state access trace', () => {
     const msgExistsT1 = true;
     const msgLeafIndexT1 = new Fr(42);
 
+    const instance = randomTracedContractInstance();
+    const instanceT1 = randomTracedContractInstance();
+
     const expectedMessageCheck = {
       leafIndex: msgLeafIndex,
       msgHash: msgHash,
@@ -167,16 +192,17 @@ describe('world state access trace', () => {
     };
 
     trace.tracePublicStorageWrite(contractAddress, slot, value);
-    trace.tracePublicStorageRead(contractAddress, slot, value);
+    trace.tracePublicStorageRead(contractAddress, slot, value, /*exists=*/ true, /*cached=*/ true);
     trace.traceNoteHashCheck(contractAddress, noteHash, noteHashExists, noteHashLeafIndex);
     trace.traceNewNoteHash(contractAddress, noteHash);
     trace.traceNullifierCheck(contractAddress, nullifier, nullifierExists, nullifierIsPending, nullifierLeafIndex);
     trace.traceNewNullifier(contractAddress, nullifier);
     trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, msgExists);
+    trace.traceGetContractInstance(instance);
 
     const childTrace = new WorldStateAccessTrace(trace);
     childTrace.tracePublicStorageWrite(contractAddress, slot, valueT1);
-    childTrace.tracePublicStorageRead(contractAddress, slot, valueT1);
+    childTrace.tracePublicStorageRead(contractAddress, slot, valueT1, /*exists=*/ true, /*cached=*/ true);
     childTrace.traceNoteHashCheck(contractAddress, noteHashT1, noteHashExistsT1, noteHashLeafIndexT1);
     childTrace.traceNewNoteHash(contractAddress, nullifierT1);
     childTrace.traceNullifierCheck(
@@ -188,17 +214,52 @@ describe('world state access trace', () => {
     );
     childTrace.traceNewNullifier(contractAddress, nullifierT1);
     childTrace.traceL1ToL2MessageCheck(msgHashT1, msgLeafIndexT1, msgExistsT1);
+    childTrace.traceGetContractInstance(instanceT1);
 
     const childCounterBeforeMerge = childTrace.getAccessCounter();
     trace.acceptAndMerge(childTrace);
     expect(trace.getAccessCounter()).toEqual(childCounterBeforeMerge);
 
-    const slotReads = trace.publicStorageReads?.get(contractAddress.toBigInt())?.get(slot.toBigInt());
-    const slotWrites = trace.publicStorageWrites?.get(contractAddress.toBigInt())?.get(slot.toBigInt());
-    expect(slotReads).toEqual([value, valueT1]);
-    expect(slotWrites).toEqual([value, valueT1]);
-    expect(trace.newNoteHashes).toEqual([nullifier, nullifierT1]);
-    expect(trace.newNullifiers).toEqual([nullifier, nullifierT1]);
+    expect(trace.publicStorageReads).toEqual([
+      expect.objectContaining({
+        storageAddress: contractAddress,
+        slot: slot,
+        value: value,
+        exists: true,
+        cached: true,
+      }),
+      expect.objectContaining({
+        storageAddress: contractAddress,
+        slot: slot,
+        value: valueT1,
+        exists: true,
+        cached: true,
+      }),
+    ]);
+    expect(trace.publicStorageWrites).toEqual([
+      expect.objectContaining({ storageAddress: contractAddress, slot: slot, value: value }),
+      expect.objectContaining({ storageAddress: contractAddress, slot: slot, value: valueT1 }),
+    ]);
+    expect(trace.newNoteHashes).toEqual([
+      expect.objectContaining({
+        storageAddress: contractAddress,
+        noteHash: nullifier,
+      }),
+      expect.objectContaining({
+        storageAddress: contractAddress,
+        noteHash: nullifierT1,
+      }),
+    ]);
+    expect(trace.newNullifiers).toEqual([
+      expect.objectContaining({
+        storageAddress: contractAddress,
+        nullifier: nullifier,
+      }),
+      expect.objectContaining({
+        storageAddress: contractAddress,
+        nullifier: nullifierT1,
+      }),
+    ]);
     expect(trace.nullifierChecks).toEqual([
       expect.objectContaining({
         nullifier: nullifier,
@@ -228,5 +289,6 @@ describe('world state access trace', () => {
       expect.objectContaining({ leafIndex: msgLeafIndex, msgHash: msgHash, exists: msgExists }),
       expect.objectContaining({ leafIndex: msgLeafIndexT1, msgHash: msgHashT1, exists: msgExistsT1 }),
     ]);
+    expect(trace.gotContractInstances).toEqual([instance, instanceT1]);
   });
 });

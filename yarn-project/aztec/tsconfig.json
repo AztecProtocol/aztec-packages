@@ -19,10 +19,19 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../builder"
+    },
+    {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../entrypoints"
     },
     {
       "path": "../ethereum"
@@ -37,13 +46,19 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../noir-compiler"
-    },
-    {
       "path": "../noir-contracts.js"
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../p2p-bootstrap"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
     },
     {
       "path": "../pxe"

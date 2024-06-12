@@ -1,28 +1,34 @@
 import {
+  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  GetUnencryptedLogsResponse,
-  L2BlockL2Logs,
-  LogFilter,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L2BlockL2Logs,
+  type LogFilter,
   LogId,
   LogType,
-  UnencryptedL2Log,
+  UnencryptedL2BlockL2Logs,
+  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
-import { BlockStore } from './block_store.js';
+import { type BlockStore } from './block_store.js';
 
 /**
  * A store for logs
  */
 export class LogStore {
+  #noteEncryptedLogs: AztecMap<number, Buffer>;
   #encryptedLogs: AztecMap<number, Buffer>;
   #unencryptedLogs: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
   #log = createDebugLogger('aztec:archiver:log_store');
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
+    this.#noteEncryptedLogs = db.openMap('archiver_note_encrypted_logs');
     this.#encryptedLogs = db.openMap('archiver_encrypted_logs');
     this.#unencryptedLogs = db.openMap('archiver_unencrypted_logs');
 
@@ -37,11 +43,16 @@ export class LogStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    encryptedLogs: L2BlockL2Logs | undefined,
-    unencryptedLogs: L2BlockL2Logs | undefined,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean> {
     return this.db.transaction(() => {
+      if (noteEncryptedLogs) {
+        void this.#noteEncryptedLogs.set(blockNumber, noteEncryptedLogs.toBuffer());
+      }
+
       if (encryptedLogs) {
         void this.#encryptedLogs.set(blockNumber, encryptedLogs.toBuffer());
       }
@@ -61,10 +72,36 @@ export class LogStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  *getLogs(start: number, limit: number, logType: LogType): IterableIterator<L2BlockL2Logs> {
-    const logMap = logType === LogType.ENCRYPTED ? this.#encryptedLogs : this.#unencryptedLogs;
+  *getLogs<TLogType extends LogType>(
+    start: number,
+    limit: number,
+    logType: TLogType,
+  ): IterableIterator<L2BlockL2Logs<FromLogType<TLogType>>> {
+    const logMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return this.#encryptedLogs;
+        case LogType.NOTEENCRYPTED:
+          return this.#noteEncryptedLogs;
+        case LogType.UNENCRYPTED:
+        default:
+          return this.#unencryptedLogs;
+      }
+    })();
+    const logTypeMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return EncryptedL2BlockL2Logs;
+        case LogType.NOTEENCRYPTED:
+          return EncryptedNoteL2BlockL2Logs;
+        case LogType.UNENCRYPTED:
+        default:
+          return UnencryptedL2BlockL2Logs;
+      }
+    })();
+    const L2BlockL2Logs = logTypeMap;
     for (const buffer of logMap.values({ start, limit })) {
-      yield L2BlockL2Logs.fromBuffer(buffer);
+      yield L2BlockL2Logs.fromBuffer(buffer) as L2BlockL2Logs<FromLogType<TLogType>>;
     }
   }
 
@@ -94,7 +131,7 @@ export class LogStore {
     }
 
     const unencryptedLogsInBlock = this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
-    const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
+    const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
 
     const logs: ExtendedUnencryptedL2Log[] = [];
     const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
@@ -118,12 +155,12 @@ export class LogStore {
 
     let maxLogsHit = false;
     loopOverBlocks: for (const [blockNumber, logBuffer] of this.#unencryptedLogs.entries({ start, end })) {
-      const unencryptedLogsInBlock = L2BlockL2Logs.fromBuffer(logBuffer);
+      const unencryptedLogsInBlock = UnencryptedL2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
-        const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
+        const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
-          this.#log(`Max logs hit at block ${blockNumber}`);
+          this.#log.debug(`Max logs hit at block ${blockNumber}`);
           break loopOverBlocks;
         }
       }
@@ -161,14 +198,39 @@ export class LogStore {
     return maxLogsHit;
   }
 
-  #getBlockLogs(blockNumber: number, logType: LogType): L2BlockL2Logs {
-    const logMap = logType === LogType.ENCRYPTED ? this.#encryptedLogs : this.#unencryptedLogs;
+  #getBlockLogs<TLogType extends LogType>(
+    blockNumber: number,
+    logType: TLogType,
+  ): L2BlockL2Logs<FromLogType<TLogType>> {
+    const logMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return this.#encryptedLogs;
+        case LogType.NOTEENCRYPTED:
+          return this.#noteEncryptedLogs;
+        case LogType.UNENCRYPTED:
+        default:
+          return this.#unencryptedLogs;
+      }
+    })();
+    const logTypeMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return EncryptedL2BlockL2Logs;
+        case LogType.NOTEENCRYPTED:
+          return EncryptedNoteL2BlockL2Logs;
+        case LogType.UNENCRYPTED:
+        default:
+          return UnencryptedL2BlockL2Logs;
+      }
+    })();
+    const L2BlockL2Logs = logTypeMap;
     const buffer = logMap.get(blockNumber);
 
     if (!buffer) {
-      return new L2BlockL2Logs([]);
+      return new L2BlockL2Logs([]) as L2BlockL2Logs<FromLogType<TLogType>>;
     }
 
-    return L2BlockL2Logs.fromBuffer(buffer);
+    return L2BlockL2Logs.fromBuffer(buffer) as L2BlockL2Logs<FromLogType<TLogType>>;
   }
 }

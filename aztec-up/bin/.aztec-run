@@ -98,9 +98,9 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-# Dynamic port assignment based on IMAGE containing '/aztec'
+# Dynamic port assignment
 port_assignment=""
-if [[ "$IMAGE" == *"/aztec"* ]]; then
+if [[ -z "${SKIP_PORT_ASSIGNMENT:-}" ]]; then
   port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
 fi
 

@@ -17,7 +17,7 @@ MergeVerifier_<Flavor>::MergeVerifier_()
  * Schwartz-Zippel check. Evaluations are checked via batched KZG.
  *
  * @tparam Flavor
- * @return HonkProof&
+ * @return bool
  */
 template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
@@ -75,12 +75,12 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
-    auto verified = PCS::verify(pcs_verification_key, batched_claim, transcript);
-
+    auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     return identity_checked && verified;
 }
 
 template class MergeVerifier_<UltraFlavor>;
-template class MergeVerifier_<GoblinUltraFlavor>;
+template class MergeVerifier_<MegaFlavor>;
 
 } // namespace bb

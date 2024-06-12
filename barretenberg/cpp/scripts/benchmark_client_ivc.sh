@@ -2,6 +2,7 @@
 set -eu
 
 TARGET="client_ivc_bench"
+# Note: to run structured trace version, change "Full" to "FullStructured" here and in analyze script
 FILTER="ClientIVCBench/Full/6$"
 BUILD_DIR=build-op-count-time
 
@@ -21,5 +22,5 @@ cd $BUILD_DIR
 scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/$TARGET.json .
 
 # Analyze the results
-cd $(dirname $0)/..
+cd ../
 python3 ./scripts/analyze_client_ivc_bench.py

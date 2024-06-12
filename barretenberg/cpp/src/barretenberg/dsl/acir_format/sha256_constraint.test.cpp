@@ -1,13 +1,16 @@
 #include "sha256_constraint.hpp"
 #include "acir_format.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
 
 namespace acir_format::tests {
 using curve_ct = bb::stdlib::secp256k1<Builder>;
+using Composer = plonk::UltraComposer;
 
 class Sha256Tests : public ::testing::Test {
   protected:
@@ -17,13 +20,13 @@ class Sha256Tests : public ::testing::Test {
 TEST_F(Sha256Tests, TestSha256Compression)
 {
 
-    std::vector<Sha256Input> inputs;
-    for (uint32_t i = 1; i < 17; ++i) {
-        inputs.push_back({ .witness = i, .num_bits = 32 });
+    std::array<Sha256Input, 16> inputs;
+    for (size_t i = 0; i < 16; ++i) {
+        inputs[i] = { .witness = static_cast<uint32_t>(i + 1), .num_bits = 32 };
     }
-    std::vector<Sha256Input> hash_values;
-    for (uint32_t i = 17; i < 25; ++i) {
-        hash_values.push_back({ .witness = i, .num_bits = 32 });
+    std::array<Sha256Input, 8> hash_values;
+    for (size_t i = 0; i < 8; ++i) {
+        hash_values[i] = { .witness = static_cast<uint32_t>(i + 17), .num_bits = 32 };
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
@@ -33,9 +36,11 @@ TEST_F(Sha256Tests, TestSha256Compression)
 
     AcirFormat constraint_system{ .varnum = 34,
                                   .recursive = false,
+                                  .num_acir_opcodes = 1,
                                   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = {},
+                                  .aes128_constraints = {},
                                   .sha256_constraints = {},
                                   .sha256_compression = { sha256_compression },
                                   .schnorr_constraints = {},
@@ -44,18 +49,19 @@ TEST_F(Sha256Tests, TestSha256Compression)
                                   .blake2s_constraints = {},
                                   .blake3_constraints = {},
                                   .keccak_constraints = {},
-                                  .keccak_var_constraints = {},
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},
                                   .poseidon2_constraints = {},
-                                  .fixed_base_scalar_mul_constraints = {},
+                                  .multi_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
+                                  .honk_recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
-                                  .constraints = {},
+                                  .poly_triple_constraints = {},
+                                  .quad_constraints = {},
                                   .block_constraints = {} };
 
     WitnessVector witness{ 0,

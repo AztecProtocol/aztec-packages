@@ -1,5 +1,5 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { FUNCTION_DATA_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
@@ -9,7 +9,7 @@ describe('FunctionData', () => {
 
   beforeAll(() => {
     setupCustomSnapshotSerializers(expect);
-    functionData = new FunctionData(new FunctionSelector(123), false, true, true);
+    functionData = new FunctionData(new FunctionSelector(123), /*isPrivate=*/ true);
   });
 
   it(`serializes to buffer and deserializes it back`, () => {
@@ -24,12 +24,16 @@ describe('FunctionData', () => {
     expect(fields.length).toBe(FUNCTION_DATA_LENGTH);
   });
 
-  it('computes empty inputs hash', () => {
+  it('computes empty function data hash', () => {
     const data = FunctionData.empty();
     const hash = data.hash();
     expect(hash).toMatchSnapshot();
 
-    // Value used in empty_hash test in private_circuit_public_inputs.nr
-    // console.log("hash", hash.toString());
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/abis/function_data.nr',
+      'test_data_empty_hash',
+      hash.toString(),
+    );
   });
 });

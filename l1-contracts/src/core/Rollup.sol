@@ -6,20 +6,22 @@ pragma solidity >=0.8.18;
 import {IRollup} from "./interfaces/IRollup.sol";
 import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
-import {INewInbox} from "./interfaces/messagebridge/INewInbox.sol";
 import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
+import {IVerifier} from "./interfaces/IVerifier.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 // Libraries
 import {HeaderLib} from "./libraries/HeaderLib.sol";
-import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
+import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
-import {NewInbox} from "./messagebridge/NewInbox.sol";
+import {Inbox} from "./messagebridge/Inbox.sol";
+import {Outbox} from "./messagebridge/Outbox.sol";
 
 /**
  * @title Rollup
@@ -28,11 +30,13 @@ import {NewInbox} from "./messagebridge/NewInbox.sol";
  * not giving a damn about gas costs.
  */
 contract Rollup is IRollup {
-  MockVerifier public immutable VERIFIER;
+  IVerifier public verifier;
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
-  INewInbox public immutable NEW_INBOX;
+  IInbox public immutable INBOX;
+  IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
+  IERC20 public immutable GAS_TOKEN;
 
   bytes32 public archive; // Root of the archive tree
   uint256 public lastBlockTs;
@@ -40,26 +44,57 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
-  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle) {
-    VERIFIER = new MockVerifier();
+  using EnumerableSet for EnumerableSet.AddressSet;
+
+  EnumerableSet.AddressSet private sequencers;
+
+  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle, IERC20 _gasToken) {
+    verifier = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
-    NEW_INBOX = new NewInbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    GAS_TOKEN = _gasToken;
+    INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    OUTBOX = new Outbox(address(this));
     VERSION = 1;
+  }
+
+  // HACK: Add a sequencer to set of potential sequencers
+  function addSequencer(address sequencer) external {
+    sequencers.add(sequencer);
+  }
+
+  // HACK: Remove a sequencer from the set of potential sequencers
+  function removeSequencer(address sequencer) external {
+    sequencers.remove(sequencer);
+  }
+
+  // HACK: Return whose turn it is to submit a block
+  function whoseTurnIsIt(uint256 blockNumber) public view returns (address) {
+    return
+      sequencers.length() == 0 ? address(0x0) : sequencers.at(blockNumber % sequencers.length());
+  }
+
+  // HACK: Return all the registered sequencers
+  function getSequencers() external view returns (address[] memory) {
+    return sequencers.values();
+  }
+
+  function setVerifier(address _verifier) external override(IRollup) {
+    // TODO remove, only needed for testing
+    verifier = IVerifier(_verifier);
   }
 
   /**
    * @notice Process an incoming L2 block and progress the state
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _body - The L2 block body
    * @param _proof - The proof of correct execution
    */
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes calldata _body, // TODO(#4492) Nuke this when updating to the new message model
-    bytes memory _proof
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
   ) external override(IRollup) {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
@@ -70,34 +105,62 @@ contract Rollup is IRollup {
       revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
-    // Decode the cross-chain messages (Will be removed as part of message model change)
-    (,, bytes32[] memory l1ToL2Msgs, bytes32[] memory l2ToL1Msgs) = MessagesDecoder.decode(_body);
+    // Check that this is the current sequencer's turn
+    address sequencer = whoseTurnIsIt(header.globalVariables.blockNumber);
+    if (sequencer != address(0x0) && sequencer != msg.sender) {
+      revert Errors.Rollup__InvalidSequencer(msg.sender);
+    }
 
-    bytes32[] memory publicInputs = new bytes32[](1);
-    publicInputs[0] = _computePublicInputHash(_header, _archive);
+    bytes32[] memory publicInputs =
+      new bytes32[](2 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
+    // the archive tree root
+    publicInputs[0] = _archive;
+    // this is the _next_ available leaf in the archive tree
+    // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
+    // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
+    publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
-    // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
-    // current block number which is stored in the header (header.globalVariables.blockNumber).
-    if (!VERIFIER.verify(_proof, publicInputs)) {
+    bytes32[] memory headerFields = HeaderLib.toFields(header);
+    for (uint256 i = 0; i < headerFields.length; i++) {
+      publicInputs[i + 2] = headerFields[i];
+    }
+
+    // the block proof is recursive, which means it comes with an aggregation object
+    // this snippet copies it into the public inputs needed for verification
+    // it also guards against empty _aggregationObject used with mocked proofs
+    uint256 aggregationLength = _aggregationObject.length / 32;
+    for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
+      bytes32 part;
+      assembly {
+        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
+      }
+      publicInputs[i + 2 + Constants.HEADER_LENGTH] = part;
+    }
+
+    if (!verifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
     archive = _archive;
     lastBlockTs = block.timestamp;
 
-    // @todo (issue #605) handle fee collector
-    IInbox inbox = REGISTRY.getInbox();
-    inbox.batchConsume(l1ToL2Msgs, msg.sender);
+    bytes32 inHash = INBOX.consume();
+    if (header.contentCommitment.inHash != inHash) {
+      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
+    }
 
-    // TODO(#4633): enable the inHash check
-    NEW_INBOX.consume();
-    // bytes32 inHash = NEW_INBOX.consume();
-    // if (header.contentCommitment.inHash != inHash) {
-    //   revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
-    // }
+    // Currently trying out storing each tx's L2 to L1 messages in variable height trees (smallest tree required)
+    // => path lengths will differ and we cannot provide one here
+    // We can provide a minimum which is the height of the rollup layers (txTreeHeight) and the smallest 'tree' (1 layer)
+    uint256 l2ToL1TreeMinHeight = header.contentCommitment.txTreeHeight + 1;
+    OUTBOX.insert(
+      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
+    );
 
-    IOutbox outbox = REGISTRY.getOutbox();
-    outbox.sendL1Messages(l2ToL1Msgs);
+    // pay the coinbase 1 gas token if it is not empty and header.totalFees is not zero
+    if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+      GAS_TOKEN.transfer(address(header.globalVariables.coinbase), header.totalFees);
+    }
 
     emit L2BlockProcessed(header.globalVariables.blockNumber);
   }

@@ -1,5 +1,12 @@
-use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL};
+use dep::std::option::Option;
+use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
+
+struct PropertySelector {
+    index: u8,
+    offset: u8,
+    length: u8,
+}
 
 struct ComparatorEnum {
     EQ: u8,
@@ -20,14 +27,14 @@ global Comparator = ComparatorEnum {
 };
 
 struct Select {
-    field_index: u8,
+    property_selector: PropertySelector,
     value: Field,
     comparator: u8,
 }
 
 impl Select {
-    pub fn new(field_index: u8, value: Field, comparator: u8) -> Self {
-        Select { field_index, value, comparator }
+    pub fn new(property_selector: PropertySelector, value: Field, comparator: u8) -> Self {
+        Select { property_selector, value, comparator }
     }
 }
 
@@ -42,13 +49,13 @@ global SortOrder = SortOrderEnum {
 };
 
 struct Sort {
-    field_index: u8,
+    property_selector: PropertySelector,
     order: u8,
 }
 
 impl Sort {
-    pub fn new(field_index: u8, order: u8) -> Self {
-        Sort { field_index, order }
+    pub fn new(property_selector: PropertySelector, order: u8) -> Self {
+        Sort { property_selector, order }
     }
 }
 
@@ -71,7 +78,7 @@ fn return_all_notes<Note, N>(
 }
 
 // docs:start:NoteGetterOptions
-struct NoteGetterOptions<Note, N, FILTER_ARGS> {
+struct NoteGetterOptions<Note, N, M, FILTER_ARGS> {
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
@@ -86,9 +93,9 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
 // The database-level configurations are applied first:
 // `selects` to specify fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap the result size.
 // And finally, a custom filter to refine the outcome further.
-impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
+impl<Note, N, M, FILTER_ARGS> NoteGetterOptions<Note, N, M, FILTER_ARGS> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
-    pub fn new() -> NoteGetterOptions<Note, N, Field> where Note: NoteInterface<N> {
+    pub fn new() -> NoteGetterOptions<Note, N, M, Field> where Note: NoteInterface<N, M> {
         NoteGetterOptions {
             selects: BoundedVec::new(),
             sorts: BoundedVec::new(),
@@ -105,7 +112,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     pub fn with_filter(
         filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         filter_args: FILTER_ARGS
-    ) -> Self where Note: NoteInterface<N> {
+    ) -> Self where Note: NoteInterface<N, M> {
         NoteGetterOptions {
             selects: BoundedVec::new(),
             sorts: BoundedVec::new(),
@@ -118,18 +125,31 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     }
 
     // This method adds a `Select` criterion to the options.
-    // It takes a field_index indicating which field to select, 
+    // It takes a property_selector indicating which field to select, 
     // a value representing the specific value to match in that field, and 
     // a comparator (For possible values of comparators, please see the Comparator enum above)
-    pub fn select(&mut self, field_index: u8, value: Field, comparator: Option<u8>) -> Self {
-        self.selects.push(Option::some(Select::new(field_index, value, comparator.unwrap_or(Comparator.EQ))));
+    pub fn select<T>(
+        &mut self,
+        property_selector: PropertySelector,
+        value: T,
+        comparator: Option<u8>
+    ) -> Self where T: ToField {
+        self.selects.push(
+            Option::some(
+                Select::new(
+                    property_selector,
+                    value.to_field(),
+                    comparator.unwrap_or(Comparator.EQ)
+                )
+            )
+        );
         *self
     }
 
     // This method adds a `Sort` criterion to the options.
     // It takes a field_index indicating which field to sort by and an order (SortOrder) to determine the sorting direction.
-    pub fn sort(&mut self, field_index: u8, order: u8) -> Self {
-        self.sorts.push(Option::some(Sort::new(field_index, order)));
+    pub fn sort(&mut self, property_selector: PropertySelector, order: u8) -> Self {
+        self.sorts.push(Option::some(Sort::new(property_selector, order)));
         *self
     }
 

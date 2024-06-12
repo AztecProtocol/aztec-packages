@@ -1,9 +1,10 @@
 mod poseidon;
 mod mimc;
 mod poseidon2;
-mod pedersen;
 
 use crate::default::Default;
+use crate::uint128::U128;
+use crate::sha256::{digest, sha256_var};
 
 #[foreign(sha256)]
 // docs:start:sha256
@@ -29,9 +30,8 @@ struct PedersenPoint {
    y : Field,
 }
 
-pub fn pedersen_commitment<N>(input: [Field; N]) -> PedersenPoint
-// docs:end:pedersen_commitment
-{
+pub fn pedersen_commitment<N>(input: [Field; N]) -> PedersenPoint {
+    // docs:end:pedersen_commitment
     pedersen_commitment_with_separator(input, 0)
 }
 
@@ -53,18 +53,15 @@ pub fn pedersen_hash<N>(input: [Field; N]) -> Field
 #[foreign(pedersen_hash)]
 pub fn pedersen_hash_with_separator<N>(input: [Field; N], separator: u32) -> Field {}
 
-pub fn hash_to_field<N>(input: [Field; N]) -> Field {
-    let mut inputs_as_bytes = [];
+pub fn hash_to_field(inputs: [Field]) -> Field {
+    let mut sum = 0;
 
-    for i in 0..N {
-        let input_bytes = input[i].to_le_bytes(32);
-        for i in 0..32 {
-            inputs_as_bytes = inputs_as_bytes.push_back(input_bytes[i]);
-        }
+    for input in inputs {
+        let input_bytes: [u8; 32] = input.to_le_bytes(32).as_array();
+        sum += crate::field::bytes32_to_field(blake2s(input_bytes));
     }
 
-    let hashed_input = blake2s(inputs_as_bytes);
-    crate::field::bytes32_to_field(hashed_input)
+    sum
 }
 
 #[foreign(keccak256)]
@@ -92,7 +89,7 @@ trait Hash{
 trait Hasher{
     fn finish(self) -> Field;
     
-    fn write(&mut self, input: [Field]);
+    fn write(&mut self, input: Field);
 }
 
 // BuildHasher is a factory trait, responsible for production of specific Hasher.
@@ -120,10 +117,112 @@ where
     }    
 }
 
-// TODO: add implementations for the remainder of primitive types.
-impl Hash for Field{
+impl Hash for Field {
     fn hash<H>(self, state: &mut H) where H: Hasher{
-        let input: [Field] = [self];
-        H::write(state, input);
+        H::write(state, self);
+    }
+}
+
+impl Hash for u8 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for u32 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for u64 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for i8 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for i32 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for i64 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for bool {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for () {
+    fn hash<H>(_self: Self, _state: &mut H) where H: Hasher {}
+}
+
+impl Hash for U128 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self.lo as Field);
+        H::write(state, self.hi as Field);
+    }
+}
+
+impl<T, N> Hash for [T; N] where T: Hash {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        for elem in self {
+            elem.hash(state);
+        }
+    }
+}
+
+impl<T> Hash for [T] where T: Hash {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        self.len().hash(state);
+        for elem in self {
+            elem.hash(state);
+        }
+    }
+}
+
+impl<A, B> Hash for (A, B) where A: Hash, B: Hash {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        self.0.hash(state);
+        self.1.hash(state);
+    }
+}
+
+impl<A, B, C> Hash for (A, B, C) where A: Hash, B: Hash, C: Hash {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        self.0.hash(state);
+        self.1.hash(state);
+        self.2.hash(state);
+    }
+}
+
+impl<A, B, C, D> Hash for (A, B, C, D) where A: Hash, B: Hash, C: Hash, D: Hash {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        self.0.hash(state);
+        self.1.hash(state);
+        self.2.hash(state);
+        self.3.hash(state);
+    }
+}
+
+impl<A, B, C, D, E> Hash for (A, B, C, D, E) where A: Hash, B: Hash, C: Hash, D: Hash, E: Hash {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        self.0.hash(state);
+        self.1.hash(state);
+        self.2.hash(state);
+        self.3.hash(state);
+        self.4.hash(state);
     }
 }

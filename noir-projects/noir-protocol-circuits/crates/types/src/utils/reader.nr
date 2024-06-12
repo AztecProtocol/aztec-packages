@@ -1,6 +1,6 @@
 struct Reader<N> {
     data: [Field; N],
-    offset: u64,
+    offset: u32,
 }
 
 impl<N> Reader<N> {
@@ -12,6 +12,14 @@ impl<N> Reader<N> {
         let result = self.data[self.offset];
         self.offset += 1;
         result
+    }
+
+    pub fn read_u32(&mut self) -> u32 {
+        self.read() as u32
+    }
+
+    pub fn read_bool(&mut self) -> bool {
+        self.read() as bool
     }
 
     pub fn read_array<K>(&mut self, mut result: [Field; K]) -> [Field; K] {

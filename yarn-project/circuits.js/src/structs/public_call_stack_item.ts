@@ -2,11 +2,12 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex } from '../constants.gen.js';
-import { CallContext } from './call_context.js';
-import { CallRequest, CallerContext } from './call_request.js';
+import { type CallContext } from './call_context.js';
+import { CallRequest } from './call_request.js';
+import { CallerContext } from './caller_context.js';
 import { FunctionData } from './function_data.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
 
@@ -97,7 +98,7 @@ export class PublicCallStackItem {
     }
 
     return pedersenHash(
-      [this.contractAddress, this.functionData.hash(), this.publicInputs.hash()].map(f => f.toBuffer()),
+      [this.contractAddress, this.functionData.hash(), this.publicInputs.hash()],
       GeneratorIndex.CALL_STACK_ITEM,
     );
   }
@@ -113,7 +114,11 @@ export class PublicCallStackItem {
 
     const currentCallContext = this.publicInputs.callContext;
     const callerContext = currentCallContext.isDelegateCall
-      ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
+      ? new CallerContext(
+          parentCallContext.msgSender,
+          parentCallContext.storageContractAddress,
+          parentCallContext.isStaticCall,
+        )
       : CallerContext.empty();
     // todo: populate side effect counters correctly
     return new CallRequest(this.hash(), parentCallContext.storageContractAddress, callerContext, Fr.ZERO, Fr.ZERO);

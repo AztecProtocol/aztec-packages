@@ -11,13 +11,16 @@
 
 namespace bb {
 
-template <typename Curve> class KZG {
+template <typename Curve_> class KZG {
+  public:
+    using Curve = Curve_;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
+    using VerifierAccumulator = std::array<GroupElement, 2>;
 
     /**
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point
@@ -27,7 +30,6 @@ template <typename Curve> class KZG {
      * @param polynomial The witness whose opening proof needs to be computed
      * @param prover_transcript Prover transcript
      */
-  public:
     static void compute_opening_proof(std::shared_ptr<CK> ck,
                                       const OpeningPair<Curve>& opening_pair,
                                       const Polynomial& polynomial,
@@ -45,27 +47,6 @@ template <typename Curve> class KZG {
     };
 
     /**
-     * @brief Computes the KZG verification for an opening claim of a single polynomial commitment
-     *
-     * @param vk is the verification key which has a pairing check function
-     * @param claim OpeningClaim ({r, v}, C)
-     * @return  e(P₀,[1]₁)e(P₁,[x]₂)≡ [1]ₜ where
-     *      - P₀ = C − v⋅[1]₁ + r⋅[x]₁
-     *      - P₁ = [Q(x)]₁
-     */
-    static bool verify(const std::shared_ptr<VK>& vk,
-                       const OpeningClaim<Curve>& claim,
-                       const std::shared_ptr<NativeTranscript>& verifier_transcript)
-    {
-        auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
-        auto lhs = claim.commitment - (GroupElement::one() * claim.opening_pair.evaluation) +
-                   (quotient_commitment * claim.opening_pair.challenge);
-        auto rhs = -quotient_commitment;
-
-        return vk->pairing_check(lhs, rhs);
-    };
-
-    /**
      * @brief Computes the input points for the pairing check needed to verify a KZG opening claim of a single
      * polynomial commitment. This reduction is non-interactive and always succeeds.
      * @details This is used in the recursive setting where we want to "aggregate" proofs, not verify them.
@@ -75,13 +56,16 @@ template <typename Curve> class KZG {
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
      *      - P₁ = [W(x)]₁
      */
-    static std::array<GroupElement, 2> compute_pairing_points(const OpeningClaim<Curve>& claim,
-                                                              const auto& verifier_transcript)
+    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim, const auto& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 
+        // Note: The pairing check can be expressed naturally as
+        // e(C - v * [1]_1, [1]_2) = e([W]_1, [X - r]_2) where C =[p(X)]_1. This can be rearranged (e.g. see the plonk
+        // paper) as e(C + r*[W]_1 - v*[1]_1, [1]_2) * e(-[W]_1, [X]_2) = 1, or e(P_0, [1]_2) * e(P_1, [X]_2) = 1
         GroupElement P_0;
         if constexpr (Curve::is_stdlib_type) {
+            // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = quotient_commitment.get_context();
             auto one = Fr(builder, 1);
             std::vector<GroupElement> commitments = { claim.commitment,
@@ -97,7 +81,6 @@ template <typename Curve> class KZG {
         }
 
         auto P_1 = -quotient_commitment;
-
         return { P_0, P_1 };
     };
 };

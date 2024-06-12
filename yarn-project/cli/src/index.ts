@@ -1,15 +1,16 @@
-import { Fr } from '@aztec/circuits.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { Fr, PublicKeys } from '@aztec/circuits.js';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { addCodegenCommanderAction } from '@aztec/noir-compiler/cli';
 
-import { Command, Option } from 'commander';
+import { Command as CommanderCommand, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
+import { FeeOpts } from './fees.js';
 import {
   parseAztecAddress,
+  parseBigint,
   parseEthereumAddress,
   parseField,
   parseFieldFromHexString,
@@ -36,6 +37,17 @@ const getLocalhost = () =>
 const LOCALHOST = await getLocalhost();
 const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
 
+class Command extends CommanderCommand {
+  addOptions(options: Option[]) {
+    options.forEach(option => this.addOption(option));
+    return this;
+  }
+
+  override createCommand(name?: string): Command {
+    return new Command(name);
+  }
+}
+
 /**
  * Returns commander program that defines the CLI.
  * @param log - Console logger.
@@ -57,7 +69,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .makeOptionMandatory(true);
 
   const createPrivateKeyOption = (description: string, mandatory: boolean) =>
-    new Option('-k, --private-key <string>', description)
+    new Option('-e, --private-key <string>', description)
       .env('PRIVATE_KEY')
       .argParser(parsePrivateKey)
       .makeOptionMandatory(mandatory);
@@ -90,18 +102,107 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('generate-private-key')
-    .summary('Generates an encryption private key.')
-    .description(
-      'Generates a private key which fits into the scalar field used by Grumpkin curve, can be used as an encryption private key.',
+    .command('deploy-l1-verifier')
+    .description('Deploys the rollup verifier contract')
+    .requiredOption(
+      '--eth-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
     )
+    .addOption(pxeOption)
+    .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
+    .option('--bb <path>', 'Path to bb binary')
+    .option('--bb-working-dir <path>', 'Path to bb working directory')
+    .action(async options => {
+      const { deployMockVerifier, deployUltraVerifier } = await import('./cmds/deploy_l1_verifier.js');
+      if (options.verifier === 'mock') {
+        await deployMockVerifier(
+          options.ethRpcUrl,
+          options.privateKey,
+          options.mnemonic,
+          options.rpcUrl,
+          log,
+          debugLogger,
+        );
+      } else {
+        await deployUltraVerifier(
+          options.ethRpcUrl,
+          options.privateKey,
+          options.mnemonic,
+          options.rpcUrl,
+          options.bb,
+          options.bbWorkingDir,
+          log,
+          debugLogger,
+        );
+      }
+    });
+
+  program
+    .command('bridge-l1-gas')
+    .description('Mints L1 gas tokens and pushes them to L2.')
+    .argument('<amount>', 'The amount of gas tokens to mint and bridge.', parseBigint)
+    .argument('<recipient>', 'Aztec address of the recipient.', parseAztecAddress)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(pxeOption)
+    .action(async (amount, recipient, options) => {
+      const { bridgeL1Gas } = await import('./cmds/bridge_l1_gas.js');
+      await bridgeL1Gas(
+        amount,
+        recipient,
+        options.rpcUrl,
+        options.l1RpcUrl,
+        options.apiKey ?? '',
+        options.mnemonic,
+        log,
+        debugLogger,
+      );
+    });
+
+  program
+    .command('get-l1-balance')
+    .description('Gets the balance of gas tokens in L1 for the given Ethereum address.')
+    .argument('<who>', 'Ethereum address to check.', parseEthereumAddress)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .addOption(pxeOption)
+    .action(async (who, options) => {
+      const { getL1Balance } = await import('./cmds/get_l1_balance.js');
+      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.apiKey ?? '', log, debugLogger);
+    });
+
+  program
+    .command('generate-keys')
+    .summary('Generates encryption and signing private keys.')
+    .description('Generates and encryption and signing private key pair.')
     .option(
       '-m, --mnemonic',
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
     )
-    .action(async options => {
-      const { generatePrivateKey } = await import('./cmds/generate_private_key.js');
-      generatePrivateKey(options.mnemonic, log);
+    .action(async _options => {
+      const { generateKeys } = await import('./cmds/generate_private_key.js');
+      const { privateEncryptionKey, privateSigningKey } = generateKeys();
+      log(`Encryption Private Key: ${privateEncryptionKey}\nSigning Private key: ${privateSigningKey}\n`);
     });
 
   program
@@ -119,34 +220,44 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
-    .addOption(
-      createPrivateKeyOption('Private key for note encryption and transaction signing. Uses random by default.', false),
+    .option(
+      '--skip-initialization',
+      'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
+    .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
+    .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
     .addOption(pxeOption)
+    .addOptions(FeeOpts.getOptions())
+    .option(
+      '--register-only',
+      'Just register the account on the PXE. Do not deploy or initialize the account contract.',
+    )
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async ({ rpcUrl, privateKey, wait }) => {
+    .action(async args => {
       const { createAccount } = await import('./cmds/create_account.js');
-      await createAccount(rpcUrl, privateKey, wait, debugLogger, log);
+      const { rpcUrl, privateKey, wait, registerOnly, skipInitialization, publicDeploy } = args;
+      await createAccount(
+        rpcUrl,
+        privateKey,
+        registerOnly,
+        skipInitialization,
+        publicDeploy,
+        wait,
+        FeeOpts.fromCli(args, log),
+        debugLogger,
+        log,
+      );
     });
 
   program
-    .command('register-account')
-    .description(
-      'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
-    )
-    .summary('Registers an aztec account that can be used for sending transactions.')
-    .addOption(createPrivateKeyOption('Private key for note encryption and transaction signing.', true))
-    .requiredOption(
-      '-pa, --partial-address <partialAddress>',
-      'The partially computed address of the account contract.',
-      parsePartialAddress,
-    )
+    .command('bootstrap')
+    .description('Bootstrap the blockchain')
     .addOption(pxeOption)
-    .action(async ({ rpcUrl, privateKey, partialAddress }) => {
-      const { registerAccount } = await import('./cmds/register_account.js');
-      await registerAccount(rpcUrl, privateKey, partialAddress, debugLogger, log);
+    .action(async options => {
+      const { bootstrap } = await import('./cmds/bootstrap.js');
+      await bootstrap(options.rpcUrl, log);
     });
 
   program
@@ -156,6 +267,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '<artifact>',
       "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js",
     )
+    .option('--initialize <string>', 'The contract initializer function to call', 'constructor')
+    .option('--no-initialize')
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
     .option(
@@ -164,50 +277,55 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       parsePublicKey,
     )
     .option(
-      '-p, --portal-address <hex string>',
-      'Optional L1 portal address to link the contract to.',
-      parseEthereumAddress,
-    )
-    .option(
       '-s, --salt <hex string>',
       'Optional deployment salt as a hex string for generating the deployment address.',
       parseFieldFromHexString,
     )
+    .option('--universal', 'Do not mix the sender address into the deployment.')
     .addOption(createPrivateKeyOption("The sender's private key.", true))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async (artifactPath, { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey }) => {
+    .option('--class-registration', 'Register the contract class. Only has to be done once')
+    .option('--no-class-registration', 'Skip registering the contract class')
+    .option('--public-deployment', 'Deploy the public bytecode of contract')
+    .option('--no-public-deployment', "Skip deploying the contract's public bytecode")
+    .addOptions(FeeOpts.getOptions())
+    .action(async (artifactPath, opts) => {
       const { deploy } = await import('./cmds/deploy.js');
+      const {
+        json,
+        rpcUrl,
+        publicKey,
+        args: rawArgs,
+        salt,
+        wait,
+        privateKey,
+        classRegistration,
+        initialize,
+        publicDeployment,
+        universal,
+      } = opts;
       await deploy(
         artifactPath,
         json,
         rpcUrl,
-        publicKey,
+        publicKey ? PublicKeys.fromString(publicKey) : undefined,
         rawArgs,
-        portalAddress,
         salt,
         privateKey,
+        typeof initialize === 'string' ? initialize : undefined,
+        !publicDeployment,
+        !classRegistration,
+        typeof initialize === 'string' ? false : initialize,
+        universal,
         wait,
+        FeeOpts.fromCli(opts, log),
         debugLogger,
         log,
         logJson,
       );
-    });
-
-  program
-    .command('check-deploy')
-    .description('Checks if a contract is deployed to the specified Aztec address.')
-    .requiredOption(
-      '-ca, --contract-address <address>',
-      'An Aztec address to check if contract has been deployed to.',
-      parseAztecAddress,
-    )
-    .addOption(pxeOption)
-    .action(async options => {
-      const { checkDeploy } = await import('./cmds/check_deploy.js');
-      await checkDeploy(options.rpcUrl, options.contractAddress, debugLogger, log);
     });
 
   program
@@ -224,6 +342,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--salt <salt>', 'Optional deployment salt', parseFieldFromHexString)
     .option('-p, --public-key <public key>', 'Optional public key for this contract', parsePublicKey)
     .option('--portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
+    .option('--deployer-address <address>', 'Optional address of the contract deployer', parseAztecAddress)
     .addOption(pxeOption)
     .action(async options => {
       const { addContract } = await import('./cmds/add_contract.js');
@@ -234,20 +353,31 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         options.initHash,
         options.salt ?? Fr.ZERO,
         options.publicKey,
-        options.portalContract,
+        options.deployerAddress,
         debugLogger,
         log,
       );
     });
 
   program
-    .command('get-tx-receipt')
+    .command('get-tx')
     .description('Gets the receipt for the specified transaction hash.')
     .argument('<txHash>', 'A transaction hash to get the receipt for.', parseTxHash)
     .addOption(pxeOption)
     .action(async (txHash, options) => {
-      const { getTxReceipt } = await import('./cmds/get_tx_receipt.js');
-      await getTxReceipt(options.rpcUrl, txHash, debugLogger, log);
+      const { getTx } = await import('./cmds/get_tx.js');
+      await getTx(options.rpcUrl, txHash, debugLogger, log);
+    });
+
+  program
+    .command('get-block')
+    .description('Gets info for a given block or latest.')
+    .argument('[blockNumber]', 'Block height', parseOptionalInteger)
+    .option('-f, --follow', 'Keep polling for new blocks')
+    .addOption(pxeOption)
+    .action(async (blockNumber, options) => {
+      const { getBlock } = await import('./cmds/get_block.js');
+      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
     });
 
   program
@@ -337,6 +467,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('get-balance')
+    .description('Gets the token balance for an account. Does NOT format according to decimals.')
+    .argument('<address>', 'Aztec address to query balance for.', parseAztecAddress)
+    .option('-t, --token-address <address>', 'Token address to query balance for (defaults to gas token).')
+    .addOption(pxeOption)
+    .action(async (address, options) => {
+      const { getBalance } = await import('./cmds/get_balance.js');
+      await getBalance(address, options.tokenAddress, options.rpcUrl, debugLogger, log);
+    });
+
+  program
     .command('send')
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to execute')
@@ -349,6 +490,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(createPrivateKeyOption("The sender's private key.", true))
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
+    .addOptions(FeeOpts.getOptions())
     .action(async (functionName, options) => {
       const { send } = await import('./cmds/send.js');
       await send(
@@ -359,6 +501,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         options.privateKey,
         options.rpcUrl,
         !options.noWait,
+        FeeOpts.fromCli(options, log),
         debugLogger,
         log,
       );
@@ -416,6 +559,29 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       );
     });
 
+  program
+    .command('add-pending-shield')
+    .description('Adds a pending shield note to the database in the PXE.')
+    .argument('<address>', 'Aztec address of the note owner.', parseAztecAddress)
+    .argument('<amount>', 'Amount of the pending shield note.', parseBigint)
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the token contract.', parseAztecAddress)
+    .requiredOption('-tx, --tx-hash <txHash>', 'Tx hash in which the note was created.', parseOptionalTxHash)
+    .requiredOption('--secret <secret>', 'Secret used for shielding the note.', parseField)
+    .addOption(pxeOption)
+    .action(async (address, amount, options) => {
+      const { addPendingShield } = await import('./cmds/add_pending_shield.js');
+      await addPendingShield(
+        address,
+        options.contractAddress,
+        amount,
+        options.secret,
+        options.txHash,
+        options.rpcUrl,
+        debugLogger,
+        log,
+      );
+    });
+
   // Helper for users to decode hex strings into structs if needed.
   program
     .command('parse-parameter-struct')
@@ -458,6 +624,15 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('get-pxe-info')
+    .description('Gets the information of a PXE at a URL.')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { getPXEInfo } = await import('./cmds/get_pxe_info.js');
+      await getPXEInfo(options.rpcUrl, debugLogger, log);
+    });
+
+  program
     .command('inspect-contract')
     .description('Shows list of external callable functions for a contract')
     .argument(
@@ -479,19 +654,37 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('update')
-    .description('Updates Nodejs and Noir dependencies')
-    .argument('[projectPath]', 'Path to the project directory', process.cwd())
-    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
-    .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
+    .command('sequencers')
+    .argument('<command>', 'Command to run: list, add, remove, who-next')
+    .argument('[who]', 'Who to add/remove')
+    .description('Manages or queries registered sequencers on the L1 rollup contract.')
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic for the sender of the tx',
+      'test test test test test test test test test test test junk',
+    )
+    .option('--block-number <number>', 'Block number to query next sequencer for', parseOptionalInteger)
     .addOption(pxeOption)
-    .action(async (projectPath: string, options) => {
-      const { update } = await import('./update/update.js');
-      const { contract, aztecVersion, rpcUrl } = options;
-      await update(projectPath, contract, rpcUrl, aztecVersion, log);
+    .action(async (command, who, options) => {
+      const { sequencers } = await import('./cmds/sequencers.js');
+      await sequencers({
+        command: command,
+        who,
+        mnemonic: options.mnemonic,
+        rpcUrl: options.rpcUrl,
+        l1RpcUrl: options.l1RpcUrl,
+        apiKey: options.apiKey ?? '',
+        blockNumber: options.blockNumber,
+        log,
+        debugLogger,
+      });
     });
-
-  addCodegenCommanderAction(program, log);
 
   return program;
 }

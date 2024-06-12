@@ -1,4 +1,5 @@
-import { BufferReader, FieldReader } from '../serialize/index.js';
+import { poseidon2Hash } from '../crypto/index.js';
+import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -22,7 +23,9 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-  ) {}
+  ) {
+    // TODO: Do we want to check if the point is on the curve here?
+  }
 
   /**
    * Generate a random Point instance.
@@ -43,7 +46,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader.readBytes(32)), Fr.fromBuffer(reader.readBytes(32)));
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -88,7 +91,7 @@ export class Point {
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {
-    return Buffer.concat([this.x.toBuffer(), this.y.toBuffer()]);
+    return serializeToBuffer([this.x, this.y]);
   }
 
   /**
@@ -128,6 +131,22 @@ export class Point {
 
   isZero() {
     return this.x.isZero() && this.y.isZero();
+  }
+
+  hash() {
+    return poseidon2Hash(this.toFields());
+  }
+
+  isOnGrumpkin() {
+    if (this.isZero()) {
+      return true;
+    }
+
+    // p.y * p.y == p.x * p.x * p.x - 17
+    const A = new Fr(17);
+    const lhs = this.y.square();
+    const rhs = this.x.square().mul(this.x).sub(A);
+    return lhs.equals(rhs);
   }
 }
 

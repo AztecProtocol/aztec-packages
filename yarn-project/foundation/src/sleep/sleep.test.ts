@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-import { InterruptError } from '../errors/index.js';
+import { InterruptError } from '../error/index.js';
 import { InterruptibleSleep } from './index.js';
 
 describe('InterruptibleSleep', () => {
@@ -21,7 +21,7 @@ describe('InterruptibleSleep', () => {
     expect(end - start).toBeGreaterThanOrEqual(149);
   });
 
-  it('can interrup multiple sleeps', async () => {
+  it('can interrupt multiple sleeps', async () => {
     const stub = jest.fn();
     const sleeper = new InterruptibleSleep();
     const start = Date.now();

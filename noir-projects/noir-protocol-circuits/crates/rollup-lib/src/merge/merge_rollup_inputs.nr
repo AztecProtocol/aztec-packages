@@ -1,24 +1,35 @@
+use dep::types::traits::Empty;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE};
 use crate::components;
 
-struct MergeRollupInputs{
+struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
     previous_rollup_data : [PreviousRollupData; 2]
 }
 
+impl Empty for MergeRollupInputs {
+    fn empty() -> Self {
+        MergeRollupInputs {
+            previous_rollup_data: [PreviousRollupData::empty(); 2]
+        }
+    }
+}
+
 impl MergeRollupInputs {
     pub fn merge_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        // TODO(Lasse): Verify the previous rollup proofs
         // TODO(Lasse): Check both previous rollup vks (in previous_rollup_data) against the permitted set of kernel vks.
         // we don't have a set of permitted kernel vks yet.
+
+        // Verify the previous rollup proofs
+        self.previous_rollup_data[0].verify();
+        self.previous_rollup_data[1].verify();
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
         // check that both input proofs are either both "BASE" or "MERGE" and not a mix!
         // this prevents having wonky commitment, nullifier and contract subtrees.
-        let aggregation_object = components::aggregate_proofs(left, right);
         components::assert_both_input_proofs_of_same_rollup_type(left, right);
         let current_height = components::assert_both_input_proofs_of_same_height_and_return(left, right);
         components::assert_equal_constants(left, right);
@@ -28,15 +39,17 @@ impl MergeRollupInputs {
         let txs_effects_hash = components::compute_txs_effects_hash(self.previous_rollup_data);
         let out_hash = components::compute_out_hash(self.previous_rollup_data);
 
+        let accumulated_fees = components::accumulate_fees(left, right);
+
         let public_inputs = BaseOrMergeRollupPublicInputs {
             rollup_type: MERGE_ROLLUP_TYPE,
             height_in_block_tree: current_height + 1,
-            aggregation_object,
             constants: left.constants,
             start: left.start,
             end: right.end,
             txs_effects_hash,
-            out_hash
+            out_hash,
+            accumulated_fees
         };
 
         public_inputs
@@ -131,14 +144,7 @@ mod tests {
     #[test]
     fn txs_effects_hash() {
         let mut inputs = default_merge_rollup_inputs();
-        let expected_hash = accumulate_sha256(
-            [
-            U128::from_integer(0),
-            U128::from_integer(1),
-            U128::from_integer(2),
-            U128::from_integer(3)
-        ]
-        );
+        let expected_hash = accumulate_sha256([1, 2]);
         let outputs = inputs.merge_rollup_circuit();
 
         assert_eq(outputs.txs_effects_hash, expected_hash);

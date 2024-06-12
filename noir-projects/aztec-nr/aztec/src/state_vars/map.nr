@@ -1,18 +1,17 @@
-use crate::context::{PrivateContext, PublicContext, Context};
-use dep::protocol_types::{hash::pedersen_hash, traits::{ToField}};
+use dep::protocol_types::{hash::pedersen_hash, storage::map::derive_storage_slot_in_map, traits::ToField};
 use crate::state_vars::storage::Storage;
 
 // docs:start:map
-struct Map<K, V> {
+struct Map<K, V, Context> {
     context: Context,
     storage_slot: Field,
     state_var_constructor: fn(Context, Field) -> V,
 }
 // docs:end:map
 
-impl<K, T> Storage<T> for Map<K, T> {}
+impl<K, T, Context> Storage<T> for Map<K, T, Context> {}
 
-impl<K, V> Map<K, V> {
+impl<K, V, Context> Map<K, V, Context> {
     // docs:start:new
     pub fn new(
         context: Context,
@@ -27,7 +26,7 @@ impl<K, V> Map<K, V> {
     // docs:start:at
     pub fn at(self, key: K) -> V where K: ToField {
         // TODO(#1204): use a generator index for the storage slot
-        let derived_storage_slot = pedersen_hash([self.storage_slot, key.to_field()], 0);
+        let derived_storage_slot = derive_storage_slot_in_map(self.storage_slot, key);
 
         let state_var_constructor = self.state_var_constructor;
         state_var_constructor(self.context, derived_storage_slot)

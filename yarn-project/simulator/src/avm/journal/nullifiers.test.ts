@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CommitmentsDB } from '../../index.js';
+import { type CommitmentsDB } from '../../index.js';
 import { Nullifiers } from './nullifiers.js';
 
 describe('avm nullifier caching', () => {
@@ -64,6 +64,21 @@ describe('avm nullifier caching', () => {
       expect(isPending).toEqual(true);
       expect(gotIndex).toEqual(Fr.ZERO);
     });
+    it('Existence check works on fallback to grandparent (gets value, exists, is pending)', async () => {
+      const contractAddress = new Fr(1);
+      const nullifier = new Fr(2);
+      const childNullifiers = new Nullifiers(commitmentsDb, nullifiers);
+      const grandChildNullifiers = new Nullifiers(commitmentsDb, childNullifiers);
+
+      // Write to parent cache
+      await nullifiers.append(contractAddress, nullifier);
+      // Get from child cache
+      const [exists, isPending, gotIndex] = await grandChildNullifiers.checkExists(contractAddress, nullifier);
+      // exists (in parent), isPending, index is zero (not in tree)
+      expect(exists).toEqual(true);
+      expect(isPending).toEqual(true);
+      expect(gotIndex).toEqual(Fr.ZERO);
+    });
   });
 
   describe('Nullifier collision failures', () => {
@@ -74,7 +89,7 @@ describe('avm nullifier caching', () => {
       // Append a nullifier to cache
       await nullifiers.append(contractAddress, nullifier);
       // Can't append again
-      await expect(nullifiers.append(contractAddress, nullifier)).rejects.toThrowError(
+      await expect(nullifiers.append(contractAddress, nullifier)).rejects.toThrow(
         `Nullifier ${nullifier} at contract ${contractAddress} already exists in parent cache or host.`,
       );
     });
@@ -86,7 +101,7 @@ describe('avm nullifier caching', () => {
       await nullifiers.append(contractAddress, nullifier);
       const childNullifiers = new Nullifiers(commitmentsDb, nullifiers);
       // Can't append again in child
-      await expect(childNullifiers.append(contractAddress, nullifier)).rejects.toThrowError(
+      await expect(childNullifiers.append(contractAddress, nullifier)).rejects.toThrow(
         `Nullifier ${nullifier} at contract ${contractAddress} already exists in parent cache or host.`,
       );
     });
@@ -98,7 +113,7 @@ describe('avm nullifier caching', () => {
       // Nullifier exists in host
       commitmentsDb.getNullifierIndex.mockResolvedValue(Promise.resolve(storedLeafIndex));
       // Can't append to cache
-      await expect(nullifiers.append(contractAddress, nullifier)).rejects.toThrowError(
+      await expect(nullifiers.append(contractAddress, nullifier)).rejects.toThrow(
         `Nullifier ${nullifier} at contract ${contractAddress} already exists in parent cache or host.`,
       );
     });
@@ -139,7 +154,7 @@ describe('avm nullifier caching', () => {
       await childNullifiers.append(contractAddress, nullifier);
 
       // Parent accepts child's nullifiers
-      expect(() => nullifiers.acceptAndMerge(childNullifiers)).toThrowError(
+      expect(() => nullifiers.acceptAndMerge(childNullifiers)).toThrow(
         `Failed to accept child call's nullifiers. Nullifier ${nullifier.toBigInt()} already exists at contract ${contractAddress.toBigInt()}.`,
       );
     });

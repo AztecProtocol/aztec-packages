@@ -27,16 +27,16 @@ DeciderVerifier_<Flavor>::DeciderVerifier_()
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using PCS = typename Flavor::PCS;
+    using ZeroMorph = ZeroMorphVerifier_<PCS>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    auto sumcheck =
-        SumcheckVerifier<Flavor>(accumulator->verification_key->log_circuit_size, transcript, accumulator->target_sum);
+    auto sumcheck = SumcheckVerifier<Flavor>(
+        static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
@@ -55,13 +55,12 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const Hon
                                             multivariate_challenge,
                                             transcript);
 
-    auto verified =
-        accumulator->verification_key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }
 
 template class DeciderVerifier_<UltraFlavor>;
-template class DeciderVerifier_<GoblinUltraFlavor>;
+template class DeciderVerifier_<MegaFlavor>;
 
 } // namespace bb

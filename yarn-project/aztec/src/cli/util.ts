@@ -1,11 +1,16 @@
-import { ArchiverConfig } from '@aztec/archiver';
-import { AztecNodeConfig } from '@aztec/aztec-node';
-import { AccountManager } from '@aztec/aztec.js';
-import { L1ContractAddresses, l1ContractsNames } from '@aztec/ethereum';
+import { type ArchiverConfig } from '@aztec/archiver';
+import { type AztecNodeConfig } from '@aztec/aztec-node';
+import { type AccountManager, type Fr } from '@aztec/aztec.js';
+import { type L1ContractAddresses, l1ContractsNames } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { LogFn, createConsoleLogger } from '@aztec/foundation/log';
-import { P2PConfig } from '@aztec/p2p';
-import { GrumpkinScalar, PXEService, PXEServiceConfig } from '@aztec/pxe';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { type LogFn, createConsoleLogger } from '@aztec/foundation/log';
+import { type P2PConfig } from '@aztec/p2p';
+import { type PXEService, type PXEServiceConfig } from '@aztec/pxe';
+
+export interface ServiceStarter<T = any> {
+  (options: T, signalHandlers: (() => Promise<void>)[], logger: LogFn): Promise<ServerList>;
+}
 
 /**
  * Checks if the object has l1Contracts property
@@ -54,7 +59,7 @@ export const parseModuleOptions = (options: string): Record<string, string> => {
   if (!options?.length) {
     return {};
   }
-  const optionsArray = options.split(',');
+  const optionsArray = options.split(/,(?=\w+=)/);
   return optionsArray.reduce((acc, option) => {
     const [key, value] = option.split('=');
     return { ...acc, [key]: value };
@@ -107,9 +112,9 @@ export async function createAccountLogs(
      */
     account: AccountManager;
     /**
-     * The private key of the account
+     * The secret key of the account
      */
-    privateKey: GrumpkinScalar;
+    secretKey: Fr;
   }[],
   pxe: PXEService,
 ) {
@@ -120,8 +125,19 @@ export async function createAccountLogs(
     if (registeredAccounts.find(a => a.equals(completeAddress))) {
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
-      accountLogStrings.push(` Private Key: ${account.privateKey.toString()}\n`);
-      accountLogStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
+      accountLogStrings.push(` Secret Key: ${account.secretKey.toString()}\n`);
+      accountLogStrings.push(
+        ` Master nullifier public key: ${completeAddress.publicKeys.masterNullifierPublicKey.toString()}\n`,
+      );
+      accountLogStrings.push(
+        ` Master incoming viewing public key: ${completeAddress.publicKeys.masterIncomingViewingPublicKey.toString()}\n\n`,
+      );
+      accountLogStrings.push(
+        ` Master outgoing viewing public key: ${completeAddress.publicKeys.masterOutgoingViewingPublicKey.toString()}\n\n`,
+      );
+      accountLogStrings.push(
+        ` Master tagging public key: ${completeAddress.publicKeys.masterTaggingPublicKey.toString()}\n\n`,
+      );
     }
   }
   return accountLogStrings;

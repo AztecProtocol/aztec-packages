@@ -1,10 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NUM_FIELDS_PER_SHA256 } from '../../constants.gen.js';
-import { AggregationObject } from '../aggregation_object.js';
 import { PartialStateReference } from '../partial_state_reference.js';
-import { RollupTypes } from '../shared.js';
+import { type RollupTypes } from '../shared.js';
 import { ConstantRollupData } from './base_rollup.js';
 
 /**
@@ -23,10 +21,6 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public rollupSubtreeHeight: Fr,
     /**
-     * Native aggregation state at the end of the rollup circuit.
-     */
-    public aggregationObject: AggregationObject,
-    /**
      * Data which is forwarded through the rollup circuits unchanged.
      */
     public constants: ConstantRollupData,
@@ -39,15 +33,20 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public end: PartialStateReference,
     /**
-     * SHA256 hashes of transactions effects. Used to make public inputs constant-sized (to then be unpacked on-chain).
-     * Note: Length 2 for high and low.
+     * SHA256 hash of transactions effects. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public txsEffectsHash: [Fr, Fr],
+    public txsEffectsHash: Fr,
     /**
-     * SHA256 hashes of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
-     * Note: Length 2 for high and low.
+     * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public outHash: [Fr, Fr],
+    public outHash: Fr,
+
+    /**
+     * The summed `transaction_fee` of the constituent transactions.
+     */
+    public accumulatedFees: Fr,
   ) {}
 
   /**
@@ -61,12 +60,13 @@ export class BaseOrMergeRollupPublicInputs {
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
       Fr.fromBuffer(reader),
-      reader.readObject(AggregationObject),
       reader.readObject(ConstantRollupData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
+      //TODO check
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -78,7 +78,6 @@ export class BaseOrMergeRollupPublicInputs {
     return serializeToBuffer(
       this.rollupType,
       this.rollupSubtreeHeight,
-      this.aggregationObject,
       this.constants,
 
       this.start,
@@ -86,6 +85,25 @@ export class BaseOrMergeRollupPublicInputs {
 
       this.txsEffectsHash,
       this.outHash,
+
+      this.accumulatedFees,
     );
+  }
+
+  /**
+   * Serialize this as a hex string.
+   * @returns - The hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new BaseOrMergeRollupPublicInputs instance.
+   */
+  static fromString(str: string) {
+    return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

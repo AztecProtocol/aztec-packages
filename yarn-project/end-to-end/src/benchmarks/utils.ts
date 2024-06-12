@@ -1,24 +1,25 @@
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import {
-  AztecNode,
+  type AztecNode,
   BatchCall,
-  GrumpkinScalar,
+  type Fr,
   INITIAL_L2_BLOCK_NUM,
-  PXE,
-  PartialAddress,
-  SentTx,
+  type PXE,
+  type PartialAddress,
+  type SentTx,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
-import { EndToEndContext, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
@@ -26,7 +27,7 @@ import { EndToEndContext, setup } from '../fixtures/utils.js';
 export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
   const context = await setup(1, { ...opts });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
-  context.logger(`Deployed benchmarking contract at ${contract.address}`);
+  context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   return { context, contract, sequencer };
 }
@@ -37,9 +38,8 @@ export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
  * @returns A path to a created dir.
  */
 export function makeDataDirectory(index: number) {
-  const random = Math.random().toString().slice(2);
   const testName = expect.getState().currentTestName!.split(' ')[0].replaceAll('/', '_');
-  const db = join('data', testName, index.toString(), random);
+  const db = join('data', testName, index.toString(), `${randomInt(99)}`);
   mkdirpSync(db);
   return db;
 }
@@ -68,8 +68,10 @@ export function getFolderSize(path: string): number {
  */
 export function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
   const owner = context.wallet.getAddress();
+  // Setting the outgoing viewer to owner here since the outgoing logs are not important in this context
+  const outgoingViewer = owner;
   return new BatchCall(context.wallet, [
-    contract.methods.create_note(owner, index + 1).request(),
+    contract.methods.create_note(owner, outgoingViewer, index + 1).request(),
     contract.methods.increment_balance(owner, index + 1).request(),
   ]);
 }
@@ -88,7 +90,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
-  await Promise.all(calls.map(call => call.simulate({ skipPublicSimulation: true })));
+  await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   const sentTxs = calls.map(call => call.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
@@ -110,8 +112,11 @@ export async function waitNewPXESynced(
   contract: BenchmarkingContract,
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
-  const pxe = await createPXEService(node, { l2BlockPollingIntervalMS: 100, l2StartingBlock: startingBlock });
-  await pxe.addContracts([contract]);
+  const pxe = await createPXEService(node, {
+    l2BlockPollingIntervalMS: 100,
+    l2StartingBlock: startingBlock,
+  });
+  await pxe.registerContract(contract);
   await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;
 }
@@ -119,16 +124,12 @@ export async function waitNewPXESynced(
 /**
  * Registers a new account in a pxe and waits until it's synced all its notes.
  * @param pxe - PXE where to register the account.
- * @param privateKey - Private key of the account to register.
+ * @param secretKey - Secret key of the account to register.
  * @param partialAddress - Partial address of the account to register.
  */
-export async function waitRegisteredAccountSynced(
-  pxe: PXE,
-  privateKey: GrumpkinScalar,
-  partialAddress: PartialAddress,
-) {
+export async function waitRegisteredAccountSynced(pxe: PXE, secretKey: Fr, partialAddress: PartialAddress) {
   const l2Block = await pxe.getBlockNumber();
-  const { publicKey } = await pxe.registerAccount(privateKey, partialAddress);
-  const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[publicKey.toString()] === l2Block;
+  const accountAddress = (await pxe.registerAccount(secretKey, partialAddress)).address;
+  const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[accountAddress.toString()] === l2Block;
   await retryUntil(isAccountSynced, 'pxe-notes-sync');
 }

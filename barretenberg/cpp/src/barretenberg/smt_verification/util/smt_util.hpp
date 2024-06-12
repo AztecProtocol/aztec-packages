@@ -1,0 +1,15 @@
+#pragma once
+#include <fstream>
+
+#include "barretenberg/smt_verification/circuit/circuit_base.hpp"
+
+void default_model(const std::vector<std::string>& special,
+                   smt_circuit::CircuitBase& c1,
+                   smt_circuit::CircuitBase& c2,
+                   const std::string& fname = "witness.out");
+void default_model_single(const std::vector<std::string>& special,
+                          smt_circuit::CircuitBase& c,
+                          const std::string& fname = "witness.out");
+
+bool smt_timer(smt_solver::Solver* s);
+std::pair<std::vector<bb::fr>, std::vector<bb::fr>> base4(uint32_t el);

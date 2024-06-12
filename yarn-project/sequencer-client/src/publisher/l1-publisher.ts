@@ -1,12 +1,14 @@
-import { L2Block } from '@aztec/circuit-types';
-import { L1PublishStats } from '@aztec/circuit-types/stats';
+import { type L2Block } from '@aztec/circuit-types';
+import { type L1PublishStats } from '@aztec/circuit-types/stats';
+import { type EthAddress, type Fr, type Proof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
 import pick from 'lodash.pick';
 
-import { L2BlockReceiver } from '../receiver.js';
-import { PublisherConfig } from './config.js';
+import { type L2BlockReceiver } from '../receiver.js';
+import { type PublisherConfig } from './config.js';
 
 /**
  * Stats for a sent transaction.
@@ -40,6 +42,10 @@ export type MinimalTransactionReceipt = {
  * Pushes txs to the L1 chain and waits for their completion.
  */
 export interface L1PublisherTxSender {
+  getSenderAddress(): Promise<EthAddress>;
+
+  getSubmitterAddressForBlock(blockNumber: number): Promise<EthAddress>;
+
   /**
    * Publishes tx effects to Availability Oracle.
    * @param encodedBody - Encoded block body.
@@ -91,6 +97,8 @@ export type L1ProcessArgs = {
   archive: Buffer;
   /** L2 block body. */
   body: Buffer;
+  /** Aggregation object needed to verify the proof */
+  aggregationObject: Buffer;
   /** Root rollup proof of the L2 block. */
   proof: Buffer;
 };
@@ -113,16 +121,22 @@ export class L1Publisher implements L2BlockReceiver {
     this.sleepTimeMs = config?.l1BlockPublishRetryIntervalMS ?? 60_000;
   }
 
+  public async isItMyTurnToSubmit(blockNumber: number): Promise<boolean> {
+    const submitter = await this.txSender.getSubmitterAddressForBlock(blockNumber);
+    const sender = await this.txSender.getSenderAddress();
+    return submitter.isZero() || submitter.equals(sender);
+  }
+
   /**
    * Publishes L2 block on L1.
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block): Promise<boolean> {
+  public async processL2Block(block: L2Block, aggregationObject: Fr[], proof: Proof): Promise<boolean> {
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
     if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
-      this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
+      this.log.info(`Detected different last archive prior to publishing a block, aborting publish...`);
       return false;
     }
 
@@ -131,7 +145,7 @@ export class L1Publisher implements L2BlockReceiver {
     // Publish block transaction effects
     while (!this.interrupted) {
       if (await this.txSender.checkIfTxsAreAvailable(block)) {
-        this.log(`Transaction effects of a block ${block.number} already published.`);
+        this.log.verbose(`Transaction effects of a block ${block.number} already published.`);
         break;
       }
 
@@ -151,14 +165,14 @@ export class L1Publisher implements L2BlockReceiver {
           // txsEffectsHash from IAvailabilityOracle.TxsPublished event
           txsEffectsHash = receipt.logs[0].data;
         } else {
-          this.log(`Expected 1 log, got ${receipt.logs.length}`);
+          this.log.warn(`Expected 1 log, got ${receipt.logs.length}`);
         }
 
         this.log.info(`Block txs effects published, txsEffectsHash: ${txsEffectsHash}`);
         break;
       }
 
-      this.log(`AvailabilityOracle.publish tx status failed: ${receipt.transactionHash}`);
+      this.log.error(`AvailabilityOracle.publish tx status failed: ${receipt.transactionHash}`);
       await this.sleepOrInterrupted();
     }
 
@@ -166,7 +180,8 @@ export class L1Publisher implements L2BlockReceiver {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       body: encodedBody,
-      proof: Buffer.alloc(0),
+      aggregationObject: serializeToBuffer(aggregationObject),
+      proof: proof.withoutPublicInputs(),
     };
 
     // Process block
@@ -196,15 +211,15 @@ export class L1Publisher implements L2BlockReceiver {
 
       // Check if someone else incremented the block number
       if (!(await this.checkLastArchiveHash(lastArchive))) {
-        this.log('Publish failed. Detected different last archive hash.');
+        this.log.warn('Publish failed. Detected different last archive hash.');
         break;
       }
 
-      this.log(`Rollup.process tx status failed: ${receipt.transactionHash}`);
+      this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`);
       await this.sleepOrInterrupted();
     }
 
-    this.log('L2 block data syncing interrupted while processing blocks.');
+    this.log.verbose('L2 block data syncing interrupted while processing blocks.');
     return false;
   }
 
@@ -233,8 +248,8 @@ export class L1Publisher implements L2BlockReceiver {
     const fromChain = await this.txSender.getCurrentArchive();
     const areSame = lastArchive.equals(fromChain);
     if (!areSame) {
-      this.log(`CONTRACT ARCHIVE: ${fromChain.toString('hex')}`);
-      this.log(`NEW BLOCK LAST ARCHIVE: ${lastArchive.toString('hex')}`);
+      this.log.debug(`Contract archive: ${fromChain.toString('hex')}`);
+      this.log.debug(`New block last archive: ${lastArchive.toString('hex')}`);
     }
     return areSame;
   }
@@ -242,6 +257,7 @@ export class L1Publisher implements L2BlockReceiver {
   private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
+        this.log.info(`TxEffects size=${encodedBody.length} bytes`);
         return await this.txSender.sendPublishTx(encodedBody);
       } catch (err) {
         this.log.error(`TxEffects publish failed`, err);

@@ -1,4 +1,4 @@
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 
@@ -23,7 +23,7 @@ export async function getAccounts(
     logJson(
       accounts.map(a => ({
         address: a.address.toString(),
-        publicKey: a.publicKey.toString(),
+        publicKeys: a.publicKeys.toString(),
         partialAddress: a.partialAddress.toString(),
       })),
     );

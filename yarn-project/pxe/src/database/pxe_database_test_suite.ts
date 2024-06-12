@@ -1,13 +1,14 @@
-import { NoteFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { type NoteFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
+import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM, PublicKeys } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
-import { NoteDao } from './note_dao.js';
-import { randomNoteDao } from './note_dao.test.js';
-import { PxeDatabase } from './pxe_database.js';
+import { type IncomingNoteDao } from './incoming_note_dao.js';
+import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
+import { type PxeDatabase } from './pxe_database.js';
 
 /**
  * A common test suite for a PXE database.
@@ -67,13 +68,13 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    describe('notes', () => {
+    describe('incoming notes', () => {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
       let storageSlots: Fr[];
-      let notes: NoteDao[];
+      let notes: IncomingNoteDao[];
 
-      const filteringTests: [() => NoteFilter, () => NoteDao[]][] = [
+      const filteringTests: [() => NoteFilter, () => IncomingNoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -91,7 +92,10 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
         [() => ({ txHash: randomTxHash() }), () => []],
 
-        [() => ({ owner: owners[0].address }), () => notes.filter(note => note.publicKey.equals(owners[0].publicKey))],
+        [
+          () => ({ owner: owners[0].address }),
+          () => notes.filter(note => note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey)),
+        ],
 
         [
           () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
@@ -109,10 +113,10 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomNoteDao({
+          randomIncomingNoteDao({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
-            publicKey: owners[i % owners.length].publicKey,
+            ivpkM: owners[i % owners.length].publicKeys.masterIncomingViewingPublicKey,
             index: BigInt(i),
           }),
         );
@@ -125,7 +129,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
         await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
@@ -137,13 +141,17 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
 
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
-          const notesToNullify = notes.filter(note => note.publicKey.equals(owner.publicKey));
+          const notesToNullify = notes.filter(note =>
+            note.ivpkM.equals(owner.publicKeys.masterIncomingViewingPublicKey),
+          );
           const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-          await expect(database.removeNullifiedNotes(nullifiers, owner.publicKey)).resolves.toEqual(notesToNullify);
+          await expect(
+            database.removeNullifiedNotes(nullifiers, owner.publicKeys.masterIncomingViewingPublicKey),
+          ).resolves.toEqual(notesToNullify);
         }
 
         await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
@@ -152,11 +160,13 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
 
-        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const notesToNullify = notes.filter(note =>
+          note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
+        );
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
           notesToNullify,
         );
 
@@ -168,11 +178,13 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it('returns active and nullified notes when requesting either', async () => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
 
-        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const notesToNullify = notes.filter(note =>
+          note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
+        );
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
           notesToNullify,
         );
 
@@ -186,9 +198,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
+    // TODO(#6867): Add tests for outgoing notes
+
     describe('block header', () => {
       it('stores and retrieves the block header', async () => {
-        const header = makeHeader(Math.floor(Math.random() * 1000), INITIAL_L2_BLOCK_NUM);
+        const header = makeHeader(randomInt(1000), INITIAL_L2_BLOCK_NUM);
 
         await database.setHeader(header);
         expect(database.getHeader()).toEqual(header);
@@ -214,7 +228,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.skip('refuses to overwrite an address with a different public key', async () => {
         const address = CompleteAddress.random();
-        const otherAddress = new CompleteAddress(address.address, Point.random(), address.partialAddress);
+        const otherAddress = new CompleteAddress(
+          address.address,
+          new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
+          address.partialAddress,
+        );
 
         await database.addCompleteAddress(address);
         await expect(database.addCompleteAddress(otherAddress)).rejects.toThrow();

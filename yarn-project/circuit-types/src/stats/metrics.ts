@@ -1,13 +1,15 @@
-import { StatsEventName } from './stats.js';
+import { type StatsEventName } from './stats.js';
 
 /** How a metric is grouped in benchmarks: by block size, by length of chain processed, or by circuit name. */
 export type MetricGroupBy =
+  | 'threads'
   | 'block-size'
   | 'chain-length'
-  | 'circuit-name'
+  | 'protocol-circuit-name'
+  | 'app-circuit-name'
   | 'classes-registered'
   | 'leaf-count'
-  | 'data-writes';
+  | 'fee-payment-method';
 
 /** Definition of a metric to track in benchmarks. */
 export interface Metric {
@@ -23,6 +25,60 @@ export interface Metric {
 
 /** Metric definitions to track from benchmarks. */
 export const Metrics = [
+  {
+    name: 'public_db_access_time_ms',
+    groupBy: 'chain-length',
+    description: 'Time to access a database.',
+    events: ['public-db-access'],
+  },
+  {
+    name: 'avm_simulation_time_ms',
+    groupBy: 'app-circuit-name',
+    description: 'Time to simulate an AVM circuit.',
+    events: ['avm-simulation'],
+  },
+  {
+    name: 'proof_construction_time_sha256_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_sha256_30_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_sha256_100_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_30_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_100_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_eddsa_poseidon_ms',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
   {
     name: 'l1_rollup_calldata_size_in_bytes',
     groupBy: 'block-size',
@@ -110,22 +166,100 @@ export const Metrics = [
     events: ['note-processor-caught-up'],
   },
   {
-    name: 'circuit_simulation_time_in_ms',
-    groupBy: 'circuit-name',
+    name: 'protocol_circuit_simulation_time_in_ms',
+    groupBy: 'protocol-circuit-name',
     description: 'Time to run a circuit simulation.',
     events: ['circuit-simulation'],
   },
   {
-    name: 'circuit_input_size_in_bytes',
-    groupBy: 'circuit-name',
+    name: 'protocol_circuit_witness_generation_time_in_ms',
+    groupBy: 'protocol-circuit-name',
+    description: 'Time to generate the partial witness for a circuit',
+    events: ['circuit-simulation'],
+  },
+  {
+    name: 'protocol_circuit_proving_time_in_ms',
+    groupBy: 'protocol-circuit-name',
+    description: 'Time to prove circuit execution.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'protocol_circuit_input_size_in_bytes',
+    groupBy: 'protocol-circuit-name',
     description: 'Size of the inputs to a circuit simulation.',
     events: ['circuit-simulation'],
   },
   {
-    name: 'circuit_output_size_in_bytes',
-    groupBy: 'circuit-name',
+    name: 'protocol_circuit_output_size_in_bytes',
+    groupBy: 'protocol-circuit-name',
     description: 'Size of the outputs (ie public inputs) from a circuit simulation.',
     events: ['circuit-simulation'],
+  },
+  {
+    name: 'protocol_circuit_proof_size_in_bytes',
+    groupBy: 'protocol-circuit-name',
+    description: 'Size of the proof produced by a circuit.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'protocol_circuit_num_public_inputs',
+    groupBy: 'protocol-circuit-name',
+    description: 'Number of public inputs.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'protocol_circuit_size_in_gates',
+    groupBy: 'protocol-circuit-name',
+    description: 'Size of the proof produced by a circuit.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'app_circuit_simulation_time_in_ms',
+    groupBy: 'app-circuit-name',
+    description: 'Time to run a circuit simulation.',
+    events: ['circuit-simulation'],
+  },
+  {
+    name: 'app_circuit_input_size_in_bytes',
+    groupBy: 'app-circuit-name',
+    description: 'Size of the inputs to a circuit simulation.',
+    events: ['circuit-simulation'],
+  },
+  {
+    name: 'app_circuit_output_size_in_bytes',
+    groupBy: 'app-circuit-name',
+    description: 'Size of the outputs (ie public inputs) from a circuit simulation.',
+    events: ['circuit-simulation'],
+  },
+  {
+    name: 'app_circuit_proof_size_in_bytes',
+    groupBy: 'app-circuit-name',
+    description: 'Size of the proof produced by a circuit.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'app_circuit_witness_generation_time_in_ms',
+    groupBy: 'app-circuit-name',
+    description: 'Time to generate the partial witness for a circuit',
+    events: ['circuit-simulation'],
+  },
+  {
+    name: 'app_circuit_proving_time_in_ms',
+    groupBy: 'app-circuit-name',
+    description: 'Duration of proving an app circuit.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'app_circuit_size_in_gates',
+    groupBy: 'app-circuit-name',
+    description: 'Size of an app circuit.',
+    events: ['circuit-proving'],
+  },
+  {
+    name: 'app_circuit_num_public_inputs',
+    groupBy: 'app-circuit-name',
+    description: 'Number of public inputs.',
+    events: ['circuit-proving'],
   },
   {
     name: 'tx_size_in_bytes',
@@ -134,16 +268,10 @@ export const Metrics = [
     events: ['tx-added-to-pool'],
   },
   {
-    name: 'tx_pxe_processing_time_ms',
-    groupBy: 'data-writes',
-    description: 'Time to process the private part of a tx.',
-    events: ['tx-pxe-processing'],
-  },
-  {
-    name: 'tx_sequencer_processing_time_ms',
-    groupBy: 'data-writes',
-    description: 'Time to process the public part of a tx.',
-    events: ['tx-sequencer-processing'],
+    name: 'tx_with_fee_size_in_bytes',
+    groupBy: 'fee-payment-method',
+    description: 'Size of txs after fully processing them (including fee payment).',
+    events: ['tx-added-to-pool'],
   },
   {
     name: 'batch_insert_into_append_only_tree_16_depth_ms',

@@ -1,9 +1,10 @@
 import { FunctionSelector } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { EthAddress } from '@aztec/aztec.js/eth_address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/aztec.js/fields';
+import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
+import { PublicKeys } from '@aztec/circuits.js';
 
 import { InvalidArgumentError } from 'commander';
 
@@ -18,6 +19,10 @@ const stripLeadingHex = (hex: string) => {
   }
   return hex;
 };
+
+export function parseBigint(bigint: string): bigint | undefined {
+  return bigint ? BigInt(bigint) : undefined;
+}
 
 /**
  * Parses a hex encoded string to an Fr integer
@@ -159,13 +164,16 @@ export function parseOptionalTxHash(txHash: string): TxHash | undefined {
 
 /**
  * Parses a public key from a string.
- * @param publicKey - A public key
- * @returns A Point instance
+ * @param publicKey - A public keys object serialised as a string
+ * @returns A PublicKeys instance
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parsePublicKey(publicKey: string): Point {
+export function parsePublicKey(publicKey: string): PublicKeys | undefined {
+  if (!publicKey) {
+    return undefined;
+  }
   try {
-    return Point.fromString(publicKey);
+    return PublicKeys.fromString(publicKey);
   } catch (err) {
     throw new InvalidArgumentError(`Invalid public key: ${publicKey}`);
   }
@@ -191,17 +199,11 @@ export function parsePartialAddress(address: string): Fr {
  * @returns A private key
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parsePrivateKey(privateKey: string): GrumpkinScalar {
+export function parsePrivateKey(privateKey: string): Fr {
   try {
-    const value = GrumpkinScalar.fromString(privateKey);
-    // most likely a badly formatted key was passed
-    if (value.isZero()) {
-      throw new Error('Private key must not be zero');
-    }
-
-    return value;
+    return Fr.fromString(privateKey);
   } catch (err) {
-    throw new InvalidArgumentError(`Invalid private key: ${privateKey}`);
+    throw new InvalidArgumentError(`Invalid encryption private key: ${privateKey}`);
   }
 }
 

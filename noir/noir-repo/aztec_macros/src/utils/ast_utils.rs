@@ -1,10 +1,11 @@
 use noirc_errors::{Span, Spanned};
-use noirc_frontend::{
-    token::SecondaryAttribute, BinaryOpKind, CallExpression, CastExpression, Expression,
-    ExpressionKind, FunctionReturnType, Ident, IndexExpression, InfixExpression, Lambda,
-    LetStatement, MemberAccessExpression, MethodCallExpression, Path, Pattern, PrefixExpression,
-    Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
+use noirc_frontend::ast::{
+    BinaryOpKind, CallExpression, CastExpression, Expression, ExpressionKind, FunctionReturnType,
+    Ident, IndexExpression, InfixExpression, Lambda, LetStatement, MemberAccessExpression,
+    MethodCallExpression, NoirTraitImpl, Path, Pattern, PrefixExpression, Statement, StatementKind,
+    TraitImplItem, UnaryOp, UnresolvedType, UnresolvedTypeData,
 };
+use noirc_frontend::token::SecondaryAttribute;
 
 //
 //             Helper macros for creating noir ast nodes
@@ -26,15 +27,15 @@ pub fn expression(kind: ExpressionKind) -> Expression {
 }
 
 pub fn variable(name: &str) -> Expression {
-    expression(ExpressionKind::Variable(ident_path(name)))
+    expression(ExpressionKind::Variable(ident_path(name), None))
 }
 
 pub fn variable_ident(identifier: Ident) -> Expression {
-    expression(ExpressionKind::Variable(path(identifier)))
+    expression(ExpressionKind::Variable(path(identifier), None))
 }
 
 pub fn variable_path(path: Path) -> Expression {
-    expression(ExpressionKind::Variable(path))
+    expression(ExpressionKind::Variable(path, None))
 }
 
 pub fn method_call(
@@ -46,6 +47,7 @@ pub fn method_call(
         object,
         method_name: ident(method_name),
         arguments,
+        generics: None,
     })))
 }
 
@@ -66,6 +68,8 @@ pub fn mutable_assignment(name: &str, assigned_to: Expression) -> Statement {
         pattern: mutable(name),
         r#type: make_type(UnresolvedTypeData::Unspecified),
         expression: assigned_to,
+        comptime: false,
+        attributes: vec![],
     }))
 }
 
@@ -77,18 +81,21 @@ pub fn mutable_reference(variable_name: &str) -> Expression {
 }
 
 pub fn assignment(name: &str, assigned_to: Expression) -> Statement {
-    make_statement(StatementKind::Let(LetStatement {
-        pattern: pattern(name),
-        r#type: make_type(UnresolvedTypeData::Unspecified),
-        expression: assigned_to,
-    }))
+    assignment_with_type(name, UnresolvedTypeData::Unspecified, assigned_to)
 }
 
-pub fn member_access(lhs: &str, rhs: &str) -> Expression {
-    expression(ExpressionKind::MemberAccess(Box::new(MemberAccessExpression {
-        lhs: variable(lhs),
-        rhs: ident(rhs),
-    })))
+pub fn assignment_with_type(
+    name: &str,
+    typ: UnresolvedTypeData,
+    assigned_to: Expression,
+) -> Statement {
+    make_statement(StatementKind::Let(LetStatement {
+        pattern: pattern(name),
+        r#type: make_type(typ),
+        expression: assigned_to,
+        comptime: false,
+        attributes: vec![],
+    }))
 }
 
 pub fn return_type(path: Path) -> FunctionReturnType {
@@ -117,6 +124,13 @@ pub fn make_eq(lhs: Expression, rhs: Expression) -> Expression {
 
 pub fn make_statement(kind: StatementKind) -> Statement {
     Statement { span: Span::default(), kind }
+}
+
+pub fn member_access(lhs: Expression, member: &str) -> Expression {
+    expression(ExpressionKind::MemberAccess(Box::new(MemberAccessExpression {
+        lhs,
+        rhs: ident(member),
+    })))
 }
 
 #[macro_export]
@@ -166,11 +180,11 @@ pub fn index_array(array: Ident, index: &str) -> Expression {
     })))
 }
 
-pub fn index_array_variable(array: Expression, index: &str) -> Expression {
-    expression(ExpressionKind::Index(Box::new(IndexExpression {
-        collection: array,
-        index: variable(index),
-    })))
+pub fn check_trait_method_implemented(trait_impl: &NoirTraitImpl, method_name: &str) -> bool {
+    trait_impl.items.iter().any(|item| match item {
+        TraitImplItem::Function(func) => func.def.name.0.contents == method_name,
+        _ => false,
+    })
 }
 
 /// Checks if an attribute is a custom attribute with a specific name

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -34,7 +34,7 @@ template <typename Flavor> class MergeProver_ {
   private:
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
-    static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = MegaFlavor::NUM_WIRES;
 };
 
 } // namespace bb

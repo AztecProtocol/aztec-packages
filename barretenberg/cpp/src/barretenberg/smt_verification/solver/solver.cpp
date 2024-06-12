@@ -1,5 +1,5 @@
 #include "solver.hpp"
-#include <iostream>
+#include "barretenberg/common/log.hpp"
 
 namespace smt_solver {
 
@@ -10,7 +10,7 @@ namespace smt_solver {
  * */
 bool Solver::check()
 {
-    cvc5::Result result = this->s.checkSat();
+    cvc5::Result result = this->solver.checkSat();
     this->checked = true;
     this->cvc_result = result;
 
@@ -41,12 +41,14 @@ std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<st
     }
     std::unordered_map<std::string, std::string> resulting_model;
     for (auto& term : terms) {
-        cvc5::Term val = this->s.getValue(term.second);
+        cvc5::Term val = this->solver.getValue(term.second);
         std::string str_val;
         if (val.isIntegerValue()) {
             str_val = val.getIntegerValue();
         } else if (val.isFiniteFieldValue()) {
             str_val = val.getFiniteFieldValue();
+        } else if (val.isBitVectorValue()) {
+            str_val = "0b" + val.getBitVectorValue();
         } else {
             throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
         }
@@ -76,12 +78,14 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
     }
     std::unordered_map<std::string, std::string> resulting_model;
     for (auto& term : terms) {
-        cvc5::Term val = this->s.getValue(term);
+        cvc5::Term val = this->solver.getValue(term);
         std::string str_val;
         if (val.isIntegerValue()) {
             str_val = val.getIntegerValue();
         } else if (val.isFiniteFieldValue()) {
             str_val = val.getFiniteFieldValue();
+        } else if (val.isBitVectorValue()) {
+            str_val = "0b" + val.getBitVectorValue();
         } else {
             throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
         }
@@ -112,6 +116,9 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
     if (term.getKind() == cvc5::Kind::CONST_INTEGER) {
         return term.getIntegerValue();
     }
+    if (term.getKind() == cvc5::Kind::CONST_BITVECTOR) {
+        return term.getBitVectorValue();
+    }
     if (term.getKind() == cvc5::Kind::CONST_BOOLEAN) {
         std::vector<std::string> bool_res = { "false", "true" };
         return bool_res[static_cast<size_t>(term.getBooleanValue())];
@@ -120,22 +127,27 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
     std::string res;
     std::string op;
     bool child_parenthesis = true;
+    bool back = false;
     switch (term.getKind()) {
     case cvc5::Kind::ADD:
     case cvc5::Kind::FINITE_FIELD_ADD:
+    case cvc5::Kind::BITVECTOR_ADD:
         op = " + ";
         child_parenthesis = false;
         break;
     case cvc5::Kind::SUB:
+    case cvc5::Kind::BITVECTOR_SUB:
         op = " - ";
         child_parenthesis = false;
         break;
     case cvc5::Kind::NEG:
     case cvc5::Kind::FINITE_FIELD_NEG:
+    case cvc5::Kind::BITVECTOR_NEG:
         res = "-";
         break;
     case cvc5::Kind::MULT:
     case cvc5::Kind::FINITE_FIELD_MULT:
+    case cvc5::Kind::BITVECTOR_MULT:
         op = " * ";
         break;
     case cvc5::Kind::EQUAL:
@@ -143,22 +155,49 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
         child_parenthesis = false;
         break;
     case cvc5::Kind::LT:
+    case cvc5::Kind::BITVECTOR_ULT:
         op = " < ";
         break;
     case cvc5::Kind::GT:
+    case cvc5::Kind::BITVECTOR_UGT:
         op = " > ";
         break;
     case cvc5::Kind::LEQ:
+    case cvc5::Kind::BITVECTOR_ULE:
         op = " <= ";
         break;
     case cvc5::Kind::GEQ:
+    case cvc5::Kind::BITVECTOR_UGE:
         op = " >= ";
         break;
     case cvc5::Kind::XOR:
+    case cvc5::Kind::BITVECTOR_XOR:
         op = " ^ ";
+        break;
+    case cvc5::Kind::BITVECTOR_OR:
+        op = " | ";
         break;
     case cvc5::Kind::OR:
         op = " || ";
+        break;
+    case cvc5::Kind::BITVECTOR_AND:
+        op = " & ";
+        break;
+    case cvc5::Kind::BITVECTOR_SHL:
+        back = true;
+        op = " << ";
+        break;
+    case cvc5::Kind::BITVECTOR_LSHR:
+        back = true;
+        op = " >> ";
+        break;
+    case cvc5::Kind::BITVECTOR_ROTATE_LEFT:
+        back = true;
+        op = " ><< " + term.getOp()[0].toString();
+        break;
+    case cvc5::Kind::BITVECTOR_ROTATE_RIGHT:
+        back = true;
+        op = " >>< " + term.getOp()[0].toString();
         break;
     case cvc5::Kind::AND:
         op = " && ";
@@ -187,6 +226,9 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
     }
 
     res = res + stringify_term(child, child_parenthesis);
+    if (back) {
+        res += op;
+    }
     if (parenthesis) {
         return "(" + res + ")";
     }
@@ -199,8 +241,31 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
  * */
 void Solver::print_assertions() const
 {
-    for (auto& t : this->s.getAssertions()) {
+    for (const auto& t : this->solver.getAssertions()) {
         info(stringify_term(t));
     }
+}
+
+cvc5::Term Solver::create_lookup_table(std::vector<std::vector<cvc5::Term>>& table)
+{
+    if (!lookup_enabled) {
+        this->solver.setLogic("ALL");
+        this->solver.setOption("finite-model-find", "true");
+        this->solver.setOption("sets-ext", "true");
+        lookup_enabled = true;
+    }
+
+    cvc5::Term tmp = table[0][0];
+    cvc5::Sort tuple_sort = this->term_manager.mkTupleSort({ tmp.getSort(), tmp.getSort(), tmp.getSort() });
+    cvc5::Sort relation = this->term_manager.mkSetSort(tuple_sort);
+    cvc5::Term resulting_table = this->term_manager.mkEmptySet(relation);
+
+    std::vector<cvc5::Term> children;
+    for (auto& table_entry : table) {
+        cvc5::Term entry = this->term_manager.mkTuple(table_entry);
+        children.push_back(entry);
+    }
+    children.push_back(resulting_table);
+    return this->term_manager.mkTerm(cvc5::Kind::SET_INSERT, children);
 }
 }; // namespace smt_solver

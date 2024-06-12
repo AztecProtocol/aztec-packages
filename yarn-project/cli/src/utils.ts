@@ -2,9 +2,17 @@ import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } fr
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
-import { NoirPackageConfig } from '@aztec/foundation/noir';
-import { AvailabilityOracleAbi, AvailabilityOracleBytecode } from '@aztec/l1-artifacts';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type NoirPackageConfig } from '@aztec/foundation/noir';
+import {
+  AvailabilityOracleAbi,
+  AvailabilityOracleBytecode,
+  GasPortalAbi,
+  GasPortalBytecode,
+  PortalERC20Abi,
+  PortalERC20Bytecode,
+} from '@aztec/l1-artifacts';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
@@ -85,8 +93,18 @@ export async function deployAztecContracts(
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
+    gasToken: {
+      contractAbi: PortalERC20Abi,
+      contractBytecode: PortalERC20Bytecode,
+    },
+    gasPortal: {
+      contractAbi: GasPortalAbi,
+      contractBytecode: GasPortalBytecode,
+    },
   };
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts);
+  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
+    l2GasTokenAddress: GasTokenAddress,
+  });
 }
 
 /**
@@ -94,7 +112,7 @@ export async function deployAztecContracts(
  * @returns The contract ABIs.
  */
 export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
-  const imports: any = await import('@aztec/noir-contracts.js');
+  const imports = await import('@aztec/noir-contracts.js');
   return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }
 
@@ -106,8 +124,10 @@ export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
 export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
   const artifacts = await getExampleContractArtifacts();
-  if (artifacts[fileDir]) {
-    return artifacts[fileDir] as ContractArtifact;
+  for (const key of [fileDir, fileDir + 'Artifact', fileDir + 'ContractArtifact']) {
+    if (artifacts[key]) {
+      return artifacts[key] as ContractArtifact;
+    }
   }
 
   let contents: string;

@@ -1,8 +1,7 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
-import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
-
-import { randomBytes } from 'crypto';
+import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
+import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
 
 /**
  * Represents an individual unencrypted log entry.
@@ -25,7 +24,8 @@ export class UnencryptedL2Log {
   ) {}
 
   get length(): number {
-    return EventSelector.SIZE + this.data.length;
+    // TODO(6578): explain magic number 4 here
+    return EventSelector.SIZE + this.data.length + AztecAddress.SIZE_IN_BYTES + 4;
   }
 
   /**
@@ -46,10 +46,26 @@ export class UnencryptedL2Log {
    * @returns A human readable representation of the log.
    */
   public toHumanReadable(): string {
-    const payload = this.data.every(byte => byte >= 32 && byte <= 126)
-      ? this.data.toString('ascii')
-      : `0x` + this.data.toString('hex');
+    const payload = toHumanReadable(this.data);
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, selector: ${this.selector.toString()}, data: ${payload})`;
+  }
+
+  /** Returns a JSON-friendly representation of the log. */
+  public toJSON(): object {
+    return {
+      contractAddress: this.contractAddress.toString(),
+      selector: this.selector.toString(),
+      data: this.data.toString('hex'),
+    };
+  }
+
+  /** Converts a plain JSON object into an instance. */
+  public static fromJSON(obj: any) {
+    return new UnencryptedL2Log(
+      AztecAddress.fromString(obj.contractAddress),
+      EventSelector.fromString(obj.selector),
+      Buffer.from(obj.data, 'hex'),
+    );
   }
 
   /**
@@ -66,13 +82,33 @@ export class UnencryptedL2Log {
   }
 
   /**
+   * Calculates hash of serialized logs.
+   * @returns Buffer containing 248 bits of information of sha256 hash.
+   */
+  public hash(): Buffer {
+    const preimage = this.toBuffer();
+    return sha256Trunc(preimage);
+  }
+
+  /**
+   * Calculates siloed hash of serialized logs.
+   * In the kernels, we use the storage contract address and not the one encoded here.
+   * They should match, so it seems fine to use the existing info here.
+   * @returns Buffer containing 248 bits of information of sha256 hash.
+   */
+  public getSiloedHash(): Buffer {
+    const hash = this.hash();
+    return sha256Trunc(Buffer.concat([this.contractAddress.toBuffer(), hash]));
+  }
+
+  /**
    * Crates a random log.
    * @returns A random log.
    */
   public static random(): UnencryptedL2Log {
     const contractAddress = AztecAddress.random();
-    const selector = new EventSelector(Math.floor(Math.random() * (2 ** (EventSelector.SIZE * 8) - 1)));
-    const dataLength = EventSelector.SIZE + Math.floor(Math.random() * 200);
+    const selector = EventSelector.random();
+    const dataLength = EventSelector.SIZE + randomBytes(1)[0];
     const data = randomBytes(dataLength);
     return new UnencryptedL2Log(contractAddress, selector, data);
   }

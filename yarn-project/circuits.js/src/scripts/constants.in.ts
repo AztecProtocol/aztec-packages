@@ -4,14 +4,54 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/avm_trace/aztec_constants.hpp';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
+
+// Whitelist of constants that will be copied to aztec_constants.hpp.
+// We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
+const CPP_CONSTANTS = [
+  'TOTAL_FEES_LENGTH',
+  'GAS_FEES_LENGTH',
+  'GAS_LENGTH',
+  'CONTENT_COMMITMENT_LENGTH',
+  'GLOBAL_VARIABLES_LENGTH',
+  'APPEND_ONLY_TREE_SNAPSHOT_LENGTH',
+  'PARTIAL_STATE_REFERENCE_LENGTH',
+  'STATE_REFERENCE_LENGTH',
+  'HEADER_LENGTH',
+  'CALL_CONTEXT_LENGTH',
+  'PUBLIC_CONTEXT_INPUTS_LENGTH',
+  'PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH',
+  'READ_REQUEST_LENGTH',
+  'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
+  'MAX_NULLIFIER_READ_REQUESTS_PER_CALL',
+  'MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL',
+  'MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL',
+  'CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH',
+  'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
+  'CONTRACT_STORAGE_READ_LENGTH',
+  'MAX_PUBLIC_DATA_READS_PER_CALL',
+  'MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL',
+  'NOTE_HASH_LENGTH',
+  'MAX_NEW_NOTE_HASHES_PER_CALL',
+  'NULLIFIER_LENGTH',
+  'MAX_NEW_NULLIFIERS_PER_CALL',
+  'L2_TO_L1_MESSAGE_LENGTH',
+  'MAX_NEW_L2_TO_L1_MSGS_PER_CALL',
+  'LOG_HASH_LENGTH',
+  'MAX_UNENCRYPTED_LOGS_PER_CALL',
+  'HEADER_LENGTH',
+  'GLOBAL_VARIABLES_LENGTH',
+  'AZTEC_ADDRESS_LENGTH',
+  'GAS_LENGTH',
+];
 
 /**
  * Parsed content.
  */
 interface ParsedContent {
   /**
-   * Constants.
+   * Constants of the form "CONSTANT_NAME: number_as_string".
    */
   constants: { [key: string]: string };
   /**
@@ -30,6 +70,23 @@ function processConstantsTS(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     code.push(`export const ${key} = ${+value > Number.MAX_SAFE_INTEGER ? value + 'n' : value};`);
+  });
+  return code.join('\n');
+}
+
+/**
+ * Processes a collection of constants and generates code to export them as cpp constants.
+ * Required to ensure consistency between the constants used in pil and used in the vm witness generator.
+ *
+ * @param constants - An object containing key-value pairs representing constants.
+ * @returns A string containing code that exports the constants as cpp constants.
+ */
+function processConstantsCpp(constants: { [key: string]: string }): string {
+  const code: string[] = [];
+  Object.entries(constants).forEach(([key, value]) => {
+    if (CPP_CONSTANTS.includes(key)) {
+      code.push(`#define ${key} ${value}`);
+    }
   });
   return code.join('\n');
 }
@@ -84,6 +141,19 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 }
 
 /**
+ * Generate the constants file in C++.
+ */
+function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
+  const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+#pragma once
+
+${processConstantsCpp(constants)}
+\n`;
+
+  fs.writeFileSync(targetPath, resultCpp);
+}
+
+/**
  * Generate the constants file in Solidity.
  */
 function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
@@ -113,16 +183,17 @@ ${processConstantsSolidity(constants)}
  * Parse the content of the constants file in Noir.
  */
 function parseNoirFile(fileContent: string): ParsedContent {
-  const constants: { [key: string]: string } = {};
+  const constantsExpressions: [string, string][] = [];
   const generatorIndexEnum: { [key: string]: number } = {};
 
   fileContent.split('\n').forEach(l => {
     const line = l.trim();
-    if (!line || line.match(/^\/\/|\/?\*/)) {
+    if (!line || line.match(/^\/\/|^\s*\/?\*/)) {
       return;
     }
 
-    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(0x[a-fA-F0-9]+|\d+);/) || [];
+    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(.+?);/) || [];
+
     if (!name || !value) {
       // eslint-disable-next-line no-console
       console.warn(`Unknown content: ${line}`);
@@ -133,11 +204,52 @@ function parseNoirFile(fileContent: string): ParsedContent {
     if (indexName) {
       generatorIndexEnum[indexName] = +value;
     } else {
-      constants[name] = value;
+      constantsExpressions.push([name, value]);
     }
   });
 
+  const constants = evaluateExpressions(constantsExpressions);
+
   return { constants, generatorIndexEnum };
+}
+
+/**
+ * Converts constants defined as expressions to constants with actual values.
+ * @param expressions Ordered list of expressions of the type: "CONSTANT_NAME: expression".
+ *   where the expression is a string that can be evaluated to a number.
+ *   For example: "CONSTANT_NAME: 2 + 2" or "CONSTANT_NAME: CONSTANT_A * CONSTANT_B".
+ * @returns Parsed expressions of the form: "CONSTANT_NAME: number_as_string".
+ */
+function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
+  const constants: { [key: string]: string } = {};
+
+  // Create JS expressions. It is not as easy as just evaluating the expression!
+  // We basically need to convert everything to BigInts, otherwise things don't fit.
+  // However, (1) the bigints need to be initialized from strings; (2) everything needs to
+  // be a bigint, even the actual constant values!
+  const prelude = expressions
+    .map(([name, rhs]) => {
+      const guardedRhs = rhs
+        // We make some space around the parentheses, so that constant numbers are still split.
+        .replace(/\(/g, '( ')
+        .replace(/\)/g, ' )')
+        // We split the expression into terms...
+        .split(' ')
+        // ...and then we convert each term to a BigInt if it is a number.
+        .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        // We join the terms back together.
+        .join(' ');
+      return `var ${name} = ${guardedRhs};`;
+    })
+    .join('\n');
+
+  // Extract each value from the expressions. Observe that this will still be a string,
+  // so that we can then choose to express it as BigInt or Number depending on the size.
+  for (const [name, _] of expressions) {
+    constants[name] = eval(prelude + `; BigInt(${name}).toString()`);
+  }
+
+  return constants;
 }
 
 /**
@@ -153,6 +265,10 @@ function main(): void {
   // Typescript
   const tsTargetPath = join(__dirname, TS_CONSTANTS_FILE);
   generateTypescriptConstants(parsedContent, tsTargetPath);
+
+  // Cpp
+  const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
+  generateCppConstants(parsedContent, cppTargetPath);
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);

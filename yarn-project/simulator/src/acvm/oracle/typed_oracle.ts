@@ -1,40 +1,25 @@
 import {
-  CompleteAddress,
-  MerkleTreeId,
-  Note,
-  NoteStatus,
-  NullifierMembershipWitness,
-  PublicDataWitness,
-  PublicKey,
-  SiblingPath,
-  UnencryptedL2Log,
+  type CompleteAddress,
+  type MerkleTreeId,
+  type Note,
+  type NoteStatus,
+  type NullifierMembershipWitness,
+  type PublicDataWitness,
+  type PublicKey,
+  type SiblingPath,
+  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  GrumpkinPrivateKey,
-  Header,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  PrivateCallStackItem,
-  PublicCallRequest,
+  type Header,
+  type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type PrivateCallStackItem,
+  type PublicCallRequest,
 } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type FunctionSelector } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractInstance } from '@aztec/types/contracts';
-
-/**
- * A pair of public key and secret key.
- */
-export interface KeyPair {
-  /**
-   * Public key.
-   */
-  publicKey: PublicKey;
-  /**
-   * Secret Key.
-   */
-  secretKey: GrumpkinPrivateKey;
-}
+import { type ContractInstance } from '@aztec/types/contracts';
 
 /**
  * Information about a note needed during execution.
@@ -69,6 +54,12 @@ export class MessageLoadOracleInputs<N extends number> {
   }
 }
 
+class OracleMethodNotAvailableError extends Error {
+  constructor(methodName: string) {
+    super(`Oracle method ${methodName} is not available.`);
+  }
+}
+
 /**
  * Oracle with typed parameters and typed return values.
  * Methods that require read and/or write will have to be implemented based on the context (public, private, or view)
@@ -79,147 +70,212 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  packArguments(_args: Fr[]): Promise<Fr> {
-    throw new Error('Not available.');
+  packArgumentsArray(_args: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('packArgumentsArray');
   }
 
-  getNullifierKeyPair(_accountAddress: AztecAddress): Promise<KeyPair> {
-    throw new Error('Not available.');
+  packReturns(_returns: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('packReturns');
   }
 
-  getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
-    throw new Error('Not available.');
+  unpackReturns(_returnsHash: Fr): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('unpackReturns');
+  }
+
+  getBlockNumber(): Promise<number> {
+    throw new OracleMethodNotAvailableError('getBlockNumber');
+  }
+
+  getContractAddress(): Promise<AztecAddress> {
+    throw new OracleMethodNotAvailableError('getContractAddress');
+  }
+
+  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
+    throw new OracleMethodNotAvailableError('getKeyValidationRequest');
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getContractInstance');
   }
 
   getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getMembershipWitness');
   }
 
   getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getSiblingPath');
   }
 
   getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getNullifierMembershipWitness');
   }
 
   getPublicDataTreeWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getPublicDataTreeWitness');
   }
 
   getLowNullifierMembershipWitness(
     _blockNumber: number,
     _nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getLowNullifierMembershipWitness');
   }
 
   getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getHeader');
   }
 
-  getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
-    throw new Error('Not available.');
+  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
+    throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getAuthWitness');
   }
 
   popCapsule(): Promise<Fr[]> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('popCapsule');
   }
 
   getNotes(
     _storageSlot: Fr,
     _numSelects: number,
-    _selectBy: number[],
+    _selectByIndexes: number[],
+    _selectByOffsets: number[],
+    _selectByLengths: number[],
     _selectValues: Fr[],
     _selectComparators: number[],
-    _sortBy: number[],
+    _sortByIndexes: number[],
+    _sortByOffsets: number[],
+    _sortByLengths: number[],
     _sortOrder: number[],
     _limit: number,
     _offset: number,
     _status: NoteStatus,
   ): Promise<NoteData[]> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('getNotes');
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr): void {
-    throw new Error('Not available.');
+  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr, _counter: number): void {
+    throw new OracleMethodNotAvailableError('notifyCreatedNote');
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr): Promise<void> {
-    throw new Error('Not available.');
+  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr, _counter: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('notifyNullifiedNote');
   }
 
   checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('checkNullifierExists');
   }
 
-  getL1ToL2MembershipWitness(_entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    throw new Error('Not available.');
-  }
-
-  getPortalContractAddress(_contractAddress: AztecAddress): Promise<EthAddress> {
-    throw new Error('Not available.');
+  getL1ToL2MembershipWitness(
+    _contractAddress: AztecAddress,
+    _messageHash: Fr,
+    _secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    throw new OracleMethodNotAvailableError('getL1ToL2MembershipWitness');
   }
 
   storageRead(_startStorageSlot: Fr, _numberOfElements: number): Promise<Fr[]> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('storageRead');
   }
 
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedLog(
+  emitEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _encryptedEvent: Buffer,
+    _counter: number,
+  ): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
+  }
+
+  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
+  }
+
+  computeEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _eventTypeId: Fr,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
+    _preimage: Fr[],
+  ): Buffer {
+    throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
+  }
+
+  computeEncryptedNoteLog(
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
     _noteTypeId: Fr,
-    _publicKey: PublicKey,
-    _log: Fr[],
-  ): void {
-    throw new Error('Not available.');
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
+    _preimage: Fr[],
+  ): Buffer {
+    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
   }
 
-  emitUnencryptedLog(_log: UnencryptedL2Log): void {
-    throw new Error('Not available.');
+  emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitUnencryptedLog');
+  }
+
+  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+    throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
 
   callPrivateFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
-    _sideffectCounter: number,
+    _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('callPrivateFunction');
   }
 
   callPublicFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
+    _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
   ): Promise<Fr[]> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('callPublicFunction');
   }
 
   enqueuePublicFunctionCall(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
-    _sideffectCounter: number,
+    _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
-    throw new Error('Not available.');
+    throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
+  }
+
+  setPublicTeardownFunctionCall(
+    _targetContractAddress: AztecAddress,
+    _functionSelector: FunctionSelector,
+    _argsHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+    _isDelegateCall: boolean,
+  ): Promise<PublicCallRequest> {
+    throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
+  }
+
+  aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
+    throw new OracleMethodNotAvailableError('encrypt');
+  }
+
+  debugLog(_message: string, _fields: Fr[]): void {
+    throw new OracleMethodNotAvailableError('debugLog');
   }
 }

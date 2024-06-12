@@ -1,19 +1,29 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <cstddef>
 
 namespace acir_format {
 
+using namespace bb;
+
 template class DSLBigInts<UltraCircuitBuilder>;
-template class DSLBigInts<GoblinUltraCircuitBuilder>;
+template class DSLBigInts<MegaCircuitBuilder>;
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
+void build_constraints(Builder& builder,
+                       AcirFormat const& constraint_system,
+                       bool has_valid_witness_assignments,
+                       bool honk_recursion)
 {
     // Add arithmetic gates
-    for (const auto& constraint : constraint_system.constraints) {
+    for (const auto& constraint : constraint_system.poly_triple_constraints) {
         builder.create_poly_gate(constraint);
+    }
+    for (const auto& constraint : constraint_system.quad_constraints) {
+        builder.create_big_mul_gate(constraint);
     }
 
     // Add logic constraint
@@ -25,6 +35,11 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // Add range constraint
     for (const auto& constraint : constraint_system.range_constraints) {
         builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
+    }
+
+    // Add aes128 constraints
+    for (const auto& constraint : constraint_system.aes128_constraints) {
+        create_aes128_constraints(builder, constraint);
     }
 
     // Add sha256 constraints
@@ -64,9 +79,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     for (const auto& constraint : constraint_system.keccak_constraints) {
         create_keccak_constraints(builder, constraint);
     }
-    for (const auto& constraint : constraint_system.keccak_var_constraints) {
-        create_keccak_var_constraints(builder, constraint);
-    }
     for (const auto& constraint : constraint_system.keccak_permutations) {
         create_keccak_permutations(builder, constraint);
     }
@@ -83,9 +95,10 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     for (const auto& constraint : constraint_system.poseidon2_constraints) {
         create_poseidon2_permutations(builder, constraint);
     }
-    // Add fixed base scalar mul constraints
-    for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints) {
-        create_fixed_base_constraint(builder, constraint);
+
+    // Add multi scalar mul constraints
+    for (const auto& constraint : constraint_system.multi_scalar_mul_constraints) {
+        create_multi_scalar_mul_constraint(builder, constraint);
     }
 
     // Add ec add constraints
@@ -100,19 +113,21 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
 
     // Add big_int constraints
     DSLBigInts<Builder> dsl_bigints;
+    dsl_bigints.set_builder(&builder);
     for (const auto& constraint : constraint_system.bigint_from_le_bytes_constraints) {
         create_bigint_from_le_bytes_constraint(builder, constraint, dsl_bigints);
     }
     for (const auto& constraint : constraint_system.bigint_operations) {
-        create_bigint_operations_constraint<Builder>(constraint, dsl_bigints);
+        create_bigint_operations_constraint<Builder>(constraint, dsl_bigints, has_valid_witness_assignments);
     }
     for (const auto& constraint : constraint_system.bigint_to_le_bytes_constraints) {
         create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
-    // dealing with proper recursion
-    if constexpr (IsGoblinBuilder<Builder>) {
+    // RecursionConstraint
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
+    // not yet dealing with proper recursion
+    if constexpr (IsMegaBuilder<Builder>) {
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
@@ -153,7 +168,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                     auto error_string = format(
                         "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
                         "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                        "which is {}\n",
+                        "which is ",
                         RecursionConstraint::AGGREGATION_OBJECT_SIZE);
                     throw_or_abort(error_string);
                 }
@@ -198,10 +213,104 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }
+
+    // HonkRecursionConstraint
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
+    // not yet dealing with proper recursion
+    if constexpr (IsMegaBuilder<Builder>) {
+        if (!constraint_system.honk_recursion_constraints.empty()) {
+            info("WARNING: this circuit contains honk_recursion_constraints!");
+        }
+    } else {
+        // These are set and modified whenever we encounter a recursion opcode
+        //
+        // These should not be set by the caller
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): this usage of all zeros is a hack and could
+        // use types or enums to properly fix.
+        std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        };
+
+        // Add recursion constraints
+        for (auto constraint : constraint_system.honk_recursion_constraints) {
+            // A proof passed into the constraint should be stripped of its inner public inputs, but not the nested
+            // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
+            // state are a circuit constant. The user tells us they how they want these constants set by keeping the
+            // nested aggregation object attached to the proof as public inputs.
+            std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
+            for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+                // Set the nested aggregation object indices to witness indices from the proof
+                nested_aggregation_object[i] =
+                    static_cast<uint32_t>(constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
+                // Adding the nested aggregation object to the constraint's public inputs
+                constraint.public_inputs.emplace_back(nested_aggregation_object[i]);
+            }
+            // Remove the aggregation object so that they can be handled as normal public inputs
+            // in they way that the recursion constraint expects
+            constraint.proof.erase(constraint.proof.begin() + HonkRecursionConstraint::inner_public_input_offset,
+                                   constraint.proof.begin() +
+                                       static_cast<std::ptrdiff_t>(HonkRecursionConstraint::inner_public_input_offset +
+                                                                   HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
+            current_aggregation_object = create_honk_recursion_constraints(builder,
+                                                                           constraint,
+                                                                           current_aggregation_object,
+                                                                           nested_aggregation_object,
+                                                                           has_valid_witness_assignments);
+        }
+
+        // Now that the circuit has been completely built, we add the output aggregation as public
+        // inputs.
+        if (!constraint_system.honk_recursion_constraints.empty()) {
+
+            // First add the output aggregation object as public inputs
+            // Set the indices as public inputs because they are no longer being
+            // created in ACIR
+            for (const auto& idx : current_aggregation_object) {
+                builder.set_public_input(idx);
+            }
+
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                               current_aggregation_object.end());
+            builder.set_recursive_proof(proof_output_witness_indices);
+        } else if (honk_recursion &&
+                   builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from
+            // a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+            fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+            fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+
+            fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+            fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+            std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+            size_t agg_obj_indices_idx = 0;
+            for (fq val : aggregation_object_fq_values) {
+                const uint256_t x = val;
+                std::array<fr, fq_ct::NUM_LIMBS> val_limbs = {
+                    x.slice(0, fq_ct::NUM_LIMB_BITS),
+                    x.slice(fq_ct::NUM_LIMB_BITS, fq_ct::NUM_LIMB_BITS * 2),
+                    x.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 3),
+                    x.slice(fq_ct::NUM_LIMB_BITS * 3, stdlib::field_conversion::TOTAL_BITS)
+                };
+                for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
+                    uint32_t idx = builder.add_variable(val_limbs[i]);
+                    builder.set_public_input(idx);
+                    current_aggregation_object[agg_obj_indices_idx] = idx;
+                    agg_obj_indices_idx++;
+                }
+            }
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                               current_aggregation_object.end());
+            builder.set_recursive_proof(proof_output_witness_indices);
+        }
+    }
 }
 
 /**
- * @brief Create a circuit from acir constraints and optionally a witness
+ * @brief Specialization for creating Ultra circuit from acir constraints and optionally a witness
  *
  * @tparam Builder
  * @param constraint_system
@@ -209,22 +318,49 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
  * @param witness
  * @return Builder
  */
-template <typename Builder>
-Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint, WitnessVector const& witness)
+template <>
+UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
+                                   size_t size_hint,
+                                   WitnessVector const& witness,
+                                   bool honk_recursion,
+                                   [[maybe_unused]] std::shared_ptr<ECCOpQueue>)
 {
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
     };
 
     bool has_valid_witness_assignments = !witness.empty();
-    build_constraints(builder, constraint_system, has_valid_witness_assignments);
+    build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
     return builder;
-}
+};
 
-template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const AcirFormat& constraint_system,
-                                                                 size_t size_hint,
-                                                                 WitnessVector const& witness);
-template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool);
+/**
+ * @brief Specialization for creating Mega circuit from acir constraints and optionally a witness
+ *
+ * @tparam Builder
+ * @param constraint_system
+ * @param size_hint
+ * @param witness
+ * @return Builder
+ */
+template <>
+MegaCircuitBuilder create_circuit(const AcirFormat& constraint_system,
+                                  [[maybe_unused]] size_t size_hint,
+                                  WitnessVector const& witness,
+                                  bool honk_recursion,
+                                  std::shared_ptr<ECCOpQueue> op_queue)
+{
+    // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
+
+    // Populate constraints in the builder via the data in constraint_system
+    bool has_valid_witness_assignments = !witness.empty();
+    acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
+
+    return builder;
+};
+
+template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat const&, bool, bool);
 
 } // namespace acir_format

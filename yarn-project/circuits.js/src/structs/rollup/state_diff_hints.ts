@@ -1,6 +1,7 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -10,7 +11,7 @@ import {
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
 } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { NullifierLeafPreimage } from './nullifier_leaf/index.js';
+import { NullifierLeafPreimage } from '../trees/index.js';
 
 /**
  * Hints used while proving state diff validity.
@@ -68,7 +69,43 @@ export class StateDiffHints {
     ] as const;
   }
 
+  /**
+   * Serializes the state diff hints to a buffer.
+   * @returns A buffer of the serialized state diff hints.
+   */
   toBuffer(): Buffer {
     return serializeToBuffer(...StateDiffHints.getFields(this));
+  }
+
+  /**
+   * Deserializes the state diff hints from a buffer.
+   * @param buffer - A buffer to deserialize from.
+   * @returns A new StateDiffHints instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): StateDiffHints {
+    const reader = BufferReader.asReader(buffer);
+    return new StateDiffHints(
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierLeafPreimage),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, {
+        fromBuffer: buffer => MembershipWitness.fromBuffer(buffer, NULLIFIER_TREE_HEIGHT),
+      }),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
+      reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
+      reader.readArray(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+    );
+  }
+
+  static empty() {
+    return new StateDiffHints(
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, NullifierLeafPreimage.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => MembershipWitness.empty(NULLIFIER_TREE_HEIGHT)),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => 0),
+      makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
+      makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
+      makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
+    );
   }
 }

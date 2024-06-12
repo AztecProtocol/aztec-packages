@@ -1,8 +1,13 @@
-import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
+import {
+  type AztecNodeConfig,
+  createAztecNodeRpcServer,
+  getConfigEnvVars as getNodeConfigEnvVars,
+} from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { ServerList } from '@aztec/foundation/json-rpc/server';
-import { LogFn } from '@aztec/foundation/log';
-import { PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { type LogFn } from '@aztec/foundation/log';
+import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
+import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -25,20 +30,6 @@ export const startNode = async (
   // merge env vars and cli options
   let nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, nodeCliOptions);
 
-  // if no publisher private key, then use MNEMONIC
-  if (!options.archiver) {
-    // expect archiver url in node config
-    const archiverUrl = nodeCliOptions.archiverUrl;
-    if (!archiverUrl) {
-      userLog('Archiver Service URL is required to start Aztec Node without --archiver option');
-      throw new Error('Archiver Service URL is required to start Aztec Node without --archiver option');
-    }
-    nodeConfig.archiverUrl = archiverUrl;
-  } else {
-    const archiverCliOptions = parseModuleOptions(options.archiver);
-    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, archiverCliOptions, true);
-  }
-
   // Deploy contracts if needed
   if (nodeCliOptions.deployAztecContracts || DEPLOY_AZTEC_CONTRACTS === 'true') {
     let account;
@@ -50,6 +41,20 @@ export const startNode = async (
     await deployContractsToL1(nodeConfig, account);
   }
 
+  // if no publisher private key, then use MNEMONIC
+  if (!options.archiver) {
+    // expect archiver url in node config
+    const archiverUrl = nodeCliOptions.archiverUrl;
+    if (!archiverUrl) {
+      userLog('Archiver Service URL is required to start Aztec Node without --archiver option');
+      throw new Error('Archiver Service URL is required to start Aztec Node without --archiver option');
+    }
+    nodeConfig.archiverUrl = archiverUrl;
+  } else {
+    const archiverCliOptions = parseModuleOptions(options.archiver);
+    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(nodeConfig, archiverCliOptions, true);
+  }
+
   if (!options.sequencer) {
     nodeConfig.disableSequencer = true;
   } else if (nodeConfig.publisherPrivateKey === NULL_KEY) {
@@ -59,12 +64,33 @@ export const startNode = async (
     nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
+  if (!options.prover) {
+    userLog(`Prover is disabled, using mocked proofs`);
+    nodeConfig.disableProver = true;
+  } else {
+    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(nodeConfig, parseModuleOptions(options.prover));
+  }
+
+  // ensure bootstrapNodes is an array
+  if (nodeConfig.bootstrapNodes && typeof nodeConfig.bootstrapNodes === 'string') {
+    nodeConfig.bootstrapNodes = (nodeConfig.bootstrapNodes as string).split(',');
+  }
+
+  if (!nodeConfig.disableSequencer && nodeConfig.disableProver) {
+    throw new Error('Cannot run a sequencer without a prover');
+  }
+
   // Create and start Aztec Node.
   const node = await createAztecNode(nodeConfig);
   const nodeServer = createAztecNodeRpcServer(node);
 
   // Add node to services list
   services.push({ node: nodeServer });
+
+  if (!nodeConfig.disableProver) {
+    const provingJobSource = createProvingJobSourceServer(node.getProver()!.getProvingJobSource());
+    services.push({ provingJobSource });
+  }
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop);

@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "contracts/app_subscription_contract",
+    "contracts/auth_contract",
+    "contracts/avm_initializer_test_contract",
     "contracts/avm_test_contract",
     "contracts/fpc_contract",
     "contracts/benchmarking_contract",
@@ -20,6 +22,7 @@ members = [
     "contracts/escrow_contract",
     "contracts/gas_token_contract",
     "contracts/import_test_contract",
+    "contracts/key_registry_contract",
     "contracts/inclusion_proofs_contract",
     "contracts/lending_contract",
     "contracts/parent_contract",
@@ -28,12 +31,14 @@ members = [
     "contracts/schnorr_account_contract",
     "contracts/schnorr_hardcoded_account_contract",
     "contracts/schnorr_single_key_account_contract",
-    "contracts/slow_tree_contract",
     "contracts/stateful_test_contract",
     "contracts/test_contract",
+    "contracts/test_log_contract",
     "contracts/token_contract",
     "contracts/token_blacklist_contract",
     "contracts/token_bridge_contract",
     "contracts/uniswap_contract",
-    "contracts/reader_contract",
+    "contracts/multi_call_entrypoint_contract",
+    "contracts/static_child_contract",
+    "contracts/static_parent_contract"
 ]

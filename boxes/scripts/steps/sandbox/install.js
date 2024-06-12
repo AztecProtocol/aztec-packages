@@ -1,43 +1,15 @@
 import confirm from "@inquirer/confirm";
 import { execSync } from "child_process";
-import pty from "node-pty";
-import { updatePathEnvVar } from "../../utils.js";
-import chalk from "chalk";
-const { log } = console;
 
-const runPty = async (command, { success, error }) => {
-  try {
-    const ptySession = new Promise((resolve, reject) => {
-      const ptyProcess = pty.spawn("bash", [], {
-        name: "xterm-color",
-        cols: 80,
-        rows: 30,
-        cwd: process.cwd(),
-        env: process.env,
-      });
+export async function install() {
+  execSync(
+    "curl -s install.aztec.network | NON_INTERACTIVE=1 BIN_PATH=$HOME/.aztec/bin bash -s",
+  );
+}
 
-      ptyProcess.on("data", function (data) {
-        process.stdout.write(data);
-      });
-
-      ptyProcess.write(command);
-
-      ptyProcess.on("exit", function (exitCode, signal) {
-        updatePathEnvVar();
-        resolve();
-        if (exitCode === 0) {
-          log(chalk.bgGreen(success));
-        } else {
-          reject(chalk.bgRed(error));
-        }
-      });
-    });
-
-    await ptySession;
-  } catch (error) {
-    log(chalk.bgRed(error));
-  }
-};
+export async function update() {
+  execSync("$HOME/.aztec/bin/aztec-up", { stdio: "inherit" });
+}
 
 function findOutUserVersion() {
   /**
@@ -78,15 +50,13 @@ function findOutUserVersion() {
   return sandboxVersion;
 }
 
-export async function sandboxInstallOrUpdate(latestStable, versionToInstall) {
+export async function sandboxInstallOrUpdate() {
   // Checking for docker
   try {
     execSync("docker info >/dev/null 2>&1");
-  } catch (error) {
-    log(
-      chalk.bgRed(
-        "Doesn't seem like Docker is installed or running. Please start it or visit https://docs.aztec.network for more information",
-      ),
+  } catch (e) {
+    error(
+      "Doesn't seem like Docker is installed or running. Please start it or visit https://docs.aztec.network for more information",
     );
     process.exit(1);
   }
@@ -101,25 +71,17 @@ export async function sandboxInstallOrUpdate(latestStable, versionToInstall) {
         "Seems like you don't have the Aztec Sandbox installed. Do you want to install it?",
       default: true,
     });
-
     if (answer) {
-      await runPty(
-        "echo y | bash -i <(curl -s install.aztec.network); exit\n",
-        {
-          success: "The Sandbox is installed!",
-          error:
-            "Failed to install the Sandbox. Please visit the docs at https://docs.aztec.network",
-        },
-      );
+      await install();
     }
   } else if (
     // Another situation is where the sandbox matches the stable version (i.e. 0.24.0) or master
     (sandboxVersion === latestStable || sandboxVersion === "master") &&
     // but the user has chosen a different version (i.e. "master", 0.23.0, etc)
-    sandboxVersion !== versionToInstall
+    sandboxVersion !== version
   ) {
     const answer = await confirm({
-      message: `The sandbox is version ${sandboxVersion} but your chosen version is ${versionToInstall}. Do you want to install version ${versionToInstall}?`,
+      message: `The sandbox is version ${sandboxVersion} but your chosen version is ${version}. Do you want to install version ${version}?`,
       default: true,
     });
 
@@ -130,13 +92,13 @@ export async function sandboxInstallOrUpdate(latestStable, versionToInstall) {
   } else if (
     // Finally, there's a situation where
     // the user didn't want any specific version
-    sandboxVersion !== versionToInstall &&
+    sandboxVersion !== version &&
     // and the sandbox is not up to date
     // so we need to update to that since the cloned repo is also the latest
     sandboxVersion !== latestStable &&
     // we're also aware that the user might be on master
     // so his version is actually not outdated!
-    versionToInstall !== "master"
+    version !== "master"
   ) {
     const answer = await confirm({
       message: `The Sandbox is not up to date. Do you want to update it to ${latestStable}?`,
@@ -145,7 +107,7 @@ export async function sandboxInstallOrUpdate(latestStable, versionToInstall) {
 
     if (answer) {
       // again abusing the fact that the user has VERSION in the path
-      execSync(`$HOME/.aztec/bin/aztec-up`, { stdio: "inherit" });
+      update();
     }
   }
 }

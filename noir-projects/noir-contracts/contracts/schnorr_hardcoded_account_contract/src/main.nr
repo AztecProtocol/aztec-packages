@@ -14,25 +14,22 @@ contract SchnorrHardcodedAccount {
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
 
-    #[aztec(private)]
-    fn constructor() {}
-
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
-    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }
 
     #[aztec(private)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.spend_private_authwit(inner_hash)
     }
 
     #[aztec(public)]
     fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.spend_public_authwit(inner_hash)
     }
 
@@ -45,7 +42,7 @@ contract SchnorrHardcodedAccount {
     #[aztec(public)]
     #[aztec(internal)]
     fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.approve_public_authwit(outer_hash)
     }
 
@@ -60,7 +57,7 @@ contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        let verification = std::schnorr::verify_signature(
+        let verification = std::schnorr::verify_signature_slice(
             public_key_x,
             public_key_y,
             signature,

@@ -14,6 +14,15 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_poseidon2_external.is_zero();
+    }
+
+    /**
      * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as C(in(X)...) :=
@@ -43,6 +52,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("PoseidonExt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_l = View(in.w_l);
@@ -66,17 +76,17 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto s4 = w_4 + q_4;
 
         // apply s-box round
-        auto u1 = s1 * s1;
-        u1 *= u1;
+        auto u1 = s1.sqr();
+        u1 = u1.sqr();
         u1 *= s1;
-        auto u2 = s2 * s2;
-        u2 *= u2;
+        auto u2 = s2.sqr();
+        u2 = u2.sqr();
         u2 *= s2;
-        auto u3 = s3 * s3;
-        u3 *= u3;
+        auto u3 = s3.sqr();
+        u3 = u3.sqr();
         u3 *= s3;
-        auto u4 = s4 * s4;
-        u4 *= u4;
+        auto u4 = s4.sqr();
+        u4 = u4.sqr();
         u4 *= s4;
 
         // matrix mul v = M_E * u with 14 additions
@@ -95,20 +105,17 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto v1 = t3 + v2; // 5u_1 + 7u_2 + u_3 + 3u_4
         auto v3 = t2 + v4; // u_1 + 3u_2 + 5u_3 + 7u_4
 
-        auto tmp = q_poseidon2_external * (v1 - w_l_shift);
-        tmp *= scaling_factor;
+        auto q_pos_by_scaling = q_poseidon2_external * scaling_factor;
+        auto tmp = q_pos_by_scaling * (v1 - w_l_shift);
         std::get<0>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v2 - w_r_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v2 - w_r_shift);
         std::get<1>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v3 - w_o_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v3 - w_o_shift);
         std::get<2>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v4 - w_4_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v4 - w_4_shift);
         std::get<3>(evals) += tmp;
     };
 };

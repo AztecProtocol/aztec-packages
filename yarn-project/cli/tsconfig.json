@@ -13,6 +13,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -28,10 +31,13 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../noir-compiler"
+      "path": "../noir-contracts.js"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"

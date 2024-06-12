@@ -1,15 +1,23 @@
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
+import { decompressBytecodeIfCompressed, isAvmBytecode } from '../public/transitional_adaptors.js';
 import type { AvmContext } from './avm_context.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
-import { AvmExecutionError, InvalidProgramCounterError, NoBytecodeForContractError } from './errors.js';
+import {
+  AvmExecutionError,
+  InvalidProgramCounterError,
+  NoBytecodeForContractError,
+  revertReasonFromExceptionalHalt,
+  revertReasonFromExplicitRevert,
+} from './errors.js';
 import type { Instruction } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 
 export class AvmSimulator {
   private log: DebugLogger;
+  private bytecode: Buffer | undefined;
 
   constructor(private context: AvmContext) {
     this.log = createDebugLogger(
@@ -37,11 +45,22 @@ export class AvmSimulator {
   }
 
   /**
+   * Return the bytecode used for execution, if any.
+   */
+  public getBytecode(): Buffer | undefined {
+    return this.bytecode;
+  }
+
+  /**
    * Executes the provided bytecode in the current context.
    * This method is useful for testing and debugging.
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResults> {
-    return await this.executeInstructions(decodeFromBytecode(bytecode));
+    const decompressedBytecode = await decompressBytecodeIfCompressed(bytecode);
+    assert(isAvmBytecode(decompressedBytecode), "AVM simulator can't execute non-AVM bytecode");
+
+    this.bytecode = decompressedBytecode;
+    return await this.executeInstructions(decodeFromBytecode(decompressedBytecode));
   }
 
   /**
@@ -50,44 +69,49 @@ export class AvmSimulator {
    */
   public async executeInstructions(instructions: Instruction[]): Promise<AvmContractCallResults> {
     assert(instructions.length > 0);
-
+    const { machineState } = this.context;
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
-      while (!this.context.machineState.halted) {
-        const instruction = instructions[this.context.machineState.pc];
+      while (!machineState.getHalted()) {
+        const instruction = instructions[machineState.pc];
         assert(
           !!instruction,
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
         );
 
-        this.log.debug(`@${this.context.machineState.pc} ${instruction.toString()}`);
+        const gasLeft = `l2=${machineState.l2GasLeft} da=${machineState.daGasLeft}`;
+        this.log.debug(`@${machineState.pc} ${instruction.toString()} (${gasLeft})`);
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
         await instruction.execute(this.context);
 
-        if (this.context.machineState.pc >= instructions.length) {
-          this.log('Passed end of program!');
-          throw new InvalidProgramCounterError(this.context.machineState.pc, /*max=*/ instructions.length);
+        if (machineState.pc >= instructions.length) {
+          this.log.warn('Passed end of program');
+          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
         }
       }
 
+      const output = machineState.getOutput();
+      const reverted = machineState.getReverted();
+      const revertReason = reverted ? revertReasonFromExplicitRevert(output, this.context) : undefined;
+      const results = new AvmContractCallResults(reverted, output, revertReason);
+      this.log.debug(`Context execution results: ${results.toString()}`);
       // Return results for processing by calling context
-      const results = this.context.machineState.getResults();
-      this.log(`Context execution results: ${results.toString()}`);
       return results;
-    } catch (e) {
-      this.log('Exceptional halt');
-      if (!(e instanceof AvmExecutionError)) {
-        this.log(`Unknown error thrown by avm: ${e}`);
-        throw e;
+    } catch (err: any) {
+      this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
+      if (!(err instanceof AvmExecutionError)) {
+        this.log.verbose(`Unknown error thrown by AVM: ${err}`);
+        throw err;
       }
 
+      const revertReason = revertReasonFromExceptionalHalt(err, this.context);
+      // Note: "exceptional halts" cannot return data, hence []
+      const results = new AvmContractCallResults(/*reverted=*/ true, /*output=*/ [], revertReason);
+      this.log.debug(`Context execution results: ${results.toString()}`);
       // Return results for processing by calling context
-      // Note: "exceptional halts" cannot return data
-      const results = new AvmContractCallResults(/*reverted=*/ true, /*output=*/ [], /*revertReason=*/ e);
-      this.log(`Context execution results: ${results.toString()}`);
       return results;
     }
   }

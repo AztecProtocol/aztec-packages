@@ -1,8 +1,8 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 using namespace benchmark;
@@ -22,15 +22,12 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
 
     const auto construct_instance = [&]() {
         Builder builder;
-        if constexpr (std::same_as<Flavor, GoblinUltraFlavor>) {
-            GoblinMockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
-        } else {
-            static_assert(std::same_as<Flavor, UltraFlavor>);
-            bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
-        }
+        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
     };
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
+    // k=1
     std::shared_ptr<ProverInstance> prover_instance_1 = construct_instance();
     std::shared_ptr<ProverInstance> prover_instance_2 = construct_instance();
 
@@ -54,10 +51,9 @@ void bench_round_ultra(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<P
     _bench_round<UltraFlavor>(state, F);
 }
 
-void bench_round_goblin_ultra(::benchmark::State& state,
-                              void (*F)(ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>&))
+void bench_round_mega(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 2>>&))
 {
-    _bench_round<GoblinUltraFlavor>(state, F);
+    _bench_round<MegaFlavor>(state, F);
 }
 
 BENCHMARK_CAPTURE(bench_round_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
@@ -69,13 +65,13 @@ BENCHMARK_CAPTURE(bench_round_ultra, combiner_quotient, [](auto& prover) { prove
 BENCHMARK_CAPTURE(bench_round_ultra, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
+BENCHMARK_CAPTURE(bench_round_mega, preparation, [](auto& prover) { prover.preparation_round(); }) -> DenseRange(14, 20)
+    -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) { prover.perturbator_round(); }) -> DenseRange(14, 20)
+    -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, perturbator, [](auto& prover) { prover.perturbator_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
+BENCHMARK_CAPTURE(bench_round_mega, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 
 } // namespace bb

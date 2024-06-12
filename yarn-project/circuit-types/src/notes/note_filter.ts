@@ -1,6 +1,6 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 
-import { TxHash } from '../tx/tx_hash.js';
+import { type TxHash } from '../tx/tx_hash.js';
 
 /**
  * The status of notes to retrieve.
@@ -26,6 +26,8 @@ export type NoteFilter = {
   owner?: AztecAddress;
   /** The status of the note. Defaults to 'ACTIVE'. */
   status?: NoteStatus;
+  /** The siloed nullifier for the note. */
+  siloedNullifier?: Fr;
 };
 
 /**

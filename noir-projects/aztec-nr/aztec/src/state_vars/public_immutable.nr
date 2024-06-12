@@ -1,17 +1,20 @@
-use crate::{context::Context, oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage};
+use crate::{
+    context::{PublicContext, UnconstrainedContext}, oracle::{storage::{storage_read, storage_write}},
+    state_vars::storage::Storage
+};
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
 
 // Just like SharedImmutable but without the ability to read from private functions.
 // docs:start:public_immutable_struct
-struct PublicImmutable<T> {
+struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
 // docs:end:public_immutable_struct
 
-impl<T> Storage<T> for PublicImmutable<T> {}
+impl<T, Context> Storage<T> for PublicImmutable<T, Context> {}
 
-impl<T> PublicImmutable<T> {
+impl<T, Context> PublicImmutable<T, Context> {
     // docs:start:public_immutable_struct_new
     pub fn new(
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
@@ -22,12 +25,11 @@ impl<T> PublicImmutable<T> {
         PublicImmutable { context, storage_slot }
     }
     // docs:end:public_immutable_struct_new
+}
 
+impl <T> PublicImmutable<T, &mut PublicContext> {
     // docs:start:public_immutable_struct_write
     pub fn initialize<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
-        assert(
-            self.context.private.is_none(), "PublicImmutable can only be initialized from public functions"
-        );
         // TODO(#4738): Uncomment the following assert
         // assert(
         //     self.context.public.unwrap_unchecked().is_deployment(), "PublicImmutable can only be initialized during contract deployment"
@@ -46,11 +48,21 @@ impl<T> PublicImmutable<T> {
     }
     // docs:end:public_immutable_struct_write
 
+    // Note that we don't access the context, but we do call oracles that are only available in public
     // docs:start:public_immutable_struct_read
     pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
-        assert(self.context.private.is_none(), "PublicImmutable reads only supported in public functions");
         let fields = storage_read(self.storage_slot);
         T::deserialize(fields)
     }
     // docs:end:public_immutable_struct_read
+}
+
+impl<T> PublicImmutable<T, UnconstrainedContext> {
+    pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
+        // This looks the same as the &mut PublicContext impl, but is actually very different. In public execution the
+        // storage read oracle gets transpiled to SLOAD opcodes, whereas in unconstrained execution the PXE returns
+        // historical data.
+        let fields = storage_read(self.storage_slot);
+        T::deserialize(fields)
+    }
 }

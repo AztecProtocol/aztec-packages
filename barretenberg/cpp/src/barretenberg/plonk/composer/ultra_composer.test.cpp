@@ -5,9 +5,10 @@
 #include "barretenberg/numeric/uintx/uintx.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/widgets/random_widgets/plookup_widget.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/plookup_tables/sha256.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;
 using namespace bb::plonk;
@@ -84,7 +85,7 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
 
         grumpkin::g1::affine_element base_point = plookup::fixed_base::table::LHS_GENERATOR_POINT;
         std::vector<uint8_t> input_buf;
-        serialize::write(input_buf, base_point);
+        write(input_buf, base_point);
         const auto offset_generators =
             grumpkin::g1::derive_generators(input_buf, plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE);
 

@@ -1,4 +1,4 @@
-import { AztecAddress, Comparator, Fr, Wallet, toBigInt } from '@aztec/aztec.js';
+import { type AztecAddress, Comparator, Fr, type Wallet } from '@aztec/aztec.js';
 import { DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
@@ -21,7 +21,7 @@ describe('e2e_note_getter', () => {
 
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
-  }, 25_000);
+  });
 
   afterAll(() => teardown());
 
@@ -32,7 +32,7 @@ describe('e2e_note_getter', () => {
       contract = await DocsExampleContract.deploy(wallet).send().deployed();
       // sets card value to 1 and leader to sender.
       await contract.methods.initialize_private(Fr.random(), 1).send().wait();
-    }, 25_000);
+    });
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
       // ISSUE #4243
@@ -41,20 +41,21 @@ describe('e2e_note_getter', () => {
       // await Promise.all(numbers.map(number => contract.methods.insert_note(number).send().wait()));
       // It causes a race condition complaining about root mismatch
 
-      await contract.methods
-        .insert_notes([...Array(10).keys()])
-        .send()
-        .wait();
+      // Note: Separated the below into calls of 3 to avoid reaching logs per call limit
+      await contract.methods.insert_notes([0, 1, 2]).send().wait();
+      await contract.methods.insert_notes([3, 4, 5]).send().wait();
+      await contract.methods.insert_notes([6, 7, 8]).send().wait();
+      await contract.methods.insert_note(9, new Fr(1n)).send().wait();
       await contract.methods.insert_note(5, Fr.ZERO).send().wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
-        contract.methods.read_note(5, Comparator.EQ).view(),
-        contract.methods.read_note(5, Comparator.NEQ).view(),
-        contract.methods.read_note(5, Comparator.LT).view(),
-        contract.methods.read_note(5, Comparator.GT).view(),
-        contract.methods.read_note(5, Comparator.LTE).view(),
+        contract.methods.read_note(5, Comparator.EQ).simulate(),
+        contract.methods.read_note(5, Comparator.NEQ).simulate(),
+        contract.methods.read_note(5, Comparator.LT).simulate(),
+        contract.methods.read_note(5, Comparator.GT).simulate(),
+        contract.methods.read_note(5, Comparator.LTE).simulate(),
         // docs:start:state_vars-NoteGetterOptionsComparatorExampleTs
-        contract.methods.read_note(5, Comparator.GTE).view(),
+        contract.methods.read_note(5, Comparator.GTE).simulate(),
         // docs:end:state_vars-NoteGetterOptionsComparatorExampleTs
       ]);
 
@@ -144,114 +145,101 @@ describe('e2e_note_getter', () => {
           { points: 8n, randomness: 1n },
         ].sort(sortFunc),
       );
-    }, 300_000);
+    });
   });
 
   describe('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;
+    let outgoingViewer: AztecAddress;
 
     beforeAll(async () => {
       contract = await TestContract.deploy(wallet).send().deployed();
       owner = wallet.getCompleteAddress().address;
-    }, 100_000);
+      // Setting the outgoing viewer to owner not have to bother with setting up another account.
+      outgoingViewer = owner;
+    });
 
     const VALUE = 5;
 
     // To prevent tests from interacting with one another, we'll have each use a different storage slot.
-    let storageSlot: number = 2;
+    let storageSlot = TestContract.storage.example_set.slot.toNumber();
 
     beforeEach(() => {
       storageSlot += 1;
     });
 
     async function assertNoteIsReturned(storageSlot: number, expectedValue: number, activeOrNullified: boolean) {
-      const viewNotesResult = await contract.methods.call_view_notes(storageSlot, activeOrNullified).view();
-      const getNotesResult = await callGetNotes(storageSlot, activeOrNullified);
+      const viewNotesResult = await contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate();
+      const getNotesResult = await contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate();
 
       expect(viewNotesResult).toEqual(getNotesResult);
       expect(viewNotesResult).toEqual(BigInt(expectedValue));
     }
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
-      await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).view()).rejects.toThrow('is_some');
-      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).send().wait()).rejects.toThrow(
+      await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
         'is_some',
       );
-    }
-
-    async function callGetNotes(storageSlot: number, activeOrNullified: boolean): Promise<bigint> {
-      // call_get_notes exposes the return value via an event since we cannot use view() with it.
-      const tx = contract.methods.call_get_notes(storageSlot, activeOrNullified).send();
-      await tx.wait();
-
-      const logs = (await tx.getUnencryptedLogs()).logs;
-      expect(logs.length).toBe(1);
-
-      return toBigInt(logs[0].log.data);
-    }
-
-    async function callGetNotesMany(storageSlot: number, activeOrNullified: boolean): Promise<Array<bigint>> {
-      // call_get_notes_many exposes the return values via event since we cannot use view() with it.
-      const tx = contract.methods.call_get_notes_many(storageSlot, activeOrNullified).send();
-      await tx.wait();
-
-      const logs = (await tx.getUnencryptedLogs()).logs;
-      expect(logs.length).toBe(2);
-
-      return [toBigInt(logs[0].log.data), toBigInt(logs[1].log.data)];
+      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
+        `Assertion failed: Cannot return zero notes`,
+      );
     }
 
     describe('active note only', () => {
       const activeOrNullified = false;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-      }, 30_000);
+      });
 
       it('does not return nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
-      }, 30_000);
+      });
     });
 
     describe('active and nullified notes', () => {
       const activeOrNullified = true;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-      }, 30_000);
+      });
 
       it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-      }, 30_000);
+      });
 
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await contract.methods
-          .call_create_note(VALUE + 1, owner, storageSlot)
+          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
           .send()
           .wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         // We now fetch multiple notes, and get both the active and the nullified one.
-        const viewNotesManyResult = await contract.methods.call_view_notes_many(storageSlot, activeOrNullified).view();
-        const getNotesManyResult = await callGetNotesMany(storageSlot, activeOrNullified);
+        const viewNotesManyResult = await contract.methods
+          .call_view_notes_many(storageSlot, activeOrNullified)
+          .simulate();
+        const getNotesManyResult = await contract.methods
+          .call_get_notes_many(storageSlot, activeOrNullified)
+          .simulate();
 
         // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note
         // however that both view_notes and get_notes get the exact same result.
         expect(viewNotesManyResult).toEqual(getNotesManyResult);
         expect(viewNotesManyResult.sort()).toEqual([BigInt(VALUE), BigInt(VALUE + 1)]);
-      }, 45_000);
+      });
     });
   });
 });

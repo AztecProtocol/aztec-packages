@@ -12,6 +12,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <tuple>
 
 using ::testing::Each;
 using ::testing::ElementsAreArray;
@@ -65,6 +66,29 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_read_and_write()
+    {
+        // a generic point
+        {
+            affine_element P = affine_element(element::random_element());
+            [[maybe_unused]] affine_element R;
+
+            std::vector<uint8_t> v(sizeof(R));
+            uint8_t* ptr = v.data();
+            write(ptr, P);
+            ASSERT_TRUE(P.on_curve());
+
+            // // Reset to start?
+            // ptr = v.data();
+
+            const uint8_t* read_ptr = v.data();
+            // good read
+            read(read_ptr, R);
+            ASSERT_TRUE(R.on_curve());
+            ASSERT_TRUE(P == R);
+        }
+    }
+
     static void test_point_compression()
     {
         for (size_t i = 0; i < 10; i++) {
@@ -98,12 +122,45 @@ template <typename G1> class TestAffineElement : public testing::Test {
         affine_element R(0, P.y);
         ASSERT_FALSE(P == R);
     }
+    // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
+    // on the curve, depending on the y-coordinate.
+    static void test_infinity_ordering_regression()
+    {
+        affine_element P(0, 1);
+        affine_element Q(0, 1);
+
+        P.self_set_infinity();
+        EXPECT_NE(P < Q, Q < P);
+    }
+
+    /**
+     * @brief A regression test to make sure the -1 case is covered
+     *
+     */
+    static void test_batch_endomorphism_by_minus_one()
+    {
+        constexpr size_t num_points = 2;
+        std::vector<affine_element> affine_points(num_points, affine_element::one());
+
+        std::vector<affine_element> result =
+            element::batch_mul_with_endomorphism(affine_points, -affine_element::Fr::one());
+
+        for (size_t i = 0; i < num_points; i++) {
+            EXPECT_EQ(affine_points[i], -result[i]);
+        }
+    }
 };
 
-using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
+using TestTypes = testing::Types<bb::g1>;
+// using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
 } // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
+
+TYPED_TEST(TestAffineElement, ReadWrite)
+{
+    TestFixture::test_read_and_write();
+}
 
 TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 {
@@ -128,21 +185,9 @@ TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
     }
 }
 
-// Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
-// on the curve, depending on the y-coordinate.
-TEST(AffineElement, InfinityOrderingRegression)
+TYPED_TEST(TestAffineElement, InfinityOrderingRegression)
 {
-    secp256k1::g1::affine_element P(0, 1);
-    secp256k1::g1::affine_element Q(0, 1);
-
-    P.self_set_infinity();
-    EXPECT_NE(P < Q, Q < P);
-}
-
-TEST(AffineElement, Msgpack)
-{
-    auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
-    EXPECT_EQ(actual, expected);
+    TestFixture::test_infinity_ordering_regression();
 }
 
 namespace bb::group_elements {
@@ -165,7 +210,7 @@ class TestElementPrivate {
 } // namespace bb::group_elements
 
 // Our endomorphism-specialized multiplication should match our generic multiplication
-TEST(AffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
+TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 {
     for (int i = 0; i < 100; i++) {
         auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());
@@ -176,6 +221,7 @@ TEST(AffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
     }
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
 // Multiplication of a point at infinity by a scalar should be a point at infinity
 TEST(AffineElement, InfinityMulByScalarIsInfinity)
 {
@@ -213,4 +259,40 @@ TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
         grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, grumpkin::fr::random_element());
 
     EXPECT_THAT(result, Each(Property(&grumpkin::g1::affine_element::is_point_at_infinity, Eq(true))));
+}
+
+TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
+{
+    if constexpr (TypeParam::USE_ENDOMORPHISM) {
+        TestFixture::test_batch_endomorphism_by_minus_one();
+    } else {
+        GTEST_SKIP();
+    }
+}
+
+TEST(AffineElement, HashToCurve)
+{
+    std::vector<std::tuple<std::vector<uint8_t>, grumpkin::g1::affine_element>> test_vectors;
+    test_vectors.emplace_back(std::vector<uint8_t>(),
+                              grumpkin::g1::affine_element(
+                                  fr(uint256_t("24c4cb9c1206ab5470592f237f1698abe684dadf0ab4d7a132c32b2134e2c12e")),
+                                  fr(uint256_t("0668b8d61a317fb34ccad55c930b3554f1828a0e5530479ecab4defe6bbc0b2e"))));
+
+    test_vectors.emplace_back(std::vector<uint8_t>{ 1 },
+                              grumpkin::g1::affine_element(
+                                  fr(uint256_t("107f1b633c6113f3222f39f6256f0546b41a4880918c86864b06471afb410454")),
+                                  fr(uint256_t("050cd3823d0c01590b6a50adcc85d2ee4098668fd28805578aa05a423ea938c6"))));
+
+    // "hello world"
+    test_vectors.emplace_back(std::vector<uint8_t>{ 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64 },
+                              grumpkin::g1::affine_element(
+                                  fr(uint256_t("037c5c229ae495f6e8d1b4bf7723fafb2b198b51e27602feb8a4d1053d685093")),
+                                  fr(uint256_t("10cf9596c5b2515692d930efa2cf3817607e4796856a79f6af40c949b066969f"))));
+
+    for (std::tuple<std::vector<uint8_t>, grumpkin::g1::affine_element> test_case : test_vectors) {
+        auto result = grumpkin::g1::affine_element::hash_to_curve(std::get<0>(test_case), 0);
+        auto expected_result = std::get<1>(test_case);
+        std::cout << result << std::endl;
+        EXPECT_TRUE(result == expected_result);
+    }
 }

@@ -1,5 +1,5 @@
+import { AccountWallet, CompleteAddress, Contract, Fr, createDebugLogger } from '@aztec/aztec.js';
 import { BoxReactContract } from '../artifacts/BoxReact.js';
-import { AccountWallet, Fr, Contract, TxStatus, createDebugLogger, ContractDeployer } from '@aztec/aztec.js';
 import { deployerEnv } from '../src/config.js';
 
 const logger = createDebugLogger('aztec:http-pxe-client');
@@ -7,29 +7,47 @@ const logger = createDebugLogger('aztec:http-pxe-client');
 describe('BoxReact Contract Tests', () => {
   let wallet: AccountWallet;
   let contract: Contract;
-  const { artifact } = BoxReactContract;
   const numberToSet = Fr.random();
+  let accountCompleteAddress: CompleteAddress;
 
   beforeAll(async () => {
     wallet = await deployerEnv.getWallet();
-    const pxe = deployerEnv.pxe;
-    const deployer = new ContractDeployer(artifact, wallet);
+    accountCompleteAddress = wallet.getCompleteAddress();
     const salt = Fr.random();
-    const { address: contractAddress } = await deployer.deploy(Fr.random(), wallet.getCompleteAddress().address).send({ contractAddressSalt: salt }).deployed();
-    contract = await BoxReactContract.at(contractAddress!, wallet);
+    const { masterNullifierPublicKey, masterIncomingViewingPublicKey, masterOutgoingViewingPublicKey } =
+      accountCompleteAddress.publicKeys;
+    contract = await BoxReactContract.deploy(
+      wallet,
+      Fr.random(),
+      accountCompleteAddress.address,
+      masterNullifierPublicKey.hash(),
+      masterOutgoingViewingPublicKey,
+      masterIncomingViewingPublicKey,
+    )
+      .send({ contractAddressSalt: salt })
+      .deployed();
 
-    logger(`L2 contract deployed at ${contractAddress}`);
+    logger.info(`L2 contract deployed at ${contract.address}`);
   }, 60000);
 
   test('Can set a number', async () => {
-    logger(`${await wallet.getRegisteredAccounts()}`);
-    const callTxReceipt = await contract.methods.setNumber(numberToSet, wallet.getCompleteAddress()).send().wait();
-
-    expect(callTxReceipt.status).toBe(TxStatus.MINED);
+    logger.info(`${await wallet.getRegisteredAccounts()}`);
+    const { masterNullifierPublicKey, masterIncomingViewingPublicKey, masterOutgoingViewingPublicKey } =
+      accountCompleteAddress.publicKeys;
+    await contract.methods
+      .setNumber(
+        numberToSet,
+        accountCompleteAddress.address,
+        masterNullifierPublicKey.hash(),
+        masterOutgoingViewingPublicKey,
+        masterIncomingViewingPublicKey,
+      )
+      .send()
+      .wait();
   }, 40000);
 
   test('Can read a number', async () => {
-    const viewTxReceipt = await contract.methods.getNumber(wallet.getCompleteAddress()).view();
+    const viewTxReceipt = await contract.methods.getNumber(accountCompleteAddress.address).simulate();
     expect(numberToSet.toBigInt()).toEqual(viewTxReceipt.value);
   }, 40000);
 });

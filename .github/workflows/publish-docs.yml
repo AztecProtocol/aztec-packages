@@ -1,0 +1,31 @@
+name: Publish Docs
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to build from.
+        required: true
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: master
+      runner_type: builder-x86
+    secrets: inherit
+
+  publish:
+    needs: setup
+    runs-on: master-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: ./.github/ci-setup-action
+        env:
+          DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+        with:
+          concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
+
+      - timeout-minutes: 25
+        run: earthly-ci --no-output ./docs/+deploy-prod --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }} --COMMIT_TAG=${{ inputs.tag }}

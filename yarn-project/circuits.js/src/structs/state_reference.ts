@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
@@ -15,6 +15,10 @@ export class StateReference {
     /** Reference to the rest of the state. */
     public partial: PartialStateReference,
   ) {}
+
+  getSize() {
+    return this.l1ToL2MessageTree.getSize() + this.partial.getSize();
+  }
 
   toBuffer() {
     // Note: The order here must match the order in the HeaderLib solidity library.

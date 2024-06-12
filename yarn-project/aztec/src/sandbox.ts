@@ -1,9 +1,13 @@
 #!/usr/bin/env -S node --no-warnings
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecNode } from '@aztec/circuit-types';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecAddress, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { type AztecNode } from '@aztec/circuit-types';
+import { CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js';
 import {
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
+  type DeployL1Contracts,
+  type L1ContractAddresses,
+  type L1ContractArtifactsForDeployment,
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
@@ -13,18 +17,26 @@ import { retryUntil } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
+  GasPortalAbi,
+  GasPortalBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
+  PortalERC20Abi,
+  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
+import { KeyRegistryContract } from '@aztec/noir-contracts.js/KeyRegistry';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
+import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
-import { HDAccount, PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -98,21 +110,95 @@ export async function deployContractsToL1(
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
+    gasToken: {
+      contractAbi: PortalERC20Abi,
+      contractBytecode: PortalERC20Bytecode,
+    },
+    gasPortal: {
+      contractAbi: GasPortalAbi,
+      contractBytecode: GasPortalBytecode,
+    },
   };
 
-  aztecNodeConfig.l1Contracts = (
-    await waitThenDeploy(aztecNodeConfig, () =>
-      deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts),
-    )
-  ).l1ContractAddresses;
+  const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
+    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
+      l2GasTokenAddress: GasTokenAddress,
+    }),
+  );
+
+  aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
 
   return aztecNodeConfig.l1Contracts;
+}
+
+/**
+ * Deploys the contract to pay for gas on L2.
+ */
+async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: L1ContractAddresses) {
+  const gasPortalAddress = l1ContractAddresses.gasPortalAddress;
+  const canonicalGasToken = getCanonicalGasToken();
+
+  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    return;
+  }
+
+  const gasToken = await GasTokenContract.deploy(deployer)
+    .send({ universalDeploy: true, contractAddressSalt: canonicalGasToken.instance.salt })
+    .deployed();
+  await gasToken.methods.set_portal(gasPortalAddress).send().wait();
+
+  if (!gasToken.address.equals(canonicalGasToken.address)) {
+    throw new Error(
+      `Deployed Gas Token address ${gasToken.address} does not match expected address ${canonicalGasToken.address}`,
+    );
+  }
+
+  if (!(await deployer.isContractPubliclyDeployed(canonicalGasToken.address))) {
+    throw new Error(`Failed to deploy Gas Token to ${canonicalGasToken.address}`);
+  }
+
+  logger.info(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
+}
+
+/**
+ * Deploys the key registry on L2.
+ */
+async function deployCanonicalKeyRegistry(deployer: Wallet) {
+  const canonicalKeyRegistry = getCanonicalKeyRegistry();
+
+  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
+  // the key registry has already been deployed to the correct address.
+  if (
+    (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(
+      canonicalKeyRegistry.contractClass.id,
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id))
+  ) {
+    return;
+  }
+
+  const keyRegistry = await KeyRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (
+    !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
+    !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}, or they both do not equal CANONICAL_KEY_REGISTRY_ADDRESS`,
+    );
+  }
+
+  logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
 }
 
 /** Sandbox settings. */
 export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
+  /** Enable the contracts to track and pay for gas */
+  enableGas: boolean;
 };
 
 /**
@@ -134,6 +220,17 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   const node = await createAztecNode(aztecNodeConfig);
   const pxe = await createAztecPXE(node);
+
+  await deployCanonicalKeyRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+  );
+
+  if (config.enableGas) {
+    await deployCanonicalL2GasToken(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+      aztecNodeConfig.l1Contracts,
+    );
+  }
 
   const stop = async () => {
     await pxe.stop();

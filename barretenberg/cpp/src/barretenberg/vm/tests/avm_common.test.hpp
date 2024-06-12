@@ -8,6 +8,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
+
+static const uint32_t DEFAULT_INITIAL_DA_GAS = 100000;
+static const uint32_t DEFAULT_INITIAL_L2_GAS = 100000;

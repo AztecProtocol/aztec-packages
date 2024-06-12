@@ -20,9 +20,11 @@
  *      sequential_copy:                        3.3
  *
  */
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;
@@ -304,7 +306,7 @@ void projective_point_doubling(State& state)
  *@details ~50000 ns
  * @param state
  */
-void scalar_multiplication(State& state)
+void scalar_multiplication_bench(State& state)
 {
     numeric::RNG& engine = numeric::get_debug_randomness();
     Curve::Element element = Curve::Element::random_element(&engine);
@@ -364,6 +366,105 @@ void sequential_copy(State& state)
         }
     }
 }
+
+/**
+ * @brief Evaluate how much uint256_t multiplication costs (in cache)
+ *
+ * @param state
+ */
+void uint_multiplication(State& state)
+{
+    numeric::RNG& engine = numeric::get_debug_randomness();
+    std::vector<uint256_t> copy_vector(2);
+    for (size_t j = 0; j < 2; j++) {
+        copy_vector.emplace_back(engine.get_random_uint256());
+        copy_vector.emplace_back(engine.get_random_uint256());
+        copy_vector[0] += (1 - copy_vector[0].get_bit(0));
+        copy_vector[1] += (1 - copy_vector[1].get_bit(0));
+    }
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
+        state.ResumeTiming();
+        for (size_t i = 0; i < num_cycles; i++) {
+            copy_vector[i & 1] *= copy_vector[1 - (i & 1)];
+        }
+    }
+}
+
+/**
+ * @brief Evaluate how much uint256_t extended multiplication costs (in cache)
+ *
+ * @param state
+ */
+void uint_extended_multiplication(State& state)
+{
+    numeric::RNG& engine = numeric::get_debug_randomness();
+    std::vector<uint256_t> copy_vector(2);
+    for (size_t j = 0; j < 2; j++) {
+        copy_vector.emplace_back(engine.get_random_uint256());
+        copy_vector.emplace_back(engine.get_random_uint256());
+        copy_vector[0] += (1 - copy_vector[0].get_bit(0));
+        copy_vector[1] += (1 - copy_vector[1].get_bit(0));
+    }
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
+        state.ResumeTiming();
+        for (size_t i = 0; i < num_cycles; i++) {
+            auto [r0, r1] = copy_vector[i & 1].mul_extended(copy_vector[1 - (i & 1)]);
+            state.PauseTiming();
+            copy_vector[i & 1] += r0;
+            copy_vector[1 - (i & 1)] += r1;
+            copy_vector[0] += (1 - copy_vector[0].get_bit(0));
+            copy_vector[1] += (1 - copy_vector[1].get_bit(0));
+            state.ResumeTiming();
+        }
+    }
+}
+
+/*
+ * @brief Load srs for pippenger
+ *
+ */
+static void DoPippengerSetup(const benchmark::State&)
+{
+    bb::srs::init_crs_factory("../srs_db/ignition");
+}
+
+/**
+ * @brief Run pippenger benchmarks (can be used with wasmtime)
+ *
+ *@details(Wasmtime) -----------------------------------------------
+Benchmark                          Time             CPU   Iterations
+--------------------------------------------------------------------
+pippenger/16/iterations:5     133089 us   1.3309e+11 us            5
+pippenger/17/iterations:5     255069 us   2.5507e+11 us            5
+pippenger/18/iterations:5     481599 us   4.8160e+11 us            5
+pippenger/19/iterations:5     892886 us   8.9289e+11 us            5
+pippenger/20/iterations:5    1706423 us   1.7064e+12 us            5
+ */
+void pippenger(State& state)
+{
+    numeric::RNG& engine = numeric::get_debug_randomness();
+    for (auto _ : state) {
+        state.PauseTiming();
+        size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
+        Polynomial<Fr> pol(num_cycles);
+        for (size_t i = 0; i < num_cycles; i++) {
+            *(uint256_t*)&pol[i] = engine.get_random_uint256();
+            pol[i].self_reduce_once();
+            pol[i].self_reduce_once();
+            pol[i].self_reduce_once();
+        }
+
+        auto ck = std::make_shared<CommitmentKey<curve::BN254>>(num_cycles);
+        state.ResumeTiming();
+        benchmark::DoNotOptimize(ck->commit(pol));
+    }
+}
 } // namespace
 
 BENCHMARK(parallel_for_field_element_addition)->Unit(kMicrosecond)->DenseRange(0, MAX_REPETITION_LOG);
@@ -377,7 +478,10 @@ BENCHMARK(ff_reduce)->Unit(kMicrosecond)->DenseRange(12, 29);
 BENCHMARK(projective_point_addition)->Unit(kMicrosecond)->DenseRange(12, 22);
 BENCHMARK(projective_point_accidental_doubling)->Unit(kMicrosecond)->DenseRange(12, 22);
 BENCHMARK(projective_point_doubling)->Unit(kMicrosecond)->DenseRange(12, 22);
-BENCHMARK(scalar_multiplication)->Unit(kMicrosecond)->DenseRange(12, 18);
+BENCHMARK(scalar_multiplication_bench)->Unit(kMicrosecond)->DenseRange(12, 18);
 BENCHMARK(cycle_waste)->Unit(kMicrosecond)->DenseRange(20, 30);
 BENCHMARK(sequential_copy)->Unit(kMicrosecond)->DenseRange(20, 25);
+BENCHMARK(uint_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
+BENCHMARK(uint_extended_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
+BENCHMARK(pippenger)->Unit(kMicrosecond)->DenseRange(16, 20)->Setup(DoPippengerSetup)->Iterations(5);
 BENCHMARK_MAIN();

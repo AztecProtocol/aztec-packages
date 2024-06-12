@@ -1,3 +1,6 @@
+#![warn(clippy::semicolon_if_nothing_returned)]
+#![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
+
 use log::warn;
 use std::env;
 use std::fs;
@@ -9,7 +12,7 @@ mod transpile;
 mod transpile_contract;
 mod utils;
 
-use transpile_contract::{CompiledAcirContract, TranspiledContract};
+use transpile_contract::{CompiledAcirContractArtifact, TranspiledContractArtifact};
 
 fn main() {
     env_logger::init();
@@ -29,12 +32,20 @@ fn main() {
         warn!("Contract already transpiled. Skipping.");
         return;
     }
+
+    // Backup the original file
+    std::fs::copy(
+        Path::new(in_contract_artifact_path),
+        Path::new(&(in_contract_artifact_path.clone() + ".bak")),
+    )
+    .expect("Unable to backup file");
+
     // Parse json into contract object
-    let contract: CompiledAcirContract =
+    let contract: CompiledAcirContractArtifact =
         serde_json::from_str(&contract_json).expect("Unable to parse json");
 
     // Transpile contract to AVM bytecode
-    let transpiled_contract = TranspiledContract::from(contract);
+    let transpiled_contract = TranspiledContractArtifact::from(contract);
     let transpiled_json =
         serde_json::to_string(&transpiled_contract).expect("Unable to serialize json");
     fs::write(out_transpiled_artifact_path, transpiled_json).expect("Unable to write file");

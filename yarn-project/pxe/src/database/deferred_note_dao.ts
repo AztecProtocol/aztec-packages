@@ -1,5 +1,5 @@
 import { Note, TxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, PublicKey, Vector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, Point, type PublicKey, Vector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
@@ -9,8 +9,11 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
  */
 export class DeferredNoteDao {
   constructor(
-    /** The public key associated with this note */
-    public publicKey: PublicKey,
+    /**
+     * The incoming viewing public key the note was encrypted with.
+     * @dev Will never be ovpkM because there are no deferred notes for outgoing.
+     */
+    public ivpkM: PublicKey,
     /** The note as emitted from the Noir contract. */
     public note: Note,
     /** The contract address this note is created in. */
@@ -29,12 +32,12 @@ export class DeferredNoteDao {
 
   toBuffer(): Buffer {
     return serializeToBuffer(
-      this.publicKey.toBuffer(),
-      this.note.toBuffer(),
-      this.contractAddress.toBuffer(),
-      this.storageSlot.toBuffer(),
-      this.noteTypeId.toBuffer(),
-      this.txHash.toBuffer(),
+      this.ivpkM,
+      this.note,
+      this.contractAddress,
+      this.storageSlot,
+      this.noteTypeId,
+      this.txHash,
       new Vector(this.newNoteHashes),
       this.dataStartIndexForTx,
     );

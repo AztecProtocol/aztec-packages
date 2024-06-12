@@ -1,6 +1,8 @@
-import { Tx, TxHash } from '@aztec/circuit-types';
+import { type Tx, type TxHash } from '@aztec/circuit-types';
 
-import { P2PService } from './service.js';
+import EventEmitter from 'events';
+
+import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
  * A dummy implementation of the P2P Service.
@@ -33,4 +35,38 @@ export class DummyP2PService implements P2PService {
    * @param _ - The hashes of the settled transactions.
    */
   public settledTxs(_: TxHash[]) {}
+}
+
+/**
+ * A dummy implementation of the Peer Discovery Service.
+ */
+export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
+  private currentState = PeerDiscoveryState.STOPPED;
+  /**
+   * Starts the dummy implementation.
+   * @returns A resolved promise.
+   */
+  public start() {
+    this.currentState = PeerDiscoveryState.RUNNING;
+    return Promise.resolve();
+  }
+  /**
+   * Stops the dummy implementation.
+   * @returns A resolved promise.
+   */
+  public stop() {
+    this.currentState = PeerDiscoveryState.STOPPED;
+    return Promise.resolve();
+  }
+  /**
+   * Called to discover peers in the network.
+   * @returns An array of discovered peer addresses.
+   */
+  public getAllPeers() {
+    return [];
+  }
+
+  public getStatus(): PeerDiscoveryState {
+    return this.currentState;
+  }
 }

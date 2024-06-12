@@ -1,63 +1,40 @@
 import { times } from '@aztec/foundation/collection';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
-import { AztecAddress, Fr, FunctionData, FunctionSelector, SideEffect, SideEffectLinkedToNoteHash } from '../index.js';
-import { makeAztecAddress, makeVerificationKey } from '../tests/factories.js';
+import { AztecAddress, Fr } from '../index.js';
+import { makeAztecAddress } from '../tests/factories.js';
 import {
-  computeCommitmentNonce,
-  computeCommitmentsHash,
-  computeFunctionTreeRoot,
-  computeMessageSecretHash,
-  computeNullifierHash,
+  computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computeUniqueCommitment,
+  computeSecretHash,
+  computeUniqueNoteHash,
   computeVarArgsHash,
-  hashConstructor,
-  hashVK,
   siloNoteHash,
   siloNullifier,
 } from './hash.js';
 
 describe('hash', () => {
   setupCustomSnapshotSerializers(expect);
-  it('hashes VK', () => {
-    const vk = makeVerificationKey();
-    const res = hashVK(vk.toBuffer());
-    expect(res).toMatchSnapshot();
-  });
 
-  it('computes function tree root', () => {
-    const res = computeFunctionTreeRoot([new Fr(0n), new Fr(0n), new Fr(0n), new Fr(0n)]);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('hashes constructor info', () => {
-    const functionData = new FunctionData(FunctionSelector.empty(), false, true, true);
-    const argsHash = new Fr(42);
-    const vkHash = Buffer.alloc(32);
-    const res = hashConstructor(functionData, argsHash, vkHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes commitment nonce', () => {
+  it('computes note hash nonce', () => {
     const nullifierZero = new Fr(123n);
-    const commitmentIndex = 456;
-    const res = computeCommitmentNonce(nullifierZero, commitmentIndex);
+    const noteHashIndex = 456;
+    const res = computeNoteHashNonce(nullifierZero, noteHashIndex);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes unique commitment', () => {
+  it('computes unique note hash', () => {
     const nonce = new Fr(123n);
-    const innerCommitment = new Fr(456);
-    const res = computeUniqueCommitment(nonce, innerCommitment);
+    const innerNoteHash = new Fr(456);
+    const res = computeUniqueNoteHash(nonce, innerNoteHash);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes siloed commitment', () => {
+  it('computes siloed note hash', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
-    const uniqueCommitment = new Fr(456);
-    const res = siloNoteHash(contractAddress, uniqueCommitment);
+    const uniqueNoteHash = new Fr(456);
+    const res = siloNoteHash(contractAddress, uniqueNoteHash);
     expect(res).toMatchSnapshot();
   });
 
@@ -100,21 +77,8 @@ describe('hash', () => {
 
   it('compute secret message hash', () => {
     const value = new Fr(8n);
-    const hash = computeMessageSecretHash(value);
+    const hash = computeSecretHash(value);
     expect(hash).toMatchSnapshot();
-  });
-
-  it('Computes an empty nullifier hash ', () => {
-    const emptyNull = SideEffectLinkedToNoteHash.empty();
-
-    const emptyHash = computeNullifierHash(emptyNull).toString();
-    expect(emptyHash).toMatchSnapshot();
-  });
-
-  it('Computes an empty sideeffect hash ', () => {
-    const emptySideEffect = SideEffect.empty();
-    const emptyHash = computeCommitmentsHash(emptySideEffect).toString();
-    expect(emptyHash).toMatchSnapshot();
   });
 
   it('Var args hash matches noir', () => {

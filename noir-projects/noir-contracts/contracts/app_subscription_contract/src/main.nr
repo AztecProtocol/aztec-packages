@@ -2,21 +2,21 @@ mod subscription_note;
 mod dapp_payload;
 
 contract AppSubscription {
-    use dep::std;
-    use crate::dapp_payload::DAppPayload;
-
-    use dep::aztec::prelude::{
+    use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
+    use dep::{
+        aztec::{
+        prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
+    },
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt,
+        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
+    },
+        authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
+        gas_token::GasToken, token::Token
     };
 
-    use dep::aztec::protocol_types::traits::is_empty;
-
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
-    use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
-
-    use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
-
+    #[aztec(storage)]
     struct Storage {
         // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
         // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
@@ -27,42 +27,34 @@ contract AppSubscription {
         subscription_price: SharedImmutable<Field>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
         gas_token_address: SharedImmutable<AztecAddress>,
+        gas_token_limit_per_tx: SharedImmutable<Field>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
     global SUBSCRIPTION_TXS = 5;
 
     #[aztec(private)]
-    fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
+    fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(false);
+        let mut note = storage.subscriptions.at(user_address).get_note().note;
         assert(note.remaining_txs as u64 > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
-        storage.subscriptions.at(user_address).replace(&mut note, true);
 
-        context.call_public_function(
-            storage.gas_token_address.read_private(),
-            FunctionSelector::from_signature("check_balance(Field)"),
-            // max gas limit in Gas tokens
-            [42]
-        );
+        // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
+        // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
+        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt(&mut context, user_address, user_address));
 
-        context.call_public_function(
-            storage.gas_token_address.read_private(),
-            FunctionSelector::from_signature("pay_fee(Field)"),
-            [42]
-        );
+        context.set_as_fee_payer();
 
-        context.capture_min_revertible_side_effect_counter();
+        // TODO(palla/gas) Assert gas_token_limit_per_tx is less than this tx gas_limit
+        let _gas_limit = storage.gas_token_limit_per_tx.read_private();
 
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("assert_not_expired(Field)"),
-            [note.expiry_block_number]
-        );
+        context.end_setup();
+
+        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).enqueue_view(&mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -74,24 +66,27 @@ contract AppSubscription {
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
         subscription_price: Field,
-        gas_token_address: AztecAddress
+        gas_token_address: AztecAddress,
+        gas_token_limit_per_tx: Field
     ) {
         storage.target_address.initialize(target_address);
         storage.subscription_token_address.initialize(subscription_token_address);
         storage.subscription_recipient_address.initialize(subscription_recipient_address);
         storage.subscription_price.initialize(subscription_price);
-
         storage.gas_token_address.initialize(gas_token_address);
+        storage.gas_token_limit_per_tx.initialize(gas_token_limit_per_tx);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn assert_not_expired(expiry_block_number: Field) {
         assert((context.block_number()) as u64 < expiry_block_number as u64);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn assert_block_number(expiry_block_number: Field) {
         assert(
             (context.block_number() + SUBSCRIPTION_DURATION_IN_BLOCKS) as u64
@@ -108,31 +103,22 @@ contract AppSubscription {
     ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        let _ = context.call_private_function(
-            storage.subscription_token_address.read_private(),
-            FunctionSelector::from_signature("transfer((Field),(Field),Field,Field)"),
-            [
-            context.msg_sender().to_field(), storage.subscription_recipient_address.read_private().to_field(), storage.subscription_price.read_private(), nonce
-        ]
-        );
+        Token::at(storage.subscription_token_address.read_private()).transfer(
+            context.msg_sender(),
+            storage.subscription_recipient_address.read_private(),
+            storage.subscription_price.read_private(),
+            nonce
+        ).call(&mut context);
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("assert_block_number(Field)"),
-            [expiry_block_number]
-        );
+        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
+        let header = context.get_header();
+        let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
 
-        let mut subscription_note = SubscriptionNote::new(subscriber_address, expiry_block_number, tx_count);
-        if (!is_initialized(subscriber_address)) {
-            storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true);
-        } else {
-            storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true)
-        }
+        let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note).emit(encode_and_encrypt(&mut context, context.msg_sender(), subscriber_address));
     }
 
-    // Compiler bug workaround. You can't call an unconstrained function in another module, unless its from an
-    // unconstained function in your module.
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
         storage.subscriptions.at(subscriber_address).is_initialized()
     }

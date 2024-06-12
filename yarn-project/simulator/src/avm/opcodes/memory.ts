@@ -45,7 +45,7 @@ export class Set extends Instruction {
   }
 
   /** We need to use a custom serialize function because of the variable length of the value. */
-  public serialize(): Buffer {
+  public override serialize(): Buffer {
     const format: OperandType[] = [
       ...Set.wireFormatBeforeConst,
       getOperandTypeFromInTag(this.inTag),
@@ -55,7 +55,7 @@ export class Set extends Instruction {
   }
 
   /** We need to use a custom deserialize function because of the variable length of the value. */
-  public static deserialize(this: typeof Set, buf: BufferCursor | Buffer): Set {
+  public static override deserialize(this: typeof Set, buf: BufferCursor | Buffer): Set {
     if (buf instanceof Buffer) {
       buf = new BufferCursor(buf);
     }
@@ -68,15 +68,20 @@ export class Set extends Instruction {
     return new this(...args);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
+    const memoryOperations = { writes: 1, indirect: this.indirect };
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
+
     // Per the YP, the tag cannot be a field.
     if ([TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID].includes(this.inTag)) {
       throw new InstructionExecutionError(`Invalid tag ${TypeTag[this.inTag]} for SET.`);
     }
 
     const res = TaggedMemory.integralFromTag(this.value, this.inTag);
-    context.machineState.memory.set(this.dstOffset, res);
+    memory.set(this.dstOffset, res);
 
+    memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }
 }
@@ -104,14 +109,24 @@ export class CMov extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    const a = context.machineState.memory.get(this.aOffset);
-    const b = context.machineState.memory.get(this.bOffset);
-    const cond = context.machineState.memory.get(this.condOffset);
+  public async execute(context: AvmContext): Promise<void> {
+    const memoryOperations = { reads: 3, writes: 1, indirect: this.indirect };
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
+
+    const [aOffset, bOffset, condOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.aOffset, this.bOffset, this.condOffset, this.dstOffset],
+      memory,
+    );
+
+    const a = memory.get(aOffset);
+    const b = memory.get(bOffset);
+    const cond = memory.get(condOffset);
 
     // TODO: reconsider toBigInt() here
-    context.machineState.memory.set(this.dstOffset, cond.toBigInt() > 0 ? a : b);
+    memory.set(dstOffset, cond.toBigInt() > 0 ? a : b);
 
+    memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }
 }
@@ -120,19 +135,25 @@ export class Cast extends TwoOperandInstruction {
   static readonly type: string = 'CAST';
   static readonly opcode = Opcode.CAST;
 
-  constructor(indirect: number, dstTag: number, aOffset: number, dstOffset: number) {
-    super(indirect, dstTag, aOffset, dstOffset);
+  constructor(indirect: number, dstTag: number, srcOffset: number, dstOffset: number) {
+    super(indirect, dstTag, srcOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    const a = context.machineState.memory.get(this.aOffset);
+  public async execute(context: AvmContext): Promise<void> {
+    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    // TODO: consider not using toBigInt()
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.dstOffset], memory);
+
+    const a = memory.get(srcOffset);
+
     const casted =
       this.inTag == TypeTag.FIELD ? new Field(a.toBigInt()) : TaggedMemory.integralFromTag(a.toBigInt(), this.inTag);
 
-    context.machineState.memory.set(this.dstOffset, casted);
+    memory.set(dstOffset, casted);
 
+    memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }
 }
@@ -152,16 +173,18 @@ export class Mov extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.srcOffset, this.dstOffset],
-      context.machineState.memory,
-    );
+  public async execute(context: AvmContext): Promise<void> {
+    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const a = context.machineState.memory.get(srcOffset);
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
 
-    context.machineState.memory.set(dstOffset, a);
+    const a = memory.get(srcOffset);
 
+    memory.set(dstOffset, a);
+
+    memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }
 }
@@ -182,13 +205,21 @@ export class CalldataCopy extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
+    const memoryOperations = { writes: this.copySize, indirect: this.indirect };
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
+
+    // We don't need to check tags here because: (1) the calldata is NOT in memory, and (2) we are the ones writing to destination.
+    const [cdOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.cdOffset, this.dstOffset], memory);
+
     const transformedData = context.environment.calldata
-      .slice(this.cdOffset, this.cdOffset + this.copySize)
+      .slice(cdOffset, cdOffset + this.copySize)
       .map(f => new Field(f));
 
-    context.machineState.memory.setSlice(this.dstOffset, transformedData);
+    memory.setSlice(dstOffset, transformedData);
 
+    memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }
 }

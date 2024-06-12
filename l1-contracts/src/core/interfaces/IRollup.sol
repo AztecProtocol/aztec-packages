@@ -8,7 +8,9 @@ interface IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes calldata _body,
+    bytes calldata _aggregationObject,
     bytes memory _proof
   ) external;
+
+  function setVerifier(address _verifier) external;
 }

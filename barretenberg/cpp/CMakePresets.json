@@ -32,6 +32,31 @@
       }
     },
     {
+      "name": "darwin-arm64",
+      "displayName": "Apple arm64 Cross-compile",
+      "inherits": "default",
+      "binaryDir": "build-darwin-arm64",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake"
+      },
+      "environment": {
+        "OSXCROSS_HOST": "arm64-apple-darwin23",
+        "OSXCROSS_TARGET_DIR": "/opt/osxcross",
+        "OSXCROSS_TARGET": "darwin23",
+        "OSXCROSS_SDK": "/opt/osxcross/SDK/MacOSX14.0.sdk"
+      }
+    },
+    {
+      "name": "darwin-amd64",
+      "displayName": "Apple amd64 Cross-compile",
+      "inherits": "darwin-arm64",
+      "binaryDir": "build-darwin-amd64",
+      "environment": {
+        "OSXCROSS_HOST": "x86_64-apple-darwin23"
+      }
+    },
+    {
       "name": "clang16",
       "displayName": "Build with Clang-16",
       "description": "Build with globally installed Clang-16",
@@ -46,7 +71,7 @@
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
       "inherits": "clang16",
-      "binaryDir": "build",
+      "binaryDir": "build-debug",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-gdwarf-4",
@@ -63,11 +88,32 @@
       "displayName": "Optimized debug build with Clang-16",
       "description": "Build with globally installed Clang-16 in optimized debug mode",
       "inherits": "clang16-dbg",
+      "binaryDir": "build-debug-fast",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-O2 -gdwarf",
         "CXXFLAGS": "-O2 -gdwarf-4",
         "LDFLAGS": "-O2 -gdwarf-4"
+      }
+    },
+    {
+      "name": "clang16-dbg-fast-circuit-check-traces",
+      "displayName": "Optimized debug build with Clang-16 with stack traces for failing circuit checks",
+      "description": "Build with globally installed Clang-16 in optimized debug mode with stack traces for failing circuit checks",
+      "inherits": "clang16-dbg-fast",
+      "binaryDir": "build-debug-fast-circuit-check-traces",
+      "cacheVariables": {
+        "CHECK_CIRCUIT_STACKTRACES": "ON"
+      }
+    },
+    {
+      "name": "clang16-assert",
+      "binaryDir": "build-assert",
+      "displayName": "Build with Clang-16 using RelWithAssert",
+      "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
+      "inherits": "clang16",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -114,7 +160,8 @@
         "CC": "gcc-13",
         "CXX": "g++-13"
       }
-    },    {
+    },
+    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -196,11 +243,11 @@
       }
     },
     {
-      "name": "op-count-track",
+      "name": "op-count",
       "displayName": "Release build with operation counts",
       "description": "Build with op counting",
       "inherits": "clang16",
-      "binaryDir": "build-op-count-track",
+      "binaryDir": "build-op-count",
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
       }
@@ -246,7 +293,7 @@
       "generator": "Ninja",
       "toolchainFile": "cmake/toolchains/wasm32-wasi.cmake",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0",
+        "WASI_SDK_PREFIX": "/opt/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
@@ -279,7 +326,6 @@
       "inherits": "wasm",
       "binaryDir": "build-wasm-threads",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0+threads",
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
@@ -345,9 +391,19 @@
       "configurePreset": "op-count-time"
     },
     {
-      "name": "op-count-track",
+      "name": "op-count",
       "inherits": "default",
-      "configurePreset": "op-count-track"
+      "configurePreset": "op-count"
+    },
+    {
+      "name": "darwin-arm64",
+      "inherits": "default",
+      "configurePreset": "darwin-arm64"
+    },
+    {
+      "name": "darwin-amd64",
+      "inherits": "default",
+      "configurePreset": "darwin-amd64"
     },
     {
       "name": "clang16-dbg",
@@ -358,6 +414,16 @@
       "name": "clang16-dbg-fast",
       "inherits": "default",
       "configurePreset": "clang16-dbg-fast"
+    },
+    {
+      "name": "clang16-dbg-fast-circuit-check-traces",
+      "inherits": "clang16-dbg-fast",
+      "configurePreset": "clang16-dbg-fast-circuit-check-traces"
+    },
+    {
+      "name": "clang16-assert",
+      "inherits": "default",
+      "configurePreset": "clang16-assert"
     },
     {
       "name": "asan",
@@ -389,7 +455,7 @@
       "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
-{
+    {
       "name": "fuzzing-asan",
       "inherits": "clang16-dbg",
       "configurePreset": "fuzzing-asan"
@@ -429,13 +495,7 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm",
-        "acvm_backend.wasm",
-        "barretenberg",
-        "wasi",
-        "env"
-      ]
+      "targets": ["barretenberg.wasm", "barretenberg", "wasi", "env"]
     },
     {
       "name": "wasm-dbg",
@@ -518,7 +578,7 @@
       "inherits": "default",
       "configurePreset": "fuzzing"
     },
-{
+    {
       "name": "fuzzing-asan",
       "inherits": "clang16-dbg",
       "configurePreset": "fuzzing-asan"

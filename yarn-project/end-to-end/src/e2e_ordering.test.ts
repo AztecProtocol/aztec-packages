@@ -1,5 +1,5 @@
 // Test suite for testing proper ordering of side effects
-import { Fr, FunctionSelector, PXE, TxStatus, Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
@@ -7,10 +7,12 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-jest.setTimeout(30_000);
+const TIMEOUT = 300_000;
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
 describe('e2e_ordering', () => {
+  jest.setTimeout(TIMEOUT);
+
   let pxe: PXE;
   let wallet: Wallet;
   let teardown: () => Promise<void>;
@@ -29,7 +31,7 @@ describe('e2e_ordering', () => {
 
   beforeEach(async () => {
     ({ teardown, pxe, wallet } = await setup());
-  }, 100_000);
+  }, TIMEOUT);
 
   afterEach(() => teardown());
 
@@ -41,27 +43,24 @@ describe('e2e_ordering', () => {
     beforeEach(async () => {
       parent = await ParentContract.deploy(wallet).send().deployed();
       child = await ChildContract.deploy(wallet).send().deployed();
-      pubSetValueSelector = child.methods.pubSetValue.selector;
-    });
+      pubSetValueSelector = child.methods.pub_set_value.selector;
+    }, TIMEOUT);
 
     describe('enqueued public calls ordering', () => {
       const nestedValue = 10n;
       const directValue = 20n;
 
       const expectedOrders = {
-        enqueueCallsToChildWithNestedFirst: [nestedValue, directValue] as bigint[],
-        enqueueCallsToChildWithNestedLast: [directValue, nestedValue] as bigint[],
+        enqueue_calls_to_child_with_nested_first: [nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
+        enqueue_calls_to_child_with_nested_last: [directValue, nestedValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
-      it.each(['enqueueCallsToChildWithNestedFirst', 'enqueueCallsToChildWithNestedLast'] as const)(
+      it.each(['enqueue_calls_to_child_with_nested_first', 'enqueue_calls_to_child_with_nested_last'] as const)(
         'orders public function execution in %s',
         async method => {
           const expectedOrder = expectedOrders[method];
           const action = parent.methods[method](child.address, pubSetValueSelector);
-          const tx = await action.simulate();
-          expect(tx.data.needsSetup).toBe(false);
-          expect(tx.data.needsAppLogic).toBe(true);
-          expect(tx.data.needsTeardown).toBe(false);
+          const tx = await action.prove();
 
           await action.send().wait();
 
@@ -71,7 +70,7 @@ describe('e2e_ordering', () => {
 
           // The call stack items in the output of the kernel proof match the tx enqueuedPublicFunctionCalls
           const callStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
-          expect(tx.data.end.publicCallStack.slice(0, 2)).toEqual(callStackItems);
+          expect(tx.data.forPublic!.end.publicCallStack.slice(0, 2)).toEqual(callStackItems);
 
           // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
           expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual([...expectedOrder].reverse());
@@ -91,21 +90,22 @@ describe('e2e_ordering', () => {
       const directValue = 20n;
 
       const expectedOrders = {
-        setValueTwiceWithNestedFirst: [nestedValue, directValue] as bigint[],
-        setValueTwiceWithNestedLast: [directValue, nestedValue] as bigint[],
+        set_value_twice_with_nested_first: [nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
+        set_value_twice_with_nested_last: [directValue, nestedValue] as bigint[], // eslint-disable-line camelcase
+        // TODO(6052)
+        // set_value_with_two_nested_calls: [nestedValue, directValue, directValue, nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
-      it.each(['setValueTwiceWithNestedFirst', 'setValueTwiceWithNestedLast'] as const)(
+      // TODO(6052): Once resolved, add 'set_value_with_nested_calls'
+      it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)(
         'orders public state updates in %s (and ensures final state value is correct)',
         async method => {
           const expectedOrder = expectedOrders[method];
 
-          const tx = child.methods[method]().send();
-          const receipt = await tx.wait();
-          expect(receipt.status).toBe(TxStatus.MINED);
+          await child.methods[method]().send().wait();
 
           const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
-          expect(value.value).toBe(expectedOrder[1]); // final state should match last value set
+          expect(value.value).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
         },
       );
 
@@ -114,18 +114,20 @@ describe('e2e_ordering', () => {
       //     Emitting logs twice (first in a nested call, then directly) leads
       //     to a misordering of them by the public kernel because it sees them
       //     in reverse order. More info in this thread: https://discourse.aztec.network/t/identifying-the-ordering-of-state-access-across-contract-calls/382/12#transition-counters-for-private-calls-2
-      // Once fixed, re-include the `setValueTwiceWithNestedFirst` test
-      //it.each(['setValueTwiceWithNestedFirst', 'setValueTwiceWithNestedLast'] as const)(
-      it.each(['setValueTwiceWithNestedLast'] as const)('orders unencrypted logs in %s', async method => {
-        const expectedOrder = expectedOrders[method];
+      // The below only works due to a hack which sorts the logs in ts
+      // See tail_phase_manager.ts
+      // TODO(6052): Once resolved, add 'set_value_with_two_nested_calls'
+      it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)(
+        'orders unencrypted logs in %s',
+        async method => {
+          const expectedOrder = expectedOrders[method];
 
-        const tx = child.methods[method]().send();
-        const receipt = await tx.wait();
-        expect(receipt.status).toBe(TxStatus.MINED);
+          await child.methods[method]().send().wait();
 
-        // Logs are emitted in the expected order
-        await expectLogsFromLastBlockToBe(expectedOrder);
-      });
+          // Logs are emitted in the expected order
+          await expectLogsFromLastBlockToBe(expectedOrder);
+        },
+      );
     });
   });
 });

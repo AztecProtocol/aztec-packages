@@ -1,6 +1,6 @@
 {
   "name": "@aztec/cli",
-  "version": "0.26.6",
+  "version": "0.32.0",
   "type": "module",
   "main": "./dest/index.js",
   "bin": {
@@ -19,8 +19,8 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "start": "node --no-warnings ./dest/bin/index.js"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "start": "yarn build && node --no-warnings ./dest/bin/index.js"
   },
   "inherits": [
     "../package.common.json"
@@ -31,26 +31,46 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest"
+      ]
+    },
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
+    ]
   },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
-    "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/simulator": "workspace:^",
     "@aztec/types": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
+    "axios": "^1.7.2",
     "commander": "^9.0.0",
     "jszip": "^3.10.1",
     "lodash.startcase": "^4.4.0",
     "node-fetch": "^3.3.2",
     "semver": "^7.5.4",
+    "solc": "^0.8.26",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
     "viem": "^2.7.15"

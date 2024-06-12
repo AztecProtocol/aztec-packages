@@ -1,7 +1,8 @@
-import { Fr } from '@aztec/foundation/fields';
+import { RevertCode } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 
-import { ExtendedNote } from '../notes/extended_note.js';
-import { PublicDataWrite } from '../public_data_write.js';
+import { type ExtendedNote } from '../notes/extended_note.js';
+import { type PublicDataWrite } from '../public_data_write.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -9,13 +10,18 @@ import { TxHash } from './tx_hash.js';
  */
 export enum TxStatus {
   DROPPED = 'dropped',
-  MINED = 'mined',
   PENDING = 'pending',
+  SUCCESS = 'success',
+  APP_LOGIC_REVERTED = 'app_logic_reverted',
+  TEARDOWN_REVERTED = 'teardown_reverted',
+  BOTH_REVERTED = 'both_reverted',
 }
 
 /**
  * Represents a transaction receipt in the Aztec network.
  * Contains essential information about the transaction including its status, origin, and associated addresses.
+ * REFACTOR: TxReceipt should be returned only once the tx is mined, and all its fields should be required.
+ * We should not be using a TxReceipt to answer a query for a pending or dropped tx.
  */
 export class TxReceipt {
   constructor(
@@ -31,6 +37,10 @@ export class TxReceipt {
      * Description of transaction error, if any.
      */
     public error: string,
+    /**
+     * The transaction fee paid for the transaction.
+     */
+    public transactionFee?: bigint,
     /**
      * The hash of the block containing the transaction.
      */
@@ -56,6 +66,7 @@ export class TxReceipt {
       error: this.error,
       blockHash: this.blockHash?.toString('hex'),
       blockNumber: this.blockNumber,
+      transactionFee: this.transactionFee?.toString(),
     };
   }
 
@@ -68,9 +79,24 @@ export class TxReceipt {
     const txHash = TxHash.fromString(obj.txHash);
     const status = obj.status as TxStatus;
     const error = obj.error;
+    const transactionFee = obj.transactionFee ? BigInt(obj.transactionFee) : undefined;
     const blockHash = obj.blockHash ? Buffer.from(obj.blockHash, 'hex') : undefined;
     const blockNumber = obj.blockNumber ? Number(obj.blockNumber) : undefined;
-    return new TxReceipt(txHash, status, error, blockHash, blockNumber);
+    return new TxReceipt(txHash, status, error, transactionFee, blockHash, blockNumber);
+  }
+
+  public static statusFromRevertCode(revertCode: RevertCode) {
+    if (revertCode.equals(RevertCode.OK)) {
+      return TxStatus.SUCCESS;
+    } else if (revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
+      return TxStatus.APP_LOGIC_REVERTED;
+    } else if (revertCode.equals(RevertCode.TEARDOWN_REVERTED)) {
+      return TxStatus.TEARDOWN_REVERTED;
+    } else if (revertCode.equals(RevertCode.BOTH_REVERTED)) {
+      return TxStatus.BOTH_REVERTED;
+    } else {
+      throw new Error(`Unknown revert code: ${revertCode}`);
+    }
   }
 }
 

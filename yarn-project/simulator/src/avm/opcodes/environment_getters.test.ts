@@ -1,39 +1,35 @@
 import { Fr } from '@aztec/foundation/fields';
 
+import { TypeTag } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
 import {
   Address,
   BlockNumber,
   ChainId,
   FeePerDAGas,
-  FeePerL1Gas,
   FeePerL2Gas,
-  Origin,
-  Portal,
   Sender,
   StorageAddress,
   Timestamp,
+  TransactionFee,
   Version,
 } from './environment_getters.js';
 
 type EnvInstruction =
-  | typeof Portal
-  | typeof FeePerL1Gas
   | typeof FeePerL2Gas
   | typeof FeePerDAGas
-  | typeof Origin
   | typeof Sender
   | typeof StorageAddress
-  | typeof Address;
+  | typeof Address
+  | typeof TransactionFee;
+
 describe.each([
-  [Portal, 'portal'],
-  [FeePerL1Gas, 'feePerL1Gas'],
   [FeePerL2Gas, 'feePerL2Gas'],
   [FeePerDAGas, 'feePerDaGas'],
-  [Origin, 'origin'],
   [Sender, 'sender'],
   [StorageAddress, 'storageAddress'],
   [Address, 'address'],
+  [TransactionFee, 'transactionFee'],
 ])('Environment getters instructions', (clsValue: EnvInstruction, key: string) => {
   it(`${clsValue.name} should (de)serialize correctly`, () => {
     const buf = Buffer.from([
@@ -54,6 +50,7 @@ describe.each([
 
     await instruction.execute(context);
 
+    expect(context.machineState.memory.getTag(0)).toBe(TypeTag.FIELD);
     const actual = context.machineState.memory.get(0).toFr();
     expect(actual).toEqual(value);
   });
@@ -61,11 +58,11 @@ describe.each([
 
 type GlobalsInstruction = typeof ChainId | typeof Version | typeof BlockNumber | typeof Timestamp;
 describe.each([
-  [ChainId, 'chainId'],
-  [Version, 'version'],
-  [BlockNumber, 'blockNumber'],
-  [Timestamp, 'timestamp'],
-])('Global Variables', (clsValue: GlobalsInstruction, key: string) => {
+  [ChainId, 'chainId', TypeTag.FIELD],
+  [Version, 'version', TypeTag.FIELD],
+  [BlockNumber, 'blockNumber', TypeTag.FIELD],
+  [Timestamp, 'timestamp', TypeTag.UINT64],
+])('Global Variables', (clsValue: GlobalsInstruction, key: string, tag: TypeTag) => {
   it(`${clsValue.name} should (de)serialize correctly`, () => {
     const buf = Buffer.from([
       clsValue.opcode, // opcode
@@ -86,6 +83,7 @@ describe.each([
 
     await instruction.execute(context);
 
+    expect(context.machineState.memory.getTag(0)).toBe(tag);
     const actual = context.machineState.memory.get(0).toFr();
     expect(actual).toEqual(value);
   });

@@ -1,20 +1,21 @@
 import { Note, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point } from '@aztec/circuits.js';
+import { randomInt } from '@aztec/foundation/crypto';
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 
 export const randomDeferredNoteDao = ({
-  publicKey = Point.random(),
+  ivpkM = Point.random(),
   note = Note.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteTypeId = Fr.random(),
   newNoteHashes = [Fr.random(), Fr.random()],
-  dataStartIndexForTx = Math.floor(Math.random() * 100),
+  dataStartIndexForTx = randomInt(100),
 }: Partial<DeferredNoteDao> = {}) => {
   return new DeferredNoteDao(
-    publicKey,
+    ivpkM,
     note,
     contractAddress,
     storageSlot,

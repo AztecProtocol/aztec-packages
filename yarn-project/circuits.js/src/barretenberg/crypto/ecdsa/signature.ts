@@ -1,10 +1,9 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { mapTuple } from '@aztec/foundation/serialize';
 
-import { randomBytes } from 'crypto';
-
-import { Signature } from '../signature/index.js';
+import { type Signature } from '../signature/index.js';
 
 /**
  * ECDSA signature used for transactions.

@@ -1,9 +1,10 @@
 import { fromHex, toBigIntBE } from '../bigint-buffer/index.js';
-import { keccak, randomBytes } from '../crypto/index.js';
-import { Fr } from '../fields/fields.js';
+import { keccak256, randomBytes } from '../crypto/index.js';
+import { type Fr } from '../fields/fields.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { FieldReader } from '../serialize/field_reader.js';
-import { ABIParameter } from './abi.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
+import { type ABIParameter } from './abi.js';
 import { decodeFunctionSignature } from './decoder.js';
 import { Selector } from './selector.js';
 
@@ -21,13 +22,20 @@ export class FunctionSelector extends Selector {
    * Checks if this function selector is equal to another.
    * @returns True if the function selectors are equal.
    */
-  equals(otherName: string, otherParams: ABIParameter[]): boolean;
-  equals(other: FunctionSelector): boolean;
-  equals(other: FunctionSelector | string, otherParams?: ABIParameter[]): boolean {
+  override equals(fn: { name: string; parameters: ABIParameter[] }): boolean;
+  override equals(otherName: string, otherParams: ABIParameter[]): boolean;
+  override equals(other: FunctionSelector): boolean;
+  override equals(
+    other: FunctionSelector | string | { name: string; parameters: ABIParameter[] },
+    otherParams?: ABIParameter[],
+  ): boolean {
     if (typeof other === 'string') {
       return this.equals(FunctionSelector.fromNameAndParameters(other, otherParams!));
+    } else if (typeof other === 'object' && 'name' in other) {
+      return this.equals(FunctionSelector.fromNameAndParameters(other.name, other.parameters));
+    } else {
+      return this.value === other.value;
     }
-    return this.value === other.value;
   }
 
   /**
@@ -65,7 +73,7 @@ export class FunctionSelector extends Selector {
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    return FunctionSelector.fromBuffer(keccak(Buffer.from(signature)).subarray(0, Selector.SIZE));
+    return FunctionSelector.fromBuffer(keccak256(Buffer.from(signature)).subarray(0, Selector.SIZE));
   }
 
   /**
@@ -119,4 +127,14 @@ export class FunctionSelector extends Selector {
   static random() {
     return FunctionSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
+
+  toJSON() {
+    return {
+      type: 'FunctionSelector',
+      value: this.toString(),
+    };
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('FunctionSelector', FunctionSelector);

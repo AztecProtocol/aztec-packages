@@ -1,11 +1,11 @@
 import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
-import { AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
-import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
+import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, Fr, GasSettings, TxContext } from '@aztec/circuits.js';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
-import { buildDappPayload } from './entrypoint_payload.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -20,28 +20,35 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
-    if (executions.length !== 1) {
-      throw new Error('ILLEGAL');
+  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
+    const { calls } = exec;
+    if (calls.length !== 1) {
+      throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
-    const { payload, packedArguments } = buildDappPayload(executions[0]);
+
+    const payload = EntrypointPayload.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload, this.userAddress]));
+    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
+    const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
+    const functionSelector = FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
 
-    const functionData = FunctionData.fromAbi(abi);
+    const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), entrypointPackedArgs.hash]);
+    const outerHash = computeOuterAuthWitHash(
+      this.dappEntrypointAddress,
+      new Fr(this.chainId),
+      new Fr(this.version),
+      innerHash,
+    );
 
-    const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionData.selector.toField(), entrypointPackedArgs.hash]);
-    const outerHash = computeOuterAuthWitHash(this.dappEntrypointAddress, innerHash);
-
-    const authWitness = await this.userAuthWitnessProvider.createAuthWitness(outerHash);
+    const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
     const txRequest = TxExecutionRequest.from({
-      argsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.dappEntrypointAddress,
-      functionData,
-      txContext: TxContext.empty(this.chainId, this.version),
-      packedArguments: [...packedArguments, entrypointPackedArgs],
+      functionSelector,
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      argsOfCalls: [...payload.packedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });
 
@@ -51,8 +58,10 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   private getEntrypointAbi() {
     return {
       name: 'entrypoint',
-      functionType: 'secret',
+      isInitializer: false,
+      functionType: 'private',
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'payload',
@@ -87,6 +96,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },
                 },

@@ -1,20 +1,20 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, emit_unencrypted_log};
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize, Map};
 
     use dep::aztec::{
-        context::{PublicContext, Context}, protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
+        context::gas::GasOpts,
+        protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt
     };
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::ValueNote;
 
+    #[aztec(storage)]
     struct Storage {
         current_value: PublicMutable<Field>,
-        a_private_value: PrivateSet<ValueNote>,
+        a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
     }
-
-    #[aztec(private)]
-    fn constructor() {}
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     #[aztec(private)]
@@ -25,51 +25,55 @@ contract Child {
     // Can only be called from this contract.
     #[aztec(private)]
     #[aztec(internal)]
-    fn valueInternal(input: Field) -> Field {
+    fn value_internal(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp
     #[aztec(public)]
-    fn pubGetValue(base_value: Field) -> Field {
-        let returnValue = base_value
+    fn pub_get_value(base_value: Field) -> Field {
+        let return_value = base_value
             + context.chain_id()
             + context.version()
             + context.block_number()
-            + context.timestamp();
+            + context.timestamp() as Field;
 
-        returnValue
+        return_value
     }
 
     // Sets `current_value` to `new_value`
     #[aztec(public)]
-    fn pubSetValue(new_value: Field) -> Field {
+    fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
 
     #[aztec(private)]
-    fn privateSetValue(new_value: Field, owner: AztecAddress) -> Field {
-        let mut note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(&mut note, true);
+    fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+
+        let mut note = ValueNote::new(new_value, owner_npk_m_hash);
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
         new_value
     }
 
     #[aztec(private)]
-    fn privateGetValue(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
-        let notes = storage.a_private_value.get_notes(options);
+    fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
+        let mut options = NoteGetterOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
+        let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
         notes[0].unwrap_unchecked().value
     }
 
     // Increments `current_value` by `new_value`
     #[aztec(public)]
-    fn pubIncValue(new_value: Field) -> Field {
+    fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
@@ -77,29 +81,35 @@ contract Child {
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[aztec(public)] 
     #[aztec(internal)]
-    fn pubIncValueInternal(new_value: Field) -> Field {
+    fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
 
     #[aztec(public)]
-    fn setValueTwiceWithNestedFirst() {
-        let pubSetValueSelector = FunctionSelector::from_signature("pubSetValue(Field)");
-        let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
-
+    fn set_value_twice_with_nested_first() {
+        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
-        emit_unencrypted_log(&mut context, 20);
+        context.emit_unencrypted_log(20);
     }
 
     #[aztec(public)]
-    fn setValueTwiceWithNestedLast() {
+    fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
-        emit_unencrypted_log(&mut context, 20);
+        context.emit_unencrypted_log(20);
+        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
+    }
 
-        let pubSetValueSelector = FunctionSelector::from_signature("pubSetValue(Field)");
-        let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
+    #[aztec(public)]
+    // TODO(6052): The logs emitted are currently in the wrong order as we don't update
+    // counters for nested public calls
+    fn set_value_with_two_nested_calls() {
+        Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
+        Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
+        storage.current_value.write(20);
+        context.emit_unencrypted_log(20);
     }
 }

@@ -1,14 +1,18 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
-use crate::token::{Attributes, Token};
-use crate::{
-    Distinctness, FunctionVisibility, Ident, Path, Pattern, Recoverable, Statement, StatementKind,
+use crate::ast::{
+    Ident, ItemVisibility, Path, Pattern, Recoverable, Statement, StatementKind,
     UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, Visibility,
 };
-use acvm::FieldElement;
+use crate::macros_api::StructId;
+use crate::node_interner::ExprId;
+use crate::token::{Attributes, Token};
+use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
+
+use super::UnaryRhsMemberAccess;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExpressionKind {
@@ -23,10 +27,19 @@ pub enum ExpressionKind {
     Cast(Box<CastExpression>),
     Infix(Box<InfixExpression>),
     If(Box<IfExpression>),
-    Variable(Path),
+    // The optional vec here is the optional list of generics
+    // provided by the turbofish operator, if used
+    Variable(Path, Option<Vec<UnresolvedType>>),
     Tuple(Vec<Expression>),
     Lambda(Box<Lambda>),
     Parenthesized(Box<Expression>),
+    Quote(BlockExpression),
+    Comptime(BlockExpression),
+
+    // This variant is only emitted when inlining the result of comptime
+    // code. It is used to translate function values back into the AST while
+    // guaranteeing they have the same instantiated type and definition id without resolving again.
+    Resolved(ExprId),
     Error,
 }
 
@@ -37,7 +50,7 @@ pub type UnresolvedGenerics = Vec<Ident>;
 impl ExpressionKind {
     pub fn into_path(self) -> Option<Path> {
         match self {
-            ExpressionKind::Variable(path) => Some(path),
+            ExpressionKind::Variable(path, _) => Some(path),
             _ => None,
         }
     }
@@ -70,6 +83,17 @@ impl ExpressionKind {
         }))
     }
 
+    pub fn slice(contents: Vec<Expression>) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::Slice(ArrayLiteral::Standard(contents)))
+    }
+
+    pub fn repeated_slice(repeated_element: Expression, length: Expression) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::Slice(ArrayLiteral::Repeated {
+            repeated_element: Box::new(repeated_element),
+            length: Box::new(length),
+        }))
+    }
+
     pub fn integer(contents: FieldElement) -> ExpressionKind {
         ExpressionKind::Literal(Literal::Integer(contents, false))
     }
@@ -91,7 +115,11 @@ impl ExpressionKind {
     }
 
     pub fn constructor((type_name, fields): (Path, Vec<(Ident, Expression)>)) -> ExpressionKind {
-        ExpressionKind::Constructor(Box::new(ConstructorExpression { type_name, fields }))
+        ExpressionKind::Constructor(Box::new(ConstructorExpression {
+            type_name,
+            fields,
+            struct_type: None,
+        }))
     }
 
     /// Returns true if the expression is a literal integer
@@ -151,16 +179,19 @@ impl Expression {
 
     pub fn member_access_or_method_call(
         lhs: Expression,
-        (rhs, args): (Ident, Option<Vec<Expression>>),
+        (rhs, args): UnaryRhsMemberAccess,
         span: Span,
     ) -> Expression {
         let kind = match args {
             None => ExpressionKind::MemberAccess(Box::new(MemberAccessExpression { lhs, rhs })),
-            Some(arguments) => ExpressionKind::MethodCall(Box::new(MethodCallExpression {
-                object: lhs,
-                method_name: rhs,
-                arguments,
-            })),
+            Some((generics, arguments)) => {
+                ExpressionKind::MethodCall(Box::new(MethodCallExpression {
+                    object: lhs,
+                    method_name: rhs,
+                    generics,
+                    arguments,
+                }))
+            }
         };
         Expression::new(kind, span)
     }
@@ -180,16 +211,18 @@ impl Expression {
         // with tuples without calling them. E.g. `if c { t } else { e }(a, b)` is interpreted
         // as a sequence of { if, tuple } rather than a function call. This behavior matches rust.
         let kind = if matches!(&lhs.kind, ExpressionKind::If(..)) {
-            ExpressionKind::Block(BlockExpression(vec![
-                Statement { kind: StatementKind::Expression(lhs), span },
-                Statement {
-                    kind: StatementKind::Expression(Expression::new(
-                        ExpressionKind::Tuple(arguments),
+            ExpressionKind::Block(BlockExpression {
+                statements: vec![
+                    Statement { kind: StatementKind::Expression(lhs), span },
+                    Statement {
+                        kind: StatementKind::Expression(Expression::new(
+                            ExpressionKind::Tuple(arguments),
+                            span,
+                        )),
                         span,
-                    )),
-                    span,
-                },
-            ]))
+                    },
+                ],
+            })
         } else {
             ExpressionKind::Call(Box::new(CallExpression { func: Box::new(lhs), arguments }))
         };
@@ -319,6 +352,7 @@ impl UnaryOp {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Literal {
     Array(ArrayLiteral),
+    Slice(ArrayLiteral),
     Bool(bool),
     Integer(FieldElement, /*sign*/ bool), // false for positive integer and true for negative
     Str(String),
@@ -369,16 +403,14 @@ pub struct FunctionDefinition {
     // and `secondary` attributes (ones that do not change the function kind)
     pub attributes: Attributes,
 
-    /// True if this function was defined with the 'open' keyword
-    pub is_open: bool,
-
-    pub is_internal: bool,
-
     /// True if this function was defined with the 'unconstrained' keyword
     pub is_unconstrained: bool,
 
+    /// True if this function was defined with the 'comptime' keyword
+    pub is_comptime: bool,
+
     /// Indicate if this function was defined with the 'pub' keyword
-    pub visibility: FunctionVisibility,
+    pub visibility: ItemVisibility,
 
     pub generics: UnresolvedGenerics,
     pub parameters: Vec<Param>,
@@ -387,7 +419,6 @@ pub struct FunctionDefinition {
     pub where_clause: Vec<UnresolvedTraitConstraint>,
     pub return_type: FunctionReturnType,
     pub return_visibility: Visibility,
-    pub return_distinctness: Distinctness,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -406,18 +437,6 @@ pub enum FunctionReturnType {
     Ty(UnresolvedType),
 }
 
-/// Describes the types of smart contract functions that are allowed.
-/// - All Noir programs in the non-contract context can be seen as `Secret`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ContractFunctionType {
-    /// This function will be executed in a private
-    /// context.
-    Secret,
-    /// This function will be executed in a public
-    /// context.
-    Open,
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ArrayLiteral {
     Standard(Vec<Expression>),
@@ -434,6 +453,8 @@ pub struct CallExpression {
 pub struct MethodCallExpression {
     pub object: Expression,
     pub method_name: Ident,
+    /// Method calls have an optional list of generics if the turbofish operator was used
+    pub generics: Option<Vec<UnresolvedType>>,
     pub arguments: Vec<Expression>,
 }
 
@@ -441,6 +462,11 @@ pub struct MethodCallExpression {
 pub struct ConstructorExpression {
     pub type_name: Path,
     pub fields: Vec<(Ident, Expression)>,
+
+    /// This may be filled out during macro expansion
+    /// so that we can skip re-resolving the type name since it
+    /// would be lost at that point.
+    pub struct_type: Option<StructId>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -456,19 +482,21 @@ pub struct IndexExpression {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct BlockExpression(pub Vec<Statement>);
+pub struct BlockExpression {
+    pub statements: Vec<Statement>,
+}
 
 impl BlockExpression {
     pub fn pop(&mut self) -> Option<StatementKind> {
-        self.0.pop().map(|stmt| stmt.kind)
+        self.statements.pop().map(|stmt| stmt.kind)
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.statements.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.statements.is_empty()
     }
 }
 
@@ -491,7 +519,14 @@ impl Display for ExpressionKind {
             Cast(cast) => cast.fmt(f),
             Infix(infix) => infix.fmt(f),
             If(if_expr) => if_expr.fmt(f),
-            Variable(path) => path.fmt(f),
+            Variable(path, generics) => {
+                if let Some(generics) = generics {
+                    let generics = vecmap(generics, ToString::to_string);
+                    write!(f, "{path}::<{}>", generics.join(", "))
+                } else {
+                    path.fmt(f)
+                }
+            }
             Constructor(constructor) => constructor.fmt(f),
             MemberAccess(access) => access.fmt(f),
             Tuple(elements) => {
@@ -500,7 +535,10 @@ impl Display for ExpressionKind {
             }
             Lambda(lambda) => lambda.fmt(f),
             Parenthesized(sub_expr) => write!(f, "({sub_expr})"),
+            Quote(block) => write!(f, "quote {block}"),
+            Comptime(block) => write!(f, "comptime {block}"),
             Error => write!(f, "Error"),
+            Resolved(_) => write!(f, "?Resolved"),
         }
     }
 }
@@ -514,6 +552,13 @@ impl Display for Literal {
             }
             Literal::Array(ArrayLiteral::Repeated { repeated_element, length }) => {
                 write!(f, "[{repeated_element}; {length}]")
+            }
+            Literal::Slice(ArrayLiteral::Standard(elements)) => {
+                let contents = vecmap(elements, ToString::to_string);
+                write!(f, "&[{}]", contents.join(", "))
+            }
+            Literal::Slice(ArrayLiteral::Repeated { repeated_element, length }) => {
+                write!(f, "&[{repeated_element}; {length}]")
             }
             Literal::Bool(boolean) => write!(f, "{}", if *boolean { "true" } else { "false" }),
             Literal::Integer(integer, sign) => {
@@ -538,7 +583,7 @@ impl Display for Literal {
 impl Display for BlockExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{{")?;
-        for statement in &self.0 {
+        for statement in &self.statements {
             let statement = statement.kind.to_string();
             for line in statement.lines() {
                 writeln!(f, "    {line}")?;
@@ -671,13 +716,13 @@ impl FunctionDefinition {
                 span: ident.span().merge(unresolved_type.span.unwrap()),
             })
             .collect();
+
         FunctionDefinition {
             name: name.clone(),
             attributes: Attributes::empty(),
-            is_open: false,
-            is_internal: false,
             is_unconstrained: false,
-            visibility: FunctionVisibility::Private,
+            is_comptime: false,
+            visibility: ItemVisibility::Private,
             generics: generics.clone(),
             parameters: p,
             body: body.clone(),
@@ -685,7 +730,6 @@ impl FunctionDefinition {
             where_clause: where_clause.to_vec(),
             return_type: return_type.clone(),
             return_visibility: Visibility::Private,
-            return_distinctness: Distinctness::DuplicationAllowed,
         }
     }
 }

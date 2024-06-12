@@ -1,11 +1,10 @@
 
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -14,7 +13,7 @@ namespace {
 
 class GoblinBench : public benchmark::Fixture {
   public:
-    Goblin::AccumulationOutput kernel_accum;
+    GoblinAccumulationOutput kernel_accum;
 
     // Number of function circuits to accumulate(based on Zacs target numbers)
     static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
@@ -28,27 +27,31 @@ class GoblinBench : public benchmark::Fixture {
     /**
      * @brief Perform a specified number of function circuit accumulation rounds
      * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists of
-     * the generation of two circuits, two UGH proofs and two Merge proofs. To match the sizes called out in the spec
+     * the generation of two circuits, two MegaHonk proofs and two Merge proofs. To match the sizes called out in the
+     * spec
      * (https://github.com/AztecProtocol/aztec-packages/blob/master/yellow-paper/docs/cryptography/performance-targets.md)
      * we set the size of the function circuit to be 2^17 except for the first one which is 2^19.
      *
      * @param state
      */
-    void perform_goblin_accumulation_rounds(State& state, Goblin& goblin)
+    void perform_goblin_accumulation_rounds(State& state, GoblinProver& goblin)
     {
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 
             // Construct and accumulate a mock function circuit
-            GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
+            MegaCircuitBuilder function_circuit{ goblin.op_queue };
             // On the first iteration construct a "large" function circuit (2^19), otherwise medium (2^17)
             GoblinMockCircuits::construct_mock_function_circuit(function_circuit, /*large=*/circuit_idx == 0);
             auto function_accum = goblin.accumulate(function_circuit);
 
             // Construct and accumulate the mock kernel circuit
             // Note: in first round, kernel_accum is empty since there is no previous kernel to recursively verify
-            GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
-            GoblinMockCircuits::construct_mock_recursion_kernel_circuit(circuit_builder, function_accum, kernel_accum);
+            MegaCircuitBuilder circuit_builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_mock_recursion_kernel_circuit(
+                circuit_builder,
+                { function_accum.proof, function_accum.verification_key },
+                { kernel_accum.proof, kernel_accum.verification_key });
             kernel_accum = goblin.accumulate(circuit_builder);
         }
     }
@@ -60,11 +63,7 @@ class GoblinBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
 {
-    Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723): Simply populate the OpQueue with some data
-    // and corresponding commitments so the merge protocol has "prev" data into which it can accumulate
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    GoblinProver goblin;
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
@@ -82,10 +81,7 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
 {
-    Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    GoblinProver goblin;
 
     // Perform a specified number of iterations of function/kernel accumulation
     for (auto _ : state) {
@@ -99,10 +95,7 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
 {
-    Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    GoblinProver goblin;
 
     // Perform a specified number of iterations of function/kernel accumulation
     perform_goblin_accumulation_rounds(state, goblin);
@@ -117,12 +110,9 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
  * @brief Benchmark only the Translator component
  *
  */
-BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
+BENCHMARK_DEFINE_F(GoblinBench, TranslatorProve)(benchmark::State& state)
 {
-    Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    GoblinProver goblin;
 
     // Perform a specified number of iterations of function/kernel accumulation
     perform_goblin_accumulation_rounds(state, goblin);
@@ -147,7 +137,7 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
 BENCHMARK_REGISTER_F(GoblinBench, GoblinFull)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(GoblinBench, GoblinAccumulate)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(GoblinBench, GoblinECCVMProve)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(GoblinBench, GoblinTranslatorProve)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(GoblinBench, TranslatorProve)->Unit(benchmark::kMillisecond)->ARGS;
 
 } // namespace
 

@@ -1,18 +1,21 @@
-import { FunctionL2Logs, SimulationError } from '@aztec/circuit-types';
+import { type SimulationError, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  Fr,
-  L2ToL1Message,
-  PublicCallRequest,
+  type AvmExecutionHints,
+  type ContractStorageRead,
+  type ContractStorageUpdateRequest,
+  type Fr,
+  type L2ToL1Message,
+  type LogHash,
+  type NoteHash,
+  type Nullifier,
+  type PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
-  ReadRequest,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
+  type ReadRequest,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
+
+import { type Gas } from '../avm/avm_gas.js';
 
 /**
  * The public function execution result.
@@ -23,13 +26,23 @@ export interface PublicExecutionResult {
   /** The return values of the function. */
   returnValues: Fr[];
   /** The new note hashes to be inserted into the note hashes tree. */
-  newNoteHashes: SideEffect[];
+  newNoteHashes: NoteHash[];
   /** The new l2 to l1 messages generated in this call. */
   newL2ToL1Messages: L2ToL1Message[];
+  /** The side effect counter at the start of the function call. */
+  startSideEffectCounter: Fr;
+  /** The side effect counter after executing this function call */
+  endSideEffectCounter: Fr;
   /** The new nullifiers to be inserted into the nullifier tree. */
-  newNullifiers: SideEffectLinkedToNoteHash[];
+  newNullifiers: Nullifier[];
+  /** The note hash read requests emitted in this call. */
+  noteHashReadRequests: ReadRequest[];
   /** The nullifier read requests emitted in this call. */
   nullifierReadRequests: ReadRequest[];
+  /** The nullifier non existent read requests emitted in this call. */
+  nullifierNonExistentReadRequests: ReadRequest[];
+  /** L1 to L2 message read requests emitted in this call. */
+  l1ToL2MsgReadRequests: ReadRequest[];
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];
   /** The contract storage update requests performed by the function. */
@@ -37,24 +50,42 @@ export interface PublicExecutionResult {
   /** The results of nested calls. */
   nestedExecutions: this[];
   /**
+   * The hashed logs with side effect counter.
+   * Note: required as we don't track the counter anywhere else.
+   */
+  unencryptedLogsHashes: LogHash[];
+  /**
    * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHash`.
+   * Note: These are preimages to `unencryptedLogsHashes`.
    */
-  unencryptedLogs: FunctionL2Logs;
+  unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
-   * Whether the execution reverted.
+   * Unencrypted logs emitted during this call AND any nested calls.
+   * Useful for maintaining correct ordering in ts.
    */
+  allUnencryptedLogs: UnencryptedFunctionL2Logs;
+  /** Whether the execution reverted. */
   reverted: boolean;
-  /**
-   * The revert reason if the execution reverted.
-   */
-  revertReason: SimulationError | undefined;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+  /** How much gas was available for this public execution. */
+  startGasLeft: Gas;
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** Transaction fee set for this tx. */
+  transactionFee: Fr;
+  /** Bytecode used for this execution. */
+  bytecode?: Buffer;
+  /** Calldata used for this execution. */
+  calldata: Fr[];
+  /** Hints for proving AVM execution. */
+  avmHints: AvmExecutionHints;
 }
 
 /**
  * The execution of a public function.
  */
-export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionData' | 'callContext' | 'args'>;
+export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionSelector' | 'callContext' | 'args'>;
 
 /**
  * Returns if the input is a public execution result and not just a public execution.
@@ -75,10 +106,8 @@ export function isPublicExecutionResult(
  */
 export function collectPublicDataReads(execResult: PublicExecutionResult): PublicDataRead[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.callContext.storageContractAddress;
-
   const thisExecPublicDataReads = execResult.contractStorageReads.map(read =>
-    contractStorageReadToPublicDataRead(read, contractAddress),
+    contractStorageReadToPublicDataRead(read),
   );
   const unsorted = [
     ...thisExecPublicDataReads,
@@ -95,10 +124,8 @@ export function collectPublicDataReads(execResult: PublicExecutionResult): Publi
  */
 export function collectPublicDataUpdateRequests(execResult: PublicExecutionResult): PublicDataUpdateRequest[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.callContext.storageContractAddress;
-
   const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update =>
-    contractStorageUpdateRequestToPublicDataUpdateRequest(update, contractAddress),
+    contractStorageUpdateRequestToPublicDataUpdateRequest(update),
   );
   const unsorted = [
     ...thisExecPublicDataUpdateRequests,
@@ -113,9 +140,9 @@ export function collectPublicDataUpdateRequests(execResult: PublicExecutionResul
  * @param contractAddress - the contract address of the read
  * @returns The public data read.
  */
-function contractStorageReadToPublicDataRead(read: ContractStorageRead, contractAddress: AztecAddress): PublicDataRead {
+function contractStorageReadToPublicDataRead(read: ContractStorageRead): PublicDataRead {
   return new PublicDataRead(
-    computePublicDataTreeLeafSlot(contractAddress, read.storageSlot),
+    computePublicDataTreeLeafSlot(read.contractAddress!, read.storageSlot),
     computePublicDataTreeValue(read.currentValue),
     read.sideEffectCounter!,
   );
@@ -129,10 +156,9 @@ function contractStorageReadToPublicDataRead(read: ContractStorageRead, contract
  */
 function contractStorageUpdateRequestToPublicDataUpdateRequest(
   update: ContractStorageUpdateRequest,
-  contractAddress: AztecAddress,
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
-    computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
+    computePublicDataTreeLeafSlot(update.contractAddress!, update.storageSlot),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
   );
@@ -144,11 +170,11 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
  */
 
 export function checkValidStaticCall(
-  newNoteHashes: SideEffect[],
-  newNullifiers: SideEffectLinkedToNoteHash[],
+  newNoteHashes: NoteHash[],
+  newNullifiers: Nullifier[],
   contractStorageUpdateRequests: ContractStorageUpdateRequest[],
   newL2ToL1Messages: L2ToL1Message[],
-  unencryptedLogs: FunctionL2Logs,
+  unencryptedLogs: UnencryptedFunctionL2Logs,
 ) {
   if (
     contractStorageUpdateRequests.length > 0 ||

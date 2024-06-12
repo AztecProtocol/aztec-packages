@@ -1,10 +1,10 @@
-use crate::cmp::{Ord};
+use crate::cmp::Ord;
 
 // TODO: Once we fully move to the new SSA pass this module can be removed and replaced
 // by the methods in the `slice` module
 impl<T, N> [T; N] {
     #[builtin(array_len)]
-    pub fn len(self) -> u64 {}
+    pub fn len(self) -> u32 {}
 
     pub fn sort(self) -> Self where T: Ord {
         self.sort_via(|a: T, b: T| a <= b)
@@ -31,7 +31,7 @@ impl<T, N> [T; N] {
     }
 
     /// Returns the index of the elements in the array that would sort it, using the provided custom sorting function.
-    unconstrained fn get_sorting_index<Env>(self, ordering: fn[Env](T, T) -> bool) -> [u64; N] {
+    unconstrained fn get_sorting_index<Env>(self, ordering: fn[Env](T, T) -> bool) -> [u32; N] {
         let mut result = [0; N];
         let mut a = self;
         for i in 0..N {
@@ -52,14 +52,8 @@ impl<T, N> [T; N] {
         result
     }
 
-    // Converts an array into a slice.
-    pub fn as_slice(self) -> [T] {
-        let mut slice = [];
-        for elem in self {
-            slice = slice.push_back(elem);
-        }
-        slice
-    }
+    #[builtin(as_slice)]
+    pub fn as_slice(self) -> [T] {}
 
     // Apply a function to each element of an array, returning a new array
     // containing the mapped elements.
@@ -116,7 +110,7 @@ impl<T, N> [T; N] {
 
 // helper function used to look up the position of a value in an array of Field
 // Note that function returns 0 if the value is not found
-unconstrained fn find_index<N>(a: [u64; N], find: u64) -> u64 {
+unconstrained fn find_index<N>(a: [u32; N], find: u32) -> u32 {
     let mut result = 0;
     for i in 0..a.len() {
         if a[i] == find {

@@ -10,113 +10,131 @@
 #include <vector>
 
 namespace bb {
+// clang-format off
 
 /**
- * @brief IPA (inner product argument) commitment scheme class.
- *
- *@details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
- *vector in each prover round. The implementation uses:
- *
- *1. An SRS (Structured Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
- *\f$\mathbb{F}_r\f$ - the scalar field of the elliptic curve as well as \f$G\f$ which is an independent generator on
- *the same curve.
- *2. A polynomial \f$f(x)=\sum_{i=0}^{d-1}f_ix^i\f$ over field \f$F_r\f$, where the polynomial degree \f$d-1\f$ is such
- *that \f$d=2^k\f$
- *
- *The opening and verification procedures expect that there already exists a commitment to \f$f(x)\f$ which is the
- *scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​
- *
- * The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof
- compute_opening_proof \endlink. The verification procedure documentation is in \link IPA::verify verify \endlink
- *
- * @tparam Curve
- *
- * @remark IPA is not a very intuitive algorithm, so here are a few things that might help internalize it:
- *
- *1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, which the product of which we want to prove, but
- *the prover can't just send vector \f$\vec{a}\f$ to the verifier, it can only provide a commitment
- \f$\langle\vec{a},\vec{G}\rangle\f$
- *2. The verifier computes the \f$C'=C+\langle\vec{a},\vec{b}\rangle\cdot U\f$ to "bind" together the
- commitment and the evaluation (\f$C=\langle\vec{a},\vec{G}\rangle\f$ is the commitment and \f$U=u⋅G\f$ is the auxiliary
- generator independent from \f$\vec{G}\f$)
- *3. The prover wants to reduce the problem of verifying the inner product of
- \f$\vec{a}\f$, \f$\vec{b}\f$ of length
- *\f$n\f$ to a problem of verifying the IPA of 2 vectors \f$\vec{a}_{new}\f$, \f$\vec{b}_{new}\f$ of size
- *\f$\frac{n}{2}\f$​
- *4. If \f$\vec{a}_{new}=\vec{a}_{low}+\alpha\cdot \vec{a}_{high}\f$ and \f$\vec{b}_{new}=\vec{b}_{low}+\alpha^{-1}\cdot
- \vec{b}_{high}\f$, then \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle = \langle\vec{a}_{low},\vec{b}_{low}\rangle +
- \alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle \vec{a}_{high},\vec{b}_{low}\rangle +
- \langle\vec{a}_{high},\vec{b}_{high}\rangle=
- \langle\vec{a},\vec{b}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle
- \vec{a}_{high},\vec{b}_{low}\rangle\f$, so if we provide commitments to
- \f$\langle\vec{a}_{low},\vec{b}_{high}\rangle\f$ and \f$\langle \vec{a}_{high},\vec{b}_{low}\rangle\f$  the verifier
- can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\f$ to the new commitment \f$\langle
- \vec{a}_{new},\vec{b}_{new}\rangle U\f$
- *5. Analogously, if \f$\vec{G}_{new}=\vec{G}_{low}+\alpha^{-1}\vec{G}_{high}\f$, then we can reduce the initial
- *commitment to \f$\vec{a}\f$ by providing  \f$\langle\vec{a}_{low},\vec{G}_{high}\rangle\f$ and \f$\langle
- \vec{a}_{high},\vec{G}_{low}\rangle\f$. \f$\langle \vec{a}_{new},\vec{G}_{new}\rangle =
- \langle\vec{a},\vec{G}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{G}_{high}\rangle+\alpha \langle
- \vec{a}_{high},\vec{G}_{low}\rangle\f$
- *6. We can batch the two reductions together \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle U + \langle
- \vec{a}_{new},\vec{G}_{new}\rangle= \langle\vec{a},\vec{b}\rangle U+ \langle\vec{a},\vec{G}\rangle+
- \alpha^{-1}(\langle\vec{a}_{low},\vec{b}_{high}\rangle U +\langle\vec{a}_{low},\vec{G}_{high}\rangle) +\alpha (\langle
- \vec{a}_{high},\vec{b}_{low}\rangle U+\langle \vec{a}_{high},\vec{G}_{low}\rangle)\f$​
- *7. After \f$k\f$ steps of reductions we are left with \f$\langle \vec{a}_{0},\vec{b}_{0}\rangle U + \langle
- \vec{a}_{0},\vec{G}_{s}\rangle= a_0 b_0 U+a_0G_s\f$. The prover provides \f$a_0\f$. The independence of \f$U\f$ and
- \f$\vec{G}\f$ from which we construct \f$G_s\f$ ensures that \f$a_0\f$ is constructed from \f$\vec{a}_k=\vec{p}\f$
- *correctly, while the correctness of \f$a_0 b_0 U\f$ ensures that the polynomial opening is indeed \f$f(\beta)\f$
- *
- * The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
- documentation </a>
- */
-template <typename Curve> class IPA {
-    using Fr = typename Curve::ScalarField;
-    using GroupElement = typename Curve::Element;
-    using Commitment = typename Curve::AffineElement;
-    using CK = CommitmentKey<Curve>;
-    using VK = VerifierCommitmentKey<Curve>;
-    using Polynomial = bb::Polynomial<Fr>;
+* @brief IPA (inner product argument) commitment scheme class.
+*
+*@details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
+*vector in each prover round. The implementation uses:
+*
+*1. An SRS (Structured Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
+*\f$\mathbb{F}_r\f$ - the scalar field of the elliptic curve as well as \f$G\f$ which is an independent generator on
+*the same curve.
+*2. A polynomial \f$f(x)=\sum_{i=0}^{d-1}f_ix^i\f$ over field \f$F_r\f$, where the polynomial degree \f$d-1\f$ is such
+*that \f$d=2^k\f$
+*
+*The opening and verification procedures expect that there already exists a commitment to \f$f(x)\f$ which is the
+*scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​
+*
+* The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof_internal
+compute_opening_proof_internal \endlink. The verification procedure documentation is in \link IPA::verify_internal
+verify_internal \endlink
+*
+* @tparam Curve
+*
+* @remark IPA is not a very intuitive algorithm, so here are a few things that might help internalize it:
+*
+*1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, whose product we want to prove, but
+*the prover can't just send vector \f$\vec{a}\f$ to the verifier, it can only provide a commitment
+\f$\langle\vec{a},\vec{G}\rangle\f$
+*2. The verifier computes the \f$C'=C+\langle\vec{a},\vec{b}\rangle\cdot U\f$ to "bind" together the
+commitment and the evaluation (\f$C=\langle\vec{a},\vec{G}\rangle\f$ is the commitment and \f$U=u⋅G\f$ is the auxiliary
+generator independent from \f$\vec{G}\f$)
+*3. The prover wants to reduce the problem of verifying the inner product of
+\f$\vec{a}\f$, \f$\vec{b}\f$ of length
+*\f$n\f$ to a problem of verifying the IPA of 2 vectors \f$\vec{a}_{new}\f$, \f$\vec{b}_{new}\f$ of size
+*\f$\frac{n}{2}\f$​
+*4. If \f$\vec{a}_{new}=\vec{a}_{low}+\alpha\cdot \vec{a}_{high}\f$ and \f$\vec{b}_{new}=\vec{b}_{low}+\alpha^{-1}\cdot
+\vec{b}_{high}\f$, then \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle = \langle\vec{a}_{low},\vec{b}_{low}\rangle +
+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle \vec{a}_{high},\vec{b}_{low}\rangle +
+\langle\vec{a}_{high},\vec{b}_{high}\rangle=
+\langle\vec{a},\vec{b}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle
+\vec{a}_{high},\vec{b}_{low}\rangle\f$, so if we provide commitments to the cross-terms
+\f$\langle\vec{a}_{low},\vec{b}_{high}\rangle\f$ and \f$\langle \vec{a}_{high},\vec{b}_{low}\rangle\f$,  the verifier
+can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\f$ to the new commitment \f$\langle
+\vec{a}_{new},\vec{b}_{new}\rangle U\f$
+*5. Analogously, if \f$\vec{G}_{new}=\vec{G}_{low}+\alpha^{-1}\vec{G}_{high}\f$, then we can reduce the initial
+*commitment to \f$\vec{a}\f$ by providing  \f$\langle\vec{a}_{low},\vec{G}_{high}\rangle\f$ and \f$\langle
+\vec{a}_{high},\vec{G}_{low}\rangle\f$. \f$\langle \vec{a}_{new},\vec{G}_{new}\rangle =
+\langle\vec{a},\vec{G}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{G}_{high}\rangle+\alpha \langle
+\vec{a}_{high},\vec{G}_{low}\rangle\f$
+*6. We can batch the two reductions together \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle U + \langle
+\vec{a}_{new},\vec{G}_{new}\rangle= \langle\vec{a},\vec{b}\rangle U+ \langle\vec{a},\vec{G}\rangle+
+\alpha^{-1}(\langle\vec{a}_{low},\vec{b}_{high}\rangle U +\langle\vec{a}_{low},\vec{G}_{high}\rangle) +\alpha (\langle
+\vec{a}_{high},\vec{b}_{low}\rangle U+\langle \vec{a}_{high},\vec{G}_{low}\rangle)\f$​
+*7. After \f$k\f$ steps of reductions we are left with \f$\langle \vec{a}_{0},\vec{b}_{0}\rangle U + \langle
+\vec{a}_{0},\vec{G}_{s}\rangle= a_0 b_0 U+a_0G_s\f$. The prover provides \f$a_0\f$. The independence of \f$U\f$ and
+\f$\vec{G}\f$ from which we construct \f$G_s\f$ ensures that \f$a_0\f$ is constructed from \f$\vec{a}_k=\vec{p}\f$
+*correctly, while the correctness of \f$a_0 b_0 U\f$ ensures that the polynomial opening is indeed \f$f(\beta)\f$
+*
+* The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
+documentation </a>
+*/
+template <typename Curve_> class IPA {
+ public:
+   using Curve = Curve_;
+   using Fr = typename Curve::ScalarField;
+   using GroupElement = typename Curve::Element;
+   using Commitment = typename Curve::AffineElement;
+   using CK = CommitmentKey<Curve>;
+   using VK = VerifierCommitmentKey<Curve>;
+   using Polynomial = bb::Polynomial<Fr>;
+   using VerifierAccumulator = bool;
 
-  public:
-    /**
-     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point
-     *
-     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
-     * @param opening_pair (challenge, evaluation)
-     * @param polynomial The witness polynomial whose opening proof needs to be computed
-     * @param transcript Prover transcript
-     * https://github.com/AztecProtocol/aztec-packages/pull/3434
-     *
-     *@details For a vector \f$\vec{v}=(v_0,v_1,...,v_{2n-1})\f$ of length \f$2n\f$ we'll denote
-     *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
-     *as follows:
-     *
-     *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
-     *2. Receive the generator challenge \f$u\f$ from the verifier
-     *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
-     *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$
-     *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$
-     *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
-     *   1. Compute
-     \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
-     U\f$​
-     *   2. Compute
-     *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
-     U\f$
-     *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
-     *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​
-     *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
-     *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
-     *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
-     *
-     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
-     */
-    static void compute_opening_proof(const std::shared_ptr<CK>& ck,
-                                      const OpeningPair<Curve>& opening_pair,
-                                      const Polynomial& polynomial,
-                                      const std::shared_ptr<NativeTranscript>& transcript)
-    {
-        ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
+// These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
+#ifdef IPA_TEST
+   FRIEND_TEST(IPATest, ChallengesAreZero);
+   FRIEND_TEST(IPATest, AIsZeroAfterOneRound);
+#endif
+#ifdef IPA_FUZZ_TEST
+   friend class ProxyCaller;
+#endif
+   // clang-format off
+
+   /**
+    * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
+    *
+    * @tparam Transcript Transcript type. Useful for testing
+    * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+    * @param opening_pair (challenge, evaluation)
+    * @param polynomial The witness polynomial whose opening proof needs to be computed
+    * @param transcript Prover transcript
+    * https://github.com/AztecProtocol/aztec-packages/pull/3434
+    *
+    *@details For a vector \f$\vec{v}=(v_0,v_1,...,v_{2n-1})\f$ of length \f$2n\f$ we'll denote
+    *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
+    *as follows:
+    *
+    *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
+    *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
+    *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
+    *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
+    *coefficients
+.   *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
+    evaluation we wish to prove.
+    *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
+    *   1. Compute
+    \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
+    U\f$​
+    *   2. Compute
+    *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
+    U\f$
+    *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
+    *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​, if it is zero, abort
+    *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
+    *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
+    *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
+    *
+    *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
+    */ 
+   template <typename Transcript>
+   static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
+                                              const OpeningPair<Curve>& opening_pair,
+                                              const Polynomial& polynomial,
+                                              const std::shared_ptr<Transcript>& transcript)
+   {
+        // clang-format on
         auto poly_length = static_cast<size_t>(polynomial.size());
 
         // Step 1.
@@ -126,6 +144,10 @@ template <typename Curve> class IPA {
         // Step 2.
         // Receive challenge for the auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
 
         // Step 3.
         // Compute auxiliary generator U
@@ -246,7 +268,11 @@ template <typename Curve> class IPA {
 
             // Step 6.d
             // Receive the challenge from the verifier
-            const Fr round_challenge = transcript->get_challenge<Fr>("IPA:round_challenge_" + index);
+            const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+
+            if (round_challenge.is_zero()) {
+                throw_or_abort("IPA round challenge is zero");
+            }
             const Fr round_challenge_inv = round_challenge.invert();
 
             // Step 6.e
@@ -283,8 +309,9 @@ template <typename Curve> class IPA {
     }
 
     /**
-     * @brief Verify the correctness of a Proof
+     * @brief Natively verify the correctness of a Proof
      *
+     * @tparam Transcript Allows to specify a transcript class. Useful for testing
      * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
@@ -294,9 +321,10 @@ template <typename Curve> class IPA {
      * @details The procedure runs as follows:
      *
      *1. Receive \f$d\f$ (polynomial degree plus one) from the prover
-     *2. Receive the generator challenge \f$u\f$ and computes \f$U=u\cdot G\f$
+     *2. Receive the generator challenge \f$u\f$, abort if it's zero, otherwise compute \f$U=u\cdot G\f$
      *3. Compute  \f$C'=C+f(\beta)\cdot U\f$
-     *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$
+     *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$, abort immediately on
+     receiving a \f$u_j=0\f$
      *5. Compute \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
      *6. Compute \f$b_0=g(\beta)=\prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
      *7. Compute vector \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,\prod_{i=0}^{k-1}u_{i}^{-1})\f$
@@ -304,25 +332,29 @@ template <typename Curve> class IPA {
      *9. Receive \f$\vec{a}_{0}\f$ of length 1
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
-     *
-     *
      */
-    static bool verify(const std::shared_ptr<VK>& vk,
-                       const OpeningClaim<Curve>& opening_claim,
-                       const std::shared_ptr<NativeTranscript>& transcript)
+    static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
+                                                      const OpeningClaim<Curve>& opening_claim,
+                                                      auto& transcript)
+        requires(!Curve::is_stdlib_type)
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map to a
-                                        // bb::fr, not a grumpkin::fr, which is a BaseField element for Grumpkin
+            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map
+                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
+                                        // Grumpkin
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
-        auto aux_generator = Commitment::one() * generator_challenge;
+
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
+
+        Commitment aux_generator = Commitment::one() * generator_challenge;
 
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
-
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
@@ -340,6 +372,9 @@ template <typename Curve> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (round_challenges[i].is_zero()) {
+                throw_or_abort("Round challenges can't be zero");
+            }
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -360,17 +395,16 @@ template <typename Curve> class IPA {
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
         Fr b_zero = Fr::one();
         for (size_t i = 0; i < log_poly_degree; i++) {
-            auto exponent = static_cast<uint64_t>(Fr(2).pow(i));
             b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree - 1 - i] *
-                                   opening_claim.opening_pair.challenge.pow(exponent));
+                                   opening_claim.opening_pair.challenge.pow(1 << i));
         }
 
         // Step 7.
         // Construct vector s
         std::vector<Fr> s_vec(poly_length);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its O(nlogn).
-        // This can be optimized to be linear by computing a tree of products. Its very readable, so we're
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
+        // O(nlogn). This can be optimized to be linear by computing a tree of products. Its very readable, so we're
         // leaving it unoptimized for now.
         run_loop_in_parallel_if_effective(
             poly_length,
@@ -390,7 +424,7 @@ template <typename Curve> class IPA {
             /*finite_field_additions_per_iteration=*/0,
             /*finite_field_multiplications_per_iteration=*/log_poly_degree);
 
-        auto* srs_elements = vk->srs->get_monomial_points();
+        auto* srs_elements = vk->get_monomial_points();
 
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_length);
@@ -415,7 +449,7 @@ template <typename Curve> class IPA {
 
         // Step 8.
         // Compute G₀
-        auto G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+        Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &s_vec[0], &G_vec_local[0], poly_length, vk->pippenger_runtime_state);
 
         // Step 9.
@@ -429,6 +463,171 @@ template <typename Curve> class IPA {
         // Step 11.
         // Check if C_right == C₀
         return (C_zero.normalize() == right_hand_side.normalize());
+    }
+    /**
+     * @brief  Recursively verify the correctness of an IPA proof. Unlike native verification, there is no
+     * parallelisation in this function as our circuit construction does not currently support parallelisation.
+     *
+     * @details  batch_mul is used instead of pippenger as pippenger is not implemented to be used in stdlib context for
+     * now and under the hood we perform bigfield to cycle_scalar conversions for the batch_mul. That is because
+     * cycle_scalar has very reduced functionality at the moment and doesn't support basic arithmetic operations between
+     * two cycle_scalar operands (just for one cycle_group and one cycle_scalar to enable batch_mul).
+     * @param vk
+     * @param opening_claim
+     * @param transcript
+     * @return VerifierAccumulator
+     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
+     * function with parallelisation
+     */
+    static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
+                                                      const OpeningClaim<Curve>& opening_claim,
+                                                      auto& transcript)
+        requires Curve::is_stdlib_type
+    {
+        // Step 1.
+        // Receive polynomial_degree + 1 = d from the prover
+        auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
+            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
+                                       // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
+                                       // Grumpkin
+
+        // Ensure polynomial length cannot be changed from its default specified valued
+        poly_length_var.fix_witness();
+
+        const uint32_t poly_length = static_cast<uint32_t>(poly_length_var.get_value());
+
+        // Step 2.
+        // Receive generator challenge u and compute auxiliary generator
+        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        auto builder = generator_challenge.get_context();
+
+        Commitment aux_generator = Commitment::one(builder) * generator_challenge;
+
+        const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
+
+        // Step 3.
+        // Compute C' = C + f(\beta) ⋅ U
+        GroupElement C_prime = opening_claim.commitment + aux_generator * opening_claim.opening_pair.evaluation;
+
+        auto pippenger_size = 2 * log_poly_degree;
+        std::vector<Fr> round_challenges(log_poly_degree);
+        std::vector<Fr> round_challenges_inv(log_poly_degree);
+        std::vector<Commitment> msm_elements(pippenger_size);
+        std::vector<Fr> msm_scalars(pippenger_size);
+
+        // Step 4.
+        // Receive all L_i and R_i and prepare for MSM
+        for (size_t i = 0; i < log_poly_degree; i++) {
+            std::string index = std::to_string(log_poly_degree - i - 1);
+            auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
+            auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
+            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+
+            round_challenges_inv[i] = round_challenges[i].invert();
+
+            msm_elements[2 * i] = element_L;
+            msm_elements[2 * i + 1] = element_R;
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
+        }
+
+        // Step 5.
+        // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
+        GroupElement LR_sums = GroupElement::batch_mul(msm_elements, msm_scalars);
+
+        GroupElement C_zero = C_prime + LR_sums;
+
+        //  Step 6.
+        // Compute b_zero where b_zero can be computed using the polynomial:
+        //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
+        //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
+
+        Fr b_zero = Fr(1);
+        for (size_t i = 0; i < log_poly_degree; i++) {
+            b_zero *= Fr(1) + (round_challenges_inv[log_poly_degree - 1 - i] *
+                               opening_claim.opening_pair.challenge.pow(1 << i));
+        }
+
+        // Step 7.
+        // Construct vector s
+        std::vector<Fr> s_vec(poly_length);
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
+        // O(nlogn). This can be optimized to be linear by computing a tree of products.
+        for (size_t i = 0; i < poly_length; i++) {
+            Fr s_vec_scalar = Fr(1);
+            for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
+                auto bit = (i >> j) & 1;
+                bool b = static_cast<bool>(bit);
+                if (b) {
+                    s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
+                }
+            }
+            s_vec[i] = s_vec_scalar;
+        }
+
+        auto srs_elements = vk->get_monomial_points();
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1023): Unify the two batch_muls
+
+        // Step 8.
+        // Compute G₀
+        // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
+        // batch_mul directly on it.
+        Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
+
+        // Step 9.
+        // Receive a₀ from the prover
+        auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+
+        // Step 10.
+        // Compute C_right
+        GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
+
+        // Step 11.
+        // Check if C_right == C₀
+        C_zero.assert_equal(right_hand_side);
+        return (C_zero.get_value() == right_hand_side.get_value());
+    }
+
+  public:
+    /**
+     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
+     *
+     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+     * @param opening_pair (challenge, evaluation)
+     * @param polynomial The witness polynomial whose opening proof needs to be computed
+     * @param transcript Prover transcript
+     *
+     * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
+     * compute_opening_proof_internal \endlink.
+     */
+    static void compute_opening_proof(const std::shared_ptr<CK>& ck,
+                                      const OpeningPair<Curve>& opening_pair,
+                                      const Polynomial& polynomial,
+                                      const std::shared_ptr<NativeTranscript>& transcript)
+    {
+        compute_opening_proof_internal(ck, opening_pair, polynomial, transcript);
+    }
+
+    /**
+     * @brief Verify the correctness of a Proof
+     *
+     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
+     * @param transcript Transcript with elements from the prover and generated challenges
+     *
+     * @return true/false depending on if the proof verifies
+     *
+     *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
+     */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
+    // implemented
+    static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
+                                             const OpeningClaim<Curve>& opening_claim,
+                                             const auto& transcript)
+    {
+        return reduce_verify_internal(vk, opening_claim, transcript);
     }
 };
 

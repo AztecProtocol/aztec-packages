@@ -1,36 +1,44 @@
 use dep::aztec::{
-    protocol_types::address::AztecAddress, context::Context,
-    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet
+    context::PrivateContext, protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint},
+    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
-struct EasyPrivateUint {
+struct EasyPrivateUint<Context> {
     context: Context,
-    set: PrivateSet<ValueNote>,
+    set: PrivateSet<ValueNote, Context>,
     storage_slot: Field,
 }
 
 // Holds a note that can act similarly to an int.
-impl EasyPrivateUint {
+impl<Context> EasyPrivateUint<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        let set = PrivateSet { context, storage_slot };
+        let set = PrivateSet::new(context, storage_slot);
         EasyPrivateUint { context, set, storage_slot }
     }
+}
 
+impl<Context> EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
-    pub fn add(self, addend: u64, owner: AztecAddress) {
+    pub fn add(self, addend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+        let header = self.context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(self.context, owner);
         // Creates new note for the owner.
-        let mut addend_note = ValueNote::new(addend as Field, owner);
+        let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_hash);
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
-        self.set.insert(&mut addend_note, true);
+        self.set.insert(&mut addend_note).emit(encode_and_encrypt(self.context, outgoing_viewer, owner));
         // docs:end:insert
     }
 
     // Very similar to `value_note::utils::decrement`.
-    pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
+    pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+        let header = self.context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(self.context, owner);
+
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let maybe_notes = self.set.get_notes(options);
@@ -40,10 +48,6 @@ impl EasyPrivateUint {
         for i in 0..maybe_notes.len() {
             if maybe_notes[i].is_some() {
                 let note = maybe_notes[i].unwrap_unchecked();
-
-                // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
-                // spending someone else's notes).
-                assert(note.owner.eq(owner));
 
                 // Removes the note from the owner's set of notes.
                 // docs:start:remove
@@ -58,7 +62,7 @@ impl EasyPrivateUint {
 
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
-        let mut result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(&mut result_note, result_value != 0);
+        let mut result_note = ValueNote::new(result_value as Field, owner_npk_m_hash);
+        self.set.insert(&mut result_note).emit(encode_and_encrypt(self.context, outgoing_viewer, owner));
     }
 }

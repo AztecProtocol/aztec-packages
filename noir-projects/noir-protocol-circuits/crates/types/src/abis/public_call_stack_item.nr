@@ -31,7 +31,7 @@ impl Hash for PublicCallStackItem {
 impl PublicCallStackItem {
     fn as_execution_request(self) -> Self {
         let public_inputs = self.public_inputs;
-        let mut request_public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+        let mut request_public_inputs = PublicCircuitPublicInputs::empty();
         request_public_inputs.call_context = public_inputs.call_context;
         request_public_inputs.args_hash = public_inputs.args_hash;
 
@@ -48,9 +48,9 @@ impl PublicCallStackItem {
 mod tests {
     use crate::{
         abis::{
-        function_data::FunctionData, function_selector::FunctionSelector,
+        function_data::FunctionData, function_selector::FunctionSelector, note_hash::NoteHash,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
-        public_call_stack_item::PublicCallStackItem, side_effect::SideEffect
+        public_call_stack_item::PublicCallStackItem
     },
         address::AztecAddress, constants::GENERATOR_INDEX__CALL_STACK_ITEM, traits::Hash
     };
@@ -58,10 +58,10 @@ mod tests {
     #[test]
     fn compute_call_stack_item_request_hash() {
         let contract_address = AztecAddress::from_field(1);
-        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
+        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false };
 
-        let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-        public_inputs.new_note_hashes[0] = SideEffect{
+        let mut public_inputs = PublicCircuitPublicInputs::empty();
+        public_inputs.new_note_hashes[0] = NoteHash {
             value: 1,
             counter: 0,
         };
@@ -69,17 +69,17 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x09cb16dc10b48bb544bd5f4293cfd2dee539bd281aa468c0c69a9352df17a307;
+        let test_data_call_stack_item_request_hash = 0x124a62189073cc551fea148d735d1e8b452e38537e075895b02ccfd9c9901819;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
     #[test]
     fn compute_call_stack_item_hash() {
         let contract_address = AztecAddress::from_field(1);
-        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
+        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false };
 
-        let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-        public_inputs.new_note_hashes[0] = SideEffect{
+        let mut public_inputs = PublicCircuitPublicInputs::empty();
+        public_inputs.new_note_hashes[0] = NoteHash {
             value: 1,
             counter: 0,
         };
@@ -87,7 +87,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x086b4890110c751f01df5eb163b250f10c90a4f38e73e07e3b5a58685456eaa9;
+        let test_data_call_stack_item_hash = 0x2cbb07062730bfc4933f5e8d533d5b62ac6e1b7922b831993377cd85d7445399;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }

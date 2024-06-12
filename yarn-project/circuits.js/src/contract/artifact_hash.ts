@@ -1,12 +1,18 @@
-import { ContractArtifact, FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, reduceFn } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 
-import { MerkleTree } from '../merkle/merkle_tree.js';
+import { type MerkleTree } from '../merkle/merkle_tree.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 
 const VERSION = 1;
+
+// TODO(miranda): Artifact and artifact metadata hashes are currently the only SHAs not truncated by a byte.
+// They are never recalculated in the circuit or L1 contract, but they are input to circuits, so perhaps modding here is preferable?
+// TODO(@spalladino) Reducing sha256 to a field may have security implications. Validate this with crypto team.
+const sha256Fr = reduceFn(sha256, Fr);
 
 /**
  * Returns the artifact hash of a given compiled contract artifact.
@@ -30,23 +36,61 @@ const VERSION = 1;
  * ```
  * @param artifact - Artifact to calculate the hash for.
  */
-export function computeArtifactHash(artifact: ContractArtifact): Fr {
-  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.SECRET);
+export function computeArtifactHash(
+  artifact: ContractArtifact | { privateFunctionRoot: Fr; unconstrainedFunctionRoot: Fr; metadataHash: Fr },
+): Fr {
+  if ('privateFunctionRoot' in artifact && 'unconstrainedFunctionRoot' in artifact && 'metadataHash' in artifact) {
+    const { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash } = artifact;
+    const preimage = [privateFunctionRoot, unconstrainedFunctionRoot, metadataHash].map(x => x.toBuffer());
+    return sha256Fr(Buffer.concat([numToUInt8(VERSION), ...preimage]));
+  }
+
+  const preimage = computeArtifactHashPreimage(artifact);
+  const artifactHash = computeArtifactHash(computeArtifactHashPreimage(artifact));
+  getLogger().debug('Computed artifact hash', { artifactHash, ...preimage });
+  return artifactHash;
+}
+
+export function computeArtifactHashPreimage(artifact: ContractArtifact) {
+  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.PRIVATE);
   const unconstrainedFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.UNCONSTRAINED);
   const metadataHash = computeArtifactMetadataHash(artifact);
-  const preimage = [numToUInt8(VERSION), privateFunctionRoot, unconstrainedFunctionRoot, metadataHash];
-  // TODO(@spalladino) Reducing sha256 to a field may have security implications. Validate this with crypto team.
-  return Fr.fromBufferReduce(sha256(Buffer.concat(preimage)));
+  return { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash };
 }
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
-  // TODO(@spalladino): Should we use the sorted event selectors instead? They'd need to be unique for that.
-  const metadata = { name: artifact.name, events: artifact.events };
-  return sha256(Buffer.from(JSON.stringify(metadata), 'utf-8'));
+  // TODO: #6021: Should we use the sorted event selectors instead? They'd need to be unique for that.
+  // Response - The output selectors need to be sorted, because if not noir makes no guarantees on the order of outputs for some reason
+
+  const metadata = { name: artifact.name, outputs: artifact.outputs };
+
+  // This is a temporary workaround for the Key Registry
+  // TODO: #6021 We need to make sure the artifact is deterministic from any specific compiler run. This relates to selectors not being sorted and being
+  // apparently random in the order they appear after compiled w/ nargo. We can try to sort this upon loading an artifact.
+  if (artifact.name === 'KeyRegistry') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla/gas) The GasToken depends on protocol-circuits/types, which in turn includes the address of the GasToken as a constant.
+  // Even though it is not being used, it seems that it is affecting the generated metadata hash. So we ignore it
+  // for the time being until we can determine whether it's an issue in how Noir deals with unused code in imported packages,
+  // or we move that constant out of protocol-circuits/types and into the rollup-lib, which is the only place where we actually need it.
+  if (artifact.name === 'GasToken') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla) Minimize impact of contract instance deployer and class registerer addresses
+  // changing, using the same trick as in the contracts above.
+  if (artifact.name === 'ContractInstanceDeployer' || artifact.name === 'ContractClassRegisterer') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 
 export function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {
-  return computeArtifactFunctionTree(artifact, fnType)?.root ?? Fr.ZERO.toBuffer();
+  const root = computeArtifactFunctionTree(artifact, fnType)?.root;
+  return root ? Fr.fromBuffer(root) : Fr.ZERO;
 }
 
 export function computeArtifactFunctionTree(artifact: ContractArtifact, fnType: FunctionType): MerkleTree | undefined {
@@ -56,8 +100,8 @@ export function computeArtifactFunctionTree(artifact: ContractArtifact, fnType: 
     return undefined;
   }
   const height = Math.ceil(Math.log2(leaves.length));
-  const calculator = new MerkleTreeCalculator(height, Buffer.alloc(32), (l, r) => sha256(Buffer.concat([l, r])));
-  return calculator.computeTree(leaves);
+  const calculator = new MerkleTreeCalculator(height, Buffer.alloc(32), getArtifactMerkleTreeHasher());
+  return calculator.computeTree(leaves.map(x => x.toBuffer()));
 }
 
 function computeFunctionLeaves(artifact: ContractArtifact, fnType: FunctionType) {
@@ -68,11 +112,27 @@ function computeFunctionLeaves(artifact: ContractArtifact, fnType: FunctionType)
     .map(computeFunctionArtifactHash);
 }
 
-export function computeFunctionArtifactHash(fn: FunctionArtifact & { selector?: FunctionSelector }): Buffer {
-  const selector =
-    (fn as { selector: FunctionSelector }).selector ?? FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
-  const bytecodeHash = sha256(Buffer.from(fn.bytecode, 'hex'));
-  const metadata = JSON.stringify(fn.returnTypes);
-  const metadataHash = sha256(Buffer.from(metadata, 'utf8'));
-  return sha256(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash, bytecodeHash]));
+export function computeFunctionArtifactHash(
+  fn:
+    | FunctionArtifact
+    | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
+) {
+  const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
+  // TODO(#5860): make bytecode part of artifact hash preimage again
+  // const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  // const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
+  // return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer()]));
+}
+
+export function computeFunctionMetadataHash(fn: FunctionArtifact) {
+  return sha256Fr(Buffer.from(JSON.stringify(fn.returnTypes), 'utf8'));
+}
+
+function getLogger() {
+  return createDebugLogger('aztec:circuits:artifact_hash');
+}
+
+export function getArtifactMerkleTreeHasher() {
+  return (l: Buffer, r: Buffer) => sha256Fr(Buffer.concat([l, r])).toBuffer();
 }

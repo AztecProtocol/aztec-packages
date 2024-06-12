@@ -2,8 +2,7 @@
 
 #include "../bit_array/bit_array.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
-
-using namespace bb;
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
 namespace bb::stdlib {
 
@@ -11,52 +10,205 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element()
     : x()
     , y()
+    , _is_infinity()
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const typename G::affine_element& input)
     : x(nullptr, input.x)
     , y(nullptr, input.y)
+    , _is_infinity(nullptr, input.is_point_at_infinity())
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in)
     : x(x_in)
     , y(y_in)
+    , _is_infinity(x.get_context() ? x.get_context() : y.get_context(), false)
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const element& other)
     : x(other.x)
     , y(other.y)
+    , _is_infinity(other.is_point_at_infinity())
 {}
 
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G>::element(element&& other)
+element<C, Fq, Fr, G>::element(element&& other) noexcept
     : x(other.x)
     , y(other.y)
+    , _is_infinity(other.is_point_at_infinity())
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(const element& other)
 {
+    if (&other == this) {
+        return *this;
+    }
     x = other.x;
     y = other.y;
+    _is_infinity = other.is_point_at_infinity();
     return *this;
 }
 
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other)
+element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcept
 {
+    if (&other == this) {
+        return *this;
+    }
     x = other.x;
     y = other.y;
+    _is_infinity = other.is_point_at_infinity();
     return *this;
 }
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
 {
-    if constexpr (IsGoblinBuilder<C> && std::same_as<G, bb::g1>) {
+    // return checked_unconditional_add(other);
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
+        // Current gate count: 6398
+        std::vector<element> points{ *this, other };
+        std::vector<Fr> scalars{ 1, 1 };
+        return batch_mul(points, scalars);
+    }
+
+    // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
+    // Our curve has the form y^2 = x^3 + b.
+    // If (x_1, y_1), (x_2, y_2) have x_1 == x_2, and the generic formula for lambda has a division by 0.
+    // Then y_1 == y_2 (i.e. we are doubling) or y_2 == y_1 (the sum is infinity).
+    // The cases have a special addition formula. The following booleans allow us to handle these cases uniformly.
+    const bool_ct x_coordinates_match = other.x == x;
+    const bool_ct y_coordinates_match = (y == other.y);
+    const bool_ct infinity_predicate = (x_coordinates_match && !y_coordinates_match);
+    const bool_ct double_predicate = (x_coordinates_match && y_coordinates_match);
+    const bool_ct lhs_infinity = is_point_at_infinity();
+    const bool_ct rhs_infinity = other.is_point_at_infinity();
+
+    // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
+    const Fq add_lambda_numerator = other.y - y;
+    const Fq xx = x * x;
+    const Fq dbl_lambda_numerator = xx + xx + xx;
+    const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
+
+    const Fq add_lambda_denominator = other.x - x;
+    const Fq dbl_lambda_denominator = y + y;
+    Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
+    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
+    // divide by zero error.
+    // Note: if either inputs are points at infinity we will not use the result of this computation.
+    Fq safe_edgecase_denominator = Fq(field_t<C>(1), field_t<C>(0), field_t<C>(0), field_t<C>(0));
+    lambda_denominator = Fq::conditional_assign(
+        lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+    const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
+
+    const Fq x3 = lambda.sqradd({ -other.x, -x });
+    const Fq y3 = lambda.madd(x - x3, { -y });
+
+    element result(x3, y3);
+    // if lhs infinity, return rhs
+    result.x = Fq::conditional_assign(lhs_infinity, other.x, result.x);
+    result.y = Fq::conditional_assign(lhs_infinity, other.y, result.y);
+    // if rhs infinity, return lhs
+    result.x = Fq::conditional_assign(rhs_infinity, x, result.x);
+    result.y = Fq::conditional_assign(rhs_infinity, y, result.y);
+
+    // is result point at infinity?
+    // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
+    // yes = lhs_infinity && rhs_infinity
+    // n.b. can likely optimize this
+    bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
+    result.set_point_at_infinity(result_is_infinity);
+    return result;
+}
+
+/**
+ * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
+ *
+ * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random coefficients
+ * when we get it as output from our optimised algorithms. This function returns a (0,0) point, if it is a point at
+ * infinity
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
+{
+
+    const bool_ct is_infinity = is_point_at_infinity();
+    element result(*this);
+    const Fq zero = Fq::zero();
+    result.x = Fq::conditional_assign(is_infinity, zero, this->x);
+    result.y = Fq::conditional_assign(is_infinity, zero, this->y);
+    return result;
+}
+
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
+{
+    // return checked_unconditional_add(other);
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
+        // Current gate count: 6398
+        std::vector<element> points{ *this, other };
+        std::vector<Fr> scalars{ 1, -Fr(1) };
+        return batch_mul(points, scalars);
+    }
+
+    // if x_coordinates match, lambda triggers a divide by zero error.
+    // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
+    const bool_ct x_coordinates_match = other.x == x;
+    const bool_ct y_coordinates_match = (y == other.y);
+    const bool_ct infinity_predicate = (x_coordinates_match && y_coordinates_match);
+    const bool_ct double_predicate = (x_coordinates_match && !y_coordinates_match);
+    const bool_ct lhs_infinity = is_point_at_infinity();
+    const bool_ct rhs_infinity = other.is_point_at_infinity();
+
+    // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
+    const Fq add_lambda_numerator = -other.y - y;
+    const Fq xx = x * x;
+    const Fq dbl_lambda_numerator = xx + xx + xx;
+    const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
+
+    const Fq add_lambda_denominator = other.x - x;
+    const Fq dbl_lambda_denominator = y + y;
+    Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
+    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
+    // divide by zero error.
+    // (if either inputs are points at infinity we will not use the result of this computation)
+    Fq safe_edgecase_denominator = Fq(field_t<C>(1), field_t<C>(0), field_t<C>(0), field_t<C>(0));
+    lambda_denominator = Fq::conditional_assign(
+        lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+    const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
+
+    const Fq x3 = lambda.sqradd({ -other.x, -x });
+    const Fq y3 = lambda.madd(x - x3, { -y });
+
+    element result(x3, y3);
+    // if lhs infinity, return rhs
+    result.x = Fq::conditional_assign(lhs_infinity, other.x, result.x);
+    result.y = Fq::conditional_assign(lhs_infinity, -other.y, result.y);
+    // if rhs infinity, return lhs
+    result.x = Fq::conditional_assign(rhs_infinity, x, result.x);
+    result.y = Fq::conditional_assign(rhs_infinity, y, result.y);
+
+    // is result point at infinity?
+    // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
+    // yes = lhs_infinity && rhs_infinity
+    // n.b. can likely optimize this
+    bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
+    result.set_point_at_infinity(result_is_infinity);
+    return result;
+}
+
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const element& other) const
+{
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         // Current gate count: 6398
         std::vector<element> points{ *this, other };
@@ -72,9 +224,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
 }
 
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(const element& other) const
 {
-    if constexpr (IsGoblinBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         std::vector<element> points{ *this, other };
         std::vector<Fr> scalars{ 1, -Fr(1) };
@@ -105,12 +257,14 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested
 template <typename C, class Fq, class Fr, class G>
-std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::add_sub(const element& other) const
+std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
-    if constexpr (IsGoblinBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         return { *this + other, *this - other };
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are the same
+    // even in the case of a valid circuit
     other.x.assert_is_not_equal(x);
 
     const Fq denominator = other.x - x;
@@ -140,7 +294,9 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {});
     Fq x_3 = neg_lambda.sqradd({ -(two_x) });
     Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
-    return element(x_3, y_3);
+    element result = element(x_3, y_3);
+    result.set_point_at_infinity(is_point_at_infinity());
+    return result;
 }
 
 /**
@@ -611,62 +767,91 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 }
 
 /**
- * Generic batch multiplication that works for all elliptic curve types.
+ * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for short
- * scalars See `bn254_endo_batch_mul` for description of algorithm
- **/
+ * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for
+ * short scalars See `bn254_endo_batch_mul` for description of algorithm.
+ *
+ * @tparam C The circuit builder type.
+ * @tparam Fq The field of definition of the points in `_points`.
+ * @tparam Fr The field of scalars acting on `_points`.
+ * @tparam G The group whose arithmetic is emulated by `element`.
+ * @param _points
+ * @param _scalars
+ * @param max_num_bits The max of the bit lengths of the scalars.
+ * @param with_edgecases Use when points are linearly dependent. Randomises them.
+ * @return element<C, Fq, Fr, G>
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
-                                                       const std::vector<Fr>& scalars,
-                                                       const size_t max_num_bits)
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
+                                                       const std::vector<Fr>& _scalars,
+                                                       const size_t max_num_bits,
+                                                       const bool with_edgecases)
 {
-    // Perform goblinized batched mul if available; supported only for BN254
-    if constexpr (IsGoblinBuilder<C> && std::same_as<G, bb::g1>) {
-        return goblin_batch_mul(points, scalars);
+    auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
+
+    if constexpr (IsSimulator<C>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
+        auto context = points[0].get_context();
+        using element_t = typename G::element;
+        element_t result = G::one;
+        result.self_set_infinity();
+        for (size_t i = 0; i < points.size(); i++) {
+            result += (element_t(points[i].get_value()) * scalars[i].get_value());
+        }
+        result = result.normalize();
+        return from_witness(context, result);
     } else {
-
-        const size_t num_points = points.size();
-        ASSERT(scalars.size() == num_points);
-        batch_lookup_table point_table(points);
-        const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-        std::vector<std::vector<bool_t<C>>> naf_entries;
-        for (size_t i = 0; i < num_points; ++i) {
-            naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
-        }
-        const auto offset_generators = compute_offset_generators(num_rounds);
-        element accumulator =
-            element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
-
-        constexpr size_t num_rounds_per_iteration = 4;
-        size_t num_iterations = num_rounds / num_rounds_per_iteration;
-        num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
-        const size_t num_rounds_per_final_iteration =
-            (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-        for (size_t i = 0; i < num_iterations; ++i) {
-
-            std::vector<bool_t<C>> nafs(num_points);
-            std::vector<element::chain_add_accumulator> to_add;
-            const size_t inner_num_rounds =
-                (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
-            for (size_t j = 0; j < inner_num_rounds; ++j) {
-                for (size_t k = 0; k < num_points; ++k) {
-                    nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
-                }
-                to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+        // Perform goblinized batched mul if available; supported only for BN254
+        if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
+            return goblin_batch_mul(points, scalars);
+        } else {
+            if (with_edgecases) {
+                std::tie(points, scalars) = mask_points(points, scalars);
             }
-            accumulator = accumulator.multiple_montgomery_ladder(to_add);
-        }
-        for (size_t i = 0; i < num_points; ++i) {
-            element skew = accumulator - points[i];
-            Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
-            Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
-            accumulator = element(out_x, out_y);
-        }
-        accumulator = accumulator - offset_generators.second;
+            const size_t num_points = points.size();
+            ASSERT(scalars.size() == num_points);
 
-        return accumulator;
+            batch_lookup_table point_table(points);
+            const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+
+            std::vector<std::vector<bool_ct>> naf_entries;
+            for (size_t i = 0; i < num_points; ++i) {
+                naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
+            }
+            const auto offset_generators = compute_offset_generators(num_rounds);
+            element accumulator = element::chain_add_end(
+                element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
+
+            constexpr size_t num_rounds_per_iteration = 4;
+            size_t num_iterations = num_rounds / num_rounds_per_iteration;
+            num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
+            const size_t num_rounds_per_final_iteration =
+                (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+            for (size_t i = 0; i < num_iterations; ++i) {
+
+                std::vector<bool_ct> nafs(num_points);
+                std::vector<element::chain_add_accumulator> to_add;
+                const size_t inner_num_rounds =
+                    (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+                for (size_t j = 0; j < inner_num_rounds; ++j) {
+                    for (size_t k = 0; k < num_points; ++k) {
+                        nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
+                    }
+                    to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+                }
+                accumulator = accumulator.multiple_montgomery_ladder(to_add);
+            }
+            for (size_t i = 0; i < num_points; ++i) {
+                element skew = accumulator - points[i];
+                Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
+                Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
+                accumulator = element(out_x, out_y);
+            }
+            accumulator = accumulator - offset_generators.second;
+
+            return accumulator;
+        }
     }
 }
 
@@ -702,21 +887,21 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
      *
      **/
 
-    if constexpr (IsGoblinBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         std::vector<element> points{ *this };
         std::vector<Fr> scalars{ scalar };
         return goblin_batch_mul(points, scalars);
     } else {
         constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
 
-        std::vector<bool_t<C>> naf_entries = compute_naf(scalar);
+        std::vector<bool_ct> naf_entries = compute_naf(scalar);
 
         const auto offset_generators = compute_offset_generators(num_rounds);
 
         element accumulator = *this + offset_generators.first;
 
         for (size_t i = 1; i < num_rounds; ++i) {
-            bool_t<C> predicate = naf_entries[i];
+            bool_ct predicate = naf_entries[i];
             bigfield y_test = y.conditional_negate(predicate);
             element to_add(x, y_test);
             accumulator = accumulator.montgomery_ladder(to_add);

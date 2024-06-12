@@ -1,5 +1,7 @@
 #pragma once
-#include "barretenberg/dsl/types.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include <array>
+#include <cstdint>
 #include <vector>
 
 namespace acir_format {
@@ -20,7 +22,7 @@ struct SchnorrConstraint {
 
     // This is the computed signature
     //
-    std::vector<uint32_t> signature;
+    std::array<uint32_t, 64> signature;
 
     friend bool operator==(SchnorrConstraint const& lhs, SchnorrConstraint const& rhs) = default;
 };

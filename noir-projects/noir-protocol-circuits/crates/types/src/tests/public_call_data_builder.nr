@@ -1,16 +1,17 @@
 use crate::{
     abis::{
-    call_context::CallContext, call_request::{CallerContext, CallRequest}, function_data::FunctionData,
-    public_call_data::PublicCallData, public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs
+    gas_settings::GasSettings, gas::Gas, call_context::CallContext,
+    call_request::{CallerContext, CallRequest}, function_data::FunctionData,
+    public_call_data::{PublicCallData, Proof}, public_call_stack_item::PublicCallStackItem,
+    public_circuit_public_inputs::PublicCircuitPublicInputs, log_hash::LogHash
 },
     address::{AztecAddress, EthAddress},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, mocked::Proof,
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     tests::{fixtures, public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder}
 };
 use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
 };
 
 struct PublicCallDataBuilder {
@@ -20,7 +21,6 @@ struct PublicCallDataBuilder {
     function_data: FunctionData,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     proof: Proof,
-    portal_contract_address: EthAddress,
     bytecode_hash: Field,
 }
 
@@ -28,7 +28,6 @@ impl PublicCallDataBuilder {
     pub fn new() -> Self {
         let contract_data = fixtures::contracts::default_contract;
         let contract_address = contract_data.address;
-        let portal_contract_address = contract_data.portal_contract_address;
 
         let contract_function = fixtures::contract_functions::default_public_function;
         let function_data = contract_function.data;
@@ -38,11 +37,10 @@ impl PublicCallDataBuilder {
         public_inputs.call_context = CallContext {
             msg_sender: fixtures::contracts::parent_contract.address,
             storage_contract_address: contract_address,
-            portal_contract_address,
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            start_side_effect_counter: 0,  // needed?
+            side_effect_counter: 0,  // needed?
         };
 
         PublicCallDataBuilder {
@@ -50,9 +48,8 @@ impl PublicCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            public_call_stack: dep::std::unsafe::zeroed(),
+            public_call_stack: BoundedVec::new(),
             proof: Proof {},
-            portal_contract_address,
             bytecode_hash: contract_function.acir_hash
         }
     }
@@ -60,29 +57,19 @@ impl PublicCallDataBuilder {
     pub fn is_delegate_call(&mut self) -> Self {
         self.public_inputs.call_context.is_delegate_call = true;
         self.public_inputs.call_context.storage_contract_address = fixtures::contracts::parent_contract.address;
-        self.public_inputs.call_context.portal_contract_address = fixtures::contracts::parent_contract.portal_contract_address;
         self.public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
         *self
     }
 
-    pub fn is_internal_call(&mut self) -> Self {
-        self.function_data.is_internal = true;
-        self.public_inputs.call_context.msg_sender = self.contract_address;
-        let contract_function = fixtures::contract_functions::default_internal_public_function;
-        self.function_data = contract_function.data;
-        self.bytecode_hash = contract_function.acir_hash;
-        *self
-    }
-
-    pub fn append_public_call_requests_for_regular_calls(&mut self, num_requests: u64) {
+    pub fn append_public_call_requests_for_regular_calls(&mut self, num_requests: u32) {
         self.append_public_call_requests(num_requests, false);
     }
 
-    pub fn append_public_call_requests_for_delegate_calls(&mut self, num_requests: u64) {
+    pub fn append_public_call_requests_for_delegate_calls(&mut self, num_requests: u32) {
         self.append_public_call_requests(num_requests, true);
     }
 
-    pub fn append_public_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
+    pub fn append_public_call_requests(&mut self, num_requests: u32, is_delegate_call: bool) {
         let value_offset = self.public_inputs.public_call_stack_hashes.len();
         let mut caller_context = CallerContext::empty();
         if is_delegate_call {
@@ -110,7 +97,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn append_public_data_read_requests(&mut self, num_reads: u64) {
+    pub fn append_public_data_read_requests(&mut self, num_reads: u32) {
         let value_offset = self.public_inputs.contract_storage_reads.len();
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
@@ -118,14 +105,15 @@ impl PublicCallDataBuilder {
                     // The default storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
                     // The default value is its index + 999.
-                    current_value: (value_offset + i + 999) as Field
+                    current_value: (value_offset + i + 999) as Field,
+                    counter: i as u32
                 };
                 self.public_inputs.contract_storage_reads.push(read_request);
             }
         }
     }
 
-    pub fn append_empty_public_data_read_requests(&mut self, num_reads: u64) {
+    pub fn append_empty_public_data_read_requests(&mut self, num_reads: u32) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
                 self.public_inputs.contract_storage_reads.push(StorageRead::empty());
@@ -133,7 +121,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn append_update_requests(&mut self, num_updates: u64) {
+    pub fn append_update_requests(&mut self, num_updates: u32) {
         let value_offset = self.public_inputs.contract_storage_update_requests.len();
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
@@ -141,14 +129,15 @@ impl PublicCallDataBuilder {
                     // The default storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
                     // The default value is its index + 890.
-                    new_value: (value_offset + i + 890) as Field
+                    new_value: (value_offset + i + 890) as Field,
+                    counter: i as u32
                 };
                 self.public_inputs.contract_storage_update_requests.push(update_request);
             }
         }
     }
 
-    pub fn append_empty_update_requests(&mut self, num_updates: u64) {
+    pub fn append_empty_update_requests(&mut self, num_updates: u32) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
                 self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
@@ -156,9 +145,10 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
-        self.public_inputs.unencrypted_logs_hash = hash;
-        self.public_inputs.unencrypted_log_preimages_length = preimages_length;
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+        // Counter set as 0 for testing, like note read requests
+        let side_effect = LogHash { value: hash, counter: 0, length: preimages_length };
+        self.public_inputs.unencrypted_logs_hashes.push(side_effect);
     }
 
     pub fn finish(self) -> PublicCallData {
@@ -171,7 +161,6 @@ impl PublicCallDataBuilder {
             },
             public_call_stack: self.public_call_stack.storage,
             proof: self.proof,
-            portal_contract_address: self.portal_contract_address,
             bytecode_hash: self.bytecode_hash
         }
     }
