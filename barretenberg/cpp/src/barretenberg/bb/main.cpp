@@ -422,8 +422,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 }
 
 /**
- * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC
- * proof.
+ * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
  *
  * @param bytecodePath Path to the serialised circuit
  * @param witnessPath Path to witness data
@@ -439,8 +438,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
 
-    init_bn254_crs(1 << 18);
-    init_grumpkin_crs(1 << 14);
+    init_bn254_crs(1 << 22);
+    init_grumpkin_crs(1 << 16);
 
     ClientIVC ivc;
     ivc.structured_flag = true;
@@ -537,17 +536,31 @@ void prove_tube(const std::string& outputPath)
     info("num gates: ", builder->get_num_gates());
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
+    using Verifier = UltraVerifier_<UltraFlavor>;
 
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
-
     std::string tubeProofPath = outputPath + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
+
+    std::string tubeProofAsFieldsPath = outputPath + "/proof_fields.json";
+    auto proof_data = to_json(tube_proof);
+    write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = outputPath + "/vk";
     auto tube_verification_key =
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
+
+    std::string tubeAsFieldsVkPath = outputPath + "/vk_fields.json";
+    auto field_els = tube_verification_key->to_field_elements();
+    info("verificaton key length in fields:", field_els.size());
+    auto data = to_json(field_els);
+    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
+
+    Verifier tube_verifier(tube_verification_key);
+    bool verified = tube_verifier.verify_proof(tube_proof);
+    info("Tube proof verification: ", verified);
 }
 
 /**
@@ -920,7 +933,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
     } else {
-        write_file(outputPath, to_buffer</*include_size=t*/ true>(proof));
+        write_file(outputPath, to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to: ", outputPath);
     }
 }
@@ -945,8 +958,6 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-    // init_bn254_crs(1 << 25);
-    // init_grumpkin_crs(1 << 18);
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
@@ -1136,7 +1147,6 @@ int main(int argc, char* argv[])
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
-        std::string acc_path = get_option(args, "-a", "./target/pg_acc");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         bool honk_recursion = flag_present(args, "-h");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
@@ -1176,10 +1186,9 @@ int main(int argc, char* argv[])
         } else if (command == "prove_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_output_all(bytecode_path, witness_path, output_path);
-            // } else if (command == "client_ivc_prove_output_all") {
-            //     std::string output_path = get_option(args, "-o", "./proofs");
-            //     info(output_path);
-            //     client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
+        } else if (command == "client_ivc_prove_output_all") {
+            std::string output_path = get_option(args, "-o", "./proofs");
+            client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_tube(output_path);
