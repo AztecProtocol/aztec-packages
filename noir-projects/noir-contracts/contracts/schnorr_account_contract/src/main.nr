@@ -6,7 +6,6 @@ contract SchnorrAccount {
     use dep::std;
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
-    use dep::aztec::state_vars::{Map, PublicMutable};
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
@@ -22,7 +21,6 @@ contract SchnorrAccount {
         // docs:start:storage
         signing_public_key: PrivateImmutable<PublicKeyNote>,
         // docs:end:storage
-        approved_actions: Map<Field, PublicMutable<bool>>,
     }
 
     // Constructs the contract
@@ -46,22 +44,14 @@ contract SchnorrAccount {
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
-        let actions = AccountActions::init(
-            &mut context,
-            storage.approved_actions.storage_slot,
-            is_valid_impl
-        );
+        let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(
-            &mut context,
-            storage.approved_actions.storage_slot,
-            is_valid_impl
-        );
+        let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.spend_private_authwit(inner_hash)
     }
 

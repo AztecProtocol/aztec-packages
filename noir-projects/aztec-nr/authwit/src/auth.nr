@@ -70,3 +70,32 @@ pub fn compute_outer_authwit_hash(
         GENERATOR_INDEX__AUTHWIT_OUTER
     )
 }
+
+/**
+ * Helper function to set the authorization status of a message hash
+ * 
+ * @param message_hash The hash of the message to authorize
+ * @param authorize True if the message should be authorized, false if it should be revoked
+ */
+pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authorize: bool) {
+    context.call_public_function(
+        AztecAddress::from_field(CANONICAL_AUTH_REGISTRY_ADDRESS),
+        FunctionSelector::from_signature("set_authorized(Field,bool)"),
+        [message_hash, authorize as Field].as_slice(),
+        GasOpts::default()
+    ).assert_empty();
+}
+
+/**
+ * Helper function to reject all authwits
+ *
+ * @param reject True if all authwits should be rejected, false otherwise 
+ */
+pub fn set_reject_all(context: &mut PublicContext, reject: bool) {
+    context.call_public_function(
+        AztecAddress::from_field(CANONICAL_AUTH_REGISTRY_ADDRESS),
+        FunctionSelector::from_signature("set_reject_all(bool)"),
+        [context.this_address().to_field(), reject as Field].as_slice(),
+        GasOpts::default()
+    ).assert_empty();
+}
