@@ -50,6 +50,7 @@ import {
   type PackedValuesCache,
   type TypedOracle,
   acvm,
+  createSimulationError,
   extractCallStack,
   pickNotes,
   toACVMWitness,
@@ -119,7 +120,7 @@ export class TXE implements TypedOracle {
   async getPrivateContextInputs(
     blockNumber: number,
     msgSender = AztecAddress.random(),
-    contractAddress = this.contractAddress,
+    sideEffectCounter = this.sideEffectCounter,
   ) {
     const trees = this.getTrees();
     const stateReference = await trees.getStateReference(true);
@@ -127,8 +128,9 @@ export class TXE implements TypedOracle {
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.callContext.msgSender = msgSender;
-    inputs.callContext.storageContractAddress = contractAddress;
-    inputs.callContext.sideEffectCounter = this.getSideEffectCounter();
+    inputs.callContext.storageContractAddress = this.contractAddress;
+    inputs.callContext.sideEffectCounter = sideEffectCounter;
+    inputs.startSideEffectCounter = sideEffectCounter;
     return inputs;
   }
 
@@ -391,17 +393,21 @@ export class TXE implements TypedOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
-    _sideEffectCounter: number,
+    sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
     this.logger.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
     );
+    // Modify env
+    const from = AztecAddress.fromField(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+
     const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
 
     const acir = artifact.bytecode;
-    const initialWitness = await this.getInitialWitness(artifact, argsHash, targetContractAddress);
+    const initialWitness = await this.getInitialWitness(artifact, argsHash, from, sideEffectCounter);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
@@ -415,10 +421,8 @@ export class TXE implements TypedOracle {
         { cause: err },
       );
       this.logger.debug(
-        `Error executing private function ${targetContractAddress}:${functionSelector}\n${JSON.stringify(
+        `Error executing private function ${targetContractAddress}:${functionSelector}\n${createSimulationError(
           execError,
-          null,
-          4,
         )}`,
       );
       throw execError;
@@ -427,7 +431,6 @@ export class TXE implements TypedOracle {
     const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
     const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
-    // TODO (alexg) estimate this size
     const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
     this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
       circuitName: 'app-circuit',
@@ -443,12 +446,14 @@ export class TXE implements TypedOracle {
       new FunctionData(functionSelector, true),
       publicInputs,
     );
-    this.sideEffectCounter += publicInputs.callContext.sideEffectCounter;
+    // Apply side effects
+    this.sideEffectCounter += publicInputs.endSideEffectCounter.toNumber();
+    this.setContractAddress(from);
 
     return callStackItem;
   }
 
-  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, targetContractAddress: AztecAddress) {
+  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, msgSender: AztecAddress, sideEffectCounter: number) {
     const argumentsSize = countArgumentsSize(abi);
 
     const args = this.packedValuesCache.unpack(argsHash);
@@ -457,11 +462,7 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const privateContextInputs = await this.getPrivateContextInputs(
-      this.blockNumber - 1,
-      this.contractAddress,
-      targetContractAddress,
-    );
+    const privateContextInputs = await this.getPrivateContextInputs(this.blockNumber - 1, msgSender, sideEffectCounter);
 
     const fields = [...privateContextInputs.toFields(), ...args];
 

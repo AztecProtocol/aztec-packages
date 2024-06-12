@@ -370,5 +370,8 @@ contract Token {
         storage.balances.balance_of(owner).to_field()
     }
     // docs:end:balance_of_private
+
+    #[test]
+    fn test_private_transfer() {}
 }
 // docs:end:token_all

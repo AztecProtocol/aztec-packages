@@ -256,23 +256,40 @@ contract Parent {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account();
+        let parent_contract_address = cheatcodes::get_contract_address();
 
         // Deploy child contract
         let child_contract_address = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
         cheatcodes::advance_blocks(1);
+
         // Set value in child through parent
-        let call_interface = Parent::interface().private_call(
+        let value_to_set = 7;
+        let parent_private_set_call_interface = Parent::interface().private_call(
             child_contract_address,
             FunctionSelector::from_signature("private_set_value(Field,(Field))"),
-            [7, owner.to_field()]
+            [value_to_set, owner.to_field()]
         );
-        let result: Field = env.call_private(call_interface);
+        let result: Field = env.call_private(parent_private_set_call_interface);
+        assert(result == value_to_set);
+
         // Read the stored value in the note
-        //cheatcodes::set_contract_address(child_contract_address);
+        cheatcodes::set_contract_address(child_contract_address);
         let counter_slot = Child::storage().a_map_with_private_values.slot;
         let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
         let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(owner_slot, options);
-        assert(opt_notes[0].unwrap().value == result);
+        let note_value = opt_notes[0].unwrap().value;
+        assert(note_value == value_to_set);
+        assert(note_value == result);
+
+        // Get value from child through parent
+        cheatcodes::set_contract_address(parent_contract_address);
+        let parent_private_get_call_interface = Parent::interface().private_call(
+            child_contract_address,
+            FunctionSelector::from_signature("private_get_value(Field,(Field))"),
+            [7, owner.to_field()]
+        );
+        let read_result: Field = env.call_private(parent_private_get_call_interface);
+        assert(note_value == read_result);
     }
 }

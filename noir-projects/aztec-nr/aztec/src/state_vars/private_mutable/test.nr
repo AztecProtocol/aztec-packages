@@ -1,13 +1,12 @@
 use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 use crate::{context::PrivateContext, state_vars::private_mutable::PrivateMutable};
-use crate::test::{mocks::mock_note::MockNote, helpers::test_environment::TestEnvironment};
+use crate::test::{mocks::mock_note::MockNote, helpers::{cheatcodes, test_environment::TestEnvironment}};
 use dep::std::{unsafe::zeroed, test::OracleMock};
 
-global contract_address = AztecAddress::from_field(13);
 global storage_slot = 17;
 
 fn setup() -> TestEnvironment {
-    TestEnvironment::new().contract_address(contract_address)
+    TestEnvironment::new()
 }
 
 fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut PrivateContext> {
@@ -28,7 +27,7 @@ fn test_initialize_or_replace_without_nullifier() {
     let ivpk_m: GrumpkinPoint = zeroed();
 
     let value = 42;
-    let mut note = MockNote::new(value).contract_address(contract_address).storage_slot(storage_slot).build();
+    let mut note = MockNote::new(value).contract_address(cheatcodes::get_contract_address()).storage_slot(storage_slot).build();
 
     OracleMock::mock("checkNullifierExists").returns(0);
     state_var.initialize_or_replace(&mut note, ovpk_m, ivpk_m);

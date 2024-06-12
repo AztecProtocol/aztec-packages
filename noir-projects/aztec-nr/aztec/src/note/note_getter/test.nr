@@ -11,15 +11,14 @@ use dep::protocol_types::address::AztecAddress;
 
 use crate::test::{helpers::{test_environment::TestEnvironment, cheatcodes}, mocks::mock_note::MockNote};
 
-global contract_address = AztecAddress::from_field(69);
 global storage_slot: Field = 42;
 
 fn setup() -> TestEnvironment {
-    TestEnvironment::new().contract_address(contract_address)
+    TestEnvironment::new()
 }
 
 fn build_valid_note(value: Field) -> MockNote {
-    MockNote::new(value).contract_address(contract_address).storage_slot(storage_slot).build()
+    MockNote::new(value).contract_address(cheatcodes::get_contract_address()).storage_slot(storage_slot).build()
 }
 
 #[test]
@@ -161,7 +160,7 @@ fn rejects_mismatched_storage_slot() {
     let mut env = setup();
     let mut context = env.private();
 
-    let note = MockNote::new(1).contract_address(contract_address).build(); // We're not setting the right storage slot
+    let note = MockNote::new(1).contract_address(cheatcodes::get_contract_address()).build(); // We're not setting the right storage slot
 
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
