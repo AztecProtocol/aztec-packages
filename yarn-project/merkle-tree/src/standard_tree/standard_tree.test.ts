@@ -4,13 +4,12 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type Hasher } from '@aztec/types/interfaces';
 
-import { loadTree } from '../load_tree.js';
-import { newTree } from '../new_tree.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';
 import { PedersenWithCounter } from '../test/utils/pedersen_with_counter.js';
 import { INITIAL_LEAF } from '../tree_base.js';
 import { StandardTree } from './standard_tree.js';
+import { JSTreeFactory, loadTree, newTree } from '../factory/tree_factory.js';
 
 const noopDeserializer: FromBuffer<Buffer> = {
   fromBuffer: (buffer: Buffer) => buffer,
