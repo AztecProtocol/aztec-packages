@@ -36,7 +36,7 @@ pub struct Interpreter<'interner> {
     /// Each value currently in scope in the interpreter.
     /// Each element of the Vec represents a scope with every scope together making
     /// up all currently visible definitions.
-    scopes: &'interner mut Vec<HashMap<DefinitionId, Value>>,
+    pub scopes: &'interner mut Vec<HashMap<DefinitionId, Value>>,
 
     in_loop: bool,
 }
@@ -149,6 +149,7 @@ impl<'a> Interpreter<'a> {
         let mut scope = Vec::new();
         if self.scopes.len() > 1 {
             scope = self.scopes.drain(1..).collect();
+            // self.push_scope();
         }
         self.push_scope();
         (std::mem::take(&mut self.in_loop), scope)
@@ -167,6 +168,9 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(super) fn pop_scope(&mut self) {
+        if self.scopes.len() == 1 {
+            dbg!("about to have scope 0");
+        }
         self.scopes.pop();
     }
 
@@ -205,10 +209,11 @@ impl<'a> Interpreter<'a> {
                 }
             },
             HirPattern::Struct(struct_type, pattern_fields, _) => {
+                self.push_scope();
                 self.type_check(typ, &argument, location)?;
                 self.type_check(struct_type, &argument, location)?;
 
-                match argument {
+                let res = match argument {
                     Value::Struct(fields, struct_type) if fields.len() == pattern_fields.len() => {
                         for (field_name, field_pattern) in pattern_fields {
                             let field = fields.get(&field_name.0.contents).ok_or_else(|| {
@@ -234,7 +239,9 @@ impl<'a> Interpreter<'a> {
                         value,
                         location,
                     }),
-                }
+                };
+                self.pop_scope();
+                res
             }
         }
     }
@@ -316,7 +323,10 @@ impl<'a> Interpreter<'a> {
         match self.interner.expression(&id) {
             HirExpression::Ident(ident, _) => self.evaluate_ident(ident, id),
             HirExpression::Literal(literal) => self.evaluate_literal(literal, id),
-            HirExpression::Block(block) => self.evaluate_block(block),
+            HirExpression::Block(block) => {
+                dbg!("going to evaluate a block");
+                self.evaluate_block(block)
+            }
             HirExpression::Prefix(prefix) => self.evaluate_prefix(prefix, id),
             HirExpression::Infix(infix) => self.evaluate_infix(infix, id),
             HirExpression::Index(index) => self.evaluate_index(index, id),
@@ -353,13 +363,14 @@ impl<'a> Interpreter<'a> {
             }
             DefinitionKind::Local(_) => self.lookup(&ident),
             DefinitionKind::Global(global_id) => {
-                // Don't need to check let_.comptime, we can evaluate non-comptime globals too.
                 // Avoid resetting the value if it is already known
                 if let Ok(value) = self.lookup(&ident) {
                     Ok(value)
                 } else {
                     let let_ = self.interner.get_global_let_statement(*global_id).unwrap();
-                    self.evaluate_let(let_)?;
+                    if let_.comptime {
+                        self.evaluate_let(let_.clone())?;
+                    }
                     self.lookup(&ident)
                 }
             }
@@ -503,17 +514,44 @@ impl<'a> Interpreter<'a> {
     pub fn evaluate_block(&mut self, mut block: HirBlockExpression) -> IResult<Value> {
         let last_statement = block.statements.pop();
         self.push_scope();
-
+        if self.scopes.len() == 2 {
+            dbg!(block.statements.len());
+        }
         for statement in block.statements {
             self.evaluate_statement(statement)?;
         }
-
+        if self.scopes.len() == 2 {
+            dbg!("about to have scope 0");
+        }
         let result = if let Some(statement) = last_statement {
             self.evaluate_statement(statement)
         } else {
             Ok(Value::Unit)
         };
-
+        if self.scopes.len() == 1 {
+            dbg!(last_statement.clone());
+            if let Some(statement) = last_statement {
+                //     dbg!(statement.clone());
+                dbg!(self.interner.statement(&statement));
+                match self.interner.statement(&statement) {
+                    HirStatement::Expression(expression) => {
+                        dbg!(self.interner.expression(&expression));
+                        match self.interner.expression(&expression) {
+                            HirExpression::Call(call_expr) => {
+                                dbg!(self.interner.expression(&call_expr.func));
+                            }
+                            _ => {
+                                dbg!("got not a call expr");
+                            }
+                        }
+                    }
+                    _ => {
+                        dbg!("got something else");
+                    }
+                }
+            }
+            dbg!("about to have scope 0");
+        }
         self.pop_scope();
         result
     }
@@ -1089,19 +1127,30 @@ impl<'a> Interpreter<'a> {
         self.push_scope();
 
         let result = if condition {
-            if if_.alternative.is_some() {
+            // self.push_scope();
+
+            let res = if if_.alternative.is_some() {
                 self.evaluate(if_.consequence)
             } else {
                 self.evaluate(if_.consequence)?;
                 Ok(Value::Unit)
-            }
+            };
+
+            // self.pop_scope();
+            res
         } else {
-            match if_.alternative {
+            // self.push_scope();
+
+            let res = match if_.alternative {
                 Some(alternative) => self.evaluate(alternative),
                 None => Ok(Value::Unit),
-            }
+            };
+            // self.pop_scope();
+            res
         };
-
+        if self.scopes.len() == 1 {
+            dbg!("about to have scope 0");
+        }
         self.pop_scope();
         result
     }
@@ -1281,6 +1330,9 @@ impl<'a> Interpreter<'a> {
                 Err(InterpreterError::Break) => break,
                 Err(InterpreterError::Continue) => continue,
                 Err(other) => return Err(other),
+            }
+            if self.scopes.len() == 1 {
+                dbg!("about to have scope 0");
             }
             self.pop_scope();
         }

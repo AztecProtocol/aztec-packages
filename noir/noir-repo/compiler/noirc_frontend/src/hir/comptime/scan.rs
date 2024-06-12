@@ -53,13 +53,14 @@ impl<'interner> Interpreter<'interner> {
     /// Otherwise, scan through its expression for any comptime blocks to evaluate.
     pub fn scan_global(&mut self, global: GlobalId) -> IResult<()> {
         if let Some(let_) = self.interner.get_global_let_statement(global) {
+            // dbg!(let_.clone());
             if let_.comptime {
+                dbg!("got here");
                 self.evaluate_let(let_)?;
             } else {
                 self.scan_expression(let_.expression)?;
             }
         }
-
         Ok(())
     }
 
@@ -153,6 +154,9 @@ impl<'interner> Interpreter<'interner> {
         for statement in &block.statements {
             self.scan_statement(*statement)?;
         }
+        if self.scopes.len() == 1 {
+            dbg!("about to have scope 0");
+        }
         self.pop_scope();
         Ok(())
     }
@@ -195,11 +199,17 @@ impl<'interner> Interpreter<'interner> {
 
         self.push_scope();
         self.scan_expression(if_.consequence)?;
+        if self.scopes.len() == 1 {
+            dbg!("about to have scope 0");
+        }
         self.pop_scope();
 
         if let Some(alternative) = if_.alternative {
             self.push_scope();
             self.scan_expression(alternative)?;
+            if self.scopes.len() == 1 {
+                dbg!("about to have scope 0");
+            }
             self.pop_scope();
         }
         Ok(())
@@ -244,6 +254,9 @@ impl<'interner> Interpreter<'interner> {
         // loop, any variables it defines aren't accessible outside of it.
         self.push_scope();
         self.scan_expression(for_.block)?;
+        if self.scopes.len() == 1 {
+            dbg!("about to have scope 0");
+        }
         self.pop_scope();
         Ok(())
     }
