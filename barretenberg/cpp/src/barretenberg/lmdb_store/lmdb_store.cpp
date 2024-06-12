@@ -1,6 +1,6 @@
 #include "lmdb_store.hpp"
 
-namespace bb::db_cli {
+namespace bb::lmdb {
 
 LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  unsigned long mapSizeMB,
@@ -14,9 +14,11 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
     }
     size_t totalMapSize = 1024 * 1024 * mapSizeMB;
     call_lmdb_func(mdb_env_set_mapsize, _mdbEnv, totalMapSize);
-    call_lmdb_func(mdb_env_set_maxdbs, _mdbEnv, (MDB_dbi)maxNumDBs);
+    call_lmdb_func(mdb_env_set_maxdbs, _mdbEnv, static_cast<MDB_dbi>(maxNumDBs));
     call_lmdb_func(mdb_env_set_maxreaders, _mdbEnv, maxNumReaders);
-    if (!call_lmdb_func(mdb_env_open, _mdbEnv, directory.c_str(), 0U, mdb_mode_t(S_IRWXU | S_IRWXG | S_IRWXO))) {
+    unsigned int flags = MDB_NOTLS;
+    if (!call_lmdb_func(
+            mdb_env_open, _mdbEnv, directory.c_str(), flags, static_cast<mdb_mode_t>(S_IRWXU | S_IRWXG | S_IRWXO))) {
         call_lmdb_func(mdb_env_close, _mdbEnv);
         // throw here
     }
@@ -28,13 +30,13 @@ void LMDBEnvironment::waitForReader()
     if (_numReaders >= _maxReaders) {
         _readersCondition.wait(lock, [&] { return _numReaders < _maxReaders; });
     }
-    std::cout << " Try Num Readers: " << ++_numReaders << std::endl;
+    ++_numReaders;
 }
 
 void LMDBEnvironment::releaseReader()
 {
     std::unique_lock lock(_readersLock);
-    std::cout << " Release Num Readers: " << --_numReaders << std::endl;
+    --_numReaders;
     _readersCondition.notify_one();
 }
 
@@ -80,4 +82,4 @@ LMDBReadTransaction::Ptr LMDBStore::createReadTransaction()
     return std::make_unique<LMDBReadTransaction>(_environment, _database);
 }
 
-} // namespace bb::db_cli
+} // namespace bb::lmdb

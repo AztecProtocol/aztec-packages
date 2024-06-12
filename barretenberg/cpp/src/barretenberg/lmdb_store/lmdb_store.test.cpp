@@ -11,7 +11,7 @@
 #include "lmdb_store.hpp"
 
 using namespace bb::stdlib;
-using namespace bb::db_cli;
+using namespace bb::lmdb;
 
 using Builder = bb::UltraCircuitBuilder;
 
@@ -56,7 +56,7 @@ class LMDBStoreTest : public testing::Test {
     std::unique_ptr<LMDBEnvironment> _environment;
 };
 
-std::string LMDBStoreTest::_directory = "";
+std::string LMDBStoreTest::_directory;
 
 TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
 {
@@ -131,7 +131,7 @@ TEST_F(LMDBStoreTest, can_write_batch_and_read_back)
     for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
         std::vector<uint8_t> temp;
         write(temp, VALUES[i]);
-        int old_size = int(buf.size());
+        int old_size = static_cast<int>(buf.size());
         buf.resize(buf.size() + temp.size());
         copy(temp.begin(), temp.end(), buf.begin() + old_size);
     }
@@ -162,7 +162,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_at_random_keys)
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
             std::vector<uint8_t> buf;
             write(buf, VALUES[i]);
-            size_t key = size_t(rand() % 10000000);
+            size_t key = static_cast<size_t>(rand() % 10000000);
             keys.push_back(key);
             transaction->put(0, key, buf);
         }
@@ -191,7 +191,7 @@ TEST_F(LMDBStoreTest, can_recreate_the_store_and_use_again)
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
             std::vector<uint8_t> buf;
             write(buf, VALUES[i]);
-            size_t key = size_t(rand() % 10000000);
+            size_t key = static_cast<size_t>(rand() % 10000000);
             keys.push_back(key);
             transaction->put(0, key, buf);
         }
@@ -234,11 +234,10 @@ void read_loop(LMDBStore& store, size_t key, std::atomic<size_t>& flag, bb::fr s
 
 TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
 {
-    std::cout << "Multiple Threads" << std::endl;
     LMDBStore store(*_environment, "note hash tree");
     const int num_threads = 5;
 
-    size_t key = size_t(rand() % 1000000);
+    size_t key = static_cast<size_t>(rand() % 1000000);
 
     {
         // we write VALUES[0] to a slot
@@ -253,7 +252,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
         std::vector<std::thread> threads;
         std::atomic<size_t> flag = num_threads;
         for (size_t i = 0; i < num_threads; i++) {
-            threads.push_back(std::thread(read_loop, std::ref(store), key, std::ref(flag), VALUES[0]));
+            threads.emplace_back(read_loop, std::ref(store), key, std::ref(flag), VALUES[0]);
         }
         // wait until all threads have seen the old value
         while (flag != 0) {

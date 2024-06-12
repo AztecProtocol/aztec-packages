@@ -5,16 +5,20 @@
 #include <iostream>
 #include <lmdb.h>
 #include <memory>
+#include <sstream>
 #include <sys/stat.h>
+#include <utility>
 #include <vector>
 
-namespace bb::db_cli {
+namespace bb::lmdb {
 
 template <typename... TArgs> bool call_lmdb_func(int (*f)(TArgs...), TArgs... args)
 {
     int error = f(args...);
     if (error != 0 && error != MDB_NOTFOUND) {
-        std::cout << "ERROR: " << mdb_strerror(error) << std::endl;
+        std::stringstream ss;
+        ss << "ERROR: " << mdb_strerror(error) << std::endl;
+        std::cout << ss.str();
     }
     return error == 0;
 }
@@ -51,19 +55,16 @@ class LMDBDatabase;
 
 class LMDBTransaction {
   public:
-    LMDBTransaction(const LMDBEnvironment& env, bool readOnly = false)
+    LMDBTransaction(LMDBEnvironment& env, bool readOnly = false)
         : _environment(env)
     {
         MDB_txn* p = nullptr;
-        if (readOnly) {
-            std::cout << "Starting Read" << std::endl;
-        }
         if (!call_lmdb_func(mdb_txn_begin, _environment.underlying(), p, readOnly ? MDB_RDONLY : 0U, &_transaction)) {
             // throw here
         }
     }
 
-    virtual ~LMDBTransaction() {}
+    virtual ~LMDBTransaction() = default;
 
     MDB_txn* underlying() const { return _transaction; }
 
@@ -74,15 +75,14 @@ class LMDBTransaction {
 
 class LMDBReadTransaction : public LMDBTransaction {
   public:
-    typedef std::unique_ptr<LMDBReadTransaction> Ptr;
+    using Ptr = std::unique_ptr<LMDBReadTransaction>;
 
     LMDBReadTransaction(LMDBEnvironment& env, const LMDBDatabase& database)
         : LMDBTransaction(env, true)
-        , _environment(env)
         , _database(database)
     {}
 
-    virtual ~LMDBReadTransaction() { abort(); }
+    ~LMDBReadTransaction() override { abort(); }
 
     bool get(size_t level, size_t index, std::vector<uint8_t>& data) const;
 
@@ -91,7 +91,6 @@ class LMDBReadTransaction : public LMDBTransaction {
 
     void abort()
     {
-        std::cout << "Aborting Read" << std::endl;
         call_lmdb_func(mdb_txn_abort, _transaction);
         _environment.releaseReader();
     }
@@ -99,11 +98,10 @@ class LMDBReadTransaction : public LMDBTransaction {
 
 class LMDBWriteTransaction : public LMDBTransaction {
   public:
-    typedef std::unique_ptr<LMDBWriteTransaction> Ptr;
+    using Ptr = std::unique_ptr<LMDBWriteTransaction>;
 
-    LMDBWriteTransaction(const LMDBEnvironment& env, const LMDBDatabase& database)
+    LMDBWriteTransaction(LMDBEnvironment& env, const LMDBDatabase& database)
         : LMDBTransaction(env)
-        , _committed(false)
         , _database(database)
     {}
 
@@ -122,15 +120,15 @@ class LMDBWriteTransaction : public LMDBTransaction {
     }
 
   private:
-    bool _committed;
+    bool _committed{};
     const LMDBDatabase& _database;
 };
 
 class LMDBDatabaseCreationTransaction : public LMDBTransaction {
   public:
-    typedef std::unique_ptr<LMDBDatabaseCreationTransaction> Ptr;
+    using Ptr = std::unique_ptr<LMDBDatabaseCreationTransaction>;
 
-    LMDBDatabaseCreationTransaction(const LMDBEnvironment& env)
+    LMDBDatabaseCreationTransaction(LMDBEnvironment& env)
         : LMDBTransaction(env)
     {}
 
@@ -163,9 +161,9 @@ class LMDBDatabase {
 class LMDBStore {
 
   public:
-    LMDBStore(LMDBEnvironment& environment, const std::string& name)
+    LMDBStore(LMDBEnvironment& environment, std::string name)
         : _environment(environment)
-        , _name(name)
+        , _name(std::move(name))
         , _database(_environment, LMDBDatabaseCreationTransaction(_environment), _name)
     {}
     ~LMDBStore() {}
@@ -181,4 +179,4 @@ class LMDBStore {
     const std::string _name;
     LMDBDatabase _database;
 };
-} // namespace bb::db_cli
+} // namespace bb::lmdb
