@@ -82,7 +82,7 @@ import {
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractTubeVkData, extractVkData } from '../verification_key/verification_key_data.js';
+import { extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -292,7 +292,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const provingResult =
       // Read the proof as fields
-      await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, 'TubeRollup', logger.debug);
+      await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, logger.debug);
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for TubeRollup: ${provingResult.reason}`);
       throw new Error(provingResult.reason);

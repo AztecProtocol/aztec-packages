@@ -92,71 +92,6 @@ export function executeBB(
 const bytecodeFilename = 'bytecode';
 
 /**
- * Used for generating proofs of noir circuits.
- * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - A working directory for use by bb
- * @param circuitName - An identifier for the circuit
- * @param bytecode - The compiled circuit bytecode
- * @param inputWitnessFile - The circuit input witness
- * @param log - A logging function
- * @returns An object containing a result indication, the location of the proof and the duration taken
- */
-export async function generateTubeProof(
-  pathToBB: string,
-  workingDirectory: string,
-  log: LogFn,
-): Promise<BBFailure | BBSuccess> {
-  // Check that the working directory exists
-  try {
-    await fs.access(workingDirectory);
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
-  }
-
-  // The proof is written to e.g. /workingDirectory/proof
-  const outputPath = `${workingDirectory}`;
-
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    const args = ['-o', outputPath, '-v'];
-    const timer = new Timer();
-    const logFunction = (message: string) => {
-      log(`Tube BB out - ${message}`);
-    };
-
-    log(`Path where I need a proof ${outputPath}`);
-
-    const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
-    const duration = timer.ms();
-
-    if (result.status == BB_RESULT.SUCCESS) {
-      return {
-        status: BB_RESULT.SUCCESS,
-        duration,
-        proofPath: `${outputPath}`,
-        pkPath: undefined,
-        vkPath: `${outputPath}`,
-      };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
  * Used for generating either a proving or verification key, will exit early if the key already exists
  * It assumes the provided working directory is one where the caller wishes to maintain a permanent set of keys
  * It is not considered a temporary directory
@@ -397,7 +332,6 @@ export async function generateProof(
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
-  circuitName: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -423,7 +357,7 @@ export async function generateTubeProof(
     const args = ['-o', outputPath, '-v'];
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`${circuitName} BB out - ${message}`);
+      log(`Tube BB out - ${message}`);
     };
 
     log(`Path where I need a proof ${outputPath}`);
