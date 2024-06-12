@@ -30,7 +30,6 @@ im.workspace = true
 noirc_frontend.workspace = true
 acir.workspace = true
 noirc_errors.workspace = true
-tempfile.workspace = true
 
 # Logs
 tracing-subscriber.workspace = true
@@ -42,7 +41,7 @@ proptest = "1.2.0"
 paste = "1.0.14"
 noirc_abi.workspace = true
 noirc_driver.workspace = true
-
+tempfile.workspace = true
 
 [features]
 default = ["bn254"]

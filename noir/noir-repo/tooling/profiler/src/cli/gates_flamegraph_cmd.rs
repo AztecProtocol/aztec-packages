@@ -5,7 +5,7 @@ use std::process::Command;
 
 use clap::Args;
 use codespan_reporting::files::Files;
-use color_eyre::eyre::{self};
+use color_eyre::eyre::{self, Context};
 use inferno::flamegraph::{from_lines, Options};
 use serde::{Deserialize, Serialize};
 
@@ -118,8 +118,10 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
     flamegraph_generator: &Generator,
     output_path: &Path,
 ) -> eyre::Result<()> {
-    let program = read_program_from_file(artifact_path)?;
-    let backend_gates_response = gates_provider.get_gates(artifact_path)?;
+    let program =
+        read_program_from_file(artifact_path).context("Error reading program from file")?;
+    let backend_gates_response =
+        gates_provider.get_gates(artifact_path).context("Error querying backend for gates")?;
 
     for (func_idx, func_gates) in backend_gates_response.functions.into_iter().enumerate() {
         println!(
@@ -188,6 +190,10 @@ fn location_to_callsite_label<'files>(
         .skip(location.span.start() as usize)
         .take(location.span.end() as usize - location.span.start() as usize)
         .collect::<String>();
+
+    // ";" is used for frame separation, and is not allowed by inferno
+    // Check code slice for ";" and replace it with 'GREEK QUESTION MARK' (U+037E)
+    let code_slice = code_slice.replace(';', "\u{037E}");
 
     let (line, column) = line_and_column_from_span(source.as_ref(), &location.span);
 
