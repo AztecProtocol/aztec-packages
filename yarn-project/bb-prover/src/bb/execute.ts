@@ -349,7 +349,8 @@ export async function generateTubeProof(
       return {
         status: BB_RESULT.SUCCESS,
         duration,
-        proofPath: join(outputPath, PROOF_FILENAME),
+        // proofPath: join(outputPath, PROOF_FILENAME),
+        proofPath: outputPath,
         pkPath: undefined,
         vkPath: outputPath,
       };
