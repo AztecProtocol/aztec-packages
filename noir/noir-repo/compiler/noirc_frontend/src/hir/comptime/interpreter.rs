@@ -149,7 +149,6 @@ impl<'a> Interpreter<'a> {
         let mut scope = Vec::new();
         if self.scopes.len() > 1 {
             scope = self.scopes.drain(1..).collect();
-            // self.push_scope();
         }
         self.push_scope();
         (std::mem::take(&mut self.in_loop), scope)
@@ -514,44 +513,17 @@ impl<'a> Interpreter<'a> {
     pub fn evaluate_block(&mut self, mut block: HirBlockExpression) -> IResult<Value> {
         let last_statement = block.statements.pop();
         self.push_scope();
-        if self.scopes.len() == 2 {
-            dbg!(block.statements.len());
-        }
+
         for statement in block.statements {
             self.evaluate_statement(statement)?;
         }
-        if self.scopes.len() == 2 {
-            dbg!("about to have scope 0");
-        }
+
         let result = if let Some(statement) = last_statement {
             self.evaluate_statement(statement)
         } else {
             Ok(Value::Unit)
         };
-        if self.scopes.len() == 1 {
-            dbg!(last_statement.clone());
-            if let Some(statement) = last_statement {
-                //     dbg!(statement.clone());
-                dbg!(self.interner.statement(&statement));
-                match self.interner.statement(&statement) {
-                    HirStatement::Expression(expression) => {
-                        dbg!(self.interner.expression(&expression));
-                        match self.interner.expression(&expression) {
-                            HirExpression::Call(call_expr) => {
-                                dbg!(self.interner.expression(&call_expr.func));
-                            }
-                            _ => {
-                                dbg!("got not a call expr");
-                            }
-                        }
-                    }
-                    _ => {
-                        dbg!("got something else");
-                    }
-                }
-            }
-            dbg!("about to have scope 0");
-        }
+
         self.pop_scope();
         result
     }
@@ -1127,26 +1099,17 @@ impl<'a> Interpreter<'a> {
         self.push_scope();
 
         let result = if condition {
-            // self.push_scope();
-
-            let res = if if_.alternative.is_some() {
+            if if_.alternative.is_some() {
                 self.evaluate(if_.consequence)
             } else {
                 self.evaluate(if_.consequence)?;
                 Ok(Value::Unit)
-            };
-
-            // self.pop_scope();
-            res
+            }
         } else {
-            // self.push_scope();
-
-            let res = match if_.alternative {
+            match if_.alternative {
                 Some(alternative) => self.evaluate(alternative),
                 None => Ok(Value::Unit),
-            };
-            // self.pop_scope();
-            res
+            }
         };
         if self.scopes.len() == 1 {
             dbg!("about to have scope 0");
