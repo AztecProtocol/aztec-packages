@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use acir::circuit::OpcodeLocation;
 use nargo::artifacts::program::ProgramArtifact;
 use nargo::errors::Location;
+use noirc_errors::reporter::line_and_column_from_span;
 
 #[derive(Debug, Clone, Args)]
 pub(crate) struct GatesFlamegraphCommand {
@@ -55,14 +56,15 @@ pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
         serde_json::from_slice(&backend_gates_response.stdout)?;
 
     for (func_idx, func_gates) in backend_gates_response.functions.into_iter().enumerate() {
-        let mut folded_stack_items = HashMap::new();
-
         println!(
             "Opcode count: {}, Total gates by opcodes: {}, Circuit size: {}",
             func_gates.acir_opcodes,
             func_gates.gates_per_opcode.iter().sum::<usize>(),
             func_gates.circuit_size
         );
+
+        // Create a nested hashmap with the stack items, folding the gates for all the callsites that are equal
+        let mut folded_stack_items = HashMap::new();
 
         func_gates.gates_per_opcode.into_iter().enumerate().for_each(|(opcode_index, gates)| {
             let call_stack = &program.debug_symbols.debug_infos[func_idx]
@@ -135,29 +137,9 @@ fn location_to_callsite_label<'files>(
         .take(location.span.end() as usize - location.span.start() as usize)
         .collect::<String>();
 
-    let (line, column) = line_and_column_from_span(source.as_ref(), location.span.start());
+    let (line, column) = line_and_column_from_span(source.as_ref(), &location.span);
 
     format!("{}:{}:{}::{}", filename, line, column, code_slice)
-}
-
-fn line_and_column_from_span(source: &str, span_start: u32) -> (u32, u32) {
-    let mut line = 1;
-    let mut column = 0;
-
-    for (i, char) in source.chars().enumerate() {
-        column += 1;
-
-        if char == '\n' {
-            line += 1;
-            column = 0;
-        }
-
-        if span_start <= i as u32 {
-            break;
-        }
-    }
-
-    (line, column)
 }
 
 fn add_locations_to_folded_stack_items(
@@ -179,6 +161,13 @@ fn add_locations_to_folded_stack_items(
     }
 }
 
+/// Creates a vector of lines in the format that inferno expects from a nested hashmap of stack items
+/// The lines have to be sorted in the following way, exploring the graph in a depth-first manner:
+/// main 100
+/// main::foo 0
+/// main::foo::bar 200
+/// main::baz 27
+/// main::baz::qux 800
 fn to_folded_sorted_lines(
     folded_stack_items: &HashMap<String, FoldedStackItem>,
     parent_stacks: im::Vector<String>,
@@ -201,3 +190,6 @@ fn to_folded_sorted_lines(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {}

@@ -2736,6 +2736,7 @@ dependencies = [
  "im",
  "inferno",
  "nargo",
+ "noirc_errors",
  "noirc_frontend",
  "paste",
  "proptest",
