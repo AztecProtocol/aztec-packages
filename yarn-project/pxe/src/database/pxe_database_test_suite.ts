@@ -202,7 +202,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
     it('stores and retrieves outgoing notes', async () => {
       const notes = [randomOutgoingNoteDao(), randomOutgoingNoteDao()];
       await database.addNotes([], notes);
-      await expect(database.getOutgoingNotes()).resolves.toEqual(notes);
+
+      // Retrieve notes and expect them to contain all the notes we added, regardless of order
+      const retrievedNotes = await database.getOutgoingNotes();
+      expect(retrievedNotes).toHaveLength(notes.length);
+      expect(new Set(retrievedNotes)).toEqual(new Set(notes));
     });
 
     describe('block header', () => {
