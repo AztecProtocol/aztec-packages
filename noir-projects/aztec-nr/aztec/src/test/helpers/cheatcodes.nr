@@ -1,4 +1,4 @@
-use dep::protocol_types::address::AztecAddress;
+use dep::protocol_types::address::{AztecAddress, PartialAddress};
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::test::helpers::types::{Deployer, TestAccount};
 
@@ -42,8 +42,12 @@ unconstrained pub fn direct_storage_write<N>(
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
-unconstrained pub fn add_account(secret: Field) -> TestAccount {
-    oracle_add_account(secret)
+unconstrained pub fn create_account() -> TestAccount {
+    oracle_create_account()
+}
+
+unconstrained pub fn add_account(secret: Field, partial_address: PartialAddress) -> TestAccount {
+    oracle_add_account(secret, partial_address)
 }
 
 #[oracle(reset)]
@@ -77,5 +81,8 @@ fn direct_storage_write_oracle<N>(
     _values: [Field; N]
 ) -> [Field; N] {}
 
+#[oracle(createAccount)]
+fn oracle_create_account() -> TestAccount {}
+
 #[oracle(addAccount)]
-fn oracle_add_account(secret: Field) -> TestAccount {}
+fn oracle_add_account(secret: Field, partial_address: PartialAddress) -> TestAccount {}

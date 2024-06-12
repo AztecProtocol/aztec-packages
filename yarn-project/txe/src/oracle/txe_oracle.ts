@@ -1,4 +1,3 @@
-import { type ContractInstanceStore } from '@aztec/archiver';
 import {
   L1NotePayload,
   MerkleTreeId,
@@ -7,54 +6,86 @@ import {
   type NullifierMembershipWitness,
   PublicDataWitness,
   PublicDataWrite,
-  TaggedNote,
+  TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type CompleteAddress,
+  FunctionData,
   type Header,
-  KeyValidationRequest,
+  type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateCallStackItem,
+  PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
+  PrivateContextInputs,
   type PublicCallRequest,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  computeContractClassId,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { type FunctionSelector } from '@aztec/foundation/abi';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  type FunctionSelector,
+  countArgumentsSize,
+} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
+import { ContractDataOracle } from '@aztec/pxe';
 import {
+  ExecutionError,
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
+  Oracle,
   type PackedValuesCache,
   type TypedOracle,
+  acvm,
+  extractCallStack,
   pickNotes,
+  toACVMWitness,
+  witnessMapToFields,
 } from '@aztec/simulator';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
+import { type TXEDatabase } from '../util/txe_database.js';
+
 export class TXE implements TypedOracle {
   private blockNumber = 0;
+  private sideEffectCounter = 0;
+  private contractDataOracle: ContractDataOracle;
 
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
     private packedValuesCache: PackedValuesCache,
     private noteCache: ExecutionNoteCache,
-    private contractInstanceStore: ContractInstanceStore,
     private keyStore: KeyStore,
-    private accountStore: any,
+    private txeDatabase: TXEDatabase,
     private contractAddress: AztecAddress,
-  ) {}
+  ) {
+    this.contractDataOracle = new ContractDataOracle(txeDatabase);
+  }
 
   // Utils
+
+  getSideEffectCounter() {
+    return this.sideEffectCounter;
+  }
+
+  setSideEffectCounter(sideEffectCounter: number) {
+    this.sideEffectCounter = sideEffectCounter;
+  }
 
   setContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
@@ -68,20 +99,37 @@ export class TXE implements TypedOracle {
     return this.trees;
   }
 
-  getContractInstanceStore() {
-    return this.contractInstanceStore;
+  getTXEDatabase() {
+    return this.txeDatabase;
   }
 
   getKeyStore() {
     return this.keyStore;
   }
 
-  getAccountStore() {
-    return this.accountStore;
+  async addContractInstance(contractInstance: ContractInstanceWithAddress) {
+    await this.txeDatabase.addContractInstance(contractInstance);
   }
 
-  async addContractInstance(contractInstance: ContractInstanceWithAddress) {
-    await this.contractInstanceStore.addContractInstance(contractInstance);
+  async addContractArtifact(artifact: ContractArtifact) {
+    const contractClass = getContractClassFromArtifact(artifact);
+    await this.txeDatabase.addContractArtifact(computeContractClassId(contractClass), artifact);
+  }
+
+  async getPrivateContextInputs(
+    blockNumber: number,
+    msgSender = AztecAddress.random(),
+    contractAddress = this.contractAddress,
+  ) {
+    const trees = this.getTrees();
+    const stateReference = await trees.getStateReference(true);
+    const inputs = PrivateContextInputs.empty();
+    inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
+    inputs.historicalHeader.state = stateReference;
+    inputs.callContext.msgSender = msgSender;
+    inputs.callContext.storageContractAddress = contractAddress;
+    inputs.callContext.sideEffectCounter = this.getSideEffectCounter();
+    return inputs;
   }
 
   // TypedOracle
@@ -114,8 +162,8 @@ export class TXE implements TypedOracle {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const contractInstance = this.contractInstanceStore.getContractInstance(address);
+  async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    const contractInstance = await this.txeDatabase.getContractInstance(address);
     if (!contractInstance) {
       throw new Error(`Contract instance not found for address ${address}`);
     }
@@ -166,7 +214,7 @@ export class TXE implements TypedOracle {
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.resolve(this.accountStore.getAccount(account));
+    return Promise.resolve(this.txeDatabase.getAccount(account));
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
@@ -305,14 +353,14 @@ export class TXE implements TypedOracle {
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, _counter: number): void {
-    throw new Error('Method not implemented.');
+    return;
   }
 
   emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
-    throw new Error('Method not implemented.');
+    return;
   }
 
-  computeEncryptedLog(
+  computeEncryptedNoteLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: Fr,
@@ -322,7 +370,7 @@ export class TXE implements TypedOracle {
   ): Buffer {
     const note = new Note(preimage);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedNote(l1NotePayload);
+    const taggedNote = new TaggedLog(l1NotePayload);
 
     const ephSk = GrumpkinScalar.random();
 
@@ -339,15 +387,85 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  callPrivateFunction(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
+  async callPrivateFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
-    throw new Error('Method not implemented.');
+    this.logger.debug(
+      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
+    );
+    const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
+
+    const acir = artifact.bytecode;
+    const initialWitness = await this.getInitialWitness(artifact, argsHash, targetContractAddress);
+    const acvmCallback = new Oracle(this);
+    const timer = new Timer();
+    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+      const execError = new ExecutionError(
+        err.message,
+        {
+          contractAddress: targetContractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
+      );
+      this.logger.debug(
+        `Error executing private function ${targetContractAddress}:${functionSelector}\n${JSON.stringify(
+          execError,
+          null,
+          4,
+        )}`,
+      );
+      throw execError;
+    });
+    const duration = timer.ms();
+    const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
+    const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+
+    // TODO (alexg) estimate this size
+    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
+      circuitName: 'app-circuit',
+      duration,
+      eventName: 'circuit-witness-generation',
+      inputSize: initialWitnessSize,
+      outputSize: publicInputs.toBuffer().length,
+      appCircuitName: 'noname',
+    } satisfies CircuitWitnessGenerationStats);
+
+    const callStackItem = new PrivateCallStackItem(
+      targetContractAddress,
+      new FunctionData(functionSelector, true),
+      publicInputs,
+    );
+    this.sideEffectCounter += publicInputs.callContext.sideEffectCounter;
+
+    return callStackItem;
+  }
+
+  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, targetContractAddress: AztecAddress) {
+    const argumentsSize = countArgumentsSize(abi);
+
+    const args = this.packedValuesCache.unpack(argsHash);
+
+    if (args.length !== argumentsSize) {
+      throw new Error('Invalid arguments size');
+    }
+
+    const privateContextInputs = await this.getPrivateContextInputs(
+      this.blockNumber - 1,
+      this.contractAddress,
+      targetContractAddress,
+    );
+
+    const fields = [...privateContextInputs.toFields(), ...args];
+
+    return toACVMWitness(0, fields);
   }
 
   callPublicFunction(
@@ -390,5 +508,25 @@ export class TXE implements TypedOracle {
 
   debugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
+  }
+
+  emitEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _encryptedEvent: Buffer,
+    _counter: number,
+  ): void {
+    return;
+  }
+
+  computeEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _eventTypeId: Fr,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: Point,
+    _preimage: Fr[],
+  ): Buffer {
+    throw new Error('Method not implemented.');
   }
 }

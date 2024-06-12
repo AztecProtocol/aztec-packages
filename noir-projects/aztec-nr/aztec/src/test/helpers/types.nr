@@ -1,4 +1,7 @@
-use dep::protocol_types::{traits::{Deserialize, Serialize}, address::AztecAddress};
+use dep::protocol_types::{
+    traits::{Deserialize, Serialize}, address::AztecAddress,
+    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs}
+};
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::call_interfaces::CallInterface;
@@ -10,10 +13,10 @@ struct Deployer<N> {
     }
 
 impl<N> Deployer<N> {
-    pub fn with_private_initializer<C, M, T, P, Env>(
+    pub fn with_private_initializer<C, M, Env>(
         self,
         call_interface: C
-    ) -> AztecAddress where C: CallInterface<M, PrivateContextInputs, P, Env> {
+    ) -> AztecAddress where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
         let address = cheatcodes::deploy(
             self.path,
             call_interface.get_name(),
@@ -29,10 +32,10 @@ impl<N> Deployer<N> {
         address
     }
 
-    pub fn with_public_initializer<C, M, T, P, Env>(
+    pub fn with_public_initializer<C, M, T, Env>(
         self,
         call_interface: C
-    ) -> AztecAddress where C: CallInterface<M, PublicContextInputs, P, Env> {
+    ) -> AztecAddress where C: CallInterface<M, PublicContextInputs, T, Env> {
         let address = cheatcodes::deploy(
             self.path,
             call_interface.get_name(),
@@ -41,6 +44,11 @@ impl<N> Deployer<N> {
         let original_fn = call_interface.get_original();
         let mut inputs = cheatcodes::get_public_context_inputs();
         let _result = original_fn(inputs);
+        address
+    }
+
+    pub fn without_initializer(self) -> AztecAddress {
+        let address = cheatcodes::deploy(self.path, "", &[]);
         address
     }
 }

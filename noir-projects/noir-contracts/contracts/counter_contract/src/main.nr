@@ -40,7 +40,6 @@ contract Counter {
 
     use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
-    use dep::aztec::oracle::{storage::{storage_read, storage_write}};
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
 
@@ -48,8 +47,8 @@ contract Counter {
     fn test_initialize() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.get_account();
-        let outgoing_viewer = env.get_account();
+        let owner = env.create_account();
+        let outgoing_viewer = env.create_account();
 
         // Deploy contract and initialize 
         let initializer = Counter::interface().initialize(5, owner, outgoing_viewer);

@@ -1,13 +1,14 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress},
-    storage::map::derive_storage_slot_in_map, constants::CANONICAL_KEY_REGISTRY_ADDRESS,
-    grumpkin_point::GrumpkinPoint
+    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint, traits::Deserialize
 };
 
-use crate::oracle::unsafe_rand::unsafe_rand;
+use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
+use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
-use crate::test::helpers::{cheatcodes, types::{Deployer, TestAccount}};
+use crate::test::helpers::{cheatcodes, types::{Deployer, TestAccount}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 
 struct TestEnvironment {
@@ -87,33 +88,30 @@ impl TestEnvironment {
         PrivateContext::new(inputs, args_hash)
     }
 
-    fn store_master_key(self, key_index: Field, address: AztecAddress, key: GrumpkinPoint) {
-        let x_coordinate_map_slot = key_index * 2 + 1;
-        let y_coordinate_map_slot = x_coordinate_map_slot + 1;
-        let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
-        let y_coordinate_derived_slot = derive_storage_slot_in_map(y_coordinate_map_slot, address);
-
-        let canonical_registry_address = AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS);
-
-        cheatcodes::direct_storage_write(canonical_registry_address, x_coordinate_derived_slot, [key.x]);
-
-        cheatcodes::direct_storage_write(canonical_registry_address, y_coordinate_derived_slot, [key.y]);
-    }
-
-    fn get_account(self) -> AztecAddress {
-        let test_account = cheatcodes::add_account(unsafe_rand());
+    fn create_account(self) -> AztecAddress {
+        let test_account = cheatcodes::create_account();
         let address = test_account.address;
         let keys = test_account.keys;
 
-        self.store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        self.store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        self.store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        self.store_master_key(TAGGING_INDEX, address, keys.tpk_m);
+        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
+        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
+        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
+        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
 
         test_account.address
     }
 
     fn deploy<N>(self, path: str<N>) -> Deployer<N> {
         Deployer { path }
+    }
+
+    fn call_private<C, M, T, Env, N>(
+        self,
+        call_interface: C
+    ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
+        let original_fn = call_interface.get_original();
+        let mut inputs = cheatcodes::get_private_context_inputs(cheatcodes::get_block_number() - 1);
+        let public_inputs = original_fn(inputs);
+        PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 }

@@ -1,7 +1,7 @@
-import { ContractInstanceStore } from '@aztec/archiver';
 import { L2Block, MerkleTreeId, PublicDataWrite } from '@aztec/circuit-types';
 import {
   Fr,
+  FunctionSelector,
   Header,
   KeyValidationRequest,
   PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -20,7 +20,6 @@ import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
-import { AccountStore } from '../util/account_store.js';
 import {
   type ForeignCallArray,
   type ForeignCallSingle,
@@ -30,6 +29,7 @@ import {
   toForeignCallResult,
   toSingle,
 } from '../util/encoding.js';
+import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle, private store: AztecKVStore) {}
@@ -39,20 +39,10 @@ export class TXEService {
     const trees = await MerkleTrees.new(store, logger);
     const packedValuesCache = new PackedValuesCache();
     const noteCache = new ExecutionNoteCache();
-    const contractInstanceStore = new ContractInstanceStore(store);
     const keyStore = new KeyStore(store);
-    const accountStore = new AccountStore(store);
+    const txeDatabase = new TXEDatabase(store);
     logger.info(`TXE service initialized`);
-    const txe = new TXE(
-      logger,
-      trees,
-      packedValuesCache,
-      noteCache,
-      contractInstanceStore,
-      keyStore,
-      accountStore,
-      contractAddress,
-    );
+    const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase, contractAddress);
     const service = new TXEService(logger, txe, store);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
@@ -61,13 +51,7 @@ export class TXEService {
   // Cheatcodes
 
   async getPrivateContextInputs(blockNumber: ForeignCallSingle) {
-    const inputs = PrivateContextInputs.empty();
-    const trees = (this.typedOracle as TXE).getTrees();
-    const stateReference = await trees.getStateReference(true);
-    inputs.historicalHeader.globalVariables.blockNumber = fromSingle(blockNumber);
-    inputs.historicalHeader.state = stateReference;
-    inputs.callContext.msgSender = AztecAddress.random();
-    inputs.callContext.storageContractAddress = await this.typedOracle.getContractAddress();
+    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(fromSingle(blockNumber).toNumber());
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
@@ -104,17 +88,15 @@ export class TXEService {
   async reset() {
     this.store = openTmpStore(true);
     const trees = await MerkleTrees.new(this.store, this.logger);
-    const contractInstanceStore = new ContractInstanceStore(this.store);
     const keyStore = new KeyStore(this.store);
-    const accountStore = new AccountStore(this.store);
+    const txeDatabase = new TXEDatabase(this.store);
     this.typedOracle = new TXE(
       this.logger,
       trees,
       new PackedValuesCache(),
       new ExecutionNoteCache(),
-      contractInstanceStore,
       keyStore,
-      accountStore,
+      txeDatabase,
       AztecAddress.random(),
     );
     await this.timeTravel(toSingle(new Fr(1)));
@@ -148,11 +130,13 @@ export class TXEService {
       constructorArgs: decodedArgs,
       salt: Fr.ONE,
       publicKeysHash: Fr.ZERO,
-      constructorArtifact: initializerStr,
+      constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
+
     this.logger.debug(`Deployed ${contractClass.artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
+    await (this.typedOracle as TXE).addContractArtifact(contractClass.artifact);
     return toForeignCallResult([toSingle(instance.address)]);
   }
 
@@ -180,11 +164,21 @@ export class TXEService {
     return toForeignCallResult([toArray(publicDataWrites.map(write => write.newValue))]);
   }
 
-  async addAccount(secret: ForeignCallSingle) {
-    const secretKey = fromSingle(secret);
+  async createAccount() {
     const keyStore = (this.typedOracle as TXE).getKeyStore();
-    const completeAddress = await keyStore.addAccount(secretKey, Fr.ONE);
-    const accountStore = (this.typedOracle as TXE).getAccountStore();
+    const completeAddress = await keyStore.createAccount();
+    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
+    await accountStore.setAccount(completeAddress.address, completeAddress);
+    return toForeignCallResult([
+      toSingle(completeAddress.address),
+      ...completeAddress.publicKeys.toFields().map(toSingle),
+    ]);
+  }
+
+  async addAccount(secret: ForeignCallSingle, partialAddress: ForeignCallSingle) {
+    const keyStore = (this.typedOracle as TXE).getKeyStore();
+    const completeAddress = await keyStore.addAccount(fromSingle(secret), fromSingle(partialAddress));
+    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -403,7 +397,7 @@ export class TXEService {
     return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
   }
 
-  computeEncryptedLog(
+  computeEncryptedNoteLog(
     contractAddress: ForeignCallSingle,
     storageSlot: ForeignCallSingle,
     noteTypeId: ForeignCallSingle,
@@ -417,7 +411,7 @@ export class TXEService {
     const ovpkM = new Point(fromSingle(ovpkMX), fromSingle(ovpkMY));
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(fromSingle(ovskApp).toString()));
     const ivpkM = new Point(fromSingle(ivpkMX), fromSingle(ivpkMY));
-    const encLog = this.typedOracle.computeEncryptedLog(
+    const encLog = this.typedOracle.computeEncryptedNoteLog(
       AztecAddress.fromString(fromSingle(contractAddress).toString()),
       Fr.fromString(fromSingle(storageSlot).toString()),
       Fr.fromString(fromSingle(noteTypeId).toString()),
@@ -448,5 +442,24 @@ export class TXEService {
     _counter: ForeignCallSingle,
   ) {
     return toForeignCallResult([]);
+  }
+
+  async callPrivateFunction(
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
+    sideEffectCounter: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
+    isDelegateCall: ForeignCallSingle,
+  ) {
+    const result = await this.typedOracle.callPrivateFunction(
+      fromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromSingle(argsHash),
+      fromSingle(sideEffectCounter).toNumber(),
+      fromSingle(isStaticCall).toBool(),
+      fromSingle(isDelegateCall).toBool(),
+    );
+    return toForeignCallResult([toArray(result.toFields())]);
   }
 }
