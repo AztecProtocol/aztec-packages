@@ -1331,6 +1331,68 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
 
     validate_trace(std::move(trace));
 }
+//
+// Positive test with EmbeddedCurveAdd
+TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
+{
+    // TODO: Look for hardcoded test vectors since bb is missing them
+    grumpkin::g1::affine_element a = grumpkin::g1::affine_element::random_element();
+    auto a_is_inf = a.is_point_at_infinity();
+    grumpkin::g1::affine_element b = grumpkin::g1::affine_element::random_element();
+    auto b_is_inf = b.is_point_at_infinity();
+    grumpkin::g1::affine_element res = a + b;
+    auto expected_output = std::vector<FF>{ res.x, res.y, res.is_point_at_infinity() };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +   // Calldatacopy
+                               "00"                             // Indirect flag
+                               "00000000"                       // cd_offset
+                               "00000002"                       // copy_size
+                               "00000000"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "01"                             // U8
+                               + to_hex<uint8_t>(a_is_inf) +    //
+                               "00000002"                       // dst_offset
+                               + to_hex(OpCode::CALLDATACOPY) + // calldatacopy
+                               "00"                             // Indirect flag
+                               "00000002"                       // cd_offset
+                               "00000002"                       // copy_size
+                               "00000003"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "01"                             // U32
+                               + to_hex<uint8_t>(b_is_inf) +    // value 2
+                               "00000005"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "03"                             // U32
+                               "00000007"                       // value
+                               "00000006"                       // dst_offset
+                               + to_hex(OpCode::ECADD) +        // opcode ECADD
+                               "40"                             // Indirect flag (sixth operand indirect)
+                               "00000000"                       // hash_index offset (direct)
+                               "00000001"                       // dest offset (direct)
+                               "00000002"                       // input offset (indirect)
+                               "00000003"                       // length offset (direct)
+                               "00000004"                       // length offset (direct)
+                               "00000005"                       // length offset (direct)
+                               "00000006"                       // length offset (direct)
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "00000007"                       // ret offset 3
+                               "00000003";                      // ret size 1
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> returndata;
+    std::vector<FF> calldata = { a.x, a.y, b.x, b.y };
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+
+    EXPECT_EQ(returndata, expected_output);
+
+    validate_trace(std::move(trace));
+}
 
 // Positive test for Kernel Input opcodes
 TEST_F(AvmExecutionTests, kernelInputOpcodes)
@@ -1691,8 +1753,8 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     uint32_t emit_note_hash_out_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
     auto emit_note_hash_kernel_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_note_hash_out_offset; });
-    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_value_out, 1);
+    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_side_effect_out, 0);
 
     // CHECK EMIT NULLIFIER
     auto emit_nullifier_row =
@@ -1703,8 +1765,8 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     uint32_t emit_nullifier_out_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET;
     auto emit_nullifier_kernel_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_nullifier_out_offset; });
-    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_value_out, 1);
+    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_side_effect_out, 1);
 
     // CHECK EMIT UNENCRYPTED LOG
     auto emit_log_row = std::ranges::find_if(
@@ -1715,8 +1777,8 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     uint32_t emit_log_out_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
     auto emit_log_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_log_out_offset; });
-    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
+    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out, 1);
+    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out, 2);
 
     // CHECK SEND L2 TO L1 MSG
     auto send_row = std::ranges::find_if(
@@ -1728,9 +1790,9 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
         return r.avm_main_clk == AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET;
     });
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 3);
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out, 1);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out, 3);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out, 1);
 
     validate_trace(std::move(trace));
 }
@@ -1786,9 +1848,9 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
     uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
     auto sload_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out, 9); // slot
 
     validate_trace(std::move(trace));
 }
@@ -1848,13 +1910,13 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeComplex)
     uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
     auto sload_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out, 9); // slot
     sload_kernel_out_row++;
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 123); // value
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 10); // slot
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out, 123); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out, 10); // slot
 
     validate_trace(std::move(trace));
 }
@@ -1898,9 +1960,9 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
     uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
     auto sstore_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out, 9); // slot
 
     validate_trace(std::move(trace));
 }
@@ -1954,13 +2016,13 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeComplex)
     uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
     auto sstore_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out, 9); // slot
     sstore_kernel_out_row++;
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 123); // value
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 10); // slot
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out, 123); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out, 10); // slot
 
     validate_trace(std::move(trace));
 }
@@ -2021,9 +2083,9 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
     auto sload_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out, 9); // slot
 
     // CHECK SSTORE
     auto sstore_row =
@@ -2036,9 +2098,9 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
     auto sstore_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out, 9); // slot
 
     validate_trace(std::move(trace));
 }
@@ -2100,9 +2162,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     auto note_hash_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
         return r.avm_main_clk == AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
     });
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_value_out, 1); // value
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_metadata_out, 1); // exists
 
     // CHECK NULLIFIEREXISTS
     auto nullifier_row =
@@ -2114,9 +2176,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     auto nullifier_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
         return r.avm_main_clk == AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET;
     });
-    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_value_out, 1); // value
+    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_metadata_out, 1); // exists
 
     // CHECK L1TOL2MSGEXISTS
     auto l1_to_l2_row = std::ranges::find_if(
@@ -2128,9 +2190,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
         return r.avm_main_clk == AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
     });
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out, 1); // value
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out, 2);
+    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out, 1); // exists
 
     validate_trace(std::move(trace));
 }
