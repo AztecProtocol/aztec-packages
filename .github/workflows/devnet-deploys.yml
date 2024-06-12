@@ -11,7 +11,7 @@ env:
   TF_VAR_CHAIN_ID: 31337
   TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}
   TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_2_PUBLISHER_PRIVATE_KEY }}
-  TF_VAR_DEPLOY_TAG: aztec-dev
+  TF_VAR_DEPLOY_TAG: devnet
   TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
         timeout-minutes: 40
         # Run the build steps for each image with version and arch, push to dockerhub
         run: |
-          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=aztec-dev
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=devnet
 
   terraform_deploy:
     runs-on: ubuntu-latest
@@ -57,5 +57,5 @@ jobs:
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
-          terraform init -input=false -backend-config="key=aztec-dev/aztec-node"
+          terraform init -input=false -backend-config="key=devnet/aztec-node"
           terraform apply -input=false -auto-approve
