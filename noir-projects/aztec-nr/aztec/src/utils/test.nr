@@ -1,4 +1,4 @@
-use crate::utils::{collapse, collapse_contrain};
+use crate::utils::{collapse, verify_collapse_hints};
 
 #[test]
 fn collapse_empty_array() {
@@ -49,64 +49,64 @@ fn collapse_array_back_padding() {
 }
 
 #[test]
-fn collapse_constrain_good_hints() {
+fn verify_collapse_hints_good_hints() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7, 3]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 2]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
 
 #[test(should_fail_with="Wrong collapsed vec length")]
-fn collapse_constrain_wrong_length() {
+fn verify_collapse_hints_wrong_length() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
 
 #[test(should_fail_with="Collapse hint vec length mismatch")]
-fn collapse_constrain_hint_length_mismatch() {
+fn verify_collapse_hints_hint_length_mismatch() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7, 3]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
 
 #[test(should_fail_with="Out of bounds index hint")]
-fn collapse_constrain_out_of_bounds_index_hint() {
+fn verify_collapse_hints_out_of_bounds_index_hint() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7, 3]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 5]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
 
 #[test(should_fail)]
-fn collapse_constrain_hint_to_none() {
+fn verify_collapse_hints_hint_to_none() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7, 0]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 1]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
 
 #[test(should_fail_with="Wrong collapsed vec content")]
-fn collapse_constrain_wrong_vec_content() {
+fn verify_collapse_hints_wrong_vec_content() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7, 42]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([0, 2]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
 
 #[test(should_fail_with="Wrong collapsed vec order")]
-fn collapse_constrain_wrong_vec_order() {
+fn verify_collapse_hints_wrong_vec_order() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([3, 7]);
     let collapsed_to_input_index_mapping = BoundedVec::from_array([2, 0]);
 
-    collapse_contrain(original, collapsed, collapsed_to_input_index_mapping);
+    verify_collapse_hints(original, collapsed, collapsed_to_input_index_mapping);
 }
