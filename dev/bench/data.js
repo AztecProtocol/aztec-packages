@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718186216992,
+  "lastUpdate": 1718187019877,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -36320,6 +36320,78 @@ window.BENCHMARK_DATA = {
             "value": 163257892,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163257892 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a8c3c3fcf35b7c464006c481230afcb11b9952dc",
+          "message": "chore(bb): hide `debug()` logs under `--debug` flag (#7008)\n\nThis helps because currently `bootstrap.sh` compiles with assertions,\nand therefore outputs all debug logs without this change.",
+          "timestamp": "2024-06-12T10:55:17+01:00",
+          "tree_id": "07a5eb0a2b8324020d1be03b8e83758ba68d8a74",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a8c3c3fcf35b7c464006c481230afcb11b9952dc"
+        },
+        "date": 1718187018098,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15503.923853000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10683.435259000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5517.550112999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5190.024845 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49497.532941000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49497535000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16942.801714999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16942802000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5167699886,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5167699886 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201157570,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201157570 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4296184847,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4296184847 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162880728,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162880728 ns\nthreads: 1"
           }
         ]
       }
