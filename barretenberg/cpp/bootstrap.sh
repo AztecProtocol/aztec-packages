@@ -61,7 +61,7 @@ function build_native {
 
 function build_native {
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --build --preset $PRESET --target world_state_service
+  cmake --build --preset $PRESET --target world_state
 }
 
 function build_wasm {
