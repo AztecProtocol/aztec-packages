@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
+namespace bb::messaging {
 bool StreamParser::onNewData(char* data, uint32_t length)
 {
     uint32_t newSize = bufferLength + length;
@@ -60,3 +61,4 @@ void StreamParser::shrinkBuffer()
     readPointer = 0;
     bufferLength = dataRemaining;
 }
+} // namespace bb::messaging

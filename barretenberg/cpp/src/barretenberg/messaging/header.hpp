@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 
+namespace bb::messaging {
 const uint32_t MAGIC_STRING_LENGTH = 8;
 const uint8_t MAGIC_STRING[] = "AZTEC!!";
 
@@ -35,3 +36,4 @@ struct MsgHeader {
 #pragma pack(pop)
 
 const uint32_t HEADER_SIZE = sizeof(MsgHeader);
+} // namespace bb::messaging

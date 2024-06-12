@@ -1,1 +1,3 @@
-barretenberg_module(world_state lmdb barretenberg)
+barretenberg_module(world_state lmdb)
+
+

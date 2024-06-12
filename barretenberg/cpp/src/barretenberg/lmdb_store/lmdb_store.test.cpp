@@ -11,7 +11,7 @@
 #include "lmdb_store.hpp"
 
 using namespace bb::stdlib;
-using namespace bb::lmdb;
+using namespace bb::lmdb_store;
 
 using Builder = bb::UltraCircuitBuilder;
 

@@ -1,6 +1,6 @@
 #include "lmdb_store.hpp"
 
-namespace bb::lmdb {
+namespace bb::lmdb_store {
 
 LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  unsigned long mapSizeMB,
@@ -82,4 +82,4 @@ LMDBReadTransaction::Ptr LMDBStore::createReadTransaction()
     return std::make_unique<LMDBReadTransaction>(_environment, _database);
 }
 
-} // namespace bb::lmdb
+} // namespace bb::lmdb_store

@@ -4,8 +4,11 @@
 #include "gtest/gtest.h"
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
+
+using namespace bb::messaging;
 
 std::vector<char> createMessage(uint16_t type, uint32_t messageId, uint32_t requestId, uint32_t dataSize)
 {
@@ -122,6 +125,40 @@ TEST(messaging_stream_parser, correctly_parses_split_multiple_messages)
                                                   createMessage(7, 59, 58, 14) };
     std::vector<char> fullStream;
     for (const auto& message : messages) {
+        fullStream.insert(fullStream.end(), message.begin(), message.end());
+    }
+    uint32_t numCalls = 0;
+    std::function<bool(const MsgHeader*, const char*)> handler = [&](const MsgHeader* header, const char* data) {
+        assertHandledMessage(messages[numCalls], header, data);
+        numCalls++;
+        return true;
+    };
+    StreamParser parser(handler);
+
+    // add the data in chunks
+    std::array<uint32_t, 3> chunks = { static_cast<uint32_t>(fullStream.size() / 6),
+                                       static_cast<uint32_t>((fullStream.size() / 6) * 2),
+                                       static_cast<uint32_t>((fullStream.size() / 6) * 2) };
+    uint32_t readPointer = 0;
+    for (size_t i = 0; i < chunks.size(); i++) {
+        parser.onNewData(&fullStream[readPointer], chunks[i]);
+        readPointer += chunks[i];
+    }
+    uint32_t remaining = static_cast<uint32_t>(fullStream.size()) - readPointer;
+    parser.onNewData(&fullStream[readPointer], remaining);
+    EXPECT_EQ(numCalls, 3);
+}
+
+TEST(messaging_stream_parser, correctly_parses_split_multiple_messages_with_garbage)
+{
+    std::array<std::vector<char>, 3> messages = { createMessage(5, 57, 56, 14),
+                                                  createMessage(6, 58, 57, 14),
+                                                  createMessage(7, 59, 58, 14) };
+    std::vector<char> fullStream;
+    // build the full stream with garbage bytes inserted before each real message
+    for (const auto& message : messages) {
+        std::string garbage{ "epfnwpcndcqwedoceodinc" };
+        fullStream.insert(fullStream.end(), garbage.begin(), garbage.end());
         fullStream.insert(fullStream.end(), message.begin(), message.end());
     }
     uint32_t numCalls = 0;

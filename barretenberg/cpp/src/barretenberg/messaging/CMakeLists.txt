@@ -1,2 +1,2 @@
-barretenberg_module(messaging barretenberg)
+barretenberg_module(messaging)
 

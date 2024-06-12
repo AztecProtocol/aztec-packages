@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace bb::lmdb {
+namespace bb::lmdb_store {
 
 template <typename... TArgs> bool call_lmdb_func(int (*f)(TArgs...), TArgs... args)
 {
@@ -179,4 +179,4 @@ class LMDBStore {
     const std::string _name;
     LMDBDatabase _database;
 };
-} // namespace bb::lmdb
+} // namespace bb::lmdb_store

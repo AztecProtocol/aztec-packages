@@ -5,9 +5,10 @@
 #include <functional>
 #include <iostream>
 
+using namespace bb::world_state;
+
 int main(int, char**)
 {
-    std::cout << "Hello World" << std::endl;
     SynchronisedStdOutput outputStream(std::cout);
     WorldStateService<SynchronisedStdOutput> service(outputStream);
 
@@ -15,6 +16,5 @@ int main(int, char**)
         return service.processMessage(header, data);
     };
     StreamParser parser(handler);
-    std::cout << "Hello World" << std::endl;
     waitForInput(std::cin, parser);
 }

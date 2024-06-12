@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+namespace bb::messaging {
 class StreamParser {
   private:
     std::vector<char> buffer;
@@ -21,3 +22,4 @@ class StreamParser {
     {}
     bool onNewData(char* data, uint32_t length);
 };
+} // namespace bb::messaging
