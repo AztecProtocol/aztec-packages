@@ -50,17 +50,6 @@ export async function produceNoteDaos(
   // are not attempting to derive a nullifier.
   let incomingDeferredNote: DeferredNoteDao | undefined;
 
-  if (ovpkM) {
-    outgoingNote = new OutgoingNoteDao(
-      payload.note,
-      payload.contractAddress,
-      payload.storageSlot,
-      payload.noteTypeId,
-      txHash,
-      ovpkM,
-    );
-  }
-
   try {
     if (ivpkM) {
       const { noteHashIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
@@ -69,6 +58,7 @@ export async function produceNoteDaos(
         txHash,
         payload,
         excludedIndices,
+        true, // For incoming we always compute a nullifier.
       );
       const index = BigInt(dataStartIndexForTx + noteHashIndex);
       excludedIndices?.add(noteHashIndex);
@@ -107,6 +97,46 @@ export async function produceNoteDaos(
     }
   }
 
+  if (ovpkM) {
+    if (incomingNote) {
+      // Incoming note is defined meaning that this PXE has both the incoming and outgoing keys. We can skip computing
+      // note hash and note index since we already have them in the incoming note.
+      outgoingNote = new OutgoingNoteDao(
+        payload.note,
+        payload.contractAddress,
+        payload.storageSlot,
+        payload.noteTypeId,
+        txHash,
+        incomingNote.nonce,
+        incomingNote.innerNoteHash,
+        incomingNote.index,
+        ovpkM,
+      );
+    } else {
+      // TODO(benesjan): what about excluded indices here?
+      const { noteHashIndex, nonce, innerNoteHash } = await findNoteIndexAndNullifier(
+        simulator,
+        newNoteHashes,
+        txHash,
+        payload,
+        excludedIndices,
+        true, // For outgoing we do not compute a nullifier.
+      );
+      const index = BigInt(dataStartIndexForTx + noteHashIndex);
+      outgoingNote = new OutgoingNoteDao(
+        payload.note,
+        payload.contractAddress,
+        payload.storageSlot,
+        payload.noteTypeId,
+        txHash,
+        nonce,
+        innerNoteHash,
+        index,
+        ovpkM,
+      );
+    }
+  }
+
   return {
     incomingNote,
     outgoingNote,
@@ -124,6 +154,7 @@ export async function produceNoteDaos(
  * @param l1NotePayload - The note payload.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
  * l1NotePayload. We need to find a different index for each replicate.
+ * @param computeNullifier - A flag indicating whether to compute the nullifier or just return 0.
  * @returns Nonce, index, inner hash and siloed nullifier for a given note.
  * @throws If cannot find the nonce for the note.
  */
@@ -133,6 +164,7 @@ async function findNoteIndexAndNullifier(
   txHash: TxHash,
   { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
   excludedIndices: Set<number>,
+  computeNullifier: boolean,
 ) {
   let noteHashIndex = 0;
   let nonce: Fr | undefined;
@@ -157,7 +189,7 @@ async function findNoteIndexAndNullifier(
       expectedNonce,
       storageSlot,
       noteTypeId,
-      true,
+      computeNullifier,
       note,
     ));
 
