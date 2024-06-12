@@ -1,4 +1,4 @@
-import { ClientIvcProof, type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
+import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
@@ -16,6 +16,7 @@ import {
   RecursiveProof,
   type VerificationKeyAsFields,
   type VerificationKeyData,
+  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -103,7 +104,7 @@ export class BBNativeProofCreator implements ProofCreator {
       eventName: 'circuit-proving',
     });
 
-    return { instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer }; // LONDONTODO(Client): What is this vk now?
+    return new ClientIvcProof(instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer); // LONDONTODO(Client): What is this vk now?
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {

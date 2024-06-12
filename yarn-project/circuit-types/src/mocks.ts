@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   CallRequest,
+  ClientIvcProof,
   GasSettings,
   LogHash,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -137,7 +138,7 @@ export const mockTx = (
   const tx = new Tx(
     data,
     makeEmptyProof(),
-    undefined, // LONDONTODO need just one proof object
+    ClientIvcProof.empty(),
     noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,

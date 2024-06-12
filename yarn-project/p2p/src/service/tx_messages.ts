@@ -1,5 +1,5 @@
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Tx, UnencryptedTxL2Logs } from '@aztec/circuit-types';
-import { PrivateKernelTailCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { type SemVer } from 'semver';
@@ -68,6 +68,7 @@ export function toTxMessage(tx: Tx): Buffer {
   const messageBuffer = Buffer.concat([
     createMessageComponent(tx.data),
     createMessageComponent(tx.proof),
+    createMessageComponent(tx.clientIvcProof),
     createMessageComponent(tx.noteEncryptedLogs),
     createMessageComponent(tx.encryptedLogs),
     createMessageComponent(tx.unencryptedLogs),
@@ -114,8 +115,9 @@ export function fromTxMessage(buffer: Buffer): Tx {
   // so the first 4 bytes is the complete length, skip it
   const publicInputs = toObject(buffer.subarray(4), PrivateKernelTailCircuitPublicInputs);
   const proof = toObject(publicInputs.remainingData, Proof);
+  const clientIvcProof = toObject(proof.remainingData, ClientIvcProof);
 
-  const noteEncryptedLogs = toObject(proof.remainingData, EncryptedNoteTxL2Logs);
+  const noteEncryptedLogs = toObject(clientIvcProof.remainingData, EncryptedNoteTxL2Logs);
   if (!noteEncryptedLogs.obj) {
     noteEncryptedLogs.obj = new EncryptedNoteTxL2Logs([]);
   }
@@ -134,7 +136,7 @@ export function fromTxMessage(buffer: Buffer): Tx {
   return new Tx(
     publicInputs.obj!,
     proof.obj!,
-    undefined, // LONDONTODO need just one proof object
+    clientIvcProof.obj!,
     noteEncryptedLogs.obj,
     encryptedLogs.obj,
     unencryptedLogs.obj,

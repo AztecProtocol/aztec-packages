@@ -1,4 +1,4 @@
-import { ClientIvcProof, type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
+import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -12,6 +12,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   VerificationKeyAsFields,
   makeRecursiveProof,
+  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -33,13 +34,7 @@ export class TestProofCreator implements ProofCreator {
 
   // LONDONTODO hacky for offsite
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
-    return Promise.resolve({
-      instVkBuffer: Buffer.from(''),
-      pgAccBuffer: Buffer.from(''),
-      clientIvcProofBuffer: Buffer.from(''),
-      translatorVkBuffer: Buffer.from(''),
-      eccVkBuffer: Buffer.from('')
-    });
+    return Promise.resolve(ClientIvcProof.empty());
   }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
