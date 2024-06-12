@@ -94,6 +94,7 @@ export class Tx {
     return serializeToBuffer([
       this.data,
       this.proof,
+      this.clientIvcProof,
       this.noteEncryptedLogs,
       this.encryptedLogs,
       this.unencryptedLogs,
