@@ -1,5 +1,5 @@
 import {
-  Fr,å
+  Fr,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKeyAsFields,
   VerificationKeyData,

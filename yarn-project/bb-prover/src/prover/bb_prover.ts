@@ -14,10 +14,12 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  ClientIVCData,
   EmptyNestedCircuitInputs,
   EmptyNestedData,
   Fr,
   type KernelCircuitPublicInputs,
+  KernelData,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateKernelEmptyInputData,
@@ -30,6 +32,8 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  TUBE_PROOF_LENGTH,
+  TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
@@ -237,23 +241,28 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   /**
    * Simulates the base rollup circuit from its inputs.
-   * @param input - Inputs to the circuit.
+   * @param baseRollupInput - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
   public async getBaseRollupProof(
-    input: BaseRollupInputs,
+    baseRollupInput: BaseRollupInputs, // TODO: remove tail proof from here
+    tubeInput: TubeInputs, // TODO: remove tail proof from here
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
-    logger.debug(`kernel Data proof: ${input.kernelData.proof}`);
-    input.kernelData.proof = await this.ensureValidProof(
-      input.kernelData.proof,
+    logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
+    baseRollupInput.kernelData.proof = await this.ensureValidProof(
+      baseRollupInput.kernelData.proof,
       'BaseRollupArtifact',
-      input.kernelData.vk,
+      baseRollupInput.kernelData.vk,
     );
-    logger.debug(`kernel Data proof after ensureValidProof: ${input.kernelData.proof}`);
+    logger.debug(`kernel Data proof after ensureValidProof: ${baseRollupInput.kernelData.proof}`);
+
+    const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
+    baseRollupInput.kernelData.vk = tubeVK;
+    baseRollupInput.kernelData.proof = tubeProof;
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
-      input,
+      baseRollupInput, // BaseRollupInputs
       'BaseRollupArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO: this should be BASE_ROLLUP_PROOF_LENGTH or something like this
       convertBaseRollupInputsToWitnessMap,
@@ -267,12 +276,28 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
+  // /**
+  //  * Simulates the base rollup circuit from its inputs.
+  //  * @param input - Inputs to the circuit.
+  //  * @returns The public inputs as outputs of the simulation.
+  //  */
+  // public async getTubeProof(input: TubeInputs) : Promise<KernelData> {
+  //   const provingResult =
+  //     // Read the proof as fields
+  //     await generateTubeProofWithBB(this.config.bbBinaryPath, this.config.bbWorkingDirectory, 'TubeRollup', logger.debug);
+  //   if (provingResult.status === BB_RESULT.FAILURE) {
+  //     logger.error(`Failed to generate proof for TubeRollup: ${provingResult.reason}`);
+  //     throw new Error(provingResult.reason);
+  //   }
+
+  // }
+
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getTubeRollupProof() /*: Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>*/ {
+  public async getTubeRollupProofFromArtifact() /*: Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>*/ {
     // HEEEEEEEEEEEEREEEEEEEEEE
     // We may need to convert the recursive proof into fields format
     // input.kernelData.proof = await this.ensureValidProof(
@@ -294,7 +319,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const provingResult =
       // Read the proof as fields
-      await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, 'TubeRollup', logger.debug);
+      await generateTubeProof(
+        this.config.bbBinaryPath,
+        this.config.bbWorkingDirectory,
+        'TubeRollup',
+        logger.debug,
+      );
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for TubeRollup: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
@@ -415,7 +445,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
-
   private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
@@ -432,6 +461,71 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
+
+  // private async generateTubeProofWithBB<
+  //   Input extends { toBuffer: () => Buffer },
+  //   Output extends { toBuffer: () => Buffer },
+  // >(
+  //   input: Input,
+  //   circuitType: ServerProtocolArtifact,
+  //   convertInput: (input: Input) => WitnessMap,
+  //   convertOutput: (outputWitness: WitnessMap) => Output,
+  //   workingDirectory: string,
+  // ): Promise<{ circuitOutput: Output; vkData: VerificationKeyData; provingResult: BBSuccess }> {
+  //   // Have the ACVM write the partial witness here
+  //   const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
+
+  //   // Generate the partial witness using the ACVM
+  //   // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
+  //   const simulator = new NativeACVMSimulator(
+  //     this.config.acvmWorkingDirectory,
+  //     this.config.acvmBinaryPath,
+  //     outputWitnessFile,
+  //   );
+
+  //   const artifact = ServerCircuitArtifacts[circuitType];
+
+  //   logger.debug(`Generating witness data for ${circuitType}`);
+
+  //   const inputWitness = convertInput(input);
+  //   const timer = new Timer();
+  //   const outputWitness = await simulator.simulateCircuit(inputWitness, artifact);
+  //   const witnessGenerationDuration = timer.ms();
+  //   const output = convertOutput(outputWitness);
+  //   logger.debug(`Generated witness`, {
+  //     circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
+  //     duration: witnessGenerationDuration,
+  //     inputSize: input.toBuffer().length,
+  //     outputSize: output.toBuffer().length,
+  //     eventName: 'circuit-witness-generation',
+  //   } satisfies CircuitWitnessGenerationStats);
+
+  //   // Now prove the circuit from the generated witness
+  //   logger.debug(`Proving ${circuitType}...`);
+
+  //   const provingResult = await generateProof(
+  //     this.config.bbBinaryPath,
+  //     workingDirectory,
+  //     circuitType,
+  //     Buffer.from(artifact.bytecode, 'base64'),
+  //     outputWitnessFile,
+  //     logger.debug,
+  //   );
+
+  //   if (provingResult.status === BB_RESULT.FAILURE) {
+  //     logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+  //     throw new Error(provingResult.reason);
+  //   }
+
+  //   // Ensure our vk cache is up to date
+  //   const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
+
+  //   return {
+  //     circuitOutput: output,
+  //     vkData,
+  //     provingResult,
+  //   };
+  // }
 
   private async generateProofWithBB<
     Input extends { toBuffer: () => Buffer },
@@ -550,6 +644,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
+  private async generateTubeProofWithBB(input: TubeInputs, workingDirectory: string): Promise<BBSuccess> {
+    logger.debug(`Proving tube...`);
+
+    const provingResult = await generateTubeProof(this.config.bbBinaryPath, workingDirectory, input, logger.verbose);
+
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate proof for avm-circuit: ${provingResult.reason}`);
+      throw new Error(provingResult.reason);
+    }
+
+    return provingResult;
+  }
+
   private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
     const cleanupDir: boolean = !process.env.AVM_PROVING_PRESERVE_WORKING_DIR;
     const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey> => {
@@ -586,8 +693,40 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await runInDirectory(this.config.bbWorkingDirectory, operation, cleanupDir);
   }
 
+  private async createTubeProof(
+    input: TubeInputs,
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
+    // this probably is gonna need to call client ivc
+    const operation = async (bbWorkingDirectory: string) => {
+      const provingResult= await this.generateTubeProofWithBB(input, bbWorkingDirectory);
+
+      const circuitType: ServerProtocolArtifact = 'TubeArtifact';
+      // Read the proof as fields
+      const tubeProof = await this.readProofAsFields(provingResult.proofPath!, circuitType, TUBE_PROOF_LENGTH);
+      const tubeVK = await extractVkData(provingResult.vkPath!);
+
+      // logger.info(
+      //   `Generated proof for ${circuitType} in ${Math.ceil(provingResult.duration)} ms, size: ${
+      //     proof.proof.length
+      //   } fields`,
+      //   {
+      //     circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
+      //     circuitSize: vkData.circuitSize,
+      //     duration: provingResult.duration,
+      //     inputSize: output.toBuffer().length,
+      //     proofSize: proof.binaryProof.buffer.length,
+      //     eventName: 'circuit-proving',
+      //     numPublicInputs: vkData.numPublicInputs,
+      //   } satisfies CircuitProvingStats,
+      // );
+
+      return { tubeVK, tubeProof };
+    };
+    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+  }
+
   /**
-   * Executes a circuit and returns it's outputs and corresponding proof with embedded aggregation object
+   * Executes a circuit and returns its outputs and corresponding proof with embedded aggregation object
    * @param witnessMap - The input witness
    * @param circuitType - The type of circuit to be executed
    * @param proofLength - The length of the proof to be generated. This is a dummy parameter to aid in type checking

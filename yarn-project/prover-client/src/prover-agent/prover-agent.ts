@@ -137,6 +137,7 @@ export class ProverAgent {
       }
 
       case ProvingRequestType.BASE_ROLLUP: {
+        // TODO(TubeInput): add to ProvingRequest
         return this.circuitProver.getBaseRollupProof(inputs);
       }
 

@@ -593,7 +593,9 @@ export class ProvingOrchestrator {
 
     this.deferredProving(
       provingState,
-      signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
+      signal => this.prover.getBaseRollupProof(tx.baseRollupInputs,
+    // TODO(TubeInput): tx.tubeRollupInputs
+    signal),
       result => {
         logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
         validatePartialState(result.inputs.end, tx.treeSnapshots);

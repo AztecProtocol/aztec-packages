@@ -1,4 +1,4 @@
-import { type AvmCircuitInputs } from '@aztec/circuits.js';
+import { TubeInputs, type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -268,7 +268,7 @@ export async function generateProof(
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
-  circuitName: string,
+  tubeInputs: TubeInputs,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -278,27 +278,66 @@ export async function generateTubeProof(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // The proof is written to e.g. /workingDirectory/proof
-  // TODO: figure out the correct paths for this
-  const outputPath = `${workingDirectory}`;
+  // // Paths for the inputs
+  const inputPath = workingDirectory;
+  const vkPath = join(inputPath, '/inst_vk'); // the vk of the last instance
+  const accPath = join(inputPath, '/pg_acc');
+  const proofPath = join(inputPath, '/client_ivc_proof');
+  const translatorVkPath = join(inputPath, '/translator_vk');
+  const eccVkPath = join(inputPath, '/ecc_vk');
 
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
+  // The proof is written to e.g. /workingDirectory/proof
+  const outputPath = workingDirectory;
+
+  const filePresent = async (file: string) =>
+    await fs
+      .access(file, fs.constants.R_OK)
+      .then(_ => true)
+      .catch(_ => false);
+
+  const binaryPresent = await filePresent(pathToBB);
   if (!binaryPresent) {
     return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
   }
 
   try {
+    if (
+      !filePresent(vkPath) ||
+      !filePresent(accPath) ||
+      !filePresent(proofPath) ||
+      !filePresent(translatorVkPath) ||
+      !filePresent(eccVkPath)
+    ) {
+      // Write the inputs to the working directory.
+      // await fs.writeFile(vkPath, tubeInputs.clientIVCData.vk);
+      // if (!filePresent(vkPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${vkPath}` };
+      // }
+      // await fs.writeFile(accPath, tubeInputs.clientIVCData.acc);
+      // if (!filePresent(accPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${accPath}` };
+      // }
+      // await fs.writeFile(proofPath, tubeInputs.clientIVCData.proof);
+      // if (!filePresent(proofPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${proofPath}` };
+      // }
+      // await fs.writeFile(translatorVkPath, tubeInputs.clientIVCData.translatorVk);
+      // if (!filePresent(translatorVkPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${translatorVkPath}` };
+      // }
+      // await fs.writeFile(eccVkPath, tubeInputs.clientIVCData.eccVk);
+      // if (!filePresent(eccVkPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${eccVkPath}` };
+      // }
+
+      return {status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${inputPath}`}
+    }
     const args = ['-o', outputPath, '-v'];
+
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`${circuitName} BB out - ${message}`);
+      log(`AvmCircuit (prove) BB out - ${message}`);
     };
-
-    log(`Path where I need a proof ${outputPath}`);
-
     const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
     const duration = timer.ms();
 
@@ -306,9 +345,9 @@ export async function generateTubeProof(
       return {
         status: BB_RESULT.SUCCESS,
         duration,
-        proofPath: `${outputPath}`,
+        proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: `${outputPath}`,
+        vkPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb

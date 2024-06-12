@@ -2,7 +2,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { TUBE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
+import { CLIENT_IVC_PROOF_LENGTH, TUBE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
@@ -16,7 +16,7 @@ export class KernelData {
      */
     public publicInputs: KernelCircuitPublicInputs,
     /**
-     * Proof of the previous kernel.
+     * Proof of the ClientIVC recursive verifier.
      */
     public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
     /**
@@ -56,5 +56,31 @@ export class KernelData {
 
   toBuffer() {
     return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
+  }
+}
+
+export class ClientIVCData {
+  constructor(
+    /**
+     * Private client proof.
+     */
+    public proof: RecursiveProof<typeof CLIENT_IVC_PROOF_LENGTH>,
+    /**
+     * Verification key of the previous kernel.
+     */
+    public vk: VerificationKeyData,
+  ) {}
+
+  static empty(): ClientIVCData {
+    return new this(makeEmptyRecursiveProof(CLIENT_IVC_PROOF_LENGTH), VerificationKeyData.makeFake());
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): ClientIVCData {
+    const reader = BufferReader.asReader(buffer);
+    return new this(RecursiveProof.fromBuffer(reader, CLIENT_IVC_PROOF_LENGTH), reader.readObject(VerificationKeyData));
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.proof, this.vk);
   }
 }

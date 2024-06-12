@@ -7,6 +7,7 @@ import {
   type Tx,
 } from '@aztec/circuit-types';
 import {
+  TubeInputs,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -50,13 +51,13 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  // LONDONTODO(BaseRollup)
   getBaseRollupProof(
-    input: BaseRollupInputs,
+    baseRollupInput: BaseRollupInputs,
+    tubeInput: TubeInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
-  getTubeRollupProof?(): Promise<void>;
+  getTubeRollupProofFromArtifact?(): Promise<void>;
 
   /**
    * Creates a proof for the given input.

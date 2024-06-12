@@ -9,7 +9,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
-import { KernelData } from '../kernel/kernel_data.js';
+import { ClientIVCData, KernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
@@ -221,6 +221,66 @@ export class BaseRollupInputs {
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT)),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       ConstantRollupData.empty(),
+    );
+  }
+}
+
+export class TubeInputs {
+  constructor(
+    /** Data of the 2 kernels that preceded this base rollup circuit. */
+    public clientIVCData: ClientIVCData,
+  ) {}
+
+  static from(fields: FieldsOf<TubeInputs>): TubeInputs {
+    return new TubeInputs(...TubeInputs.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<TubeInputs>) {
+    return [
+      fields.clientIVCData,
+    ] as const;
+  }
+
+  /**
+   * Serializes the inputs to a buffer.
+   * @returns The inputs serialized to a buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(...TubeInputs.getFields(this));
+  }
+
+  /**
+   * Serializes the inputs to a hex string.
+   * @returns The instance serialized to a hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes the inputs from a buffer.
+   * @param buffer - The buffer to deserialize from.
+   * @returns A new TubeInputs instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TubeInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new TubeInputs(
+      reader.readObject(ClientIVCData),
+    );
+  }
+
+  /**
+   * Deserializes the inputs from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new TubeInputs instance.
+   */
+  static fromString(str: string) {
+    return TubeInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new TubeInputs(
+      ClientIVCData.empty(),
     );
   }
 }

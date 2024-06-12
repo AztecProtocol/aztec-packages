@@ -13,6 +13,7 @@ describe('prover/bb_prover/base-rollup', () => {
 
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
+      bbConfig.bbWorkingDirectory = 'TODO put proper path';
       prover = await BBNativeRollupProver.new(bbConfig);
       return prover;
     };
@@ -45,8 +46,10 @@ describe('prover/bb_prover/base-rollup', () => {
       context.actualDb,
       paddingTxPublicInputsAndProof.verificationKey,
     );
+    const tubeRollupInputs = 
     logger.verbose('Proving base rollups');
     logger.debug(`proof: ${baseRollupInputs.kernelData.proof}`);
+    // TODO(TubeInput)
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
     await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();

@@ -188,7 +188,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return Promise.resolve(rootParityInput);
   }
 
-  public async getTubeRollupProof(): Promise<void> {}
+  public async getTubeRollupProofFromArtifact(): Promise<void> {}
 
   /**
    * Simulates the base rollup circuit from its inputs.
@@ -197,6 +197,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    */
   public async getBaseRollupProof(
     input: BaseRollupInputs,
+    // TODO(TubeInput)
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     const timer = new Timer();
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);

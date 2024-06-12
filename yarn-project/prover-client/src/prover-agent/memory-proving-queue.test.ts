@@ -29,7 +29,8 @@ describe('MemoryProvingQueue', () => {
 
   it('returns jobs in order', async () => {
     void queue.getBaseParityProof(makeBaseParityInputs());
-    void queue.getBaseRollupProof(makeBaseRollupInputs());
+    // TODO(TubeInput)
+    void queue.getBaseRollupProof(makeBaseRollupInputs()); 
 
     const job1 = await queue.getProvingJob();
     expect(job1?.request.type).toEqual(ProvingRequestType.BASE_PARITY);

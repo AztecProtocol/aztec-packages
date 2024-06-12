@@ -294,6 +294,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
    */
   getBaseRollupProof(
     input: BaseRollupInputs,
+    // TODO(TubeInput)
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return this.enqueue(
