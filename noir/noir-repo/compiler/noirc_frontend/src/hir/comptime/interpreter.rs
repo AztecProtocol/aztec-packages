@@ -167,9 +167,6 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(super) fn pop_scope(&mut self) {
-        if self.scopes.len() == 1 {
-            dbg!("about to have scope 0");
-        }
         self.scopes.pop();
     }
 
@@ -1111,9 +1108,7 @@ impl<'a> Interpreter<'a> {
                 None => Ok(Value::Unit),
             }
         };
-        if self.scopes.len() == 1 {
-            dbg!("about to have scope 0");
-        }
+
         self.pop_scope();
         result
     }
@@ -1294,9 +1289,7 @@ impl<'a> Interpreter<'a> {
                 Err(InterpreterError::Continue) => continue,
                 Err(other) => return Err(other),
             }
-            if self.scopes.len() == 1 {
-                dbg!("about to have scope 0");
-            }
+
             self.pop_scope();
         }
 

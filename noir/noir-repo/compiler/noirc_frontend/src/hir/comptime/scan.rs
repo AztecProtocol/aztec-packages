@@ -154,9 +154,6 @@ impl<'interner> Interpreter<'interner> {
         for statement in &block.statements {
             self.scan_statement(*statement)?;
         }
-        if self.scopes.len() == 1 {
-            dbg!("about to have scope 0");
-        }
         self.pop_scope();
         Ok(())
     }
@@ -199,17 +196,11 @@ impl<'interner> Interpreter<'interner> {
 
         self.push_scope();
         self.scan_expression(if_.consequence)?;
-        if self.scopes.len() == 1 {
-            dbg!("about to have scope 0");
-        }
         self.pop_scope();
 
         if let Some(alternative) = if_.alternative {
             self.push_scope();
             self.scan_expression(alternative)?;
-            if self.scopes.len() == 1 {
-                dbg!("about to have scope 0");
-            }
             self.pop_scope();
         }
         Ok(())
@@ -254,9 +245,6 @@ impl<'interner> Interpreter<'interner> {
         // loop, any variables it defines aren't accessible outside of it.
         self.push_scope();
         self.scan_expression(for_.block)?;
-        if self.scopes.len() == 1 {
-            dbg!("about to have scope 0");
-        }
         self.pop_scope();
         Ok(())
     }
