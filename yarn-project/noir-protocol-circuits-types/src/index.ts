@@ -189,7 +189,6 @@ export type ServerProtocolArtifact =
   | 'PublicKernelTailArtifact'
   | 'BaseParityArtifact'
   | 'RootParityArtifact'
-  | 'TubeArtifact'
   | 'BaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'RootRollupArtifact';

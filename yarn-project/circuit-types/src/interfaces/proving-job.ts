@@ -10,12 +10,13 @@ import {
   type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type TUBE_PROOF_LENGTH,
+  type TubeInputs,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 
@@ -72,7 +73,7 @@ export enum ProvingRequestType {
   ROOT_PARITY,
 }
 
-// LONDONTODO(Tube): 
+// LONDONTODO(Tube):
 export type ProvingRequest =
   | {
       type: ProvingRequestType.PUBLIC_VM;
@@ -99,6 +100,7 @@ export type ProvingRequest =
   | {
       type: ProvingRequestType.BASE_ROLLUP;
       inputs: BaseRollupInputs;
+      tubeInputs: TubeInputs;
     }
   | {
       type: ProvingRequestType.MERGE_ROLLUP;

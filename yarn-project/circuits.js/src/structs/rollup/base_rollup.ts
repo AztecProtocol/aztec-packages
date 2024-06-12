@@ -236,9 +236,7 @@ export class TubeInputs {
   }
 
   static getFields(fields: FieldsOf<TubeInputs>) {
-    return [
-      fields.clientIVCData,
-    ] as const;
+    return [fields.clientIVCData] as const;
   }
 
   /**
@@ -264,9 +262,7 @@ export class TubeInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TubeInputs {
     const reader = BufferReader.asReader(buffer);
-    return new TubeInputs(
-      reader.readObject(ClientIVCData),
-    );
+    return new TubeInputs(reader.readObject(ClientIVCData));
   }
 
   /**
@@ -279,8 +275,6 @@ export class TubeInputs {
   }
 
   static empty() {
-    return new TubeInputs(
-      ClientIVCData.empty(),
-    );
+    return new TubeInputs(ClientIVCData.empty());
   }
 }

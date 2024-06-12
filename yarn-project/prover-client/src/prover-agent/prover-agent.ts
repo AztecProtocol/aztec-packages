@@ -6,6 +6,7 @@ import {
   ProvingRequestType,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
+import { TubeInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
@@ -137,8 +138,8 @@ export class ProverAgent {
       }
 
       case ProvingRequestType.BASE_ROLLUP: {
-        // TODO(TubeInput): add to ProvingRequest
-        return this.circuitProver.getBaseRollupProof(inputs);
+        const tubeInputs = request.tubeInputs;
+        return this.circuitProver.getBaseRollupProof(inputs, tubeInputs);
       }
 
       case ProvingRequestType.MERGE_ROLLUP: {

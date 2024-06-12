@@ -41,6 +41,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  TubeInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
   type VerificationKeys,
@@ -593,9 +594,13 @@ export class ProvingOrchestrator {
 
     this.deferredProving(
       provingState,
-      signal => this.prover.getBaseRollupProof(tx.baseRollupInputs,
-    // TODO(TubeInput): tx.tubeRollupInputs
-    signal),
+      signal =>
+        this.prover.getBaseRollupProof(
+          tx.baseRollupInputs,
+          // TODO(TubeInput): tx.tubeRollupInputs
+          TubeInputs.empty(),
+          signal,
+        ),
       result => {
         logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
         validatePartialState(result.inputs.end, tx.treeSnapshots);

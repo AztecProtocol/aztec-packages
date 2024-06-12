@@ -1,4 +1,4 @@
-import { TubeInputs, type AvmCircuitInputs } from '@aztec/circuits.js';
+import { type AvmCircuitInputs, TubeInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -279,15 +279,19 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const inputPath = workingDirectory;
+  // const inputPath = workingDirectory;
+  // WORKTODO (Mara) : this should be the real workindDirectory but for now I manually put the proofs where the BB binary is because that doesn't change
+  // normally the workindDirectory is a temporary directory
+  const inputPath = join(pathToBB, '/../proofs');
   const vkPath = join(inputPath, '/inst_vk'); // the vk of the last instance
   const accPath = join(inputPath, '/pg_acc');
   const proofPath = join(inputPath, '/client_ivc_proof');
-  const translatorVkPath = join(inputPath, '/translator_vk');
+  const translatorVkPath = join(inputPath, '../translator_vk');
   const eccVkPath = join(inputPath, '/ecc_vk');
 
   // The proof is written to e.g. /workingDirectory/proof
-  const outputPath = workingDirectory;
+  // const outputPath = workingDirectory
+  const outputPath = join(pathToBB, '/../proofs');
 
   const filePresent = async (file: string) =>
     await fs
@@ -330,13 +334,13 @@ export async function generateTubeProof(
       //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${eccVkPath}` };
       // }
 
-      return {status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${inputPath}`}
+      return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${inputPath}` };
     }
     const args = ['-o', outputPath, '-v'];
 
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`AvmCircuit (prove) BB out - ${message}`);
+      log(`TubeCircuit (prove) BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
     const duration = timer.ms();

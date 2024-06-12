@@ -24,6 +24,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  TubeInputs,
   VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
@@ -197,8 +198,9 @@ export class TestCircuitProver implements ServerCircuitProver {
    */
   public async getBaseRollupProof(
     input: BaseRollupInputs,
-    // TODO(TubeInput)
+    _tubeInput: TubeInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    // WORKTODO this is a test function that should be updated to use the tube, not entirely sure where this is used and whether it's relevant to make thee full e2e test working, we shall see
     const timer = new Timer();
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
