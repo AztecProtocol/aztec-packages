@@ -29,6 +29,26 @@ fn collapse_sparse_array() {
 }
 
 #[test]
+fn collapse_array_front_padding() {
+    let original = [Option::none(), Option::none(), Option::some(7), Option::none(), Option::some(3)];
+    let collapsed = collapse(original);
+
+    assert_eq(collapsed.len(), 2);
+    assert_eq(collapsed.get(0), 7);
+    assert_eq(collapsed.get(1), 3);
+}
+
+#[test]
+fn collapse_array_back_padding() {
+    let original = [Option::some(7), Option::none(), Option::some(3), Option::none(), Option::none()];
+    let collapsed = collapse(original);
+
+    assert_eq(collapsed.len(), 2);
+    assert_eq(collapsed.get(0), 7);
+    assert_eq(collapsed.get(1), 3);
+}
+
+#[test]
 fn collapse_constrain_good_hints() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
     let collapsed = BoundedVec::from_array([7, 3]);
