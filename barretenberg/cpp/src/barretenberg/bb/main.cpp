@@ -318,9 +318,9 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
     return content;
 }
 
-void client_ivc_prove_output_all2(const std::string& bytecodePath,
-                                  const std::string& witnessPath,
-                                  const std::string& outputPath)
+void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
+                                         const std::string& witnessPath,
+                                         const std::string& outputPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -350,7 +350,7 @@ void client_ivc_prove_output_all2(const std::string& bytecodePath,
         acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
         folding_stack.push_back(program_stack.back());
     }
-    // TODO dedupe this
+    // LONDONTODO(AD) dedupe this with the rest of the similar code
     ClientIVC ivc;
     ivc.structured_flag = true;
     // Accumulate the entire program stack into the IVC
@@ -381,6 +381,7 @@ void client_ivc_prove_output_all2(const std::string& bytecodePath,
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    // LONDONTODO(AD): this can eventually be dropped
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
@@ -1172,9 +1173,11 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
-        if (command == "client_ivc_prove_output_all2") {
+        // LONDONTOD(AD): We will eventually want to get rid of this version when we correctly
+        // create the bincode that client_ivc_prove_output_all expects
+        if (command == "client_ivc_prove_output_all_msgpack") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            client_ivc_prove_output_all2(bytecode_path, witness_path, output_path);
+            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_path);
             return 0;
         }
         if (command == "fold_and_verify_program") {

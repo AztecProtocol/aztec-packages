@@ -219,7 +219,7 @@ export async function executeBbClientIvcProof(
       log(`client ivc proof BB out - ${message}`);
     };
 
-    const result = await executeBB(pathToBB, 'client_ivc_prove_output_all2', args, logFunction);
+    const result = await executeBB(pathToBB, 'client_ivc_prove_output_all_msgpack', args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {

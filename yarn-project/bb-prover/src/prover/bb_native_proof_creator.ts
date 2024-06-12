@@ -80,6 +80,8 @@ export class BBNativeProofCreator implements ProofCreator {
     acirs: Buffer[],
     witnessStack: WitnessMap[],
   ): Promise<ClientIvcProof> {
+    // LONDONTODO(AD): Longer term we won't use this hacked together msgpack format
+    // and instead properly create the bincode serialization from rust
     await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
     await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
     const provingResult = await executeBbClientIvcProof(
@@ -95,16 +97,14 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(provingResult.reason);
     }
 
-    const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
-      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName => fs.readFile(path.join(directory, fileName)))
-    );
+    const proof = await ClientIvcProof.readFromOutputDirectory(directory);
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.duration,
       eventName: 'circuit-proving',
     });
 
-    return new ClientIvcProof(instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer); // LONDONTODO(Client): What is this vk now?
+    return proof; // LONDONTODO(Client): What is this vk now?
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {

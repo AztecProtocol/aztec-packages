@@ -1,5 +1,5 @@
 import { type Fr } from '@aztec/aztec.js';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdtemp } from 'fs/promises';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
 // LONDONTODO(Client): PXE created via the import below. Real proving turned on therein
@@ -7,6 +7,7 @@ import { FullProverTest } from './e2e_prover_test.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import path from 'path';
 import { BB_RESULT, generateTubeProof } from '../../../bb-prover/src/bb/execute.js';
+import { tmpdir } from 'os';
 
 const TIMEOUT = 1_800_000;
 
@@ -53,16 +54,11 @@ describe('full_prover', () => {
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
-      await runInDirectory('/mnt/user-data/adam', async (dir: string) => {
-        const {
-          instVkBuffer,
-          pgAccBuffer,
-          clientIvcProofBuffer,
-          translatorVkBuffer,
-          eccVkBuffer } = privateTx.clientIvcProof!;
-        const fileData = [['inst_vk', instVkBuffer], ['pg_acc', pgAccBuffer], ['client_ivc_proof', clientIvcProofBuffer], ['translator_vk', translatorVkBuffer], ['ecc_vk', eccVkBuffer]] as const;
-        await Promise.all(fileData.map(([fileName, buffer]) => writeFile(path.join(dir, fileName), buffer)))
-        const result = await generateTubeProof('/mnt/user-data/adam/aztec-packages/barretenberg/cpp/build/bin/bb', dir, logger.info)
+      const bbPath = path.resolve('../../../barretenberg/cpp/build/bin/bb');
+      const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
+      await runInDirectory(bbWorkingDirectory, async (dir: string) => {
+        await privateTx.clientIvcProof!.writeToOutputDirectory(bbWorkingDirectory);
+        const result = await generateTubeProof(bbPath, dir, logger.info)
         expect(result.status).toBe(BB_RESULT.SUCCESS)
       });
       // privateTx
