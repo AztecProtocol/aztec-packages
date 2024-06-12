@@ -1,4 +1,5 @@
 import {
+  type ClientIvcProof,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
@@ -14,16 +15,6 @@ import {
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
-
-// LONDONTODO think about this type harder
-// LONDONTODO eventually we will read all these VKs from the data tree instead of passing them
-export type ClientIvcProof = {
-  instVkBuffer: Buffer;
-  pgAccBuffer: Buffer;
-  clientIvcProofBuffer: Buffer;
-  translatorVkBuffer: Buffer;
-  eccVkBuffer: Buffer;
-}
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.

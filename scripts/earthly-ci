@@ -55,6 +55,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       echo "Detected corrupted docker images. Wiping and trying again."
       # Based on https://stackoverflow.com/a/75849307
       # wipe everything but volumes where we have earthly cache
+      sudo service docker stop
       sudo rm -rf /var/lib/docker/{buildkit,containers,image,network,overlay2,plugins.runtimes,swarm,tmp,trust}/*
       # restart docker - might take down builds, but we need to recover anyway
       sudo service docker restart

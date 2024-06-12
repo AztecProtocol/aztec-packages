@@ -491,17 +491,21 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 //     write_file(eccVkPath, to_buffer(eccvm_vk));
 // }
 
-/**
- * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
- *
- * @param bytecodePath Path to the serialised circuit
- * @param witnessPath Path to witness data
- * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
- * going to be specified when bb main is called, i.e. as the working directory in typescript).
- */
-void client_ivc_prove_output_all(const std::string& bytecodePath,
-                                 const std::string& witnessPath,
-                                 const std::string& outputPath)
+struct
+
+    /**
+     * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC
+     * proof.
+     *
+     * @param bytecodePath Path to the serialised circuit
+     * @param witnessPath Path to witness data
+     * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice
+     * this going to be specified when bb main is called, i.e. as the working directory in typescript).
+     */
+    void
+    client_ivc_prove_output_all(const std::string& bytecodePath,
+                                const std::string& witnessPath,
+                                const std::string& outputPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
