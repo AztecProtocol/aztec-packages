@@ -145,7 +145,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       });
     });
 
-    it('proves note validity (note commitment inclusion and nullifier non-inclusion)', async () => {
+    it('proves note validity (note hash inclusion and nullifier non-inclusion)', async () => {
       // Owner of a note
       const owner = wallets[0].getAddress();
       let noteCreationBlockNumber: number;
