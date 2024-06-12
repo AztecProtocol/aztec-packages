@@ -1252,10 +1252,16 @@ int main(int argc, char* argv[])
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
+<<<<<<< HEAD
             write_vk_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "write_vk_ultra_honk_fake") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk_fake<UltraFlavor>(output_path);
+||||||| 2624c264fd
+            write_vk_honk<UltraFlavor>(bytecode_path, output_path);
+=======
+            write_vk_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
+>>>>>>> cg/constant-honk-proof-size
         } else if (command == "prove_mega_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
