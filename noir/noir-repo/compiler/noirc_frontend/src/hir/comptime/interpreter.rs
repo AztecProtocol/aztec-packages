@@ -36,7 +36,7 @@ pub struct Interpreter<'interner> {
     /// Each value currently in scope in the interpreter.
     /// Each element of the Vec represents a scope with every scope together making
     /// up all currently visible definitions.
-    pub scopes: &'interner mut Vec<HashMap<DefinitionId, Value>>,
+    scopes: &'interner mut Vec<HashMap<DefinitionId, Value>>,
 
     in_loop: bool,
 }
