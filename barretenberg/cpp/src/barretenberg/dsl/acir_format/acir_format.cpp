@@ -17,12 +17,16 @@ template <typename Builder>
 void build_constraints(Builder& builder,
                        AcirFormat& constraint_system,
                        bool has_valid_witness_assignments,
-                       bool honk_recursion)
+                       bool honk_recursion,
+                       bool collect_gates_per_opcode)
 {
     constraint_system.gates_per_opcode = std::vector<size_t>(constraint_system.num_acir_opcodes);
     size_t prev_gate_count = 0;
 
-    auto compute_gate_diff = [&]() {
+    auto compute_gate_diff = [&]() -> size_t {
+        if (!collect_gates_per_opcode) {
+            return 0;
+        }
         size_t new_gate_count = builder.get_num_gates();
         size_t diff = new_gate_count - prev_gate_count;
         prev_gate_count = new_gate_count;
@@ -424,14 +428,16 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    size_t size_hint,
                                    WitnessVector const& witness,
                                    bool honk_recursion,
-                                   [[maybe_unused]] std::shared_ptr<ECCOpQueue>)
+                                   [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
+                                   bool collect_gates_per_opcode)
 {
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
     };
 
     bool has_valid_witness_assignments = !witness.empty();
-    build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
+    build_constraints(
+        builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
 
     return builder;
 };
@@ -450,18 +456,20 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                   [[maybe_unused]] size_t size_hint,
                                   WitnessVector const& witness,
                                   bool honk_recursion,
-                                  std::shared_ptr<ECCOpQueue> op_queue)
+                                  std::shared_ptr<ECCOpQueue> op_queue,
+                                  bool collect_gates_per_opcode)
 {
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
-    acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
+    acir_format::build_constraints(
+        builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
 
     return builder;
 };
 
-template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool);
+template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool, bool);
 
 } // namespace acir_format

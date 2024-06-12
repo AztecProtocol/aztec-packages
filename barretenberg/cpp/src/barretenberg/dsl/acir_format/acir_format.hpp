@@ -191,14 +191,17 @@ Builder create_circuit(AcirFormat& constraint_system,
                        size_t size_hint = 0,
                        WitnessVector const& witness = {},
                        bool honk_recursion = false,
-                       std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>());
+                       std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
+                       bool collect_gates_per_opcode = false);
 
 template <typename Builder>
-void build_constraints(Builder& builder,
-                       AcirFormat& constraint_system,
-                       bool has_valid_witness_assignments,
-                       bool honk_recursion = false); // honk_recursion means we will honk to recursively verify this
-                                                     // circuit. This distinction is needed to not add the default
-                                                     // aggregation object when we're not using the honk RV.
+void build_constraints(
+    Builder& builder,
+    AcirFormat& constraint_system,
+    bool has_valid_witness_assignments,
+    bool honk_recursion = false,
+    bool collect_gates_per_opcode = false); // honk_recursion means we will honk to recursively verify this
+                                            // circuit. This distinction is needed to not add the default
+                                            // aggregation object when we're not using the honk RV.
 
 } // namespace acir_format

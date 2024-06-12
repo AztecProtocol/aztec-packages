@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <memory>
 #include <vector>
 
 #include "acir_format.hpp"
@@ -9,6 +10,7 @@
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "ecdsa_secp256k1.hpp"
 
 using namespace bb;
@@ -560,4 +562,71 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
     auto verifier = composer.create_ultra_with_keccak_verifier(builder);
 
     EXPECT_EQ(verifier.verify_proof(proof), true);
+}
+
+TEST_F(AcirFormatTests, TestCollectsGateCounts)
+{
+
+    // Witness 0 + witness 1 = witness 2
+    poly_triple first_gate{
+        .a = 0,
+        .b = 1,
+        .c = 2,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = 1,
+        .q_o = -1,
+        .q_c = 0,
+    };
+
+    // Witness 1 = 27
+    poly_triple second_gate{
+        .a = 1,
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = 0,
+        .q_o = 0,
+        .q_c = -27,
+    };
+
+    AcirFormat constraint_system{
+        .varnum = 4,
+        .recursive = false,
+        .num_acir_opcodes = 2,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .aes128_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .honk_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = { first_gate, second_gate },
+        .quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+    WitnessVector witness{ 5, 27, 32 };
+    auto builder =
+        create_circuit(constraint_system, /*size_hint*/ 0, witness, false, std::make_shared<bb::ECCOpQueue>(), true);
+
+    EXPECT_EQ(constraint_system.gates_per_opcode, std::vector<size_t>({ 2, 1 }));
 }
