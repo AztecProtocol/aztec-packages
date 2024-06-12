@@ -194,7 +194,52 @@ class UltraFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        // WORKTODO: Some recursion tests fail if we use DEFINE_COMPOUND_GET_ALL here as in mega. Why?
+        // DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_c,                // column 0
+                              q_l,                // column 1
+                              q_r,                // column 2
+                              q_o,                // column 3
+                              q_4,                // column 4
+                              q_m,                // column 5
+                              q_arith,            // column 6
+                              q_delta_range,      // column 7
+                              q_elliptic,         // column 8
+                              q_aux,              // column 9
+                              q_lookup,           // column 10
+                              sigma_1,            // column 11
+                              sigma_2,            // column 12
+                              sigma_3,            // column 13
+                              sigma_4,            // column 14
+                              id_1,               // column 15
+                              id_2,               // column 16
+                              id_3,               // column 17
+                              id_4,               // column 18
+                              table_1,            // column 19
+                              table_2,            // column 20
+                              table_3,            // column 21
+                              table_4,            // column 22
+                              lagrange_first,     // column 23
+                              lagrange_last,      // column 24
+                              w_l,                // column 25
+                              w_r,                // column 26
+                              w_o,                // column 27
+                              w_4,                // column 28
+                              sorted_accum,       // column 29
+                              z_perm,             // column 30
+                              z_lookup,           // column 31
+                              table_1_shift,      // column 32
+                              table_2_shift,      // column 33
+                              table_3_shift,      // column 34
+                              table_4_shift,      // column 35
+                              w_l_shift,          // column 36
+                              w_r_shift,          // column 37
+                              w_o_shift,          // column 38
+                              w_4_shift,          // column 39
+                              sorted_accum_shift, // column 40
+                              z_perm_shift,       // column 41
+                              z_lookup_shift)     // column 42
 
         auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
