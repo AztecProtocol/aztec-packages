@@ -80,7 +80,8 @@ export class SentTx {
     if (opts?.debug) {
       const txHash = await this.getTxHash();
       const tx = (await this.pxe.getTxEffect(txHash))!;
-      const visibleNotes = await this.pxe.getNotes({ txHash });
+      const visibleNotes = await this.pxe.getIncomingNotes({ txHash });
+      // TODO(benesjan): add outgoing notes here
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
         nullifiers: tx.nullifiers,
@@ -109,7 +110,7 @@ export class SentTx {
    */
   public async getVisibleNotes(): Promise<ExtendedNote[]> {
     await this.wait();
-    return this.pxe.getNotes({ txHash: await this.getTxHash() });
+    return this.pxe.getIncomingNotes({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

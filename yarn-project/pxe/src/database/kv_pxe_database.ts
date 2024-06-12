@@ -1,4 +1,4 @@
-import { MerkleTreeId, type NoteFilter, NoteStatus, type PublicKey } from '@aztec/circuit-types';
+import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -219,7 +219,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  #getNotes(filter: NoteFilter): IncomingNoteDao[] {
+  #getNotes(filter: IncomingNotesFilter): IncomingNoteDao[] {
     const publicKey: PublicKey | undefined = filter.owner
       ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterIncomingViewingPublicKey
       : undefined;
@@ -292,7 +292,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return result;
   }
 
-  getNotes(filter: NoteFilter): Promise<IncomingNoteDao[]> {
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
     return Promise.resolve(this.#getNotes(filter));
   }
 

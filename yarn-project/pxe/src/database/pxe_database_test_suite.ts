@@ -1,4 +1,4 @@
-import { type NoteFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
+import { type IncomingNotesFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM, PublicKeys } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -75,7 +75,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       let storageSlots: Fr[];
       let notes: IncomingNoteDao[];
 
-      const filteringTests: [() => NoteFilter, () => IncomingNoteDao[]][] = [
+      const filteringTests: [() => IncomingNotesFilter, () => IncomingNoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -131,14 +131,14 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
         await database.addNotes(notes, []);
-        await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
+        await expect(database.getIncomingNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
       it.each(filteringTests)('stores notes one by one and retrieves notes', async (getFilter, getExpected) => {
         for (const note of notes) {
           await database.addNote(note);
         }
-        await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
+        await expect(database.getIncomingNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
       it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
@@ -155,9 +155,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           ).resolves.toEqual(notesToNullify);
         }
 
-        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
-          getExpected(),
-        );
+        await expect(
+          database.getIncomingNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+        ).resolves.toEqual(getExpected());
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
@@ -171,8 +171,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           notesToNullify,
         );
 
-        const actualNotesWithDefault = await database.getNotes({});
-        const actualNotesWithActive = await database.getNotes({ status: NoteStatus.ACTIVE });
+        const actualNotesWithDefault = await database.getIncomingNotes({});
+        const actualNotesWithActive = await database.getIncomingNotes({ status: NoteStatus.ACTIVE });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
@@ -189,7 +189,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           notesToNullify,
         );
 
-        const result = await database.getNotes({
+        const result = await database.getIncomingNotes({
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
         });
 

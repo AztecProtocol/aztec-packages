@@ -8,10 +8,10 @@ import {
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   L1EventPayload,
+  type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
-  type NoteFilter,
   type PXE,
   type PXEInfo,
   type ProofCreator,
@@ -288,8 +288,8 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot);
   }
 
-  public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
-    const noteDaos = await this.db.getNotes(filter);
+  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getIncomingNotes(filter);
 
     // TODO(benesjan): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
     // key derivation will affect all this
