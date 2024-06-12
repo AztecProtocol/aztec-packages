@@ -1,5 +1,5 @@
-<span style="font-size:0.5em;"> :warning: This is not an actively developed repository, it is a mirror. See https://github.com/AztecProtocol/aztec-packages :warning:
-:warning: ** https://github.com/AztecProtocol/barretenberg is a mirror-only repository, please only use https://github.com/AztecProtocol/aztec-packages. Do not use this for any purpose other than reference.** :warning: </span>
+# :warning: This is not an actively developed repository, it is a mirror. See https://github.com/AztecProtocol/aztec-packages :warning:
+# :warning: **https://github.com/AztecProtocol/barretenberg is a mirror-only repository, please only use https://github.com/AztecProtocol/aztec-packages. Do not use this for any purpose other than reference.** :warning: </span>
 
 ## Barretenberg, an optimized elliptic curve library for the bn128 curve, and PLONK SNARK prover
 **This code is highly experimental, use at your own risk!**
