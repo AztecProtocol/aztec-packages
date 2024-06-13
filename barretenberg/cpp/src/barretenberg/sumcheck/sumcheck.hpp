@@ -407,7 +407,7 @@ template <typename Flavor> class SumcheckVerifier {
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-
+            info("Sumcheck:u_" + std::to_string(round_idx) + " ", round_challenge);
             // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
             if (round_idx >= num_padding_univariates) {
                 bool checked = round.check_sum(round_univariate);

@@ -408,6 +408,7 @@ void prove_tube(const std::string& outputPath)
     auto data = to_json(field_els);
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
+    info("Native verification of the tube_proof");
     Verifier tube_verifier(tube_verification_key);
     bool verified = tube_verifier.verify_proof(tube_proof);
     info("Tube proof verification: ", verified);

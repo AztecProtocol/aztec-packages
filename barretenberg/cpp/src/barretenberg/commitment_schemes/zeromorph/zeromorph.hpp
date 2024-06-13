@@ -669,6 +669,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
     {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript->template get_challenge<FF>("rho");
+        info("rho: ", rho);
 
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
         FF batched_evaluation = FF(0);
@@ -694,17 +695,21 @@ template <typename PCS> class ZeroMorphVerifier_ {
             C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
         }
 
+        info("past the loop with 28 commitments");
+
         // Challenge y
         FF y_challenge = transcript->template get_challenge<FF>("ZM:y");
+        info("ZM:y ", y_challenge);
 
         // Receive commitment C_{q}
         auto C_q = transcript->template receive_from_prover<Commitment>("ZM:C_q");
 
         // Challenges x, z
         auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
-
+        info("x_challenge ", x_challenge);
         // Compute commitment C_{\zeta_x}
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N);
+        info("C_zeta_x ", C_zeta_x);
 
         // Compute commitment C_{Z_x}
         Commitment C_Z_x = compute_C_Z_x(first_g1,
@@ -718,6 +723,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                          log_N,
                                          concatenation_group_commitments);
 
+        info("C_Z_x ", C_Z_x);
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
         if constexpr (Curve::is_stdlib_type) {
@@ -761,6 +767,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         } else {
             first_g1 = Commitment::one();
         }
+        info("before computing univariate evaluation claim");
         auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
                                                                          to_be_shifted_commitments,
                                                                          unshifted_evaluations,

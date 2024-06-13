@@ -46,6 +46,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
+    info("In Ultra Verifier");
     transcript = std::make_shared<Transcript>(proof);
     VerifierCommitments commitments{ key };
     OinkVerifier<Flavor> oink_verifier{ key, transcript };

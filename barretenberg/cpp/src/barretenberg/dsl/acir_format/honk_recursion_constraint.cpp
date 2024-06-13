@@ -105,6 +105,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     }
 
     std::vector<field_ct> proof_fields;
+    info("Number of public inputs in honk recursion constraint", input.public_inputs.size());
     // Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this is how the
     // core barretenberg library processes proofs (with the public inputs starting at the third element and not
     // separate from the rest of the proof)

@@ -250,6 +250,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
     // logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
+    logger.info(`in getBaseRollupProof`);
+    logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
+    //const tmpNumPublicInputs = baseRollupInput.kernelData.vk.numPublicInputs;
+    // logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
     baseRollupInput.kernelData.proof = await this.ensureValidProof(
       baseRollupInput.kernelData.proof,
       'BaseRollupArtifact',
@@ -259,8 +263,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
     baseRollupInput.kernelData.vk = tubeVK;
+    // baseRollupInput.kernelData.vk.numPublicInputs = tmpNumPublicInputs;
     baseRollupInput.kernelData.proof = tubeProof;
-
     const { circuitOutput, proof } = await this.createRecursiveProof(
       baseRollupInput, // BaseRollupInputs
       'BaseRollupArtifact',
@@ -415,10 +419,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyNestedArtifact');
     await this.verifyProof('EmptyNestedArtifact', proof.binaryProof);
-    logger.debug(`EmptyNestedData proof size: ${proof.proof.length}`);
-    logger.debug(`EmptyNestedData proof: ${proof.proof}`);
-    logger.debug(`EmptyNestedData vk size: ${verificationKey.keyAsFields.key.length}`);
-    logger.debug(`EmptyNestedData vk: ${verificationKey.keyAsFields.key}`);
+    // logger.debug(`EmptyNestedData proof size: ${proof.proof.length}`);
+    // logger.debug(`EmptyNestedData proof: ${proof.proof}`);
+    // logger.debug(`EmptyNestedData vk size: ${verificationKey.keyAsFields.key.length}`);
+    // logger.debug(`EmptyNestedData vk: ${verificationKey.keyAsFields.key}`);
 
     return new EmptyNestedData(proof, verificationKey.keyAsFields);
   }
@@ -433,7 +437,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
-    info(`proof: ${proof.proof}`);
+    // info(`proof: ${proof.proof}`);
     const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
     await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
 
@@ -450,7 +454,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
-    info(`proof: ${proof.proof}`);
+    //info(`proof: ${proof.proof}`);
     const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
     await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
 
@@ -470,7 +474,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   //   // Have the ACVM write the partial witness here
   //   const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
 
-  //   // Generate the partial witness using the ACVM
+  //   //  the partial witness using the ACVM
   //   // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
   //   const simulator = new NativeACVMSimulator(
   //     this.config.acvmWorkingDirectory,
@@ -701,7 +705,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
       const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
-
+      // logger.debug(`tube Proof read from BB: $`);
       // logger.info(
       //   `Generated proof for ${circuitType} in ${Math.ceil(provingResult.duration)} ms, size: ${
       //     proof.proof.length
@@ -783,7 +787,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
-    info(`vkey in: ${verificationKey.keyAsFields.key}`);
+    // info(`vkey in: ${verificationKey.keyAsFields.key}`);
     return await this.verifyWithKey(verificationKey, proof);
   }
 

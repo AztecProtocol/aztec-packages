@@ -7,7 +7,6 @@ import {
   type Tx,
 } from '@aztec/circuit-types';
 import {
-  TubeInputs,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -22,6 +21,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  TubeInputs,
   type VerificationKeys,
 } from '@aztec/circuits.js';
 
