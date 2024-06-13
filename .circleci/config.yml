@@ -477,8 +477,9 @@ jobs:
       - run:
           name: "Update aztec-up"
           command: |
-            should_release || exit 0
-            deploy_terraform "" aztec-up/terraform
+            if [ -n "$DEPLOY_TAG" ]; then
+              deploy_terraform "" aztec-up/terraform
+            fi
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults

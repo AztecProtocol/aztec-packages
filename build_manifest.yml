@@ -50,6 +50,7 @@ avm-transpiler:
     - ^noir/
   dependencies:
     - noir
+  multiarch: host
 
 aztec-nargo:
   buildDir: .
