@@ -2,6 +2,7 @@
 #include "barretenberg/messaging/header.hpp"
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 
 namespace bb::messaging {
 bool StreamParser::onNewData(char* data, uint32_t length)

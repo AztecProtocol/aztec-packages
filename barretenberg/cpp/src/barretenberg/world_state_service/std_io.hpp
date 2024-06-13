@@ -12,14 +12,14 @@
 
 void waitForInput(std::basic_istream<char>& inputStream, bb::messaging::StreamParser& parser)
 {
-    bool terminate = false;
-    while (!terminate) {
-        std::array<char, 1024> data;
-        inputStream.getline(data.data(), 1024);
-        uint32_t length = static_cast<uint32_t>(inputStream.gcount());
-        terminate = parser.onNewData(data.data(), length);
+    std::vector<char> buffer(1);
+    while (inputStream.read(&buffer[0], 1)) {
+        bool moreDataExpected = parser.onNewData(buffer.data(), 1);
+        if (!moreDataExpected) {
+            break;
+        }
     }
-}
+};
 
 class SynchronisedStdOutput {
   private:
@@ -37,5 +37,6 @@ class SynchronisedStdOutput {
         header->msgId = msgId++;
         const char* data = reinterpret_cast<char*>(header);
         stream.write(data, header->msgLength);
+        stream.flush();
     }
 };

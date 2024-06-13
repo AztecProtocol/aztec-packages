@@ -9,6 +9,7 @@ using namespace bb::world_state;
 
 int main(int, char**)
 {
+    std::cerr << "Hello from the world state" << std::endl;
     SynchronisedStdOutput outputStream(std::cout);
     WorldStateService<SynchronisedStdOutput> service(outputStream);
 
