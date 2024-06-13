@@ -25,7 +25,6 @@ fm.workspace = true
 codespan-reporting.workspace = true
 inferno = "0.11.19"
 im.workspace = true
-noirc_frontend.workspace = true
 acir.workspace = true
 noirc_errors.workspace = true
 
@@ -40,4 +39,4 @@ tempfile.workspace = true
 
 [features]
 default = ["bn254"]
-bn254 = ["noirc_frontend/bn254", "acir/bn254"]
+bn254 = ["acir/bn254"]
