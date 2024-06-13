@@ -128,7 +128,7 @@ impl Deck<&mut PrivateContext> {
         // This array will hold the notes that correspond to each of the requested cards. It begins empty (with all the
         // options being none) and we gradually fill it up as we find the matching notes.
         let mut found_cards = [Option::none(); N];
-        
+
         for i in 0..options.limit {
             if i < notes.len() {
                 let card_note = CardNote::from_note(notes.get_unchecked(i));
@@ -166,7 +166,8 @@ impl Deck<UnconstrainedContext> {
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
 
-    // TODO: ideally we'd do let cards = notes.map(|note| Cards::from_field(note.value));s
+        // TODO: ideally we'd do let cards = notes.map(|note| Cards::from_field(note.value));
+        // see https://github.com/noir-lang/noir/pull/5250
         let mut cards = BoundedVec::new();
         cards.len = notes.len();
         for i in 0..notes.len() {
