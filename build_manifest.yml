@@ -62,6 +62,7 @@ aztec-nargo:
   dependencies:
     - avm-transpiler
     - noir
+  multiarch: host
 
 # Compiles all aztec noir projects using nargo and the avm-transpiler.
 noir-projects:
