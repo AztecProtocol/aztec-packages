@@ -1,6 +1,6 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
-import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer public', () => {

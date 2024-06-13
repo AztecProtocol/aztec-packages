@@ -137,10 +137,9 @@ function parseSequencerAllowList(value: string): AllowedFunction[] {
 
 function getDefaultAllowedSetupFunctions(): AllowedFunction[] {
   return [
-    // needed for authwit checks.
+    // needed for authwit support
     {
       address: AuthRegistryAddress,
-      selector: FunctionSelector.fromSignature('consume((Field),Field)'),
     },
     // needed for claiming on the same tx as a spend
     {

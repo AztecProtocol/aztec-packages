@@ -70,7 +70,10 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         continue;
       }
 
-      if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
+      if (
+        contractAddress.equals(entry.address) &&
+        (entry.selector === undefined || entry.selector.equals(functionSelector))
+      ) {
         return true;
       }
     }
@@ -85,7 +88,10 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         continue;
       }
 
-      if (contractClass.contractClassId.equals(entry.classId) && entry.selector.equals(functionSelector)) {
+      if (
+        contractClass.contractClassId.equals(entry.classId) &&
+        (entry.selector === undefined || entry.selector.equals(functionSelector))
+      ) {
         return true;
       }
     }

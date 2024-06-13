@@ -1,12 +1,23 @@
 contract AuthRegistry {
     use dep::aztec::{state_vars::{PublicMutable, Map}, protocol_types::address::AztecAddress};
-    use dep::authwit::auth::{IS_VALID_SELECTOR, compute_outer_authwit_hash};
+    use dep::authwit::auth::{IS_VALID_SELECTOR, compute_outer_authwit_hash, assert_current_call_valid_authwit};
 
     #[aztec(storage)]
     struct Storage {
       reject_all: Map<AztecAddress, PublicMutable<bool>>,
       // on_behalf_of => authwit hash => authorized
       approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool>>>,
+    }
+
+    /**
+     * Updates the `authorized` value for `msg_sender` for `messageHash`.
+     *
+     * @param message_hash The message hash being authorized
+     * @param authorize True if the caller is authorized to perform the message hash, false otherwise
+     */
+    #[aztec(public)]
+    fn set_authorized(message_hash: Field, authorize: bool) {
+        storage.approved_actions.at(context.msg_sender()).at(message_hash).write(authorize);
     }
 
     /**
@@ -19,17 +30,6 @@ contract AuthRegistry {
     #[aztec(public)]
     fn set_reject_all(reject: bool) {
         storage.reject_all.at(context.msg_sender()).write(reject);
-    }
-
-    /**
-     * Updates the `authorized` value for `msg_sender` for `messageHash`.
-     *
-     * @param message_hash The message hash being authorized
-     * @param authorize True if the caller is authorized to perform the message hash, false otherwise
-     */
-    #[aztec(public)]
-    fn set_authorized(message_hash: Field, authorize: bool) {
-        storage.approved_actions.at(context.msg_sender()).at(message_hash).write(authorize);
     }
 
     /**
@@ -59,6 +59,21 @@ contract AuthRegistry {
         storage.approved_actions.at(on_behalf_of).at(message_hash).write(false);
 
         IS_VALID_SELECTOR
+    }
+
+    /**
+     * Updates a public authwit using a private authwit
+     */
+    #[aztec(private)]
+    fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
+        assert_current_call_valid_authwit(&mut context, approver);
+        AuthRegistry::at(context.this_address())._set_authorized(approver, message_hash, authorize).enqueue(&mut context);
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
+        storage.approved_actions.at(approver).at(message_hash).write(authorize);
     }
 
     /**

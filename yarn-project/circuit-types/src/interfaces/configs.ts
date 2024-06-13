@@ -6,13 +6,13 @@ export type AllowedFunction =
       /** The contract address this selector is valid for */
       address: AztecAddress;
       /** The function selector */
-      selector: FunctionSelector;
+      selector?: FunctionSelector;
     }
   | {
       /** The contract class this selector is valid for */
       classId: Fr;
       /** The function selector */
-      selector: FunctionSelector;
+      selector?: FunctionSelector;
     };
 
 /**
