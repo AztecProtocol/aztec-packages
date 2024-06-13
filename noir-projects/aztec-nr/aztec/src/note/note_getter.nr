@@ -153,10 +153,8 @@ fn constrain_get_notes_internal<Note, N, M, FILTER_ARGS>(
             returned_notes.push(note);
         };
     }
-    if options.limit != 0 {
-        assert(returned_notes.len() <= options.limit, "Got more notes than limit.");
-    }
 
+    assert(returned_notes.len() <= options.limit, "Got more notes than limit.");
     assert(returned_notes.len() != 0, "Cannot return zero notes");
 
     returned_notes

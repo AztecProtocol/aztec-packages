@@ -36,6 +36,10 @@ To further reduce gate count, you can iterate over `options.limit` instead of `m
 + for i in 0..options.limit {
 ```
 
+### [Aztec.nr] `options.limit` has to be constant
+
+The `limit` parameter in `NoteGetterOptions` and `NoteViewerOptions` is now required to be a compile-time constant. This allows performing loops over this value, which leads to reduced circuit gate counts when setting a `limit` value.
+
 ### [Aztec.nr] emit encrypted logs
 
 Emitting or broadcasting encrypted notes are no longer done as part of the note creation, but must explicitly be either emitted or discarded instead.
