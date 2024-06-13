@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718294087906,
+  "lastUpdate": 1718294147747,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -39804,6 +39804,78 @@ window.BENCHMARK_DATA = {
             "value": 180375470,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 180375470 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a2f687687559d15fde52abce54838f6e144a0aa4",
+          "message": "feat: Add gate profiler for noir circuits (#7004)\n\nThis PR:\r\n\r\n- Modifies acir format to track constraint => original opcode and to\r\nstore gates per opcode (only gates, no lookups ATM) when building a\r\ncircuit\r\n- Modifies the gates command to return this information along with the\r\ntotals\r\n- Adds a new profiler binary in noir tooling with a command generate a\r\ngates flamegraph\r\n- Adds a small script in noir-projects to extract a private function as\r\na regular noir artifact, to make it usable by the profiler. This is\r\nneeded because transpiling makes our artifacts unreadable by noir\r\ntooling.\r\n \r\n \r\nExample result: (altough github breaks the zoom/search functionality\r\nwhen uploading the svg)\r\n\r\n![transfer](https://github.com/AztecProtocol/aztec-packages/assets/5372114/1b489182-bd4b-445d-81bd-45651753300f)\r\n\r\n \r\nUsage:\r\n  ```\r\n./target/release/noir_profiler gates-flamegraph --artifact-path\r\nPATH_TO_THE_ARTIFACT_JSON --backend-path BB_PATH --output OUTPUT_FOLDER\r\n  ```\r\nExample:\r\n```\r\n./target/release/noir_profiler gates-flamegraph --artifact-path ~/aztec-packages/noir-projects/noir-contracts/target/token_contract-Token-transfer.json --backend-path ~/aztec-packages/barretenberg/cpp/build/bin/bb  --output .\r\n```\r\n\r\nOr you can run it from the code in `noir/noir-repo/tooling/profiler` via\r\n`cargo run` instead of directly calling the built binary.\r\n\r\nTo use the small tool to extract private functions:\r\n```\r\nnode extractFunctionAsNoirArtifact.js PATH_TO_CONTRACT_ARTIFACT FUNCTION_NAME\r\n```\r\nExample: \r\n```\r\nnode extractFunctionAsNoirArtifact.js ./target/token_contract-Token.json transfer\r\n```\r\n\r\n---------\r\n\r\nCo-authored-by: Leila Wang <LeilaWang@users.noreply.github.com>\r\nCo-authored-by: Michael Connor <iAmMichaelConnor@users.noreply.github.com>\r\nCo-authored-by: iAmMichaelConnor <mike@aztecprotocol.com>\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2024-06-13T15:39:50Z",
+          "tree_id": "d21648d65761503aac305c748df1c3c9a50987ac",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a2f687687559d15fde52abce54838f6e144a0aa4"
+        },
+        "date": 1718294145707,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15435.833890000027,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10725.998888 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5503.072005000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5148.179645 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49841.238397,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49841240000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16906.414231,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16906413000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5114675881,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5114675881 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198695473,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198695473 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4222378529,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4222378529 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164602398,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164602398 ns\nthreads: 1"
           }
         ]
       }
