@@ -1,11 +1,11 @@
 import { AztecAddress, type GrumpkinPrivateKey, type KeyValidationRequest, type PublicKey } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type EncryptedL2Log } from '../encrypted_l2_log.js';
 import { L1EventPayload } from './l1_event_payload.js';
 import { L1NotePayload } from './l1_note_payload.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 // placeholder value until tagging is implemented
 const PLACEHOLDER_TAG = new Fr(33);
