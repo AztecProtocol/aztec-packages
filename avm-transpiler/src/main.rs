@@ -33,7 +33,7 @@ fn main() {
         return;
     }
 
-    // Backup the original file
+    // Backup the original file.
     std::fs::copy(
         Path::new(in_contract_artifact_path),
         Path::new(&(in_contract_artifact_path.clone() + ".bak")),
