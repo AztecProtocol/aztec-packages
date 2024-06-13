@@ -6,6 +6,7 @@ import { Hasher } from "@aztec/types/interfaces";
 import { NullifierTree, PublicDataTree, TreeFactory } from "../interfaces/tree_factory.js";
 import { StandardTree } from "../standard_tree/standard_tree.js";
 import { TreeBase, getTreeMeta } from "../tree_base.js";
+import { Pedersen } from "../pedersen.js";
 
 
 /**
@@ -76,7 +77,7 @@ type InitFunc = <T extends TreeBase<Bufferable>, D extends FromBuffer<Bufferable
 export class JSTreeFactory implements TreeFactory {
   constructor(private kvStore: AztecKVStore, private hasher: Hasher, private initFunction: InitFunc) {}
 
-  public async init(kvStore: AztecKVStore, hasher: Hasher) {
+  public static async init(kvStore: AztecKVStore, hasher: Hasher = new Pedersen()) {
     const factoryMethod = JSTreeFactory.isDbPopulated(kvStore) ? loadTree : newTree;
     return new JSTreeFactory(kvStore, hasher, factoryMethod);
   }

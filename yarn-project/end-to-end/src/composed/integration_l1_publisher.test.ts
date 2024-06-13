@@ -37,7 +37,7 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { JSTreeFactory, SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { TxProver } from '@aztec/prover-client';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
@@ -136,7 +136,8 @@ describe('L1Publisher integration', () => {
     });
 
     const tmpStore = openTmpStore();
-    builderDb = await MerkleTrees.new(tmpStore);
+    const treeFactory = await JSTreeFactory.init(tmpStore);
+    builderDb = await MerkleTrees.new(tmpStore, treeFactory);
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
