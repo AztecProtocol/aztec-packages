@@ -12,8 +12,8 @@ use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 fn main() {
     // Setup tracing
-    if let Ok(log_dir) = env::var("ACVM_LOG_DIR") {
-        let debug_file = rolling::daily(log_dir, "acvm-log");
+    if let Ok(log_dir) = env::var("PROFILER_LOG_DIR") {
+        let debug_file = rolling::daily(log_dir, "profiler-log");
         tracing_subscriber::fmt()
             .with_span_events(FmtSpan::ACTIVE)
             .with_writer(debug_file)
