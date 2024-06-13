@@ -112,7 +112,7 @@ struct AcirFormat {
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
-    std::vector<size_t> gates_per_opcode;
+    std::vector<size_t> gates_per_opcode = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
