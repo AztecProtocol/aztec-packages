@@ -137,8 +137,16 @@ export class Point {
     return poseidon2Hash(this.toFields());
   }
 
+  /**
+   * Check if this is point at infinity.
+   */
+  isInfPoint() {
+    // Check this
+    return this.x.isZero();
+  }
+
   isOnGrumpkin() {
-    if (this.isZero()) {
+    if (this.isInfPoint()) {
       return true;
     }
 

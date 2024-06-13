@@ -108,6 +108,18 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
   });
 
+  it('variable msm operations', async () => {
+    const context = initContext();
+
+    const bytecode = getAvmTestContractBytecode('variable_base_msm');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    const grumpkin = new Grumpkin();
+    const g3 = grumpkin.mul(grumpkin.generator(), new Fq(3));
+    expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
+  });
+
   describe('U128 addition and overflows', () => {
     it('U128 addition', async () => {
       const calldata: Fr[] = [
