@@ -193,10 +193,10 @@ impl PrivateContext {
     }
 
     pub fn end_setup(&mut self) {
-        dep::protocol_types::debug_log::debug_log_format(
-            "Ending setup at counter {0}",
-            [self.side_effect_counter as Field]
-        );
+        // dep::protocol_types::debug_log::debug_log_format(
+        //     "Ending setup at counter {0}",
+        //     [self.side_effect_counter as Field]
+        // );
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
@@ -349,29 +349,6 @@ impl PrivateContext {
         self.encrypted_logs_hashes.push(side_effect);
 
         emit_encrypted_event_log(contract_address, randomness, encrypted_log, counter);
-    }
-
-    pub fn encrypt_and_emit_note<Note, N, NB, M>(
-        &mut self,
-        storage_slot: Field,
-        ovpk_m: GrumpkinPoint,
-        ivpk_m: GrumpkinPoint,
-        note: Note
-    ) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-        let note_hash_counter = note.get_header().note_hash_counter;
-        let note_exists_index = find_index(
-            self.new_note_hashes.storage,
-            |n: NoteHash| n.counter == note_hash_counter
-        );
-        assert(
-            note_exists_index as u32 != MAX_NEW_NOTE_HASHES_PER_CALL, "Can only emit a note log for an existing note."
-        );
-
-        let contract_address = self.this_address();
-        let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
-
-        let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
-        self.emit_raw_note_log(note_hash_counter, encrypted_log);
     }
 
     pub fn emit_raw_note_log<M>(&mut self, note_hash_counter: u32, encrypted_log: [u8; M]) {
