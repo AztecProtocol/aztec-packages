@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718279116158,
+  "lastUpdate": 1718279372970,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -38848,6 +38848,74 @@ window.BENCHMARK_DATA = {
             "value": 195843468,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 195843468 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "9328652bd918957c6e86a10eaa2fbea1322104a3",
+          "message": "test: Add negative tests for cast and U128 multiplication related to TWO_LINE_OP_NO_OVERLAP",
+          "timestamp": "2024-06-13T10:02:46Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7041/commits/9328652bd918957c6e86a10eaa2fbea1322104a3"
+        },
+        "date": 1718279370442,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15426.840276999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10693.230988999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5542.316228000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5191.091715 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49604.23116899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49604233000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16979.933145,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16979932000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5154558607,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5154558607 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200830732,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200830732 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4278542751,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4278542751 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163824471,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163824471 ns\nthreads: 1"
           }
         ]
       }
