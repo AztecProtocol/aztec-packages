@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718279372970,
+  "lastUpdate": 1718281768548,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -38916,6 +38916,78 @@ window.BENCHMARK_DATA = {
             "value": 163824471,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163824471 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f14ca122032a56eb322e34ee0290845e75a925a",
+          "message": "test: Add negative tests for cast and U128 multiplication related to TWO_LINE_OP_NO_OVERLAP (#7041)\n\nResolves #6969",
+          "timestamp": "2024-06-13T14:20:16+02:00",
+          "tree_id": "3c62c639e291e8cfe49d256ef04ba2f603abc7e4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7f14ca122032a56eb322e34ee0290845e75a925a"
+        },
+        "date": 1718281766847,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15415.527362999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10787.910718 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5570.80303299999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5151.2172630000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50937.40122,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50937403000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16980.874165999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16980874000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5158796236,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5158796236 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202386654,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202386654 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4287515174,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4287515174 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163574733,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163574733 ns\nthreads: 1"
           }
         ]
       }
