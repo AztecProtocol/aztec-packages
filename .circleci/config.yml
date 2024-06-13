@@ -477,7 +477,7 @@ jobs:
       - run:
           name: "Update aztec-up"
           command: |
-            if [ -n "$DEPLOY_TAG" ]; then
+            if [ -n "$COMMIT_TAG" ]; then
               deploy_terraform "" aztec-up/terraform
             fi
 
