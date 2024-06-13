@@ -40,8 +40,8 @@ export function computeIvskApp(ivsk: GrumpkinPrivateKey, address: AztecAddress) 
   return new Fq((I.toBigInt() + ivsk.toBigInt()) % Fq.MODULUS);
 }
 
-export function computeOvskApp(ovsk: GrumpkinPrivateKey, address: AztecAddress) {
-  const ovskAppFr = computeAppSecretKey(ovsk, address, 'ov'); // 'ov' is the key prefix for outgoing viewing key
+export function computeOvskApp(ovsk: GrumpkinPrivateKey, app: AztecAddress) {
+  const ovskAppFr = computeAppSecretKey(ovsk, app, 'ov'); // 'ov' is the key prefix for outgoing viewing key
   // Here we are intentionally converting Fr (output of poseidon) to Fq. This is fine even though a distribution of
   // P = s * G will not be uniform because 2 * (q - r) / q is small.
   return GrumpkinPrivateKey.fromBuffer(ovskAppFr.toBuffer());
