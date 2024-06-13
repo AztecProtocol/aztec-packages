@@ -7,6 +7,7 @@ use clap::Args;
 use codespan_reporting::files::Files;
 use color_eyre::eyre::{self, Context};
 use inferno::flamegraph::{from_lines, Options};
+use nargo::artifacts::debug::DebugArtifact;
 use serde::{Deserialize, Serialize};
 
 use acir::circuit::OpcodeLocation;
@@ -120,10 +121,17 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
 ) -> eyre::Result<()> {
     let program =
         read_program_from_file(artifact_path).context("Error reading program from file")?;
+
     let backend_gates_response =
         gates_provider.get_gates(artifact_path).context("Error querying backend for gates")?;
 
-    for (func_idx, func_gates) in backend_gates_response.functions.into_iter().enumerate() {
+    let function_names = program.names.clone();
+
+    let debug_artifact: DebugArtifact = program.into();
+
+    for (func_idx, (func_gates, func_name)) in
+        backend_gates_response.functions.into_iter().zip(function_names).enumerate()
+    {
         println!(
             "Opcode count: {}, Total gates by opcodes: {}, Circuit size: {}",
             func_gates.acir_opcodes,
@@ -135,13 +143,13 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
         let mut folded_stack_items = BTreeMap::new();
 
         func_gates.gates_per_opcode.into_iter().enumerate().for_each(|(opcode_index, gates)| {
-            let call_stack = &program.debug_symbols.debug_infos[func_idx]
+            let call_stack = &debug_artifact.debug_symbols[func_idx]
                 .locations
                 .get(&OpcodeLocation::Acir(opcode_index));
             let location_names = if let Some(call_stack) = call_stack {
                 call_stack
                     .iter()
-                    .map(|location| location_to_callsite_label(*location, &program))
+                    .map(|location| location_to_callsite_label(*location, &debug_artifact))
                     .collect::<Vec<String>>()
             } else {
                 vec!["unknown".to_string()]
@@ -154,8 +162,8 @@ fn run_with_provider<Provider: GatesProvider, Generator: FlamegraphGenerator>(
         flamegraph_generator.generate_flamegraph(
             folded_lines.iter().map(|as_string| as_string.as_str()),
             artifact_path.to_str().unwrap(),
-            &program.names[func_idx],
-            &Path::new(&output_path).join(Path::new(&format!("{}.svg", &program.names[func_idx]))),
+            &func_name,
+            &Path::new(&output_path).join(Path::new(&format!("{}.svg", &func_name))),
         )?;
     }
 
