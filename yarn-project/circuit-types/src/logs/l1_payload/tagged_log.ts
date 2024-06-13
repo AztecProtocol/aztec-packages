@@ -5,6 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type EncryptedL2Log } from '../encrypted_l2_log.js';
 import { L1EventPayload } from './l1_event_payload.js';
 import { L1NotePayload } from './l1_note_payload.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 // placeholder value until tagging is implemented
 const PLACEHOLDER_TAG = new Fr(33);
@@ -13,6 +14,8 @@ const PLACEHOLDER_TAG = new Fr(33);
  * Encrypted log payload with a tag used for retrieval by clients.
  */
 export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
+  static logger = createDebugLogger('aztec:tagged_log');
+
   constructor(public payload: Payload, public incomingTag = PLACEHOLDER_TAG, public outgoingTag = PLACEHOLDER_TAG) {}
 
   /**
@@ -82,6 +85,7 @@ export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
     // as some field will likely end up not being in the field etc.
     try {
       if (payloadType === L1EventPayload) {
+        console.log("decrypting as L1EventPayload");
         const reader = BufferReader.asReader((data as EncryptedL2Log).data);
         const incomingTag = Fr.fromBuffer(reader);
         const outgoingTag = Fr.fromBuffer(reader);
@@ -94,6 +98,12 @@ export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
         const incomingTag = Fr.fromBuffer(reader);
         const outgoingTag = Fr.fromBuffer(reader);
         const payload = L1NotePayload.decryptAsIncoming(reader.readToEnd(), ivsk);
+        if (payload.note.items.length === 0) {
+          // This is an edge case. We might get a successful decryption when the note is empty as we don't get
+          // the overflow as mentioned in the comment above.
+          TaggedLog.logger.warn('Decrypted an empty incoming note.');
+          return;
+        }
         return new TaggedLog(payload, incomingTag, outgoingTag);
       }
     } catch (e) {
@@ -131,6 +141,12 @@ export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
         const incomingTag = Fr.fromBuffer(reader);
         const outgoingTag = Fr.fromBuffer(reader);
         const payload = L1NotePayload.decryptAsOutgoing(reader.readToEnd(), ovsk);
+        if (payload.note.items.length === 0) {
+          // This is an edge case. We might get a successful decryption when the note is empty as we don't get
+          // the overflow as mentioned in the comment above.
+          TaggedLog.logger.warn('Decrypted an empty outgoing note.');
+          return;
+        }
         return new TaggedLog(payload, incomingTag, outgoingTag);
       }
     } catch (e) {

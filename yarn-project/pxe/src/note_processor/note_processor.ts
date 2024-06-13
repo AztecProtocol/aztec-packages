@@ -156,7 +156,11 @@ export class NoteProcessor {
                 outgoingTaggedNote &&
                 !incomingTaggedNote.payload.equals(outgoingTaggedNote.payload)
               ) {
-                throw new Error('Incoming and outgoing note payloads do not match.');
+                throw new Error(
+                  `Incoming and outgoing note payloads do not match.\nIncoming: ${JSON.stringify(
+                    incomingTaggedNote.payload,
+                  )},\nOutgoing: ${JSON.stringify(outgoingTaggedNote.payload)}`,
+                );
               }
 
               const payload = incomingTaggedNote?.payload || outgoingTaggedNote?.payload;
