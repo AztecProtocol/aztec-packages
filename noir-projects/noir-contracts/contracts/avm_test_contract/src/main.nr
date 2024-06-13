@@ -148,7 +148,8 @@ contract AvmTest {
     fn variable_base_msm() -> [Field; 3] {
         let g = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
         let scalar = EmbeddedCurveScalar { lo: 3, hi: 0 };
-        let triple_g = multi_scalar_mul([g], [scalar]);
+        let scalar2 = EmbeddedCurveScalar { lo: 20, hi: 0 };
+        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
         triple_g
     }
 

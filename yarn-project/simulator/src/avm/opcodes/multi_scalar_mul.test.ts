@@ -2,7 +2,7 @@ import { Fq, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
+import { Field, type MemoryValue, Uint8, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { MultiScalarMul } from './multi_scalar_mul.js';
 
@@ -46,19 +46,13 @@ describe('MultiScalarMul Opcode', () => {
     const scalarsLength = scalars.length * 2; // multiplied by 2 since we will store them as lo and hi limbs in avm memory
     // Transform the points and scalars into the format that we will write to memory
     // We just store the x and y coordinates here, and handle the infinities when we write to memory
-    const storedPoints: Field[] = points.flatMap(p => [new Field(p.x), new Field(p.y)]);
     const storedScalars: Field[] = scalars.flatMap(s => [new Field(s.low), new Field(s.high)]);
-
-    const pointsOffset = 0;
-    // Store points...awkwardly (This would be simpler if ts handled the infinities in the Point struct)
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] where the types are [Field, Field, Uint8, Field, Field, Uint8, ...]
-    for (let i = 0; i < points.length; i++) {
-      const flatPointsOffset = pointsOffset + 2 * i; // 2 since we only have x and y
-      const memoryOffset = pointsOffset + 3 * i; // 3 since we store x, y, inf
-      context.machineState.memory.set(memoryOffset, storedPoints[flatPointsOffset]);
-      context.machineState.memory.set(memoryOffset + 1, storedPoints[flatPointsOffset + 1]);
-      context.machineState.memory.set(memoryOffset + 2, new Uint8(points[i].isInfPoint() ? 1 : 0));
-    }
+    const storedPoints: MemoryValue[] = points
+      .map(p => p.toFieldsWithInf())
+      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint8(inf.toNumber())]);
+    const pointsOffset = 0;
+    context.machineState.memory.setSlice(pointsOffset, storedPoints);
     // Store scalars
     const scalarsOffset = pointsOffset + pointsReadLength;
     context.machineState.memory.setSlice(scalarsOffset, storedScalars);
@@ -69,14 +63,14 @@ describe('MultiScalarMul Opcode', () => {
 
     await new MultiScalarMul(indirect, pointsOffset, scalarsOffset, outputOffset, pointsLengthOffset).execute(context);
 
-    const result = context.machineState.memory.getSlice(outputOffset, 3);
+    const result = context.machineState.memory.getSlice(outputOffset, 3).map(r => r.toFr());
 
     // We write it out explicitly here
     let expectedResult = grumpkin.mul(points[0], scalars[0]);
     expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[1], scalars[1]));
     expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[2], scalars[2]));
 
-    expect(result.map(r => r.toFr())).toEqual([expectedResult.x, expectedResult.y, new Fr(0n)]);
+    expect(result).toEqual([expectedResult.x, expectedResult.y, new Fr(0n)]);
   });
 
   it('Should perform msm correctly - indirect', async () => {
@@ -92,19 +86,13 @@ describe('MultiScalarMul Opcode', () => {
     const scalarsLength = scalars.length * 2; // multiplied by 2 since we will store them as lo and hi limbs in avm memory
     // Transform the points and scalars into the format that we will write to memory
     // We just store the x and y coordinates here, and handle the infinities when we write to memory
-    const storedPoints: Field[] = points.flatMap(p => [new Field(p.x), new Field(p.y)]);
     const storedScalars: Field[] = scalars.flatMap(s => [new Field(s.low), new Field(s.high)]);
-
-    const pointsOffset = 0;
-    // Store points...awkwardly (This would be simpler if ts handled the infinities in the Point struct)
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] where the types are [Field, Field, Uint8, Field, Field, Uint8, ...]
-    for (let i = 0; i < points.length; i++) {
-      const flatPointsOffset = pointsOffset + 2 * i; // 2 since we only have x and y
-      const memoryOffset = pointsOffset + 3 * i; // 3 since we store x, y, inf
-      context.machineState.memory.set(memoryOffset, storedPoints[flatPointsOffset]);
-      context.machineState.memory.set(memoryOffset + 1, storedPoints[flatPointsOffset + 1]);
-      context.machineState.memory.set(memoryOffset + 2, new Uint8(points[i].isInfPoint() ? 1 : 0));
-    }
+    const storedPoints: MemoryValue[] = points
+      .map(p => p.toFieldsWithInf())
+      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint8(inf.toNumber())]);
+    const pointsOffset = 0;
+    context.machineState.memory.setSlice(pointsOffset, storedPoints);
     // Store scalars
     const scalarsOffset = pointsOffset + pointsReadLength;
     context.machineState.memory.setSlice(scalarsOffset, storedScalars);
@@ -130,13 +118,13 @@ describe('MultiScalarMul Opcode', () => {
       pointsLengthOffset,
     ).execute(context);
 
-    const result = context.machineState.memory.getSlice(outputOffset, 3);
+    const result = context.machineState.memory.getSlice(outputOffset, 3).map(r => r.toFr());
 
     // We write it out explicitly here
     let expectedResult = grumpkin.mul(points[0], scalars[0]);
     expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[1], scalars[1]));
     expectedResult = grumpkin.add(expectedResult, grumpkin.mul(points[2], scalars[2]));
 
-    expect(result.map(r => r.toFr())).toEqual([expectedResult.x, expectedResult.y, new Fr(0n)]);
+    expect(result).toEqual([expectedResult.x, expectedResult.y, new Fr(0n)]);
   });
 });

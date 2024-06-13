@@ -1,5 +1,7 @@
-import { Fq, Fr, Point } from '@aztec/circuits.js';
+import { Fq, Point } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+
+import { strict as assert } from 'assert';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag } from '../avm_memory_types.js';
@@ -18,7 +20,7 @@ export class MultiScalarMul extends Instruction {
     OperandType.UINT8 /* indirect */,
     OperandType.UINT32 /* points vector offset */,
     OperandType.UINT32 /* scalars vector offset */,
-    OperandType.UINT32 /* output offset (fixed triplet)*/,
+    OperandType.UINT32 /* output offset (fixed triplet) */,
     OperandType.UINT32 /* points length offset */,
   ];
 
@@ -42,10 +44,9 @@ export class MultiScalarMul extends Instruction {
 
     // Length of the points vector should be U32
     memory.checkTag(TypeTag.UINT32, this.pointsLengthOffset);
-
     // Get the size of the unrolled (x, y , inf) points vector
-    // TODO: Do we need to assert that the length is a multiple of 3 (x, y, inf)?
     const pointsReadLength = memory.get(this.pointsLengthOffset).toNumber();
+    assert(pointsReadLength % 3 === 0, 'Points vector offset should be a multiple of 3');
     // Divide by 3 since each point is represented as a triplet to get the number of points
     const numPoints = pointsReadLength / 3;
     // The tag for each triplet will be (Field, Field, Uint8)
@@ -61,6 +62,13 @@ export class MultiScalarMul extends Instruction {
 
     // The size of the scalars vector is twice the NUMBER of points because of the scalar limb decomposition
     const scalarReadLength = numPoints * 2;
+    // Consume gas prior to performing work
+    const memoryOperations = {
+      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
+      writes: 3 /* output triplet */,
+      indirect: this.indirect,
+    };
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
     // Get the unrolled scalar (lo & hi) representing the scalars
     const scalarsVector = memory.getSlice(scalarsOffset, scalarReadLength);
     memory.checkTagsRange(TypeTag.FIELD, scalarsOffset, scalarReadLength);
@@ -96,20 +104,10 @@ export class MultiScalarMul extends Instruction {
       (acc, curr) => grumpkin.add(acc, grumpkin.mul(curr[0], curr[1])),
       grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]),
     );
-    // TODO: Check the Infinity flag here
-    const output: Fr[] = [outputPoint.x, outputPoint.y, outputPoint.isInfPoint() ? Fr.ONE : Fr.ZERO];
+    const output = outputPoint.toFieldsWithInf().map(f => new Field(f));
 
-    memory.setSlice(
-      outputOffset,
-      output.map(word => new Field(word)),
-    );
+    memory.setSlice(outputOffset, output);
 
-    const memoryOperations = {
-      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
-      writes: 3 /* output triplet */,
-      indirect: this.indirect,
-    };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }

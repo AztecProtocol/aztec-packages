@@ -863,6 +863,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let num_points = points.size.0;
             let scalars_offset = scalars.pointer.0;
             // Output array is fixed to 3
+            assert_eq!(outputs.size, 3, "Output array size must be equal to 3");
             let outputs_offset = outputs.pointer.0;
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::MSM,

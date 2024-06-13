@@ -117,7 +117,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.reverted).toBe(false);
     const grumpkin = new Grumpkin();
     const g3 = grumpkin.mul(grumpkin.generator(), new Fq(3));
-    expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
+    const g20 = grumpkin.mul(grumpkin.generator(), new Fq(20));
+    const expectedResult = grumpkin.add(g3, g20);
+    expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
   });
 
   describe('U128 addition and overflows', () => {
