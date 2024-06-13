@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718309385694,
+  "lastUpdate": 1718312136434,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -40216,6 +40216,78 @@ window.BENCHMARK_DATA = {
             "value": 163815034,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163815034 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ffc4b4455a0613c933de0ec7528774186f53bee",
+          "message": "fix: stop squashing storage accesses in avm simulator - all need to be validated in kernel (#7036)\n\nAlso needed to fix some constants and bump max storage reads.\r\n\r\nAttempting to enable AVM proving on the main e2e prover test",
+          "timestamp": "2024-06-13T20:46:50Z",
+          "tree_id": "7215b4ebe43116b5215b2f59337624c74abd806f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6ffc4b4455a0613c933de0ec7528774186f53bee"
+        },
+        "date": 1718312134730,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15685.123801000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10890.786027999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5571.552785999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5191.390649 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50111.443829,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50111445000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17167.602574,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17167602000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5184833988,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5184833988 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202453507,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202453507 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4272554343,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4272554343 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167277379,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167277379 ns\nthreads: 1"
           }
         ]
       }
