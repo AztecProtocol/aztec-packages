@@ -138,7 +138,7 @@ describe('AVM WitGen, proof generation and verification', () => {
   );
 
   it(
-    'Should prove that mutated timestamp does not match',
+    'Should prove that mutated timestamp does not match and a revert is performed',
     async () => {
       // The error assertion string must match with that of assert_timestamp noir function.
       await proveAndVerifyAvmTestContract('assert_timestamp', [TIMESTAMP.add(new Fr(1))], 'timestamp does not match');
@@ -233,7 +233,7 @@ const proveAndVerifyAvmTestContract = async (
   const simulator = new AvmSimulator(context);
   const avmResult = await simulator.executeBytecode(bytecode);
 
-  if (typeof assertionErrString === 'undefined') {
+  if (assertionErrString == undefined) {
     expect(avmResult.reverted).toBe(false);
   } else {
     // Explicit revert when an assertion failed.
