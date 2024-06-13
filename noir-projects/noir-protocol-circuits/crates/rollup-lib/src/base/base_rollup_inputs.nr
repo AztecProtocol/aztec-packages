@@ -6,7 +6,6 @@ use crate::{
     base::state_diff_hints::StateDiffHints,
     components::{compute_tx_effects_hash, compute_kernel_out_hash}
 };
-
 use dep::types::{
     hash::sha256_to_field,
     data::{
@@ -17,7 +16,7 @@ use dep::types::{
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
     public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
-    kernel_data::KernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs
+    kernel_data::KernelData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -58,12 +57,7 @@ struct BaseRollupInputs {
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        // Verify the kernel circuit proof
-        // let mut tmp_kernel_data = self.kernel_data;
-        // tmp_kernel_data.public_inputs = KernelCircuitPublicInputs::empty();
-
-        // tmp_kernel_data.verify();
-
+        // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
         dep::std::verify_proof(
             self.kernel_data.vk.key.as_slice(),
             self.kernel_data.proof.fields.as_slice(),

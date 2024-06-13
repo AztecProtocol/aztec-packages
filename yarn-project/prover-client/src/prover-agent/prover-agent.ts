@@ -6,7 +6,6 @@ import {
   ProvingRequestType,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
-import { TubeInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';

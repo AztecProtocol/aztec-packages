@@ -59,7 +59,7 @@ export class KernelData {
   }
 }
 
-// LONDONTODO: Merge with Adam's work, make this class correct
+// WORKTODO: Merge with Adam's work, make this class correct
 export class ClientIVCData {
   constructor(
     /**
