@@ -231,7 +231,31 @@ jobs:
           command: cond_spot_run_build noir-packages 32
           aztec_manifest_key: noir-packages
 
-  avm-transpiler:
+  avm-transpiler-x86_64:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build avm-transpiler 32
+          aztec_manifest_key: avm-transpiler
+
+  avm-transpiler-arm64:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build avm-transpiler 32 arm64
+          aztec_manifest_key: avm-transpiler
+
+  avm-transpiler-ecr-manifest:
     machine:
       image: default
     resource_class: medium
@@ -240,7 +264,7 @@ jobs:
       - *setup_env
       - run:
           name: "Create ECR manifest"
-          command: build avm-transpiler
+          command: create_ecr_manifest avm-transpiler x86_64,arm64
           aztec_manifest_key: avm-transpiler
 
   aztec-nargo:
@@ -511,15 +535,24 @@ workflows:
           <<: *defaults
 
       # Transpiler
-      - avm-transpiler:
+      - avm-transpiler-x86_64:
           requires:
-            - noir-ecr-manifest
+            - noir-x86_64
+          <<: *defaults
+      - avm-transpiler-arm64:
+          requires:
+            - noir-arm64
+          <<: *defaults
+      - avm-transpiler-ecr-manifest:
+          requires:
+            - avm-transpiler-x86_64
+            - avm-transpiler-arm64
           <<: *defaults
 
       # aztec-nargo (nargo & transpiler)
       - aztec-nargo:
           requires:
-            - avm-transpiler
+            - avm-transpiler-ecr-manifest
           <<: *defaults
 
       # Barretenberg
@@ -537,7 +570,7 @@ workflows:
 
       - noir-projects:
           requires:
-            - avm-transpiler
+            - avm-transpiler-ecr-manifest
             - noir-ecr-manifest
           <<: *defaults
 
