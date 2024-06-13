@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 set -eu
 
-cd $(dirname $0)/../
-
-BB_VERSION=$(cat bb-version)
-
 cd $(dirname $0)/../noir-repo
+
+BB_VERSION=$(cat ../bb-version)
 
 tmp=$(mktemp)
 BACKEND_BARRETENBERG_PACKAGE_JSON=./tooling/noir_js_backend_barretenberg/package.json
