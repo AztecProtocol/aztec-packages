@@ -9,7 +9,7 @@ export function getCanonicalAuthRegistry(): ProtocolContract {
 
   if (!contract.address.equals(AuthRegistryAddress)) {
     throw new Error(
-      `Incorrect address for auth registry (got ${contract.address.toString()} but expected ${AuthRegistryAddress.toString()}). Check CANONICAL_KEY_REGISTRY_ADDRESS is set to the correct value in the constants files and run the protocol-contracts package tests.`,
+      `Incorrect address for auth registry (got ${contract.address.toString()} but expected ${AuthRegistryAddress.toString()}). Check CANONICAL_AUTH_REGISTRY_ADDRESS is set to the correct value in the constants files and run the protocol-contracts package tests.`,
     );
   }
   return contract;
