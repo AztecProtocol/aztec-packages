@@ -15,6 +15,7 @@ trait CallInterface<N, T, P, Env> {
     fn get_original(self) -> fn[Env](T) -> P;
     fn get_selector(self) -> FunctionSelector;
     fn get_name(self) -> str<N>;
+    fn get_contract_address(self) -> AztecAddress;
 }
 
 impl<N, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateCallInterface<N, T, Env> {
@@ -32,6 +33,10 @@ impl<N, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicIn
 
     fn get_name(self) -> str<N> {
         self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
     }
 }
 
@@ -84,6 +89,10 @@ impl<N, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicIn
     fn get_name(self) -> str<N> {
         self.name
     }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
 }
 
 struct PrivateVoidCallInterface<N, Env> {
@@ -115,6 +124,28 @@ impl<N, Env> PrivateVoidCallInterface<N, Env> {
     }
 }
 
+impl<N, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateStaticCallInterface<N, T, Env> {
+  fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_original(self) -> fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs {
+        self.original
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+}
+
 struct PrivateStaticCallInterface<N, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
@@ -131,6 +162,28 @@ impl<N, T, Env> PrivateStaticCallInterface<N, T, Env> {
     }
 }
 
+impl<N, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateStaticVoidCallInterface<N, Env> {
+  fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_original(self) -> fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs {
+        self.original
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+}
+
 struct PrivateStaticVoidCallInterface<N, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
@@ -143,6 +196,28 @@ struct PrivateStaticVoidCallInterface<N, Env> {
 impl<N, Env> PrivateStaticVoidCallInterface<N, Env> {
     pub fn view(self, context: &mut PrivateContext) {
         context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
+    }
+}
+
+impl<N, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicCallInterface<N, T, Env> {
+  fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
+        self.original
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
     }
 }
 
@@ -213,6 +288,28 @@ impl<N, T, Env> PublicCallInterface<N, T, Env> {
     }
 }
 
+impl<N, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicVoidCallInterface<N, Env> {
+  fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
+        self.original
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+}
+
 struct PublicVoidCallInterface<N, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
@@ -280,6 +377,28 @@ impl<N, Env> PublicVoidCallInterface<N, Env> {
     }
 }
 
+impl<N, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicStaticCallInterface<N, T, Env> {
+  fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
+        self.original
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+}
+
 struct PublicStaticCallInterface<N, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
@@ -311,6 +430,28 @@ impl<N, T, Env> PublicStaticCallInterface<N, T, Env> {
             /*static=*/ true,
             /*delegate=*/ false
         )
+    }
+}
+
+impl<N, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicStaticVoidCallInterface<N, Env> {
+  fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
+        self.original
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
     }
 }
 

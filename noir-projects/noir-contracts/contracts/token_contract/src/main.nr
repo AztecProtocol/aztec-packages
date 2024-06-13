@@ -396,7 +396,47 @@ contract Token {
     }
     // docs:end:balance_of_private
 
+    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
+    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+
     #[test]
-    fn test_private_transfer() {}
+    fn test_private_transfer() {
+        // Setup env, generate keys
+        let mut env = TestEnvironment::new();
+        let owner = env.create_account();
+        let recipient = env.create_account();
+        let mint_amount = 10000;
+
+        cheatcodes::set_contract_address(owner);
+
+        // Deploy token contract
+        let initializer_call_interface = Token::interface().constructor(
+            owner,
+            "TestToken0000000000000000000000",
+            "TT00000000000000000000000000000",
+            18
+        );
+        let token_contract_address = env.deploy("@aztec/noir-contracts.js/Token").with_public_initializer(initializer_call_interface);
+        env.advance_block_by(1);
+
+        // Mint some tokens
+        let secret = 1;
+        let secret_hash = compute_secret_hash(secret);
+        let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
+        env.call_public(mint_private_call_interface);
+
+        // Time travel so we can read keys from the registry
+        env.advance_block_by(6);
+
+        // Redeem our shielded tokens
+        let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
+        env.call_private_void(redeem_shield_call_interface);
+
+        // Transfer tokens
+        let private_token_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, 1000);
+        env.call_private_void(private_token_transfer_call_interface);
+    }
 }
 // docs:end:token_all

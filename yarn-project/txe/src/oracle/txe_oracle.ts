@@ -3,7 +3,7 @@ import {
   MerkleTreeId,
   Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
+  NullifierMembershipWitness,
   PublicDataWitness,
   PublicDataWrite,
   TaggedLog,
@@ -16,6 +16,8 @@ import {
   type Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PrivateCallStackItem,
@@ -25,16 +27,12 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   computeContractClassId,
+  deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import {
-  type ContractArtifact,
-  type FunctionAbi,
-  type FunctionSelector,
-  countArgumentsSize,
-} from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionAbi, FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
@@ -64,6 +62,9 @@ import { type TXEDatabase } from '../util/txe_database.js';
 export class TXE implements TypedOracle {
   private blockNumber = 0;
   private sideEffectCounter = 0;
+  private contractAddress: AztecAddress;
+  private msgSender: AztecAddress;
+
   private contractDataOracle: ContractDataOracle;
 
   constructor(
@@ -73,12 +74,21 @@ export class TXE implements TypedOracle {
     private noteCache: ExecutionNoteCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
-    private contractAddress: AztecAddress,
   ) {
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
+    this.contractAddress = AztecAddress.random();
+    this.msgSender = AztecAddress.fromField(new Fr(0));
   }
 
   // Utils
+
+  getMsgSender() {
+    return this.msgSender;
+  }
+
+  setMsgSender(msgSender: Fr) {
+    this.msgSender = msgSender;
+  }
 
   getSideEffectCounter() {
     return this.sideEffectCounter;
@@ -117,21 +127,54 @@ export class TXE implements TypedOracle {
     await this.txeDatabase.addContractArtifact(computeContractClassId(contractClass), artifact);
   }
 
-  async getPrivateContextInputs(
-    blockNumber: number,
-    msgSender = AztecAddress.random(),
-    sideEffectCounter = this.sideEffectCounter,
-  ) {
+  async getPrivateContextInputs(blockNumber: number, sideEffectCounter = this.sideEffectCounter) {
     const trees = this.getTrees();
     const stateReference = await trees.getStateReference(true);
     const inputs = PrivateContextInputs.empty();
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
-    inputs.callContext.msgSender = msgSender;
+    inputs.callContext.msgSender = this.msgSender;
     inputs.callContext.storageContractAddress = this.contractAddress;
     inputs.callContext.sideEffectCounter = sideEffectCounter;
     inputs.startSideEffectCounter = sideEffectCounter;
     return inputs;
+  }
+
+  getPublicContextInputs() {
+    const inputs = {
+      functionSelector: FunctionSelector.fromField(new Fr(0)),
+      argsHash: new Fr(0),
+      isStaticCall: false,
+      toFields: function () {
+        return [this.functionSelector.toField(), this.argsHash, new Fr(this.isStaticCall)];
+      },
+    };
+    return inputs;
+  }
+
+  async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
+    const nullifier = siloNullifier(targetAddress, innerNullifier!);
+    const db = this.trees.asLatest();
+    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    return index !== undefined;
+  }
+
+  async avmOpcodeEmitNullifier(nullifier: Fr) {
+    const db = this.trees.asLatest();
+    const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
+    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
+    return Promise.resolve();
+  }
+
+  async avmOpcodeEmitNoteHash(innerNoteHash: Fr) {
+    const db = this.trees.asLatest();
+    const noteHash = siloNoteHash(this.contractAddress, innerNoteHash);
+    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+    return Promise.resolve();
+  }
+
+  deriveKeys(secret: Fr) {
+    return deriveKeys(secret);
   }
 
   // TypedOracle
@@ -182,8 +225,29 @@ export class TXE implements TypedOracle {
     return result.toFields();
   }
 
-  getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Method not implemented.');
+  async getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+    const index = await committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    if (!index) {
+      return undefined;
+    }
+
+    const leafPreimagePromise = committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
+    const siblingPathPromise = committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
+      MerkleTreeId.NULLIFIER_TREE,
+      BigInt(index),
+    );
+
+    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
+
+    if (!leafPreimage) {
+      return undefined;
+    }
+
+    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
   }
 
   async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
@@ -400,14 +464,16 @@ export class TXE implements TypedOracle {
     this.logger.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
     );
-    // Modify env
-    const from = AztecAddress.fromField(this.contractAddress);
+    // Store and modify env
+    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
+    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
 
     const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
 
     const acir = artifact.bytecode;
-    const initialWitness = await this.getInitialWitness(artifact, argsHash, from, sideEffectCounter);
+    const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
@@ -448,12 +514,13 @@ export class TXE implements TypedOracle {
     );
     // Apply side effects
     this.sideEffectCounter += publicInputs.endSideEffectCounter.toNumber();
-    this.setContractAddress(from);
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
 
     return callStackItem;
   }
 
-  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, msgSender: AztecAddress, sideEffectCounter: number) {
+  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number) {
     const argumentsSize = countArgumentsSize(abi);
 
     const args = this.packedValuesCache.unpack(argsHash);
@@ -462,7 +529,7 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const privateContextInputs = await this.getPrivateContextInputs(this.blockNumber - 1, msgSender, sideEffectCounter);
+    const privateContextInputs = await this.getPrivateContextInputs(this.blockNumber - 1, sideEffectCounter);
 
     const fields = [...privateContextInputs.toFields(), ...args];
 

@@ -6,7 +6,6 @@ import {
   KeyValidationRequest,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   Point,
-  PrivateContextInputs,
   PublicDataTreeLeaf,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
@@ -34,7 +33,7 @@ import { TXEDatabase } from '../util/txe_database.js';
 export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle, private store: AztecKVStore) {}
 
-  static async init(logger: Logger, contractAddress = AztecAddress.random()) {
+  static async init(logger: Logger) {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, logger);
     const packedValuesCache = new PackedValuesCache();
@@ -42,7 +41,7 @@ export class TXEService {
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     logger.info(`TXE service initialized`);
-    const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase, contractAddress);
+    const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe, store);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
@@ -55,15 +54,21 @@ export class TXEService {
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
+  getPublicContextInputs() {
+    const inputs = (this.typedOracle as TXE).getPublicContextInputs();
+    return toForeignCallResult(inputs.toFields().map(toSingle));
+  }
+
   async timeTravel(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.info(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
-    const blockNumber = await this.typedOracle.getBlockNumber();
     for (let i = 0; i < nBlocks; i++) {
       const header = Header.empty();
       const l2Block = L2Block.empty();
       header.state = await trees.getStateReference(true);
+      const blockNumber = await this.typedOracle.getBlockNumber();
+
       header.globalVariables.blockNumber = new Fr(blockNumber);
       header.state.partial.nullifierTree.root = Fr.fromBuffer(
         (await trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
@@ -97,7 +102,6 @@ export class TXEService {
       new ExecutionNoteCache(),
       keyStore,
       txeDatabase,
-      AztecAddress.random(),
     );
     await this.timeTravel(toSingle(new Fr(1)));
     return toForeignCallResult([]);
@@ -109,11 +113,17 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  deriveKeys(secret: ForeignCallSingle) {
+    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+    return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
+  }
+
   async deploy(
     path: ForeignCallArray,
     initializer: ForeignCallArray,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
+    publicKeysHash: ForeignCallSingle,
   ) {
     const pathStr = fromArray(path)
       .map(char => String.fromCharCode(char.toNumber()))
@@ -128,8 +138,9 @@ export class TXEService {
     const contractClass = contractModule[Object.keys(contractModule).sort((a, b) => a.length - b.length)[0]];
     const instance = getContractInstanceFromDeployParams(contractClass.artifact, {
       constructorArgs: decodedArgs,
+      skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: Fr.ZERO,
+      publicKeysHash: fromSingle(publicKeysHash),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -169,6 +180,7 @@ export class TXEService {
     const completeAddress = await keyStore.createAccount();
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -184,6 +196,16 @@ export class TXEService {
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
     ]);
+  }
+
+  setMsgSender(msgSender: ForeignCallSingle) {
+    (this.typedOracle as TXE).setMsgSender(fromSingle(msgSender));
+    return toForeignCallResult([]);
+  }
+
+  getMsgSender() {
+    const msgSender = (this.typedOracle as TXE).getMsgSender();
+    return toForeignCallResult([toSingle(msgSender)]);
   }
 
   // PXE oracles
@@ -385,6 +407,44 @@ export class TXEService {
     ]);
   }
 
+  async avmOpcodeGetContractInstance(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toArray([
+        // AVM requires an extra boolean indicating the instance was found
+        new Fr(1),
+        instance.salt,
+        instance.deployer,
+        instance.contractClassId,
+        instance.initializationHash,
+        instance.publicKeysHash,
+      ]),
+    ]);
+  }
+
+  avmOpcodeSender() {
+    const sender = (this.typedOracle as TXE).getMsgSender();
+    return toForeignCallResult([toSingle(sender)]);
+  }
+
+  async avmOpcodeEmitNullifier(nullifier: ForeignCallSingle) {
+    await (this.typedOracle as TXE).avmOpcodeEmitNullifier(fromSingle(nullifier));
+    return toForeignCallResult([]);
+  }
+
+  async avmOpcodeEmitNoteHash(innerNoteHash: ForeignCallSingle) {
+    await (this.typedOracle as TXE).avmOpcodeEmitNoteHash(fromSingle(innerNoteHash));
+    return toForeignCallResult([]);
+  }
+
+  async avmOpcodeNullifierExists(innerNullifier: ForeignCallSingle, targetAddress: ForeignCallSingle) {
+    const exists = await (this.typedOracle as TXE).avmOpcodeNullifierExists(
+      fromSingle(innerNullifier),
+      AztecAddress.fromField(fromSingle(targetAddress)),
+    );
+    return toForeignCallResult([toSingle(new Fr(exists))]);
+  }
+
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {
     const parsedAddress = AztecAddress.fromField(fromSingle(address));
     const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
@@ -461,5 +521,14 @@ export class TXEService {
       fromSingle(isDelegateCall).toBool(),
     );
     return toForeignCallResult([toArray(result.toFields())]);
+  }
+
+  async getNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+    const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));
+    if (!witness) {
+      throw new Error(`Nullifier membership witness not found at block ${parsedBlockNumber}.`);
+    }
+    return toForeignCallResult([toArray(witness.toFields())]);
   }
 }

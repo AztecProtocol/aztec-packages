@@ -52,8 +52,10 @@ contract Counter {
 
         // Deploy contract and initialize 
         let initializer = Counter::interface().initialize(5, owner, outgoing_viewer);
-        let _contract_address = env.deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer);
+        let contract_address = env.deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer);
         // Read the stored value in the note
+
+        cheatcodes::set_contract_address(contract_address);
         let counter_slot = Counter::storage().counters.slot;
         let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();

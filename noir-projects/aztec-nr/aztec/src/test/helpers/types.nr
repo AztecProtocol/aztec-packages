@@ -7,9 +7,11 @@ use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
+use crate::hash::hash_args;
 
 struct Deployer<N> {
         path: str<N>,
+        public_keys_hash: Field
     }
 
 impl<N> Deployer<N> {
@@ -20,15 +22,23 @@ impl<N> Deployer<N> {
         let address = cheatcodes::deploy(
             self.path,
             call_interface.get_name(),
-            call_interface.get_args()
+            call_interface.get_args(),
+            self.public_keys_hash
         );
         cheatcodes::advance_blocks(1);
         let block_number = cheatcodes::get_block_number();
         let original_fn = call_interface.get_original();
+        let original_msg_sender = cheatcodes::get_msg_sender();
+        let original_contract_address = cheatcodes::get_contract_address();
+
+        cheatcodes::set_contract_address(address);
+        cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_private_context_inputs(block_number - 1);
-        inputs.call_context.storage_contract_address = address;
         inputs.call_context.function_selector = call_interface.get_selector();
         let _result = original_fn(inputs);
+
+        cheatcodes::set_contract_address(original_contract_address);
+        cheatcodes::set_msg_sender(original_msg_sender); 
         address
     }
 
@@ -39,16 +49,28 @@ impl<N> Deployer<N> {
         let address = cheatcodes::deploy(
             self.path,
             call_interface.get_name(),
-            call_interface.get_args()
+            call_interface.get_args(),
+            self.public_keys_hash
         );
+        cheatcodes::advance_blocks(1);
         let original_fn = call_interface.get_original();
+        let original_msg_sender = cheatcodes::get_msg_sender();
+        let original_contract_address = cheatcodes::get_contract_address();
+
+        cheatcodes::set_contract_address(address);
+        cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
-        let _result = original_fn(inputs);
+        inputs.selector = call_interface.get_selector().to_field();
+        inputs.args_hash = hash_args(call_interface.get_args());
+        let _result: T = original_fn(inputs);
+
+        cheatcodes::set_contract_address(original_contract_address);
+        cheatcodes::set_msg_sender(original_msg_sender); 
         address
     }
 
     pub fn without_initializer(self) -> AztecAddress {
-        let address = cheatcodes::deploy(self.path, "", &[]);
+        let address = cheatcodes::deploy(self.path, "", &[], self.public_keys_hash);
         address
     }
 }

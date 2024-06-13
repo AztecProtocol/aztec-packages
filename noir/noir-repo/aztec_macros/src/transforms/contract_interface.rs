@@ -69,9 +69,9 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
             match &arg.typ.typ {
                 UnresolvedTypeData::Array(_, typ) => {
                     format!(
-                        "let hash_{0} = {0}.map(|x: {1}| x.serialize());
+                        "let serialized_{0} = {0}.map(|x: {1}| x.serialize());
                         for i in 0..{0}.len() {{
-                            args_acc = args_acc.append(hash_{0}[i].as_slice());
+                            args_acc = args_acc.append(serialized_{0}[i].as_slice());
                         }}\n",
                         param_name,
                         typ.typ.to_string().replace("plain::", "")

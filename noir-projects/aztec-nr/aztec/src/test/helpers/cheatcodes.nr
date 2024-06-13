@@ -1,6 +1,7 @@
-use dep::protocol_types::address::{AztecAddress, PartialAddress};
+use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress}};
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::test::helpers::types::{Deployer, TestAccount};
+use crate::keys::public_keys::PublicKeys;
 
 unconstrained pub fn reset() {
     oracle_reset();
@@ -30,8 +31,13 @@ unconstrained pub fn get_public_context_inputs() -> PublicContextInputs {
     oracle_get_public_context_inputs()
 }
 
-unconstrained pub fn deploy<N, M>(path: str<N>, initializer: str<M>, args: [Field]) -> AztecAddress {
-    oracle_deploy(path, initializer, args)
+unconstrained pub fn deploy<N, M>(
+    path: str<N>,
+    initializer: str<M>,
+    args: [Field],
+    public_keys_hash: Field
+) -> AztecAddress {
+    oracle_deploy(path, initializer, args, public_keys_hash)
 }
 
 unconstrained pub fn direct_storage_write<N>(
@@ -48,6 +54,18 @@ unconstrained pub fn create_account() -> TestAccount {
 
 unconstrained pub fn add_account(secret: Field, partial_address: PartialAddress) -> TestAccount {
     oracle_add_account(secret, partial_address)
+}
+
+unconstrained pub fn derive_keys(secret: Field) -> PublicKeys {
+    oracle_derive_keys(secret)
+}
+
+unconstrained pub fn set_msg_sender(msg_sender: AztecAddress) {
+    oracle_set_msg_sender(msg_sender)
+}
+
+unconstrained pub fn get_msg_sender() -> AztecAddress {
+    oracle_get_msg_sender()
 }
 
 #[oracle(reset)]
@@ -72,7 +90,12 @@ fn oracle_get_private_context_inputs(historical_block_number: u32) -> PrivateCon
 fn oracle_get_public_context_inputs() -> PublicContextInputs {}
 
 #[oracle(deploy)]
-fn oracle_deploy<N, M>(path: str<N>, initializer: str<M>, args: [Field]) -> AztecAddress {}
+fn oracle_deploy<N, M>(
+    path: str<N>,
+    initializer: str<M>,
+    args: [Field],
+    public_keys_hash: Field
+) -> AztecAddress {}
 
 #[oracle(directStorageWrite)]
 fn direct_storage_write_oracle<N>(
@@ -86,3 +109,12 @@ fn oracle_create_account() -> TestAccount {}
 
 #[oracle(addAccount)]
 fn oracle_add_account(secret: Field, partial_address: PartialAddress) -> TestAccount {}
+
+#[oracle(deriveKeys)]
+fn oracle_derive_keys(secret: Field) -> PublicKeys {}
+
+#[oracle(getMsgSender)]
+fn oracle_get_msg_sender() -> AztecAddress {}
+
+#[oracle(setMsgSender)]
+fn oracle_set_msg_sender(msg_sender: AztecAddress) {}
