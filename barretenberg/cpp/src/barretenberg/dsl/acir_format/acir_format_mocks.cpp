@@ -2,33 +2,7 @@
 
 acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices()
 {
-    return acir_format::AcirFormatOriginalOpcodeIndices{
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_constraints = {},
-        .sha256_compression = {},
-        .schnorr_constraints = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_constraints = {},
-        .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .block_constraints = {},
-    };
+    return {};
 }
 
 void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
