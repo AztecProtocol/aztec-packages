@@ -45,6 +45,7 @@ contract EcdsaAccount {
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
+    #[aztec(view)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.spend_private_authwit(inner_hash)
