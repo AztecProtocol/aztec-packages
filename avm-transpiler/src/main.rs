@@ -21,7 +21,7 @@ fn main() {
     let in_contract_artifact_path = &args[1];
     let out_transpiled_artifact_path = &args[2];
 
-    // Parse original (pre-transpile) contract
+    // Parse original (pre-transpile) contract.
     let contract_json =
         fs::read_to_string(Path::new(in_contract_artifact_path)).expect("Unable to read file");
     let raw_json_obj: serde_json::Value =
