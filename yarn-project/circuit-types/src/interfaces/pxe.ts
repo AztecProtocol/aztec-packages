@@ -16,7 +16,7 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
+import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
