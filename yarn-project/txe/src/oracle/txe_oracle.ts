@@ -61,7 +61,7 @@ import { type TXEDatabase } from '../util/txe_database.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 0;
-  private sideEffectCounter = 0;
+  private sideEffectsCounter = 0;
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
 
@@ -90,12 +90,12 @@ export class TXE implements TypedOracle {
     this.msgSender = msgSender;
   }
 
-  getSideEffectCounter() {
-    return this.sideEffectCounter;
+  getSideEffectsCounter() {
+    return this.sideEffectsCounter;
   }
 
-  setSideEffectCounter(sideEffectCounter: number) {
-    this.sideEffectCounter = sideEffectCounter;
+  setSideEffectsCounter(sideEffectsCounter: number) {
+    this.sideEffectsCounter = sideEffectsCounter;
   }
 
   setContractAddress(contractAddress: AztecAddress) {
@@ -127,7 +127,7 @@ export class TXE implements TypedOracle {
     await this.txeDatabase.addContractArtifact(computeContractClassId(contractClass), artifact);
   }
 
-  async getPrivateContextInputs(blockNumber: number, sideEffectCounter = this.sideEffectCounter) {
+  async getPrivateContextInputs(blockNumber: number, sideEffectsCounter = this.sideEffectsCounter) {
     const trees = this.getTrees();
     const stateReference = await trees.getStateReference(true);
     const inputs = PrivateContextInputs.empty();
@@ -135,8 +135,8 @@ export class TXE implements TypedOracle {
     inputs.historicalHeader.state = stateReference;
     inputs.callContext.msgSender = this.msgSender;
     inputs.callContext.storageContractAddress = this.contractAddress;
-    inputs.callContext.sideEffectCounter = sideEffectCounter;
-    inputs.startSideEffectCounter = sideEffectCounter;
+    inputs.callContext.sideEffectCounter = sideEffectsCounter;
+    inputs.startSideEffectCounter = sideEffectsCounter;
     return inputs;
   }
 
@@ -513,7 +513,7 @@ export class TXE implements TypedOracle {
       publicInputs,
     );
     // Apply side effects
-    this.sideEffectCounter += publicInputs.endSideEffectCounter.toNumber();
+    this.sideEffectsCounter += publicInputs.endSideEffectCounter.toNumber();
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
 

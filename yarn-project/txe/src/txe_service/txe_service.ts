@@ -208,6 +208,11 @@ export class TXEService {
     return toForeignCallResult([toSingle(msgSender)]);
   }
 
+  getSideEffectsCounter() {
+    const counter = (this.typedOracle as TXE).getSideEffectsCounter();
+    return toForeignCallResult([toSingle(new Fr(counter))]);
+  }
+
   // PXE oracles
 
   getRandomField() {

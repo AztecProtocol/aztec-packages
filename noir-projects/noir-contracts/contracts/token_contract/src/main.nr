@@ -409,6 +409,7 @@ contract Token {
         let recipient = env.create_account();
         let mint_amount = 10000;
 
+        // Start the test in the account contract address
         cheatcodes::set_contract_address(owner);
 
         // Deploy token contract
@@ -430,13 +431,38 @@ contract Token {
         // Time travel so we can read keys from the registry
         env.advance_block_by(6);
 
+        // Store a note in the cache so we can redeem it
+        cheatcodes::store_note_in_cache(
+            &mut TransparentNote::new(mint_amount, secret_hash),
+            Token::storage().pending_shields.slot,
+            token_contract_address
+        );
+
         // Redeem our shielded tokens
         let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
         env.call_private_void(redeem_shield_call_interface);
 
+        // Not really sure why this is needed?
+        env.advance_block_by(1);
+
         // Transfer tokens
-        let private_token_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, 1000);
+        let transfer_amount = 1000;
+        let private_token_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, transfer_amount);
         env.call_private_void(private_token_transfer_call_interface);
+
+        // Check balances
+        cheatcodes::set_contract_address(token_contract_address);
+
+        let balances_slot = Token::storage().balances.slot;
+        let recipient_slot = derive_storage_slot_in_map(balances_slot, recipient);
+        let mut options = NoteViewerOptions::new();
+        let opt_notes: [Option<TokenNote>; MAX_NOTES_PER_PAGE] = view_notes(recipient_slot, options);
+        assert(opt_notes[0].unwrap().amount.to_field() == transfer_amount);
+
+        let owner_slot = derive_storage_slot_in_map(balances_slot, owner);
+        let mut options = NoteViewerOptions::new();
+        let opt_notes: [Option<TokenNote>; MAX_NOTES_PER_PAGE] = view_notes(owner_slot, options);
+        assert(opt_notes[0].unwrap().amount.to_field() == mint_amount - transfer_amount);
     }
 }
 // docs:end:token_all
