@@ -22,7 +22,6 @@ enum GatesFlamegraphCommand {
     GatesFlamegraph(gates_flamegraph_cmd::GatesFlamegraphCommand),
 }
 
-#[cfg(not(feature = "codegen-docs"))]
 pub(crate) fn start_cli() -> eyre::Result<()> {
     let ProfilerCli { command } = ProfilerCli::parse();
 
@@ -31,12 +30,5 @@ pub(crate) fn start_cli() -> eyre::Result<()> {
     }
     .map_err(|err| eyre::eyre!("{}", err))?;
 
-    Ok(())
-}
-
-#[cfg(feature = "codegen-docs")]
-pub(crate) fn start_cli() -> eyre::Result<()> {
-    let markdown: String = clap_markdown::help_markdown::<NargoCli>();
-    println!("{markdown}");
     Ok(())
 }

@@ -2725,7 +2725,7 @@ dependencies = [
 
 [[package]]
 name = "noir_profiler"
-version = "0.40.0"
+version = "0.30.0"
 dependencies = [
  "acir",
  "clap",
@@ -2740,9 +2740,6 @@ dependencies = [
  "noirc_driver",
  "noirc_errors",
  "noirc_frontend",
- "paste",
- "proptest",
- "rand 0.8.5",
  "serde",
  "serde_json",
  "tempfile",
