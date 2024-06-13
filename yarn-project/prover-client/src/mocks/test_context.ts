@@ -19,6 +19,7 @@ import {
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { JSTreeFactory } from '@aztec/merkle-tree';
 import {
   type ContractsDataSourcePublicDB,
   type PublicExecution,
@@ -31,8 +32,7 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
-import { MerkleTrees, type MerkleTreeOperations } from '@aztec/world-state';
-import { JSTreeFactory } from '@aztec/merkle-tree';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';

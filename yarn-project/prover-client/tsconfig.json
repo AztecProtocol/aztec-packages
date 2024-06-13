@@ -22,6 +22,9 @@
       "path": "../kv-store"
     },
     {
+      "path": "../merkle-tree"
+    },
+    {
       "path": "../noir-protocol-circuits-types"
     },
     {

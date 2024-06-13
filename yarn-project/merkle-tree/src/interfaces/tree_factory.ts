@@ -1,8 +1,15 @@
-import { AztecKVStore } from "@aztec/kv-store";
-import { Hasher } from "@aztec/types/interfaces";
-import { StandardTree } from "../standard_tree/standard_tree.js";
-import { Fr, NullifierLeaf, NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from "@aztec/circuits.js";
-import { StandardIndexedTree } from "../standard_indexed_tree/standard_indexed_tree.js";
+import {
+  type Fr,
+  NullifierLeaf,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js';
+import { type AztecKVStore } from '@aztec/kv-store';
+import { type Hasher } from '@aztec/types/interfaces';
+
+import { StandardIndexedTree } from '../standard_indexed_tree/standard_indexed_tree.js';
+import { type StandardTree } from '../standard_tree/standard_tree.js';
 
 /**
  * The nullifier tree is an indexed tree.

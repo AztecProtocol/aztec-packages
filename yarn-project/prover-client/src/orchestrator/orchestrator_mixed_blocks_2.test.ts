@@ -5,8 +5,8 @@ import { range } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { JSTreeFactory } from '@aztec/merkle-tree';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';

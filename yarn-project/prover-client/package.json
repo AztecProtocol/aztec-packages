@@ -55,7 +55,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/merkle-trees": "workspace:^",
+    "@aztec/merkle-tree": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/world-state": "workspace:^",

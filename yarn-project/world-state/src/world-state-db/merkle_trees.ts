@@ -27,7 +27,7 @@ import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 import {
   Pedersen,
-  StandardIndexedTree,
+  type StandardIndexedTree,
   StandardTree,
   getTreeMeta,
   loadTree,

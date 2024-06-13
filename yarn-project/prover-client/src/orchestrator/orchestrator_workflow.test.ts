@@ -11,8 +11,8 @@ import { makeGlobalVariables, makeRootParityInput } from '@aztec/circuits.js/tes
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { JSTreeFactory } from '@aztec/merkle-tree';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
