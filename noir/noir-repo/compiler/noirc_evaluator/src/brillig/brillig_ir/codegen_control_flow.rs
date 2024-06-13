@@ -34,7 +34,7 @@ impl BrilligContext {
         self.stop_instruction();
     }
 
-    /// This codegen will issue a loop that will iterate adding step to the iterator and comparing it with loop_bound at every step.
+    /// This codegen will issue a loop do for (let iterator_register = 0; i < loop_bound; i += step)
     /// The body of the loop should be issued by the caller in the on_iteration closure.
     pub(crate) fn codegen_loop_with_bound_and_step<F>(
         &mut self,
@@ -71,7 +71,7 @@ impl BrilligContext {
         // Call the on iteration function
         on_iteration(self, iterator_register);
 
-        // Increment the iterator register
+        // Add step to the iterator register
         self.memory_op_instruction(
             iterator_register.address,
             step,

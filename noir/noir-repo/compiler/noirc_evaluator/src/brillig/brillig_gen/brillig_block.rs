@@ -1663,6 +1663,8 @@ impl<'block> BrilligBlock<'block> {
                         ),
                     };
 
+                    // Write the items
+
                     self.initialize_constant_array(array, typ, dfg, pointer);
 
                     new_variable
@@ -1704,6 +1706,7 @@ impl<'block> BrilligBlock<'block> {
             _ => unreachable!("ICE: Array constant is not of array or slice type {typ:?}"),
         };
 
+        // Find out if we are repeating the same item over and over
         let mut data_as_unique_items = HashSet::default();
         for item_index in (0..data.len()).step_by(item_types.len()) {
             let item: Vec<_> = (0..item_types.len()).map(|i| data[item_index + i]).collect();
@@ -1726,7 +1729,7 @@ impl<'block> BrilligBlock<'block> {
             let data_length_variable =
                 self.brillig_context.make_usize_constant_instruction(data.len().into());
 
-            // If this is an array with complex subitems, we need a custom step in the loop
+            // If this is an array with complex subitems, we need a custom step in the loop to write all the subitems while iterating.
             if item_types.len() > 1 {
                 let step_variable =
                     self.brillig_context.make_usize_constant_instruction(item_types.len().into());
@@ -1774,6 +1777,8 @@ impl<'block> BrilligBlock<'block> {
 
             self.brillig_context.deallocate_single_addr(data_length_variable);
         } else {
+            // Compile time initialization of the array:
+
             // Allocate a register for the iterator
             let iterator_register =
                 self.brillig_context.make_usize_constant_instruction(0_usize.into());
