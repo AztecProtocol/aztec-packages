@@ -9,6 +9,8 @@ env:
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_CHAIN_ID: 31337
+  TF_VAR_BOOTNODE_1_PRIVATE_KEY: ${{ secrets.BOOTNODE_1_PRIVATE_KEY }}
+  TF_VAR_BOOTNODE_2_PRIVATE_KEY: ${{ secrets.BOOTNODE_2_PRIVATE_KEY }}
   TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}
   TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_2_PUBLISHER_PRIVATE_KEY }}
   TF_VAR_DEPLOY_TAG: devnet
@@ -53,6 +55,12 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
+
+      - name: Deploy Bootstrap Nodes
+        working-directory: ./yarn-project/aztec/terraform/node
+        run: |
+          terraform init -input=false -backend-config="key=devnet/aztec-node"
+          terraform apply -input=false -auto-approve
 
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node

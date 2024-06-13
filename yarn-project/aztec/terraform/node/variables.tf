@@ -85,5 +85,6 @@ variable "IMAGE_TAG" {
 }
 
 variable "FULL_IMAGE" {
-  type = string
+  type    = string
+  default = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
 }
