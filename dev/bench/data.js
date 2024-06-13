@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718242394834,
+  "lastUpdate": 1718243067839,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -38168,6 +38168,74 @@ window.BENCHMARK_DATA = {
             "value": 163213429,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163213429 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "99b0b408bf40cb69b9ba59b4959f0597e29c1057",
+          "message": "fix: stop squashing storage accesses in avm simulator - all need to be validated in kernel",
+          "timestamp": "2024-06-12T23:43:29Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7036/commits/99b0b408bf40cb69b9ba59b4959f0597e29c1057"
+        },
+        "date": 1718243065694,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15601.475781000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10805.405932 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5657.176790000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5264.435879 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49878.047648,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49878049000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17116.266592000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17116267000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5190794305,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5190794305 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200428044,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200428044 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4310514519,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4310514519 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163970917,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163970917 ns\nthreads: 1"
           }
         ]
       }
