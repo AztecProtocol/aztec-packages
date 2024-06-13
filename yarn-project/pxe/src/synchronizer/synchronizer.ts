@@ -340,8 +340,8 @@ export class Synchronizer {
     for (const deferredNotes of txHashToDeferredNotes.values()) {
       // to be safe, try each note processor in case the deferred notes are for different accounts.
       for (const processor of this.noteProcessors) {
-        const { incomingNotes: notes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
-        incomingNotes.push(...notes);
+        const { incomingNotes: inNotes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
+        incomingNotes.push(...inNotes);
         outgoingNotes.push(...outNotes);
       }
     }
@@ -364,9 +364,13 @@ export class Synchronizer {
       );
     });
 
+    await this.#removeNullifiedNotes(incomingNotes);
+  }
+
+  async #removeNullifiedNotes(notes: IncomingNoteDao[]) {
     // now group the decoded incoming notes by public key
     const publicKeyToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
-    for (const noteDao of incomingNotes) {
+    for (const noteDao of notes) {
       const notesForPublicKey = publicKeyToIncomingNotes.get(noteDao.ivpkM) ?? [];
       notesForPublicKey.push(noteDao);
       publicKeyToIncomingNotes.set(noteDao.ivpkM, notesForPublicKey);
