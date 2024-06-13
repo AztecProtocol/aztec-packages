@@ -85,7 +85,6 @@ export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
     // as some field will likely end up not being in the field etc.
     try {
       if (payloadType === L1EventPayload) {
-        console.log("decrypting as L1EventPayload");
         const reader = BufferReader.asReader((data as EncryptedL2Log).data);
         const incomingTag = Fr.fromBuffer(reader);
         const outgoingTag = Fr.fromBuffer(reader);
