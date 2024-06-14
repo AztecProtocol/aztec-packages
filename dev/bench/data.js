@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718366192277,
+  "lastUpdate": 1718366215593,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -40628,6 +40628,78 @@ window.BENCHMARK_DATA = {
             "value": 163853870,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163853870 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92b1349ba671e87e948bf9248c5133accde9091f",
+          "message": "chore: lookups cleanup/documentation (#7002)\n\nAdding some comments and improving some naming in code having to do with\r\nlookups.\r\n\r\nNote: the BasicTable struct had a `size` member that had to be set\r\nmanually. This seems extremely error prone. I updated this to use a\r\n`size()` method that checks the size of the first table column.\r\n\r\n(This work stems from notes-to-self that I made while perusing the\r\nlookup code in preparation to convert to a log-derivative argument).",
+          "timestamp": "2024-06-14T11:41:34Z",
+          "tree_id": "286285dcd15328e2e118aa60c9aa5b336c35da03",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/92b1349ba671e87e948bf9248c5133accde9091f"
+        },
+        "date": 1718366213826,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15427.838446000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10800.290014000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5630.443463999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5193.707401999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49860.53987099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49860541000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16956.711678,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16956712000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5164723260,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5164723260 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198057502,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198057502 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4303448362,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4303448362 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163993292,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163993292 ns\nthreads: 1"
           }
         ]
       }
