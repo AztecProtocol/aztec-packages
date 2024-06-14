@@ -27,7 +27,6 @@ struct TestEnvironment {
 impl TestEnvironment {
     fn new() -> Self {
         cheatcodes::reset();
-
         Self { contract_address: Option::none(), args_hash: Option::none(), function_selector: Option::none() }
     }
 

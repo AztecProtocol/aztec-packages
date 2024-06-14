@@ -1,27 +1,27 @@
 import { Fr } from '@aztec/foundation/fields';
 
-export type ForeignCallSingle = {
-  Single: string;
-};
+export type ForeignCallSingle = string;
 
-export type ForeignCallArray = {
-  Array: string[];
+export type ForeignCallArray = string[];
+
+export type ForeignCallResult = {
+  values: (ForeignCallSingle | ForeignCallArray)[];
 };
 
 export function fromSingle(obj: ForeignCallSingle) {
-  return Fr.fromBuffer(Buffer.from(obj.Single, 'hex'));
+  return Fr.fromBuffer(Buffer.from(obj, 'hex'));
 }
 
 export function fromArray(obj: ForeignCallArray) {
-  return obj.Array.map(str => Fr.fromBuffer(Buffer.from(str, 'hex')));
+  return obj.map(str => Fr.fromBuffer(Buffer.from(str, 'hex')));
 }
 
 export function toSingle(obj: Fr) {
-  return { Single: obj.toString().slice(2) };
+  return obj.toString().slice(2);
 }
 
 export function toArray(objs: Fr[]) {
-  return { Array: objs.map(obj => obj.toString()) };
+  return objs.map(obj => obj.toString());
 }
 
 export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray)[]) {

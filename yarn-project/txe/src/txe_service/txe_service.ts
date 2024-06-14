@@ -90,23 +90,6 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async reset() {
-    this.store = openTmpStore(true);
-    const trees = await MerkleTrees.new(this.store, this.logger);
-    const keyStore = new KeyStore(this.store);
-    const txeDatabase = new TXEDatabase(this.store);
-    this.typedOracle = new TXE(
-      this.logger,
-      trees,
-      new PackedValuesCache(),
-      new ExecutionNoteCache(),
-      keyStore,
-      txeDatabase,
-    );
-    await this.timeTravel(toSingle(new Fr(1)));
-    return toForeignCallResult([]);
-  }
-
   setContractAddress(address: ForeignCallSingle) {
     const typedAddress = AztecAddress.fromField(fromSingle(address));
     (this.typedOracle as TXE).setContractAddress(typedAddress);
