@@ -7,19 +7,16 @@
   },
   "references": [
     {
-      "path": "../bb-prover"
+      "path": "../archiver"
     },
     {
-      "path": "../builder"
+      "path": "../aztec.js"
     },
     {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
-    },
-    {
-      "path": "../ethereum"
     },
     {
       "path": "../foundation"
@@ -31,10 +28,7 @@
       "path": "../kv-store"
     },
     {
-      "path": "../noir-protocol-circuits-types"
-    },
-    {
-      "path": "../protocol-contracts"
+      "path": "../pxe"
     },
     {
       "path": "../simulator"
@@ -43,7 +37,7 @@
       "path": "../types"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

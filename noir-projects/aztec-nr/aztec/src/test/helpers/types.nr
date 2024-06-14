@@ -38,7 +38,7 @@ impl<N> Deployer<N> {
         let _result = original_fn(inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender); 
+        cheatcodes::set_msg_sender(original_msg_sender);
         address
     }
 
@@ -65,7 +65,7 @@ impl<N> Deployer<N> {
         let _result: T = original_fn(inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender); 
+        cheatcodes::set_msg_sender(original_msg_sender);
         address
     }
 
