@@ -68,7 +68,7 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
         for i in 0..Len {
             exceeded_len |= i == append_len;
             if !exceeded_len {
-            self.storage[self.len + i] = vec.get_unchecked(i);
+                self.storage[self.len + i] = vec.get_unchecked(i);
             }
         }
         self.len = new_len;
