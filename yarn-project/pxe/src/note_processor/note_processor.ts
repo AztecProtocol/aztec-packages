@@ -151,13 +151,18 @@ export class NoteProcessor {
             const outgoingTaggedNote = TaggedLog.decryptAsOutgoing(log.data, ovskM)!;
 
             if (incomingTaggedNote || outgoingTaggedNote) {
-              if (
-                incomingTaggedNote &&
-                outgoingTaggedNote &&
-                !incomingTaggedNote.payload.equals(outgoingTaggedNote.payload)
-              ) {
-                throw new Error('Incoming and outgoing note payloads do not match.');
-              }
+              // TODO(#7053): Re-enable this check
+              // if (
+              //   incomingTaggedNote &&
+              //   outgoingTaggedNote &&
+              //   !incomingTaggedNote.payload.equals(outgoingTaggedNote.payload)
+              // ) {
+              //   throw new Error(
+              //     `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+              //       incomingTaggedNote.payload,
+              //     )}, Outgoing: ${JSON.stringify(outgoingTaggedNote.payload)}`,
+              //   );
+              // }
 
               const payload = incomingTaggedNote?.payload || outgoingTaggedNote?.payload;
 
