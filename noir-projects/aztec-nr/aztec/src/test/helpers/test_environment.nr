@@ -12,6 +12,12 @@ use crate::test::helpers::{cheatcodes, types::{Deployer, TestAccount}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::hash_args;
 
+use crate::note::{
+    note_header::NoteHeader, note_interface::NoteInterface,
+    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption}
+};
+use crate::oracle::notes::notify_created_note;
+
 struct TestEnvironment {
     contract_address: Option<AztecAddress>,
     args_hash: Option<Field>,
@@ -151,5 +157,52 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
         result
+    }
+
+    fn call_public_void<C, M, Env, N>(self, call_interface: C) where C: CallInterface<M, PublicContextInputs, (), Env> {
+        let original_fn = call_interface.get_original();
+        let original_msg_sender = cheatcodes::get_msg_sender();
+        let original_contract_address = cheatcodes::get_contract_address();
+        let target_address = call_interface.get_contract_address();
+
+        cheatcodes::set_contract_address(target_address);
+        cheatcodes::set_msg_sender(original_contract_address);
+        let mut inputs = cheatcodes::get_public_context_inputs();
+        inputs.selector = call_interface.get_selector().to_field();
+        inputs.args_hash = hash_args(call_interface.get_args());
+        original_fn(inputs);
+
+        cheatcodes::set_contract_address(original_contract_address);
+        cheatcodes::set_msg_sender(original_msg_sender);
+    }
+
+    pub fn store_note_in_cache<Note, N, M>(
+        self,
+        note: &mut Note,
+        storage_slot: Field,
+        contract_address: AztecAddress
+    ) where Note: NoteInterface<N, M> {
+        let original_contract_address = cheatcodes::get_contract_address();
+        cheatcodes::set_contract_address(contract_address);
+        let note_hash_counter = cheatcodes::get_side_effects_counter();
+
+        let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
+        // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
+        Note::set_header(note, header);
+        let inner_note_hash = compute_note_hash_for_insertion(*note);
+
+        // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
+        let serialized_note: [Field; N] = Note::serialize_content(*note);
+        assert(
+            notify_created_note(
+            storage_slot,
+            Note::get_note_type_id(),
+            serialized_note,
+            inner_note_hash,
+            note_hash_counter
+        )
+            == 0
+        );
+        cheatcodes::set_contract_address(original_contract_address);
     }
 }

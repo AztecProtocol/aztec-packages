@@ -432,7 +432,7 @@ contract Token {
         env.advance_block_by(6);
 
         // Store a note in the cache so we can redeem it
-        cheatcodes::store_note_in_cache(
+        env.store_note_in_cache(
             &mut TransparentNote::new(mint_amount, secret_hash),
             Token::storage().pending_shields.slot,
             token_contract_address

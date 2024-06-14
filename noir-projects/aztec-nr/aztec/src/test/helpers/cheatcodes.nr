@@ -2,11 +2,6 @@ use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{A
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::test::helpers::types::{Deployer, TestAccount};
 use crate::keys::public_keys::PublicKeys;
-use crate::note::{
-    note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption}
-};
-use crate::oracle::notes::notify_created_note;
 
 unconstrained pub fn reset() {
     oracle_reset();
@@ -73,37 +68,8 @@ unconstrained pub fn get_msg_sender() -> AztecAddress {
     oracle_get_msg_sender()
 }
 
-unconstrained fn get_side_effects_counter() -> u32 {
+unconstrained pub fn get_side_effects_counter() -> u32 {
     oracle_get_side_effects_counter()
-}
-
-pub fn store_note_in_cache<Note, N, M>(
-    note: &mut Note,
-    storage_slot: Field,
-    contract_address: AztecAddress
-) where Note: NoteInterface<N, M> {
-    let original_contract_address = get_contract_address();
-    set_contract_address(contract_address);
-    let note_hash_counter = get_side_effects_counter();
-
-    let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
-    // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
-    Note::set_header(note, header);
-    let inner_note_hash = compute_note_hash_for_insertion(*note);
-
-    // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
-    let serialized_note: [Field; N] = Note::serialize_content(*note);
-    assert(
-        notify_created_note(
-        storage_slot,
-        Note::get_note_type_id(),
-        serialized_note,
-        inner_note_hash,
-        note_hash_counter
-    )
-        == 0
-    );
-    set_contract_address(original_contract_address);
 }
 
 #[oracle(reset)]
