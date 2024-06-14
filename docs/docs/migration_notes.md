@@ -14,7 +14,7 @@ The `limit` parameter in `NoteGetterOptions` and `NoteViewerOptions` is now requ
 
 ### [Aztec.nr] canonical public authwit registry
 
-The public authwits are moved into a shared registry (auth registry) to make it easier for sequencers to approve for their non-revertible (setup phase) whitelist. Previously, it was possible to DOS a sequencer by having a very expensive authwit validation that fails at the end, now the whitelist simple need the registry.
+The public authwits are moved into a shared registry (auth registry) to make it easier for sequencers to approve for their non-revertible (setup phase) whitelist. Previously, it was possible to DOS a sequencer by having a very expensive authwit validation that fails at the end, now the whitelist simply need the registry.
 
 Notable, this means that consuming a public authwit will no longer emit a nullifier in the account contract but instead update STORAGE in the public domain. This means that there is a larger difference between private and public again. However, it also means that if contracts need to approve, and use the approval in the same tx, it is transient and don't need to go to DA (saving 96 bytes).
 

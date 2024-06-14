@@ -66,7 +66,7 @@ contract AuthRegistry {
      * 
      * Useful for the case where you want someone else to insert a public authwit for you.
      * For example, if Alice wants Bob to insert an authwit in public, such that they can execute
-     * a trade, Alice can create a private authwit, and Bob can call this function with the it.
+     * a trade, Alice can create a private authwit, and Bob can call this function with it.
      *
      * @param approver The address of the approver (Alice in the example)
      * @param message_hash The message hash to authorize
