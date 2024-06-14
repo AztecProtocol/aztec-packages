@@ -89,7 +89,7 @@ contract SchnorrAccount {
     }
 
     /**
-    * @notice Helper function to check the existing and validity of authwitnesses
+    * @notice Helper function to check validity of private authwitnesses
     * @param message_hash The message hash of the message to check the validity
     * @return True if the message_hash can be consumed, false otherwise
     */

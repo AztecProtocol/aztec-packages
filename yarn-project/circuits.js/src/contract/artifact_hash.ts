@@ -59,6 +59,8 @@ export function computeArtifactHashPreimage(artifact: ContractArtifact) {
 }
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
+  // TODO: #6021 We need to make sure the artifact is deterministic from any specific compiler run. This relates to selectors not being sorted and being
+  // apparently random in the order they appear after compiled w/ nargo. We can try to sort this upon loading an artifact.
   // TODO: #6021: Should we use the sorted event selectors instead? They'd need to be unique for that.
   // Response - The output selectors need to be sorted, because if not noir makes no guarantees on the order of outputs for some reason
 

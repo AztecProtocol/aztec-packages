@@ -10,7 +10,7 @@ contract AuthRegistry {
     }
 
     /**
-     * Updates the `authorized` value for `msg_sender` for `messageHash`.
+     * Updates the `authorized` value for `msg_sender` for `message_hash`.
      *
      * @param message_hash The message hash being authorized
      * @param authorize True if the caller is authorized to perform the message hash, false otherwise
@@ -63,6 +63,14 @@ contract AuthRegistry {
 
     /**
      * Updates a public authwit using a private authwit
+     * 
+     * Useful for the case where you want someone else to insert a public authwit for you.
+     * For example, if Alice wants Bob to insert an authwit in public, such that they can execute
+     * a trade, Alice can create a private authwit, and Bob can call this function with the it.
+     *
+     * @param approver The address of the approver (Alice in the example)
+     * @param message_hash The message hash to authorize
+     * @param authorize True if the message hash should be authorized, false otherwise
      */
     #[aztec(private)]
     fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
@@ -70,6 +78,14 @@ contract AuthRegistry {
         AuthRegistry::at(context.this_address())._set_authorized(approver, message_hash, authorize).enqueue(&mut context);
     }
 
+    /**
+     * Internal function to update the `authorized` value for `approver` for `messageHash`.
+     * Used along with `set_authorized_private` to update the public authwit.
+     * 
+     * @param approver The address of the approver
+     * @param message_hash The message hash being authorized
+     * @param authorize True if the caller is authorized to perform the message hash, false otherwise
+     */
     #[aztec(public)]
     #[aztec(internal)]
     fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
@@ -88,7 +104,7 @@ contract AuthRegistry {
         storage.reject_all.at(on_behalf_of).read()
     }
 
-    /* 
+    /**
      * Fetches the `authorized` value for `on_behalf_of` for `message_hash`.
      * 
      * @param on_behalf_of The address on whose behalf the action is being consumed

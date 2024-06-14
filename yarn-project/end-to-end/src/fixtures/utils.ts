@@ -678,8 +678,8 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet) {
 export async function deployCanonicalAuthRegistry(deployer: Wallet) {
   const canonicalAuthRegistry = getCanonicalAuthRegistry();
 
-  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
-  // the key registry has already been deployed to the correct address.
+  // We check to see if there exists a contract at the canonical Auth Registry address with the same contract class id as we expect. This means that
+  // the auth registry has already been deployed to the correct address.
   if (
     (await deployer.getContractInstance(canonicalAuthRegistry.address))?.contractClassId.equals(
       canonicalAuthRegistry.contractClass.id,
