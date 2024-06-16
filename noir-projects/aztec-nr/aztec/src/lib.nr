@@ -6,11 +6,13 @@ mod initializer;
 mod keys;
 mod messaging;
 mod note;
+mod event;
 mod oracle;
 mod state_vars;
 mod prelude;
 mod public_storage;
 mod encrypted_logs;
 use dep::protocol_types;
+mod utils;
 
 mod test;

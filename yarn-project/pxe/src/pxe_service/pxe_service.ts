@@ -3,9 +3,11 @@ import {
   type AztecNode,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
+  type EventMetadata,
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
+  L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
@@ -15,6 +17,7 @@ import {
   type ProofCreator,
   SimulatedTx,
   SimulationError,
+  TaggedLog,
   Tx,
   type TxEffect,
   type TxExecutionRequest,
@@ -32,11 +35,11 @@ import {
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
-import { type Fq, Fr } from '@aztec/foundation/fields';
+import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
@@ -61,6 +64,7 @@ import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
+import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 
@@ -76,6 +80,8 @@ export class PXEService implements PXE {
   // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
+
+  private fakeProofCreator = new TestProofCreator();
 
   constructor(
     private keyStore: KeyStore,
@@ -173,6 +179,10 @@ export class PXEService implements PXE {
     return artifact && getContractClassFromArtifact(artifact);
   }
 
+  public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    return this.db.getContractArtifact(id);
+  }
+
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
     const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
@@ -251,6 +261,7 @@ export class PXEService implements PXE {
         );
       }
       await this.db.addContractArtifact(contractClassId, artifact);
+      await this.node.addContractArtifact(instance.address, artifact);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.db.getContractArtifact(instance.contractClassId);
@@ -310,13 +321,15 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        note.note,
-      );
+      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndOptionallyANullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          true,
+          note.note,
+        );
 
       const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
       if (index === undefined) {
@@ -346,6 +359,54 @@ export class PXEService implements PXE {
     }
   }
 
+  public async addNullifiedNote(note: ExtendedNote) {
+    const owner = await this.db.getCompleteAddress(note.owner);
+    if (!owner) {
+      throw new Error(`Unknown account: ${note.owner.toString()}`);
+    }
+
+    const nonces = await this.getNoteNonces(note);
+    if (nonces.length === 0) {
+      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
+    }
+
+    for (const nonce of nonces) {
+      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndOptionallyANullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          false,
+          note.note,
+        );
+
+      if (!innerNullifier.equals(Fr.ZERO)) {
+        throw new Error('Unexpectedly received non-zero nullifier.');
+      }
+
+      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
+      if (index === undefined) {
+        throw new Error('Note does not exist.');
+      }
+
+      await this.db.addNullifiedNote(
+        new IncomingNoteDao(
+          note.note,
+          note.contractAddress,
+          note.storageSlot,
+          note.noteTypeId,
+          note.txHash,
+          nonce,
+          innerNoteHash,
+          Fr.ZERO, // We are not able to derive
+          index,
+          owner.publicKeys.masterIncomingViewingPublicKey,
+        ),
+      );
+    }
+  }
+
   /**
    * Finds the nonce(s) for a given note.
    * @param note - The note to find the nonces for.
@@ -365,11 +426,12 @@ export class PXEService implements PXE {
     // Remove this once notes added from public also include nonces.
     {
       const publicNoteNonce = Fr.ZERO;
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         publicNoteNonce,
         note.storageSlot,
         note.noteTypeId,
+        false,
         note.note,
       );
       if (tx.noteHashes.some(hash => hash.equals(siloedNoteHash))) {
@@ -386,11 +448,12 @@ export class PXEService implements PXE {
       }
 
       const nonce = computeNoteHashNonce(firstNullifier, i);
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
         note.noteTypeId,
+        false,
         note.note,
       );
       if (hash.equals(siloedNoteHash)) {
@@ -409,8 +472,14 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
-    return (await this.simulateTx(txRequest, simulatePublic)).tx;
+  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.jobQueue.put(async () => {
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined);
+      if (simulatePublic) {
+        simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+      }
+      return simulatedTx.tx;
+    });
   }
 
   public async simulateTx(
@@ -419,16 +488,15 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
-      // We log only if the msgSender is undefined, as simulating with a different msgSender
-      // is unlikely to be a real transaction, and likely to be only used to read data.
-      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
-      // If we log, the `getTxHash` function will throw.
-
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
       }
 
+      // We log only if the msgSender is undefined, as simulating with a different msgSender
+      // is unlikely to be a real transaction, and likely to be only used to read data.
+      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+      // If we log, the `getTxHash` function will throw.
       if (!msgSender) {
         this.log.info(`Executed local simulation for ${simulatedTx.tx.getTxHash()}`);
       }
@@ -532,7 +600,7 @@ export class PXEService implements PXE {
     return Promise.resolve({
       pxeVersion: this.packageVersion,
       protocolContractAddresses: {
-        classRegisterer: getCanonicalClassRegistererAddress(),
+        classRegisterer: ClassRegistererAddress,
         gasToken: getCanonicalGasToken().address,
         instanceDeployer: getCanonicalInstanceDeployer().address,
         keyRegistry: getCanonicalKeyRegistryAddress(),
@@ -645,18 +713,22 @@ export class PXEService implements PXE {
    * the function will also include the new contract's public functions in the transaction object.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
-   * @param signature - The ECDSA signature for the transaction request.
+   * @param proofCreator - The proof creator to use for proving the execution.
    * @param msgSender - (Optional) The message sender to use for the simulation.
-   * @returns An object tract contains:
+   * @returns An object that contains:
    * A private transaction object containing the proof, public inputs, and encrypted logs.
    * The return values of the private execution
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
+  async #simulateAndProve(
+    txExecutionRequest: TxExecutionRequest,
+    proofCreator: ProofCreator,
+    msgSender?: AztecAddress,
+  ): Promise<SimulatedTx> {
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
-    const kernelProver = new KernelProver(kernelOracle, this.proofCreator);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
@@ -738,5 +810,46 @@ export class PXEService implements PXE {
 
   public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
+  }
+
+  public async getEvents<T>(from: number, limit: number, eventMetadata: EventMetadata<T>, ivpk: Point): Promise<T[]> {
+    const blocks = await this.node.getBlocks(from, limit);
+
+    const txEffects = blocks.flatMap(block => block.body.txEffects);
+    const encryptedTxLogs = txEffects.flatMap(txEffect => txEffect.encryptedLogs);
+
+    const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
+
+    const ivsk = await this.keyStore.getMasterSecretKey(ivpk);
+
+    const visibleEvents = encryptedLogs
+      .map(encryptedLog => TaggedLog.decryptAsIncoming(encryptedLog, ivsk, L1EventPayload))
+      .filter(item => item !== undefined) as TaggedLog<L1EventPayload>[];
+
+    const decodedEvents = visibleEvents
+      .map(visibleEvent => {
+        if (visibleEvent.payload === undefined) {
+          return undefined;
+        }
+        if (!FunctionSelector.fromField(visibleEvent.payload.eventTypeId).equals(eventMetadata.functionSelector)) {
+          return undefined;
+        }
+        if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
+          throw new Error(
+            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+          );
+        }
+
+        return eventMetadata.fieldNames.reduce(
+          (acc, curr, i) => ({
+            ...acc,
+            [curr]: visibleEvent.payload.event.items[i],
+          }),
+          {} as T,
+        );
+      })
+      .filter(visibleEvent => visibleEvent !== undefined) as T[];
+
+    return decodedEvents;
   }
 }

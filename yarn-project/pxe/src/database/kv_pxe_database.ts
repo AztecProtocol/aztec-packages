@@ -271,6 +271,10 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
 
+        if (filter.siloedNullifier && !note.siloedNullifier.equals(filter.siloedNullifier)) {
+          continue;
+        }
+
         result.push(note);
       }
     }
@@ -328,6 +332,18 @@ export class KVPxeDatabase implements PxeDatabase {
 
       return nullifiedNotes;
     });
+  }
+
+  async addNullifiedNote(note: IncomingNoteDao): Promise<void> {
+    const noteIndex = toBufferBE(note.index, 32).toString('hex');
+
+    await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
+    await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
+    await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
+    await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
+    await this.#nullifiedNotesByIvpkM.set(note.ivpkM.toString(), noteIndex);
+
+    return Promise.resolve();
   }
 
   async setHeader(header: Header): Promise<void> {

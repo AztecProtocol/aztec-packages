@@ -1,7 +1,7 @@
 name: aztec-devnet
 services:
   pxe:
-    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:edc36351a531c2d76c2a96e2a67dc1f4020d5dcb9c7132d7df8e75a8518ed1b3}
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
     # need to run bb for proofs and bb is only built for x86
     platform: linux/amd64
     environment:
@@ -13,12 +13,13 @@ services:
       PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
       PXE_DATA_DIRECTORY: /var/lib/aztec/pxe
       NODE_NO_WARNINGS: 1
-    entrypoint:
-      [
-        "/bin/sh",
-        "-c",
-        "export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url); node /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe",
-      ]
+      AZTEC_PORT: 8080
+    entrypoint: >
+      sh -c '
+        export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url);
+        while ! curl --head --silent $AZTEC_NODE_URL > /dev/null; do echo "Node $$AZTEC_NODE_URL not up. Retrying after 1s"; sleep 1; done;
+        node /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
+      '
     secrets:
       - aztec-node-url
     extra_hosts:
@@ -26,10 +27,10 @@ services:
     volumes:
       - aztec:/var/lib/aztec
     ports:
-      - 8080:8080
+      - 8080:8080/tcp
 
   node:
-    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:edc36351a531c2d76c2a96e2a67dc1f4020d5dcb9c7132d7df8e75a8518ed1b3}
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
     # need to run bb for proofs and bb is only built for x86
     platform: linux/amd64
     environment:
@@ -42,43 +43,46 @@ services:
       PROVER_REAL_PROOFS: ${PROVER_REAL_PROOFS:-1}
       DATA_DIRECTORY: /var/lib/aztec
       PROVER_AGENT_ENABLED: 0
-      ROLLUP_CONTRACT_ADDRESS: "0xb217416e24de236ebf51bdda0e22ed942f566fe6"
-      REGISTRY_CONTRACT_ADDRESS: "0xea84d2b4be8e13d8c1ad719ef420ade7077dbd92"
-      INBOX_CONTRACT_ADDRESS: "0x4988f52fe61c369f9178564173970178fb3e7a7c"
-      OUTBOX_CONTRACT_ADDRESS: "0x633083beff629db6b1461107b4cc717f00472afc"
-      AVAILABILITY_ORACLE_CONTRACT_ADDRESS: "0xa50048c760a1ce797a8ded07de2cc4b479392c1d"
-      GAS_TOKEN_CONTRACT_ADDRESS: "0xafb812ed2d6617f0e2128dbec769af45262ae59b"
-      GAS_PORTAL_CONTRACT_ADDRESS: "0x22644d8249ca9a4704ae76c0aa50f9513132c2e2"
-      ETHEREUM_HOST: 
-      P2P_TCP_LISTEN_PORT: 9000
-      P2P_UDP_LISTEN_PORT: 9001
-      P2P_ANNOUNCE_PORT: 9000
+      ROLLUP_CONTRACT_ADDRESS: "0x4ef7ca89e724a75ccca5dde7fb98075a388c2c91"
+      REGISTRY_CONTRACT_ADDRESS: "0x589a9634c1d00c62e47b3b7a790c8dc986b3d40d"
+      INBOX_CONTRACT_ADDRESS: "0x12d9b5effc69bf5c0c29c8258c6b6fa95a08de74"
+      OUTBOX_CONTRACT_ADDRESS: "0x3ec4b6c68a8c2ce4c78cdd465b3019b11a568d1d"
+      AVAILABILITY_ORACLE_CONTRACT_ADDRESS: "0x98a4089127f3f5d555656f1c9b1801342c9d6bce"
+      GAS_TOKEN_CONTRACT_ADDRESS: "0x73c43b919973711e096bfc04c9d4b3be511ffc0b"
+      GAS_PORTAL_CONTRACT_ADDRESS: "0xdf25b0a34dbee9f25518f7a4d63bab8b3bb3e496"
+      ETHEREUM_HOST:
+      P2P_TCP_LISTEN_ADDR: "0.0.0.0:9000"
+      P2P_UDP_LISTEN_ADDR: "0.0.0.0:9001"
+      P2P_TCP_ANNOUNCE_ADDR: ":9000"
+      P2P_UDP_ANNOUNCE_ADDR: ":9001"
       P2P_QUERY_FOR_IP: true
       P2P_ENABLED: true
       PEER_ID_PRIVATE_KEY:
+      AZTEC_PORT: 8999
     secrets:
       - ethereum-host
       - p2p-boot-node
-    entrypoint:
-      [
+    entrypoint: [
         "/bin/sh",
         "-c",
         "export ETHEREUM_HOST=$$(cat /var/run/secrets/ethereum-host);\
-         export BOOTSTRAP_NODES=$$(cat /var/run/secrets/p2p-boot-node);\
-         test -z \"$PEER_ID_PRIVATE_KEY\" -a ! -f /var/lib/aztec/p2p-private-key && node /usr/src/yarn-project/cli/dest/bin/index.js generate-p2p-private-key | head -1 | cut -d' ' -f 3 | tee /var/lib/aztec/p2p-private-key || echo 'Re-using existing P2P private key';\
-         test -z \"$PEER_ID_PRIVATE_KEY\" && export PEER_ID_PRIVATE_KEY=$$(cat /var/lib/aztec/p2p-private-key);\
-         node /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver",
+        export BOOTSTRAP_NODES=$$(cat /var/run/secrets/p2p-boot-node);\
+        test -z \"$$PEER_ID_PRIVATE_KEY\" -a ! -f /var/lib/aztec/p2p-private-key && node /usr/src/yarn-project/cli/dest/bin/index.js generate-p2p-private-key | head -1 | cut -d' ' -f 3 | tee /var/lib/aztec/p2p-private-key || echo 'Re-using existing P2P private key';\
+        test -z \"$$PEER_ID_PRIVATE_KEY\" && export PEER_ID_PRIVATE_KEY=$$(cat /var/lib/aztec/p2p-private-key);\
+        node /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver",
       ]
     volumes:
       - aztec:/var/lib/aztec
     profiles:
       - node
     ports:
+      # the RPC endpoint - expose it on a different port to avoid conflicting with PXE
+      - 8999:8999/tcp
       - 9000:9000/tcp
       - 9001:9001/udp
 
   cli:
-    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:edc36351a531c2d76c2a96e2a67dc1f4020d5dcb9c7132d7df8e75a8518ed1b3}
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
     # run the same image as pxe
     platform: linux/amd64
     environment:

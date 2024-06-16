@@ -1,6 +1,6 @@
 use dep::types::{abis::private_circuit_public_inputs::PrivateCircuitPublicInputs, utils::arrays::array_length};
 
-pub fn find_first_revertible_private_call_request_index(private_call: PrivateCircuitPublicInputs) -> u64 {
+pub fn find_first_revertible_private_call_request_index(private_call: PrivateCircuitPublicInputs) -> u32 {
     let min_revertible_counter = private_call.min_revertible_side_effect_counter;
     let private_call_requests = private_call.private_call_requests;
     let max_len = private_call_requests.len();
@@ -31,7 +31,7 @@ mod tests {
             TestBuilder { private_call }
         }
 
-        pub fn execute(self) -> u64 {
+        pub fn execute(self) -> u32 {
             let private_call = self.private_call.to_private_circuit_public_inputs();
             find_first_revertible_private_call_request_index(private_call)
         }

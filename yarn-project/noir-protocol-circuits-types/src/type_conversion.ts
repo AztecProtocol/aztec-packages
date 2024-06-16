@@ -1854,6 +1854,7 @@ export function mapStorageReadToNoir(storageRead: ContractStorageRead): StorageR
   return {
     storage_slot: mapFieldToNoir(storageRead.storageSlot),
     current_value: mapFieldToNoir(storageRead.currentValue),
+    counter: mapNumberToNoir(storageRead.sideEffectCounter),
   };
 }
 /**

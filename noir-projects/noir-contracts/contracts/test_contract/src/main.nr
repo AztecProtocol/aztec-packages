@@ -7,6 +7,7 @@ contract Test {
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, PrivateImmutable, PrivateSet, SharedImmutable
     };
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -94,17 +95,9 @@ contract Test {
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(
-            &mut context,
-            storage_slot,
-            &mut note,
-            outgoing_viewer_ovpk_m,
-            owner_ivpk_m
-        );
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt(&mut context, outgoing_viewer, owner));
     }
 
     #[aztec(private)]
@@ -269,8 +262,7 @@ contract Test {
         let header = context.get_header();
         let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
-        context.encrypt_and_emit_log(
-            context.this_address(),
+        context.encrypt_and_emit_event(
             5, // testing only - this should be a secret random value to salt the addr
             1,
             outgoing_viewer_ovpk_m,
@@ -281,8 +273,7 @@ contract Test {
         // to test nested and non nested encrypted logs
         if nest {
             Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false).call(&mut context);
-            context.encrypt_and_emit_log(
-                context.this_address(),
+            context.encrypt_and_emit_event(
                 0, // testing only - this signals to the kerels to not mask the address
                 1,
                 outgoing_viewer_ovpk_m,
@@ -319,17 +310,9 @@ contract Test {
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let msg_sender_ovpk = header.get_ovpk_m(&mut context, context.msg_sender());
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(
-            &mut context,
-            storage_slot,
-            &mut note,
-            msg_sender_ovpk,
-            owner_ivpk_m
-        );
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }
@@ -343,11 +326,12 @@ contract Test {
     // docs:end:is-time-equal
 
     #[aztec(public)]
-    fn emit_unencrypted(value: Field) -> Field {
+    fn emit_unencrypted(value: Field) {
         // docs:start:emit_unencrypted
-        context.emit_unencrypted_log(value);
+        context.emit_unencrypted_log(/*message=*/ value);
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         // docs:end:emit_unencrypted
-        0
     }
 
     #[aztec(public)]
@@ -403,10 +387,7 @@ contract Test {
     #[aztec(private)]
     fn set_constant(value: Field) {
         let mut note = TestNote::new(value);
-        // The test note is not being broadcasted (TestNote::broadcast(...) does not actually broadcast) and for this
-        // reason we are passing zero values for the public keys below. This means that if we want to interact with
-        // this note in the future, we will need to manually add it to PXE by calling pxe.addNote(...).
-        storage.example_constant.initialize(&mut note, GrumpkinPoint::zero(), GrumpkinPoint::zero());
+        storage.example_constant.initialize(&mut note).discard();
     }
 
     #[aztec(private)]

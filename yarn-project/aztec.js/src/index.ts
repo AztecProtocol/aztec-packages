@@ -57,7 +57,7 @@ export { createPXEClient } from './rpc_clients/index.js';
 export { AuthWitnessProvider } from './account/index.js';
 
 export { AccountContract } from './account/index.js';
-export { AccountManager } from './account_manager/index.js';
+export { AccountManager, DeployAccountOptions } from './account_manager/index.js';
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, Wallet } from './wallet/index.js';
 
@@ -95,7 +95,7 @@ export {
   CompleteAddress,
   EncryptedL2BlockL2Logs,
   EncryptedLogHeader,
-  EncryptedLogIncomingBody,
+  EncryptedNoteLogIncomingBody,
   EncryptedLogOutgoingBody,
   ExtendedNote,
   FunctionCall,
@@ -127,6 +127,9 @@ export {
   createAztecNodeClient,
   merkleTreeIds,
   mockTx,
+  TaggedLog,
+  L1NotePayload,
+  L1EventPayload,
 } from '@aztec/circuit-types';
 export { NodeInfo } from '@aztec/types/interfaces';
 
