@@ -6,23 +6,16 @@ use dep::types::{
     log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas, call_request::CallRequest
 },
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
+    MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
 },
     hash::{
     silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier,
     silo_unencrypted_log_hash
 },
-    utils::arrays::{array_to_bounded_vec, assert_sorted_array}
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, utils::arrays::array_to_bounded_vec
 };
-
-fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
-    a.counter() < b.counter()
-}
-
-fn desc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
-    a.counter() > b.counter()
-}
 
 // Builds:
 // .finish -> KernelCircuitPublicInputs (from PrivateKernelTailCircuitPrivateInputs)
@@ -30,32 +23,25 @@ fn desc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
 struct KernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
     previous_kernel: PrivateKernelData,
+    // TODO: Remove the hints and sort the arrays in this composer.
     // Hints
     sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
     sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
 impl KernelCircuitPublicInputsComposer {
     pub fn new(
         previous_kernel: PrivateKernelData,
         sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-        sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-        sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+        sorted_l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
         sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-        sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-        sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-        sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-        sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX]
+        sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]
     ) -> Self {
         let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
@@ -63,15 +49,11 @@ impl KernelCircuitPublicInputsComposer {
             public_inputs,
             previous_kernel,
             sorted_note_hashes,
-            sorted_note_hashes_indexes,
             sorted_nullifiers,
-            sorted_nullifiers_indexes,
+            sorted_l2_to_l1_msgs,
             sorted_note_encrypted_log_hashes,
-            sorted_note_encrypted_log_hashes_indexes,
             sorted_encrypted_log_hashes,
-            sorted_encrypted_log_hashes_indexes,
-            sorted_unencrypted_log_hashes,
-            sorted_unencrypted_log_hashes_indexes
+            sorted_unencrypted_log_hashes
         }
     }
 
@@ -91,12 +73,11 @@ impl KernelCircuitPublicInputsComposer {
 
     pub fn compose_public(
         &mut self,
-        sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-        sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
+        sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
     ) -> Self {
         let _ = self.compose();
 
-        self.propagate_sorted_public_call_requests(sorted_call_requests, sorted_call_requests_indexes);
+        self.propagate_sorted_public_call_requests(sorted_call_requests);
         self.propagate_public_teardown_call_request();
 
         *self
@@ -184,64 +165,20 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.constants = self.previous_kernel.public_inputs.constants;
     }
 
+    // TODO: Build sorted arrays here when it's run in an unconstrained function in tail_to_public.
     fn propagate_sorted_arrays(&mut self) {
-        let accumulated_data = self.previous_kernel.public_inputs.end;
-
-        assert_sorted_array(
-            accumulated_data.new_note_hashes,
-            self.sorted_note_hashes,
-            self.sorted_note_hashes_indexes,
-            asc_sort_by_counters
-        );
         self.public_inputs.end.new_note_hashes = array_to_bounded_vec(self.sorted_note_hashes);
-
-        assert_sorted_array(
-            accumulated_data.new_nullifiers,
-            self.sorted_nullifiers,
-            self.sorted_nullifiers_indexes,
-            asc_sort_by_counters
-        );
         self.public_inputs.end.new_nullifiers = array_to_bounded_vec(self.sorted_nullifiers);
-
-        assert_sorted_array(
-            accumulated_data.note_encrypted_logs_hashes,
-            self.sorted_note_encrypted_log_hashes,
-            self.sorted_note_encrypted_log_hashes_indexes,
-            asc_sort_by_counters
-        );
+        self.public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(self.sorted_l2_to_l1_msgs);
         self.public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(self.sorted_note_encrypted_log_hashes);
-
-        assert_sorted_array(
-            accumulated_data.encrypted_logs_hashes,
-            self.sorted_encrypted_log_hashes,
-            self.sorted_encrypted_log_hashes_indexes,
-            asc_sort_by_counters
-        );
         self.public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(self.sorted_encrypted_log_hashes);
-
-        assert_sorted_array(
-            accumulated_data.unencrypted_logs_hashes,
-            self.sorted_unencrypted_log_hashes,
-            self.sorted_unencrypted_log_hashes_indexes,
-            asc_sort_by_counters
-        );
         self.public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(self.sorted_unencrypted_log_hashes);
-        // TODO: Sort all the side effects below.
-        self.public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(accumulated_data.new_l2_to_l1_msgs);
     }
 
     fn propagate_sorted_public_call_requests(
         &mut self,
-        sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-        sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
+        sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
     ) {
-        let accumulated_data = self.previous_kernel.public_inputs.end;
-        assert_sorted_array(
-            accumulated_data.public_call_stack,
-            sorted_call_requests,
-            sorted_call_requests_indexes,
-            desc_sort_by_counters
-        );
         self.public_inputs.end.public_call_stack = array_to_bounded_vec(sorted_call_requests);
     }
 

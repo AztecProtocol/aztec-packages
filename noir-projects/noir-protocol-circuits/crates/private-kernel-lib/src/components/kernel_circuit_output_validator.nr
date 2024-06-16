@@ -1,10 +1,9 @@
-use crate::components::{kernel_circuit_output_hints::{Hints, OrderHint}};
+use crate::components::{kernel_circuit_output_hints::Hints};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
     log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_TX,
     hash::{
     compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
     silo_note_hash, silo_nullifier, silo_unencrypted_log_hash

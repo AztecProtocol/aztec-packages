@@ -5,7 +5,7 @@ mod validate_propagated_sorted_siloed_values;
 mod validate_propagated_values;
 
 use crate::components::{
-    kernel_circuit_output_hints::generate_hints,
+    kernel_circuit_output_hints::generate_kernel_circuit_output_hints,
     kernel_circuit_output_validator::KernelCircuitOutputValidator
 };
 use dep::types::{abis::nullifier::Nullifier, address::AztecAddress, tests::fixture_builder::FixtureBuilder};
@@ -28,7 +28,7 @@ impl KernelCircuitOutputValidatorBuilder {
     pub fn validate(self) {
         let output = self.output.to_kernel_circuit_public_inputs();
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        let hints = generate_hints(previous_kernel);
+        let hints = generate_kernel_circuit_output_hints(previous_kernel);
         KernelCircuitOutputValidator::new(output, previous_kernel).validate(hints);
     }
 }

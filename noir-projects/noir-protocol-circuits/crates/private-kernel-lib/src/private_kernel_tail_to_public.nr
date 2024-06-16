@@ -1,35 +1,10 @@
 use crate::components::{
     kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer,
-    previous_kernel_validator::PreviousKernelValidator
+    previous_kernel_validator::PreviousKernelValidator,
+    private_kernel_tail_hints::generate_private_kernel_tail_hints,
+    tail_to_public_output_validator::{TailToPublicOutputValidator, PrivateKernelTailToPublicHints}
 };
-use dep::types::{
-    abis::{
-    private_kernel_data::PrivateKernelData,
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash},
-    call_request::CallRequest
-},
-    constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
-}
-};
-
-struct PrivateKernelTailToPublicHints {
-    sorted_new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-    sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-}
+use dep::types::{abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs}};
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
@@ -37,7 +12,24 @@ struct PrivateKernelTailToPublicCircuitPrivateInputs {
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
+    // TODO: Make it unconstrained and validate the output in TailToPublicOutputValidator.
+    fn generate_output(self) -> PublicKernelCircuitPublicInputs {
+        let hints = generate_private_kernel_tail_hints(self.previous_kernel.public_inputs);
+        KernelCircuitPublicInputsComposer::new(
+            self.previous_kernel,
+            self.hints.sorted_new_note_hashes,
+            self.hints.sorted_new_nullifiers,
+            hints.sorted_new_l2_to_l1_msgs,
+            self.hints.sorted_note_encrypted_log_hashes,
+            self.hints.sorted_encrypted_log_hashes,
+            self.hints.sorted_unencrypted_log_hashes
+        ).compose_public(self.hints.sorted_call_requests).finish_to_public()
+    }
+
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
+        // Generate output.
+        let output = self.generate_output();
+
         // Validate inputs.
         PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
         if !dep::std::runtime::is_unconstrained() {
@@ -45,27 +37,18 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
 
-        KernelCircuitPublicInputsComposer::new(
-            self.previous_kernel,
-            self.hints.sorted_new_note_hashes,
-            self.hints.sorted_new_note_hashes_indexes,
-            self.hints.sorted_new_nullifiers,
-            self.hints.sorted_new_nullifiers_indexes,
-            self.hints.sorted_note_encrypted_log_hashes,
-            self.hints.sorted_note_encrypted_log_hashes_indexes,
-            self.hints.sorted_encrypted_log_hashes,
-            self.hints.sorted_encrypted_log_hashes_indexes,
-            self.hints.sorted_unencrypted_log_hashes,
-            self.hints.sorted_unencrypted_log_hashes_indexes
-        ).compose_public(
-            self.hints.sorted_call_requests,
-            self.hints.sorted_call_requests_indexes
-        ).finish_to_public()
+        // Validate output.
+        if !dep::std::runtime::is_unconstrained() {
+            TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs, self.hints).validate();
+        }
+
+        output
     }
 }
 
 mod tests {
-    use crate::private_kernel_tail_to_public::{PrivateKernelTailToPublicCircuitPrivateInputs, PrivateKernelTailToPublicHints};
+    use crate::private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
+    use crate::components::tail_to_public_output_validator::PrivateKernelTailToPublicHints;
     use dep::reset_kernel_lib::{
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,

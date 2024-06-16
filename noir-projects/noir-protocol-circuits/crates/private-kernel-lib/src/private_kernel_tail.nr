@@ -1,55 +1,27 @@
 use crate::components::{
     kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer,
-    kernel_circuit_output_hints::generate_hints,
+    kernel_circuit_output_hints::generate_kernel_circuit_output_hints,
     kernel_circuit_output_validator::KernelCircuitOutputValidator,
+    private_kernel_tail_hints::{generate_private_kernel_tail_hints, PrivateKernelTailHints},
     previous_kernel_validator::PreviousKernelValidator
 };
-use dep::types::{
-    abis::{
-    private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}
-},
-    constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
-}
-};
-
-// TODO: Build hints in noir.
-struct PrivateKernelTailHints {
-    sorted_new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
-}
+use dep::types::{abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs}};
 
 struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
-    hints: PrivateKernelTailHints,
 }
 
 impl PrivateKernelTailCircuitPrivateInputs {
     unconstrained fn generate_output(self) -> KernelCircuitPublicInputs {
+        let hints = generate_private_kernel_tail_hints(self.previous_kernel.public_inputs);
         KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
-            self.hints.sorted_new_note_hashes,
-            self.hints.sorted_new_note_hashes_indexes,
-            self.hints.sorted_new_nullifiers,
-            self.hints.sorted_new_nullifiers_indexes,
-            self.hints.sorted_note_encrypted_log_hashes,
-            self.hints.sorted_note_encrypted_log_hashes_indexes,
-            self.hints.sorted_encrypted_log_hashes,
-            self.hints.sorted_encrypted_log_hashes_indexes,
-            self.hints.sorted_unencrypted_log_hashes,
-            self.hints.sorted_unencrypted_log_hashes_indexes
+            hints.sorted_new_note_hashes,
+            hints.sorted_new_nullifiers,
+            hints.sorted_new_l2_to_l1_msgs,
+            hints.sorted_note_encrypted_log_hashes,
+            hints.sorted_encrypted_log_hashes,
+            hints.sorted_unencrypted_log_hashes
         ).compose().finish()
     }
 
@@ -66,7 +38,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         // Validate output.
         if !dep::std::runtime::is_unconstrained() {
-            let hints = generate_hints(self.previous_kernel.public_inputs);
+            let hints = generate_kernel_circuit_output_hints(self.previous_kernel.public_inputs);
             KernelCircuitOutputValidator::new(output, self.previous_kernel.public_inputs).validate(hints);
         }
         output
@@ -74,35 +46,23 @@ impl PrivateKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_tail::{PrivateKernelTailCircuitPrivateInputs, PrivateKernelTailHints};
-    use dep::reset_kernel_lib::{
-        tests::{
-        note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers, squash_transient_logs}
-    },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
-    };
+    use crate::private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
     use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE,
+        GENERATOR_INDEX__IVSK_M
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas
     },
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{
         sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash,
         compute_siloed_unencrypted_log_hash
     },
-        tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::array_length}, traits::{Empty, is_empty, is_empty_array},
-        grumpkin_point::GrumpkinPoint
+        tests::fixture_builder::FixtureBuilder, utils::{arrays::array_length},
+        traits::{Empty, is_empty}, grumpkin_point::GrumpkinPoint
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -141,55 +101,7 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> KernelCircuitPublicInputs {
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.new_note_hashes.storage,
-                |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
-            );
-            let sorted_new_note_hashes = sorted.sorted_array;
-            let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.new_nullifiers.storage,
-                |a: ScopedNullifier, b: ScopedNullifier| a.counter() < b.counter()
-            );
-            let sorted_new_nullifiers = sorted.sorted_array;
-            let sorted_new_nullifiers_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.note_encrypted_logs_hashes.storage,
-                |a: NoteLogHash, b: NoteLogHash| a.counter < b.counter
-            );
-            let sorted_note_encrypted_log_hashes = sorted.sorted_array;
-            let sorted_note_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.encrypted_logs_hashes.storage,
-                |a: ScopedEncryptedLogHash, b: ScopedEncryptedLogHash| a.counter() < b.counter()
-            );
-            let sorted_encrypted_log_hashes = sorted.sorted_array;
-            let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.unencrypted_logs_hashes.storage,
-                |a: ScopedLogHash, b: ScopedLogHash| a.counter() < b.counter()
-            );
-            let sorted_unencrypted_log_hashes = sorted.sorted_array;
-            let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let hints = PrivateKernelTailHints {
-                sorted_new_note_hashes,
-                sorted_new_note_hashes_indexes,
-                sorted_new_nullifiers,
-                sorted_new_nullifiers_indexes,
-                sorted_note_encrypted_log_hashes,
-                sorted_note_encrypted_log_hashes_indexes,
-                sorted_encrypted_log_hashes,
-                sorted_encrypted_log_hashes_indexes,
-                sorted_unencrypted_log_hashes,
-                sorted_unencrypted_log_hashes_indexes
-            };
-
-            let kernel = PrivateKernelTailCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), hints };
+            let kernel = PrivateKernelTailCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data() };
             kernel.execute()
         }
 
