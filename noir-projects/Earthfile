@@ -42,9 +42,15 @@ build:
 
 test:
   FROM +build
+  # Install and start TXE
+  COPY ../yarn-project/+build/usr/src/yarn-project /usr/src/yarn-project
+
+  RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid 
   RUN cd noir-protocol-circuits && nargo test --silence-warnings
   RUN cd aztec-nr && nargo test --silence-warnings
   RUN cd noir-contracts && nargo test --silence-warnings
+  # Kill TXE
+  RUN kill $(cat /tmp/txe.pid)
 
 format:
   FROM +build
