@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718645929744,
+  "lastUpdate": 1718646016345,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -42136,6 +42136,78 @@ window.BENCHMARK_DATA = {
             "value": 165294371,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165294371 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6692ac831ab980d9623442236c21b499a7238966",
+          "message": "feat: SMT Verifier for Ultra Arithmetization (#7067)\n\nThis pr adds a new Circuit Verifier for Ultra arithmetization.\r\n\r\n## `circuit_builder_base.cpp` / `ultra_circuit_builder.cpp` /\r\nCircuitSchema\r\n\r\nCircuitSchema object now includes `real_variable_tag` and\r\n`range_tags`(maps tags to ranges) for range constraint detection.\r\n\r\n##  UltraCircuit\r\n\r\nTranslates all(except for aux gates) constraints to solver, including:\r\n\r\n- Arithmetic gates - `handle_arithmetic_relation`\r\n- Elliptic gates - `handle_elliptic_relation`\r\n- Lookup constraints - `handle_lookup_relation`\r\n- Range constraints - `handle_range_constraints`\r\n- Delta range constraints, that are skipped for now -\r\n`handle_delta_range_relation`\r\n\r\nAlso `ultra_circuit.test.cpp` checks that everything is handled\r\nproperly.\r\n\r\n## Solver\r\n\r\n- Moved `stringify_term` inside the solver class, because of set\r\ninclusion logging.\r\n- Added logging for set inclusion\r\n- Added ordinary set creation via `create_table`\r\n- Added `ultra_solver_config` that enables set logic\r\n\r\n\r\n## STerm\r\n\r\nNow has `in` method for set inclusion.\r\n\r\n---------\r\n\r\nCo-authored-by: Innokentii Sennovskii <isennovskiy@gmail.com>",
+          "timestamp": "2024-06-17T20:33:29+03:00",
+          "tree_id": "d918f6817819c17931f21ac5d2fdb33aefd09f09",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6692ac831ab980d9623442236c21b499a7238966"
+        },
+        "date": 1718646014137,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15507.772587999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10767.655602 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5511.368535999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5142.318496000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49026.245565,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49026247000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17039.74973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17039750000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5200860862,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5200860862 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201766417,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201766417 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4272306557,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4272306557 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164126415,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164126415 ns\nthreads: 1"
           }
         ]
       }
