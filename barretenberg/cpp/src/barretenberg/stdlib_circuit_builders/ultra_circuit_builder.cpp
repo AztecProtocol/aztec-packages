@@ -609,6 +609,14 @@ uint32_t UltraCircuitBuilder_<Arithmetization>::put_constant_variable(const FF& 
     }
 }
 
+/**
+ * @brief Get the basic table with provided ID from the set of tables for the present circuit; create it if it doesnt
+ * yet exist
+ *
+ * @tparam Arithmetization
+ * @param id
+ * @return plookup::BasicTable&
+ */
 template <typename Arithmetization>
 plookup::BasicTable& UltraCircuitBuilder_<Arithmetization>::get_table(const plookup::BasicTableId id)
 {
@@ -619,7 +627,7 @@ plookup::BasicTable& UltraCircuitBuilder_<Arithmetization>::get_table(const ploo
     }
     // Table doesn't exist! So try to create it.
     lookup_tables.emplace_back(plookup::create_basic_table(id, lookup_tables.size()));
-    return lookup_tables[lookup_tables.size() - 1];
+    return lookup_tables.back();
 }
 
 /**
@@ -633,13 +641,14 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
     const uint32_t key_a_index,
     std::optional<uint32_t> key_b_index)
 {
-    const auto& multi_table = plookup::create_table(id);
+    const auto& multi_table = plookup::get_multitable(id);
     const size_t num_lookups = read_values[plookup::ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
     for (size_t i = 0; i < num_lookups; ++i) {
-        auto& table = get_table(multi_table.lookup_ids[i]);
+        // get basic lookup table; construct and add to builder.lookup_tables if not already present
+        auto& table = get_table(multi_table.basic_table_ids[i]);
 
-        table.lookup_gates.emplace_back(read_values.key_entries[i]);
+        table.lookup_gates.emplace_back(read_values.lookup_entries[i]); // used for constructing sorted polynomials
 
         const auto first_idx = (i == 0) ? key_a_index : this->add_variable(read_values[plookup::ColumnIdx::C1][i]);
         const auto second_idx = (i == 0 && (key_b_index.has_value()))
@@ -2718,13 +2727,14 @@ template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetizati
 
 /**
  * Export the existing circuit as msgpack compatible buffer.
+ * Should be called after `finalize_circuit()`
  *
  * @return msgpack compatible buffer
  */
 template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithmetization>::export_circuit()
 {
     using base = CircuitBuilderBase<FF>;
-    CircuitSchema<FF> cir;
+    CircuitSchemaInternal<FF> cir;
 
     uint64_t modulus[4] = {
         FF::Params::modulus_0, FF::Params::modulus_1, FF::Params::modulus_2, FF::Params::modulus_3
@@ -2761,17 +2771,10 @@ template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithm
         std::vector<std::vector<FF>> block_selectors;
         std::vector<std::vector<uint32_t>> block_wires;
         for (size_t idx = 0; idx < block.size(); ++idx) {
-            std::vector<FF> tmp_sel = { block.q_m()[idx],
-                                        block.q_1()[idx],
-                                        block.q_2()[idx],
-                                        block.q_3()[idx],
-                                        block.q_4()[idx],
-                                        block.q_c()[idx],
-                                        block.q_arith()[idx],
-                                        block.q_lookup_type()[idx],
-                                        block.q_elliptic()[idx],
-                                        block.q_aux()[idx],
-                                        curve_b };
+            std::vector<FF> tmp_sel = { block.q_m()[idx],     block.q_1()[idx],           block.q_2()[idx],
+                                        block.q_3()[idx],     block.q_4()[idx],           block.q_c()[idx],
+                                        block.q_arith()[idx], block.q_delta_range()[idx], block.q_elliptic()[idx],
+                                        block.q_aux()[idx],   block.q_lookup_type()[idx], curve_b };
 
             std::vector<uint32_t> tmp_w = {
                 this->real_variable_index[block.w_l()[idx]],
@@ -2806,10 +2809,16 @@ template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithm
         const FF table_index(table.table_index);
         info("Table no: ", table.table_index);
         std::vector<std::vector<FF>> tmp_table;
-        for (size_t i = 0; i < table.size; ++i) {
+        for (size_t i = 0; i < table.size(); ++i) {
             tmp_table.push_back({ table.column_1[i], table.column_2[i], table.column_3[i] });
         }
         cir.lookup_tables.push_back(tmp_table);
+    }
+
+    cir.real_variable_tags = this->real_variable_tags;
+
+    for (const auto& list : range_lists) {
+        cir.range_tags[list.second.range_tag] = list.first;
     }
 
     msgpack::sbuffer buffer;
