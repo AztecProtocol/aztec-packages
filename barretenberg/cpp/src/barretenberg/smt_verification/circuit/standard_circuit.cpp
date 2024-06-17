@@ -15,6 +15,8 @@ StandardCircuit::StandardCircuit(
                   circuit_info.variables,
                   circuit_info.public_inps,
                   circuit_info.real_variable_index,
+                  circuit_info.real_variable_tags,
+                  circuit_info.range_tags,
                   solver,
                   type,
                   tag,
