@@ -28,6 +28,9 @@
       "path": "../kv-store"
     },
     {
+      "path": "../noir-contracts.js"
+    },
+    {
       "path": "../pxe"
     },
     {
