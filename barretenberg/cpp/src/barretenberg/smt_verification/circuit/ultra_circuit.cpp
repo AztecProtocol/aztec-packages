@@ -362,6 +362,8 @@ void UltraCircuit::handle_range_constraints()
  * @param witness
  * @return true
  * @return false
+ *
+ * @todo Do we actually need this here?
  */
 bool UltraCircuit::simulate_circuit_eval(std::vector<bb::fr>& witness) const
 {
