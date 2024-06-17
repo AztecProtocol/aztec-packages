@@ -22,7 +22,7 @@ import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
  * @param dataStartIndexForTx - The next available leaf index for the note hash tree for this transaction.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same l1NotePayload, we need to find a different index for each replicate.
  * @param simulator - An instance of AcirSimulator.
- * @returns An object containing the incoming note, outgoing note, and deferred notes.
+ * @returns An object containing the incoming, outgoing, and deferred notes.
  */
 export async function produceNoteDaos(
   simulator: AcirSimulator,
