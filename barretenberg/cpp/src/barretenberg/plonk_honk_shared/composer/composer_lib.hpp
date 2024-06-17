@@ -141,7 +141,7 @@ typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polyno
             read_counts[index_in_poly]++;
             read_tags[index_in_poly] = 1;
         }
-        table_offset += table.size;
+        table_offset += table.size();
     }
 
     return read_counts;
