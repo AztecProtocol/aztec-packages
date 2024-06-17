@@ -309,55 +309,53 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner
+    const ovpkM: PublicKey | undefined = filter.owner
       ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterOutgoingViewingPublicKey
       : undefined;
 
-    const candidateNoteSources = [];
+    // Check if ovpkM is truthy
+    const ids = ovpkM
+      ? this.#outgoingNotesByOvpkM.getValues(ovpkM.toString())
+      : // If ovpkM is falsy, check if filter.txHash is truthy
+      filter.txHash
+      ? this.#outgoingNotesByTxHash.getValues(filter.txHash.toString())
+      : // If both ovpkM and filter.txHash are falsy, check if filter.contractAddress is truthy
+      filter.contractAddress
+      ? this.#outgoingNotesByContract.getValues(filter.contractAddress.toString())
+      : // If ovpkM, filter.txHash, and filter.contractAddress are all falsy, check if filter.storageSlot is truthy
+      filter.storageSlot
+      ? this.#outgoingNotesByStorageSlot.getValues(filter.storageSlot.toString())
+      : // If none of the above conditions are met, retrieve all keys from this.#outgoingNotes
+        this.#outgoingNotes.keys();
 
-    candidateNoteSources.push({
-      ids: publicKey
-        ? this.#outgoingNotesByOvpkM.getValues(publicKey.toString())
-        : filter.txHash
-        ? this.#outgoingNotesByTxHash.getValues(filter.txHash.toString())
-        : filter.contractAddress
-        ? this.#outgoingNotesByContract.getValues(filter.contractAddress.toString())
-        : filter.storageSlot
-        ? this.#outgoingNotesByStorageSlot.getValues(filter.storageSlot.toString())
-        : this.#outgoingNotes.keys(),
-      notes: this.#outgoingNotes,
-    });
-
-    const result: OutgoingNoteDao[] = [];
-    for (const { ids, notes } of candidateNoteSources) {
-      for (const id of ids) {
-        const serializedNote = notes.get(id);
-        if (!serializedNote) {
-          continue;
-        }
-
-        const note = OutgoingNoteDao.fromBuffer(serializedNote);
-        if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
-          continue;
-        }
-
-        if (filter.txHash && !note.txHash.equals(filter.txHash)) {
-          continue;
-        }
-
-        if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
-          continue;
-        }
-
-        if (publicKey && !note.ovpkM.equals(publicKey)) {
-          continue;
-        }
-
-        result.push(note);
+    const notes: OutgoingNoteDao[] = [];
+    for (const id of ids) {
+      const serializedNote = this.#outgoingNotes.get(id);
+      if (!serializedNote) {
+        continue;
       }
+
+      const note = OutgoingNoteDao.fromBuffer(serializedNote);
+      if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
+        continue;
+      }
+
+      if (filter.txHash && !note.txHash.equals(filter.txHash)) {
+        continue;
+      }
+
+      if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
+        continue;
+      }
+
+      if (ovpkM && !note.ovpkM.equals(ovpkM)) {
+        continue;
+      }
+
+      notes.push(note);
     }
 
-    return Promise.resolve(result);
+    return Promise.resolve(notes);
   }
 
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]> {
