@@ -176,5 +176,5 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Returns the estimated size in bytes of this db.
    * @returns The estimated size in bytes of this db.
    */
-  estimateSize(): number;
+  estimateSize(): Promise<number>;
 }

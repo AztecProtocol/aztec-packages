@@ -235,7 +235,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  #getNotes(filter: IncomingNotesFilter): IncomingNoteDao[] {
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
     const publicKey: PublicKey | undefined = filter.owner
       ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterIncomingViewingPublicKey
       : undefined;
@@ -305,11 +305,7 @@ export class KVPxeDatabase implements PxeDatabase {
       }
     }
 
-    return result;
-  }
-
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
-    return Promise.resolve(this.#getNotes(filter));
+    return Promise.resolve(result);
   }
 
   getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]> {
@@ -497,8 +493,16 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
   }
 
-  estimateSize(): number {
-    const notesSize = Array.from(this.#getNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
+  async estimateSize(): Promise<number> {
+    const incomingNotesSize = Array.from(await this.getIncomingNotes({})).reduce(
+      (sum, note) => sum + note.getSize(),
+      0,
+    );
+    const outgoingNotesSize = Array.from(await this.getOutgoingNotes({})).reduce(
+      (sum, note) => sum + note.getSize(),
+      0,
+    );
+
     const authWitsSize = Array.from(this.#authWitnesses.values()).reduce(
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
       0,
@@ -506,6 +510,6 @@ export class KVPxeDatabase implements PxeDatabase {
     const addressesSize = this.#addresses.length * CompleteAddress.SIZE_IN_BYTES;
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
-    return notesSize + treeRootsSize + authWitsSize + addressesSize;
+    return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 }

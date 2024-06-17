@@ -195,7 +195,7 @@ export class Synchronizer {
             eventName: 'note-processor-caught-up',
             account: noteProcessor.account.toString(),
             duration: noteProcessor.timer.ms(),
-            dbSize: this.db.estimateSize(),
+            dbSize: await this.db.estimateSize(),
             ...noteProcessor.stats,
           } satisfies NoteProcessorCaughtUpStats);
 
