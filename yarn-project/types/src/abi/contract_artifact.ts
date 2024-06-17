@@ -8,6 +8,7 @@ import {
   type FunctionArtifact,
   FunctionType,
   type IntegerValue,
+  NoteSelector,
   type StructValue,
   type TypedStructFieldValue,
 } from '@aztec/foundation/abi';
@@ -252,7 +253,8 @@ function getNoteTypes(input: NoirCompiledContract) {
 
   return notes.reduce((acc: Record<string, ContractNote>, note) => {
     const name = note.fields[1].value as string;
-    const id = new Fr(BigInt(note.fields[0].value));
+    // Note id is encoded as a hex string
+    const id = NoteSelector.fromField(Fr.fromString(note.fields[0].value));
     acc[name] = {
       id,
       typ: name,

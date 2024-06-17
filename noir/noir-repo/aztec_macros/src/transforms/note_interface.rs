@@ -11,6 +11,7 @@ use noirc_frontend::{
     Type,
 };
 
+use acvm::AcirField;
 use regex::Regex;
 
 use crate::{
@@ -97,7 +98,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             .collect::<Result<Vec<_>, _>>()?;
         let [note_serialized_len, note_bytes_len]: [_; 2] =
             note_interface_generics.try_into().unwrap();
-        let note_type_id = note_type_id(&note_type);
 
         // Automatically inject the header field if it's not present
         let (header_field_name, _) = if let Some(existing_header) =
@@ -185,7 +185,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
 
         if !check_trait_method_implemented(trait_impl, "get_note_type_id") {
             let get_note_type_id_fn =
-                generate_note_get_type_id(&note_type_id, note_interface_impl_span)?;
+                generate_get_note_type_id(&note_type, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_note_type_id_fn));
         }
 
@@ -324,17 +324,18 @@ fn generate_note_set_header(
 
 // Automatically generate the note type id getter method. The id itself its calculated as the concatenation
 // of the conversion of the characters in the note's struct name to unsigned integers.
-fn generate_note_get_type_id(
-    note_type_id: &str,
+fn generate_get_note_type_id(
+    note_type: &str,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
         fn get_note_type_id() -> Field {{
-            {}
+            let id = dep::aztec::protocol_types::abis::note_selector::compute_note_selector(\"{}\");
+            id
         }}
     ",
-        note_type_id
+        note_type
     )
     .to_string();
 
@@ -387,7 +388,7 @@ fn generate_note_properties_struct(
 
 // Generate the deserialize_content method as
 //
-// fn deserialize_content(serialized_note: [Field; NOTE_SERILIZED_LEN]) -> Self {
+// fn deserialize_content(serialized_note: [Field; NOTE_SERIALIZED_LEN]) -> Self {
 //     NoteType {
 //        note_field1: serialized_note[0] as Field,
 //        note_field2: NoteFieldType2::from_field(serialized_note[1])...
@@ -525,10 +526,10 @@ fn generate_note_exports_global(
     let struct_source = format!(
         "
         #[abi(notes)]
-        global {0}_EXPORTS: (Field, str<{1}>) = ({2},\"{0}\");
+        global {0}_EXPORTS: (Field, str<{1}>) = (0x{2},\"{0}\");
         ",
         note_type,
-        note_type_id.len(),
+        note_type.len(),
         note_type_id
     )
     .to_string();
@@ -685,12 +686,6 @@ fn generate_note_deserialize_content_source(
     .to_string()
 }
 
-// Utility function to generate the note type id as a Field
-fn note_type_id(note_type: &str) -> String {
-    // TODO(#4519) Improve automatic note id generation and assignment
-    note_type.chars().map(|c| (c as u32).to_string()).collect::<Vec<String>>().join("")
-}
-
 pub fn inject_note_exports(
     crate_id: &CrateId,
     context: &mut HirContext,
@@ -717,29 +712,42 @@ pub fn inject_note_exports(
                     },
                     file_id,
                 ))?;
-            let init_function =
+            let get_note_type_id_function =
                 context.def_interner.function(&func_id).block(&context.def_interner);
-            let init_function_statement_id = init_function.statements().first().ok_or((
-                AztecMacroError::CouldNotExportStorageLayout {
-                    span: None,
-                    secondary_message: Some(format!(
-                        "Could not retrieve note id statement from function for note {}",
-                        note.borrow().name.0.contents
-                    )),
-                },
-                file_id,
-            ))?;
-            let note_id_statement = context.def_interner.statement(init_function_statement_id);
+            let get_note_type_id_statement_id =
+                get_note_type_id_function.statements().first().ok_or((
+                    AztecMacroError::CouldNotExportStorageLayout {
+                        span: None,
+                        secondary_message: Some(format!(
+                            "Could not retrieve note id statement from function for note {}",
+                            note.borrow().name.0.contents
+                        )),
+                    },
+                    file_id,
+                ))?;
+            let note_type_id_statement =
+                context.def_interner.statement(get_note_type_id_statement_id);
 
-            let note_id_value = match note_id_statement {
+            let note_type_id = match note_type_id_statement {
                 HirStatement::Expression(expression_id) => {
                     match context.def_interner.expression(&expression_id) {
                         HirExpression::Literal(HirLiteral::Integer(value, _)) => Ok(value),
+                        HirExpression::Literal(_) => Err((
+                            AztecMacroError::CouldNotExportStorageLayout {
+                                span: None,
+                                secondary_message: Some(
+                                    "note_type_id statement must be a literal integer expression"
+                                        .to_string(),
+                                ),
+                            },
+                            file_id,
+                        )),
                         _ => Err((
                             AztecMacroError::CouldNotExportStorageLayout {
                                 span: None,
                                 secondary_message: Some(
-                                    "note_id statement must be a literal expression".to_string(),
+                                    "note_type_id statement must be a literal expression"
+                                        .to_string(),
                                 ),
                             },
                             file_id,
@@ -747,9 +755,10 @@ pub fn inject_note_exports(
                     }
                 }
                 _ => Err((
-                    AztecMacroError::CouldNotAssignStorageSlots {
+                    AztecMacroError::CouldNotExportStorageLayout {
+                        span: None,
                         secondary_message: Some(
-                            "note_id statement must be an expression".to_string(),
+                            "note_type_id statement must be an expression".to_string(),
                         ),
                     },
                     file_id,
@@ -757,7 +766,7 @@ pub fn inject_note_exports(
             }?;
             let global = generate_note_exports_global(
                 &note.borrow().name.0.contents,
-                &note_id_value.to_string(),
+                &note_type_id.to_hex(),
             )
             .map_err(|err| (err, file_id))?;
 
