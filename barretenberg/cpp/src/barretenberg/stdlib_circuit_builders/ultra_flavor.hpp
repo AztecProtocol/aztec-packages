@@ -56,7 +56,7 @@ class UltraFlavor {
                                  bb::EllipticRelation<FF>,
                                  bb::AuxiliaryRelation<FF>>;
 
-    using LogDerivLookupRelation = bb::LogDerivLookupRelation<FF>;
+    // using LogDerivLookupRelation = bb::LogDerivLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
@@ -369,7 +369,7 @@ class UltraFlavor {
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
             // Compute inverses for conventional lookups
-            compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation>(
+            compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation<FF>>(
                 this->polynomials, relation_parameters, this->circuit_size);
         }
 

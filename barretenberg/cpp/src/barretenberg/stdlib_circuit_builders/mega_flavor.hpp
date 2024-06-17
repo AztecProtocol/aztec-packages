@@ -67,7 +67,7 @@ class MegaFlavor {
                                   bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    using LogDerivLookupRelation = LogDerivLookupRelation<FF>;
+    // using LogDerivLookupRelation = LogDerivLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -435,7 +435,7 @@ class MegaFlavor {
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
             // Compute inverses for conventional lookups
-            compute_logderivative_inverse<MegaFlavor, LogDerivLookupRelation>(
+            compute_logderivative_inverse<MegaFlavor, LogDerivLookupRelation<FF>>(
                 this->polynomials, relation_parameters, this->circuit_size);
 
             // Compute inverses for calldata reads
