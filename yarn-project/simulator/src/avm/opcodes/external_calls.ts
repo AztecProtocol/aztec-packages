@@ -89,7 +89,7 @@ abstract class ExternalCall extends Instruction {
       callType,
       FunctionSelector.fromField(functionSelector),
     );
-    const startSideEffectCounter = nestedContext.persistableState.trace.accessCounter;
+    const startSideEffectCounter = nestedContext.persistableState.trace.counter;
 
     const oldStyleExecution = createPublicExecution(startSideEffectCounter, nestedContext.environment, calldata);
     const simulator = new AvmSimulator(nestedContext);

@@ -125,7 +125,7 @@ export function convertAvmResultsToPxResult(
     execution: fromPx,
     returnValues: avmResult.output,
     startSideEffectCounter: new Fr(startSideEffectCounter),
-    endSideEffectCounter: new Fr(endPersistableState.trace.accessCounter),
+    endSideEffectCounter: new Fr(endPersistableState.trace.counter),
     unencryptedLogs: new UnencryptedFunctionL2Logs(endPersistableState.transitionalExecutionResult.unencryptedLogs),
     allUnencryptedLogs: new UnencryptedFunctionL2Logs(
       endPersistableState.transitionalExecutionResult.allUnencryptedLogs,

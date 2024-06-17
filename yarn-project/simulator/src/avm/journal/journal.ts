@@ -118,7 +118,7 @@ export class AvmPersistableStateManager {
       l1ToL2MsgReadRequests: [],
       newNoteHashes: [],
       newL2ToL1Messages: [],
-      startSideEffectCounter: this.trace.accessCounter,
+      startSideEffectCounter: this.trace.counter,
       newNullifiers: [],
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
@@ -150,7 +150,7 @@ export class AvmPersistableStateManager {
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     this.transitionalExecutionResult.contractStorageUpdateRequests.push(
-      new ContractStorageUpdateRequest(slot, value, this.trace.accessCounter, storageAddress),
+      new ContractStorageUpdateRequest(slot, value, this.trace.counter, storageAddress),
     );
 
     // Trace all storage writes (even reverted ones)
@@ -172,7 +172,7 @@ export class AvmPersistableStateManager {
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     this.transitionalExecutionResult.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.trace.accessCounter, storageAddress),
+      new ContractStorageRead(slot, value, this.trace.counter, storageAddress),
     );
 
     // We want to keep track of all performed reads (even reverted ones)
@@ -195,7 +195,7 @@ export class AvmPersistableStateManager {
     this.log.debug(`noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex}, exists: ${exists}.`);
 
     // TODO: include exists here also - This can for sure come from the trace???
-    this.transitionalExecutionResult.noteHashReadRequests.push(new ReadRequest(noteHash, this.trace.accessCounter));
+    this.transitionalExecutionResult.noteHashReadRequests.push(new ReadRequest(noteHash, this.trace.counter));
 
     this.trace.traceNoteHashCheck(storageAddress, noteHash, exists, leafIndex);
     return Promise.resolve(exists);
@@ -207,7 +207,7 @@ export class AvmPersistableStateManager {
    */
   public writeNoteHash(storageAddress: Fr, noteHash: Fr) {
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    this.transitionalExecutionResult.newNoteHashes.push(new NoteHash(noteHash, this.trace.accessCounter));
+    this.transitionalExecutionResult.newNoteHashes.push(new NoteHash(noteHash, this.trace.counter));
 
     this.log.debug(`noteHashes(${storageAddress}) += @${noteHash}.`);
     this.trace.traceNewNoteHash(storageAddress, noteHash);
@@ -227,10 +227,10 @@ export class AvmPersistableStateManager {
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     if (exists) {
-      this.transitionalExecutionResult.nullifierReadRequests.push(new ReadRequest(nullifier, this.trace.accessCounter));
+      this.transitionalExecutionResult.nullifierReadRequests.push(new ReadRequest(nullifier, this.trace.counter));
     } else {
       this.transitionalExecutionResult.nullifierNonExistentReadRequests.push(
-        new ReadRequest(nullifier, this.trace.accessCounter),
+        new ReadRequest(nullifier, this.trace.counter),
       );
     }
 
@@ -246,7 +246,7 @@ export class AvmPersistableStateManager {
   public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     this.transitionalExecutionResult.newNullifiers.push(
-      new Nullifier(nullifier, this.trace.accessCounter, /*noteHash=*/ Fr.ZERO),
+      new Nullifier(nullifier, this.trace.counter, /*noteHash=*/ Fr.ZERO),
     );
 
     this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
@@ -269,7 +269,7 @@ export class AvmPersistableStateManager {
       `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
     );
 
-    this.transitionalExecutionResult.l1ToL2MsgReadRequests.push(new ReadRequest(msgHash, this.trace.accessCounter));
+    this.transitionalExecutionResult.l1ToL2MsgReadRequests.push(new ReadRequest(msgHash, this.trace.counter));
 
     this.trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, exists);
     return Promise.resolve(exists);
@@ -305,7 +305,7 @@ export class AvmPersistableStateManager {
     // this duplicates exactly what happens in the trace just for the purpose of transitional integration with the kernel
     this.transitionalExecutionResult.unencryptedLogsHashes.push(
       // TODO(6578): explain magic number 4 here
-      new LogHash(logHash, this.trace.accessCounter, new Fr(ulog.length + 4)),
+      new LogHash(logHash, this.trace.counter, new Fr(ulog.length + 4)),
     );
     // TODO(6206): likely need to track this here and not just in the transitional logic.
 
@@ -374,7 +374,7 @@ export class AvmPersistableStateManager {
       currentStorageValue: this.publicStorage.getCache().cachePerContract,
       storageReads: this.trace.publicStorageReads,
       storageWrites: this.trace.publicStorageWrites,
-      sideEffectCounter: this.trace.accessCounter,
+      sideEffectCounter: this.trace.counter,
     };
   }
 }

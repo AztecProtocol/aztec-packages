@@ -7,15 +7,15 @@ import {
   type TracedNoteHashCheck,
   type TracedNullifier,
   type TracedNullifierCheck,
-  type TracedPublicStorageRead,
   type TracedPublicStorageWrite,
   type TracedUnencryptedL2Log,
 } from './trace_types.js';
+import { AvmExecutionHints, AvmKeyValueHint, AztecAddress, ContractStorageRead } from '@aztec/circuits.js';
 
 export class WorldStateAccessTrace {
-  public accessCounter: number;
+  public counter: number;
 
-  public publicStorageReads: TracedPublicStorageRead[] = [];
+  public publicStorageReads: ContractStorageRead[] = [];
   public publicStorageWrites: TracedPublicStorageWrite[] = [];
 
   public noteHashChecks: TracedNoteHashCheck[] = [];
@@ -26,32 +26,27 @@ export class WorldStateAccessTrace {
   public newLogsHashes: TracedUnencryptedL2Log[] = [];
   public gotContractInstances: TracedContractInstance[] = [];
 
-  //public contractCalls: TracedContractCall[] = [];
-  //public archiveChecks: TracedArchiveLeafCheck[] = [];
+  // TODO(dbanks12): use this
+  public circuitHints: AvmExecutionHints;
 
   constructor(parentTrace?: WorldStateAccessTrace) {
-    this.accessCounter = parentTrace ? parentTrace.accessCounter : 0;
+    this.counter = parentTrace ? parentTrace.counter : 0;
     // TODO(4805): consider tracking the parent's trace vector lengths so we can enforce limits
+    this.circuitHints = AvmExecutionHints.empty();
   }
 
-  public getAccessCounter() {
-    return this.accessCounter;
+  public getCounter() {
+    return this.counter;
   }
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
+  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // TODO(4805): check if some threshold is reached for max storage reads
     // (need access to parent length, or trace needs to be initialized with parent's contents)
-    const traced: TracedPublicStorageRead = {
-      //  callPointer: Fr.ZERO,
-      storageAddress,
-      slot,
-      value,
-      exists,
-      cached,
-      counter: new Fr(this.accessCounter),
-      //  endLifetime: Fr.ZERO,
-    };
-    this.publicStorageReads.push(traced);
+    // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
+    this.publicStorageReads.push(
+      new ContractStorageRead(slot, value, this.counter, AztecAddress.fromField(storageAddress))
+    );
+    this.circuitHints.storageValues.items.push(new AvmKeyValueHint(/*key=*/new Fr(this.counter), /*value=*/value));
     this.incrementAccessCounter();
   }
 
@@ -60,10 +55,10 @@ export class WorldStateAccessTrace {
     // (need access to parent length, or trace needs to be initialized with parent's contents)
     const traced: TracedPublicStorageWrite = {
       //  callPointer: Fr.ZERO,
-      storageAddress,
+      contractAddress: storageAddress,
       slot,
       value,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
       //  endLifetime: Fr.ZERO,
     };
     this.publicStorageWrites.push(traced);
@@ -76,7 +71,7 @@ export class WorldStateAccessTrace {
       storageAddress,
       noteHash,
       exists,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
       // endLifetime: Fr.ZERO,
       leafIndex,
     };
@@ -90,7 +85,7 @@ export class WorldStateAccessTrace {
       //  callPointer: Fr.ZERO,
       storageAddress,
       noteHash,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
       //  endLifetime: Fr.ZERO,
     };
     this.newNoteHashes.push(traced);
@@ -104,7 +99,7 @@ export class WorldStateAccessTrace {
       storageAddress,
       nullifier,
       exists,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
       // endLifetime: Fr.ZERO,
       isPending,
       leafIndex,
@@ -119,7 +114,7 @@ export class WorldStateAccessTrace {
       // callPointer: Fr.ZERO,
       storageAddress,
       nullifier,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
       // endLifetime: Fr.ZERO,
     };
     this.newNullifiers.push(tracedNullifier);
@@ -133,7 +128,7 @@ export class WorldStateAccessTrace {
       leafIndex: msgLeafIndex,
       msgHash: msgHash,
       exists: exists,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
       //endLifetime: Fr.ZERO, // FIXME
     };
     this.l1ToL2MessageChecks.push(traced);
@@ -143,7 +138,7 @@ export class WorldStateAccessTrace {
   public traceNewLog(logHash: Fr) {
     const traced: TracedUnencryptedL2Log = {
       logHash,
-      counter: new Fr(this.accessCounter),
+      counter: new Fr(this.counter),
     };
     this.newLogsHashes.push(traced);
     this.incrementAccessCounter();
@@ -155,7 +150,7 @@ export class WorldStateAccessTrace {
   }
 
   private incrementAccessCounter() {
-    this.accessCounter++;
+    this.counter++;
   }
 
   /**
@@ -176,6 +171,6 @@ export class WorldStateAccessTrace {
     this.newLogsHashes.push(...incomingTrace.newLogsHashes);
     this.gotContractInstances.push(...incomingTrace.gotContractInstances);
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
-    this.accessCounter = incomingTrace.accessCounter;
+    this.counter = incomingTrace.counter;
   }
 }

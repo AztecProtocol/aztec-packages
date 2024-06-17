@@ -31,7 +31,7 @@ describe('world state access trace', () => {
           leafIndex: leafIndex,
         },
       ]);
-      expect(trace.getAccessCounter()).toBe(1);
+      expect(trace.getCounter()).toBe(1);
     });
     it('Should trace note hashes', () => {
       const contractAddress = new Fr(1);
@@ -42,7 +42,7 @@ describe('world state access trace', () => {
       expect(trace.newNoteHashes).toEqual([
         expect.objectContaining({ storageAddress: contractAddress, noteHash: utxo }),
       ]);
-      expect(trace.getAccessCounter()).toEqual(1);
+      expect(trace.getCounter()).toEqual(1);
     });
     it('Should trace nullifier checks', () => {
       const contractAddress = new Fr(1);
@@ -62,7 +62,7 @@ describe('world state access trace', () => {
         leafIndex: leafIndex,
       };
       expect(trace.nullifierChecks).toEqual([expectedCheck]);
-      expect(trace.getAccessCounter()).toEqual(1);
+      expect(trace.getCounter()).toEqual(1);
     });
     it('Should trace nullifiers', () => {
       const contractAddress = new Fr(1);
@@ -76,7 +76,7 @@ describe('world state access trace', () => {
         // endLifetime: Fr.ZERO,
       };
       expect(trace.newNullifiers).toEqual([expectedNullifier]);
-      expect(trace.getAccessCounter()).toEqual(1);
+      expect(trace.getCounter()).toEqual(1);
     });
     it('Should trace L1ToL2 Message checks', () => {
       const utxo = new Fr(2);
@@ -90,13 +90,13 @@ describe('world state access trace', () => {
         counter: new Fr(0),
       };
       expect(trace.l1ToL2MessageChecks).toEqual([expectedCheck]);
-      expect(trace.getAccessCounter()).toEqual(1);
+      expect(trace.getCounter()).toEqual(1);
     });
     it('Should trace get contract instance', () => {
       const instance = randomTracedContractInstance();
       trace.traceGetContractInstance(instance);
       expect(trace.gotContractInstances).toEqual([instance]);
-      expect(trace.getAccessCounter()).toEqual(1);
+      expect(trace.getCounter()).toEqual(1);
     });
   });
 
@@ -145,7 +145,7 @@ describe('world state access trace', () => {
     counter++;
     trace.traceGetContractInstance(instance);
     counter++;
-    expect(trace.getAccessCounter()).toEqual(counter);
+    expect(trace.getCounter()).toEqual(counter);
   });
 
   it('Should merge two traces together', () => {
@@ -216,9 +216,9 @@ describe('world state access trace', () => {
     childTrace.traceL1ToL2MessageCheck(msgHashT1, msgLeafIndexT1, msgExistsT1);
     childTrace.traceGetContractInstance(instanceT1);
 
-    const childCounterBeforeMerge = childTrace.getAccessCounter();
+    const childCounterBeforeMerge = childTrace.getCounter();
     trace.acceptAndMerge(childTrace);
-    expect(trace.getAccessCounter()).toEqual(childCounterBeforeMerge);
+    expect(trace.getCounter()).toEqual(childCounterBeforeMerge);
 
     expect(trace.publicStorageReads).toEqual([
       expect.objectContaining({

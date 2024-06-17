@@ -1,27 +1,8 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-//export type TracedContractCall = {
-//  callPointer: Fr;
-//  address: Fr;
-//  storageAddress: Fr;
-//  endLifetime: Fr;
-//};
-
-export type TracedPublicStorageRead = {
-  //  callPointer: Fr;
-  storageAddress: Fr;
-  exists: boolean;
-  cached: boolean;
-  slot: Fr;
-  value: Fr;
-  counter: Fr;
-  //  endLifetime: Fr;
-};
-
 export type TracedPublicStorageWrite = {
-  //  callPointer: Fr;
-  storageAddress: Fr;
+  contractAddress: Fr;
   slot: Fr;
   value: Fr;
   counter: Fr;
@@ -29,7 +10,6 @@ export type TracedPublicStorageWrite = {
 };
 
 export type TracedNoteHashCheck = {
-  // callPointer: Fr;
   storageAddress: Fr;
   leafIndex: Fr;
   noteHash: Fr;
@@ -39,7 +19,6 @@ export type TracedNoteHashCheck = {
 };
 
 export type TracedNoteHash = {
-  //  callPointer: Fr;
   storageAddress: Fr;
   noteHash: Fr;
   counter: Fr;
@@ -47,7 +26,6 @@ export type TracedNoteHash = {
 };
 
 export type TracedNullifierCheck = {
-  // callPointer: Fr;
   storageAddress: Fr;
   nullifier: Fr;
   exists: boolean;
@@ -60,7 +38,6 @@ export type TracedNullifierCheck = {
 };
 
 export type TracedNullifier = {
-  // callPointer: Fr;
   storageAddress: Fr;
   nullifier: Fr;
   counter: Fr;
@@ -68,7 +45,6 @@ export type TracedNullifier = {
 };
 
 export type TracedL1toL2MessageCheck = {
-  //callPointer: Fr;
   leafIndex: Fr;
   msgHash: Fr;
   exists: boolean;
@@ -77,15 +53,9 @@ export type TracedL1toL2MessageCheck = {
 };
 
 export type TracedUnencryptedL2Log = {
-  //callPointer: Fr;
   logHash: Fr;
   counter: Fr;
   //endLifetime: Fr;
 };
-
-//export type TracedArchiveLeafCheck = {
-//  leafIndex: Fr;
-//  leaf: Fr;
-//};
 
 export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;

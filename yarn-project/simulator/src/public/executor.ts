@@ -56,7 +56,7 @@ export class PublicExecutor {
     for (const nullifier of pendingNullifiers) {
       worldStateJournal.nullifiers.cache.appendSiloed(nullifier.value);
     }
-    worldStateJournal.trace.accessCounter = startSideEffectCounter;
+    worldStateJournal.trace.counter = startSideEffectCounter;
 
     const executionEnv = createAvmExecutionEnvironment(
       execution,
