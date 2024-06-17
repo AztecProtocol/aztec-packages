@@ -15,20 +15,24 @@ ENV PATH="/usr/src/avm-transpiler/target/release:${PATH}"
 WORKDIR /usr/src/noir-projects
 COPY . .
 
-# Launch TXE
-WORKDIR /usr/src/yarn-project/txe
-RUN yarn start & echo $! > /tmp/txe.pid
 
 # Build
-WORKDIR /usr/src/noir-projects/noir-contracts
-RUN ./bootstrap.sh && nargo test --silence-warnings --oracle-resolver http://localhost:8080
-WORKDIR /usr/src/noir-projects/noir-protocol-circuits
-RUN ./bootstrap.sh && nargo test --silence-warnings
-WORKDIR /usr/src/noir-projects/aztec-nr
-RUN nargo test --silence-warnings --oracle-resolver http://localhost:8080
+WORKDIR /usr/src/noir-projects
+RUN cd noir-protocol-circuits && ./bootstrap.sh && nargo test --silence-warnings
 
-# Kill TXE
-RUN kill $(cat /tmp/txe.pid)
+RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 
+    # Wait for TXE to initialize
+    sleep 5 && \ 
+    cd /usr/src/noir-projects/noir-contracts && \
+    ./bootstrap.sh && nargo test --silence-warnings --oracle-resolver http://localhost:8080 && \
+    kill $(cat /tmp/txe.pid)
+
+RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 
+    # Wait for TXE to initialize
+    sleep 5 && \ 
+    cd /usr/src/noir-projects/aztec-nr && \
+    nargo test --silence-warnings --oracle-resolver http://localhost:8080
+
 
 FROM scratch
 COPY --from=builder /usr/src/noir-projects /usr/src/noir-projects
