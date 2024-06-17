@@ -77,13 +77,14 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         static_assert(write_index < WRITE_TERMS);
 
-        const auto& gamma = params.gamma;
-        const auto& beta = params.beta;
-        const auto& beta_sqr = params.beta_sqr;
-        const auto& beta_cube = params.beta_cube;
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        const auto& beta_sqr = ParameterView(params.beta_sqr);
+        const auto& beta_cube = ParameterView(params.beta_cube);
 
         auto table_1 = View(in.table_1);
         auto table_2 = View(in.table_2);
@@ -97,11 +98,12 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
+        using ParameterView = GetParameterView<Parameters, View>;
 
-        const auto& gamma = params.gamma;
-        const auto& beta = params.beta;
-        const auto& beta_sqr = params.beta_sqr;
-        const auto& beta_cube = params.beta_cube;
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        const auto& beta_sqr = ParameterView(params.beta_sqr);
+        const auto& beta_cube = ParameterView(params.beta_cube);
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
@@ -118,24 +120,19 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift should result in a values that exists in table_i.
-        auto derived_table_entry_1 = w_1 + negative_column_1_step_size * w_1_shift;
+        auto derived_table_entry_1 = w_1 + gamma + negative_column_1_step_size * w_1_shift;
         auto derived_table_entry_2 = w_2 + negative_column_2_step_size * w_2_shift;
         auto derived_table_entry_3 = w_3 + negative_column_3_step_size * w_3_shift;
 
         // (w_1 + q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
-        return derived_table_entry_1 + gamma + derived_table_entry_2 * beta + derived_table_entry_3 * beta_sqr +
+        return derived_table_entry_1 + derived_table_entry_2 * beta + derived_table_entry_3 * beta_sqr +
                table_index * beta_cube;
     }
 
     /**
-     * @brief Expression for ECCVM lookup tables.
-     * @details We use log-derivative lookup tables for the following case:
-     * Table writes: ECCVMPointTable columns: we define Straus point table:
-     * { {0, -15[P]}, {1, -13[P]}, ..., {15, 15[P]} }
-     * write source: { precompute_round, precompute_tx, precompute_ty }
-     * Table reads: ECCVMMSM columns. Each row adds up to 4 points into MSM accumulator
-     * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice4, msm_x4, msm_y4 }
+     * @brief WORKTODO
+     *
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param relation_params contains beta, gamma, and public_input_delta, ....
