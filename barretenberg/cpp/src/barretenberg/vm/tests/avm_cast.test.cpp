@@ -118,7 +118,7 @@ class AvmCastTests : public ::testing::Test {
         if (force_proof) {
             validate_trace(std::move(trace), public_inputs, true);
         } else {
-            validate_trace(std::move(trace));
+            validate_trace(std::move(trace), public_inputs);
         }
     }
 };
@@ -156,6 +156,14 @@ TEST_F(AvmCastTests, sameTagU128)
     gen_trace(a, 0, 1, AvmMemoryTag::U128, AvmMemoryTag::U128);
     validate_cast_trace(
         uint256_t::from_uint128(a), FF(uint256_t::from_uint128(a)), 0, 1, AvmMemoryTag::U128, AvmMemoryTag::U128);
+}
+
+TEST_F(AvmCastTests, U128toFFWithBorrow)
+{
+    uint128_t const a = (uint128_t{ 0x30644E72E131A029LLU } << 64) + uint128_t{ 0xB85045B68181585DLLU };
+    gen_trace(a, 0, 1, AvmMemoryTag::U128, AvmMemoryTag::FF);
+    validate_cast_trace(
+        uint256_t::from_uint128(a), FF(uint256_t::from_uint128(a)), 0, 1, AvmMemoryTag::U128, AvmMemoryTag::FF);
 }
 
 TEST_F(AvmCastTests, noTruncationFFToU32)
@@ -240,7 +248,7 @@ TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
                       Field("alu_sel", &Row::avm_main_alu_sel, 0),   // ALU trace not activated
                       Field("tag_err", &Row::avm_main_tag_err, 1))); // Error activated
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmCastNegativeTests, nonTruncatedOutputMainIc)
@@ -400,6 +408,31 @@ TEST_F(AvmCastNegativeTests, wrongCopySubHiForRangeCheck)
     ASSERT_EQ(trace.at(alu_idx + 1).avm_alu_a_hi, trace.at(alu_idx).avm_alu_p_sub_a_hi);
     trace.at(alu_idx + 1).avm_alu_a_hi += 2;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OP_CAST_RNG_CHECK_P_SUB_A_HIGH");
+}
+
+TEST_F(AvmCastNegativeTests, secondRowNoOp)
+{
+    gen_trace(6583, 0, 1, AvmMemoryTag::U64, AvmMemoryTag::U8);
+    ASSERT_EQ(trace.at(alu_idx).avm_alu_ic, 183);
+
+    // We have to enable alu_sel otherwise another relation will fail.
+    trace.at(alu_idx + 1).avm_alu_alu_sel = 1;
+
+    // Add an LT selector in the next row (second part of the cast operation)
+    auto trace_lt = trace;
+    trace_lt.at(alu_idx + 1).avm_alu_op_lt = 1;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_lt)), "TWO_LINE_OP_NO_OVERLAP");
+
+    // Try with EQ selector
+    auto trace_eq = trace;
+    trace_eq.at(alu_idx + 1).avm_alu_op_eq = 1;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_eq)), "TWO_LINE_OP_NO_OVERLAP");
+
+    // Try with a second cast selector
+    trace.at(alu_idx + 1).avm_alu_op_cast = 1;
+    // Adjust to not violate #[RNG_CHK_LOOKUP_SELECTOR]
+    trace.at(alu_idx + 1).avm_alu_rng_chk_lookup_selector = 2;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "TWO_LINE_OP_NO_OVERLAP");
 }
 
 } // namespace tests_avm

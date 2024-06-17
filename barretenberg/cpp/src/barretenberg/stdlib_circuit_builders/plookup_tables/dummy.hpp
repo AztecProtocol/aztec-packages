@@ -49,7 +49,6 @@ inline BasicTable generate_honk_dummy_table(const BasicTableId id, const size_t 
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    table.size = base * base;
     table.use_twin_keys = true;
     for (uint64_t i = 0; i < base; ++i) {
         for (uint64_t j = 0; j < base; ++j) {

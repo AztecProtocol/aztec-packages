@@ -10,7 +10,7 @@ use crate::{
     key_validation_request::get_key_validation_request, arguments, returns::pack_returns,
     call_private_function::call_private_function_internal, header::get_header_at,
     logs::{
-    emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_log,
+    emit_encrypted_note_log, emit_encrypted_event_log, compute_encrypted_event_log,
     emit_contract_class_unencrypted_log_private_internal, emit_unencrypted_log_private_internal
 },
     logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
@@ -193,10 +193,10 @@ impl PrivateContext {
     }
 
     pub fn end_setup(&mut self) {
-        dep::protocol_types::debug_log::debug_log_format(
-            "Ending setup at counter {0}",
-            [self.side_effect_counter as Field]
-        );
+        // dep::protocol_types::debug_log::debug_log_format(
+        //     "Ending setup at counter {0}",
+        //     [self.side_effect_counter as Field]
+        // );
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
@@ -311,9 +311,8 @@ impl PrivateContext {
 
     // NB: A randomness value of 0 signals that the kernels should not mask the contract address
     // used in siloing later on e.g. 'handshaking' contract w/ known address.
-    pub fn encrypt_and_emit_log<N, M>(
+    pub fn encrypt_and_emit_event<N, M>(
         &mut self,
-        contract_address: AztecAddress,
         randomness: Field, // Secret random value used later for masked_contract_address
         event_type_id: Field,
         ovpk_m: GrumpkinPoint,
@@ -321,10 +320,10 @@ impl PrivateContext {
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M> {
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
+        let contract_address = self.this_address();
 
         // We are currently just encrypting it unconstrained, but otherwise the same way as if it was a note.
-        let counter = self.next_counter();
-        let encrypted_log: [u8; M] = compute_encrypted_log(
+        let encrypted_log: [u8; M] = compute_encrypted_event_log(
             contract_address,
             randomness,
             event_type_id,
@@ -333,52 +332,33 @@ impl PrivateContext {
             ivpk_m,
             preimage
         );
-        emit_encrypted_log(contract_address, randomness, encrypted_log, counter);
-        let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
+
+        self.emit_raw_event_log_with_masked_address(randomness, encrypted_log);
+    }
+
+    pub fn emit_raw_event_log_with_masked_address<M>(
+        &mut self,
+        randomness: Field,
+        encrypted_log: [u8; M]
+    ) {
+        let counter = self.next_counter();
+        let contract_address = self.this_address();
+        let len = encrypted_log.len() as Field + 4;
         let log_hash = sha256_to_field(encrypted_log);
         let side_effect = EncryptedLogHash { value: log_hash, counter, length: len, randomness };
         self.encrypted_logs_hashes.push(side_effect);
+
+        emit_encrypted_event_log(contract_address, randomness, encrypted_log, counter);
     }
 
-    pub fn encrypt_and_emit_note<Note, N, NB, M>(
-        &mut self,
-        contract_address: AztecAddress,
-        storage_slot: Field,
-        ovpk_m: GrumpkinPoint,
-        ivpk_m: GrumpkinPoint,
-        note: Note
-    ) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-        let note_hash_counter = note.get_header().note_hash_counter;
-        let note_exists_index = find_index(
-            self.new_note_hashes.storage,
-            |n: NoteHash| n.counter == note_hash_counter
-        );
-        assert(
-            note_exists_index as u32 != MAX_NEW_NOTE_HASHES_PER_CALL, "Can only emit a note log for an existing note."
-        );
-
+    pub fn emit_raw_note_log<M>(&mut self, note_hash_counter: u32, encrypted_log: [u8; M]) {
         let counter = self.next_counter();
-
-        let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
-
-        // Current unoptimized size of the encrypted log
-        // incoming_tag (32 bytes)
-        // outgoing_tag (32 bytes)
-        // eph_pk (64 bytes)
-        // incoming_header (48 bytes)
-        // outgoing_header (48 bytes)
-        // outgoing_body (176 bytes)
-        // incoming_body_fixed (64 bytes)
-        // incoming_body_variable (N * 32 bytes + 16 bytes padding) 
-        let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
-        emit_encrypted_note_log(note_hash_counter, encrypted_log, counter);
-
-        // len of processed log (4 bytes)
         let len = encrypted_log.len() as Field + 4;
-
         let log_hash = sha256_to_field(encrypted_log);
         let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
         self.note_encrypted_logs_hashes.push(side_effect);
+
+        emit_encrypted_note_log(note_hash_counter, encrypted_log, counter);
     }
 
     pub fn call_private_function<ARGS_COUNT>(

@@ -56,7 +56,7 @@ template <size_t num_bits> table::fixed_base_scalar_mul_tables table::generate_t
     result.reserve(NUM_TABLES);
 
     std::vector<uint8_t> input_buf;
-    serialize::write(input_buf, input);
+    write(input_buf, input);
     const auto offset_generators = grumpkin::g1::derive_generators(input_buf, NUM_TABLES);
 
     grumpkin::g1::element accumulator = input;
@@ -87,7 +87,7 @@ grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1
     constexpr size_t NUM_TABLES = get_num_tables_per_multi_table<num_table_bits>();
 
     std::vector<uint8_t> input_buf;
-    serialize::write(input_buf, input);
+    write(input_buf, input);
     const auto offset_generators = grumpkin::g1::derive_generators(input_buf, NUM_TABLES);
     grumpkin::g1::element acc = grumpkin::g1::point_at_infinity;
     for (const auto& gen : offset_generators) {
@@ -197,12 +197,11 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
     BasicTable table;
     table.id = id;
     table.table_index = basic_table_index;
-    table.size = table_size;
     table.use_twin_keys = false;
 
     const auto& basic_table = fixed_base_tables[multitable_index][table_index];
 
-    for (size_t i = 0; i < table.size; ++i) {
+    for (size_t i = 0; i < table_size; ++i) {
         table.column_1.emplace_back(i);
         table.column_2.emplace_back(basic_table[i].x);
         table.column_3.emplace_back(basic_table[i].y);
@@ -213,7 +212,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
     table.get_values_from_key = get_values_from_key_table[multitable_index][table_index];
 
     ASSERT(table.get_values_from_key != nullptr);
-    table.column_1_step_size = table.size;
+    table.column_1_step_size = table_size;
     table.column_2_step_size = 0;
     table.column_3_step_size = 0;
 

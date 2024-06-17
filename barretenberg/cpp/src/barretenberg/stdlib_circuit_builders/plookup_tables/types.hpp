@@ -349,8 +349,6 @@ struct BasicTable {
     // Unique id of the table which is used to look it up, when we need its functionality. One of BasicTableId enum
     BasicTableId id;
     size_t table_index;
-    // The size of the table
-    size_t size;
     // This means that we are using two inputs to look up stuff, not translate a single entry into another one.
     bool use_twin_keys;
 
@@ -369,6 +367,12 @@ struct BasicTable {
     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
 
     bool operator==(const BasicTable& other) const = default;
+
+    size_t size() const
+    {
+        ASSERT(column_1.size() == column_2.size() && column_2.size() == column_3.size());
+        return column_1.size();
+    }
 };
 
 enum ColumnIdx { C1, C2, C3 };

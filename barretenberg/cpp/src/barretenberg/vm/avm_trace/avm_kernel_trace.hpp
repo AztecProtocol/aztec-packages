@@ -59,7 +59,7 @@ class AvmKernelTraceBuilder {
         bool op_sstore = false;
     };
 
-    VmPublicInputs public_inputs{};
+    VmPublicInputs public_inputs;
 
     // Counts the number of accesses into each SELECTOR for the environment selector lookups;
     std::unordered_map<uint32_t, uint32_t> kernel_input_selector_counter;
@@ -114,9 +114,9 @@ class AvmKernelTraceBuilder {
         START_NULLIFIER_NON_EXISTS_OFFSET + MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL;
 
     static const uint32_t START_SSTORE_WRITE_OFFSET =
-        START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
+        START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL;
     static const uint32_t START_SLOAD_WRITE_OFFSET =
-        START_SSTORE_WRITE_OFFSET + MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL;
+        START_SSTORE_WRITE_OFFSET + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
 
     static const uint32_t START_EMIT_NOTE_HASH_WRITE_OFFSET = START_SLOAD_WRITE_OFFSET + MAX_PUBLIC_DATA_READS_PER_CALL;
     static const uint32_t START_EMIT_NULLIFIER_WRITE_OFFSET =

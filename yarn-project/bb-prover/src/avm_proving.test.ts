@@ -37,6 +37,7 @@ import {
   initHostStorage,
 } from '@aztec/simulator/avm/fixtures';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -51,7 +52,8 @@ import { SerializableContractInstance } from '../../types/src/contracts/contract
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
 import { extractVkData } from './verification_key/verification_key_data.js';
 
-const TIMEOUT = 30_000;
+const TIMEOUT = 60_000;
+const TIMESTAMP = new Fr(99833);
 
 describe('AVM WitGen, proof generation and verification', () => {
   const avmFunctionsAndCalldata: [string, Fr[]][] = [
@@ -69,6 +71,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     ['l1_to_l2_msg_exists', [new Fr(1), new Fr(2)]],
     ['send_l2_to_l1_msg', [new Fr(1), new Fr(2)]],
     ['to_radix_le', [new Fr(10)]],
+    ['nested_call_to_add', [new Fr(1), new Fr(2)]],
   ];
 
   it.each(avmFunctionsAndCalldata)(
@@ -79,21 +82,66 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
 
-  it.skip(
-    'Should prove a keccak hash evaluation',
+  /************************************************************************
+   * Hashing functions
+   ************************************************************************/
+  describe('AVM hash functions', () => {
+    const avmHashFunctions: [string, Fr[]][] = [
+      [
+        'keccak_hash',
+        [
+          new Fr(189),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+          new Fr(0),
+        ],
+      ],
+      [
+        'poseidon2_hash',
+        [new Fr(0), new Fr(1), new Fr(2), new Fr(3), new Fr(4), new Fr(5), new Fr(6), new Fr(7), new Fr(8), new Fr(9)],
+      ],
+      [
+        'sha256_hash',
+        [new Fr(0), new Fr(1), new Fr(2), new Fr(3), new Fr(4), new Fr(5), new Fr(6), new Fr(7), new Fr(8), new Fr(9)],
+      ],
+      [
+        'pedersen_hash',
+        [new Fr(0), new Fr(1), new Fr(2), new Fr(3), new Fr(4), new Fr(5), new Fr(6), new Fr(7), new Fr(8), new Fr(9)],
+      ],
+      [
+        'pedersen_hash_with_index',
+        [new Fr(0), new Fr(1), new Fr(2), new Fr(3), new Fr(4), new Fr(5), new Fr(6), new Fr(7), new Fr(8), new Fr(9)],
+      ],
+    ];
+
+    it.each(avmHashFunctions)(
+      'Should prove %s',
+      async (name, calldata) => {
+        await proveAndVerifyAvmTestContract(name, calldata);
+      },
+      TIMEOUT,
+    );
+  });
+
+  it(
+    'Should prove that timestamp matches',
     async () => {
-      await proveAndVerifyAvmTestContract('keccak_hash', [
-        new Fr(0),
-        new Fr(1),
-        new Fr(2),
-        new Fr(3),
-        new Fr(4),
-        new Fr(5),
-        new Fr(6),
-        new Fr(7),
-        new Fr(8),
-        new Fr(9),
-      ]);
+      await proveAndVerifyAvmTestContract('assert_timestamp', [TIMESTAMP]);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'Should prove that mutated timestamp does not match and a revert is performed',
+    async () => {
+      // The error assertion string must match with that of assert_timestamp noir function.
+      await proveAndVerifyAvmTestContract('assert_timestamp', [TIMESTAMP.add(new Fr(1))], 'timestamp does not match');
     },
     TIMEOUT,
   );
@@ -131,9 +179,20 @@ describe('AVM WitGen, proof generation and verification', () => {
  * Helpers
  ************************************************************************/
 
-const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[] = []) => {
+/**
+ * If assertionErrString is set, we expect a (non exceptional halting) revert due to a failing assertion and
+ * we check that the revert reason error contains this string. However, the circuit must correctly prove the
+ * execution.
+ */
+const proveAndVerifyAvmTestContract = async (
+  functionName: string,
+  calldata: Fr[] = [],
+  assertionErrString?: string,
+) => {
   const startSideEffectCounter = 0;
-  const environment = initExecutionEnvironment({ calldata });
+  const globals = GlobalVariables.empty();
+  globals.timestamp = TIMESTAMP;
+  const environment = initExecutionEnvironment({ calldata, globals });
 
   const contractsDb = mock<PublicContractsDB>();
   const contractInstance = new SerializableContractInstance({
@@ -153,6 +212,10 @@ const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[
   const hostStorage = initHostStorage({ contractsDb });
   const persistableState = new AvmPersistableStateManager(hostStorage);
   const context = initContext({ env: environment, persistableState });
+  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
+  jest
+    .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+    .mockReturnValue(Promise.resolve(nestedCallBytecode));
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
   const oldPublicExecution = createPublicExecution(startSideEffectCounter, environment, calldata);
@@ -169,7 +232,14 @@ const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[
   // First we simulate (though it's not needed in this simple case).
   const simulator = new AvmSimulator(context);
   const avmResult = await simulator.executeBytecode(bytecode);
-  expect(avmResult.reverted).toBe(false);
+
+  if (assertionErrString == undefined) {
+    expect(avmResult.reverted).toBe(false);
+  } else {
+    // Explicit revert when an assertion failed.
+    expect(avmResult.reverted).toBe(true);
+    expect(avmResult.revertReason?.message).toContain(assertionErrString);
+  }
 
   const pxResult = convertAvmResultsToPxResult(
     avmResult,
@@ -181,8 +251,8 @@ const proveAndVerifyAvmTestContract = async (functionName: string, calldata: Fr[
   );
   // TODO(dbanks12): public inputs should not be empty.... Need to construct them from AvmContext?
   const uncompressedBytecode = simulator.getBytecode()!;
-
   const publicInputs = getPublicInputs(pxResult);
+
   const avmCircuitInputs = new AvmCircuitInputs(
     uncompressedBytecode,
     context.environment.calldata,

@@ -57,11 +57,11 @@ class KeccakInput {
         BasicTable table;
         table.id = id;
         table.table_index = table_index;
-        table.size = (1U << TABLE_BITS);
+        auto table_size = (1U << TABLE_BITS);
         table.use_twin_keys = false;
         constexpr size_t msb_shift = (64 % TABLE_BITS == 0) ? TABLE_BITS - 1 : (64 % TABLE_BITS) - 1;
 
-        for (uint64_t i = 0; i < table.size; ++i) {
+        for (uint64_t i = 0; i < table_size; ++i) {
             const uint64_t source = i;
             const auto target = numeric::map_into_sparse_form<BASE>(source);
             table.column_1.emplace_back(bb::fr(source));
