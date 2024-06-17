@@ -35,7 +35,6 @@ class UltraCircuit : public CircuitBase {
     UltraCircuit& operator=(UltraCircuit&& other) = default;
     ~UltraCircuit() override = default;
 
-    // TODO(alex): not including ROM/RAM/Ranged gates
     inline size_t get_num_gates() const
     {
         return selectors[0].size() + selectors[1].size() + selectors[2].size() + selectors[3].size() +
