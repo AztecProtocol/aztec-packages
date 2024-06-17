@@ -66,10 +66,13 @@ class MegaTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "SORTED_ACCUM", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "W_4", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
+        manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
