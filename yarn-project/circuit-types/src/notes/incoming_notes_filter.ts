@@ -14,10 +14,7 @@ export type IncomingNotesFilter = {
   contractAddress?: AztecAddress;
   /** The specific storage location of the note on the contract. */
   storageSlot?: Fr;
-  /**
-   * The owner of the note (whose public key was used to encrypt the note).
-   * TODO(#6531): This gets broken with incoming viewing key rotation.
-   */
+  /** The owner of the note (whose public key was used to encrypt the note). */
   owner?: AztecAddress;
   /** The status of the note. Defaults to 'ACTIVE'. */
   status?: NoteStatus;

@@ -13,9 +13,6 @@ export type OutgoingNotesFilter = {
   contractAddress?: AztecAddress;
   /** The specific storage location of the note on the contract. */
   storageSlot?: Fr;
-  /**
-   * The owner of the note (whose public key was used to encrypt the note).
-   * TODO(#6532): This gets broken with outgoing viewing key rotation.
-   */
+  /** The owner of the note (whose public key was used to encrypt the note). */
   owner?: AztecAddress;
 };
