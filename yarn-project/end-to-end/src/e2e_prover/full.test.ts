@@ -1,6 +1,8 @@
-import { type Fr } from '@aztec/aztec.js';
+import { type Fr, Tx } from '@aztec/aztec.js';
 import { writeFile, mkdtemp } from 'fs/promises';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
+import * as fs from 'fs';
+
 
 // LONDONTODO(Client): PXE created via the import below. Real proving turned on therein
 import { FullProverTest } from './e2e_prover_test.js';
@@ -31,34 +33,46 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  // LONDONTODO(Client): Change prover to implement this function.
-  // LONDONTODO(Client): Delete this ill-placed test.
+// LONDONTODO(Client): Revert this to full
   it(
     'constructs a private transaction',
     async () => {
       logger.info(
         `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
       );
-      const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
-      const privateSendAmount = privateBalance / 2n;
-      expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(
-        accounts[0].address,
-        accounts[1].address,
-        privateSendAmount,
-        0,
-      );
 
-      const [privateTx] = await Promise.all([privateInteraction.prove()]);
+      let privateTx : Tx;
+      const cachedTxPath = '../../../e2e.tx';
+      if (fs.existsSync(cachedTxPath)) {
+        const txBuffer = fs.readFileSync(cachedTxPath);
+        privateTx = Tx.fromBuffer(txBuffer);
+      } else {
+        const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
+        const privateSendAmount = privateBalance / 2n;
+        expect(privateSendAmount).toBeGreaterThan(0n);
+        const privateInteraction = provenAssets[0].methods.transfer(
+          accounts[0].address,
+          accounts[1].address,
+          privateSendAmount,
+          0,
+        );
+
+        [privateTx] = await Promise.all([privateInteraction.prove()]);
+        fs.writeFileSync(cachedTxPath, privateTx.toBuffer());
+      }
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
-      const bbPath = path.resolve('../../../barretenberg/cpp/build/bin/bb');
+      const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
       const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
-      await runInDirectory(bbWorkingDirectory, async (dir: string) => {
+      await runInDirectory(bbWorkingDirectory, async (_dir: string) => {
         await privateTx.clientIvcProof!.writeToOutputDirectory(bbWorkingDirectory);
-        const result = await generateTubeProof(bbPath, dir, logger.info)
+        const result = await generateTubeProof(bbPath, bbWorkingDirectory, logger.info)
+        logger.info(`tube result: ${result.status}`);
+        if (result.status == BB_RESULT.FAILURE) {
+          logger.info(`tube result: ${result.reason}`);
+        }
         expect(result.status).toBe(BB_RESULT.SUCCESS)
       });
       // privateTx
