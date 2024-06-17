@@ -160,7 +160,8 @@ class UltraFlavor {
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
 
-        MSGPACK_FIELDS(w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup);
+        MSGPACK_FIELDS(
+            w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
@@ -675,6 +676,9 @@ class UltraFlavor {
                 this->w_r = commitments.w_r;
                 this->w_o = commitments.w_o;
                 this->sorted_accum = commitments.sorted_accum;
+                this->lookup_inverses = commitments.lookup_inverses;
+                this->lookup_read_counts = commitments.lookup_read_counts;
+                this->lookup_read_tags = commitments.lookup_read_tags;
                 this->w_4 = commitments.w_4;
                 this->z_perm = commitments.z_perm;
                 this->z_lookup = commitments.z_lookup;
