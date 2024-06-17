@@ -97,10 +97,17 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Get commitments to sorted list accumulator and fourth wire
     commitments.sorted_accum = transcript->template receive_from_prover<Commitment>(commitment_labels.sorted_accum);
+    commitments.lookup_read_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_read_counts);
+    commitments.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_read_tags);
     commitments.w_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.w_4);
 
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+
+    commitments.lookup_inverses =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {

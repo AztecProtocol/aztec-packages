@@ -58,11 +58,18 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         domain_separator + "_eta", domain_separator + "_eta_two", domain_separator + "_eta_three");
     witness_commitments.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
+    witness_commitments.lookup_read_counts =
+        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_counts);
+    witness_commitments.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_tags);
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
 
     // Get permutation challenges and commitment to permutation and lookup grand products
     auto [beta, gamma] =
         transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
+
+    witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
+        domain_separator + "_" + commitment_labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
