@@ -4,8 +4,8 @@ import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type LogFn } from '@aztec/foundation/log';
 import { toHumanReadable } from '@aztec/foundation/serialize';
-import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-deployer';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
   const block = await pxe.getBlock(blockNumber);
@@ -42,7 +42,7 @@ export async function inspectTx(
   const [receipt, effects, notes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
 
   if (!receipt || !effects) {
@@ -103,7 +103,7 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getNotes({ siloedNullifier: nullifier });
+      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier });
       const deployed = deployNullifiers[nullifier.toString()];
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
@@ -161,8 +161,8 @@ function toFriendlyAddress(address: AztecAddress, artifactMap: ArtifactMap) {
 
 async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
   const knownContracts = await pxe.getContracts();
-  const deployerAddress = getCanonicalInstanceDeployer().address;
-  const registererAddress = getCanonicalClassRegistererAddress();
+  const deployerAddress = InstanceDeployerAddress;
+  const registererAddress = ClassRegistererAddress;
   const initNullifiers: Record<string, AztecAddress> = {};
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};

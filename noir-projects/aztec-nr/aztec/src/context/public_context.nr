@@ -29,7 +29,7 @@ impl PublicContext {
     * @param event_selector The event selector for the log.
     * @param message The message to emit in the log.
     */
-    pub fn emit_unencrypted_log_with_selector<T,N>(
+    pub fn emit_unencrypted_log_with_selector<T, N>(
         &mut self,
         event_selector: Field,
         log: T
@@ -37,7 +37,7 @@ impl PublicContext {
         emit_unencrypted_log(event_selector, Serialize::serialize(log).as_slice());
     }
     // For compatibility with the selector-less API. We'll probably rename the above one.
-    pub fn emit_unencrypted_log<T,N>(&mut self, log: T) where T: Serialize<N> {
+    pub fn emit_unencrypted_log<T, N>(&mut self, log: T) where T: Serialize<N> {
         self.emit_unencrypted_log_with_selector(/*event_selector=*/ 5, log);
     }
     pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
@@ -169,6 +169,12 @@ impl PublicContext {
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash
     }
+    fn l2_gas_left(self) -> Field {
+        l2_gas_left()
+    }
+    fn da_gas_left(self) -> Field {
+        da_gas_left()
+    }
 }
 
 // Helper functions
@@ -269,67 +275,67 @@ impl Empty for PublicContext {
 
 // AVM oracles (opcodes) follow, do not use directly.
 #[oracle(avmOpcodeAddress)]
-fn address_opcode() -> AztecAddress {}
+unconstrained fn address_opcode() -> AztecAddress {}
 
 #[oracle(avmOpcodeStorageAddress)]
-fn storage_address_opcode() -> AztecAddress {}
+unconstrained fn storage_address_opcode() -> AztecAddress {}
 
 #[oracle(avmOpcodeSender)]
-fn sender_opcode() -> AztecAddress {}
+unconstrained fn sender_opcode() -> AztecAddress {}
 
 #[oracle(avmOpcodePortal)]
-fn portal_opcode() -> EthAddress {}
+unconstrained fn portal_opcode() -> EthAddress {}
 
 #[oracle(avmOpcodeFeePerL2Gas)]
-fn fee_per_l2_gas_opcode() -> Field {}
+unconstrained fn fee_per_l2_gas_opcode() -> Field {}
 
 #[oracle(avmOpcodeFeePerDaGas)]
-fn fee_per_da_gas_opcode() -> Field {}
+unconstrained fn fee_per_da_gas_opcode() -> Field {}
 
 #[oracle(avmOpcodeTransactionFee)]
-fn transaction_fee_opcode() -> Field {}
+unconstrained fn transaction_fee_opcode() -> Field {}
 
 #[oracle(avmOpcodeChainId)]
-fn chain_id_opcode() -> Field {}
+unconstrained fn chain_id_opcode() -> Field {}
 
 #[oracle(avmOpcodeVersion)]
-fn version_opcode() -> Field {}
+unconstrained fn version_opcode() -> Field {}
 
 #[oracle(avmOpcodeBlockNumber)]
-fn block_number_opcode() -> Field {}
+unconstrained fn block_number_opcode() -> Field {}
 
 #[oracle(avmOpcodeTimestamp)]
-fn timestamp_opcode() -> u64 {}
+unconstrained fn timestamp_opcode() -> u64 {}
 
 #[oracle(avmOpcodeL2GasLeft)]
-fn l2_gas_left_opcode() -> Field {}
+unconstrained fn l2_gas_left_opcode() -> Field {}
 
 #[oracle(avmOpcodeDaGasLeft)]
-fn da_gas_left_opcode() -> Field {}
+unconstrained fn da_gas_left_opcode() -> Field {}
 
 #[oracle(avmOpcodeNoteHashExists)]
-fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
 
 #[oracle(avmOpcodeEmitNoteHash)]
-fn emit_note_hash_opcode(note_hash: Field) {}
+unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
 
 #[oracle(avmOpcodeNullifierExists)]
-fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8 {}
+unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8 {}
 
 #[oracle(avmOpcodeEmitNullifier)]
-fn emit_nullifier_opcode(nullifier: Field) {}
+unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 
 #[oracle(amvOpcodeEmitUnencryptedLog)]
-fn emit_unencrypted_log_opcode(event_selector: Field, message: [Field]) {}
+unconstrained fn emit_unencrypted_log_opcode(event_selector: Field, message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
-fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
-fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
+unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
 
 #[oracle(avmOpcodeCall)]
-fn call_opcode<RET_SIZE>(
+unconstrained fn call_opcode<RET_SIZE>(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
@@ -339,7 +345,7 @@ fn call_opcode<RET_SIZE>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStaticCall)]
-fn call_static_opcode<RET_SIZE>(
+unconstrained fn call_static_opcode<RET_SIZE>(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
