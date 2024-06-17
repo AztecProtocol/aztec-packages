@@ -141,29 +141,6 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor, size_t idx)
         optimized[w_l_shift_idx] = false;
     }
 
-    //// Handles the case when we have univariate polynomial as constraint
-    //// by simply finding the roots via quadratic formula(or linear)
-    //// There're 7 possibilities of that, which are present below
-    // bool univariate_flag = false;
-    // univariate_flag |= (w_l == w_r) && (w_r == w_o);
-    // univariate_flag |= (w_l == w_r) && (q_3 == 0);
-    // univariate_flag |= (w_l == w_o) && (q_2 == 0) && (q_m == 0);
-    // univariate_flag |= (w_r == w_o) && (q_1 == 0) && (q_m == 0);
-    // univariate_flag |= (q_m == 0) && (q_1 == 0) && (q_3 == 0);
-    // univariate_flag |= (q_m == 0) && (q_2 == 0) && (q_3 == 0);
-    // univariate_flag |= (q_m == 0) && (q_1 == 0) && (q_2 == 0);
-
-    //// Univariate gate. Relaxes the solver. Or is it?
-    //// TODO(alex): Test the effect of this relaxation after the tests are merged.
-    // if (univariate_flag) {
-    //     if ((q_m == 1) && (q_1 == 0) && (q_2 == 0) && (q_3 == -1) && (q_c == 0)) {
-    //         (Bool(symbolic_vars[w_l]) == Bool(STerm(0, this->solver, this->type)) |
-    //          Bool(symbolic_vars[w_l]) == Bool(STerm(1, this->solver, this->type)))
-    //             .assert_term();
-    //     } else {
-    //         this->handle_univariate_constraint(q_m, q_1, q_2, q_3, q_c, w_l);
-    //     }
-    // }
     return cursor + 1;
 }
 

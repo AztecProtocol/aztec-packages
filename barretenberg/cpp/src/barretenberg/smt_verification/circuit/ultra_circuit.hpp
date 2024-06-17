@@ -50,8 +50,6 @@ class UltraCircuit : public CircuitBase {
     size_t handle_delta_range_relation(size_t cursor, size_t idx);
     void handle_range_constraints();
 
-    //    void handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w);
-
     static std::pair<UltraCircuit, UltraCircuit> unique_witness_ext(
         CircuitSchema& circuit_info,
         Solver* s,
