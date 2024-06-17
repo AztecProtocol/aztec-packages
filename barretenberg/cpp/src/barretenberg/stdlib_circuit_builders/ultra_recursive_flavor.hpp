@@ -239,6 +239,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 this->w_r = commitments.w_r;
                 this->w_o = commitments.w_o;
                 this->sorted_accum = commitments.sorted_accum;
+                this->lookup_inverses = commitments.lookup_inverses;
+                this->lookup_read_counts = commitments.lookup_read_counts;
+                this->lookup_read_tags = commitments.lookup_read_tags;
                 this->w_4 = commitments.w_4;
                 this->z_perm = commitments.z_perm;
                 this->z_lookup = commitments.z_lookup;
