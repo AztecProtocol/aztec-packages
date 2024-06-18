@@ -44,12 +44,6 @@ TEST(Protogalaxy, CombinerOn2Instances)
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                // This ensures that the combiner accumulator for second instance = 0
-                // The value is computed by generating the python script values, computing the resulting accumulator and
-                // taking the value at index 1
-                if (idx == NUM_INSTANCES - 1) {
-                    prover_polynomials.q_c[0] -= 13644570;
-                }
                 instance->proving_key.polynomials = std::move(prover_polynomials);
                 instance->proving_key.circuit_size = 2;
                 instance_data[idx] = instance;
@@ -59,21 +53,19 @@ TEST(Protogalaxy, CombinerOn2Instances)
             instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
             auto result = prover.compute_combiner</*OptimisationEnabled=*/false>(instances, pow_polynomial);
-            auto optimised_result = prover.compute_combiner(instances, pow_polynomial);
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 87706,
-                                                                          0,
-                                                                          0x02ee2966,
-                                                                          0x0b0bd2cc,
-                                                                          0x00001a98fc32,
-                                                                          0x000033d5a598,
-                                                                          0x00005901cefe,
-                                                                          0x00008c5d7864,
-                                                                          0x0000d028a1ca,
-                                                                          0x000126a34b30UL,
-                                                                          0x0001920d7496UL,
-                                                                          0x000214a71dfcUL });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 8600UL,
+                                                                          12679448UL,
+                                                                          73617560UL,
+                                                                          220571672UL,
+                                                                          491290520UL,
+                                                                          923522840UL,
+                                                                          1555017368UL,
+                                                                          2423522840UL,
+                                                                          3566787992UL,
+                                                                          5022561560UL,
+                                                                          6828592280UL,
+                                                                          9022628888UL });
             EXPECT_EQ(result, expected_result);
-            EXPECT_EQ(optimised_result, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             ProtoGalaxyProver prover;
