@@ -6,7 +6,11 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.43.0
+
+### [Aztec.nr] break `token.transfer()` into `transfer` and `transferFrom`
+Earlier we had just one function - `transfer()` which used authwits to handle the case where a contract/user wants to transfer funds on behalf of another user. 
+To reduce circuit sizes and proof times, we are breaking up `transfer` and introducing a dedicated `transferFrom()` function like in the ERC20 standard.
 
 ### [Aztec.nr] `note_getter` returns `BoundedVec`
 
@@ -39,6 +43,26 @@ To further reduce gate count, you can iterate over `options.limit` instead of `m
 ### [Aztec.nr] `options.limit` has to be constant
 
 The `limit` parameter in `NoteGetterOptions` and `NoteViewerOptions` is now required to be a compile-time constant. This allows performing loops over this value, which leads to reduced circuit gate counts when setting a `limit` value.
+
+### [Aztec.nr] canonical public authwit registry
+
+The public authwits are moved into a shared registry (auth registry) to make it easier for sequencers to approve for their non-revertible (setup phase) whitelist. Previously, it was possible to DOS a sequencer by having a very expensive authwit validation that fails at the end, now the whitelist simply need the registry.
+
+Notable, this means that consuming a public authwit will no longer emit a nullifier in the account contract but instead update STORAGE in the public domain. This means that there is a larger difference between private and public again. However, it also means that if contracts need to approve, and use the approval in the same tx, it is transient and don't need to go to DA (saving 96 bytes).
+
+For the typescript wallets this is handled so the APIs don't change, but account contracts should get rid of their current setup with `approved_actions`.
+
+```diff
+- let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
++ let actions = AccountActions::init(&mut context, is_valid_impl);
+```
+
+For contracts we have added a `set_authorized` function in the auth library that can be used to set values in the registry.
+
+```diff
+- storage.approved_action.at(message_hash).write(true);
++ set_authorized(&mut context, message_hash, true);
+```
 
 ### [Aztec.nr] emit encrypted logs
 

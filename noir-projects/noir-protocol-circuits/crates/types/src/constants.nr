@@ -22,14 +22,14 @@ global ARGS_LENGTH: u32 = 16;
 
 // docs:start:constants
 // "PER CALL" CONSTANTS
-// If modifiying, update avm_kernel.pil / avm_constants.pil offset values (our pil does not yet support constant evaluation so values are hardcoded)
+// If modifiying, update avm_kernel.pil / constants.pil offset values (our pil does not yet support constant evaluation so values are hardcoded)
 global MAX_NEW_NOTE_HASHES_PER_CALL: u32 = 16;
 global MAX_NEW_NULLIFIERS_PER_CALL: u32 = 16;
 global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 4;
 global MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL: u32 = 16;
 global MAX_NEW_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 32;
-global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 16;
+global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 32;
 global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 32;
 global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 32;
 global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 32;
@@ -51,7 +51,7 @@ global PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 = 1;
 // would then result in the type of the constant be a number and not a literal type. This would mess up the types.
 // Pain.
 global MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 = 64; // MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
-global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 32;
+global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 global MAX_NEW_L2_TO_L1_MSGS_PER_TX: u32 = 8;
 global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 128;
 global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 128;
@@ -68,7 +68,7 @@ global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
 // KERNEL CIRCUIT PRIVATE INPUTS CONSTANTS
 // global MAX_PUBLIC_DATA_HINTS: u32 = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + MAX_PUBLIC_DATA_READS_PER_TX;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
-global MAX_PUBLIC_DATA_HINTS: u32 = 64;
+global MAX_PUBLIC_DATA_HINTS: u32 = 128;
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
 global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
@@ -147,6 +147,7 @@ global FIXED_DA_GAS: u32 = 512;
 
 // CANONICAL CONTRACT ADDRESSES
 global CANONICAL_KEY_REGISTRY_ADDRESS = 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351;
+global CANONICAL_AUTH_REGISTRY_ADDRESS = 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147;
 global DEPLOYER_CONTRACT_ADDRESS = 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934;
 global REGISTERER_CONTRACT_ADDRESS = 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417;
 global GAS_TOKEN_ADDRESS = 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889;
