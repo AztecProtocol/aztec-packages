@@ -17,7 +17,7 @@ The flow will be:
 4. The user deposits the “output” tokens to the output token portal so it can be deposited into L2
 5. We will assume that token portals and token bridges for the input and output tokens must exist. These are what we built in the previous tutorial.
 
-The execution of swap on L1 should be designed such that any 3rd party can execute the swap on behalf of the user.
+The execution of swap on L1 should be designed such that any 3rd party can execute the swap on behalf of the user. This helps maintain user privacy by not requiring links between L1 and L2 activity.
 
 This reference will cover:
 1. Uniswap Portal - a contract on L1 that talks to the input token portal to withdraw the assets, executes the swap, and deposits the swapped tokens back to L2
