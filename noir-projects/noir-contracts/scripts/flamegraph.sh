@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -eu
 
+# If first  arg is -h or --help, print usage
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: $0 <contract> <function>"
+    echo "e.g.: $0 Token transfer"
+    echo "Generates a flamegraph for the given contract and function"
+    exit 0
+fi
+
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
