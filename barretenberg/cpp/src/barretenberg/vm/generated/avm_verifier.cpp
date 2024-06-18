@@ -52,7 +52,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     // using PCS = Flavor::PCS;
-    // using ZeroMorph = ZeroMorphVerifier_<PCS>;
+    // using Curve = typename Flavor::Curve;
+    using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using CommitmentLabels = Flavor::CommitmentLabels;
 

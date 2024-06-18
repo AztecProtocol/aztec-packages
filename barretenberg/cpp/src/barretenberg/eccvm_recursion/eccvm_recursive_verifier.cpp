@@ -18,7 +18,8 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1007): Finish this
 template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    using ZeroMorph = ZeroMorphVerifier_<PCS>;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ZeroMorphVerifier_<Curve>;
     RelationParameters<FF> relation_parameters;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
@@ -72,13 +73,16 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // removed return bool
-    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
-                                                           commitments.get_to_be_shifted(),
-                                                           claimed_evaluations.get_unshifted(),
-                                                           claimed_evaluations.get_shifted(),
-                                                           multivariate_challenge,
-                                                           key->pcs_verification_key,
-                                                           transcript);
+    auto multivariate_opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
+                                                        commitments.get_to_be_shifted(),
+                                                        claimed_evaluations.get_unshifted(),
+                                                        claimed_evaluations.get_shifted(),
+                                                        multivariate_challenge,
+                                                        key->pcs_verification_key->get_first_g1(),
+                                                        transcript);
+    auto multivariate_opening_verified =
+        PCS::reduce_verify(key->pcs_verification_key, multivariate_opening_claim, transcript);
+
     // Execute transcript consistency univariate opening round
     // TODO(#768): Find a better way to do this. See issue for details.
     bool univariate_opening_verified = false;
