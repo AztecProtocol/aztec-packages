@@ -10,7 +10,7 @@ use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterfa
 use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
 use crate::test::helpers::{cheatcodes, types::{Deployer, TestAccount}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
-use crate::hash::hash_args;
+use crate::hash::{hash_args, hash_args_array};
 
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
@@ -74,23 +74,39 @@ impl TestEnvironment {
         test_account.address
     }
 
-    fn create_account_contract(self, secret: Field) -> AztecAddress {
+    fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
         let public_keys = cheatcodes::derive_keys(secret);
-        let args = &[public_keys.ivpk_m.x, public_keys.ivpk_m.y];
-        let address = cheatcodes::deploy(
+        let args = [public_keys.ivpk_m.x, public_keys.ivpk_m.y];
+        let instance = cheatcodes::deploy(
             "@aztec/noir-contracts.js/SchnorrAccount",
             "constructor",
-            args,
+            args.as_slice(),
             public_keys.hash().to_field()
         );
         cheatcodes::advance_blocks(1);
-        let test_account = cheatcodes::add_account(secret, PartialAddress::from_field(address.to_field()));
+        let test_account = cheatcodes::add_account(
+            secret,
+            PartialAddress::compute(
+                instance.contract_class_id,
+                instance.salt,
+                instance.initialization_hash,
+                instance.deployer
+            )
+        );
         let keys = test_account.keys;
+
+        let address = instance.to_address();
 
         keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
         keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
         keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
         keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
+
+        let selector = FunctionSelector::from_signature("constructor(Field,Field)");
+
+        let mut context = self.private_at(cheatcodes::get_block_number());
+
+        let _ = context.call_private_function(address, selector, args);
 
         address
     }

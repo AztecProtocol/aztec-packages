@@ -32,9 +32,7 @@ class TXEDispatcher {
     function: functionName,
     inputs,
   }: TXEForeignCallInput): Promise<ForeignCallResult> {
-    this.logger.debug(
-      `Calling ${functionName} with inputs: ${JSON.stringify(inputs, null, 2)} on session ${sessionId}`,
-    );
+    this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
     if (!TXESessions.has(sessionId) && functionName != 'reset') {
       this.logger.debug(`Creating new session ${sessionId}`);
@@ -48,9 +46,6 @@ class TXEDispatcher {
     } else {
       const txeService = TXESessions.get(sessionId);
       const response = await (txeService as any)[functionName](...inputs);
-      this.logger.debug(
-        `${sessionId}:${functionName}(${JSON.stringify(inputs, null, 2)}) -> ${JSON.stringify(response, null, 2)}`,
-      );
       return response;
     }
   }

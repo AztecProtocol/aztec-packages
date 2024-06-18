@@ -22,7 +22,8 @@ pub fn setup_and_mint() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAd
         "TT00000000000000000000000000000",
         18
     );
-    let token_contract_address = env.deploy("@aztec/noir-contracts.js/Token").with_public_initializer(initializer_call_interface);
+    let token_contract = env.deploy("@aztec/noir-contracts.js/Token").with_public_initializer(initializer_call_interface);
+    let token_contract_address = token_contract.to_address();
     env.advance_block_by(1);
 
     // Mint some tokens

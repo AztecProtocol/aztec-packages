@@ -1,4 +1,7 @@
-use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress}};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress},
+    constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
+};
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::test::helpers::types::{Deployer, TestAccount};
 use crate::keys::public_keys::PublicKeys;
@@ -31,20 +34,12 @@ unconstrained pub fn get_public_context_inputs() -> PublicContextInputs {
     oracle_get_public_context_inputs()
 }
 
-unconstrained pub fn deploy<N, M>(
-    path: str<N>,
-    initializer: str<M>,
-    args: [Field],
-    public_keys_hash: Field
-) -> AztecAddress {
-    oracle_deploy(path, initializer, args, public_keys_hash)
+unconstrained pub fn deploy<N, M>(path: str<N>, initializer: str<M>, args: [Field], public_keys_hash: Field) -> ContractInstance {
+    let instance_fields = oracle_deploy(path, initializer, args, public_keys_hash);
+    ContractInstance::deserialize(instance_fields)
 }
 
-unconstrained pub fn direct_storage_write<N>(
-    contract_address: AztecAddress,
-    storage_slot: Field,
-    fields: [Field; N]
-) {
+unconstrained pub fn direct_storage_write<N>(contract_address: AztecAddress, storage_slot: Field, fields: [Field; N]) {
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
@@ -99,7 +94,7 @@ fn oracle_deploy<N, M>(
     initializer: str<M>,
     args: [Field],
     public_keys_hash: Field
-) -> AztecAddress {}
+) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(directStorageWrite)]
 fn direct_storage_write_oracle<N>(

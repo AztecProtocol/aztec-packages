@@ -64,6 +64,7 @@ export class TXE implements TypedOracle {
   private sideEffectsCounter = 0;
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
+  private functionSelector = FunctionSelector.fromField(new Fr(0));
 
   private contractDataOracle: ContractDataOracle;
 
@@ -88,6 +89,10 @@ export class TXE implements TypedOracle {
 
   setMsgSender(msgSender: Fr) {
     this.msgSender = msgSender;
+  }
+
+  setFunctionSelector(functionSelector: FunctionSelector) {
+    this.functionSelector = functionSelector;
   }
 
   getSideEffectsCounter() {
@@ -137,6 +142,7 @@ export class TXE implements TypedOracle {
     inputs.callContext.storageContractAddress = this.contractAddress;
     inputs.callContext.sideEffectCounter = sideEffectsCounter;
     inputs.startSideEffectCounter = sideEffectsCounter;
+    inputs.callContext.functionSelector = this.functionSelector;
     return inputs;
   }
 
@@ -283,8 +289,8 @@ export class TXE implements TypedOracle {
     return Promise.resolve(this.txeDatabase.getAccount(account));
   }
 
-  getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
-    throw new Error('Method not implemented.');
+  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+    return await this.txeDatabase.getAuthWitness(messageHash);
   }
 
   popCapsule(): Promise<Fr[]> {
@@ -446,7 +452,7 @@ export class TXE implements TypedOracle {
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
-    throw new Error('Method not implemented.');
+    return;
   }
 
   emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
@@ -461,14 +467,20 @@ export class TXE implements TypedOracle {
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
-    this.logger.debug(
-      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
+    this.logger.verbose(
+      `Executing external function ${targetContractAddress}:${functionSelector}(${await this.getDebugFunctionName(
+        targetContractAddress,
+        functionSelector,
+      )})`,
     );
+
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
     const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
 
     const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
 
@@ -516,6 +528,7 @@ export class TXE implements TypedOracle {
     this.sideEffectsCounter += publicInputs.endSideEffectCounter.toNumber();
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
 
     return callStackItem;
   }
@@ -534,6 +547,26 @@ export class TXE implements TypedOracle {
     const fields = [...privateContextInputs.toFields(), ...args];
 
     return toACVMWitness(0, fields);
+  }
+
+  public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const instance = await this.txeDatabase.getContractInstance(address);
+    if (!instance) {
+      return Promise.resolve(undefined);
+    }
+    const artifact = await this.txeDatabase.getContractArtifact(instance!.contractClassId);
+    if (!artifact) {
+      return Promise.resolve(undefined);
+    }
+
+    const f = artifact.functions.find(f =>
+      FunctionSelector.fromNameAndParameters(f.name, f.parameters).equals(selector),
+    );
+    if (!f) {
+      return Promise.resolve(undefined);
+    }
+
+    return Promise.resolve(`${artifact.name}:${f.name}`);
   }
 
   callPublicFunction(

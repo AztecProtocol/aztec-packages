@@ -424,7 +424,6 @@ contract Token {
         let transfer_amount = 1000;
         let private_transfer_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
         env.call_private_void(private_transfer_from_call_interface);
-
         // Check balances
         test::check_balance(token_contract_address, owner, mint_amount - transfer_amount);
         test::check_balance(token_contract_address, recipient, transfer_amount);

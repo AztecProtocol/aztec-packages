@@ -16,7 +16,6 @@ import { KeyStore } from '@aztec/key-store';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -116,7 +115,10 @@ export class TXEService {
       .map(char => String.fromCharCode(char.toNumber()))
       .join('');
     const decodedArgs = fromArray(args);
-    this.logger.debug(`Deploy ${pathStr} with ${initializerStr} and ${decodedArgs}`);
+    const publicKeysHashFr = fromSingle(publicKeysHash);
+    this.logger.debug(
+      `Deploy ${pathStr} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
+    );
     const contractModule = await import(pathStr);
     // Hacky way of getting the class, the name of the Artifact is always longer
     const contractClass = contractModule[Object.keys(contractModule).sort((a, b) => a.length - b.length)[0]];
@@ -124,7 +126,7 @@ export class TXEService {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: fromSingle(publicKeysHash),
+      publicKeysHash: publicKeysHashFr,
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -132,7 +134,7 @@ export class TXEService {
     this.logger.debug(`Deployed ${contractClass.artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
     await (this.typedOracle as TXE).addContractArtifact(contractClass.artifact);
-    return toForeignCallResult(
+    return toForeignCallResult([
       toArray([
         instance.salt,
         instance.deployer,
@@ -140,7 +142,7 @@ export class TXEService {
         instance.initializationHash,
         instance.publicKeysHash,
       ]),
-    );
+    ]);
   }
 
   async directStorageWrite(
@@ -184,6 +186,7 @@ export class TXEService {
     const completeAddress = await keyStore.addAccount(fromSingle(secret), fromSingle(partialAddress));
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -527,5 +530,14 @@ export class TXEService {
       throw new Error(`Nullifier membership witness not found at block ${parsedBlockNumber}.`);
     }
     return toForeignCallResult([toArray(witness.toFields())]);
+  }
+
+  async getAuthWitness(messageHash: ForeignCallSingle) {
+    const parsedMessageHash = fromSingle(messageHash);
+    const authWitness = await this.typedOracle.getAuthWitness(parsedMessageHash);
+    if (!authWitness) {
+      throw new Error(`Auth witness not found for message hash ${parsedMessageHash}.`);
+    }
+    return toForeignCallResult([toArray(authWitness)]);
   }
 }

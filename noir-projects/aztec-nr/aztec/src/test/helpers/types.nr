@@ -1,6 +1,7 @@
 use dep::protocol_types::{
     traits::{Deserialize, Serialize}, address::AztecAddress,
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs}
+    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    contract_instance::ContractInstance
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
@@ -18,8 +19,8 @@ impl<N> Deployer<N> {
     pub fn with_private_initializer<C, M, Env>(
         self,
         call_interface: C
-    ) -> AztecAddress where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
-        let address = cheatcodes::deploy(
+    ) -> ContractInstance where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
+        let instance = cheatcodes::deploy(
             self.path,
             call_interface.get_name(),
             call_interface.get_args(),
@@ -31,7 +32,7 @@ impl<N> Deployer<N> {
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = cheatcodes::get_contract_address();
 
-        cheatcodes::set_contract_address(address);
+        cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_private_context_inputs(block_number - 1);
         inputs.call_context.function_selector = call_interface.get_selector();
@@ -39,14 +40,14 @@ impl<N> Deployer<N> {
 
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
-        address
+        instance
     }
 
     pub fn with_public_initializer<C, M, T, Env>(
         self,
         call_interface: C
-    ) -> AztecAddress where C: CallInterface<M, PublicContextInputs, T, Env> {
-        let address = cheatcodes::deploy(
+    ) -> ContractInstance where C: CallInterface<M, PublicContextInputs, T, Env> {
+        let instance = cheatcodes::deploy(
             self.path,
             call_interface.get_name(),
             call_interface.get_args(),
@@ -57,7 +58,7 @@ impl<N> Deployer<N> {
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = cheatcodes::get_contract_address();
 
-        cheatcodes::set_contract_address(address);
+        cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
         inputs.selector = call_interface.get_selector().to_field();
@@ -66,12 +67,11 @@ impl<N> Deployer<N> {
 
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
-        address
+        instance
     }
 
-    pub fn without_initializer(self) -> AztecAddress {
-        let address = cheatcodes::deploy(self.path, "", &[], self.public_keys_hash);
-        address
+    pub fn without_initializer(self) -> ContractInstance {
+        cheatcodes::deploy(self.path, "", &[], self.public_keys_hash)
     }
 }
 
