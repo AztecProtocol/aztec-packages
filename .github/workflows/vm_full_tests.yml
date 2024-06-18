@@ -34,6 +34,7 @@ env:
 
 jobs:
   setup:
+    runs-on: ubuntu-latest
     uses: ./.github/workflows/setup-runner.yml
     with:
       username: ${{ github.event.pull_request.user.login || github.actor }}
@@ -44,7 +45,7 @@ jobs:
   # only ran on x86 for resource reasons (memory intensive)
   avm-full-tests:
     needs: [setup]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -56,5 +57,7 @@ jobs:
       - name: "AVM Full Tests"
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 70
-        # limit our parallelism to half our cores
-        run: earthly-ci --no-output +vm-full-test --hardware_concurrency=64
+        with:
+          # limit our parallelism to half our cores
+          run: earthly-ci --no-output +vm-full-test --hardware_concurrency=64
+          runner_type: builder-x86
