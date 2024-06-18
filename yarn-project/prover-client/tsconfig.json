@@ -34,5 +34,5 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src", "../bb-prover/src/test/test_circuit_prover.ts"]
+  "include": ["src"]
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::crypto::merkle_tree {
@@ -10,19 +11,25 @@ namespace bb::crypto::merkle_tree {
 class ArrayStore {
 
   public:
-    ArrayStore(size_t levels, size_t indices = 1024)
+    ArrayStore(uint32_t levels, index_t indices = 1024)
         : map_(std::vector<std::vector<std::pair<bool, std::vector<uint8_t>>>>(
               levels + 1,
               std::vector<std::pair<bool, std::vector<uint8_t>>>(
                   indices, std::pair<bool, std::vector<uint8_t>>(false, std::vector<uint8_t>()))))
     {}
-    ~ArrayStore() {}
+    ~ArrayStore() = default;
 
-    void put(size_t level, size_t index, const std::vector<uint8_t>& data)
+    ArrayStore() = delete;
+    ArrayStore(ArrayStore const& other) = delete;
+    ArrayStore(ArrayStore const&& other) = delete;
+    ArrayStore& operator=(ArrayStore const& other) = delete;
+    ArrayStore& operator=(ArrayStore const&& other) = delete;
+
+    void put(uint32_t level, index_t index, const std::vector<uint8_t>& data)
     {
         map_[level][index] = std::make_pair(true, data);
     }
-    bool get(size_t level, size_t index, std::vector<uint8_t>& data) const
+    bool get(uint32_t level, index_t index, std::vector<uint8_t>& data) const
     {
         const std::pair<bool, std::vector<uint8_t>>& slot = map_[level][index];
         if (slot.first) {

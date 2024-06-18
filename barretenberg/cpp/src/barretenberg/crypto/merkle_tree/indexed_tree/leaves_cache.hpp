@@ -4,8 +4,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-typedef uint256_t index_t;
-
 /**
  * @brief Used to facilitate testing of the IndexedTree. Stores leaves in memory with an index for O(logN) retrieval of
  * 'low leaves'

@@ -1,10 +1,9 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
+import { serializeToBuffer, type Bufferable, type FromBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 import { type Hasher } from '@aztec/types/interfaces';
 
-import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
-import { type TreeBase } from '../tree_base.js';
+import { SnapshottedMerkleTree } from '../interfaces/merkle_tree.js';
 import { type TreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
 
 // stores the last block that modified this node
@@ -45,7 +44,7 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
 
   constructor(
     private db: AztecKVStore,
-    private tree: TreeBase<T> & AppendOnlyTree<T>,
+    private tree: SnapshottedMerkleTree<T>,
     private hasher: Hasher,
     private deserializer: FromBuffer<T>,
   ) {
@@ -164,7 +163,7 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
     private block: number,
     private leafCount: bigint,
     private historicalRoot: Buffer,
-    private tree: TreeBase<T> & AppendOnlyTree<T>,
+    private tree: SnapshottedMerkleTree<T>,
     private hasher: Hasher,
     private deserializer: FromBuffer<T>,
   ) {}

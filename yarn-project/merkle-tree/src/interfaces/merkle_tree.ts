@@ -68,3 +68,11 @@ export interface MerkleTree<T extends Bufferable = Buffer> extends SiblingPathSo
    */
   findLeafIndexAfter(leaf: T, startIndex: bigint, includeUncommitted: boolean): bigint | undefined;
 }
+
+export interface SnapshottedMerkleTree<T extends Bufferable = Buffer> extends MerkleTree<T> {
+  getName(): string;
+
+  getNode(level: number, index: bigint): Promise<Buffer | undefined>;
+
+  getZeroHash(level: number): Buffer;
+} 

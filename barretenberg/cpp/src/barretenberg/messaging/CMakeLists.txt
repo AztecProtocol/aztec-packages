@@ -1,2 +1,0 @@
-barretenberg_module(messaging)
-

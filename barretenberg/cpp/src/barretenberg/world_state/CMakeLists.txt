@@ -1,3 +1,3 @@
-barretenberg_module(world_state lmdb)
+barretenberg_module(world_state lmdb crypto_merkle_tree cryto_pedersen_hash)
 
 

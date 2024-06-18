@@ -1,10 +1,9 @@
 #pragma once
 
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::crypto::merkle_tree {
-
-typedef uint256_t index_t;
 
 struct indexed_leaf {
     fr value;
