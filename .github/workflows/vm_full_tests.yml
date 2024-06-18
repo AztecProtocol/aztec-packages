@@ -34,7 +34,6 @@ env:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/setup-runner.yml
     with:
       username: ${{ github.event.pull_request.user.login || github.actor }}
