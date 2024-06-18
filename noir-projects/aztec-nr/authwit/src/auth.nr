@@ -21,7 +21,7 @@ pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf
 pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress, inner_hash: Field) {
     let result: Field = context.static_call_private_function(
         on_behalf_of,
-        FunctionSelector::from_signature("spend_private_authwit(Field)"),
+        FunctionSelector::from_signature("verify_private_authwit(Field)"),
         [inner_hash]
     ).unpack_into();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");

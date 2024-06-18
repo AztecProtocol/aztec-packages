@@ -31,8 +31,8 @@ impl AccountActions<&mut PrivateContext> {
     }
     // docs:end:entrypoint
 
-    // docs:start:spend_private_authwit
-    pub fn spend_private_authwit(self, inner_hash: Field) -> Field {
+    // docs:start:verify_private_authwit
+    pub fn verify_private_authwit(self, inner_hash: Field) -> Field {
         // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can 
         // consume the message.
         // This ensures that contracts cannot consume messages that are not intended for them.
@@ -46,5 +46,5 @@ impl AccountActions<&mut PrivateContext> {
         assert(valid_fn(self.context, message_hash) == true, "Message not authorized by account");
         IS_VALID_SELECTOR
     }
-    // docs:end:spend_private_authwit
+    // docs:end:verify_private_authwit
 }

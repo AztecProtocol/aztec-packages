@@ -9,7 +9,6 @@ import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import {
   type IntentAction,
   type IntentInnerHash,
-  type IntentMetadata,
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,
 } from '../utils/authwit.js';
@@ -110,19 +109,18 @@ export class AccountWallet extends BaseWallet {
    * Returns the message hash for the given intent
    *
    * @param intent - A tuple of (consumer and inner hash) or (caller and action)
-   * @param metadata - The metadata for the intent (chainId, version)
    * @returns The message hash
    */
-  private getMessageHash(intent: IntentInnerHash | IntentAction, metadata?: IntentMetadata): Fr {
-    const chainId = metadata?.chainId || this.getChainId();
-    const version = metadata?.version || this.getVersion();
+  private getMessageHash(intent: IntentInnerHash | IntentAction): Fr {
+    const chainId = this.getChainId();
+    const version = this.getVersion();
     return computeAuthWitMessageHash(intent, { chainId, version });
   }
 
   /**
    * Lookup the validity of an authwit in private and public contexts.
    *
-   * Uses the chainid and version of the wallet.
+   * Uses the chain id and version of the wallet.
    *
    * @param onBehalfOf - The address of the "approver"
    * @param intent - The consumer and inner hash or the caller and action to lookup
