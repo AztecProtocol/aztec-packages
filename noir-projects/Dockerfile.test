@@ -17,7 +17,7 @@ RUN yarn workspaces focus @aztec/txe
 RUN cd ./txe && yarn build
 
 # Copy in noir projects
-COPY --from=transpiler /usr/src/noir-projects /usr/src/noir-projects
+COPY --from=noir-contracts /usr/src/noir-projects /usr/src/noir-projects
 
 # Build & test
 WORKDIR /usr/src/noir-projects
