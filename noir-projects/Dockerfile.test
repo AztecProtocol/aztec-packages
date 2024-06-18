@@ -17,21 +17,21 @@ RUN yarn workspaces focus @aztec/txe
 RUN cd ./txe && yarn build
 
 # Copy in noir projects
-COPY --from=noir-contracts /usr/src/noir-projects /usr/src/noir-projects
+WORKDIR /usr/src/noir-projects
+COPY . .
 
 # Build & test
-WORKDIR /usr/src/noir-projects
-RUN cd noir-protocol-circuits && nargo test --silence-warnings
+RUN cd ./noir-protocol-circuits && ./bootstrap.sh && nargo test --silence-warnings
 
 RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 
     # Wait for TXE to initialize
     sleep 5 && \ 
-    cd /usr/src/noir-projects/noir-contracts && \
-    nargo test --silence-warnings --oracle-resolver http://localhost:8080 ; \
+    cd ./noir-contracts && \
+    ./bootstrap.sh && nargo test --silence-warnings --oracle-resolver http://localhost:8080 ; \
     kill $(cat /tmp/txe.pid)
 
 RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 
     # Wait for TXE to initialize
     sleep 5 && \ 
-    cd /usr/src/noir-projects/aztec-nr && \
+    cd ./aztec-nr && \
     nargo test --silence-warnings --oracle-resolver http://localhost:8080
