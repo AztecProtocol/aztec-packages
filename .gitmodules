@@ -16,3 +16,4 @@
 [submodule "bb-pilcom/powdr"]
 	path = bb-pilcom/powdr
 	url = https://github.com/Maddiaa0/powdr
+	branch = md/minimal
