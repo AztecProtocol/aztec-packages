@@ -429,9 +429,6 @@ template <typename Curve> class ZeroMorphProver_ {
         auto pi_polynomial = compute_batched_evaluation_and_degree_check_polynomial(zeta_x, Z_x, z_challenge);
 
         return { pi_polynomial, { .challenge = x_challenge, .evaluation = FF(0) } };
-        // // Compute opening proof for x_challenge using the underlying univariate CS:CS
-        // PCS::compute_opening_proof(
-        //     commitment_key, { .challenge = x_challenge, .evaluation = FF(0) }, pi_polynomial, transcript);
     }
 };
 
@@ -735,14 +732,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                RefSpan<FF> concatenated_evaluations = {})
     {
-        // Commitment first_g1;
-
-        // if constexpr (Curve::is_stdlib_type) {
-        //     auto builder = multivariate_challenge[0].get_context();
-        //     first_g1 = Commitment::one(builder);
-        // } else {
-        //     first_g1 = Commitment::one();
-        // }
         return compute_univariate_evaluation_opening_claim(unshifted_commitments,
                                                            to_be_shifted_commitments,
                                                            unshifted_evaluations,
@@ -752,45 +741,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                                            transcript,
                                                            concatenation_group_commitments,
                                                            concatenated_evaluations);
-        // return PCS::reduce_verify(opening_claim, transcript);
     }
-
-    /**
-     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i.
-     *
-     * @details Identical purpose as the function above but used when the verification of the PCS evaluation protocol
-     * requires the verification key prior to the last step that is accumulated.
-     *
-     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
-     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
-     * @param multivariate_challenge Challenge point u
-     * @param transcript
-     * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
-     */
-    // static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
-    //                                   RefSpan<Commitment> to_be_shifted_commitments,
-    //                                   RefSpan<FF> unshifted_evaluations,
-    //                                   RefSpan<FF> shifted_evaluations,
-    //                                   std::span<FF> multivariate_challenge,
-    //                                   const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
-    //                                   auto& transcript,
-    //                                   const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-    //                                   RefSpan<FF> concatenated_evaluations = {})
-    // {
-    //     Commitment first_g1 = vk->get_first_g1();
-
-    //     auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
-    //                                                                      to_be_shifted_commitments,
-    //                                                                      unshifted_evaluations,
-    //                                                                      shifted_evaluations,
-    //                                                                      multivariate_challenge,
-    //                                                                      first_g1,
-    //                                                                      transcript,
-    //                                                                      concatenation_group_commitments,
-    //                                                                      concatenated_evaluations);
-    //     return PCS::reduce_verify(vk, opening_claim, transcript);
-    // }
 };
 
 } // namespace bb
