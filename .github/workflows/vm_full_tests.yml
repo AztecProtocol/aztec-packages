@@ -1,6 +1,7 @@
 name: AVM Full Tests
 
 on:
+  push: #TODO: REMOVE BEFOre MERGING
   schedule:
     - cron: "15 4 * * 1-5" # Monday to Friday at 4:15 AM UTC
   workflow_dispatch:
