@@ -268,9 +268,9 @@ fn resolve_name_in_module(
         }
 
         // Check if it is a contract and we're calling from a non-contract context
-        if current_mod.is_contract && !allow_contracts {
-            return Err(PathResolutionError::ExternalContractUsed(current_segment.clone()));
-        }
+        // if current_mod.is_contract && !allow_contracts {
+        //     return Err(PathResolutionError::ExternalContractUsed(current_segment.clone()));
+        // }
         current_ns = found_ns;
     }
 

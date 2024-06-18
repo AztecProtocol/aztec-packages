@@ -85,7 +85,6 @@ impl TestEnvironment {
         );
         cheatcodes::advance_blocks(1);
         let test_account = cheatcodes::add_account(secret, PartialAddress::from_field(address.to_field()));
-        let address = test_account.address;
         let keys = test_account.keys;
 
         keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
@@ -93,7 +92,7 @@ impl TestEnvironment {
         keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
         keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
 
-        test_account.address
+        address
     }
 
     fn deploy<N>(self, path: str<N>) -> Deployer<N> {

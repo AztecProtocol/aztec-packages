@@ -16,6 +16,7 @@ import { KeyStore } from '@aztec/key-store';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
+import { SerializableContractInstance } from '@aztec/types/contracts';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -131,7 +132,15 @@ export class TXEService {
     this.logger.debug(`Deployed ${contractClass.artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
     await (this.typedOracle as TXE).addContractArtifact(contractClass.artifact);
-    return toForeignCallResult([toSingle(instance.address)]);
+    return toForeignCallResult(
+      toArray([
+        instance.salt,
+        instance.deployer,
+        instance.contractClassId,
+        instance.initializationHash,
+        instance.publicKeysHash,
+      ]),
+    );
   }
 
   async directStorageWrite(
