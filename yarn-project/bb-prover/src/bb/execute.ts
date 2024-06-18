@@ -333,10 +333,6 @@ export async function generateProof(
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
-<<<<<<< HEAD
-=======
-  tubeInputs: TubeInputs,
->>>>>>> origin/mm-lx/linking-work
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists

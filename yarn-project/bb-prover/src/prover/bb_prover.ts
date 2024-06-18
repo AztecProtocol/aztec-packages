@@ -9,17 +9,14 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AGGREGATION_OBJECT_LENGTH,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
-  ClientIVCData,
   EmptyNestedCircuitInputs,
   EmptyNestedData,
   Fr,
   type KernelCircuitPublicInputs,
-  KernelData,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateKernelEmptyInputData,
@@ -33,7 +30,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
-  TubeInputs,
+  type TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
@@ -524,10 +521,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
-  private async generateTubeProofWithBB(input: TubeInputs, workingDirectory: string): Promise<BBSuccess> {
+  private async generateTubeProofWithBB(input: TubeInputs): Promise<BBSuccess> {
     logger.debug(`Proving tube...`);
 
-    const provingResult = await generateTubeProof(this.config.bbBinaryPath, workingDirectory, input, logger.verbose);
+    const provingResult = await runInDirectory(this.config.bbWorkingDirectory, async (dir) => {
+      input.clientIVCData.writeToOutputDirectory(dir);
+      return await generateTubeProof(this.config.bbBinaryPath, dir, logger.verbose)
+    });
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
@@ -579,7 +579,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
-      const provingResult = await this.generateTubeProofWithBB(input, bbWorkingDirectory);
+      const provingResult = await this.generateTubeProofWithBB(input);
 
       // We don't want this to be a ServerProtocolArtifact because that refers to NoirCompiledCircuit
       // const circuitType: ServerProtocolArtifact = 'TubeArtifact';

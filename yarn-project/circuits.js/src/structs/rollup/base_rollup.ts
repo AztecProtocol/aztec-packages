@@ -9,7 +9,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
-import { ClientIVCData, KernelData } from '../kernel/kernel_data.js';
+import { KernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
@@ -17,6 +17,7 @@ import { type UInt32 } from '../shared.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { StateDiffHints } from './state_diff_hints.js';
+import { ClientIvcProof } from '../client_ivc_proof.js';
 
 /**
  * Data which is forwarded through the base rollup circuits unchanged.
@@ -228,7 +229,7 @@ export class BaseRollupInputs {
 export class TubeInputs {
   constructor(
     /** Data of the 2 kernels that preceded this base rollup circuit. */
-    public clientIVCData: ClientIVCData,
+    public clientIVCData: ClientIvcProof,
   ) {}
 
   static from(fields: FieldsOf<TubeInputs>): TubeInputs {
@@ -262,7 +263,7 @@ export class TubeInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TubeInputs {
     const reader = BufferReader.asReader(buffer);
-    return new TubeInputs(reader.readObject(ClientIVCData));
+    return new TubeInputs(reader.readObject(ClientIvcProof));
   }
 
   /**
@@ -275,6 +276,6 @@ export class TubeInputs {
   }
 
   static empty() {
-    return new TubeInputs(ClientIVCData.empty());
+    return new TubeInputs(ClientIvcProof.empty());
   }
 }
