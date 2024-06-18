@@ -37,7 +37,7 @@ template <typename FF_> class avm_poseidon2Impl {
         {
             Avm_DECLARE_VIEWS(0);
 
-            auto tmp = (avm_poseidon2_poseidon_perm_sel * (-avm_poseidon2_poseidon_perm_sel + FF(1)));
+            auto tmp = ((avm_poseidon2_poseidon_perm_sel * (-avm_poseidon2_poseidon_perm_sel + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }

@@ -20,6 +20,10 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
 {
     return { "avm_main_clk",
              "avm_main_first",
+             "avm_kernel_kernel_inputs",
+             "avm_kernel_kernel_value_out",
+             "avm_kernel_kernel_side_effect_out",
+             "avm_kernel_kernel_metadata_out",
              "avm_alu_a_hi",
              "avm_alu_a_lo",
              "avm_alu_alu_sel",
@@ -140,11 +144,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "avm_kernel_emit_nullifier_write_offset",
              "avm_kernel_emit_unencrypted_log_write_offset",
              "avm_kernel_kernel_in_offset",
-             "avm_kernel_kernel_inputs",
-             "avm_kernel_kernel_metadata_out",
              "avm_kernel_kernel_out_offset",
-             "avm_kernel_kernel_side_effect_out",
-             "avm_kernel_kernel_value_out",
              "avm_kernel_l1_to_l2_msg_exists_write_offset",
              "avm_kernel_note_hash_exist_write_offset",
              "avm_kernel_nullifier_exists_write_offset",
@@ -410,55 +410,57 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
 {
     return os
            << field_to_string(row.avm_main_clk) << "," << field_to_string(row.avm_main_first) << ","
-           << field_to_string(row.avm_alu_a_hi) << "," << field_to_string(row.avm_alu_a_lo) << ","
-           << field_to_string(row.avm_alu_alu_sel) << "," << field_to_string(row.avm_alu_b_hi) << ","
-           << field_to_string(row.avm_alu_b_lo) << "," << field_to_string(row.avm_alu_borrow) << ","
-           << field_to_string(row.avm_alu_cf) << "," << field_to_string(row.avm_alu_clk) << ","
-           << field_to_string(row.avm_alu_cmp_rng_ctr) << "," << field_to_string(row.avm_alu_cmp_sel) << ","
-           << field_to_string(row.avm_alu_div_rng_chk_selector) << "," << field_to_string(row.avm_alu_div_u16_r0) << ","
-           << field_to_string(row.avm_alu_div_u16_r1) << "," << field_to_string(row.avm_alu_div_u16_r2) << ","
-           << field_to_string(row.avm_alu_div_u16_r3) << "," << field_to_string(row.avm_alu_div_u16_r4) << ","
-           << field_to_string(row.avm_alu_div_u16_r5) << "," << field_to_string(row.avm_alu_div_u16_r6) << ","
-           << field_to_string(row.avm_alu_div_u16_r7) << "," << field_to_string(row.avm_alu_divisor_hi) << ","
-           << field_to_string(row.avm_alu_divisor_lo) << "," << field_to_string(row.avm_alu_ff_tag) << ","
-           << field_to_string(row.avm_alu_ia) << "," << field_to_string(row.avm_alu_ib) << ","
-           << field_to_string(row.avm_alu_ic) << "," << field_to_string(row.avm_alu_in_tag) << ","
-           << field_to_string(row.avm_alu_op_add) << "," << field_to_string(row.avm_alu_op_cast) << ","
-           << field_to_string(row.avm_alu_op_cast_prev) << "," << field_to_string(row.avm_alu_op_div) << ","
-           << field_to_string(row.avm_alu_op_div_a_lt_b) << "," << field_to_string(row.avm_alu_op_div_std) << ","
-           << field_to_string(row.avm_alu_op_eq) << "," << field_to_string(row.avm_alu_op_eq_diff_inv) << ","
-           << field_to_string(row.avm_alu_op_lt) << "," << field_to_string(row.avm_alu_op_lte) << ","
-           << field_to_string(row.avm_alu_op_mul) << "," << field_to_string(row.avm_alu_op_not) << ","
-           << field_to_string(row.avm_alu_op_shl) << "," << field_to_string(row.avm_alu_op_shr) << ","
-           << field_to_string(row.avm_alu_op_sub) << "," << field_to_string(row.avm_alu_p_a_borrow) << ","
-           << field_to_string(row.avm_alu_p_b_borrow) << "," << field_to_string(row.avm_alu_p_sub_a_hi) << ","
-           << field_to_string(row.avm_alu_p_sub_a_lo) << "," << field_to_string(row.avm_alu_p_sub_b_hi) << ","
-           << field_to_string(row.avm_alu_p_sub_b_lo) << "," << field_to_string(row.avm_alu_partial_prod_hi) << ","
-           << field_to_string(row.avm_alu_partial_prod_lo) << "," << field_to_string(row.avm_alu_quotient_hi) << ","
-           << field_to_string(row.avm_alu_quotient_lo) << "," << field_to_string(row.avm_alu_remainder) << ","
-           << field_to_string(row.avm_alu_res_hi) << "," << field_to_string(row.avm_alu_res_lo) << ","
-           << field_to_string(row.avm_alu_rng_chk_lookup_selector) << "," << field_to_string(row.avm_alu_rng_chk_sel)
-           << "," << field_to_string(row.avm_alu_shift_lt_bit_len) << "," << field_to_string(row.avm_alu_shift_sel)
-           << "," << field_to_string(row.avm_alu_t_sub_s_bits) << "," << field_to_string(row.avm_alu_two_pow_s) << ","
-           << field_to_string(row.avm_alu_two_pow_t_sub_s) << "," << field_to_string(row.avm_alu_u128_tag) << ","
-           << field_to_string(row.avm_alu_u16_r0) << "," << field_to_string(row.avm_alu_u16_r1) << ","
-           << field_to_string(row.avm_alu_u16_r10) << "," << field_to_string(row.avm_alu_u16_r11) << ","
-           << field_to_string(row.avm_alu_u16_r12) << "," << field_to_string(row.avm_alu_u16_r13) << ","
-           << field_to_string(row.avm_alu_u16_r14) << "," << field_to_string(row.avm_alu_u16_r2) << ","
-           << field_to_string(row.avm_alu_u16_r3) << "," << field_to_string(row.avm_alu_u16_r4) << ","
-           << field_to_string(row.avm_alu_u16_r5) << "," << field_to_string(row.avm_alu_u16_r6) << ","
-           << field_to_string(row.avm_alu_u16_r7) << "," << field_to_string(row.avm_alu_u16_r8) << ","
-           << field_to_string(row.avm_alu_u16_r9) << "," << field_to_string(row.avm_alu_u16_tag) << ","
-           << field_to_string(row.avm_alu_u32_tag) << "," << field_to_string(row.avm_alu_u64_tag) << ","
-           << field_to_string(row.avm_alu_u8_r0) << "," << field_to_string(row.avm_alu_u8_r1) << ","
-           << field_to_string(row.avm_alu_u8_tag) << "," << field_to_string(row.avm_binary_acc_ia) << ","
-           << field_to_string(row.avm_binary_acc_ib) << "," << field_to_string(row.avm_binary_acc_ic) << ","
-           << field_to_string(row.avm_binary_bin_sel) << "," << field_to_string(row.avm_binary_clk) << ","
-           << field_to_string(row.avm_binary_ia_bytes) << "," << field_to_string(row.avm_binary_ib_bytes) << ","
-           << field_to_string(row.avm_binary_ic_bytes) << "," << field_to_string(row.avm_binary_in_tag) << ","
-           << field_to_string(row.avm_binary_mem_tag_ctr) << "," << field_to_string(row.avm_binary_mem_tag_ctr_inv)
-           << "," << field_to_string(row.avm_binary_op_id) << "," << field_to_string(row.avm_binary_start) << ","
-           << field_to_string(row.avm_byte_lookup_bin_sel) << ","
+           << field_to_string(row.avm_kernel_kernel_inputs) << "," << field_to_string(row.avm_kernel_kernel_value_out)
+           << "," << field_to_string(row.avm_kernel_kernel_side_effect_out) << ","
+           << field_to_string(row.avm_kernel_kernel_metadata_out) << "," << field_to_string(row.avm_alu_a_hi) << ","
+           << field_to_string(row.avm_alu_a_lo) << "," << field_to_string(row.avm_alu_alu_sel) << ","
+           << field_to_string(row.avm_alu_b_hi) << "," << field_to_string(row.avm_alu_b_lo) << ","
+           << field_to_string(row.avm_alu_borrow) << "," << field_to_string(row.avm_alu_cf) << ","
+           << field_to_string(row.avm_alu_clk) << "," << field_to_string(row.avm_alu_cmp_rng_ctr) << ","
+           << field_to_string(row.avm_alu_cmp_sel) << "," << field_to_string(row.avm_alu_div_rng_chk_selector) << ","
+           << field_to_string(row.avm_alu_div_u16_r0) << "," << field_to_string(row.avm_alu_div_u16_r1) << ","
+           << field_to_string(row.avm_alu_div_u16_r2) << "," << field_to_string(row.avm_alu_div_u16_r3) << ","
+           << field_to_string(row.avm_alu_div_u16_r4) << "," << field_to_string(row.avm_alu_div_u16_r5) << ","
+           << field_to_string(row.avm_alu_div_u16_r6) << "," << field_to_string(row.avm_alu_div_u16_r7) << ","
+           << field_to_string(row.avm_alu_divisor_hi) << "," << field_to_string(row.avm_alu_divisor_lo) << ","
+           << field_to_string(row.avm_alu_ff_tag) << "," << field_to_string(row.avm_alu_ia) << ","
+           << field_to_string(row.avm_alu_ib) << "," << field_to_string(row.avm_alu_ic) << ","
+           << field_to_string(row.avm_alu_in_tag) << "," << field_to_string(row.avm_alu_op_add) << ","
+           << field_to_string(row.avm_alu_op_cast) << "," << field_to_string(row.avm_alu_op_cast_prev) << ","
+           << field_to_string(row.avm_alu_op_div) << "," << field_to_string(row.avm_alu_op_div_a_lt_b) << ","
+           << field_to_string(row.avm_alu_op_div_std) << "," << field_to_string(row.avm_alu_op_eq) << ","
+           << field_to_string(row.avm_alu_op_eq_diff_inv) << "," << field_to_string(row.avm_alu_op_lt) << ","
+           << field_to_string(row.avm_alu_op_lte) << "," << field_to_string(row.avm_alu_op_mul) << ","
+           << field_to_string(row.avm_alu_op_not) << "," << field_to_string(row.avm_alu_op_shl) << ","
+           << field_to_string(row.avm_alu_op_shr) << "," << field_to_string(row.avm_alu_op_sub) << ","
+           << field_to_string(row.avm_alu_p_a_borrow) << "," << field_to_string(row.avm_alu_p_b_borrow) << ","
+           << field_to_string(row.avm_alu_p_sub_a_hi) << "," << field_to_string(row.avm_alu_p_sub_a_lo) << ","
+           << field_to_string(row.avm_alu_p_sub_b_hi) << "," << field_to_string(row.avm_alu_p_sub_b_lo) << ","
+           << field_to_string(row.avm_alu_partial_prod_hi) << "," << field_to_string(row.avm_alu_partial_prod_lo) << ","
+           << field_to_string(row.avm_alu_quotient_hi) << "," << field_to_string(row.avm_alu_quotient_lo) << ","
+           << field_to_string(row.avm_alu_remainder) << "," << field_to_string(row.avm_alu_res_hi) << ","
+           << field_to_string(row.avm_alu_res_lo) << "," << field_to_string(row.avm_alu_rng_chk_lookup_selector) << ","
+           << field_to_string(row.avm_alu_rng_chk_sel) << "," << field_to_string(row.avm_alu_shift_lt_bit_len) << ","
+           << field_to_string(row.avm_alu_shift_sel) << "," << field_to_string(row.avm_alu_t_sub_s_bits) << ","
+           << field_to_string(row.avm_alu_two_pow_s) << "," << field_to_string(row.avm_alu_two_pow_t_sub_s) << ","
+           << field_to_string(row.avm_alu_u128_tag) << "," << field_to_string(row.avm_alu_u16_r0) << ","
+           << field_to_string(row.avm_alu_u16_r1) << "," << field_to_string(row.avm_alu_u16_r10) << ","
+           << field_to_string(row.avm_alu_u16_r11) << "," << field_to_string(row.avm_alu_u16_r12) << ","
+           << field_to_string(row.avm_alu_u16_r13) << "," << field_to_string(row.avm_alu_u16_r14) << ","
+           << field_to_string(row.avm_alu_u16_r2) << "," << field_to_string(row.avm_alu_u16_r3) << ","
+           << field_to_string(row.avm_alu_u16_r4) << "," << field_to_string(row.avm_alu_u16_r5) << ","
+           << field_to_string(row.avm_alu_u16_r6) << "," << field_to_string(row.avm_alu_u16_r7) << ","
+           << field_to_string(row.avm_alu_u16_r8) << "," << field_to_string(row.avm_alu_u16_r9) << ","
+           << field_to_string(row.avm_alu_u16_tag) << "," << field_to_string(row.avm_alu_u32_tag) << ","
+           << field_to_string(row.avm_alu_u64_tag) << "," << field_to_string(row.avm_alu_u8_r0) << ","
+           << field_to_string(row.avm_alu_u8_r1) << "," << field_to_string(row.avm_alu_u8_tag) << ","
+           << field_to_string(row.avm_binary_acc_ia) << "," << field_to_string(row.avm_binary_acc_ib) << ","
+           << field_to_string(row.avm_binary_acc_ic) << "," << field_to_string(row.avm_binary_bin_sel) << ","
+           << field_to_string(row.avm_binary_clk) << "," << field_to_string(row.avm_binary_ia_bytes) << ","
+           << field_to_string(row.avm_binary_ib_bytes) << "," << field_to_string(row.avm_binary_ic_bytes) << ","
+           << field_to_string(row.avm_binary_in_tag) << "," << field_to_string(row.avm_binary_mem_tag_ctr) << ","
+           << field_to_string(row.avm_binary_mem_tag_ctr_inv) << "," << field_to_string(row.avm_binary_op_id) << ","
+           << field_to_string(row.avm_binary_start) << "," << field_to_string(row.avm_byte_lookup_bin_sel) << ","
            << field_to_string(row.avm_byte_lookup_table_byte_lengths) << ","
            << field_to_string(row.avm_byte_lookup_table_in_tags) << ","
            << field_to_string(row.avm_byte_lookup_table_input_a) << ","
@@ -475,11 +477,8 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
            << field_to_string(row.avm_kernel_emit_note_hash_write_offset) << ","
            << field_to_string(row.avm_kernel_emit_nullifier_write_offset) << ","
            << field_to_string(row.avm_kernel_emit_unencrypted_log_write_offset) << ","
-           << field_to_string(row.avm_kernel_kernel_in_offset) << "," << field_to_string(row.avm_kernel_kernel_inputs)
-           << "," << field_to_string(row.avm_kernel_kernel_metadata_out) << ","
+           << field_to_string(row.avm_kernel_kernel_in_offset) << ","
            << field_to_string(row.avm_kernel_kernel_out_offset) << ","
-           << field_to_string(row.avm_kernel_kernel_side_effect_out) << ","
-           << field_to_string(row.avm_kernel_kernel_value_out) << ","
            << field_to_string(row.avm_kernel_l1_to_l2_msg_exists_write_offset) << ","
            << field_to_string(row.avm_kernel_note_hash_exist_write_offset) << ","
            << field_to_string(row.avm_kernel_nullifier_exists_write_offset) << ","

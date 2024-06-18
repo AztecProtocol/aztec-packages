@@ -4,6 +4,10 @@
     using View = typename Accumulator::View;                                                                           \
     [[maybe_unused]] auto avm_main_clk = View(new_term.avm_main_clk);                                                  \
     [[maybe_unused]] auto avm_main_first = View(new_term.avm_main_first);                                              \
+    [[maybe_unused]] auto avm_kernel_kernel_inputs = View(new_term.avm_kernel_kernel_inputs);                          \
+    [[maybe_unused]] auto avm_kernel_kernel_value_out = View(new_term.avm_kernel_kernel_value_out);                    \
+    [[maybe_unused]] auto avm_kernel_kernel_side_effect_out = View(new_term.avm_kernel_kernel_side_effect_out);        \
+    [[maybe_unused]] auto avm_kernel_kernel_metadata_out = View(new_term.avm_kernel_kernel_metadata_out);              \
     [[maybe_unused]] auto avm_alu_a_hi = View(new_term.avm_alu_a_hi);                                                  \
     [[maybe_unused]] auto avm_alu_a_lo = View(new_term.avm_alu_a_lo);                                                  \
     [[maybe_unused]] auto avm_alu_alu_sel = View(new_term.avm_alu_alu_sel);                                            \
@@ -128,11 +132,7 @@
     [[maybe_unused]] auto avm_kernel_emit_unencrypted_log_write_offset =                                               \
         View(new_term.avm_kernel_emit_unencrypted_log_write_offset);                                                   \
     [[maybe_unused]] auto avm_kernel_kernel_in_offset = View(new_term.avm_kernel_kernel_in_offset);                    \
-    [[maybe_unused]] auto avm_kernel_kernel_inputs = View(new_term.avm_kernel_kernel_inputs);                          \
-    [[maybe_unused]] auto avm_kernel_kernel_metadata_out = View(new_term.avm_kernel_kernel_metadata_out);              \
     [[maybe_unused]] auto avm_kernel_kernel_out_offset = View(new_term.avm_kernel_kernel_out_offset);                  \
-    [[maybe_unused]] auto avm_kernel_kernel_side_effect_out = View(new_term.avm_kernel_kernel_side_effect_out);        \
-    [[maybe_unused]] auto avm_kernel_kernel_value_out = View(new_term.avm_kernel_kernel_value_out);                    \
     [[maybe_unused]] auto avm_kernel_l1_to_l2_msg_exists_write_offset =                                                \
         View(new_term.avm_kernel_l1_to_l2_msg_exists_write_offset);                                                    \
     [[maybe_unused]] auto avm_kernel_note_hash_exist_write_offset =                                                    \

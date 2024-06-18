@@ -59,6 +59,11 @@ void AvmProver::execute_wire_commitments_round()
 
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
+    witness_commitments.avm_kernel_kernel_inputs = commitment_key->commit(key->avm_kernel_kernel_inputs);
+    witness_commitments.avm_kernel_kernel_value_out = commitment_key->commit(key->avm_kernel_kernel_value_out);
+    witness_commitments.avm_kernel_kernel_side_effect_out =
+        commitment_key->commit(key->avm_kernel_kernel_side_effect_out);
+    witness_commitments.avm_kernel_kernel_metadata_out = commitment_key->commit(key->avm_kernel_kernel_metadata_out);
     witness_commitments.avm_alu_a_hi = commitment_key->commit(key->avm_alu_a_hi);
     witness_commitments.avm_alu_a_lo = commitment_key->commit(key->avm_alu_a_lo);
     witness_commitments.avm_alu_alu_sel = commitment_key->commit(key->avm_alu_alu_sel);
@@ -184,12 +189,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_kernel_emit_unencrypted_log_write_offset =
         commitment_key->commit(key->avm_kernel_emit_unencrypted_log_write_offset);
     witness_commitments.avm_kernel_kernel_in_offset = commitment_key->commit(key->avm_kernel_kernel_in_offset);
-    witness_commitments.avm_kernel_kernel_inputs = commitment_key->commit(key->avm_kernel_kernel_inputs);
-    witness_commitments.avm_kernel_kernel_metadata_out = commitment_key->commit(key->avm_kernel_kernel_metadata_out);
     witness_commitments.avm_kernel_kernel_out_offset = commitment_key->commit(key->avm_kernel_kernel_out_offset);
-    witness_commitments.avm_kernel_kernel_side_effect_out =
-        commitment_key->commit(key->avm_kernel_kernel_side_effect_out);
-    witness_commitments.avm_kernel_kernel_value_out = commitment_key->commit(key->avm_kernel_kernel_value_out);
     witness_commitments.avm_kernel_l1_to_l2_msg_exists_write_offset =
         commitment_key->commit(key->avm_kernel_l1_to_l2_msg_exists_write_offset);
     witness_commitments.avm_kernel_note_hash_exist_write_offset =
@@ -409,6 +409,14 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.lookup_div_u16_7_counts = commitment_key->commit(key->lookup_div_u16_7_counts);
 
     // Send all commitments to the verifier
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_inputs,
+                                 witness_commitments.avm_kernel_kernel_inputs);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_value_out,
+                                 witness_commitments.avm_kernel_kernel_value_out);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_side_effect_out,
+                                 witness_commitments.avm_kernel_kernel_side_effect_out);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_metadata_out,
+                                 witness_commitments.avm_kernel_kernel_metadata_out);
     transcript->send_to_verifier(commitment_labels.avm_alu_a_hi, witness_commitments.avm_alu_a_hi);
     transcript->send_to_verifier(commitment_labels.avm_alu_a_lo, witness_commitments.avm_alu_a_lo);
     transcript->send_to_verifier(commitment_labels.avm_alu_alu_sel, witness_commitments.avm_alu_alu_sel);
@@ -553,16 +561,8 @@ void AvmProver::execute_wire_commitments_round()
                                  witness_commitments.avm_kernel_emit_unencrypted_log_write_offset);
     transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_in_offset,
                                  witness_commitments.avm_kernel_kernel_in_offset);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_inputs,
-                                 witness_commitments.avm_kernel_kernel_inputs);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_metadata_out,
-                                 witness_commitments.avm_kernel_kernel_metadata_out);
     transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_out_offset,
                                  witness_commitments.avm_kernel_kernel_out_offset);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_side_effect_out,
-                                 witness_commitments.avm_kernel_kernel_side_effect_out);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_value_out,
-                                 witness_commitments.avm_kernel_kernel_value_out);
     transcript->send_to_verifier(commitment_labels.avm_kernel_l1_to_l2_msg_exists_write_offset,
                                  witness_commitments.avm_kernel_l1_to_l2_msg_exists_write_offset);
     transcript->send_to_verifier(commitment_labels.avm_kernel_note_hash_exist_write_offset,

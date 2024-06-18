@@ -87,6 +87,10 @@ namespace bb {
 template <typename FF> struct AvmFullRow {
     FF avm_main_clk{};
     FF avm_main_first{};
+    FF avm_kernel_kernel_inputs{};
+    FF avm_kernel_kernel_value_out{};
+    FF avm_kernel_kernel_side_effect_out{};
+    FF avm_kernel_kernel_metadata_out{};
     FF avm_alu_a_hi{};
     FF avm_alu_a_lo{};
     FF avm_alu_alu_sel{};
@@ -207,11 +211,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_kernel_emit_nullifier_write_offset{};
     FF avm_kernel_emit_unencrypted_log_write_offset{};
     FF avm_kernel_kernel_in_offset{};
-    FF avm_kernel_kernel_inputs{};
-    FF avm_kernel_kernel_metadata_out{};
     FF avm_kernel_kernel_out_offset{};
-    FF avm_kernel_kernel_side_effect_out{};
-    FF avm_kernel_kernel_value_out{};
     FF avm_kernel_l1_to_l2_msg_exists_write_offset{};
     FF avm_kernel_note_hash_exist_write_offset{};
     FF avm_kernel_nullifier_exists_write_offset{};
@@ -570,6 +570,10 @@ class AvmCircuitBuilder {
         for (size_t i = 0; i < rows.size(); i++) {
             polys.avm_main_clk[i] = rows[i].avm_main_clk;
             polys.avm_main_first[i] = rows[i].avm_main_first;
+            polys.avm_kernel_kernel_inputs[i] = rows[i].avm_kernel_kernel_inputs;
+            polys.avm_kernel_kernel_value_out[i] = rows[i].avm_kernel_kernel_value_out;
+            polys.avm_kernel_kernel_side_effect_out[i] = rows[i].avm_kernel_kernel_side_effect_out;
+            polys.avm_kernel_kernel_metadata_out[i] = rows[i].avm_kernel_kernel_metadata_out;
             polys.avm_alu_a_hi[i] = rows[i].avm_alu_a_hi;
             polys.avm_alu_a_lo[i] = rows[i].avm_alu_a_lo;
             polys.avm_alu_alu_sel[i] = rows[i].avm_alu_alu_sel;
@@ -691,11 +695,7 @@ class AvmCircuitBuilder {
             polys.avm_kernel_emit_unencrypted_log_write_offset[i] =
                 rows[i].avm_kernel_emit_unencrypted_log_write_offset;
             polys.avm_kernel_kernel_in_offset[i] = rows[i].avm_kernel_kernel_in_offset;
-            polys.avm_kernel_kernel_inputs[i] = rows[i].avm_kernel_kernel_inputs;
-            polys.avm_kernel_kernel_metadata_out[i] = rows[i].avm_kernel_kernel_metadata_out;
             polys.avm_kernel_kernel_out_offset[i] = rows[i].avm_kernel_kernel_out_offset;
-            polys.avm_kernel_kernel_side_effect_out[i] = rows[i].avm_kernel_kernel_side_effect_out;
-            polys.avm_kernel_kernel_value_out[i] = rows[i].avm_kernel_kernel_value_out;
             polys.avm_kernel_l1_to_l2_msg_exists_write_offset[i] = rows[i].avm_kernel_l1_to_l2_msg_exists_write_offset;
             polys.avm_kernel_note_hash_exist_write_offset[i] = rows[i].avm_kernel_note_hash_exist_write_offset;
             polys.avm_kernel_nullifier_exists_write_offset[i] = rows[i].avm_kernel_nullifier_exists_write_offset;
