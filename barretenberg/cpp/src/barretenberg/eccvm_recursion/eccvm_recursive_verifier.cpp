@@ -82,6 +82,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                            transcript);
     // Execute transcript consistency univariate opening round
     // TODO(#768): Find a better way to do this. See issue for details.
+
     bool univariate_opening_verified = false;
     {
         auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
@@ -122,8 +123,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         univariate_opening_verified =
             PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
     }
-    // LONDONTODO consider adding check circuit here
-    // To confirm ECCVM passes
+
+    info("num gates after second IPA: ", builder->get_num_gates());
     ASSERT(sumcheck_verified && multivariate_opening_verified && univariate_opening_verified);
 }
 

@@ -48,6 +48,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
 
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
+    info("Ultra prover");
     OinkProver<Flavor> oink_prover(instance->proving_key, transcript);
     auto [proving_key, relation_params, alphas] = oink_prover.prove();
     instance->proving_key = std::move(proving_key);

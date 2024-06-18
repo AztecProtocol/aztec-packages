@@ -1,4 +1,4 @@
-import { type AvmCircuitInputs } from '@aztec/circuits.js';
+import { type AvmCircuitInputs, TubeInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -134,7 +134,7 @@ export async function generateKeyForNoirCircuit(
     if (!binaryPresent) {
       return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
     }
-
+    log(`here in generateKeyForNoirCircuit`);
     // We are now going to generate the key
     try {
       const bytecodePath = `${circuitOutputDirectory}/${bytecodeFilename}`;
@@ -144,11 +144,12 @@ export async function generateKeyForNoirCircuit(
       // args are the output path and the input bytecode path
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
-      let result = await executeBB(pathToBB, `write_${key}`, args, log);
+      let result = await executeBB(pathToBB, `write_${key}_ultra_honk`, args, log);
+      log(`write vk result: ${result.status}`);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS && key === 'vk') {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
-        result = await executeBB(pathToBB, `vk_as_fields`, asFieldsArgs, log);
+        result = await executeBB(pathToBB, `vk_as_fields_ultra_honk`, asFieldsArgs, log);
       }
       const duration = timer.ms();
 
@@ -296,7 +297,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove_ultra_honk_output_all', args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -332,6 +333,10 @@ export async function generateProof(
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
+<<<<<<< HEAD
+=======
+  tubeInputs: TubeInputs,
+>>>>>>> origin/mm-lx/linking-work
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -341,27 +346,70 @@ export async function generateTubeProof(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // The proof is written to e.g. /workingDirectory/proof
-  // TODO: figure out the correct paths for this
-  const outputPath = `${workingDirectory}`;
+  // // Paths for the inputs
+  // const inputPath = workingDirectory;
+  // WORKTODO (Mara) : this should be the real workindDirectory but for now I manually put the proofs where the BB binary is because that doesn't change
+  // normally the workindDirectory is a temporary directory
+  const inputPath = join(pathToBB, '/../proofs');
+  const vkPath = join(inputPath, '/inst_vk'); // the vk of the last instance
+  const accPath = join(inputPath, '/pg_acc');
+  const proofPath = join(inputPath, '/client_ivc_proof');
+  const translatorVkPath = join(inputPath, '../translator_vk');
+  const eccVkPath = join(inputPath, '/ecc_vk');
 
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
+  // The proof is written to e.g. /workingDirectory/proof
+  // const outputPath = workingDirectory
+  const outputPath = join(pathToBB, '/../proofs');
+
+  const filePresent = async (file: string) =>
+    await fs
+      .access(file, fs.constants.R_OK)
+      .then(_ => true)
+      .catch(_ => false);
+
+  const binaryPresent = await filePresent(pathToBB);
   if (!binaryPresent) {
     return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
   }
 
   try {
+    if (
+      !filePresent(vkPath) ||
+      !filePresent(accPath) ||
+      !filePresent(proofPath) ||
+      !filePresent(translatorVkPath) ||
+      !filePresent(eccVkPath)
+    ) {
+      // Write the inputs to the working directory.
+      // await fs.writeFile(vkPath, tubeInputs.clientIVCData.vk);
+      // if (!filePresent(vkPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${vkPath}` };
+      // }
+      // await fs.writeFile(accPath, tubeInputs.clientIVCData.acc);
+      // if (!filePresent(accPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${accPath}` };
+      // }
+      // await fs.writeFile(proofPath, tubeInputs.clientIVCData.proof);
+      // if (!filePresent(proofPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${proofPath}` };
+      // }
+      // await fs.writeFile(translatorVkPath, tubeInputs.clientIVCData.translatorVk);
+      // if (!filePresent(translatorVkPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${translatorVkPath}` };
+      // }
+      // await fs.writeFile(eccVkPath, tubeInputs.clientIVCData.eccVk);
+      // if (!filePresent(eccVkPath)) {
+      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${eccVkPath}` };
+      // }
+
+      return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${inputPath}` };
+    }
     const args = ['-o', outputPath, '-v'];
+
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`Tube BB out - ${message}`);
+      log(`TubeCircuit (prove) BB out - ${message}`);
     };
-
-    log(`Path where I need a proof ${outputPath}`);
-
     const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
     const duration = timer.ms();
 
@@ -369,9 +417,10 @@ export async function generateTubeProof(
       return {
         status: BB_RESULT.SUCCESS,
         duration,
-        proofPath: `${outputPath}`,
+        // proofPath: join(outputPath, PROOF_FILENAME),
+        proofPath: outputPath,
         pkPath: undefined,
-        vkPath: `${outputPath}`,
+        vkPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -507,7 +556,7 @@ export async function verifyProof(
   verificationKeyPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify', log);
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify_ultra_honk', log);
 }
 
 /**
@@ -540,7 +589,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify' | 'avm_verify',
+  command: 'verify_ultra_honk' | 'avm_verify',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -594,7 +643,7 @@ export async function writeVkAsFields(
   try {
     const args = ['-k', `${verificationKeyPath}/${verificationKeyFilename}`, '-v'];
     const timer = new Timer();
-    const result = await executeBB(pathToBB, 'vk_as_fields', args, log);
+    const result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, duration, vkPath: verificationKeyPath };
@@ -636,7 +685,7 @@ export async function writeProofAsFields(
   try {
     const args = ['-p', `${proofPath}/${proofFileName}`, '-k', vkFilePath, '-v'];
     const timer = new Timer();
-    const result = await executeBB(pathToBB, 'proof_as_fields', args, log);
+    const result = await executeBB(pathToBB, 'proof_as_fields_honk', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, duration, proofPath: proofPath };

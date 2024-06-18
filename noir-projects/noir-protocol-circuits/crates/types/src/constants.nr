@@ -238,10 +238,12 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 93;
-global NESTED_RECURSIVE_PROOF_LENGTH = 109;
+global RECURSIVE_PROOF_LENGTH = 390;
+global NESTED_RECURSIVE_PROOF_LENGTH = 390;
+global CLIENT_IVC_PROOF_LENGTH = 3278;
+global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.

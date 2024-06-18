@@ -32,11 +32,14 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
 {
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "circuit_size");
+    info("circuit size ", circuit_size);
+
     const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "public_input_size");
+    info("public input size", public_input_size);
     const auto pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
-
+    info("pub inputs offset", pub_inputs_offset);
     ASSERT(circuit_size == key->circuit_size);
     ASSERT(public_input_size == key->num_public_inputs);
     ASSERT(pub_inputs_offset == key->pub_inputs_offset);
@@ -45,6 +48,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
+        info("RECEIVED PUBLIC INPUTS", public_input_i);
     }
 }
 
@@ -57,8 +61,11 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
+    info("w_l ", witness_comms.w_l);
     witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
+    info("w_r ", witness_comms.w_r);
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
+    info("w_o ", witness_comms.w_o);
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -93,6 +100,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
+    info("eta ", eta);
     // Get commitments to sorted list accumulator and fourth wire
     witness_comms.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.sorted_accum);
@@ -107,6 +115,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
 {
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
+    info("beta ", beta);
+    info("gamma ", gamma);
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials

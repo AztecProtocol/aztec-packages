@@ -24,6 +24,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  TubeInputs,
   VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
@@ -106,6 +107,25 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  public async getEmptyTubeProof(
+    inputs: PrivateKernelEmptyInputData,
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+    const emptyNested = new EmptyNestedData(
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VERIFICATION_KEYS['EmptyNestedArtifact'],
+    );
+    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
+    const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, PrivateKernelEmptyArtifact);
+    const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
+
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFake(),
+    );
+  }
+
   /**
    * Simulates the base parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.
@@ -169,7 +189,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return Promise.resolve(rootParityInput);
   }
 
-  public async getTubeRollupProof(): Promise<void> {}
+  public async getTubeRollupProofFromArtifact(): Promise<void> {}
 
   /**
    * Simulates the base rollup circuit from its inputs.
@@ -178,7 +198,9 @@ export class TestCircuitProver implements ServerCircuitProver {
    */
   public async getBaseRollupProof(
     input: BaseRollupInputs,
+    _tubeInput: TubeInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    // WORKTODO this is a test function that should be updated to use the tube, not entirely sure where this is used and whether it's relevant to make thee full e2e test working, we shall see
     const timer = new Timer();
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 

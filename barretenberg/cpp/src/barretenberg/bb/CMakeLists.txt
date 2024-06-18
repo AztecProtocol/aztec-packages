@@ -12,7 +12,10 @@ if (NOT(FUZZING) AND NOT(WASM))
         barretenberg
         env
         circuit_checker
+<<<<<<< HEAD
         libdeflate::libdeflate_static
+=======
+>>>>>>> origin/mm-lx/linking-work
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(

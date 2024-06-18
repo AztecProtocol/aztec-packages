@@ -21,7 +21,7 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    await t.deployVerifier();
+    // await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
 

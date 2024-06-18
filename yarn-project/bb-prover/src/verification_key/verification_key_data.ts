@@ -24,12 +24,9 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   const fieldsJson = JSON.parse(rawFields);
   const fields = fieldsJson.map(Fr.fromString);
   // The first item is the hash, this is not part of the actual VK
+  // WORKTODO: should this vkHash be here, i don't thinks o
   const vkHash = fields[0];
-  const actualVk = fields.slice(1);
-  const vkAsFields = new VerificationKeyAsFields(
-    actualVk as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>,
-    vkHash,
-  );
+  const vkAsFields = new VerificationKeyAsFields(fields as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, vkHash);
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }

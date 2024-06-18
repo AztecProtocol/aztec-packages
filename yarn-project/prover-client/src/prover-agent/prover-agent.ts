@@ -137,7 +137,8 @@ export class ProverAgent {
       }
 
       case ProvingRequestType.BASE_ROLLUP: {
-        return this.circuitProver.getBaseRollupProof(inputs);
+        const tubeInputs = request.tubeInputs;
+        return this.circuitProver.getBaseRollupProof(inputs, tubeInputs);
       }
 
       case ProvingRequestType.MERGE_ROLLUP: {
