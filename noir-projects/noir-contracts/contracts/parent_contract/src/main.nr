@@ -257,7 +257,8 @@ contract Parent {
         let owner = env.create_account();
 
         // Deploy child contract
-        let child_contract_address = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
+        let child_contract = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
+        let child_contract_address = child_contract.to_address();
         cheatcodes::advance_blocks(1);
 
         // Set value in child through parent
