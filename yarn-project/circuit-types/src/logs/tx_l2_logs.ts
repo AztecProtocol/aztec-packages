@@ -157,16 +157,17 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
    *       for more details.
    */
   public hash(): Buffer {
-    if (this.unrollLogs().length == 0) {
+    const unrolledLogs = this.unrollLogs();
+    if (unrolledLogs.length == 0) {
       return Buffer.alloc(32);
     }
 
     let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+    for (const logsFromSingleFunctionCall of unrolledLogs) {
       flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
       flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
     }
 
@@ -235,16 +236,17 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
    *       for more details.
    */
   public hash(): Buffer {
-    if (this.unrollLogs().length == 0) {
+    const unrolledLogs = this.unrollLogs();
+    if (unrolledLogs.length == 0) {
       return Buffer.alloc(32);
     }
 
     let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+    for (const logsFromSingleFunctionCall of unrolledLogs) {
       flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
       flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
     }
 
@@ -313,16 +315,17 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    *       for more details.
    */
   public hash(): Buffer {
-    if (this.unrollLogs().length == 0) {
+    const unrolledLogs = this.unrollLogs();
+    if (unrolledLogs.length == 0) {
       return Buffer.alloc(32);
     }
 
     let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+    for (const logsFromSingleFunctionCall of unrolledLogs) {
       flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_ENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+    for (let i = 0; i < MAX_ENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
       flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
     }
 
