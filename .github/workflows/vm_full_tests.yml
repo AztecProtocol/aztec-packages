@@ -51,9 +51,6 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
-        with:
-          # must be globally unique for build x runner
-          concurrency_key: avm-full-tests-x86
       - name: "AVM Full Tests"
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 70
