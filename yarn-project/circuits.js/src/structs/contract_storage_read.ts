@@ -30,12 +30,7 @@ export class ContractStorageRead {
     public contractAddress?: AztecAddress, // TODO: Should not be optional. This is a temporary hack to silo the storage slot with the correct address for nested executions.
   ) {}
 
-  static from(args: {
-    storageSlot: Fr;
-    currentValue: Fr;
-    counter: number;
-    contractAddress?: AztecAddress;
-  }) {
+  static from(args: { storageSlot: Fr; currentValue: Fr; counter: number; contractAddress?: AztecAddress }) {
     return new ContractStorageRead(args.storageSlot, args.currentValue, args.counter, args.contractAddress);
   }
 
