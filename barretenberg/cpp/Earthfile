@@ -262,7 +262,7 @@ vm-full-test:
     IF [ "$HARDWARE_CONCURRENCY" != "" ]
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
     END
-    RUN cd build && GTEST_COLOR=1 AVM_TESTS_ENABLE_PROVING=1 ctest -j4 --test-dir src/barretenberg/vm --output-on-failure
+    RUN cd build && GTEST_COLOR=1 AVM_ENABLE_FULL_PROVING=1 ctest -j4 --test-dir src/barretenberg/vm --output-on-failure
 
 build:
     BUILD +preset-wasm
