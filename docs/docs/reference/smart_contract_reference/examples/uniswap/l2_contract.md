@@ -11,9 +11,7 @@ This page goes over the code in the L2 contract for Uniswap, which works alongsi
 
 #include_code uniswap_setup noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 We just need to store the portal address for the token that we want to swap.
-Because Uniswap has to approve the bridge to withdraw funds, it has to handle the approvals. So it stores a map of all the actions that are approved. The approval message is hashed to a field and stored in the contract’s storage in the approved_action map.
 
-To ensure there are no collisions (i.e. when the contract wants to approve the bridge of the exact same amount, the message hash would be the same), we also keep a nonce that gets incremented each time after use in a message.
 
 ### Public swap
 
