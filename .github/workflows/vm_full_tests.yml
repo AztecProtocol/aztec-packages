@@ -56,7 +56,5 @@ jobs:
       - name: "AVM Full Tests"
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 70
-        with:
-          # limit our parallelism to half our cores
-          run: earthly-ci --no-output +vm-full-test --hardware_concurrency=64
-          runner_type: builder-x86
+        # limit our parallelism to half our cores
+        run: earthly-ci --no-output +vm-full-test --hardware_concurrency=64
