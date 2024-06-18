@@ -40,7 +40,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<PCS>;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -139,13 +140,16 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
     // Execute ZeroMorph multilinear PCS evaluation verifier
-    auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
-                                                  commitments.get_to_be_shifted(),
-                                                  claimed_evaluations.get_unshifted(),
-                                                  claimed_evaluations.get_shifted(),
-                                                  multivariate_challenge,
-                                                  transcript);
-    return verifier_accumulator;
+    auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           Commitment::one(builder),
+                                           transcript);
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+
+    return pairing_points;
 }
 
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;

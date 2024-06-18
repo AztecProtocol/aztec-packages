@@ -113,9 +113,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
 
-    auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
+    auto opening_claim = ZeroMorph::verify(commitments.get_unshifted_without_concatenated(),
                                            commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_unshifted_without_concatenated(),
                                            claimed_evaluations.get_shifted(),
                                            multivariate_challenge,
                                            Commitment::one(),
