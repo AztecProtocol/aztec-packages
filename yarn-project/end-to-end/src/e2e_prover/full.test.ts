@@ -61,19 +61,12 @@ describe('full_prover', () => {
         0,
       );
 
-      let publicTx: Tx;
-      let privateTx: Tx;
       const cachedPrivateTxPath = '../../../e2e_private.tx';
+      const privateTxBuffer = fs.existsSync(cachedPrivateTxPath) ? fs.readFileSync(cachedPrivateTxPath) : undefined;
+      const privateTx = await privateInteraction.prove({ isPrivate: true, cachedTxBuffer: privateTxBuffer });
       const cachedPublicTxPath = '../../../e2e_public.tx';
-      const hasProofCache = fs.existsSync(cachedPrivateTxPath) && fs.existsSync(cachedPublicTxPath);
-      if (hasProofCache) {
-        privateTx = Tx.fromBuffer(fs.readFileSync(cachedPrivateTxPath));
-        publicTx = Tx.fromBuffer(fs.readFileSync(cachedPublicTxPath));
-      } else {
-        [privateTx, publicTx] = await Promise.all([privateInteraction.prove({ isPrivate: true }), publicInteraction.prove({ isPrivate: false })]);
-        fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
-        fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
-      }
+      const publicTxBuffer = fs.existsSync(cachedPublicTxPath) ? fs.readFileSync(cachedPublicTxPath) : undefined;
+      const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       logger.info(`Verifying kernel tail to public proof`);
@@ -94,14 +87,12 @@ describe('full_prover', () => {
         expect(result.status).toBe(BB_RESULT.SUCCESS)
       });
 
-      if (!hasProofCache) {
-        const sentPrivateTx = privateInteraction.send();
-        const sentPublicTx = publicInteraction.send();
-        await Promise.all([
-          sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
-          sentPublicTx.wait({ timeout: 1200, interval: 10 }),
-        ]);
-      }
+      const sentPrivateTx = privateInteraction.send();
+      const sentPublicTx = publicInteraction.send();
+      await Promise.all([
+        sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
+        sentPublicTx.wait({ timeout: 1200, interval: 10 }),
+      ]);
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
 
