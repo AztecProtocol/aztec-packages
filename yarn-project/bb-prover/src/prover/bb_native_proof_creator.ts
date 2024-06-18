@@ -108,6 +108,9 @@ export class BBNativeProofCreator implements ProofCreator {
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+    this.log.info(
+      `Generating Client IVC proof`,
+    );
     const operation = async (directory: string) => {
       return await this._createClientIvcProof(directory, acirs, witnessStack);
     };

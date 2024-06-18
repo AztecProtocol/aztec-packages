@@ -188,10 +188,6 @@ export class KernelProver {
     acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
-    this.log.info(
-      `Generating Client IVC proof`,
-    );
-
     // LONDONTODO: isPrivate flag was introduced in PXE interface to allow this `if`
     if (isPrivate) {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);

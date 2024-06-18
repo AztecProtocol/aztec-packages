@@ -65,19 +65,15 @@ describe('full_prover', () => {
       let privateTx: Tx;
       const cachedPrivateTxPath = '../../../e2e_private.tx';
       const cachedPublicTxPath = '../../../e2e_public.tx';
-      if (fs.existsSync(cachedPrivateTxPath)) {
+      const hasProofCache = fs.existsSync(cachedPrivateTxPath) && fs.existsSync(cachedPublicTxPath);
+      if (hasProofCache) {
         privateTx = Tx.fromBuffer(fs.readFileSync(cachedPrivateTxPath));
-      } else {
-        [privateTx] = await Promise.all([privateInteraction.prove()]);
-        fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
-      }
-      if (fs.existsSync(cachedPublicTxPath)) {
         publicTx = Tx.fromBuffer(fs.readFileSync(cachedPublicTxPath));
       } else {
-        [publicTx] = await Promise.all([publicInteraction.prove({isPrivate : false})]);
+        [privateTx, publicTx] = await Promise.all([privateInteraction.prove({ isPrivate: true }), publicInteraction.prove({ isPrivate: false })]);
+        fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
         fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
       }
-
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       logger.info(`Verifying kernel tail to public proof`);
@@ -98,12 +94,14 @@ describe('full_prover', () => {
         expect(result.status).toBe(BB_RESULT.SUCCESS)
       });
 
-      const sentPrivateTx = privateInteraction.send();
-      const sentPublicTx = publicInteraction.send();
-      await Promise.all([
-        sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
-        sentPublicTx.wait({ timeout: 1200, interval: 10 }),
-      ]);
+      if (!hasProofCache) {
+        const sentPrivateTx = privateInteraction.send();
+        const sentPublicTx = publicInteraction.send();
+        await Promise.all([
+          sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
+          sentPublicTx.wait({ timeout: 1200, interval: 10 }),
+        ]);
+      }
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
 
