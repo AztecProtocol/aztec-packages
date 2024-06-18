@@ -18,6 +18,8 @@ export type SendMethodOptions = {
   fee?: FeeOptions;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings (will default to true later down the road). */
   estimateGas?: boolean;
+  /** LONDONTODO: Hack: using this to avoid generating ClientIVC proof */
+  isPrivate?: boolean;
 };
 
 /**
@@ -45,8 +47,9 @@ export abstract class BaseContractInteraction {
    * @returns The resulting transaction
    */
   public async prove(options: SendMethodOptions = {}): Promise<Tx> {
+    // LONDONTODO: check logic here. Is create using the new field?
     const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
+    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation, options.isPrivate!);
     return this.tx;
   }
 

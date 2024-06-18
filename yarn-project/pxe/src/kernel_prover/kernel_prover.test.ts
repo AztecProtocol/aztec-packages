@@ -142,7 +142,7 @@ describe('Kernel Prover Native', () => {
   //   proofCreator.createProofInit.mockClear();
   // };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
+  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult, true /* isPrivate */);
 
   beforeEach(() => {
     txRequest = makeTxRequest();

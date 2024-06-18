@@ -45,15 +45,15 @@ export abstract class BaseWallet implements Wallet {
       | Fr
       | Buffer
       | {
-          /** The caller to approve  */
-          caller: AztecAddress;
-          /** The action to approve */
-          action: ContractFunctionInteraction | FunctionCall;
-          /** The chain id to approve */
-          chainId?: Fr;
-          /** The version to approve  */
-          version?: Fr;
-        },
+        /** The caller to approve  */
+        caller: AztecAddress;
+        /** The action to approve */
+        action: ContractFunctionInteraction | FunctionCall;
+        /** The chain id to approve */
+        chainId?: Fr;
+        /** The version to approve  */
+        version?: Fr;
+      },
   ): Promise<AuthWitness>;
 
   abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
@@ -106,8 +106,8 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.proveTx(txRequest, simulatePublic);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, isPrivate: boolean): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic, isPrivate);
   }
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
