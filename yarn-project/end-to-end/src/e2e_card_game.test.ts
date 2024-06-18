@@ -148,7 +148,6 @@ describe('e2e_card_game', () => {
     await contract.methods.buy_pack(seed).send().wait();
     // docs:end:send_tx
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
-    console.log(collection);
     const expected = getPackedCards(0, seed);
     expect(boundedVecToArray(collection)).toMatchObject(expected);
   });
