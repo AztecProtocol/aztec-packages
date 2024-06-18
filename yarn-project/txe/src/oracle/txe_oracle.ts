@@ -310,10 +310,6 @@ export class TXE implements TypedOracle {
     // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
-    // const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
-    // const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status);
-    // const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
-
     const notes = pickNotes<NoteData>(pendingNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
