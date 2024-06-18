@@ -66,6 +66,7 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: ExecutionResult,
+    isPrivate: boolean,
   ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
@@ -191,9 +192,12 @@ export class KernelProver {
       `Generating Client IVC proof`,
     );
 
-    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-    // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
-    tailOutput.clientIvcProof = ivcProof;
+    // LONDONTODO: isPrivate flag was introduced in PXE interface to allow this `if`
+    if (isPrivate) {
+      const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+      // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
+      tailOutput.clientIvcProof = ivcProof;
+    }
     return tailOutput;
   }
 
@@ -201,23 +205,23 @@ export class KernelProver {
     const nextIteration = executionStack[executionStack.length - 1];
     return (
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNoteHashes).length +
-        getNonEmptyItems(output.publicInputs.end.newNoteHashes).length >
-        MAX_NEW_NOTE_HASHES_PER_TX ||
+      getNonEmptyItems(output.publicInputs.end.newNoteHashes).length >
+      MAX_NEW_NOTE_HASHES_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNullifiers).length +
-        getNonEmptyItems(output.publicInputs.end.newNullifiers).length >
-        MAX_NEW_NULLIFIERS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.end.newNullifiers).length >
+      MAX_NEW_NULLIFIERS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteEncryptedLogsHashes).length +
-        getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
+      MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashReadRequests).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.nullifierReadRequests).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.keyValidationRequestsAndGenerators).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX
+      getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
+      MAX_KEY_VALIDATION_REQUESTS_PER_TX
     );
   }
 
