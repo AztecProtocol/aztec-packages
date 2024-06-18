@@ -11,6 +11,10 @@ ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
 # Copy in transpiler
 COPY --from=transpiler /usr/src/avm-transpiler/target/release/avm-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler
 ENV PATH="/usr/src/avm-transpiler/target/release:${PATH}"
+# Copy in yarn project
+COPY --from=yarn-project /usr/src/yarn-project/txe /usr/src/yarn-project/txe
+COPY --from=yarn-project /usr/src/yarn-project/node_modules /usr/src/yarn-project/node_modules
+
 # Copy in noir projects
 WORKDIR /usr/src/noir-projects
 COPY . .
