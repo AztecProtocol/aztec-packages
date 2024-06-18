@@ -11,7 +11,8 @@ ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
 COPY --from=transpiler /usr/src/avm-transpiler/target/release/avm-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler
 ENV PATH="/usr/src/avm-transpiler/target/release:${PATH}"
 
-# All built files are ignored, but this build is fast and we're moving to earthly, so we don't bother
+# All built files are ignored so we have to repeat the txe build here.
+# It is fast (compared to the tests) and we're moving to earthly, so we don't bother with something more sophisticated.
 WORKDIR /usr/src/yarn-project
 RUN yarn workspaces focus @aztec/txe
 RUN cd ./txe && yarn build
