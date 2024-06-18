@@ -100,7 +100,6 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
 
     let original = format!(
         "| inputs: dep::aztec::context::inputs::{}ContextInputs | -> {} {{
-            let _ = failing_env_workaround;
             {}(inputs{})
         }}",
         aztec_visibility,
@@ -113,12 +112,15 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         if param_types.is_empty() { "".to_string() } else { format!(" ,{}  ", param_types) }
     );
     let arg_types = format!(
-        "(Field, {})",
+        "({}{})",
         parameters
             .iter()
             .map(|param| param.typ.typ.to_string().replace("plain::", ""))
             .collect::<Vec<_>>()
-            .join(",")
+            .join(","),
+        // In order to distinguish between a single element Tuple (Type,) and a single type with unnecessary parenthesis around it (Type),
+        // The latter gets simplified to Type, that is NOT a valid env
+        if parameters.len() == 1 { "," } else { "" }
     );
 
     let generics = if is_void == "Void" {
@@ -146,7 +148,6 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
 
         format!(
             "{}
-            let failing_env_workaround = 0;
             let selector = {};
             dep::aztec::context::{}{}{}CallInterface {{
                 target_contract: self.target_contract,
@@ -167,7 +168,6 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         );
         format!(
             "{}
-            let failing_env_workaround = 0;
             let selector = {};
             dep::aztec::context::{}{}{}CallInterface {{
                 target_contract: self.target_contract,

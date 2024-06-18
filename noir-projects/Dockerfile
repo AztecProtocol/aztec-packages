@@ -24,7 +24,7 @@ RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \
     # Wait for TXE to initialize
     sleep 5 && \ 
     cd /usr/src/noir-projects/noir-contracts && \
-    ./bootstrap.sh && nargo test --silence-warnings --oracle-resolver http://localhost:8080 && \
+    ./bootstrap.sh && nargo test --silence-warnings --oracle-resolver http://localhost:8080 ; \
     kill $(cat /tmp/txe.pid)
 
 RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 

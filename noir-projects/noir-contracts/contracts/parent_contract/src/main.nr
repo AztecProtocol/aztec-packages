@@ -255,8 +255,6 @@ contract Parent {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account();
-        // Initial address, since we don't have to deploy Parent in order to test it
-        let parent_contract_address = cheatcodes::get_contract_address();
 
         // Deploy child contract
         let child_contract_address = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
@@ -264,7 +262,7 @@ contract Parent {
 
         // Set value in child through parent
         let value_to_set = 7;
-        let parent_private_set_call_interface = Parent::at(parent_contract_address).private_call(
+        let parent_private_set_call_interface = Parent::interface().private_call(
             child_contract_address,
             FunctionSelector::from_signature("private_set_value(Field,(Field))"),
             [value_to_set, owner.to_field()]
@@ -281,7 +279,7 @@ contract Parent {
         assert(note_value == value_to_set);
         assert(note_value == result);
         // Get value from child through parent
-        let parent_private_get_call_interface = Parent::at(parent_contract_address).private_call(
+        let parent_private_get_call_interface = Parent::interface().private_call(
             child_contract_address,
             FunctionSelector::from_signature("private_get_value(Field,(Field))"),
             [7, owner.to_field()]
