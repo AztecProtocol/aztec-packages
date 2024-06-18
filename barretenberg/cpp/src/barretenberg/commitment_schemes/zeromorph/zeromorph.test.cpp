@@ -40,8 +40,8 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return result;
     }
 
-    TupleOfPolynomialsEvaluationsCommitments polynomials_and_evaluations(std::vector<Fr> u_challenge,
-                                                                         size_t NUM_UNSHIFTED)
+    TupleOfPolynomialsEvaluationsCommitments polynomials_comms_and_evaluations(std::vector<Fr> u_challenge,
+                                                                               size_t NUM_UNSHIFTED)
     {
         // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
         std::vector<Polynomial> f_polynomials; // unshifted polynomials
@@ -58,23 +58,23 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return { f_polynomials, v_evaluations, f_commitments };
     }
 
-    TupleOfPolynomialsEvaluationsCommitments to_be_shifted_polynomials_and_shifted_evaluations(
-        std::vector<Polynomial> original_polynomials,
-        std::vector<Fr> u_challenge,
-        std::vector<Commitment> original_commitments,
-        size_t NUM_SHIFTED)
+    TupleOfPolynomialsEvaluationsCommitments to_be_shifted_polynomials_and_comms_and_shifted_evaluations(
+        TupleOfPolynomialsEvaluationsCommitments unshifted_input, std::vector<Fr> u_challenge, size_t NUM_SHIFTED)
     {
+        std::vector<Polynomial> f_polynomials = std::get<0>(unshifted_input);
+        std::vector<Polynomial> f_commitments = std::get<2>(unshifted_input);
+
         std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
         std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
-        std::vector<Fr> w_evaluations;
+        std::vector<Fr> w_evaluations;         // shifted evaluations
         std::vector<Commitment> g_commitments;
-        // For testing purposes, pick the first NUM_SHIFTED polynomials
+
+        // For testing purposes, pick the first NUM_SHIFTED polynomials to be shifted
         for (size_t i = 0; i < NUM_SHIFTED; ++i) {
-            g_polynomials.emplace_back(original_polynomials[i]);
+            g_polynomials.emplace_back(f_polynomials[i]);
             h_polynomials.emplace_back(g_polynomials[i].shifted());
             w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
-            g_commitments.emplace_back(original_commitments[i]);
-            // ASSERT_EQ(w_evaluations[i], g_polynomials[i].evaluate_mle(u_challenge, /* shift = */ true));
+            g_commitments.emplace_back(f_commitments[i]);
         }
         return { g_polynomials, w_evaluations, g_commitments };
     }
@@ -129,15 +129,15 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return verified;
     };
 
-    bool prove_and_verify_with_concatenation(TupleOfPolynomialsEvaluationsCommitments unshifted,
-                                             TupleOfPolynomialsEvaluationsCommitments shifted,
+    bool prove_and_verify_with_concatenation(TupleOfPolynomialsEvaluationsCommitments unshifted_input,
+                                             TupleOfPolynomialsEvaluationsCommitments shifted_input,
                                              std::vector<Fr> u_challenge,
                                              size_t NUM_CONCATENATED)
     {
-        auto [f_polynomials, v_evaluations, f_commitments] = unshifted;
-        auto [g_polynomials, w_evaluations, g_commitments] = shifted;
+        auto [f_polynomials, v_evaluations, f_commitments] = unshifted_input;
+        auto [g_polynomials, w_evaluations, g_commitments] = shifted_input;
         auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-            get_concatenation_inputs(u_challenge, NUM_CONCATENATED);
+            concatenation_inputs(u_challenge, NUM_CONCATENATED);
 
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -188,7 +188,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return verified;
     };
 
-    TupleOfConcatenationInputs get_concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
+    TupleOfConcatenationInputs concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
     {
 
         size_t concatenation_index = 2;
@@ -265,11 +265,12 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
 
         std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
 
-        // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
-        auto unshifted_tuple = polynomials_and_evaluations(u_challenge, NUM_UNSHIFTED);
+        // Construct some random multilinear polynomials f_i, their commitments and their evaluations v_i = f_i(u)
+        auto unshifted_tuple = polynomials__comms_and_evaluations(u_challenge, NUM_UNSHIFTED);
 
-        auto shifted_tuple = to_be_shifted_polynomials_and_shifted_evaluations(
-            std::get<0>(unshifted_tuple), u_challenge, std::get<2>(unshifted_tuple), NUM_SHIFTED);
+        // Construct polynomials and commitments from f_i that are to be shifted and compute their shifted evaluations
+        auto shifted_tuple =
+            to_be_shifted_polynomials_and_comms_and_shifted_evaluations(unshifted_tuple, u_challenge, NUM_SHIFTED);
 
         bool verified = false;
         if (NUM_CONCATENATED == 0) {
