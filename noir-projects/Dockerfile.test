@@ -2,6 +2,8 @@ FROM aztecprotocol/noir as noir
 FROM aztecprotocol/avm-transpiler as transpiler
 FROM aztecprotocol/yarn-project as yarn-project
 
+RUN apt-get update && apt-get install -y parallel
+
 # Copy in nargo
 COPY --from=noir /usr/src/noir/noir-repo/target/release/nargo /usr/src/noir/noir-repo/target/release/nargo
 ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
@@ -15,8 +17,7 @@ RUN yarn workspaces focus @aztec/txe
 RUN cd ./txe && yarn build
 
 # Copy in noir projects
-WORKDIR /usr/src/noir-projects
-COPY . .
+COPY --from=transpiler /usr/src/noir-projects /usr/src/noir-projects
 
 # Build & test
 WORKDIR /usr/src/noir-projects

@@ -75,9 +75,8 @@ noir-projects:
 noir-projects-tests:
   buildDir: noir-projects
   dockerfile: Dockerfile.test
-  rebuildPatterns:
-    - ^noir-projects/Dockerfile$
   dependencies:
+    - noir-projects
     - noir
     - avm-transpiler
     - yarn-project
