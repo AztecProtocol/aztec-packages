@@ -354,23 +354,15 @@ fn craft_expression<T: FieldElement>(
             }
             if number.bit_len() < 256 {
                 let bytes = number.to_be_bytes();
-                println!("{:?}", bytes);
-                println!("size before {}", bytes.len());
                 let padding_len = 32 - bytes.len();
-                // let padding_len = (8 - bytes.len() % 8) % 8;
-                // let padding_len = (8 - bytes.len() % 8) % 8;
-                // bytes.resize(bytes.len() + padding_len, 0);
 
                 let mut padded_bytes = vec![0; padding_len];
                 padded_bytes.extend_from_slice(&bytes);
-                println!("{:?}", padded_bytes);
-                println!("size after {}", padded_bytes.len());
-                // println!("{:?}", padded_bytes);
-                println!("\n");
 
-                let mut chunks: Vec<u64> = padded_bytes.chunks(8).map(|chunk| 
-                    u64::from_be_bytes(chunk.try_into().unwrap())
-                    ).collect();
+                let mut chunks: Vec<u64> = padded_bytes
+                    .chunks(8)
+                    .map(|chunk| u64::from_be_bytes(chunk.try_into().unwrap()))
+                    .collect();
 
                 chunks.resize(4, 0);
                 return (
