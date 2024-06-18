@@ -179,7 +179,7 @@ describe('e2e_note_getter', () => {
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
-        'is_some',
+        'index < self.len', // from BoundedVec::get
       );
       await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
         `Assertion failed: Cannot return zero notes`,
