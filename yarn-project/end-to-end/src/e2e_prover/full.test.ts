@@ -77,9 +77,9 @@ describe('full_prover', () => {
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
       const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
       const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
-      await runInDirectory(bbWorkingDirectory, async (_dir: string) => {
-        await privateTx.clientIvcProof!.writeToOutputDirectory(bbWorkingDirectory);
-        const result = await generateTubeProof(bbPath, bbWorkingDirectory, logger.info)
+      await runInDirectory(bbWorkingDirectory, async (dir: string) => {
+        await privateTx.clientIvcProof!.writeToOutputDirectory(dir);
+        const result = await generateTubeProof(bbPath, dir, logger.info)
         logger.info(`tube result: ${result.status}`);
         if (result.status == BB_RESULT.FAILURE) {
           logger.info(`tube result: ${result.reason}`);
