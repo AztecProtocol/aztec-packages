@@ -115,7 +115,7 @@ export class PeerManager {
     // check if peer is already connected
     const [peerId, multiaddrTcp] = await Promise.all([enr.peerId(), enr.getFullMultiaddr('tcp')]);
 
-    this.logger.verbose(`Handling discovered peer ${peerId.toString()}, ${multiaddrTcp?.toString()}`);
+    this.logger.debug(`Handling discovered peer ${peerId.toString()}, ${multiaddrTcp?.toString()}`);
 
     // throw if no tcp addr in multiaddr
     if (!multiaddrTcp) {

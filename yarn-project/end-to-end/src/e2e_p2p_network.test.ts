@@ -8,6 +8,8 @@ import {
   GrumpkinScalar,
   type SentTx,
   TxStatus,
+  createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 import { type BootNodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
@@ -20,7 +22,7 @@ import { setup } from './fixtures/utils.js';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
-const NUM_TXS_PER_NODE = 4;
+const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40400;
 
 interface NodeContext {
@@ -36,7 +38,7 @@ describe('e2e_p2p_network', () => {
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ teardown, config, logger } = await setup(1));
+    ({ teardown, config, logger } = await setup(0));
   });
 
   afterEach(() => teardown());
@@ -53,14 +55,29 @@ describe('e2e_p2p_network', () => {
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
+    const nodes: AztecNodeService[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
       const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr?.encodeTxt(), i);
+      nodes.push(node);
+    }
+
+    // wait a bit for peers to discover each other
+    await sleep(5000);
+
+    for (const node of nodes) {
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
     }
 
     // now ensure that all txs were successfully mined
-    await Promise.all(contexts.flatMap(context => context.txs.map(tx => tx.wait())));
+    await Promise.all(
+      contexts.flatMap((context, i) =>
+        context.txs.map(async (tx, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+          return tx.wait();
+        }),
+      ),
+    );
 
     // shutdown all nodes.
     for (const context of contexts) {
@@ -108,26 +125,7 @@ describe('e2e_p2p_network', () => {
       p2pL2QueueSize: 1,
       transactionProtocol: '',
     };
-    return await AztecNodeService.createAndSync(newConfig);
-  };
-
-  // submits a set of transactions to the provided Private eXecution Environment (PXE)
-  const submitTxsTo = async (pxe: PXEService, account: AztecAddress, numTxs: number) => {
-    const txs: SentTx[] = [];
-    for (let i = 0; i < numTxs; i++) {
-      const tx = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random()).deploy();
-      logger.info(`Tx sent with hash ${await tx.getTxHash()}`);
-      const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
-      logger.info(`Receipt received for ${await tx.getTxHash()}`);
-      txs.push(tx);
-    }
-    return txs;
+    return await AztecNodeService.createAndSync(newConfig, createDebugLogger(`aztec:node-${tcpListenPort}`));
   };
 
   // creates an instance of the PXE and submit a given number of transactions to it.
@@ -142,12 +140,44 @@ describe('e2e_p2p_network', () => {
     const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
     await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
 
-    const txs = await submitTxsTo(pxeService, completeAddress.address, numTxs);
+    const txs = await submitTxsTo(pxeService, numTxs);
     return {
       txs,
       account: completeAddress.address,
       pxeService,
       node,
     };
+  };
+
+  // submits a set of transactions to the provided Private eXecution Environment (PXE)
+  const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
+    const txs: SentTx[] = [];
+    for (let i = 0; i < numTxs; i++) {
+      // const tx = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random()).deploy();
+      const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod.create({
+        contractAddressSalt: accountManager.salt,
+        skipClassRegistration: true,
+        skipPublicDeployment: true,
+        universalDeploy: true,
+      });
+      await deployMethod.prove({});
+      const tx = deployMethod.send();
+
+      const txHash = await tx.getTxHash();
+
+      logger.info(`Tx sent with hash ${txHash}`);
+      const receipt = await tx.getReceipt();
+      expect(receipt).toEqual(
+        expect.objectContaining({
+          status: TxStatus.PENDING,
+          error: '',
+        }),
+      );
+      logger.info(`Receipt received for ${txHash}`);
+      txs.push(tx);
+    }
+    return txs;
   };
 });
