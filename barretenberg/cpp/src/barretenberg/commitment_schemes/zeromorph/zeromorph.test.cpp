@@ -40,6 +40,45 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return result;
     }
 
+    /**
+     * @brief Construct and verify ZeroMorph proof of batched multilinear evaluation with shifts
+     * @details The goal is to construct and verify a single batched multilinear evaluation proof for m polynomials f_i
+     * and l polynomials h_i. It is assumed that the h_i are shifts of polynomials g_i (the "to-be-shifted"
+     * polynomials), which are a subset of the f_i. This is what is encountered in practice. We accomplish this using
+     * evaluations of h_i but commitments to only their unshifted counterparts g_i (which we get for "free" since
+     * commitments [g_i] are contained in the set of commitments [f_i]).
+     */
+    bool execute_zeromorph_protocol(size_t NUM_UNSHIFTED,
+                                    size_t NUM_SHIFTED,
+                                    [[maybe_unused]] size_t NUM_CONCATENATED = 0)
+    {
+        size_t N = 2;
+        size_t log_N = numeric::get_msb(N);
+
+        std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
+
+        // Construct some random multilinear polynomials f_i, their commitments and their evaluations v_i = f_i(u)
+        auto unshifted_tuple = polynomials_comms_and_evaluations(u_challenge, NUM_UNSHIFTED);
+
+        // Construct polynomials and commitments from f_i that are to be shifted and compute their shifted evaluations
+        auto shifted_tuple =
+            to_be_shifted_polynomials_and_comms_and_shifted_evaluations(unshifted_tuple, u_challenge, NUM_SHIFTED);
+
+        bool verified = false;
+        if (NUM_CONCATENATED == 0) {
+            verified = prove_and_verify(unshifted_tuple, shifted_tuple, u_challenge);
+        } else {
+            verified =
+                prove_and_verify_with_concatenation(unshifted_tuple, shifted_tuple, u_challenge, NUM_CONCATENATED);
+        }
+
+        return verified;
+    }
+
+    /**
+     * @brief Generate some random multilinear polynomials and compute their evaluation at the set challenge as well as
+     * their commitments, returned as a tuple to be used in the subsequent protocol.
+     */
     TupleOfPolynomialsEvaluationsCommitments polynomials_comms_and_evaluations(std::vector<Fr> u_challenge,
                                                                                size_t NUM_UNSHIFTED)
     {
@@ -48,7 +87,6 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         std::vector<Fr> v_evaluations;
         std::vector<Commitment> f_commitments;
         size_t poly_length = 1 << u_challenge.size();
-        info(poly_length);
         for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
             f_polynomials.emplace_back(this->random_polynomial(poly_length));
             f_polynomials[i][0] = Fr(0); // ensure f is "shiftable"
@@ -58,11 +96,15 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return { f_polynomials, v_evaluations, f_commitments };
     }
 
+    /**
+     * @brief Generate shifts of polynomials and compute their evaluation at the
+     * set challenge as well as their commitments, returned as a tuple to be used in the subsequent protocol.
+     */
     TupleOfPolynomialsEvaluationsCommitments to_be_shifted_polynomials_and_comms_and_shifted_evaluations(
         TupleOfPolynomialsEvaluationsCommitments unshifted_input, std::vector<Fr> u_challenge, size_t NUM_SHIFTED)
     {
         std::vector<Polynomial> f_polynomials = std::get<0>(unshifted_input);
-        std::vector<Polynomial> f_commitments = std::get<2>(unshifted_input);
+        std::vector<Commitment> f_commitments = std::get<2>(unshifted_input);
 
         std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
         std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
@@ -78,6 +120,67 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         }
         return { g_polynomials, w_evaluations, g_commitments };
     }
+
+    /**
+     * @brief Generate the tuple of concatenation inputs used to test Zeromorph special functionality that avoids high
+     * degrees in the Goblin Translator.
+     */
+    TupleOfConcatenationInputs concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
+    {
+
+        size_t concatenation_index = 2;
+        size_t N = 1 << u_challenge.size();
+        size_t MINI_CIRCUIT_N = N / concatenation_index;
+
+        // Polynomials "chunks" that are concatenated in the PCS
+        std::vector<std::vector<Polynomial>> concatenation_groups;
+
+        // Concatenated polynomials
+        std::vector<Polynomial> concatenated_polynomials;
+
+        // Evaluations of concatenated polynomials
+        std::vector<Fr> c_evaluations;
+
+        // For each polynomial to be concatenated
+        for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
+            std::vector<Polynomial> concatenation_group;
+            Polynomial concatenated_polynomial(N);
+            // For each chunk
+            for (size_t j = 0; j < concatenation_index; j++) {
+                Polynomial chunk_polynomial(N);
+                // Fill the chunk polynomial with random values and appropriately fill the space in
+                // concatenated_polynomial
+                for (size_t k = 0; k < MINI_CIRCUIT_N; k++) {
+                    // Chunks should be shiftable
+                    auto tmp = Fr(0);
+                    if (k > 0) {
+                        tmp = Fr::random_element(this->engine);
+                    }
+                    chunk_polynomial[k] = tmp;
+                    concatenated_polynomial[j * MINI_CIRCUIT_N + k] = tmp;
+                }
+                concatenation_group.emplace_back(chunk_polynomial);
+            }
+            // Store chunks
+            concatenation_groups.emplace_back(concatenation_group);
+            // Store concatenated polynomial
+            concatenated_polynomials.emplace_back(concatenated_polynomial);
+            // Get evaluation
+            c_evaluations.emplace_back(concatenated_polynomial.evaluate_mle(u_challenge));
+        }
+
+        // Compute commitments of all polynomial chunks
+        std::vector<std::vector<Commitment>> concatenation_groups_commitments;
+        for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
+            std::vector<Commitment> concatenation_group_commitment;
+            for (size_t j = 0; j < concatenation_index; j++) {
+                concatenation_group_commitment.emplace_back(this->commit(concatenation_groups[i][j]));
+            }
+            concatenation_groups_commitments.emplace_back(concatenation_group_commitment);
+        }
+
+        return { concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments };
+    };
 
     bool prove_and_verify(TupleOfPolynomialsEvaluationsCommitments unshifted,
                           TupleOfPolynomialsEvaluationsCommitments shifted,
@@ -186,102 +289,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
         return verified;
-    };
-
-    TupleOfConcatenationInputs concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
-    {
-
-        size_t concatenation_index = 2;
-        size_t N = 1 << u_challenge.size();
-        size_t MINI_CIRCUIT_N = N / concatenation_index;
-
-        // Polynomials "chunks" that are concatenated in the PCS
-        std::vector<std::vector<Polynomial>> concatenation_groups;
-
-        // Concatenated polynomials
-        std::vector<Polynomial> concatenated_polynomials;
-
-        // Evaluations of concatenated polynomials
-        std::vector<Fr> c_evaluations;
-
-        // For each polynomial to be concatenated
-        for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
-            std::vector<Polynomial> concatenation_group;
-            Polynomial concatenated_polynomial(N);
-            // For each chunk
-            for (size_t j = 0; j < concatenation_index; j++) {
-                Polynomial chunk_polynomial(N);
-                // Fill the chunk polynomial with random values and appropriately fill the space in
-                // concatenated_polynomial
-                for (size_t k = 0; k < MINI_CIRCUIT_N; k++) {
-                    // Chunks should be shiftable
-                    auto tmp = Fr(0);
-                    if (k > 0) {
-                        tmp = Fr::random_element(this->engine);
-                    }
-                    chunk_polynomial[k] = tmp;
-                    concatenated_polynomial[j * MINI_CIRCUIT_N + k] = tmp;
-                }
-                concatenation_group.emplace_back(chunk_polynomial);
-            }
-            // Store chunks
-            concatenation_groups.emplace_back(concatenation_group);
-            // Store concatenated polynomial
-            concatenated_polynomials.emplace_back(concatenated_polynomial);
-            // Get evaluation
-            c_evaluations.emplace_back(concatenated_polynomial.evaluate_mle(u_challenge));
-        }
-
-        // Compute commitments of all polynomial chunks
-        std::vector<std::vector<Commitment>> concatenation_groups_commitments;
-        for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
-            std::vector<Commitment> concatenation_group_commitment;
-            for (size_t j = 0; j < concatenation_index; j++) {
-                concatenation_group_commitment.emplace_back(this->commit(concatenation_groups[i][j]));
-            }
-            concatenation_groups_commitments.emplace_back(concatenation_group_commitment);
-        }
-
-        return { concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments };
-    };
-
-    /**
-     * @brief Construct and verify ZeroMorph proof of batched multilinear evaluation with shifts
-     * @details The goal is to construct and verify a single batched multilinear evaluation proof for m polynomials
-     f_i
-     * and l polynomials h_i. It is assumed that the h_i are shifts of polynomials g_i (the "to-be-shifted"
-     * polynomials), which are a subset of the f_i. This is what is encountered in practice. We accomplish this
-     using
-     * evaluations of h_i but commitments to only their unshifted counterparts g_i (which we get for "free" since
-     * commitments [g_i] are contained in the set of commitments [f_i]).
-     *
-     */
-    bool execute_zeromorph_protocol(size_t NUM_UNSHIFTED,
-                                    size_t NUM_SHIFTED,
-                                    [[maybe_unused]] size_t NUM_CONCATENATED = 0)
-    {
-        size_t N = 2;
-        size_t log_N = numeric::get_msb(N);
-
-        std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
-
-        // Construct some random multilinear polynomials f_i, their commitments and their evaluations v_i = f_i(u)
-        auto unshifted_tuple = polynomials__comms_and_evaluations(u_challenge, NUM_UNSHIFTED);
-
-        // Construct polynomials and commitments from f_i that are to be shifted and compute their shifted evaluations
-        auto shifted_tuple =
-            to_be_shifted_polynomials_and_comms_and_shifted_evaluations(unshifted_tuple, u_challenge, NUM_SHIFTED);
-
-        bool verified = false;
-        if (NUM_CONCATENATED == 0) {
-            verified = prove_and_verify(unshifted_tuple, shifted_tuple, u_challenge);
-        } else {
-            verified =
-                prove_and_verify_with_concatenation(unshifted_tuple, shifted_tuple, u_challenge, NUM_CONCATENATED);
-        }
-
-        return verified;
-    };
+    }
 };
 
 using PCSTypes = ::testing::Types<KZG<curve::BN254>, IPA<curve::Grumpkin>>;
@@ -289,8 +297,7 @@ TYPED_TEST_SUITE(ZeroMorphTest, PCSTypes);
 
 /**
  * @brief Test method for computing q_k given multilinear f
- * @details Given f = f(X_0, ..., X_{d-1}), and (u,v) such that f(u) = v, compute q_k = q_k(X_0, ..., X_{k-1}) such
- that
+ * @details Given f = f(X_0, ..., X_{d-1}), and (u,v) such that f(u) = v, compute q_k = q_k(X_0, ..., X_{k-1}) such that
  * the following identity holds:
  *
  *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
@@ -316,8 +323,7 @@ TYPED_TEST(ZeroMorphTest, QuotientConstruction)
     // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
     std::vector<Polynomial> quotients = ZeroMorphProver::compute_multilinear_quotients(multilinear_f, u_challenge);
 
-    // Show that the q_k were properly constructed by showing that the identity holds at a random multilinear
-    // challenge
+    // Show that the q_k were properly constructed by showing that the identity holds at a random multilinear challenge
     // z, i.e. f(z) - v - \sum_{k=0}^{d-1} (z_k - u_k)q_k(z) = 0
     std::vector<Fr> z_challenge = this->random_evaluation_point(log_N);
 

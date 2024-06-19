@@ -104,7 +104,8 @@ void ECCVMProver::execute_relation_check_rounds()
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to prove the multilinear evaluations produced by Sumcheck
+ * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
+ * Sumcheck and then produce an opening proof with a univariate PCS
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */

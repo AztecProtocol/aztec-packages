@@ -72,7 +72,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // removed return bool
     auto multivariate_opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
                                                         commitments.get_to_be_shifted(),
                                                         claimed_evaluations.get_unshifted(),

@@ -73,7 +73,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return false;
     }
 
-    // Execute ZeroMorph rounds and check the pcs verifier accumulator returned. See
+    // Execute ZeroMorph rounds to produce an opening claim and verify it with a univariate PCS. See
     // https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
     auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),

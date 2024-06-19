@@ -31,12 +31,13 @@ template <class FF> inline std::vector<FF> powers_of_challenge(const FF challeng
 /**
  * @brief Prover for ZeroMorph multilinear PCS
  *
- * @tparam PCS - The univariate PCS used inside ZeroMorph as a building block
+ * @tparam Curve - The curve used for arithmetising ZeroMorph
  */
 template <typename Curve> class ZeroMorphProver_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<FF>;
+    using OpeningClaim = ProverOpeningClaim<Curve>;
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
     // (Then, eventually, set it based on the real SRS). For now we set it to be larger then the Client IVC recursive
@@ -309,8 +310,8 @@ template <typename Curve> class ZeroMorphProver_ {
     }
 
     /**
-     * @brief Prove a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i
+     * @brief Returns a univariate opening claim about a set of multilinear evaluation claims for unshifted polynomials
+     * f_i and to-be-shifted polynomials g_i to be subsequently proved with a univariate PCS
      *
      * @param f_polynomials Unshifted polynomials
      * @param g_polynomials To-be-shifted polynomials (of which the shifts h_i were evaluated by sumcheck)
@@ -319,16 +320,16 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param commitment_key
      * @param transcript
      */
-    static ProverOpeningClaim<Curve> prove(RefSpan<Polynomial> f_polynomials,
-                                           RefSpan<Polynomial> g_polynomials,
-                                           RefSpan<FF> f_evaluations,
-                                           RefSpan<FF> g_shift_evaluations,
-                                           std::span<FF> multilinear_challenge,
-                                           const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                                           const std::shared_ptr<NativeTranscript>& transcript,
-                                           RefSpan<Polynomial> concatenated_polynomials = {},
-                                           RefSpan<FF> concatenated_evaluations = {},
-                                           const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
+    static OpeningClaim prove(RefSpan<Polynomial> f_polynomials,
+                              RefSpan<Polynomial> g_polynomials,
+                              RefSpan<FF> f_evaluations,
+                              RefSpan<FF> g_shift_evaluations,
+                              std::span<FF> multilinear_challenge,
+                              const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                              const std::shared_ptr<NativeTranscript>& transcript,
+                              RefSpan<Polynomial> concatenated_polynomials = {},
+                              RefSpan<FF> concatenated_evaluations = {},
+                              const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         const FF rho = transcript->template get_challenge<FF>("rho");
@@ -428,6 +429,7 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute batched degree-check and ZM-identity quotient polynomial pi
         auto pi_polynomial = compute_batched_evaluation_and_degree_check_polynomial(zeta_x, Z_x, z_challenge);
 
+        // Returns the claim used to generate an opening proof for the univariate polynomial at x_challenge
         return { pi_polynomial, { .challenge = x_challenge, .evaluation = FF(0) } };
     }
 };
@@ -435,7 +437,7 @@ template <typename Curve> class ZeroMorphProver_ {
 /**
  * @brief Verifier for ZeroMorph multilinear PCS
  *
- * @tparam Curve
+ * @tparam Curve - The Curve used to arithmetise ZeroMorph
  */
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
@@ -622,7 +624,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
     }
 
     /**
-     * @brief Compute the univariate opening claim used in the last step of Zeromorph to verify the univariate PCS
+     * @brief Compute the univariate opening claim used to verify the univariate PCS
      * evaluation.
      *
      * @param unshifted_commitments
@@ -713,8 +715,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
     }
 
     /**
-     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i
+     * @brief Return the univariate opening claim used to verify, in a subsequent PCS, a set of multilinear evaluation
+     * claims for unshifted polynomials f_i and to-be-shifted polynomials g_i
      *
      * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
      * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)

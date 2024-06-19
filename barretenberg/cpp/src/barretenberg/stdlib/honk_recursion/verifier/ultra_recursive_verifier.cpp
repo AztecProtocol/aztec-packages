@@ -53,14 +53,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    transcript->template receive_from_prover<FF>("circuit_size");
-    transcript->template receive_from_prover<FF>("public_input_size");
-    transcript->template receive_from_prover<FF>("pub_inputs_offset");
+    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
+    const auto public_input_size = transcript->template receive_from_prover<FF>("public_input_size");
+    const auto pub_inputs_offset = transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
     // For debugging purposes only
-    // ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
-    // ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
-    // ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
+    ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
+    ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
+    ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
@@ -139,7 +139,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    // Execute ZeroMorph multilinear PCS evaluation verifier
+
+    // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
     auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),
                                            claimed_evaluations.get_unshifted(),

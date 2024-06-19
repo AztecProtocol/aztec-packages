@@ -34,7 +34,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to prove the multilinear evaluations produced by Sumcheck
+ * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
+ * Sumcheck and then produce an opening proof with a univariate PCS.
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
@@ -62,8 +63,8 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 {
     BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
 
-    execute_relation_check_rounds();
     // Run sumcheck subprotocol.
+    execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
