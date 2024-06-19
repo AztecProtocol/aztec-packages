@@ -1,4 +1,5 @@
 import {
+  AuthWitness,
   L1NotePayload,
   MerkleTreeId,
   Note,
@@ -30,11 +31,11 @@ import {
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
+import { Aes128, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type FunctionAbi, FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
@@ -181,6 +182,15 @@ export class TXE implements TypedOracle {
 
   deriveKeys(secret: Fr) {
     return deriveKeys(secret);
+  }
+
+  async addAuthWitness(address: AztecAddress, messageHash: Fr) {
+    const account = await this.txeDatabase.getAccount(address);
+    const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
+    const schnorr = new Schnorr();
+    const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
+    const authWitness = new AuthWitness(messageHash, [...signature]);
+    return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 
   // TypedOracle

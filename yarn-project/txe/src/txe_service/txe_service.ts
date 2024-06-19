@@ -31,7 +31,7 @@ import {
 import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
-  constructor(private logger: Logger, private typedOracle: TypedOracle, private store: AztecKVStore) {}
+  constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
@@ -42,7 +42,7 @@ export class TXEService {
     const txeDatabase = new TXEDatabase(store);
     logger.info(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
-    const service = new TXEService(logger, txe, store);
+    const service = new TXEService(logger, txe);
     await service.timeTravel(toSingle(new Fr(1n)));
     return service;
   }
@@ -63,27 +63,28 @@ export class TXEService {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.info(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
+    const header = Header.empty();
+    const l2Block = L2Block.empty();
+    header.state = await trees.getStateReference(true);
+    const blockNumber = await this.typedOracle.getBlockNumber();
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+    header.state.partial.nullifierTree.root = Fr.fromBuffer(
+      (await trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
+    );
+    header.state.partial.noteHashTree.root = Fr.fromBuffer(
+      (await trees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true)).root,
+    );
+    header.state.partial.publicDataTree.root = Fr.fromBuffer(
+      (await trees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE, true)).root,
+    );
+    header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
+      (await trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
+    );
+    l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
+    l2Block.header = header;
     for (let i = 0; i < nBlocks; i++) {
-      const header = Header.empty();
-      const l2Block = L2Block.empty();
-      header.state = await trees.getStateReference(true);
       const blockNumber = await this.typedOracle.getBlockNumber();
-
       header.globalVariables.blockNumber = new Fr(blockNumber);
-      header.state.partial.nullifierTree.root = Fr.fromBuffer(
-        (await trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
-      );
-      header.state.partial.noteHashTree.root = Fr.fromBuffer(
-        (await trees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true)).root,
-      );
-      header.state.partial.publicDataTree.root = Fr.fromBuffer(
-        (await trees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE, true)).root,
-      );
-      header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
-        (await trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
-      );
-      l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
-      l2Block.header = header;
       await trees.handleL2BlockAndMessages(l2Block, []);
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
@@ -206,6 +207,11 @@ export class TXEService {
   getSideEffectsCounter() {
     const counter = (this.typedOracle as TXE).getSideEffectsCounter();
     return toForeignCallResult([toSingle(new Fr(counter))]);
+  }
+
+  addAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
+    (this.typedOracle as TXE).addAuthWitness(fromSingle(address), fromSingle(messageHash));
+    return toForeignCallResult([]);
   }
 
   // PXE oracles

@@ -67,6 +67,10 @@ unconstrained pub fn get_side_effects_counter() -> u32 {
     oracle_get_side_effects_counter()
 }
 
+unconstrained pub fn add_authwit(address: AztecAddress, message_hash: Field) {
+    orable_add_authwit(address, message_hash)
+}
+
 #[oracle(reset)]
 fn oracle_reset() {}
 
@@ -120,3 +124,6 @@ fn oracle_set_msg_sender(msg_sender: AztecAddress) {}
 
 #[oracle(getSideEffectsCounter)]
 fn oracle_get_side_effects_counter() -> u32 {}
+
+#[oracle(addAuthWitness)]
+fn orable_add_authwit(address: AztecAddress, message_hash: Field) {}

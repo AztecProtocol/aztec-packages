@@ -399,6 +399,7 @@ contract Token {
 
     use crate::test;
     use dep::aztec::test::helpers::cheatcodes;
+    use dep::authwit::test as autwit_test;
 
     #[test]
     fn test_private_transfer() {
@@ -420,9 +421,10 @@ contract Token {
         let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint();
         // Impersonate recipient to test authwits
         cheatcodes::set_contract_address(recipient);
-        // Transfer tokens
         let transfer_amount = 1000;
         let private_transfer_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
+        autwit_test::add_authwit_from_call_interface(owner, recipient, private_transfer_from_call_interface);
+        // Transfer tokens
         env.call_private_void(private_transfer_from_call_interface);
         // Check balances
         test::check_balance(token_contract_address, owner, mint_amount - transfer_amount);
