@@ -362,6 +362,7 @@ void model_variables(SymCircuit& c, Solver* s, FFTerm& evaluation)
 }
 ```
 
+
 More examples can be found in 
 
 - [terms/ffterm.test.cpp](terms/ffterm.test.cpp), [terms/ffiterm.test.cpp](terms/ffiterm.test.cpp), [terms/bvterm.test.cpp](terms/bvterm.test.cpp), [terms/iterm.test.cpp](terms/iterm.test.cpp)
