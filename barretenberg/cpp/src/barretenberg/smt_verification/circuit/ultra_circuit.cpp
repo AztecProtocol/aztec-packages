@@ -341,7 +341,7 @@ void UltraCircuit::handle_range_constraints()
         uint32_t tag = this->real_variable_tags[this->real_variable_index[i]];
         if (tag != 0 && this->range_tags.contains(tag)) {
             uint64_t range = this->range_tags[tag];
-            if (this->type == TermType::FFTerm || !this->optimizations) {
+            if (this->type == TermType::FFTerm || !this->enable_optimizations) {
                 if (!this->cached_range_tables.contains(range)) {
                     std::vector<cvc5::Term> new_range_table;
                     for (size_t entry = 0; entry < range; entry++) {
