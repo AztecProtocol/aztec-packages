@@ -7,6 +7,7 @@ use crate::note::{
     utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
+use crate::utils;
 
 mod test;
 
@@ -104,7 +105,7 @@ pub fn get_notes<Note, N, M, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
-) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> {
+) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     let opt_notes = get_notes_internal(storage_slot, options);
 
     constrain_get_notes_internal(context, storage_slot, opt_notes, options)
@@ -115,9 +116,7 @@ fn constrain_get_notes_internal<Note, N, M, FILTER_ARGS>(
     storage_slot: Field,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
-) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> {
-    let mut returned_notes = BoundedVec::new();
-
+) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
     // the private kernel will later validate that these note actually exist, so transformations would cause for that
@@ -126,11 +125,19 @@ fn constrain_get_notes_internal<Note, N, M, FILTER_ARGS>(
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
+    // The filter may have removed notes from the array, so it could now have gaps with Option::none values. We collapse
+    // the Options array into a BoundedVec, which lets us easily iterate over options.limit instead of the entire
+    // maximum length, resulting in fewer gates when the limit value is set.
+    let collapsed_notes = utils::collapse(filtered_notes);
+    assert(collapsed_notes.len() <= options.limit, "Got more notes than limit.");
+    assert(collapsed_notes.len() != 0, "Cannot return zero notes");
+
+    // All that remains is to check the notes actually do exist - we rely on the private kernel for this.
     let mut prev_fields = [0; N];
-    for i in 0..filtered_notes.len() {
-        let opt_note = filtered_notes[i];
-        if opt_note.is_some() {
-            let note = opt_note.unwrap_unchecked();
+    assert_constant(options.limit);
+    for i in 0..options.limit {
+        if i < collapsed_notes.len() {
+            let note = collapsed_notes.get_unchecked(i);
             let fields = note.serialize_content();
             check_note_header(*context, storage_slot, note);
             check_note_fields(fields, options.selects);
@@ -143,21 +150,10 @@ fn constrain_get_notes_internal<Note, N, M, FILTER_ARGS>(
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
-
-            // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the 
-            // front of the array. This is highly useful because the caller knows that the returned array won't have
-            // more than option.limits notes, and can therefore loop over this limit value instead of the entire array,
-            // resulting in a smaller circuit and faster proving times.
-            // We write at returned_notes[num_notes] because num_notes is only advanced when we have a value in 
-            // filtered_notes.
-            returned_notes.push(note);
         };
     }
 
-    assert(returned_notes.len() <= options.limit, "Got more notes than limit.");
-    assert(returned_notes.len() != 0, "Cannot return zero notes");
-
-    returned_notes
+    collapsed_notes
 }
 
 unconstrained fn get_note_internal<Note, N, M>(storage_slot: Field) -> Note where Note: NoteInterface<N, M> {
