@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718809291498,
+  "lastUpdate": 1718809412240,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -45080,6 +45080,78 @@ window.BENCHMARK_DATA = {
             "value": 164380355,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164380355 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef8554268c175e6349474883c6072e3979fe45c0",
+          "message": "chore: reads the return data (#6669)\n\nAdd reads to return_data to properly constrain the return_data wires.\r\n\r\n---------\r\n\r\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2024-06-19T14:54:38Z",
+          "tree_id": "03a48d083039a2efb2173e202a9d4685d9e940dd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ef8554268c175e6349474883c6072e3979fe45c0"
+        },
+        "date": 1718809409703,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15378.771051000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10672.384949 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5511.700790999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5113.2162149999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49021.719154,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49021721000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16900.620596000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16900620000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5164201424,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5164201424 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199081590,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199081590 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4294807295,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4294807295 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163978394,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163978394 ns\nthreads: 1"
           }
         ]
       }
