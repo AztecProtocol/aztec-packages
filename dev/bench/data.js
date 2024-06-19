@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718812854098,
+  "lastUpdate": 1718813825554,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -45492,6 +45492,78 @@ window.BENCHMARK_DATA = {
             "value": 163155614,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163155614 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c30dc3856cec038d8c53af34cf82e08b0cb456aa",
+          "message": "chore: Remove unneeded public input folding (#7094)\n\nThe public inputs are contained in the wire polynomials and are thus\r\nfolded with the polynomials. We do not need to fold the circuit\r\n`public_inputs` separately. For good measure I also added a simply PG\r\ntest that folds instances with different numbers of PI, which was\r\npreviously only tested (I believe) in more complex tests such as\r\nClientIvc.",
+          "timestamp": "2024-06-19T09:03:24-07:00",
+          "tree_id": "48e50030340079e54094f3098113b0517ff5b62e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c30dc3856cec038d8c53af34cf82e08b0cb456aa"
+        },
+        "date": 1718813822605,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15431.007029,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10799.611050000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5525.812139999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5176.282155000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49303.90160600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49303903000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17057.227344000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17057227000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5116630787,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5116630787 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199307212,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199307212 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4226585962,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4226585962 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163320908,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163320908 ns\nthreads: 1"
           }
         ]
       }
