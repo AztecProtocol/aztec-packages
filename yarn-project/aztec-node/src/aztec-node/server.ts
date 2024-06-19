@@ -163,7 +163,9 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    // LONDONTODO real verifier
+    // const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const proofVerifier = new TestCircuitVerifier();
     const txValidator = new AggregateTxValidator(
       new MetadataTxValidator(config.chainId),
       new TxProofValidator(proofVerifier),
@@ -787,7 +789,10 @@ export class AztecNodeService implements AztecNode {
     await this.prover?.updateProverConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {
-      const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+
+      // LONDONTODO real verifier
+      // const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+      const proofVerifier = new TestCircuitVerifier();
 
       this.txValidator = new AggregateTxValidator(
         new MetadataTxValidator(this.chainId),
