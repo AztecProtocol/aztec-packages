@@ -190,22 +190,30 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
         // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
-        let (value_change_hint, delay_change_hint) = self.get_public_storage_hints();
+        let (value_change_hint, delay_change_hint) = get_public_storage_hints(self.storage_slot);
 
         let header = context.get_header();
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), context.this_address());
-        assert_eq(hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint));
+        assert_eq(
+            hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
+        );
 
         let historical_block_number = header.global_variables.block_number as u32;
 
         (value_change_hint, delay_change_hint, historical_block_number)
     }
+}
 
-    unconstrained fn get_public_storage_hints(self) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>) {
-        (
-            public_storage::read(self.get_value_change_storage_slot()), public_storage::read(self.get_delay_change_storage_slot())
-        )
-    }
+unconstrained fn get_public_storage_hints<T, INITIAL_DELAY>(storage_slot: Field) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>) {
+    // This function cannot be part of the &mut PrivateContext impl because that'd mean that by passing `self` we'd also
+    // be passing a mutable reference to an unconstrained function, which is not allowed. We therefore create a dummy
+    // state variable here so that we can access the methods to compute storage slots. This will all be removed in the
+    // future once we do proper storage slot allocation (#5492).
+    let dummy = SharedMutable::new((), storage_slot);
+
+    (
+        public_storage::read(dummy.get_value_change_storage_slot()), public_storage::read(dummy.get_delay_change_storage_slot())
+    )
 }
