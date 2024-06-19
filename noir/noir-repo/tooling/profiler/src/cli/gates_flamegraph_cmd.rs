@@ -7,11 +7,11 @@ use clap::Args;
 use codespan_reporting::files::Files;
 use color_eyre::eyre::{self, Context};
 use inferno::flamegraph::{from_lines, Options};
-use nargo::artifacts::debug::DebugArtifact;
+use noirc_artifacts::debug::DebugArtifact;
+use noirc_artifacts::program::ProgramArtifact;
 use serde::{Deserialize, Serialize};
 
 use acir::circuit::OpcodeLocation;
-use nargo::artifacts::program::ProgramArtifact;
 use nargo::errors::Location;
 use noirc_errors::reporter::line_and_column_from_span;
 

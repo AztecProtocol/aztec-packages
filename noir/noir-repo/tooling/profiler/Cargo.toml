@@ -27,6 +27,7 @@ inferno = "0.11.19"
 im.workspace = true
 acir.workspace = true
 noirc_errors.workspace = true
+noirc_artifacts.workspace = true
 
 # Logs
 tracing-subscriber.workspace = true
