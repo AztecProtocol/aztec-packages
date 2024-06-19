@@ -16,11 +16,17 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
+    static constexpr size_t LENGTH = 5; // both subrelations are degree 4
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse construction sub-relation
         LENGTH  // log derivative lookup argument sub-relation
+    };
+
+    // WORKTODO: shouldnt first one be 2? code doesnt compile that way
+    static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
+        1, // inverse construction sub-relation
+        1  // log derivative lookup argument sub-relation
     };
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
@@ -82,16 +88,16 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         static_assert(write_index < WRITE_TERMS);
 
         const auto& gamma = ParameterView(params.gamma);
-        const auto& beta = ParameterView(params.beta);
-        const auto& beta_sqr = ParameterView(params.beta_sqr);
-        const auto& beta_cube = ParameterView(params.beta_cube);
+        const auto& eta = ParameterView(params.eta);
+        const auto& eta_two = ParameterView(params.eta_two);
+        const auto& eta_three = ParameterView(params.eta_three);
 
         auto table_1 = View(in.table_1);
         auto table_2 = View(in.table_2);
         auto table_3 = View(in.table_3);
         auto table_4 = View(in.table_4);
 
-        return table_1 + gamma + table_2 * beta + table_3 * beta_sqr + table_4 * beta_cube;
+        return table_1 + gamma + table_2 * eta + table_3 * eta_two + table_4 * eta_three;
     }
 
     template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
@@ -101,9 +107,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using ParameterView = GetParameterView<Parameters, View>;
 
         const auto& gamma = ParameterView(params.gamma);
-        const auto& beta = ParameterView(params.beta);
-        const auto& beta_sqr = ParameterView(params.beta_sqr);
-        const auto& beta_cube = ParameterView(params.beta_cube);
+        const auto& eta = ParameterView(params.eta);
+        const auto& eta_two = ParameterView(params.eta_two);
+        const auto& eta_three = ParameterView(params.eta_three);
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
@@ -126,8 +132,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         // (w_1 + q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
-        return derived_table_entry_1 + derived_table_entry_2 * beta + derived_table_entry_3 * beta_sqr +
-               table_index * beta_cube;
+        return derived_table_entry_1 + derived_table_entry_2 * eta + derived_table_entry_3 * eta_two +
+               table_index * eta_three;
     }
 
     /**
@@ -150,19 +156,21 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto inverses = View(in.lookup_inverses);                         // Degree 1
         const auto read_counts = View(in.lookup_read_counts);                   // Degree 1
         const auto read_selector = View(in.q_lookup);                           // Degree 1
-        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 1
-        const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 1
-        const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1
-        const auto write_inverse = inverses * read_term;                        // Degree 2
-        const auto read_inverse = inverses * write_term;                        // Degree 2
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
+        const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)
+        const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1 (2)
+        const auto write_inverse = inverses * read_term;                        // Degree 3 (4)
+        const auto read_inverse = inverses * write_term;                        // Degree 2 (3)
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
-        // if !inverse_exists. Degree 3
-        std::get<0>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor;
+        // if !inverse_exists.
+        // Degrees:                     2 (3)       1 (2)        1
+        std::get<0>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor; // Deg 4 (6)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
-        // entire trace, not on a per-row basis
-        std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Degree 4
+        // entire trace, not on a per-row basis. Degree
+        // Degrees:                       1             2 (3)           1            3 (4)
+        std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
 
         // ******************
         // accumulate_logderivative_lookup_subrelation_contributions<FF, LogDerivLookupRelationImpl<FF>>(
