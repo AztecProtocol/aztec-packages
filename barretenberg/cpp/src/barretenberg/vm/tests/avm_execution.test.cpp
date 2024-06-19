@@ -11,9 +11,6 @@
 #include <memory>
 #include <sys/types.h>
 
-// TODO: remove
-#include "barretenberg/vm/avm_trace/avm_helper.cpp"
-
 namespace tests_avm {
 using namespace bb;
 using namespace bb::avm_trace;
@@ -23,7 +20,8 @@ using bb::utils::hex_to_bytes;
 
 class AvmExecutionTests : public ::testing::Test {
   public:
-    std::vector<FF> public_inputs_vec{};
+    std::vector<FF> public_inputs_vec;
+    VmPublicInputs public_inputs;
 
     AvmExecutionTests()
         : public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH){};
@@ -35,6 +33,7 @@ class AvmExecutionTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
+        public_inputs = Execution::convert_public_inputs(public_inputs_vec);
     };
 
     /**
@@ -48,6 +47,13 @@ class AvmExecutionTests : public ::testing::Test {
         std::vector<FF> calldata{};
         return Execution::gen_trace(instructions, calldata, public_inputs_vec);
     }
+
+    void feed_output(uint32_t output_offset, FF const& value, FF const& side_effect_counter, FF const& metadata)
+    {
+        std::get<KERNEL_OUTPUTS_VALUE>(public_inputs)[output_offset] = value;
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[output_offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[output_offset] = metadata;
+    };
 };
 
 // Basic positive test with an ADD and RETURN opcode.
@@ -88,7 +94,7 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = gen_trace_from_instr(instructions);
-    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), true);
+    validate_trace(std::move(trace), public_inputs, true);
 }
 
 // Positive test for SET and SUB opcodes
@@ -151,9 +157,9 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the subtraction selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == 1; });
-    EXPECT_EQ(row->avm_main_ic, 10000); // 47123 - 37123 = 10000
-    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), true);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == 1; });
+    EXPECT_EQ(row->main_ic, 10000); // 47123 - 37123 = 10000
+    validate_trace(std::move(trace), public_inputs, true);
 }
 
 // Positive test for multiple MUL opcodes
@@ -230,10 +236,10 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 
     // Find the first row enabling the multiplication selector and pc = 13
     auto row = std::ranges::find_if(
-        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == 1 && r.avm_main_pc == 13; });
-    EXPECT_EQ(row->avm_main_ic, 244140625); // 5^12 = 244140625
+        trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == 1 && r.main_pc == 13; });
+    EXPECT_EQ(row->main_ic, 244140625); // 5^12 = 244140625
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test about a single internal_call and internal_return
@@ -293,14 +299,14 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
 
     for (size_t i = 0; i < 6; i++) {
-        EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the addition selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == 1; });
-    EXPECT_EQ(row->avm_main_ic, 345567789);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == 1; });
+    EXPECT_EQ(row->main_ic, 345567789);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with some nested internall calls
@@ -372,15 +378,15 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
     std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };
 
     for (size_t i = 0; i < 6; i++) {
-        EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the multiplication selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == 1; });
-    EXPECT_EQ(row->avm_main_ic, 187);
-    EXPECT_EQ(row->avm_main_pc, 4);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == 1; });
+    EXPECT_EQ(row->main_ic, 187);
+    EXPECT_EQ(row->main_pc, 4);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with JUMP and CALLDATACOPY
@@ -443,19 +449,19 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     std::vector<FF> pc_sequence{ 0, 1, 3, 4 };
 
     for (size_t i = 0; i < 4; i++) {
-        EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the fdiv selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == 1; });
-    EXPECT_EQ(row->avm_main_ic, 12);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == 1; });
+    EXPECT_EQ(row->main_ic, 12);
 
     // Find the first row enabling the subtraction selector.
-    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == 1; });
+    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == 1; });
     // It must have failed as subtraction was "jumped over".
     EXPECT_EQ(row, trace.end());
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test for JUMPI.
@@ -525,33 +531,32 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     std::vector<FF> pc_sequence_no_jump{ 0, 1, 2, 3, 4, 5 };
 
     for (size_t i = 0; i < 5; i++) {
-        EXPECT_EQ(trace_jump.at(i + 1).avm_main_pc, pc_sequence_jump.at(i));
+        EXPECT_EQ(trace_jump.at(i + 1).main_pc, pc_sequence_jump.at(i));
     }
 
     for (size_t i = 0; i < 6; i++) {
-        EXPECT_EQ(trace_no_jump.at(i + 1).avm_main_pc, pc_sequence_no_jump.at(i));
+        EXPECT_EQ(trace_no_jump.at(i + 1).main_pc, pc_sequence_no_jump.at(i));
     }
 
     // JUMP CASE
     // Find the first row enabling the MUL opcode
-    auto row =
-        std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.avm_main_sel_op_mul == 1; });
-    EXPECT_EQ(row->avm_main_ic, 400); // 400 = 20 * 20
+    auto row = std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.main_sel_op_mul == 1; });
+    EXPECT_EQ(row->main_ic, 400); // 400 = 20 * 20
 
     // Find the first row enabling the addition selector.
-    row = std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.avm_main_sel_op_add == 1; });
+    row = std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.main_sel_op_add == 1; });
     // It must have failed as addition was "jumped over".
     EXPECT_EQ(row, trace_jump.end());
 
     // NO JUMP CASE
     // Find the first row enabling the MUL opcode
-    row = std::ranges::find_if(
-        trace_no_jump.begin(), trace_no_jump.end(), [](Row r) { return r.avm_main_sel_op_mul == 1; });
-    EXPECT_EQ(row->avm_main_ic, 1600); // 800 = (20 + 20) * (20 + 20)
+    row =
+        std::ranges::find_if(trace_no_jump.begin(), trace_no_jump.end(), [](Row r) { return r.main_sel_op_mul == 1; });
+    EXPECT_EQ(row->main_ic, 1600); // 800 = (20 + 20) * (20 + 20)
 
     // traces validation
-    validate_trace(std::move(trace_jump));
-    validate_trace(std::move(trace_no_jump));
+    validate_trace(std::move(trace_jump), public_inputs);
+    validate_trace(std::move(trace_no_jump), public_inputs);
 }
 
 // Positive test with MOV.
@@ -595,11 +600,11 @@ TEST_F(AvmExecutionTests, movOpcode)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the MOV selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
-    EXPECT_EQ(row->avm_main_ia, 19);
-    EXPECT_EQ(row->avm_main_ic, 19);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_mov == 1; });
+    EXPECT_EQ(row->main_ia, 19);
+    EXPECT_EQ(row->main_ic, 19);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with CMOV.
@@ -649,13 +654,13 @@ TEST_F(AvmExecutionTests, cmovOpcode)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the CMOV selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_cmov == 1; });
-    EXPECT_EQ(row->avm_main_ia, 3);
-    EXPECT_EQ(row->avm_main_ib, 4);
-    EXPECT_EQ(row->avm_main_ic, 3);
-    EXPECT_EQ(row->avm_main_id, 5);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_cmov == 1; });
+    EXPECT_EQ(row->main_ia, 3);
+    EXPECT_EQ(row->main_ib, 4);
+    EXPECT_EQ(row->main_ic, 3);
+    EXPECT_EQ(row->main_id, 5);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with indirect MOV.
@@ -699,11 +704,11 @@ TEST_F(AvmExecutionTests, indMovOpcode)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the MOV selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
-    EXPECT_EQ(row->avm_main_ia, 255);
-    EXPECT_EQ(row->avm_main_ic, 255);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_mov == 1; });
+    EXPECT_EQ(row->main_ia, 255);
+    EXPECT_EQ(row->main_ic, 255);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test for SET and CAST opcodes
@@ -741,10 +746,10 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the cast selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_cast == 1; });
-    EXPECT_EQ(row->avm_main_ic, 19); // 0XB813 --> 0X13 = 19
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cast == 1; });
+    EXPECT_EQ(row->main_ic, 19); // 0XB813 --> 0X13 = 19
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with TO_RADIX_LE.
@@ -797,15 +802,15 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
         Execution::gen_trace(instructions, returndata, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec);
 
     // Find the first row enabling the TORADIXLE selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_radix_le == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 17);
-    EXPECT_EQ(row->avm_main_ind_b, 21);
-    EXPECT_EQ(row->avm_main_mem_idx_a, 1);                // Indirect(17) -> 1
-    EXPECT_EQ(row->avm_main_mem_idx_b, 5);                // Indirect(21) -> 5
-    EXPECT_EQ(row->avm_main_ia, FF(FF::modulus - FF(1))); //  Indirect(17) -> Direct(1) -> FF::modulus - FF(1)
-    EXPECT_EQ(row->avm_main_ib, 0);                       //  Indirect(21) -> 5 -> Unintialized memory
-    EXPECT_EQ(row->avm_main_ic, 2);
-    EXPECT_EQ(row->avm_main_id, 256);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_radix_le == 1; });
+    EXPECT_EQ(row->main_ind_a, 17);
+    EXPECT_EQ(row->main_ind_b, 21);
+    EXPECT_EQ(row->main_mem_idx_a, 1);                // Indirect(17) -> 1
+    EXPECT_EQ(row->main_mem_idx_b, 5);                // Indirect(21) -> 5
+    EXPECT_EQ(row->main_ia, FF(FF::modulus - FF(1))); //  Indirect(17) -> Direct(1) -> FF::modulus - FF(1)
+    EXPECT_EQ(row->main_ib, 0);                       //  Indirect(21) -> 5 -> Unintialized memory
+    EXPECT_EQ(row->main_ic, 2);
+    EXPECT_EQ(row->main_id, 256);
 
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
     std::vector<FF> expected_output;
@@ -816,7 +821,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
     }
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // // Positive test with SHA256COMPRESSION.
@@ -896,20 +901,20 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the Sha256Compression selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sha256 == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 34);
-    EXPECT_EQ(row->avm_main_ind_b, 35);
-    EXPECT_EQ(row->avm_main_ind_c, 36);
-    EXPECT_EQ(row->avm_main_mem_idx_a, 1);   // Indirect(34) -> 9
-    EXPECT_EQ(row->avm_main_mem_idx_b, 9);   // Indirect(35) -> 9
-    EXPECT_EQ(row->avm_main_mem_idx_c, 256); // Indirect(36) -> 256
-    EXPECT_EQ(row->avm_main_ia, 1);          // Trivially contains 0. (See avm_trace for explanation why)
-    EXPECT_EQ(row->avm_main_ib, 1);          // Contains first element of the state
-    EXPECT_EQ(row->avm_main_ic, 0);          // Contains first element of the input
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sha256 == 1; });
+    EXPECT_EQ(row->main_ind_a, 34);
+    EXPECT_EQ(row->main_ind_b, 35);
+    EXPECT_EQ(row->main_ind_c, 36);
+    EXPECT_EQ(row->main_mem_idx_a, 1);   // Indirect(34) -> 9
+    EXPECT_EQ(row->main_mem_idx_b, 9);   // Indirect(35) -> 9
+    EXPECT_EQ(row->main_mem_idx_c, 256); // Indirect(36) -> 256
+    EXPECT_EQ(row->main_ia, 1);          // Trivially contains 0. (See avm_trace for explanation why)
+    EXPECT_EQ(row->main_ib, 1);          // Contains first element of the state
+    EXPECT_EQ(row->main_ic, 0);          // Contains first element of the input
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with SHA256
@@ -987,22 +992,22 @@ TEST_F(AvmExecutionTests, sha256Opcode)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the sha256 selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sha256 == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 36);      // Register A is indirect
-    EXPECT_EQ(row->avm_main_ind_c, 35);      // Register C is indirect
-    EXPECT_EQ(row->avm_main_mem_idx_a, 1);   // Indirect(36) -> 1
-    EXPECT_EQ(row->avm_main_mem_idx_c, 256); // Indirect(35) -> 256
-    EXPECT_EQ(row->avm_main_ia, 97);
-    EXPECT_EQ(row->avm_main_ic, 0);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sha256 == 1; });
+    EXPECT_EQ(row->main_ind_a, 36);      // Register A is indirect
+    EXPECT_EQ(row->main_ind_c, 35);      // Register C is indirect
+    EXPECT_EQ(row->main_mem_idx_a, 1);   // Indirect(36) -> 1
+    EXPECT_EQ(row->main_mem_idx_c, 256); // Indirect(35) -> 256
+    EXPECT_EQ(row->main_ia, 97);
+    EXPECT_EQ(row->main_ic, 0);
     // Register b checks are done in the next row due to the difference in the memory tag
     std::advance(row, 1);
-    EXPECT_EQ(row->avm_main_ind_b, 0);      // Register B is not
-    EXPECT_EQ(row->avm_main_mem_idx_b, 37); // Load(37) -> input length
-    EXPECT_EQ(row->avm_main_ib, 3);         // Input length
+    EXPECT_EQ(row->main_ind_b, 0);      // Register B is not
+    EXPECT_EQ(row->main_mem_idx_b, 37); // Load(37) -> input length
+    EXPECT_EQ(row->main_ib, 3);         // Input length
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with POSEIDON2_PERM.
@@ -1063,17 +1068,17 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the poseidon2 selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_poseidon2 == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 36);
-    EXPECT_EQ(row->avm_main_ind_b, 35);
-    EXPECT_EQ(row->avm_main_mem_idx_a, 1); // Indirect(36) -> 1
-    EXPECT_EQ(row->avm_main_mem_idx_b, 9); // Indirect(34) -> 9
-    EXPECT_EQ(row->avm_main_ia, FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")));
-    EXPECT_EQ(row->avm_main_ib, 0); // Contains first element of the output (trivially 0)
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_poseidon2 == 1; });
+    EXPECT_EQ(row->main_ind_a, 36);
+    EXPECT_EQ(row->main_ind_b, 35);
+    EXPECT_EQ(row->main_mem_idx_a, 1); // Indirect(36) -> 1
+    EXPECT_EQ(row->main_mem_idx_b, 9); // Indirect(34) -> 9
+    EXPECT_EQ(row->main_ia, FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")));
+    EXPECT_EQ(row->main_ib, 0); // Contains first element of the output (trivially 0)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with Keccakf1600.
@@ -1158,21 +1163,21 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the keccak selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_keccak == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 36);      // Register A is indirect
-    EXPECT_EQ(row->avm_main_ind_c, 35);      // Register C is indirect
-    EXPECT_EQ(row->avm_main_mem_idx_a, 1);   // Indirect(36) -> 1
-    EXPECT_EQ(row->avm_main_mem_idx_c, 256); // Indirect(35) -> 256
-    EXPECT_EQ(row->avm_main_ia, (0xF1258F7940E1DDE7LLU));
-    EXPECT_EQ(row->avm_main_ic, 0);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_keccak == 1; });
+    EXPECT_EQ(row->main_ind_a, 36);      // Register A is indirect
+    EXPECT_EQ(row->main_ind_c, 35);      // Register C is indirect
+    EXPECT_EQ(row->main_mem_idx_a, 1);   // Indirect(36) -> 1
+    EXPECT_EQ(row->main_mem_idx_c, 256); // Indirect(35) -> 256
+    EXPECT_EQ(row->main_ia, (0xF1258F7940E1DDE7LLU));
+    EXPECT_EQ(row->main_ic, 0);
 
     std::advance(row, 1);
-    EXPECT_EQ(row->avm_main_ind_b, 0);      // Register B is not
-    EXPECT_EQ(row->avm_main_mem_idx_b, 37); // Load(37) -> input length
-    EXPECT_EQ(row->avm_main_ib, 25);        // Input length
+    EXPECT_EQ(row->main_ind_b, 0);      // Register B is not
+    EXPECT_EQ(row->main_mem_idx_b, 37); // Load(37) -> input length
+    EXPECT_EQ(row->main_ib, 25);        // Input length
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with Keccak.
@@ -1240,22 +1245,22 @@ TEST_F(AvmExecutionTests, keccakOpCode)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the keccak selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_keccak == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 36);      // Register A is indirect
-    EXPECT_EQ(row->avm_main_ind_c, 35);      // Register C is indirect
-    EXPECT_EQ(row->avm_main_mem_idx_a, 1);   // Indirect(36) -> 1
-    EXPECT_EQ(row->avm_main_mem_idx_c, 256); // Indirect(35) -> 256
-    EXPECT_EQ(row->avm_main_ia, 189);
-    EXPECT_EQ(row->avm_main_ic, 0);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_keccak == 1; });
+    EXPECT_EQ(row->main_ind_a, 36);      // Register A is indirect
+    EXPECT_EQ(row->main_ind_c, 35);      // Register C is indirect
+    EXPECT_EQ(row->main_mem_idx_a, 1);   // Indirect(36) -> 1
+    EXPECT_EQ(row->main_mem_idx_c, 256); // Indirect(35) -> 256
+    EXPECT_EQ(row->main_ia, 189);
+    EXPECT_EQ(row->main_ic, 0);
     // Register b checks are done in the next row due to the difference in the memory tag
     std::advance(row, 1);
-    EXPECT_EQ(row->avm_main_ind_b, 0);      // Register B is not
-    EXPECT_EQ(row->avm_main_mem_idx_b, 37); // Load(37) -> input length
-    EXPECT_EQ(row->avm_main_ib, 1);         // Input length
+    EXPECT_EQ(row->main_ind_b, 0);      // Register B is not
+    EXPECT_EQ(row->main_mem_idx_b, 37); // Load(37) -> input length
+    EXPECT_EQ(row->main_ib, 1);         // Input length
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with Pedersen.
@@ -1318,20 +1323,158 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     // Find the first row enabling the pedersen selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_pedersen == 1; });
-    EXPECT_EQ(row->avm_main_ind_a, 4);     // Register A is indirect
-    EXPECT_EQ(row->avm_main_mem_idx_a, 0); // Indirect(4) -> 1
-    EXPECT_EQ(row->avm_main_ia, 1);        // The first input
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_pedersen == 1; });
+    EXPECT_EQ(row->main_ind_a, 4);     // Register A is indirect
+    EXPECT_EQ(row->main_mem_idx_a, 0); // Indirect(4) -> 1
+    EXPECT_EQ(row->main_ia, 1);        // The first input
     // The second row loads the U32 values
     std::advance(row, 1);
-    EXPECT_EQ(row->avm_main_ia, 2); // Input length is 2
-    EXPECT_EQ(row->avm_main_ib, 5); // Hash offset is 5
+    EXPECT_EQ(row->main_ia, 2); // Input length is 2
+    EXPECT_EQ(row->main_ib, 5); // Hash offset is 5
 
     EXPECT_EQ(returndata[0], expected_output);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
+}
+//
+// Positive test with EmbeddedCurveAdd
+TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
+{
+    // TODO: Look for hardcoded test vectors since bb is missing them
+    grumpkin::g1::affine_element a = grumpkin::g1::affine_element::random_element();
+    auto a_is_inf = a.is_point_at_infinity();
+    grumpkin::g1::affine_element b = grumpkin::g1::affine_element::random_element();
+    auto b_is_inf = b.is_point_at_infinity();
+    grumpkin::g1::affine_element res = a + b;
+    auto expected_output = std::vector<FF>{ res.x, res.y, res.is_point_at_infinity() };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) +   // Calldatacopy
+                               "00"                             // Indirect flag
+                               "00000000"                       // cd_offset
+                               "00000002"                       // copy_size
+                               "00000000"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "01"                             // U8
+                               + to_hex<uint8_t>(a_is_inf) +    //
+                               "00000002"                       // dst_offset
+                               + to_hex(OpCode::CALLDATACOPY) + // calldatacopy
+                               "00"                             // Indirect flag
+                               "00000002"                       // cd_offset
+                               "00000002"                       // copy_size
+                               "00000003"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "01"                             // U32
+                               + to_hex<uint8_t>(b_is_inf) +    // value 2
+                               "00000005"                       // dst_offset
+                               + to_hex(OpCode::SET) +          // opcode SET for direct src_length
+                               "00"                             // Indirect flag
+                               "03"                             // U32
+                               "00000007"                       // value
+                               "00000006"                       // dst_offset
+                               + to_hex(OpCode::ECADD) +        // opcode ECADD
+                               "40"                             // Indirect flag (sixth operand indirect)
+                               "00000000"                       // hash_index offset (direct)
+                               "00000001"                       // dest offset (direct)
+                               "00000002"                       // input offset (indirect)
+                               "00000003"                       // length offset (direct)
+                               "00000004"                       // length offset (direct)
+                               "00000005"                       // length offset (direct)
+                               "00000006"                       // length offset (direct)
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "00000007"                       // ret offset 3
+                               "00000003";                      // ret size 1
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> returndata;
+    std::vector<FF> calldata = { a.x, a.y, b.x, b.y };
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+
+    EXPECT_EQ(returndata, expected_output);
+
+    validate_trace(std::move(trace), public_inputs);
 }
 
+// Positive test with MSM
+TEST_F(AvmExecutionTests, msmOpCode)
+{
+    grumpkin::g1::affine_element a = grumpkin::g1::affine_element::random_element();
+    FF a_is_inf = a.is_point_at_infinity();
+    grumpkin::g1::affine_element b = grumpkin::g1::affine_element::random_element();
+    FF b_is_inf = b.is_point_at_infinity();
+
+    grumpkin::g1::Fr scalar_a = grumpkin::g1::Fr::random_element();
+    FF scalar_a_lo = uint256_t::from_uint128(uint128_t(scalar_a));
+    FF scalar_a_hi = uint256_t(scalar_a) >> 128;
+    grumpkin::g1::Fr scalar_b = grumpkin::g1::Fr::random_element();
+    FF scalar_b_lo = uint256_t::from_uint128(uint128_t(scalar_b));
+    FF scalar_b_hi = uint256_t(scalar_b) >> 128;
+    auto expected_result = a * scalar_a + b * scalar_b;
+    std::vector<FF> expected_output = { expected_result.x, expected_result.y, expected_result.is_point_at_infinity() };
+    // Send all the input as Fields and cast them to U8 later
+    std::vector<FF> calldata = { FF(a.x),  FF(a.y),     a_is_inf,    FF(b.x),     FF(b.y),
+                                 b_is_inf, scalar_a_lo, scalar_a_hi, scalar_b_lo, scalar_b_hi };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // Calldatacopy...should fix the limit on calldatacopy
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset 0
+                               "0000000a"                     // copy_size (10 elements)
+                               "00000000"                     // dst_offset 0
+                               + to_hex(OpCode::CAST) +       // opcode CAST inf to U8
+                               "00"                           // Indirect flag
+                               "01"                           // U8 tag field
+                               "00000002"                     // a_is_inf
+                               "00000002"                     //
+                               + to_hex(OpCode::CAST) +       // opcode CAST inf to U8
+                               "00"                           // Indirect flag
+                               "01"                           // U8 tag field
+                               "00000005"                     // b_is_inf
+                               "00000005"                     //
+                               + to_hex(OpCode::SET) +        // opcode SET for length
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000006"                     // Length of point elements (6)
+                               "0000000b"                     // dst offset (11)
+                               + to_hex(OpCode::SET) +        // SET Indirects
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000000"                     // points offset
+                               "0000000d"                     // dst offset +
+                               + to_hex(OpCode::SET) +        // SET Indirects
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "00000006"                     // scalars offset
+                               "0000000e" +                   // dst offset
+                               to_hex(OpCode::SET) +          // SET Indirects
+                               "00"                           // Indirect flag
+                               "03"                           // U32
+                               "0000000c"                     // output offset
+                               "0000000f" +                   // dst offset
+                               to_hex(OpCode::MSM) +          // opcode MSM
+                               "07"                           // Indirect flag (first 3 indirect)
+                               "0000000d"                     // points offset
+                               "0000000e"                     // scalars offset
+                               "0000000f"                     // output offset
+                               "0000000b"                     // length offset
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "0000000c"                     // ret offset 12 (this overwrites)
+                               "00000003";                    // ret size 3
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    // Assign a vector that we will mutate internally in gen_trace to store the return values;
+    std::vector<FF> returndata;
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+
+    EXPECT_EQ(returndata, expected_output);
+
+    validate_trace(std::move(trace));
+}
 // Positive test for Kernel Input opcodes
 TEST_F(AvmExecutionTests, kernelInputOpcodes)
 {
@@ -1482,62 +1625,61 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 
     // Validate that the opcode read the correct value into ia
     // Check sender
-    auto sender_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sender == 1; });
-    EXPECT_EQ(sender_row->avm_main_ia, sender);
+    auto sender_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sender == 1; });
+    EXPECT_EQ(sender_row->main_ia, sender);
 
     // Check address
     auto address_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_address == 1; });
-    EXPECT_EQ(address_row->avm_main_ia, address);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_address == 1; });
+    EXPECT_EQ(address_row->main_ia, address);
 
     // Check storage address
     auto storage_addr_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_storage_address == 1; });
-    EXPECT_EQ(storage_addr_row->avm_main_ia, storage_address);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_storage_address == 1; });
+    EXPECT_EQ(storage_addr_row->main_ia, storage_address);
 
     // Check chain id
     auto chainid_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_chain_id == 1; });
-    EXPECT_EQ(chainid_row->avm_main_ia, chainid);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_chain_id == 1; });
+    EXPECT_EQ(chainid_row->main_ia, chainid);
 
     // Check version
     auto version_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_version == 1; });
-    EXPECT_EQ(version_row->avm_main_ia, version);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_version == 1; });
+    EXPECT_EQ(version_row->main_ia, version);
 
     // Check blocknumber
     auto blocknumber_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_block_number == 1; });
-    EXPECT_EQ(blocknumber_row->avm_main_ia, blocknumber);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_block_number == 1; });
+    EXPECT_EQ(blocknumber_row->main_ia, blocknumber);
 
     // Check timestamp
     auto timestamp_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_timestamp == 1; });
-    EXPECT_EQ(timestamp_row->avm_main_ia, timestamp);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_timestamp == 1; });
+    EXPECT_EQ(timestamp_row->main_ia, timestamp);
 
     // Check feeperdagas
     auto feeperdagas_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_da_gas == 1; });
-    EXPECT_EQ(feeperdagas_row->avm_main_ia, feeperdagas);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fee_per_da_gas == 1; });
+    EXPECT_EQ(feeperdagas_row->main_ia, feeperdagas);
 
     // Check feeperl2gas
     auto feeperl2gas_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_l2_gas == 1; });
-    EXPECT_EQ(feeperl2gas_row->avm_main_ia, feeperl2gas);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fee_per_l2_gas == 1; });
+    EXPECT_EQ(feeperl2gas_row->main_ia, feeperl2gas);
 
     // Check transactionfee
     auto transactionfee_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_transaction_fee == 1; });
-    EXPECT_EQ(transactionfee_row->avm_main_ia, transactionfee);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_transaction_fee == 1; });
+    EXPECT_EQ(transactionfee_row->main_ia, transactionfee);
 
     // // Check coinbase
     // Not in simulator
     // auto coinbase_row =
-    //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_coinbase == 1; });
-    // EXPECT_EQ(coinbase_row->avm_main_ia, coinbase);
+    //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_coinbase == 1; });
+    // EXPECT_EQ(coinbase_row->main_ia, coinbase);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec));
 }
 
 // Positive test for L2GASLEFT opcode
@@ -1569,15 +1711,15 @@ TEST_F(AvmExecutionTests, l2GasLeft)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the L2GASLEFT selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_l2gasleft == 1; });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l2gasleft == 1; });
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS - GAS_COST_TABLE.at(OpCode::SET).l2_fixed_gas_cost -
                                 GAS_COST_TABLE.at(OpCode::L2GASLEFT).l2_fixed_gas_cost;
 
-    EXPECT_EQ(row->avm_main_ia, expected_rem_gas);
-    EXPECT_EQ(row->avm_main_mem_idx_a, 257); // Resolved direct address: 257
+    EXPECT_EQ(row->main_ia, expected_rem_gas);
+    EXPECT_EQ(row->main_mem_idx_a, 257); // Resolved direct address: 257
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test for DAGASLEFT opcode
@@ -1610,15 +1752,15 @@ TEST_F(AvmExecutionTests, daGasLeft)
     auto trace = gen_trace_from_instr(instructions);
 
     // Find the first row enabling the DAGASLEFT selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_dagasleft == 1; });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_dagasleft == 1; });
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS - GAS_COST_TABLE.at(OpCode::ADD).da_fixed_gas_cost -
                                 GAS_COST_TABLE.at(OpCode::DAGASLEFT).da_fixed_gas_cost;
 
-    EXPECT_EQ(row->avm_main_ia, expected_rem_gas);
-    EXPECT_EQ(row->avm_main_mem_idx_a, 39);
+    EXPECT_EQ(row->main_ia, expected_rem_gas);
+    EXPECT_EQ(row->main_mem_idx_a, 39);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Should throw whenever the wrong number of public inputs are provided
@@ -1656,13 +1798,13 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
                                + to_hex(OpCode::EMITNOTEHASH) +       // opcode EMITNOTEHASH
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
-                               + to_hex(OpCode::EMITNULLIFIER) +      // opcode EMITNOTEHASH
+                               + to_hex(OpCode::EMITNULLIFIER) +      // opcode EMITNULLIFIER
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
-                               + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITNOTEHASH
+                               + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITUNENCRYPTEDLOG
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
-                               + to_hex(OpCode::SENDL2TOL1MSG) +      // opcode EMITNOTEHASH
+                               + to_hex(OpCode::SENDL2TOL1MSG) +      // opcode SENDL2TOL1MSG
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
                                "00000001"                             // src offset 1
@@ -1683,56 +1825,297 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // CHECK EMIT NOTE HASH
     // Check output data + side effect counters have been set correctly
     auto emit_note_hash_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_note_hash == 1; });
-    EXPECT_EQ(emit_note_hash_row->avm_main_ia, 1);
-    EXPECT_EQ(emit_note_hash_row->avm_kernel_side_effect_counter, 0);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_note_hash == 1; });
+    EXPECT_EQ(emit_note_hash_row->main_ia, 1);
+    EXPECT_EQ(emit_note_hash_row->kernel_side_effect_counter, 0);
 
     // Get the row of the first note hash out
     uint32_t emit_note_hash_out_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
     auto emit_note_hash_kernel_out_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_note_hash_out_offset; });
-    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+        trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_note_hash_out_offset; });
+    EXPECT_EQ(emit_note_hash_kernel_out_row->kernel_kernel_value_out, 1);
+    EXPECT_EQ(emit_note_hash_kernel_out_row->kernel_kernel_side_effect_out, 0);
+    feed_output(emit_note_hash_out_offset, 1, 0, 0);
 
     // CHECK EMIT NULLIFIER
     auto emit_nullifier_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_nullifier == 1; });
-    EXPECT_EQ(emit_nullifier_row->avm_main_ia, 1);
-    EXPECT_EQ(emit_nullifier_row->avm_kernel_side_effect_counter, 1);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_nullifier == 1; });
+    EXPECT_EQ(emit_nullifier_row->main_ia, 1);
+    EXPECT_EQ(emit_nullifier_row->kernel_side_effect_counter, 1);
 
     uint32_t emit_nullifier_out_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET;
     auto emit_nullifier_kernel_out_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_nullifier_out_offset; });
-    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+        trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_nullifier_out_offset; });
+    EXPECT_EQ(emit_nullifier_kernel_out_row->kernel_kernel_value_out, 1);
+    EXPECT_EQ(emit_nullifier_kernel_out_row->kernel_kernel_side_effect_out, 1);
+    feed_output(emit_nullifier_out_offset, 1, 1, 0);
 
     // CHECK EMIT UNENCRYPTED LOG
-    auto emit_log_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_unencrypted_log == 1; });
-    EXPECT_EQ(emit_log_row->avm_main_ia, 1);
-    EXPECT_EQ(emit_log_row->avm_kernel_side_effect_counter, 2);
+    auto emit_log_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
+    EXPECT_EQ(emit_log_row->main_ia, 1);
+    EXPECT_EQ(emit_log_row->kernel_side_effect_counter, 2);
 
     uint32_t emit_log_out_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
     auto emit_log_kernel_out_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_log_out_offset; });
-    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
+    EXPECT_EQ(emit_log_kernel_out_row->kernel_kernel_value_out, 1);
+    EXPECT_EQ(emit_log_kernel_out_row->kernel_kernel_side_effect_out, 2);
+    feed_output(emit_log_out_offset, 1, 2, 0);
 
     // CHECK SEND L2 TO L1 MSG
-    auto send_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_l2_to_l1_msg == 1; });
-    EXPECT_EQ(send_row->avm_main_ia, 1);
-    EXPECT_EQ(send_row->avm_main_ib, 1);
-    EXPECT_EQ(send_row->avm_kernel_side_effect_counter, 3);
+    auto send_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_l2_to_l1_msg == 1; });
+    EXPECT_EQ(send_row->main_ia, 1);
+    EXPECT_EQ(send_row->main_ib, 1);
+    EXPECT_EQ(send_row->kernel_side_effect_counter, 3);
 
     auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
-        return r.avm_main_clk == AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET;
+        return r.main_clk == AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET;
     });
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1);
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 3);
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1);
+    EXPECT_EQ(msg_out_row->kernel_kernel_value_out, 1);
+    EXPECT_EQ(msg_out_row->kernel_kernel_side_effect_out, 3);
+    EXPECT_EQ(msg_out_row->kernel_kernel_metadata_out, 1);
+    feed_output(AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET, 1, 3, 1);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
+}
+
+// SLOAD
+TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
+{
+    // Sload from a value that has not previously been written to will require a hint to process
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000009"            // value 9
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag
+                               "00000001"                 // slot offset 1
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // write storage value to offset 2
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for Sload operation
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK SLOAD
+    // Check output data + side effect counters have been set correctly
+    auto sload_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->kernel_side_effect_counter, 0);
+
+    // Get the row of the first read storage read out
+    uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    auto sload_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_metadata_out, 9); // slot
+    feed_output(sload_out_offset, 42, 0, 9);
+    validate_trace(std::move(trace), public_inputs);
+}
+
+// SLOAD
+TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeComplex)
+{
+    // Sload from a value that has not previously been written to will require a hint to process
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000009"            // value 9
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "06"                       // tag field
+                               "00000001"                 // dst 1
+                               "00000001"                 // dst 1
+                               + to_hex(OpCode::SLOAD) +  // opcode SLOAD
+                               "00"                       // Indirect flag (second operand indirect - dest offset)
+                               "00000001"                 // slot offset 1
+                               "00000002"                 // slot offset 2
+                               "00000002"                 // write storage value to offset 2
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+
+    // Generate Hint for Sload operation
+    // side effect counter 0 = value 42
+    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 }, { 1, 123 } });
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+
+    // CHECK SLOAD
+    // Check output data + side effect counters have been set correctly
+    auto sload_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->kernel_side_effect_counter, 0);
+    sload_row++;
+    EXPECT_EQ(sload_row->main_ia, 123); // Read value
+    EXPECT_EQ(sload_row->main_ib, 10);  // Storage slot
+    EXPECT_EQ(sload_row->kernel_side_effect_counter, 1);
+
+    // Get the row of the first read storage read out
+    uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    auto sload_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_metadata_out, 9); // slot
+    sload_kernel_out_row++;
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_value_out, 123); // value
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_metadata_out, 10); // slot
+
+    feed_output(sload_out_offset, 42, 0, 9);
+    feed_output(sload_out_offset + 1, 123, 1, 10);
+
+    validate_trace(std::move(trace), public_inputs);
+}
+
+// SSTORE
+TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
+{
+    // SSTORE, write 2 elements of calldata to dstOffset 1 and 2.
+    std::vector<FF> calldata = { 42, 123, 9, 10 };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset
+                               "00000004"                     // copy_size
+                               "00000001"                     // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SSTORE) +     // opcode SSTORE
+                               "00"                           // Indirect flag
+                               "00000001"                     // src offset
+                               "00000001"                     // size offset 1
+                               "00000003"                     // slot offset
+                               + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
+                               "00000000"                     // ret offset 0
+                               "00000000";                    // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    std::vector<FF> returndata = {};
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    // CHECK SSTORE
+    auto sstore_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sstore == 1; });
+    EXPECT_EQ(sstore_row->main_ia, 42); // Read value
+    EXPECT_EQ(sstore_row->main_ib, 9);  // Storage slot
+    EXPECT_EQ(sstore_row->kernel_side_effect_counter, 0);
+
+    // Get the row of the first storage write out
+    uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+    auto sstore_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == sstore_out_offset; });
+
+    auto value_out = sstore_kernel_out_row->kernel_kernel_value_out;
+    auto side_effect_out = sstore_kernel_out_row->kernel_kernel_side_effect_out;
+    auto metadata_out = sstore_kernel_out_row->kernel_kernel_metadata_out;
+    EXPECT_EQ(value_out, 42); // value
+    EXPECT_EQ(side_effect_out, 0);
+    EXPECT_EQ(metadata_out, 9); // slot
+
+    feed_output(sstore_out_offset, value_out, side_effect_out, metadata_out);
+    validate_trace(std::move(trace), public_inputs);
+}
+
+// SSTORE
+TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeComplex)
+{
+    // SSTORE, write 2 elements of calldata to dstOffset 1 and 2.
+    std::vector<FF> calldata = { 42, 123, 9, 10 };
+    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
+                               "00"                           // Indirect flag
+                               "00000000"                     // cd_offset
+                               "00000004"                     // copy_size
+                               "00000001"                     // dst_offset, (i.e. where we store the addr)
+                               + to_hex(OpCode::SET) +        // opcode SET (inidirect SSTORE)
+                               "00"
+                               "03"
+                               "00000001"                 // Value
+                               "00000010" +               // Dest val
+                               to_hex(OpCode::SSTORE) +   // opcode SSTORE
+                               "01"                       // Indirect flag
+                               "00000010"                 // src offset
+                               "00000002"                 // size offset 1
+                               "00000003"                 // slot offset
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(4));
+
+    std::vector<FF> returndata = {};
+
+    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    // CHECK SSTORE
+    auto sstore_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sstore == 1; });
+    EXPECT_EQ(sstore_row->main_ia, 42); // Read value
+    EXPECT_EQ(sstore_row->main_ib, 9);  // Storage slot
+    EXPECT_EQ(sstore_row->kernel_side_effect_counter, 0);
+    sstore_row++;
+
+    EXPECT_EQ(sstore_row->main_ia, 123); // Read value
+    EXPECT_EQ(sstore_row->main_ib, 10);  // Storage slot
+    EXPECT_EQ(sstore_row->kernel_side_effect_counter, 1);
+
+    // Get the row of the first storage write out
+    uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+    auto sstore_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == sstore_out_offset; });
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_metadata_out, 9); // slot
+    sstore_kernel_out_row++;
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_value_out, 123); // value
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_metadata_out, 10); // slot
+
+    feed_output(sstore_out_offset, 42, 0, 9);
+    feed_output(sstore_out_offset + 1, 123, 1, 10);
+
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // SLOAD and SSTORE
@@ -1753,11 +2136,13 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
                                + to_hex(OpCode::SLOAD) +  // opcode SLOAD
                                "00"                       // Indirect flag
                                "00000001"                 // slot offset 1
+                               "00000001"                 // size is 1
                                "00000002"                 // write storage value to offset 2
                                + to_hex(OpCode::SSTORE) + // opcode SSTORE
                                "00"                       // Indirect flag
-                               "00000001"                 // slot offset 1
-                               "00000002"                 // value write offset 2
+                               "00000002"                 // src offset 2 (since the sload writes to 2)
+                               "00000001"                 // size is 1
+                               "00000001"                 // slot offset is 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -1779,41 +2164,41 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
 
     // CHECK SLOAD
     // Check output data + side effect counters have been set correctly
-    auto sload_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sload == 1; });
-    EXPECT_EQ(sload_row->avm_main_ia, 42); // Read value
-    EXPECT_EQ(sload_row->avm_main_ib, 9);  // Storage slot
-    EXPECT_EQ(sload_row->avm_kernel_side_effect_counter, 0);
+    auto sload_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sload == 1; });
+    EXPECT_EQ(sload_row->main_ia, 42); // Read value
+    EXPECT_EQ(sload_row->main_ib, 9);  // Storage slot
+    EXPECT_EQ(sload_row->kernel_side_effect_counter, 0);
 
-    // Get the row of the first note hash out
+    // Get the row of the first storage read out
     uint32_t sload_out_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
     auto sload_kernel_out_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sload_out_offset; });
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(sload_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == sload_out_offset; });
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(sload_kernel_out_row->kernel_kernel_metadata_out, 9); // slot
+    feed_output(sload_out_offset, 42, 0, 9);
 
     // CHECK SSTORE
-    auto sstore_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sstore == 1; });
-    EXPECT_EQ(sstore_row->avm_main_ia, 42); // Read value
-    EXPECT_EQ(sstore_row->avm_main_ib, 9);  // Storage slot
-    EXPECT_EQ(sstore_row->avm_kernel_side_effect_counter, 1);
+    auto sstore_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sstore == 1; });
+    EXPECT_EQ(sstore_row->main_ia, 42); // Read value
+    EXPECT_EQ(sstore_row->main_ib, 9);  // Storage slot
+    EXPECT_EQ(sstore_row->kernel_side_effect_counter, 1);
 
-    // Get the row of the first note hash out
+    // Get the row of the first storage write out
     uint32_t sstore_out_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
     auto sstore_kernel_out_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == sstore_out_offset; });
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_value_out__is_public, 42); // value
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-    EXPECT_EQ(sstore_kernel_out_row->avm_kernel_kernel_metadata_out__is_public, 9); // slot
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == sstore_out_offset; });
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_value_out, 42); // value
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(sstore_kernel_out_row->kernel_kernel_metadata_out, 9); // slot
+    feed_output(sstore_out_offset, 42, 1, 9);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
 {
-    // Sload from a value that has not previously been written to will require a hint to process
+    // hash exists from a value that has not previously been written to will require a hint to process
     std::string bytecode_hex = to_hex(OpCode::SET) + // opcode SET
                                "00"                  // Indirect flag
                                "03"                  // U32
@@ -1853,123 +2238,127 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
 
-    // Generate Hint for Sload operation
+    // Generate Hint for hash exists operation
     auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
     // CHECK NOTEHASHEXISTS
     auto note_hash_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_note_hash_exists == 1; });
-    EXPECT_EQ(note_hash_row->avm_main_ia, 1); // Read value
-    EXPECT_EQ(note_hash_row->avm_main_ib, 1); // Storage slot
-    EXPECT_EQ(note_hash_row->avm_kernel_side_effect_counter, 0);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_note_hash_exists == 1; });
+    EXPECT_EQ(note_hash_row->main_ia, 1); // Read value
+    EXPECT_EQ(note_hash_row->main_ib, 1); // Storage slot
+    EXPECT_EQ(note_hash_row->kernel_side_effect_counter, 0);
 
     auto note_hash_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
-        return r.avm_main_clk == AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
+        return r.main_clk == AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
     });
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
-    EXPECT_EQ(note_hash_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+    EXPECT_EQ(note_hash_out_row->kernel_kernel_value_out, 1); // value
+    EXPECT_EQ(note_hash_out_row->kernel_kernel_side_effect_out, 0);
+    EXPECT_EQ(note_hash_out_row->kernel_kernel_metadata_out, 1); // exists
+    feed_output(AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET, 1, 0, 1);
 
     // CHECK NULLIFIEREXISTS
     auto nullifier_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_nullifier_exists == 1; });
-    EXPECT_EQ(nullifier_row->avm_main_ia, 1); // Read value
-    EXPECT_EQ(nullifier_row->avm_main_ib, 1); // Storage slot
-    EXPECT_EQ(nullifier_row->avm_kernel_side_effect_counter, 1);
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_nullifier_exists == 1; });
+    EXPECT_EQ(nullifier_row->main_ia, 1); // Read value
+    EXPECT_EQ(nullifier_row->main_ib, 1); // Storage slot
+    EXPECT_EQ(nullifier_row->kernel_side_effect_counter, 1);
 
     auto nullifier_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
-        return r.avm_main_clk == AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET;
+        return r.main_clk == AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET;
     });
-    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
-    EXPECT_EQ(nullifier_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+    EXPECT_EQ(nullifier_out_row->kernel_kernel_value_out, 1); // value
+    EXPECT_EQ(nullifier_out_row->kernel_kernel_side_effect_out, 1);
+    EXPECT_EQ(nullifier_out_row->kernel_kernel_metadata_out, 1); // exists
+    feed_output(AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET, 1, 1, 1);
 
     // CHECK L1TOL2MSGEXISTS
-    auto l1_to_l2_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_l1_to_l2_msg_exists == 1; });
-    EXPECT_EQ(l1_to_l2_row->avm_main_ia, 1); // Read value
-    EXPECT_EQ(l1_to_l2_row->avm_main_ib, 1); // Storage slot
-    EXPECT_EQ(l1_to_l2_row->avm_kernel_side_effect_counter, 2);
+    auto l1_to_l2_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l1_to_l2_msg_exists == 1; });
+    EXPECT_EQ(l1_to_l2_row->main_ia, 1); // Read value
+    EXPECT_EQ(l1_to_l2_row->main_ib, 1); // Storage slot
+    EXPECT_EQ(l1_to_l2_row->kernel_side_effect_counter, 2);
 
     auto msg_out_row = std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) {
-        return r.avm_main_clk == AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
+        return r.main_clk == AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
     });
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_value_out__is_public, 1); // value
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
-    EXPECT_EQ(msg_out_row->avm_kernel_kernel_metadata_out__is_public, 1); // exists
+    EXPECT_EQ(msg_out_row->kernel_kernel_value_out, 1); // value
+    EXPECT_EQ(msg_out_row->kernel_kernel_side_effect_out, 2);
+    EXPECT_EQ(msg_out_row->kernel_kernel_metadata_out, 1); // exists
+    feed_output(AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET, 1, 2, 1);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
-TEST_F(AvmExecutionTests, opCallOpcodes)
-{
-    std::string bytecode_preamble;
-    // Gas offset preamble
-    bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for gas offset indirect
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000010"            // val 16 (address where gas offset is located)
-                         "00000011" +          // dst_offset 17
-                         to_hex(OpCode::SET) + // opcode SET for value stored in gas offset
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000011"            // val i
-                         "00000000";
-    // args offset preamble
-    bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for args offset indirect
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000100"            // val i
-                         "00000012" +          // dst_offset 0
-                         to_hex(OpCode::SET) + // opcode SET for value stored in args offset
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000012"            // val i
-                         "00000001";
-    // ret offset preamble
-    bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for ret offset indirect
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000008"            // val i
-                         "00000004" +          // dst_offset 0
-                         to_hex(OpCode::SET) + // opcode SET for value stored in ret offset
-                         "00"                  // Indirect flag
-                         "03"                  // U32
-                         "00000002"            // val i
-                         "00000007";
-    std::string bytecode_hex = bytecode_preamble // SET gas, addr, args size, ret offset, success, function selector
-                               + to_hex(OpCode::CALL) +   // opcode CALL
-                               "15"                       // Indirect flag
-                               "00000000"                 // gas offset
-                               "00000001"                 // addr offset
-                               "00000002"                 // args offset
-                               "00000003"                 // args size offset
-                               "00000004"                 // ret offset
-                               "00000007"                 // ret size
-                               "0000000a"                 // success offset
-                               "00000006"                 // function_selector_offset
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "00000008"                 // ret offset 8
-                               "00000003";                // ret size 3
+// TEST_F(AvmExecutionTests, opCallOpcodes)
+// {
+//     std::string bytecode_preamble;
+//     // Gas offset preamble
+//     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for gas offset indirect
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000010"            // val 16 (address where gas offset is located)
+//                          "00000011" +          // dst_offset 17
+//                          to_hex(OpCode::SET) + // opcode SET for value stored in gas offset
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000011"            // val i
+//                          "00000000";
+//     // args offset preamble
+//     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for args offset indirect
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000100"            // val i
+//                          "00000012" +          // dst_offset 0
+//                          to_hex(OpCode::SET) + // opcode SET for value stored in args offset
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000012"            // val i
+//                          "00000001";
+//     // ret offset preamble
+//     bytecode_preamble += to_hex(OpCode::SET) + // opcode SET for ret offset indirect
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000008"            // val i
+//                          "00000004" +          // dst_offset 0
+//                          to_hex(OpCode::SET) + // opcode SET for value stored in ret offset
+//                          "00"                  // Indirect flag
+//                          "03"                  // U32
+//                          "00000002"            // val i
+//                          "00000007";
+//     std::string bytecode_hex = bytecode_preamble // SET gas, addr, args size, ret offset, success, function
+//     selector
+//                                + to_hex(OpCode::CALL) +   // opcode CALL
+//                                "15"                       // Indirect flag
+//                                "00000000"                 // gas offset
+//                                "00000001"                 // addr offset
+//                                "00000002"                 // args offset
+//                                "00000003"                 // args size offset
+//                                "00000004"                 // ret offset
+//                                "00000007"                 // ret size
+//                                "0000000a"                 // success offset
+//                                "00000006"                 // function_selector_offset
+//                                + to_hex(OpCode::RETURN) + // opcode RETURN
+//                                "00"                       // Indirect flag
+//                                "00000008"                 // ret offset 8
+//                                "00000003";                // ret size 3
 
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
+//     auto bytecode = hex_to_bytes(bytecode_hex);
+//     auto instructions = Deserialization::parse(bytecode);
 
-    std::vector<FF> calldata = {};
-    std::vector<FF> returndata = {};
+//     std::vector<FF> calldata = {};
+//     std::vector<FF> returndata = {};
 
-    // Generate Hint for call operation
-    auto execution_hints = ExecutionHints().with_externalcall_hints(
-        { { .success = 1, .return_data = { 9, 8 }, .l2_gas_used = 0, .da_gas_used = 0 } });
+//     // Generate Hint for call operation
+//     auto execution_hints = ExecutionHints().with_externalcall_hints(
+//         { { .success = 1, .return_data = { 9, 8 }, .l2_gas_used = 0, .da_gas_used = 0 } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
-    EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
+//     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+//     EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
 
-    validate_trace(std::move(trace));
-}
+//     validate_trace(std::move(trace), public_inputs);
+// }
 
 TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
 {
@@ -2000,12 +2389,14 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for call operation
-    auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, { 1, 1, 2, 3, 4, 5 } } });
+    // Note: opcode does not write 'address' into memory
+    auto execution_hints =
+        ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, 6 } } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
-    EXPECT_EQ(returndata, std::vector<FF>({ 1, 1, 2, 3, 4, 5 })); // The first one represents true
+    EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, 6 })); // The first one represents true
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)

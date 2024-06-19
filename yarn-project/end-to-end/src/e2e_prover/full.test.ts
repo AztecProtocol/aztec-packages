@@ -5,6 +5,11 @@ import { FullProverTest } from './e2e_prover_test.js';
 
 const TIMEOUT = 1_800_000;
 
+// This makes AVM proving throw if there's a failure.
+process.env.AVM_PROVING_STRICT = '1';
+// Enable proving the full lookup tables (no truncation).
+process.env.AVM_ENABLE_FULL_PROVING = '1';
+
 describe('full_prover', () => {
   const t = new FullProverTest('full_prover', 2);
   let { provenAssets, accounts, tokenSim, logger } = t;
@@ -34,12 +39,7 @@ describe('full_prover', () => {
       const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
       const privateSendAmount = privateBalance / 2n;
       expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(
-        accounts[0].address,
-        accounts[1].address,
-        privateSendAmount,
-        0,
-      );
+      const privateInteraction = provenAssets[0].methods.transfer(accounts[1].address, privateSendAmount);
 
       const publicBalance = await provenAssets[1].methods.balance_of_public(accounts[0].address).simulate();
       const publicSendAmount = publicBalance / 2n;
@@ -94,7 +94,7 @@ describe('full_prover', () => {
   );
 
   it('rejects txs with invalid proofs', async () => {
-    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[0].address, accounts[1].address, 1, 0);
+    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
     const sentPrivateTx = privateInteraction.send();

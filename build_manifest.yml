@@ -50,6 +50,7 @@ avm-transpiler:
     - ^noir/
   dependencies:
     - noir
+  multiarch: host
 
 aztec-nargo:
   buildDir: .
@@ -61,6 +62,7 @@ aztec-nargo:
   dependencies:
     - avm-transpiler
     - noir
+  multiarch: buildx
 
 # Compiles all aztec noir projects using nargo and the avm-transpiler.
 noir-projects:
@@ -68,6 +70,15 @@ noir-projects:
   dependencies:
     - noir
     - avm-transpiler
+
+# Compiles all aztec noir projects using nargo and the avm-transpiler, then tests them using the TXE.
+noir-projects-tests:
+  buildDir: noir-projects
+  dockerfile: Dockerfile.test
+  dependencies:
+    - noir
+    - avm-transpiler
+    - yarn-project
 
 # Uses nargo to compile all the noir test programs, used to test bb and bb.js.
 noir-compile-acir-tests:
