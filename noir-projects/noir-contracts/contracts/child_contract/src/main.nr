@@ -56,7 +56,7 @@ contract Child {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt(&mut context, owner, owner));
         new_value
     }
 
@@ -104,8 +104,6 @@ contract Child {
     }
 
     #[aztec(public)]
-    // TODO(6052): The logs emitted are currently in the wrong order as we don't update
-    // counters for nested public calls
     fn set_value_with_two_nested_calls() {
         Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
         Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
