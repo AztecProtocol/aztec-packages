@@ -14,6 +14,7 @@ import {
 import { type BootNodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
+import fs from 'fs';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
@@ -32,21 +33,36 @@ interface NodeContext {
   account: AztecAddress;
 }
 
+const PEER_ID_PRIVATE_KEYS = [
+  '0802122002f651fd8653925529e3baccb8489b3af4d7d9db440cbf5df4a63ff04ea69683',
+  '08021220c3bd886df5fe5b33376096ad0dab3d2dc86ed2a361d5fde70f24d979dc73da41',
+  '080212206b6567ac759db5434e79495ec7458e5e93fe479a5b80713446e0bce5439a5655',
+  '08021220366453668099bdacdf08fab476ee1fced6bf00ddc1223d6c2ee626e7236fb526',
+];
+
 describe('e2e_p2p_network', () => {
   let config: AztecNodeConfig;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
+  let bootstrapNode: BootstrapNode;
+  let bootstrapNodeEnr: string;
 
   beforeEach(async () => {
     ({ teardown, config, logger } = await setup(0));
+    bootstrapNode = await createBootstrapNode();
+    bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
   });
 
   afterEach(() => teardown());
 
+  afterAll(() => {
+    for (let i = 0; i < NUM_NODES; i++) {
+      fs.rmSync(`./data-${i}`, { recursive: true, force: true });
+    }
+  });
+
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
-    const bootstrapNode = await createBootstrapNode();
-    const bootstrapNodeEnr = bootstrapNode.getENR();
     if (!bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
@@ -57,7 +73,7 @@ describe('e2e_p2p_network', () => {
     const contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
-      const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr?.encodeTxt(), i);
+      const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr, i);
       nodes.push(node);
     }
 
@@ -87,6 +103,61 @@ describe('e2e_p2p_network', () => {
     await bootstrapNode.stop();
   });
 
+  it('should re-discover stored peers without bootstrap node', async () => {
+    const contexts: NodeContext[] = [];
+    const nodes: AztecNodeService[] = [];
+    for (let i = 0; i < NUM_NODES; i++) {
+      const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr, i, `./data-${i}`);
+      nodes.push(node);
+    }
+    // wait a bit for peers to discover each other
+    await sleep(3000);
+
+    // stop bootstrap node
+    await bootstrapNode.stop();
+
+    // create new nodes from datadir
+    const newNodes: AztecNodeService[] = [];
+
+    // stop all nodes
+    for (let i = 0; i < NUM_NODES; i++) {
+      const node = nodes[i];
+      await node.stop();
+      logger.info(`Node ${i} stopped`);
+      await sleep(1200);
+      const newNode = await createNode(i + 1 + BOOT_NODE_UDP_PORT, undefined, i, `./data-${i}`);
+      logger.info(`Node ${i} restarted`);
+      newNodes.push(newNode);
+      // const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
+      // contexts.push(context);
+    }
+
+    // wait a bit for peers to discover each other
+    await sleep(2000);
+
+    for (const node of newNodes) {
+      const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
+      contexts.push(context);
+    }
+
+    // now ensure that all txs were successfully mined
+    await Promise.all(
+      contexts.flatMap((context, i) =>
+        context.txs.map(async (tx, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+          return tx.wait();
+        }),
+      ),
+    );
+
+    // shutdown all nodes.
+    // for (const context of contexts) {
+    for (const context of contexts) {
+      await context.node.stop();
+      await context.pxeService.stop();
+    }
+  });
+
   const createBootstrapNode = async () => {
     const peerId = await createLibP2PPeerId();
     const bootstrapNode = new BootstrapNode();
@@ -104,7 +175,12 @@ describe('e2e_p2p_network', () => {
   };
 
   // creates a P2P enabled instance of Aztec Node Service
-  const createNode = async (tcpListenPort: number, bootstrapNode: string, publisherAddressIndex: number) => {
+  const createNode = async (
+    tcpListenPort: number,
+    bootstrapNode: string | undefined,
+    publisherAddressIndex: number,
+    dataDirectory?: string,
+  ) => {
     // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
     // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: publisherAddressIndex + 1 });
@@ -113,17 +189,19 @@ describe('e2e_p2p_network', () => {
 
     const newConfig: AztecNodeConfig = {
       ...config,
+      peerIdPrivateKey: PEER_ID_PRIVATE_KEYS[publisherAddressIndex],
       udpListenAddress: `0.0.0.0:${tcpListenPort}`,
       tcpListenAddress: `0.0.0.0:${tcpListenPort}`,
       tcpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
       udpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
-      bootstrapNodes: [bootstrapNode],
       minTxsPerBlock: NUM_TXS_PER_BLOCK,
       maxTxsPerBlock: NUM_TXS_PER_BLOCK,
       p2pEnabled: true,
       p2pBlockCheckIntervalMS: 1000,
       p2pL2QueueSize: 1,
       transactionProtocol: '',
+      dataDirectory,
+      bootstrapNodes: bootstrapNode ? [bootstrapNode] : [],
     };
     return await AztecNodeService.createAndSync(newConfig, createDebugLogger(`aztec:node-${tcpListenPort}`));
   };

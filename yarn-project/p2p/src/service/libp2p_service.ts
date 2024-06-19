@@ -113,8 +113,12 @@ export class LibP2PService implements P2PService {
   public async stop() {
     this.logger.debug('Stopping job queue...');
     await this.jobQueue.end();
+    this.logger.debug('Stopping running promise...');
+    await this.discoveryRunningPromise?.stop();
+    this.logger.debug('Stopping peer discovery service...');
+    await this.peerDiscoveryService.stop();
     this.logger.debug('Stopping LibP2P...');
-    await this.node.stop();
+    await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
   }
 
@@ -259,5 +263,19 @@ export class LibP2PService implements P2PService {
     this.logger.verbose(`Sending tx ${tx.getTxHash().toString()} to peers`);
     const recipientsNum = await this.publishToTopic(this.messageCreator.getTopic(), txData);
     this.logger.verbose(`Sent tx ${tx.getTxHash().toString()} to ${recipientsNum} peers`);
+  }
+
+  // Libp2p seems to hang sometimes if new peers are initiating connections.
+  private async stopLibP2P() {
+    const TIMEOUT_MS = 5000; // 5 seconds timeout
+    const timeout = new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error('Timeout during libp2p.stop()')), TIMEOUT_MS);
+    });
+    try {
+      await Promise.race([this.node.stop(), timeout]);
+      this.logger.debug('Libp2p stopped');
+    } catch (error) {
+      this.logger.error('Error during stop or timeout:', error);
+    }
   }
 }
