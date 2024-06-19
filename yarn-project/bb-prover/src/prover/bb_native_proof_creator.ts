@@ -190,7 +190,7 @@ export class BBNativeProofCreator implements ProofCreator {
       if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
         throw new Error(`Incorrect proof length`);
       }
-      const proof = proofOutput.proof as RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
+      const proof = proofOutput.proof;
       const output: AppCircuitProofOutput = {
         proof,
         verificationKey: proofOutput.verificationKey,

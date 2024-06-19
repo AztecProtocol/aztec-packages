@@ -67,18 +67,18 @@ export function executeBB(
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
-    logger(`Executing BB with: ${command} ${args.join(' ')}`);
+    console.log(`Executing BB with: ${command} ${args.join(' ')}`);
     console.log(new Error('bb calling').stack)
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
     });
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      console.error(message);
+      console.log(message);
     });
     bb.stderr.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      console.error(message);
+      console.log(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (resultParser(exitCode)) {

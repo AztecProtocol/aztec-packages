@@ -22,7 +22,7 @@ struct PrivateCallData {
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    
+
     acir_hash: Field,
 }
 
@@ -31,7 +31,7 @@ impl Verifiable for PrivateCallData {
     let inputs = PrivateCircuitPublicInputs::serialize(self.call_stack_item.public_inputs);
     dep::std::verify_proof(
         self.vk.key.as_slice(),
-        self.proof.fields.as_slice(),
+        self.proof.fields.as_slice(), // LONDONTODO this seems wrong
         inputs.as_slice(),
         self.vk.hash
     );

@@ -6,7 +6,7 @@ import * as path from 'path';
 export async function runInDirectory<T>(
   workingDirBase: string,
   fn: (dir: string) => Promise<T>,
-  cleanup: boolean = true,
+  _cleanup: boolean = true,
 ): Promise<T> {
   // Create random directory to be used for temp files
   const workingDirectory = await fs.mkdtemp(path.join(workingDirBase, 'tmp-'));
@@ -16,8 +16,8 @@ export async function runInDirectory<T>(
   try {
     return await fn(workingDirectory);
   } finally {
-    if (cleanup) {
-      await fs.rm(workingDirectory, { recursive: true, force: true });
-    }
+    // if (cleanup) {
+    //   await fs.rm(workingDirectory, { recursive: true, force: true });
+    // }
   }
 }

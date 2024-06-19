@@ -54,11 +54,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    info("circuit size ", circuit_size);
+    info("circuit size ", circuit_size, " vs for key ", key->circuit_size);
     const auto public_input_size = transcript->template receive_from_prover<FF>("public_input_size");
-    info("public input size", public_input_size);
+    info("public input size", public_input_size, " vs for key ", key->num_public_inputs);
     const auto pub_inputs_offset = transcript->template receive_from_prover<FF>("pub_inputs_offset");
-    info("pub inputs offset", pub_inputs_offset);
+    info("pub inputs offset", pub_inputs_offset, " vs for key ", key->pub_inputs_offset);
 
     // For debugging purposes only
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
@@ -68,7 +68,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
         public_inputs.emplace_back(transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i)));
-        info("RECEIVED PUBLIC INPUTS ", public_inputs[i].get_value());
     }
 
     // Get commitments to first three wire polynomials
