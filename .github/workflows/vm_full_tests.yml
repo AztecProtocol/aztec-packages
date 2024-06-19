@@ -45,7 +45,7 @@ jobs:
   # only ran on x86 for resource reasons (memory intensive)
   avm-full-tests:
     needs: [setup]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
