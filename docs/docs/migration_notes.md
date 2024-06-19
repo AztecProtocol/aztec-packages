@@ -33,7 +33,7 @@ A `BoundedVec` has a `max_len()`, which equals the number of elements it can hol
 + }
 ```
 
-To further reduce gate count, you can iterate over `options.limit` instead of `max_len()`, since `options.limit` is guaranteed to be larger than `len()` and smaller or equal to `max_len()`:
+To further reduce gate count, you can iterate over `options.limit` instead of `max_len()`, since `options.limit` is guaranteed to be larger or equal to `len()`, and smaller or equal to `max_len()`:
 
 ```diff
 - for i in 0..notes.max_len() {
