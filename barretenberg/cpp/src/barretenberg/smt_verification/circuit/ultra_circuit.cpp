@@ -187,7 +187,7 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor, size_t idx)
         this->cached_symbolic_tables.insert({ table_idx, this->solver->create_lookup_table(new_table) });
     }
 
-    // Sort of an optimization. 
+    // Sort of an optimization.
     // However if we don't do this, solver will find a unique witness that corresponds to overflowed value.
     if (this->type == TermType::BVTerm && q_r == -64 && q_m == -64 && q_c == -64) {
         this->symbolic_vars[w_l_shift_idx] = this->symbolic_vars[w_l_idx] >> 6;
