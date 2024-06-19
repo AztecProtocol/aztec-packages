@@ -401,10 +401,10 @@ std::pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_witness_ext(
     const std::vector<std::string>& not_equal,
     const std::vector<std::string>& equal_at_the_same_time,
     const std::vector<std::string>& not_equal_at_the_same_time,
-    bool optimizations)
+    bool enable_optimizations)
 {
-    UltraCircuit c1(circuit_info, s, type, "circuit1", optimizations);
-    UltraCircuit c2(circuit_info, s, type, "circuit2", optimizations);
+    UltraCircuit c1(circuit_info, s, type, "circuit1", enable_optimizations);
+    UltraCircuit c2(circuit_info, s, type, "circuit2", enable_optimizations);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
@@ -452,11 +452,14 @@ std::pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_witness_ext(
  * @param equal The list of names of variables which should be equal in both circuits(each is equal)
  * @return std::pair<Circuit, Circuit>
  */
-std::pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_witness(
-    CircuitSchema& circuit_info, Solver* s, TermType type, const std::vector<std::string>& equal, bool optimizations)
+std::pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_witness(CircuitSchema& circuit_info,
+                                                                   Solver* s,
+                                                                   TermType type,
+                                                                   const std::vector<std::string>& equal,
+                                                                   bool enable_optimizations)
 {
-    UltraCircuit c1(circuit_info, s, type, "circuit1", optimizations);
-    UltraCircuit c2(circuit_info, s, type, "circuit2", optimizations);
+    UltraCircuit c1(circuit_info, s, type, "circuit1", enable_optimizations);
+    UltraCircuit c2(circuit_info, s, type, "circuit2", enable_optimizations);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
