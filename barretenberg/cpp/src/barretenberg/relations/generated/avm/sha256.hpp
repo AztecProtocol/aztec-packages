@@ -6,19 +6,19 @@
 
 namespace bb::Avm_vm {
 
-template <typename FF> struct Avm_sha256Row {
-    FF avm_sha256_sha256_compression_sel{};
+template <typename FF> struct Sha256Row {
+    FF sha256_sha256_compression_sel{};
 
     [[maybe_unused]] static std::vector<std::string> names();
 };
 
-inline std::string get_relation_label_avm_sha256(int index)
+inline std::string get_relation_label_sha256(int index)
 {
     switch (index) {}
     return std::to_string(index);
 }
 
-template <typename FF_> class avm_sha256Impl {
+template <typename FF_> class sha256Impl {
   public:
     using FF = FF_;
 
@@ -37,13 +37,13 @@ template <typename FF_> class avm_sha256Impl {
         {
             Avm_DECLARE_VIEWS(0);
 
-            auto tmp = ((avm_sha256_sha256_compression_sel * (-avm_sha256_sha256_compression_sel + FF(1))) - FF(0));
+            auto tmp = ((sha256_sha256_compression_sel * (-sha256_sha256_compression_sel + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
     }
 };
 
-template <typename FF> using avm_sha256 = Relation<avm_sha256Impl<FF>>;
+template <typename FF> using sha256 = Relation<sha256Impl<FF>>;
 
 } // namespace bb::Avm_vm

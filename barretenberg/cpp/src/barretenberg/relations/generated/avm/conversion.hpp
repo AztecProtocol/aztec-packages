@@ -6,19 +6,19 @@
 
 namespace bb::Avm_vm {
 
-template <typename FF> struct Avm_pedersenRow {
-    FF avm_pedersen_pedersen_sel{};
+template <typename FF> struct ConversionRow {
+    FF conversion_to_radix_le_sel{};
 
     [[maybe_unused]] static std::vector<std::string> names();
 };
 
-inline std::string get_relation_label_avm_pedersen(int index)
+inline std::string get_relation_label_conversion(int index)
 {
     switch (index) {}
     return std::to_string(index);
 }
 
-template <typename FF_> class avm_pedersenImpl {
+template <typename FF_> class conversionImpl {
   public:
     using FF = FF_;
 
@@ -37,13 +37,13 @@ template <typename FF_> class avm_pedersenImpl {
         {
             Avm_DECLARE_VIEWS(0);
 
-            auto tmp = ((avm_pedersen_pedersen_sel * (-avm_pedersen_pedersen_sel + FF(1))) - FF(0));
+            auto tmp = ((conversion_to_radix_le_sel * (-conversion_to_radix_le_sel + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
     }
 };
 
-template <typename FF> using avm_pedersen = Relation<avm_pedersenImpl<FF>>;
+template <typename FF> using conversion = Relation<conversionImpl<FF>>;
 
 } // namespace bb::Avm_vm
