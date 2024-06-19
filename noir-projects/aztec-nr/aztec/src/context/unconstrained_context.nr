@@ -11,8 +11,8 @@ impl UnconstrainedContext {
         // not even be accessed. However any performance gains are minimal, and we'd rather fail early if a user
         // incorrectly attempts to create an UnconstrainedContext in an environment in which these oracles are not
         // available.
-        let block_number = block_number_oracle();
-        let contract_address = contract_address_oracle();
+        let block_number = get_block_number();
+        let contract_address = get_contract_address();
         Self { block_number, contract_address }
     }
 
@@ -26,7 +26,15 @@ impl UnconstrainedContext {
 }
 
 #[oracle(getContractAddress)]
-unconstrained fn contract_address_oracle() -> AztecAddress {}
+unconstrained fn get_contract_address_oracle() -> AztecAddress {}
 
 #[oracle(getBlockNumber)]
-unconstrained fn block_number_oracle() -> u32 {}
+unconstrained fn get_block_number_oracle() -> u32 {}
+
+unconstrained fn get_contract_address() -> AztecAddress {
+    get_contract_address_oracle()
+}
+
+unconstrained fn get_block_number() -> u32 {
+    get_block_number_oracle()
+}
