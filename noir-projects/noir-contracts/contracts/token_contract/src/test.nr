@@ -5,11 +5,18 @@ use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
 use dep::aztec::note::note_viewer_options::NoteViewerOptions;
 use crate::{types::{token_note::TokenNote, transparent_note::TransparentNote}, Token};
 
-pub fn setup_and_mint() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub fn setup_and_mint(with_account_contracts: bool) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
-    let owner = env.create_account_contract(1);
-    let recipient = env.create_account_contract(2);
+    let (owner, recipient) = if with_account_contracts {
+        let owner = env.create_account_contract(1);
+        let recipient = env.create_account_contract(2);
+        (owner, recipient)
+    } else {
+        let owner = env.create_account();
+        let recipient = env.create_account();
+        (owner, recipient)
+    };
     let mint_amount = 10000;
 
     // Start the test in the account contract address

@@ -403,8 +403,8 @@ contract Token {
 
     #[test]
     fn test_private_transfer() {
-        // Setup
-        let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint();
+        // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+        let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint(/* with_account_contracts */ false);
         // Transfer tokens
         let transfer_amount = 1000;
         let private_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, transfer_amount);
@@ -417,8 +417,8 @@ contract Token {
 
     #[test]
     fn test_private_transfer_from() {
-        // Setup
-        let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint();
+        // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
+        let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint(/* with_account_contracts */ true);
         // Impersonate recipient to test authwits
         cheatcodes::set_contract_address(recipient);
         let transfer_amount = 1000;
