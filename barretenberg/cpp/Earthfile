@@ -16,17 +16,6 @@ source:
     # for debugging rebuilds
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
-source-no-wasm:
-    FROM ../../build-images+build-no-wasm
-    WORKDIR /usr/src/barretenberg
-    # cpp source
-    COPY --dir src/barretenberg src/CMakeLists.txt src
-    # cmake source
-    COPY --dir cmake CMakeLists.txt CMakePresets.json .
-    # for debugging rebuilds
-    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
-    
-
 preset-darwin-arm64:
     FROM +source
     LET OSX_SDK="MacOSX14.0.sdk"
@@ -42,16 +31,6 @@ preset-release:
 
 preset-release-assert:
     FROM +source
-    RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb && rm -rf build/{deps,lib,src}
-    SAVE ARTIFACT build/bin
-
-preset-release-no-wasm:
-    FROM +source-no-wasm
-    RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb && rm -rf build/{deps,lib,src}
-    SAVE ARTIFACT build/bin
-
-preset-release-assert-no-wasm:
-    FROM +source-no-wasm
     RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb && rm -rf build/{deps,lib,src}
     SAVE ARTIFACT build/bin
 
@@ -163,13 +142,6 @@ preset-release-assert-test:
     RUN cmake --build build && rm -rf build/{deps,lib,src}
     SAVE ARTIFACT build/bin
 
-# test images
-preset-release-assert-test-no-wasm:
-    FROM +preset-release-assert-no-wasm
-    # build all targets for tests
-    RUN cmake --build build && rm -rf build/{deps,lib,src}
-    SAVE ARTIFACT build/bin
-
 # Sent to the bench runner using a earthly --push +bench-binaries
 # then we can run earthly +bench-ultra-honk --bench_mode=cache
 bench-binaries:
@@ -252,22 +224,6 @@ test-binaries:
         SAVE IMAGE --push aztecprotocol/bb-test-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
     END
 
-# Sent to the bench runner using a earthly --push +test-binaries
-# then we can run earthly +test --test_mode=cache
-test-binaries-no-wasm:
-    ARG EARTHLY_GIT_HASH
-    ARG TARGETARCH
-    ARG test_mode=build
-    LOCALLY
-    IF [ $test_mode = cache ]
-        FROM aztecprotocol/bb-test-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
-        SAVE ARTIFACT build
-    ELSE
-        FROM scratch
-        COPY +preset-release-assert-test-no-wasm/bin/*_tests build/bin/
-        SAVE ARTIFACT build
-    END
-
 test-clang-format:
     FROM +source
     COPY .clang-format .
@@ -294,13 +250,13 @@ test:
 vm-full-test:
     ARG hardware_concurrency=""
     # prefetch
-    BUILD +test-binaries-no-wasm
-    BUILD +preset-release-assert-test-no-wasm
-    BUILD ./srs_db/+build-no-wasm # prefetch
+    BUILD +test-binaries
+    BUILD +preset-release-assert-test
+    BUILD ./srs_db/+build # prefetch
     FROM +source
-    COPY --dir +test-binaries-no-wasm/build build
-    FROM +preset-release-assert-test-no-wasm
-    COPY --dir ./srs_db/+build-no-wasm/. srs_db
+    COPY --dir +test-binaries/build build
+    FROM +preset-release-assert-test
+    COPY --dir ./srs_db/+build/. srs_db
     # limit hardware concurrency, if provided
     IF [ "$HARDWARE_CONCURRENCY" != "" ]
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
@@ -310,7 +266,4 @@ vm-full-test:
 build:
     BUILD +preset-wasm
     BUILD +preset-wasm-threads
-    BUILD +preset-release
-
-build-no-wasm:
     BUILD +preset-release
