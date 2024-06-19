@@ -1,6 +1,7 @@
 // All code in this file needs to die once the public executor is phased out in favor of the AVM.
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
+  AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
@@ -91,6 +92,18 @@ function computeHints(trace: WorldStateAccessTrace, executionResult: PartialPubl
       );
       return new AvmExternalCallHint(/*success=*/ new Fr(nested.reverted ? 0 : 1), nested.returnValues, gasUsed);
     }),
+    trace.gotContractInstances.map(
+      instance =>
+        new AvmContractInstanceHint(
+          instance.address,
+          new Fr(instance.exists ? 1 : 0),
+          instance.salt,
+          instance.deployer,
+          instance.contractClassId,
+          instance.initializationHash,
+          instance.publicKeysHash,
+        ),
+    ),
   );
 }
 
@@ -101,12 +114,14 @@ export function convertAvmResultsToPxResult(
   startGas: Gas,
   endAvmContext: AvmContext,
   bytecode: Buffer | undefined,
+  functionName: string,
 ): PublicExecutionResult {
   const endPersistableState = endAvmContext.persistableState;
   const endMachineState = endAvmContext.machineState;
 
   return {
     ...endPersistableState.transitionalExecutionResult, // includes nestedExecutions
+    functionName: functionName,
     execution: fromPx,
     returnValues: avmResult.output,
     startSideEffectCounter: new Fr(startSideEffectCounter),

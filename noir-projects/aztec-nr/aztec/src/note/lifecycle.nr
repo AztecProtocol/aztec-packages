@@ -2,17 +2,16 @@ use dep::protocol_types::grumpkin_point::GrumpkinPoint;
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption}
+    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption},
+    note_emission::NoteEmission
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
 pub fn create_note<Note, N, M>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    note: &mut Note,
-    ovpk_m: GrumpkinPoint,
-    ivpk_m: GrumpkinPoint
-) where Note: NoteInterface<N, M> {
+    note: &mut Note
+) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
@@ -36,7 +35,7 @@ pub fn create_note<Note, N, M>(
 
     context.push_new_note_hash(inner_note_hash);
 
-    Note::broadcast(*note, context, storage_slot, ovpk_m, ivpk_m);
+    NoteEmission::new(*note)
 }
 
 pub fn create_note_hash_from_public<Note, N, M>(
@@ -64,11 +63,12 @@ pub fn destroy_note<Note, N, M>(
 
     // We also need the note hash corresponding to the "nullifier"
     let header = note.get_header();
-    // `consumed_note_hash` is used to inform the kernel which pending note hash
-    // the nullifier corresponds to so they can be matched and both squashed/deleted.
-    // nonzero nonce implies "persistable" nullifier (nullifies a persistent/in-tree
-    // note hash) in which case `consumed_note_hash` is not used since the kernel
-    // just siloes and forwards the nullifier to its output.
+
+    // A non-zero note hash counter implies that we're nullifying a transient note (i.e. one that has not yet been
+    // persisted in the trees and is instead if the pending new commitments array). In such a case we compute its hash 
+    // to inform the kernel which note we're nullifyng so that it can find it and squash both the note and the 
+    // nullifier. This value is unused when nullifying non transient notes - in that case the kernel simply persists
+    // the nullifier in the tree.
     if (header.note_hash_counter != 0) {
         // TODO(1718): Can we reuse the note hash computed in `compute_nullifier`?
         consumed_note_hash = compute_note_hash_for_consumption(note);

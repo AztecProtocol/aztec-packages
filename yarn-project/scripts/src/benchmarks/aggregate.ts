@@ -9,6 +9,7 @@
 // And then run this script from the yarn-project/scripts folder
 // LOG_FOLDER=../end-to-end/log yarn bench-aggregate
 import {
+  type AvmSimulationStats,
   BENCHMARK_BLOCK_SIZES,
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
@@ -25,6 +26,7 @@ import {
   type NodeSyncedChainHistoryStats,
   type NoteProcessorCaughtUpStats,
   type ProofConstructed,
+  type PublicDBAccessStats,
   type Stats,
   type TreeInsertionStats,
   type TxAddedToPoolStats,
@@ -132,14 +134,25 @@ function processCircuitSimulation(entry: CircuitSimulationStats, results: Benchm
  */
 function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCollectedResults) {
   if (entry.circuitName === 'app-circuit') {
-    const bucket = entry.appCircuitName;
-    if (!bucket) {
+    if (!entry.appCircuitName) {
       return;
     }
+    const bucket = entry.appCircuitName;
     append(results, 'app_circuit_proving_time_in_ms', bucket, entry.duration);
     append(results, 'app_circuit_proof_size_in_bytes', bucket, entry.proofSize);
     append(results, 'app_circuit_size_in_gates', bucket, entry.circuitSize);
     append(results, 'app_circuit_num_public_inputs', bucket, entry.numPublicInputs);
+  } else if (entry.circuitName === 'avm-circuit') {
+    if (!entry.appCircuitName) {
+      return;
+    }
+    const bucket = `${entry.appCircuitName} (avm)`;
+    append(results, 'app_circuit_proving_time_in_ms', bucket, entry.duration);
+    append(results, 'app_circuit_proof_size_in_bytes', bucket, entry.proofSize);
+    append(results, 'app_circuit_input_size_in_bytes', bucket, entry.inputSize);
+    // These are not yet correctly passed in bb_prover.ts.
+    // append(results, 'app_circuit_size_in_gates', bucket, entry.circuitSize);
+    // append(results, 'app_circuit_num_public_inputs', bucket, entry.numPublicInputs);
   } else {
     const bucket = entry.circuitName;
     append(results, 'protocol_circuit_proving_time_in_ms', bucket, entry.duration);
@@ -147,6 +160,15 @@ function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCol
     append(results, 'protocol_circuit_size_in_gates', bucket, entry.circuitSize);
     append(results, 'protocol_circuit_num_public_inputs', bucket, entry.numPublicInputs);
   }
+}
+
+function processAvmSimulation(entry: AvmSimulationStats, results: BenchmarkCollectedResults) {
+  append(results, 'avm_simulation_time_ms', entry.appCircuitName, entry.duration);
+  append(results, 'avm_simulation_bytecode_size_in_bytes', entry.appCircuitName, entry.bytecodeSize);
+}
+
+function processDbAccess(entry: PublicDBAccessStats, results: BenchmarkCollectedResults) {
+  append(results, 'public_db_access_time_ms', entry.operation, entry.duration);
 }
 
 /**
@@ -258,6 +280,10 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
       return processTxAddedToPool(entry, results);
     case 'tree-insertion':
       return processTreeInsertion(entry, results);
+    case 'avm-simulation':
+      return processAvmSimulation(entry, results);
+    case 'public-db-access':
+      return processDbAccess(entry, results);
     default:
       return;
   }

@@ -37,7 +37,6 @@ use acvm::acir::circuit::{AssertionPayload, ErrorSelector, OpcodeLocation};
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{acir::circuit::opcodes::BlockId, acir::AcirField, FieldElement};
-
 use fxhash::FxHashMap as HashMap;
 use im::Vector;
 use iter_extended::{try_vecmap, vecmap};
@@ -683,7 +682,9 @@ impl<'a> Context<'a> {
                 self.handle_array_operation(instruction_id, dfg)?;
             }
             Instruction::Allocate => {
-                unreachable!("Expected all allocate instructions to be removed before acir_gen")
+                return Err(RuntimeError::UnknownReference {
+                    call_stack: self.acir_context.get_call_stack().clone(),
+                });
             }
             Instruction::Store { .. } => {
                 unreachable!("Expected all store instructions to be removed before acir_gen")
@@ -840,9 +841,10 @@ impl<'a> Context<'a> {
                         self.handle_ssa_call_outputs(result_ids, outputs, dfg)?;
                     }
                     Value::ForeignFunction(_) => {
+                        // TODO: Remove this once elaborator is default frontend. This is now caught by a lint inside the frontend.
                         return Err(RuntimeError::UnconstrainedOracleReturnToConstrained {
                             call_stack: self.acir_context.get_call_stack(),
-                        })
+                        });
                     }
                     _ => unreachable!("expected calling a function but got {function_value:?}"),
                 }
@@ -1306,6 +1308,9 @@ impl<'a> Context<'a> {
                     }
                 }
                 Ok(AcirValue::Array(values))
+            }
+            Type::Reference(reference_type) => {
+                self.array_get_value(reference_type.as_ref(), block_id, var_index)
             }
             _ => unreachable!("ICE: Expected an array or numeric but got {ssa_type:?}"),
         }
