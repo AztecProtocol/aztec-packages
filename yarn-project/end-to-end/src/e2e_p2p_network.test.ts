@@ -62,7 +62,7 @@ describe('e2e_p2p_network', () => {
     }
 
     // wait a bit for peers to discover each other
-    await sleep(5000);
+    await sleep(2000);
 
     for (const node of nodes) {
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
