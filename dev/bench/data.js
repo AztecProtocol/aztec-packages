@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718816249780,
+  "lastUpdate": 1718817724001,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -45908,6 +45908,78 @@ window.BENCHMARK_DATA = {
             "value": 162724090,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162724090 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41b21f179ead617203c6d77b080e4f8b0065e06c",
+          "message": "feat: Several updates in SMT verification module (#7105)\n\nThis pr adds several new features to SMT verification module + fixes\r\nsome bugs:\r\n\r\n## meta\r\n\r\nupdated `README.md` so now it matches the current state of the directory\r\n\r\n## UltraCircuit\r\n\r\n- Added an optimization to lookups: now plookup accumulators are\r\nconnected via `>>`. Without this constraint it produced unique witness\r\nthat was overflowing over the bitlength.\r\n- Now the range constrained values are not optimized out by the solver.\r\n- `unique_witness` and `unique_witness_ext` now have `bool\r\noptimizations` argument like `Standard` ones.\r\n\r\n## Solver\r\n\r\n- improved `print_assertions` method. Now sets are handled properly.\r\n\r\n## BVTerm\r\n\r\n- Added unsigned division operation + tests\r\n\r\n## STerm  \r\n\r\n- Added new symbolic term type: `ITerm`. These are ordinary integers. +\r\ntests\r\n- Changed `mod()` method behavior. Now it returns the value that is\r\nmodded instead of modifying the current term.\r\n- fixed several `mod` related methods for `FFITerm`\r\n\r\n## `smt_util.cpp`\r\n\r\nAdded a function `fix_range_lists(UltraCircuitBuilder& builder)` that\r\nfixes the witness by adding proper values into range lists.\r\n\r\n---------\r\n\r\nCo-authored-by: Innokentii Sennovskii <isennovskiy@gmail.com>",
+          "timestamp": "2024-06-19T20:10:40+03:00",
+          "tree_id": "780482ae42a816289ab48f1a55b84c74cd089858",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/41b21f179ead617203c6d77b080e4f8b0065e06c"
+        },
+        "date": 1718817720891,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15659.718045999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10898.717393999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5935.6478830000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5439.108510999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49532.406481000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49532407000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17236.683258000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17236683000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5204341823,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5204341823 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199369919,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199369919 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4322733597,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4322733597 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164014231,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164014231 ns\nthreads: 1"
           }
         ]
       }
