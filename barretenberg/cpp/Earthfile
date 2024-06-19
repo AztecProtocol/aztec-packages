@@ -253,11 +253,11 @@ vm-full-test:
     BUILD +test-binaries
     BUILD +preset-release-assert-test
     BUILD +test-clang-format
-    BUILD ./srs_db/+build # prefetch
+    BUILD ./srs_db/+build-no-wasm # prefetch
     FROM +source
     COPY --dir +test-binaries/build build
     FROM +preset-release-assert-test
-    COPY --dir ./srs_db/+build/. srs_db
+    COPY --dir ./srs_db/+build-no-wasm/. srs_db
     # limit hardware concurrency, if provided
     IF [ "$HARDWARE_CONCURRENCY" != "" ]
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
@@ -267,4 +267,7 @@ vm-full-test:
 build:
     BUILD +preset-wasm
     BUILD +preset-wasm-threads
+    BUILD +preset-release
+
+build-no-wasm:
     BUILD +preset-release
