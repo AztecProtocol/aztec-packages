@@ -159,6 +159,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     instance->proving_key.add_plookup_memory_records_to_wire_4(instance->relation_parameters.eta,
                                                                instance->relation_parameters.eta_two,
                                                                instance->relation_parameters.eta_three);
+    instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
     auto prover_transcript = Transcript::prover_init_empty();
