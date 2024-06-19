@@ -117,16 +117,14 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
 
-    proving_key.compute_sorted_accumulator_polynomials(
+    proving_key.add_plookup_memory_records_to_wire_4(
         relation_parameters.eta, relation_parameters.eta_two, relation_parameters.eta_three);
     // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial
-    witness_commitments.sorted_accum = commitment_key->commit(proving_key.polynomials.sorted_accum);
     witness_commitments.lookup_read_counts = commitment_key->commit(proving_key.polynomials.lookup_read_counts);
     witness_commitments.lookup_read_tags = commitment_key->commit(proving_key.polynomials.lookup_read_tags);
     witness_commitments.w_4 = commitment_key->commit(proving_key.polynomials.w_4);
 
-    transcript->send_to_verifier(domain_separator + commitment_labels.sorted_accum, witness_commitments.sorted_accum);
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_counts,
                                  witness_commitments.lookup_read_counts);
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_tags,
@@ -171,10 +169,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     proving_key.compute_grand_product_polynomials(relation_parameters);
 
     witness_commitments.z_perm = commitment_key->commit(proving_key.polynomials.z_perm);
-    witness_commitments.z_lookup = commitment_key->commit(proving_key.polynomials.z_lookup);
 
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
-    transcript->send_to_verifier(domain_separator + commitment_labels.z_lookup, witness_commitments.z_lookup);
 }
 
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()

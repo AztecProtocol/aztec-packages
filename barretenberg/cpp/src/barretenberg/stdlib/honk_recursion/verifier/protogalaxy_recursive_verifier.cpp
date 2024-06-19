@@ -56,8 +56,6 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     // Get challenge for sorted list batching and wire four memory records commitment
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "_eta", domain_separator + "_eta_two", domain_separator + "_eta_three");
-    witness_commitments.sorted_accum =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
     witness_commitments.lookup_read_counts =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_counts);
     witness_commitments.lookup_read_tags =
@@ -81,8 +79,6 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 
     witness_commitments.z_perm =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
-    witness_commitments.z_lookup =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
     const FF public_input_delta =

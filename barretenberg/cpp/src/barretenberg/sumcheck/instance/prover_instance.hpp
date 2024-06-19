@@ -86,8 +86,6 @@ template <class Flavor> class ProverInstance_ {
                                              circuit,
                                              dyadic_circuit_size);
 
-        proving_key.sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
-
         std::span<FF> public_wires_source = proving_key.polynomials.w_r;
 
         // Construct the public inputs array

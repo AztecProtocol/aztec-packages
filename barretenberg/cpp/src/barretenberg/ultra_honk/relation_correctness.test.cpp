@@ -5,7 +5,6 @@
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -273,9 +272,9 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     instance->relation_parameters.beta = FF::random_element();
     instance->relation_parameters.gamma = FF::random_element();
 
-    instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
-                                                                 instance->relation_parameters.eta_two,
-                                                                 instance->relation_parameters.eta_three);
+    instance->proving_key.add_plookup_memory_records_to_wire_4(instance->relation_parameters.eta,
+                                                               instance->relation_parameters.eta_two,
+                                                               instance->relation_parameters.eta_three);
     instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
@@ -291,7 +290,6 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<LookupRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
@@ -327,9 +325,9 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     instance->relation_parameters.beta = FF::random_element();
     instance->relation_parameters.gamma = FF::random_element();
 
-    instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
-                                                                 instance->relation_parameters.eta_two,
-                                                                 instance->relation_parameters.eta_three);
+    instance->proving_key.add_plookup_memory_records_to_wire_4(instance->relation_parameters.eta,
+                                                               instance->relation_parameters.eta_two,
+                                                               instance->relation_parameters.eta_three);
     instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
@@ -356,7 +354,6 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<LookupRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);

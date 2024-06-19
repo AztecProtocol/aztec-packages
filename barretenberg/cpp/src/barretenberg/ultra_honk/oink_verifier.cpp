@@ -94,8 +94,6 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
     // Get commitments to sorted list accumulator and fourth wire
-    witness_comms.sorted_accum =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.sorted_accum);
     witness_comms.lookup_read_counts =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
     witness_comms.lookup_read_tags =
@@ -145,8 +143,6 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
 
     // Get commitment to permutation and lookup grand products
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
-    witness_comms.z_lookup =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_lookup);
 }
 
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()

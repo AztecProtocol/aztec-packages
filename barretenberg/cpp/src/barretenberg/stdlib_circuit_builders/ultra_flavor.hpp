@@ -13,7 +13,6 @@
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -37,23 +36,21 @@ class UltraFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 46;
+    static constexpr size_t NUM_ALL_ENTITIES = 42;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 10;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 8;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
+    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
-                                  bb::LookupRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
@@ -152,17 +149,14 @@ class UltraFlavor {
                               w_r,                // column 1
                               w_o,                // column 2
                               w_4,                // column 3
-                              sorted_accum,       // column 4
                               z_perm,             // column 5
-                              z_lookup,           // column 6
                               lookup_inverses,    // column 6
                               lookup_read_counts, // column 6
                               lookup_read_tags)   // column 6
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
 
-        MSGPACK_FIELDS(
-            w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup, lookup_inverses, lookup_read_counts, lookup_read_tags);
+        MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
@@ -171,22 +165,20 @@ class UltraFlavor {
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift,      // column 0
-                              table_2_shift,      // column 1
-                              table_3_shift,      // column 2
-                              table_4_shift,      // column 3
-                              w_l_shift,          // column 4
-                              w_r_shift,          // column 5
-                              w_o_shift,          // column 6
-                              w_4_shift,          // column 7
-                              sorted_accum_shift, // column 8
-                              z_perm_shift,       // column 9
-                              z_lookup_shift)     // column 10
+                              table_1_shift, // column 0
+                              table_2_shift, // column 1
+                              table_3_shift, // column 2
+                              table_4_shift, // column 3
+                              w_l_shift,     // column 4
+                              w_r_shift,     // column 5
+                              w_o_shift,     // column 6
+                              w_4_shift,     // column 7
+                              z_perm_shift)  // column 10
 
         auto get_shifted()
         {
-            return RefArray{ table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
-                             w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
+            return RefArray{ table_1_shift, table_2_shift, table_3_shift, table_4_shift, w_l_shift,
+                             w_r_shift,     w_o_shift,     w_4_shift,     z_perm_shift };
         };
     };
 
@@ -222,8 +214,8 @@ class UltraFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+            return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4, this->w_l,
+                             this->w_r,     this->w_o,     this->w_4,     this->z_perm };
         };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
@@ -294,42 +286,7 @@ class UltraFlavor {
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
-        std::array<Polynomial, 4> sorted_polynomials;
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            // Compute sorted witness-table accumulator
-            compute_sorted_list_accumulator(eta, eta_two, eta_three);
-
-            // Finalize fourth wire polynomial by adding lookup memory records
-            add_plookup_memory_records_to_wire_4(eta, eta_two, eta_three);
-        }
-
-        /**
-         * @brief Construct sorted list accumulator polynomial 's'.
-         *
-         * @details Compute s = s_1 + η*s_2 + η²*s_3 + η³*s_4 (via Horner) where s_i are the
-         * sorted concatenated witness/table polynomials
-         *
-         * @param key proving key
-         * @param sorted_list_polynomials sorted concatenated witness/table polynomials
-         * @param eta random challenge
-         * @return Polynomial
-         */
-        void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            auto& sorted_list_accumulator = polynomials.sorted_accum;
-
-            // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
-            for (size_t i = 0; i < this->circuit_size; ++i) {
-                FF T0 = sorted_polynomials[3][i] * eta_three;
-                T0 += sorted_polynomials[2][i] * eta_two;
-                T0 += sorted_polynomials[1][i] * eta;
-                T0 += sorted_polynomials[0][i];
-                sorted_list_accumulator[i] = T0;
-            }
-        }
 
         /**
          * @brief Add plookup memory records to the fourth wire polynomial
@@ -378,8 +335,7 @@ class UltraFlavor {
         }
 
         /**
-         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup
-         * polynomials
+         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm polynomial
          *
          * @param relation_parameters
          */
@@ -600,9 +556,7 @@ class UltraFlavor {
             w_o = "W_O";
             w_4 = "W_4";
             z_perm = "Z_PERM";
-            z_lookup = "Z_LOOKUP";
             lookup_inverses = "LOOKUP_INVERSES";
-            sorted_accum = "SORTED_ACCUM";
             lookup_read_counts = "LOOKUP_READ_COUNTS";
             lookup_read_tags = "LOOKUP_READ_TAGS";
 
@@ -676,13 +630,11 @@ class UltraFlavor {
                 this->w_l = commitments.w_l;
                 this->w_r = commitments.w_r;
                 this->w_o = commitments.w_o;
-                this->sorted_accum = commitments.sorted_accum;
                 this->lookup_inverses = commitments.lookup_inverses;
                 this->lookup_read_counts = commitments.lookup_read_counts;
                 this->lookup_read_tags = commitments.lookup_read_tags;
                 this->w_4 = commitments.w_4;
                 this->z_perm = commitments.z_perm;
-                this->z_lookup = commitments.z_lookup;
             }
         }
     };
@@ -703,12 +655,10 @@ class UltraFlavor {
         Commitment w_l_comm;
         Commitment w_r_comm;
         Commitment w_o_comm;
-        Commitment sorted_accum_comm;
         Commitment lookup_read_counts_comm;
         Commitment lookup_read_tags_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
-        Commitment z_lookup_comm;
         Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -759,13 +709,11 @@ class UltraFlavor {
             w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
@@ -798,13 +746,11 @@ class UltraFlavor {
             serialize_to_buffer(w_l_comm, proof_data);
             serialize_to_buffer(w_r_comm, proof_data);
             serialize_to_buffer(w_o_comm, proof_data);
-            serialize_to_buffer(sorted_accum_comm, proof_data);
             serialize_to_buffer(lookup_read_counts_comm, proof_data);
             serialize_to_buffer(lookup_read_tags_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
-            serialize_to_buffer(z_lookup_comm, proof_data);
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
