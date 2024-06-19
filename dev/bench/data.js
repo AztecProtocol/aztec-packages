@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718830271298,
+  "lastUpdate": 1718831806391,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -46252,6 +46252,78 @@ window.BENCHMARK_DATA = {
             "value": 162556366,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162556366 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "77761c670f2d516ab486de0f7bde036ff00ebd99",
+          "message": "chore: Ultra flavor cleanup (#7070)\n\nRemoves a ton of duplication from ultra and ultra recursive flavors.\r\nThis had the side effect of slightly changing the order of one of the\r\nget_all methods which required updates to the combiner test suite. The\r\nsuite has been updated to include one test that depends on the\r\n\"hand-computable\" python values as originally intended, and one that\r\nchecks the combiner optimization consistency without dependence on\r\npython generated values.\r\n\r\n---------\r\n\r\nCo-authored-by: Rumata888 <isennovskiy@gmail.com>",
+          "timestamp": "2024-06-19T21:09:53Z",
+          "tree_id": "a7192e177217613c5efebacd5cbdcbbe5b536e01",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/77761c670f2d516ab486de0f7bde036ff00ebd99"
+        },
+        "date": 1718831804213,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15710.003008000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10902.524519999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5950.392614999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5439.9492629999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49687.787982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49687790000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17303.836011999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17303835000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5227298665,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5227298665 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202758859,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202758859 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4345790439,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4345790439 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165394974,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165394974 ns\nthreads: 1"
           }
         ]
       }
