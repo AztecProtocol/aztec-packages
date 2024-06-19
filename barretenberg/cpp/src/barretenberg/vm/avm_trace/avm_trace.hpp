@@ -33,7 +33,7 @@ class AvmTraceBuilder {
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0);
 
-    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
+    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = ENABLE_PROVING);
     void reset();
 
     uint32_t getPc() const { return pc; }
@@ -204,6 +204,11 @@ class AvmTraceBuilder {
                    uint32_t rhs_y_offset,
                    uint32_t rhs_is_inf_offset,
                    uint32_t output_offset);
+    void op_variable_msm(uint8_t indirect,
+                         uint32_t points_offset,
+                         uint32_t scalars_offset,
+                         uint32_t output_offset,
+                         uint32_t point_length_offset);
 
   private:
     // Used for the standard indirect address resolution of three operands opcode.
