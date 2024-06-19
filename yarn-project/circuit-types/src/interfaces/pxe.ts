@@ -6,7 +6,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
 import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
@@ -17,8 +17,8 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
-import { type ExtendedNote } from '../notes/index.js';
-import { type NoteFilter } from '../notes/note_filter.js';
+import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
+import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
@@ -224,11 +224,18 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
-   * Gets notes of accounts registered in this PXE based on the provided filter.
+   * Gets incoming notes of accounts registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]>;
 
   /**
    * Finds the nonce(s) for a given note.
@@ -390,7 +397,7 @@ export interface PXE {
  */
 export interface EventMetadata<T> {
   decode(payload: L1EventPayload): T | undefined;
-  functionSelector: FunctionSelector;
+  eventSelector: EventSelector;
   fieldNames: string[];
 }
 
