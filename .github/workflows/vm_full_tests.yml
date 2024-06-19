@@ -53,6 +53,6 @@ jobs:
       - uses: ./.github/ci-setup-action
       - name: "AVM Full Tests"
         working-directory: ./barretenberg/cpp/
-        timeout-minutes: 150
+        timeout-minutes: 90
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +vm-full-test --hardware_concurrency=64
