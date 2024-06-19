@@ -1,7 +1,6 @@
 use crate::components::{
-    kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer,
     previous_kernel_validator::PreviousKernelValidator,
-    private_kernel_tail_hints::generate_private_kernel_tail_hints,
+    tail_to_public_output_composer::TailToPublicOutputComposer,
     tail_to_public_output_validator::{TailToPublicOutputValidator, PrivateKernelTailToPublicHints}
 };
 use dep::types::{abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs}};
@@ -12,18 +11,8 @@ struct PrivateKernelTailToPublicCircuitPrivateInputs {
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
-    // TODO: Make it unconstrained and validate the output in TailToPublicOutputValidator.
-    fn generate_output(self) -> PublicKernelCircuitPublicInputs {
-        let hints = generate_private_kernel_tail_hints(self.previous_kernel.public_inputs);
-        KernelCircuitPublicInputsComposer::new(
-            self.previous_kernel,
-            self.hints.sorted_new_note_hashes,
-            self.hints.sorted_new_nullifiers,
-            hints.sorted_new_l2_to_l1_msgs,
-            self.hints.sorted_note_encrypted_log_hashes,
-            self.hints.sorted_encrypted_log_hashes,
-            self.hints.sorted_unencrypted_log_hashes
-        ).compose_public(self.hints.sorted_call_requests).finish_to_public()
+    unconstrained fn generate_output(self) -> PublicKernelCircuitPublicInputs {
+        TailToPublicOutputComposer::new(self.previous_kernel.public_inputs).finish()
     }
 
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
@@ -83,7 +72,7 @@ mod tests {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new();
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
-            previous_kernel.append_new_nullifiers(1);
+            previous_kernel.set_first_nullifier();
             previous_kernel.push_public_call_request(1, false);
 
             PrivateKernelTailToPublicInputsBuilder { previous_kernel }
@@ -194,7 +183,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn ordering_of_note_hashes_and_nullifiers() {
+    fn ordering_of_note_hashes_and_nullifiers() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
         builder.previous_kernel.append_new_note_hashes(10);
@@ -216,11 +205,13 @@ mod tests {
 
         let public_inputs = builder.execute();
 
+        let first_nullifier = builder.previous_kernel.new_nullifiers.get(0);
+        assert_eq(public_inputs.end_non_revertible.new_nullifiers[0], first_nullifier.nullifier);
         let output_note_hashes = builder.compute_output_note_hashes(sorted_note_hashes);
         let output_nullifiers = builder.compute_output_nullifiers(sorted_nullifiers);
         for i in 0..10 {
             assert(public_inputs.end.new_note_hashes[i].eq(output_note_hashes[i]));
-            assert(public_inputs.end.new_nullifiers[i].eq(output_nullifiers[i]));
+            assert(public_inputs.end.new_nullifiers[i].eq(output_nullifiers[i + 1]));
         }
     }
 
@@ -375,12 +366,15 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
 
-        let expected_gas_consumed = Gas::new(300, 300) + Gas::tx_overhead();
-        assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
+        let gas_for_first_nullifier = Gas::new(DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0);
+        let expected_non_revertible_gas_consumed = Gas::tx_overhead() + gas_for_first_nullifier;
+        assert_eq(public_inputs.end_non_revertible.gas_used, expected_non_revertible_gas_consumed);
+        let expected_revertible_gas_consumed = Gas::new(300, 300);
+        assert_eq(public_inputs.end.gas_used, expected_revertible_gas_consumed);
     }
 
     #[test(should_fail_with="The gas used exceeds the gas limits")]
-    unconstrained fn gas_limits_are_enforced() {
+    fn gas_limits_are_enforced() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);

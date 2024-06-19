@@ -1,4 +1,6 @@
-use crate::components::{kernel_circuit_output_hints::Hints};
+mod kernel_circuit_output_hints;
+
+use crate::components::kernel_circuit_output_validator::kernel_circuit_output_hints::{generate_kernel_circuit_output_hints, Hints};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
@@ -35,7 +37,7 @@ fn validate_siloed_value_array<T, S, N, Env>(
 
 struct KernelCircuitOutputValidator {
     output: KernelCircuitPublicInputs,
-    previous_kernel: PrivateKernelCircuitPublicInputs
+    previous_kernel: PrivateKernelCircuitPublicInputs,
 }
 
 impl KernelCircuitOutputValidator {
@@ -46,11 +48,13 @@ impl KernelCircuitOutputValidator {
         KernelCircuitOutputValidator { output, previous_kernel }
     }
 
-    pub fn validate<N>(self, hints: Hints) {
+    pub fn validate<N>(self) {
+        let hints = generate_kernel_circuit_output_hints(self.previous_kernel);
         self.validate_empty_values();
         self.validate_propagated_values();
         self.validate_propagated_sorted_siloed_values(hints);
         self.validate_accumulated_values(hints);
+        self.validate_gas_limits();
     }
 
     fn validate_empty_values(self) {
@@ -165,5 +169,10 @@ impl KernelCircuitOutputValidator {
 
         let hash = compute_tx_logs_hash(hints.sorted_siloed_unencrypted_log_hashes);
         assert_eq(hash, self.output.end.unencrypted_logs_hash, "mismatch unencrypted_logs_hash");
+    }
+
+    fn validate_gas_limits(self) {
+        let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
+        assert(self.output.end.gas_used.within(limits), "The gas used exceeds the gas limits");
     }
 }

@@ -1,4 +1,5 @@
-use crate::tests::kernel_circuit_output_validator_builder::{KernelCircuitOutputValidatorBuilder, utils::swap_items};
+use crate::tests::kernel_circuit_output_validator_builder::KernelCircuitOutputValidatorBuilder;
+use dep::types::tests::utils::swap_items;
 
 /**
  * new_note_hashes

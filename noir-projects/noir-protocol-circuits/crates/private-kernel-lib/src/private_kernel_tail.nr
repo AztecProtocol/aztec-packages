@@ -1,9 +1,6 @@
 use crate::components::{
-    kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer,
-    kernel_circuit_output_hints::generate_kernel_circuit_output_hints,
     kernel_circuit_output_validator::KernelCircuitOutputValidator,
-    private_kernel_tail_hints::{generate_private_kernel_tail_hints, PrivateKernelTailHints},
-    previous_kernel_validator::PreviousKernelValidator
+    previous_kernel_validator::PreviousKernelValidator, tail_output_composer::TailOutputComposer
 };
 use dep::types::{abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs}};
 
@@ -13,16 +10,7 @@ struct PrivateKernelTailCircuitPrivateInputs {
 
 impl PrivateKernelTailCircuitPrivateInputs {
     unconstrained fn generate_output(self) -> KernelCircuitPublicInputs {
-        let hints = generate_private_kernel_tail_hints(self.previous_kernel.public_inputs);
-        KernelCircuitPublicInputsComposer::new(
-            self.previous_kernel,
-            hints.sorted_new_note_hashes,
-            hints.sorted_new_nullifiers,
-            hints.sorted_new_l2_to_l1_msgs,
-            hints.sorted_note_encrypted_log_hashes,
-            hints.sorted_encrypted_log_hashes,
-            hints.sorted_unencrypted_log_hashes
-        ).compose().finish()
+        TailOutputComposer::new(self.previous_kernel.public_inputs).finish()
     }
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
@@ -38,8 +26,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         // Validate output.
         if !dep::std::runtime::is_unconstrained() {
-            let hints = generate_kernel_circuit_output_hints(self.previous_kernel.public_inputs);
-            KernelCircuitOutputValidator::new(output, self.previous_kernel.public_inputs).validate(hints);
+            KernelCircuitOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
         }
         output
     }
@@ -74,8 +61,7 @@ mod tests {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new();
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
-
-            previous_kernel.append_new_nullifiers(1);
+            previous_kernel.set_first_nullifier();
 
             PrivateKernelTailInputsBuilder { previous_kernel }
         }
@@ -338,7 +324,7 @@ mod tests {
     }
 
     #[test(should_fail_with="The gas used exceeds the gas limits")]
-    unconstrained fn gas_limits_are_enforced() {
+    fn gas_limits_are_enforced() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);

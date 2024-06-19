@@ -1,24 +1,24 @@
-use dep::types::{abis::private_circuit_public_inputs::PrivateCircuitPublicInputs, utils::arrays::array_length};
+use dep::types::{abis::side_effect::Ordered, traits::Empty, utils::arrays::array_length};
 
-pub fn find_first_revertible_private_call_request_index(private_call: PrivateCircuitPublicInputs) -> u32 {
-    let min_revertible_counter = private_call.min_revertible_side_effect_counter;
-    let private_call_requests = private_call.private_call_requests;
-    let max_len = private_call_requests.len();
-    let mut index = max_len;
-    for i in 0..max_len {
-        let request = private_call_requests[i];
-        if (index == max_len) & (request.start_side_effect_counter >= min_revertible_counter) {
+pub fn find_first_revertible_item_index<T, N>(
+    min_revertible_side_effect_counter: u32,
+    items: [T; N]
+) -> u32 where T: Ordered + Empty + Eq {
+    let mut index = N;
+    for i in 0..N {
+        let item = items[i];
+        if (index == N) & (item.counter() >= min_revertible_side_effect_counter) {
             index = i;
         }
     }
-    if index == max_len {
-        index = array_length(private_call_requests);
+    if index == N {
+        index = array_length(items);
     }
     index
 }
 
 mod tests {
-    use crate::components::private_kernel_circuit_hints::find_first_revertible_private_call_request_index;
+    use crate::components::private_call_data_validator::find_first_revertible_item_index::find_first_revertible_item_index;
     use dep::types::tests::fixture_builder::FixtureBuilder;
 
     struct TestBuilder {
@@ -33,19 +33,22 @@ mod tests {
 
         pub fn execute(self) -> u32 {
             let private_call = self.private_call.to_private_circuit_public_inputs();
-            find_first_revertible_private_call_request_index(private_call)
+            find_first_revertible_item_index(
+                private_call.min_revertible_side_effect_counter,
+                private_call.private_call_requests
+            )
         }
     }
 
     #[test]
-    fn find_first_revertible_private_call_request_index_empty() {
+    fn find_first_revertible_item_index_empty() {
         let builder = TestBuilder::new();
         let index = builder.execute();
         assert_eq(index, 0);
     }
 
     #[test]
-    fn find_first_revertible_private_call_request_index_empty_with_min_counter() {
+    fn find_first_revertible_item_index_empty_with_min_counter() {
         let mut builder = TestBuilder::new();
 
         builder.private_call.min_revertible_side_effect_counter = 5;
@@ -55,7 +58,7 @@ mod tests {
     }
 
     #[test]
-    fn find_first_revertible_private_call_request_index_only_revertible() {
+    fn find_first_revertible_item_index_only_revertible() {
         let mut builder = TestBuilder::new();
 
         // Revertible.
@@ -67,7 +70,7 @@ mod tests {
     }
 
     #[test]
-    fn find_first_revertible_private_call_request_index_only_non_revertible() {
+    fn find_first_revertible_item_index_only_non_revertible() {
         let mut builder = TestBuilder::new();
 
         // Non-revertible.
@@ -79,7 +82,7 @@ mod tests {
     }
 
     #[test]
-    fn find_first_revertible_private_call_request_index_both() {
+    fn find_first_revertible_item_index_both() {
         let mut builder = TestBuilder::new();
 
         // Non-revertible.

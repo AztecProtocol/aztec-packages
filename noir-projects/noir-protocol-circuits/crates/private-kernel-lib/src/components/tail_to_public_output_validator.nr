@@ -53,7 +53,8 @@ impl TailToPublicOutputValidator {
     pub fn validate<N>(self) {
         self.validate_empty_values();
         self.validate_propagated_values();
-        self.validate_sorted_values();
+        self.validate_propagated_sorted_siloed_values();
+        self.validate_gas_limits();
     }
 
     fn validate_empty_values(self) {
@@ -70,9 +71,8 @@ impl TailToPublicOutputValidator {
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
     }
 
-    // TODO: Remove this when KernelCircuitPublicInputsComposer is run in an unconstrained function. Build sorted arrays in the composer.
-    // Check the output against previoius kernel here.
-    fn validate_sorted_values(self) {
+    // TODO: Check the output against previoius kernel.
+    fn validate_propagated_sorted_siloed_values(self) {
         assert_sorted_array(
             self.previous_kernel.end.new_note_hashes,
             self.hints.sorted_new_note_hashes,
@@ -114,5 +114,11 @@ impl TailToPublicOutputValidator {
             self.hints.sorted_call_requests_indexes,
             desc_sort_by_counters
         );
+    }
+
+    fn validate_gas_limits(self) {
+        let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
+        let total_gas_used = self.output.end_non_revertible.gas_used + self.output.end.gas_used;
+        assert(total_gas_used.within(limits), "The gas used exceeds the gas limits");
     }
 }
