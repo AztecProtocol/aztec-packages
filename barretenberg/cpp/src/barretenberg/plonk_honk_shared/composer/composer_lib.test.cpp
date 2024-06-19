@@ -1,24 +1,7 @@
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-
-// #include "barretenberg/common/serialize.hpp"
-// #include "barretenberg/ecc/curves/bn254/fr.hpp"
-// #include "barretenberg/numeric/uint256/uint256.hpp"
-// #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-// #include "barretenberg/relations/permutation_relation.hpp"
-// #include "barretenberg/relations/relation_parameters.hpp"
-// #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
-// #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
-// #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
-// #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-// #include "barretenberg/sumcheck/sumcheck_round.hpp"
-// #include "barretenberg/ultra_honk/ultra_prover.hpp"
-// #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <array>
 #include <gtest/gtest.h>
@@ -29,12 +12,7 @@ class ComposerLibTests : public ::testing::Test {
   public:
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
-    // Flavor::CircuitBuilder circuit_constructor;
-    // Flavor::ProvingKey proving_key = []() {
-    //     auto crs_factory = srs::factories::CrsFactory<bb::curve::BN254>();
-    //     auto crs = crs_factory.get_prover_crs(4);
-    //     return Flavor::ProvingKey(/*circuit_size=*/8, /*num_public_inputs=*/0);
-    // }();
+
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
