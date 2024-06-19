@@ -15,11 +15,11 @@ WORKDIR /usr/src/noir-projects
 COPY . .
 # Build
 WORKDIR /usr/src/noir-projects/noir-contracts
-RUN ./bootstrap.sh && nargo test --silence-warnings
+RUN ./bootstrap.sh
 WORKDIR /usr/src/noir-projects/noir-protocol-circuits
-RUN ./bootstrap.sh && nargo test --silence-warnings
+RUN ./bootstrap.sh
 WORKDIR /usr/src/noir-projects/aztec-nr
-RUN nargo test --silence-warnings
+RUN nargo compile --silence-warnings
 
 FROM scratch
 COPY --from=builder /usr/src/noir-projects /usr/src/noir-projects

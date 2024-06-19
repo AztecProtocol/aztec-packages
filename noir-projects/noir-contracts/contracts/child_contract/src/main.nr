@@ -56,7 +56,7 @@ contract Child {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt(&mut context, owner, owner));
         new_value
     }
 
@@ -65,7 +65,7 @@ contract Child {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
         let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
-        notes[0].unwrap_unchecked().value
+        notes.get_unchecked(0).value
     }
 
     // Increments `current_value` by `new_value`

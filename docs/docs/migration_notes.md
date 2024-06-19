@@ -6,7 +6,39 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.43.0
+
+### [Aztec.nr] break `token.transfer()` into `transfer` and `transferFrom`
+Earlier we had just one function - `transfer()` which used authwits to handle the case where a contract/user wants to transfer funds on behalf of another user. 
+To reduce circuit sizes and proof times, we are breaking up `transfer` and introducing a dedicated `transferFrom()` function like in the ERC20 standard.
+
+### [Aztec.nr] `note_getter` returns `BoundedVec`
+
+The `get_notes` and `view_notes` function no longer return an array of options (i.e. `[Option<Note>, N_NOTES]`) but instead a `BoundedVec<Note, N_NOTES>`. This better conveys the useful property the old array had of having all notes collapsed at the beginning of the array, which allows for powerful optimizations and gate count reduction when setting the `options.limit` value.
+
+A `BoundedVec` has a `max_len()`, which equals the number of elements it can hold, and a `len()`, which equals the number of elements it currently holds. Since `len()` is typically not knwon at compile time, iterating over a `BoundedVec` looks slightly different than iterating over an array of options:
+
+```diff
+- let option_notes = get_notes(options);
+- for i in 0..option_notes.len() {
+-     if option_notes[i].is_some() {
+-         let note = option_notes[i].unwrap_unchecked();
+-     }
+- }
++ let notes = get_notes(options);
++ for i in 0..notes.max_len() {
++     if i < notes.len() {
++         let note = notes.get_unchecked(i);
++     }
++ }
+```
+
+To further reduce gate count, you can iterate over `options.limit` instead of `max_len()`, since `options.limit` is guaranteed to be larger or equal to `len()`, and smaller or equal to `max_len()`:
+
+```diff
+- for i in 0..notes.max_len() {
++ for i in 0..options.limit {
+```
 
 ### [Aztec.nr] `options.limit` has to be constant
 
