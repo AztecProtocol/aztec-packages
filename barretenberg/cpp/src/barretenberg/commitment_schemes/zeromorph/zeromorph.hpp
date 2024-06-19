@@ -442,7 +442,6 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using OpeningClaim = OpeningClaim<Curve>;
 
   public:
     /**
@@ -638,7 +637,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param concatenated_evaluations
      * @return OpeningClaim<Curve>
      */
-    static OpeningClaim compute_univariate_evaluation_opening_claim(
+    static OpeningClaim<Curve> compute_univariate_evaluation_opening_claim(
         RefSpan<Commitment> unshifted_commitments,
         RefSpan<Commitment> to_be_shifted_commitments,
         RefSpan<FF> unshifted_evaluations,
@@ -724,15 +723,15 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param transcript
      * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
      */
-    static OpeningClaim verify(RefSpan<Commitment> unshifted_commitments,
-                               RefSpan<Commitment> to_be_shifted_commitments,
-                               RefSpan<FF> unshifted_evaluations,
-                               RefSpan<FF> shifted_evaluations,
-                               std::span<FF> multivariate_challenge,
-                               Commitment first_g1,
-                               auto& transcript,
-                               const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-                               RefSpan<FF> concatenated_evaluations = {})
+    static OpeningClaim<Curve> verify(RefSpan<Commitment> unshifted_commitments,
+                                      RefSpan<Commitment> to_be_shifted_commitments,
+                                      RefSpan<FF> unshifted_evaluations,
+                                      RefSpan<FF> shifted_evaluations,
+                                      std::span<FF> multivariate_challenge,
+                                      Commitment first_g1,
+                                      auto& transcript,
+                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+                                      RefSpan<FF> concatenated_evaluations = {})
     {
         return compute_univariate_evaluation_opening_claim(unshifted_commitments,
                                                            to_be_shifted_commitments,
