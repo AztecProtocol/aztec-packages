@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718777471825,
+  "lastUpdate": 1718779257945,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -43916,6 +43916,78 @@ window.BENCHMARK_DATA = {
             "value": 164698067,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164698067 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b502fcd500dcb10945b29d00f86e290bec63cce3",
+          "message": "chore(avm): remove avm prefix from pil and executor (#7099)\n\n## Overview\r\n\r\nRemoves the avm_ prefix from the pil files and from all generated code,\r\nits noisy",
+          "timestamp": "2024-06-19T08:26:21+02:00",
+          "tree_id": "fe77dcb235cef11468abe64a629fef5df41f609c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b502fcd500dcb10945b29d00f86e290bec63cce3"
+        },
+        "date": 1718779256319,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 16237.120369999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11256.499276 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5505.734504999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5148.445073000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49228.479504,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49228480000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16901.047585,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16901047000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5278709805,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5278709805 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208617584,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208617584 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4268489942,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4268489942 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162826762,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162826762 ns\nthreads: 1"
           }
         ]
       }
