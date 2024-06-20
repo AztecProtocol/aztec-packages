@@ -753,7 +753,8 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
-
+    info("q_m");
+    info(builder.blocks.arithmetic.q_m());
     // Construct Honk proof
     Prover prover{ builder };
     return prover;

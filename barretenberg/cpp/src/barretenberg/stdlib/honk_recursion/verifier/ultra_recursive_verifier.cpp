@@ -50,6 +50,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
+    for (auto comm : commitments.get_all()) {
+        info("verifier comm: ", comm);
+    }
     CommitmentLabels commitment_labels;
 
     transcript->template receive_from_prover<FF>("circuit_size");
@@ -132,8 +135,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         alpha[idx] = transcript->template get_challenge<FF>("alpha_" + std::to_string(idx));
     }
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+    const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+    auto gate_challenges = std::vector<FF>(MAX_LOG_CIRCUIT_SIZE);
+    for (size_t idx = 0; idx < MAX_LOG_CIRCUIT_SIZE; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =

@@ -39,8 +39,9 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 }
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
-    std::vector<FF> gate_challenges(numeric::get_msb(instance->proving_key.circuit_size));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+    const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+    std::vector<FF> gate_challenges(MAX_LOG_CIRCUIT_SIZE);
+    for (size_t idx = 0; idx < MAX_LOG_CIRCUIT_SIZE; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     instance->gate_challenges = gate_challenges;

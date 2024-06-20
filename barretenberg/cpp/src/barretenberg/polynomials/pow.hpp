@@ -89,10 +89,10 @@ template <typename FF> struct PowPolynomial {
         FF current_univariate_eval = univariate_eval(challenge);
         partial_evaluation_result = FF::conditional_assign(
             dummy, partial_evaluation_result, partial_evaluation_result * current_univariate_eval);
-        if (!dummy.get_value()) {
-            current_element_idx++;
-            periodicity *= 2;
-        }
+        // if (!dummy.get_value()) {
+        current_element_idx++;
+        periodicity *= 2;
+        // }
     }
 
     /**
