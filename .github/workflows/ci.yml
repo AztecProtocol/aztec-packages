@@ -516,6 +516,21 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./docs/+deploy-preview --ENV=staging --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
+  docs-test:
+    needs: [setup, changes]
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: docs-test-x86
+      - name: "Docs Test"
+        if: github.event.number
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./docs/+test
+
   bb-bench:
     runs-on: ubuntu-20.04
     needs: [setup, changes]
@@ -663,6 +678,7 @@ jobs:
       - prover-client-test
       - l1-contracts-test
       - docs-preview
+      - docs-test
       # - bb-bench # non-blocking
       - boxes
       - boxes-test

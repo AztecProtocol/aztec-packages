@@ -8,7 +8,6 @@ deps:
   RUN yarn install --frozen-lockfile
 
 build:
-  ARG ENV
   ARG COMMIT_TAG
   ENV COMMIT_TAG=$COMMIT_TAG
   BUILD ../yarn-project/+build-dev
@@ -20,32 +19,36 @@ build:
   RUN ./scripts/build.sh
   SAVE ARTIFACT build
 
-export:
-  FROM +build
+serve:
+  FROM +deps
+  COPY +build/build build
+  COPY ./static static
+  COPY ./src src
+  COPY ./docusaurus.config.js .
+  COPY ./playwright.config.ts .
+  COPY ./sidebars.js .
+  COPY ./docs docs
   ENTRYPOINT ["yarn", "serve"]
   EXPOSE 3000
   SAVE ARTIFACT /usr/src/docs
   SAVE IMAGE aztecprotocol/docs-server
 
 test:
-  ARG ENV
-  FROM +build
-  WORKDIR /usr/src/docs
-  RUN npx playwright install --with-deps
+  FROM +serve
 
+  COPY --dir ../yarn-project/+build-dev/usr/src /usr
+  COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
+  
+  WORKDIR /usr/src/docs
+  RUN yarn global add corepack && corepack enable
+  RUN yarn
+  RUN npx -y playwright@next install --with-deps
   COPY ../noir/+nargo/nargo /usr/local/bin/aztec-nargo
   RUN cp -s /usr/src/yarn-project/builder/aztec-builder-dest /usr/local/bin/aztec-builder
-  RUN rm /usr/local/bin/yarn /usr/local/bin/yarnpkg && npm install -g corepack && corepack enable
-  EXPOSE 3000
-  WITH DOCKER \
-    --load aztecprotocol/aztec:latest=../yarn-project/+aztec \
-    --compose docker-compose.yml
-    RUN docker compose up -d --exit-code-from=aztec --force-recreate && yarn test
-  END
+  RUN yarn test
 
 deploy-preview:
   BUILD ../yarn-project/+scripts-prod
-  ARG ENV
   ARG NETLIFY_AUTH_TOKEN
   ARG NETLIFY_SITE_ID
   ARG AZTEC_BOT_COMMENTER_GITHUB_TOKEN

@@ -4,7 +4,7 @@ import path from "path";
 import { execFileSync } from "child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 
-const TEST_FOLDER = path.resolve("/usr/test");
+const TEST_FOLDER = path.resolve("../test");
 
 async function exec(locator: Locator) {
   const content = (await locator.innerText()).trim();
@@ -46,9 +46,9 @@ async function exec(locator: Locator) {
       });
     });
   } else if (replaceLines === "0") {
-    writeFileSync(path.resolve(TEST_FOLDER, file), content);
+    writeFileSync(path.resolve(TEST_FOLDER, file), content + "\n");
   } else if (replaceLines === "+") {
-    writeFileSync(path.resolve(TEST_FOLDER, file), content, {
+    writeFileSync(path.resolve(TEST_FOLDER, file), content + "\n", {
       flag: "a",
     });
   } else {
@@ -67,9 +67,16 @@ async function exec(locator: Locator) {
     // we start at begin -1 because lines are 1-indexed
     // and we remove the elements we want to replace
     // replacing by the new content
-    splitContent.splice(begin - 1, removedElements.length, ...splitNewContent);
+    const removed = splitContent.splice(
+      begin - 1,
+      removedElements.length,
+      ...splitNewContent
+    );
 
-    writeFileSync(path.resolve(TEST_FOLDER, file), splitContent.join("\n"));
+    writeFileSync(
+      path.resolve(TEST_FOLDER, file),
+      splitContent.join("\n") + "\n"
+    );
   }
 }
 
@@ -85,8 +92,13 @@ test("Deploying, setting, and getting a number", async ({ page }) => {
   await page.getByRole("button", { name: "Tutorials" }).click();
   await page.getByRole("link", { name: "Private Voting Tutorial" }).click();
 
+  await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(() => !!document.querySelector("code"));
-  for (const cmd of await page.getByTestId(RegExp(/[\s\S]/)).all()) {
+
+  for (let i = 0; i < 14; i++) {
+    console.log("executing command", i);
+    await page.getByTestId(`${i}`).waitFor({ state: "attached" });
+    const cmd = page.getByTestId(`${i}`);
     await exec(cmd);
   }
 });
