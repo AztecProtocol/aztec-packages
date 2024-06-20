@@ -44,7 +44,8 @@ template <typename Builder> struct StdlibTranscriptParams {
     }
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {
-        ASSERT(!frs.empty() && frs[0].get_context() != nullptr);
+        ASSERT(!frs.empty());
+        ASSERT(frs[0].get_context() != nullptr);
         Builder* builder = frs[0].get_context();
         return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
     }

@@ -2,6 +2,7 @@
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 
 #include <cstddef>
 #include <vector>
@@ -75,6 +76,23 @@ template <typename FF> struct PowPolynomial {
         partial_evaluation_result *= current_univariate_eval;
         current_element_idx++;
         periodicity *= 2;
+    }
+
+    /**
+     * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
+     * @details Update the constant \f$c_{i} \to c_{i+1} \f$ multiplying it by \f$pow_{\beta}\f$'s factor \f$\left(
+     * (1-X_i) + X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.
+     * @param challenge \f$ i \f$-th verifier challenge \f$ u_{i}\f$
+     */
+    template <typename Builder> void partially_evaluate(FF challenge, stdlib::bool_t<Builder> dummy)
+    {
+        FF current_univariate_eval = univariate_eval(challenge);
+        partial_evaluation_result = FF::conditional_assign(
+            dummy, partial_evaluation_result, partial_evaluation_result * current_univariate_eval);
+        if (!dummy.get_value()) {
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**

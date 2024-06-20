@@ -37,6 +37,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
     const auto pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
 
+    info(circuit_size, " ", key->circuit_size);
     ASSERT(circuit_size == key->circuit_size);
     ASSERT(public_input_size == key->num_public_inputs);
     ASSERT(pub_inputs_offset == key->pub_inputs_offset);

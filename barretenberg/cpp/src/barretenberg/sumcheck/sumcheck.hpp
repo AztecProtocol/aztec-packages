@@ -409,13 +409,30 @@ template <typename Flavor> class SumcheckVerifier {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
             // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
-            if (round_idx >= num_padding_univariates) {
-                bool checked = round.check_sum(round_univariate);
-                verified = verified && checked;
+
+            if constexpr (IsRecursiveFlavor<Flavor>) {
+                typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx < num_padding_univariates);
+                bool checked = round.check_sum(round_univariate, dummy_round);
+                info("checked: ", checked, " at round: ", round_idx);
+                // ignore the checked value if its a padded univariate
+                if (round_idx >= num_padding_univariates) {
+                    verified = verified && checked;
+                }
                 multivariate_challenge.emplace_back(round_challenge);
 
-                round.compute_next_target_sum(round_univariate, round_challenge);
-                pow_univariate.partially_evaluate(round_challenge);
+                round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
+                pow_univariate.partially_evaluate(round_challenge, dummy_round);
+
+            } else {
+                if (round_idx >= num_padding_univariates) {
+                    bool checked = round.check_sum(round_univariate);
+                    verified = verified && checked;
+                    multivariate_challenge.emplace_back(round_challenge);
+
+                    round.compute_next_target_sum(round_univariate, round_challenge);
+                    pow_univariate.partially_evaluate(round_challenge);
+                }
             }
         }
 

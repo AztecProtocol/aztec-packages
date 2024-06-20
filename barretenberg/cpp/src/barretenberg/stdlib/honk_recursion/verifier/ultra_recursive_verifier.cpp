@@ -138,6 +138,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    info("after sumcheck verify: ", builder->num_gates);
     // Execute ZeroMorph multilinear PCS evaluation verifier
     auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),

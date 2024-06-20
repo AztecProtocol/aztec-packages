@@ -54,6 +54,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     info("in create_honk_recursion_constraints");
     using Flavor = UltraRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
+    // using VerifierCommitmentKey = bb::VerifierCommitmentKey<Flavor::NativeFlavor::Curve>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
     static_cast<void>(input_aggregation_object);
@@ -117,35 +118,115 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         if (i == HonkRecursionConstraint::inner_public_input_offset) {
             for (const auto& idx : input.public_inputs) {
                 auto field = field_ct::from_witness_index(&builder, idx);
+                info("public input idx = ", idx, " with value: ", field.get_value());
                 proof_fields.emplace_back(field);
             }
         }
     }
-
     // Recursively verify the proof
-    auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     if (!has_valid_witness_assignments) {
         // Set vkey->circuit_size correctly based on the proof size
         size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
         size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
+        info("input proof size: ", input.proof.size());
+        info("before any dummy stuff: ", builder.num_gates);
+        info((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
+              UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
+              2 * num_frs_comm),
+             " and ",
+             (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH));
         assert((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
                 UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
                 2 * num_frs_comm) %
                    (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
                0);
-        vkey->log_circuit_size = (input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
-                                  UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-                                  UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
-                                 (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
-        vkey->circuit_size = (1 << vkey->log_circuit_size);
-        vkey->num_public_inputs = input.public_inputs.size();
-        vkey->pub_inputs_offset = UltraFlavor::has_zero_row ? 1 : 0;
+        auto log_circuit_size = (input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
+                                 UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+                                 UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+                                (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+        builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
+        builder.assert_equal(builder.add_variable(input.public_inputs.size()), key_fields[1].witness_index);
+        builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
+        uint32_t offset = 3;
+        info("after setting a few vkey fields: ", builder.num_gates);
+        // also set the other vkey fields
+        // vkey->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+        for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+        info("after setting vkey comms: ", builder.num_gates);
+        offset = HonkRecursionConstraint::inner_public_input_offset;
+        // first 3 things
+        builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
+        builder.assert_equal(builder.add_variable(input.public_inputs.size()), proof_fields[1].witness_index);
+        builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
+        info("after first 3 things: ", builder.num_gates);
+        // the public inputs
+        for (size_t i = 0; i < input.public_inputs.size(); i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+        info("after public inputs: ", builder.num_gates);
+        // first 7 commitments
+        for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+        info("after witness commitments: ", builder.num_gates);
+        // now the univariates, which can just be 0s (7*28 Frs)
+        for (size_t i = 0; i < 28 * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+        info("after sumcheck univariates: ", builder.num_gates);
+        // now the sumcheck evalutions, which is just 43 0s
+        for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+        info("after sumcheck evals: ", builder.num_gates);
+        // now the zeromorph commitments, which are 28 comms
+        for (size_t i = 0; i < 28; i++) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+        info("after zeromorph commitments: ", builder.num_gates);
+        // lastly the 2 commitments
+        for (size_t i = 0; i < 2; i++) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+        info("offset: ", offset);
+        info("expected length: ", input.proof.size() + input.public_inputs.size());
+        ASSERT(offset == input.proof.size() + input.public_inputs.size());
     }
+    auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
     info("has valid witness assignments: ", has_valid_witness_assignments);
-    info("right before verify proof: ", vkey->log_circuit_size);
+    info("right before verify proof: ", builder.num_gates);
     std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
-    info("after verify_proof");
+    info("after verify_proof: ", builder.num_gates);
     // Aggregate the current aggregation object with these pairing points from verify_proof
     aggregation_state_ct cur_aggregation_object;
     cur_aggregation_object.P0 = pairing_points[0]; // * recursion_separator;
@@ -172,8 +253,8 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     auto result = cur_aggregation_object;
     result.proof_witness_indices = proof_witness_indices;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
-    // is important, like what the plonk recursion constraint does.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public
+    // inputs is important, like what the plonk recursion constraint does.
 
     // We want to return an array, so just copy the vector into the array
     ASSERT(result.proof_witness_indices.size() == HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
