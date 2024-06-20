@@ -261,7 +261,7 @@ mod tests {
     use acir::circuit::{OpcodeLocation, Program};
     use color_eyre::eyre::{self};
     use fm::{FileId, FileManager};
-    use nargo::artifacts::program::ProgramArtifact;
+    use noirc_artifacts::program::ProgramArtifact;
     use noirc_driver::DebugFile;
     use noirc_errors::{
         debug_info::{DebugInfo, ProgramDebugInfo},
