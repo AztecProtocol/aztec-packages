@@ -125,8 +125,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &copies,
     );
 
-    bb_files.create_declare_views(file_name, &all_cols_with_shifts);
-
     // ----------------------- Create the circuit builder file -----------------------
     bb_files.create_circuit_builder_hpp(
         file_name,

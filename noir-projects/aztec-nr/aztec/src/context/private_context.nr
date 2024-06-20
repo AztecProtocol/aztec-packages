@@ -5,7 +5,7 @@ use crate::{
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_unencrypted_log_hash},
     keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
-    note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
+    note::note_interface::NoteInterface,
     oracle::{
     key_validation_request::get_key_validation_request, arguments, returns::pack_returns,
     call_private_function::call_private_function_internal, header::get_header_at,
@@ -139,6 +139,8 @@ impl PrivateContext {
         self.new_note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
     }
 
+    // TODO(#7112): This function is called with non-zero note hash only in 1 of 25 cases in aztec-packages repo
+    // - consider creating a separate function with 1 arg for the zero note hash case.
     fn push_new_nullifier(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.new_nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash, counter: self.next_counter() });
     }
