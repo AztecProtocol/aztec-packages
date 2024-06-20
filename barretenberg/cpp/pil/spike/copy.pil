@@ -1,0 +1,15 @@
+
+namespace copy(256);
+    pol constant c;
+    pol commit x,y,z;
+    pol commit sigma_x, sigma_y, sigma_z;
+
+    {x,y,z} connect {sigma_x, sigma_y, sigma_z};
+
+    // Include SOME relation
+    x' = x + 1;
+
+    // Include another larger copy that will share the same ID columns
+    // pol commit a,b,c,d;
+    // pol commit sigma_a, sigma_b, sigma_c, sigma_d;
+    // {a,b,c,d} connect {sigma_a, sigma_b, sigma_c, sigma_d};
