@@ -213,7 +213,6 @@ void build_constraints(Builder& builder,
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }
-    info("creating honk recursion constraints");
     // HonkRecursionConstraint
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
     // not yet dealing with proper recursion

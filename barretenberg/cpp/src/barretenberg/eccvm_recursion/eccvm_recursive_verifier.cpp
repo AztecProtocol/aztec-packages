@@ -124,7 +124,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
             PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
     }
 
-    info("num gates after second IPA: ", builder->get_num_gates());
+    // info("num gates after second IPA: ", builder->get_num_gates());
     ASSERT(sumcheck_verified && multivariate_opening_verified && univariate_opening_verified);
 }
 

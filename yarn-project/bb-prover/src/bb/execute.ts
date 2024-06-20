@@ -67,8 +67,8 @@ export function executeBB(
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
-    console.log(`Executing BB with: ${command} ${args.join(' ')}`);
-    console.log(new Error('bb calling').stack)
+    // console.log(`Executing BB with: ${command} ${args.join(' ')}`);
+    // console.log(new Error('bb calling').stack)
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
     });
@@ -345,19 +345,17 @@ export async function generateTubeProof(
 
   // // Paths for the inputs
   // const inputPath = workingDirectory;
-  // WORKTODO (Mara) : this should be the real workindDirectory but for now I manually put the proofs where the BB binary is because that doesn't change
-  // normally the workindDirectory is a temporary directory
-  const inputPath = join(pathToBB, '/../proofs');
-  const vkPath = join(inputPath, '/inst_vk'); // the vk of the last instance
-  const accPath = join(inputPath, '/pg_acc');
-  const proofPath = join(inputPath, '/client_ivc_proof');
-  const translatorVkPath = join(inputPath, '../translator_vk');
-  const eccVkPath = join(inputPath, '/ecc_vk');
+  // WORKTODO (Mara) : this should be the real workingDirectory but for now I manually put the proofs where the BB binary is because that doesn't change
+  // normally the workingDirectory is a temporary directory
+  const vkPath = join(workingDirectory, 'inst_vk.bin'); // the vk of the last instance
+  const accPath = join(workingDirectory, 'pg_acc.bin');
+  const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
+  const translatorVkPath = join(workingDirectory, 'translator_vk.bin');
+  const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   // const outputPath = workingDirectory
-  const outputPath = join(pathToBB, '/../proofs');
-
+  const outputPath = workingDirectory;
   const filePresent = async (file: string) =>
     await fs
       .access(file, fs.constants.R_OK)
@@ -399,7 +397,7 @@ export async function generateTubeProof(
       //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${eccVkPath}` };
       // }
 
-      return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${inputPath}` };
+      return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
 

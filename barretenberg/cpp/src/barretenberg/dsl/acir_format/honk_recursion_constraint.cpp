@@ -105,7 +105,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     }
 
     std::vector<field_ct> proof_fields;
-    info("Number of public inputs in honk recursion constraint", input.public_inputs.size());
+    // info("Number of public inputs in honk recursion constraint", input.public_inputs.size());
     // Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this is how the
     // core barretenberg library processes proofs (with the public inputs starting at the third element and not
     // separate from the rest of the proof)
@@ -114,10 +114,12 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
+        // info("proof element: ", field);
         i++;
         if (i == HonkRecursionConstraint::inner_public_input_offset) {
             for (const auto& idx : input.public_inputs) {
                 auto field = field_ct::from_witness_index(&builder, idx);
+                // info("public input: ", field);
                 proof_fields.emplace_back(field);
             }
         }
@@ -143,10 +145,10 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         vkey->pub_inputs_offset = UltraFlavor::has_zero_row ? 1 : 0;
     }
     RecursiveVerifier verifier(&builder, vkey);
-    info("has valid witness assignments: ", has_valid_witness_assignments);
-    info("right before verify proof: ", vkey->log_circuit_size);
+    // info("has valid witness assignments: ", has_valid_witness_assignments);
+    // info("right before verify proof: ", vkey->log_circuit_size);
     std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
-    info("after verify_proof");
+    // info("after verify_proof");
     // Aggregate the current aggregation object with these pairing points from verify_proof
     aggregation_state_ct cur_aggregation_object;
     cur_aggregation_object.P0 = pairing_points[0]; // * recursion_separator;

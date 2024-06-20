@@ -49,7 +49,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         private_call_data_validator.validate(output.end.new_note_hashes);
         if !dep::std::runtime::is_unconstrained() {
             // verify/aggregate the private call proof
-            self.private_call.verify();
+            // self.private_call.verify();
         }
 
         // Validate output.

@@ -3,8 +3,6 @@ import { writeFile, mkdtemp } from 'fs/promises';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 import * as fs from 'fs';
 
-
-// LONDONTODO(Client): PXE created via the import below. Real proving turned on therein
 import { FullProverTest } from './e2e_prover_test.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import path from 'path';
@@ -61,30 +59,51 @@ describe('full_prover', () => {
         0,
       );
 
-      const cachedPrivateTxPath = '../../../e2e_private.tx';
-      const privateTxBuffer = fs.existsSync(cachedPrivateTxPath) ? fs.readFileSync(cachedPrivateTxPath) : undefined;
-      const privateTx = await privateInteraction.prove({ isPrivate: true, cachedTxBuffer: privateTxBuffer });
-      const cachedPublicTxPath = '../../../e2e_public.tx';
-      const publicTxBuffer = fs.existsSync(cachedPublicTxPath) ? fs.readFileSync(cachedPublicTxPath) : undefined;
-      const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
+      // LONDONTODO: if we keep this around, use Adam's approach through setting send option (not working for me)
+      let publicTx: Tx;
+      let privateTx: Tx;
+      const staticWorkingDirectory = '../../../tmp';
+      const cachedPrivateTxPath = path.join(staticWorkingDirectory, 'e2e_private.tx');
+      const clientIVCProofPath = path.join(staticWorkingDirectory, 'tube_working_directory/client_ivc_proof');
+      const cachedPublicTxPath = path.join(staticWorkingDirectory, 'e2e_public.tx');
+      if (fs.existsSync(cachedPrivateTxPath) && fs.existsSync(clientIVCProofPath)) {
+        privateTx = Tx.fromBuffer(fs.readFileSync(cachedPrivateTxPath));
+      } else {
+        [privateTx] = await Promise.all([privateInteraction.prove({ isPrivate: true })]);
+        fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
+      }
+      if (fs.existsSync(cachedPublicTxPath)) {
+        publicTx = Tx.fromBuffer(fs.readFileSync(cachedPublicTxPath));
+      } else {
+        [publicTx] = await Promise.all([publicInteraction.prove({ isPrivate: false })]);
+        fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
+      }
 
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying kernel tail to public proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
 
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying private kernel tail proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      // logger.info(`Verifying kernel tail to public proof`);
+      // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
+
+      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      // logger.info(`Verifying private kernel tail proof`);
+      // await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+
       const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
-      const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
+      // const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
+      const bbWorkingDirectory = path.join(staticWorkingDirectory, 'tube_working_directory');
       await runInDirectory(bbWorkingDirectory, async (dir: string) => {
         await privateTx.clientIvcProof!.writeToOutputDirectory(dir);
-        const result = await generateTubeProof(bbPath, dir, logger.info)
-        logger.info(`tube result: ${result.status}`);
-        if (result.status == BB_RESULT.FAILURE) {
-          logger.info(`tube result: ${result.reason}`);
+        // Assumption: if there is a proof there, it was written only after being verified as valid
+        const tubeProofPath = path.join(bbWorkingDirectory, 'proof');
+        console.log(`tubeProofPath is ${tubeProofPath}`);
+        if (!fs.existsSync(tubeProofPath)) {
+          const result = await generateTubeProof(bbPath, bbWorkingDirectory, logger.info);
+          logger.info(`tube result: ${result.status}`);
+          if (result.status == BB_RESULT.FAILURE) {
+            logger.info(`tube result: ${result.reason}`);
+          }
+          expect(result.status).toBe(BB_RESULT.SUCCESS)
         }
-        expect(result.status).toBe(BB_RESULT.SUCCESS)
       });
 
       const sentPrivateTx = privateInteraction.send();

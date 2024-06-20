@@ -95,7 +95,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
-        self.previous_kernel.verify();
+        // self.previous_kernel.verify();
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

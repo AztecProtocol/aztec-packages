@@ -38,7 +38,7 @@ template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& proof)
 {
-    info("in Ultra Recursive Verifier");
+    // info("in Ultra Recursive Verifier");
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using ZeroMorph = ::bb::ZeroMorphVerifier_<PCS>;
@@ -54,11 +54,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    info("circuit size ", circuit_size, " vs for key ", key->circuit_size);
+    // info("circuit size ", circuit_size, " vs for key ", key->circuit_size);
     const auto public_input_size = transcript->template receive_from_prover<FF>("public_input_size");
-    info("public input size", public_input_size, " vs for key ", key->num_public_inputs);
+    // info("public input size", public_input_size, " vs for key ", key->num_public_inputs);
     const auto pub_inputs_offset = transcript->template receive_from_prover<FF>("pub_inputs_offset");
-    info("pub inputs offset", pub_inputs_offset, " vs for key ", key->pub_inputs_offset);
+    // info("pub inputs offset", pub_inputs_offset, " vs for key ", key->pub_inputs_offset);
 
     // For debugging purposes only
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
@@ -71,14 +71,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
 
     // Get commitments to first three wire polynomials
-    info("Honk verify_proof: receiving witness commitments ");
+    // info("Honk verify_proof: receiving witness commitments ");
     commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
-    info("w_l ", commitments.w_l.get_value());
+    // info("w_l ", commitments.w_l.get_value());
     commitments.w_r = transcript->template receive_from_prover<Commitment>(commitment_labels.w_r);
-    info("w_r ", commitments.w_r.get_value());
+    // info("w_r ", commitments.w_r.get_value());
 
     commitments.w_o = transcript->template receive_from_prover<Commitment>(commitment_labels.w_o);
-    info("w_o", commitments.w_o.get_value());
+    // info("w_o", commitments.w_o.get_value());
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -97,11 +97,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.return_data_read_counts =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
     }
-    info("Honk verify_proof: done receiving witness commitments ");
+    // info("Honk verify_proof: done receiving witness commitments ");
 
     // Get challenge for sorted list batching and wire four memory records
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
-    info("eta: ", eta);
+    // info("eta: ", eta);
     ;
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
@@ -113,8 +113,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
-    info("beta ", beta.get_value());
-    info("gamma ", gamma.get_value());
+    // info("beta ", beta.get_value());
+    // info("gamma ", gamma.get_value());
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -136,7 +136,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
     commitments.z_lookup = transcript->template receive_from_prover<Commitment>(commitment_labels.z_lookup);
-    info("Honk verify_proof: done receiving commitments to lookup and permutation");
+    // info("Honk verify_proof: done receiving commitments to lookup and permutation");
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -155,11 +155,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
     // Execute ZeroMorph multilinear PCS evaluation verifier
     if (sumcheck_verified.has_value()) {
-        info("Sumcheck verified ", sumcheck_verified.value());
+        // info("Sumcheck verified ", sumcheck_verified.value());
     } else {
-        info("Sumcheck verified no value we're confused");
+        // info("Sumcheck verified no value we're confused");
     }
-    info("Honk verify_proof:before Zeromorph verify");
+    // info("Honk verify_proof:before Zeromorph verify");
 
     auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),

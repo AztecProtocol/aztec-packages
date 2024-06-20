@@ -247,8 +247,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
     // logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
-    logger.info(`in getBaseRollupProof`);
-    logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
+    // logger.info(`in getBaseRollupProof`);
+    // logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
     // logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
     baseRollupInput.kernelData.proof = await this.ensureValidProof(
       baseRollupInput.kernelData.proof,

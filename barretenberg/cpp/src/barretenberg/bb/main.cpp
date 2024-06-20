@@ -360,10 +360,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         // Construct a bberg circuit from the acir representation
         auto circuit =
             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
-
-        std::cout << "ACCUM" << std::endl;
         if (!bb::CircuitChecker::check(circuit)) {
-            std::cout << "BAD" << std::endl;
         }
         ivc.accumulate(circuit);
     }
@@ -1178,7 +1175,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
                            const std::string& witnessPath,
                            const std::string& outputPath)
 {
-    info("at prove_honk_output_all");
+    // info("at prove_honk_output_all");
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
@@ -1188,21 +1185,21 @@ void prove_honk_output_all(const std::string& bytecodePath,
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    info("after get_constraint_system");
+    // info("after get_constraint_system");
     auto witness = get_witness(witnessPath);
-    info("after get_witness");
+    // info("after get_witness");
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-    info("after create_circuit");
+    // info("after create_circuit");
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
 
-    CircuitChecker circuit_checker;
-    info("check result: ", circuit_checker.check<Builder>(builder));
+    // CircuitChecker circuit_checker;
+    // info("check result: ", circuit_checker.check<Builder>(builder));
     // Construct Honk proof
     Prover prover{ builder };
     auto proof = prover.construct_proof();
-    info("after construct_proof");
+    // info("after construct_proof");
 
     // We have been given a directory, we will write the proof and verification key
     // into the directory in both 'binary' and 'fields' formats
@@ -1221,18 +1218,18 @@ void prove_honk_output_all(const std::string& bytecodePath,
     // Write the proof as fields
     std::string proofJson = to_json(proof);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    info("proof as fields written to: ", proofFieldsPath);
+    // info("proof as fields written to: ", proofFieldsPath);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(vk);
     write_file(vkOutputPath, serialized_vk);
-    info("vk written to: ", vkOutputPath);
+    // info("vk written to: ", vkOutputPath);
 
     // Write the vk as fields
     std::vector<bb::fr> vk_data = vk.to_field_elements();
     auto vk_json = honk_vk_to_json(vk_data);
     write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    info("vk as fields written to: ", vkFieldsOutputPath);
+    // info("vk as fields written to: ", vkFieldsOutputPath);
 }
 
 /**

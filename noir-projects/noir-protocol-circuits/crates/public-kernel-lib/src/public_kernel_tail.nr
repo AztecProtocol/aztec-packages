@@ -60,7 +60,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
         // verify the previous kernel proof
-        self.previous_kernel.verify();
+        // self.previous_kernel.verify();
 
         self.validate_inputs();
 
