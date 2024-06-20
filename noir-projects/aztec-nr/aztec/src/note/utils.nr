@@ -43,8 +43,8 @@ fn compute_note_hash_for_read_request_from_innter_and_nonce(
 }
 
 pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    let nonce = note.get_header().nonce;
     let inner_note_hash = compute_inner_note_hash(note);
+    let nonce = note.get_header().nonce;
 
     compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, nonce)
 }
@@ -80,25 +80,16 @@ pub fn compute_note_hash_for_consumption<Note, N, M>(note: Note) -> Field where 
 }
 
 pub fn compute_note_hash_and_optionally_a_nullifier<T, N, M, S>(
-    // docs:start:compute_note_hash_and_optionally_a_nullifier_args
     deserialize_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
     compute_nullifier: bool,
-    serialized_note: [Field; S] // docs:end:compute_note_hash_and_optionally_a_nullifier_args
+    serialized_note: [Field; S]
 ) -> [Field; 4] where T: NoteInterface<N, M> {
     let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     note.set_header(note_header);
 
     let inner_note_hash = compute_inner_note_hash(note);
-
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-    // Should always be calling compute_unique_note_hash() once notes added from public also include nonces.
-    let unique_note_hash = if note_header.nonce != 0 {
-        compute_unique_note_hash(note_header.nonce, inner_note_hash)
-    } else {
-        inner_note_hash
-    };
-
+    let unique_note_hash = compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, note_header.nonce);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
