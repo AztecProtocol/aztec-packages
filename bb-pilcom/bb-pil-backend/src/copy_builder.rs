@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter, Result};
+use std::fmt::{Debug, Formatter};
 
 use crate::file_writer::BBFiles;
 use crate::utils::{create_get_const_entities, create_get_nonconst_entities, snake_case};
@@ -191,10 +191,10 @@ fn create_copy_settings_file(copy: &Copy) -> String {
 }
 
 fn create_inverse_computed_at() -> String {
-    format!("
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row([[maybe_unused]] const AllEntities& in) {{
+    "
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row([[maybe_unused]] const AllEntities& in) {
         return 1;
-    }}")
+    }".to_string()
 }
 
 pub fn get_id_column_names(number_of_cols: usize) -> Vec<String> {

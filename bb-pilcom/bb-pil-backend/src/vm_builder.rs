@@ -13,7 +13,7 @@ use crate::permutation_builder::get_inverses_from_permutations;
 use crate::permutation_builder::Permutation;
 use crate::permutation_builder::PermutationBuilder;
 use crate::copy_builder::Copies;
-use crate::copy_builder::Copy;
+
 use crate::copy_builder::CopyBuilder;
 use crate::copy_builder::get_id_column_names;
 use crate::copy_builder::get_inverses_from_copies;
@@ -114,7 +114,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         shifted,
         all_cols_with_shifts,
         inverses,
-        id_columns,
+        id_columns: _,
     } = get_all_col_names(
         fixed,
         witness,
