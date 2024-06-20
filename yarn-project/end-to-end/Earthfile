@@ -1,236 +1,243 @@
 VERSION 0.8
 
-deps:
-    LOCALLY
-    LET packages = $(git ls-files "**/package*.json" package*.json)
-    LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-    FROM ../build-images+build
-    # copy bb, bb-js and noir-packages
-    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/
-    COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
-    COPY ../noir/+packages/packages /usr/src/noir/packages
-    WORKDIR /usr/src/yarn-project
-    COPY --dir .yarn .yarnrc.yml yarn.lock .
-    FOR file IN $packages
-        COPY $file $file
+E2E_COMPOSE_TEST:
+  FUNCTION
+  ARG test
+  ARG compose_file=./scripts/docker-compose.yml
+  ARG debug="aztec:*"
+  ARG hardware_concurrency=""
+  LOCALLY
+  ENV TEST=$test
+  ENV DEBUG=$debug
+  ENV HARDWARE_CONCURRENCY=$hardware_concurrency
+  LET project_name=$(echo $test | sed 's/\./_/g' | sed 's/\//_/g')
+  IF docker compose > /dev/null 2>&1
+    LET CMD="docker compose"
+  ELSE
+    LET CMD="docker-compose"
+  END
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
+     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD ../+export-e2e-test-images
     END
-    RUN yarn install --immutable
-    FOR file IN $tsconfigs
-        COPY $file $file
+  END
+  # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+  ENV JOB_NAME=$project_name
+  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
+
+E2E_TEST:
+  FUNCTION
+  ARG hardware_concurrency=""
+  ARG test
+  ARG allow_fail=false
+  LOCALLY
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD ../+export-end-to-end
     END
-    COPY scripts/update_package_jsons.mjs scripts/update_package_jsons.mjs
-    RUN yarn prepare:check
+  END
+  # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+  RUN docker run -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
 
-    # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
-    # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
-    # correctly for portalled packages, is to use --preserve-symlinks when running node.
-    # This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
-    # Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
-    # by initialising the module more than once. So at present I don't see a viable alternative.
-    RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
+e2e-p2p:
+  DO +E2E_TEST --test=./src/e2e_p2p_network.test.ts
 
-build:
-    # Prefetch targets to not wait for +deps.
-    BUILD ../barretenberg/cpp/+build
-    BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+nargo
-    BUILD ../noir-projects/+build
-    BUILD ../l1-contracts/+build
-    BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+packages
-    FROM +deps
+e2e-2-pxes:
+  DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
-    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
-    COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
-    COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
+e2e-prover-full:
+  DO +E2E_TEST --test=./src/e2e_prover/full --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
-    WORKDIR /usr/src/yarn-project
-    COPY . .
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN ./bootstrap.sh full
+e2e-prover-with-padding:
+  DO +E2E_TEST --test=./src/e2e_prover/with_padding --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
-build-dev:
-    FROM +build
-    SAVE ARTIFACT /usr/src /usr/src
+e2e-account-contracts:
+  DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
 
-bb-cli:
-    FROM +build
+e2e-auth-contract:
+  DO +E2E_TEST --test=./src/e2e_auth_contract.test.ts
 
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+e2e-authwit:
+  DO +E2E_TEST --test=./src/e2e_authwit.test.ts
 
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+e2e-avm-simulator:
+  DO +E2E_TEST --test=./src/e2e_avm_simulator.test.ts
 
-    RUN yarn workspaces focus @aztec/bb-prover --production && yarn cache clean
-    RUN rm -rf \
-        ../noir-projects \
-        ../l1-contracts \
-        ../barretenberg/ts/src \
-        ../barretenberg/ts/dest/node-cjs \
-        ../barretenberg/ts/dest/browser \
-        aztec.js/dest/main.js \
-        end-to-end \
-        **/src \
-        **/artifacts
+e2e-blacklist-token-contract:
+  DO +E2E_TEST --test=./src/e2e_blacklist_token_contract
 
-    # yarn symlinks the binary to node_modules/.bin
-    ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
+e2e-block-building:
+  DO +E2E_TEST --test=./src/e2e_block_building.test.ts
 
-# helper target to generate vks in parallel
-verification-key:
-    ARG circuit="RootRollupArtifact"
-    FROM +bb-cli
+e2e-card-game:
+  DO +E2E_TEST --test=./src/e2e_card_game.test.ts
 
-    # this needs to be exported as an env var for RUN to pick it up
-    ENV CIRCUIT=$circuit
-    RUN --entrypoint write-vk -c $CIRCUIT
+e2e-cheat-codes:
+  DO +E2E_TEST --test=./src/e2e_cheat_codes.test.ts
 
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+e2e-counter-contract:
+  DO +E2E_TEST --test=./src/e2e_counter_contract.test.ts
 
-protocol-verification-keys:
-    LOCALLY
-    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
+e2e-cross-chain-messaging:
+  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging.test.ts
 
-    FOR circuit IN $circuits
-        BUILD +verification-key --circuit=$circuit
-    END
+e2e-crowdfunding-and-claim:
+  DO +E2E_TEST --test=./src/e2e_crowdfunding_and_claim.test.ts
 
-    # this could be FROM scratch
-    # but FOR doesn't work without /bin/sh
-    FROM ubuntu:noble
-    WORKDIR /usr/src/bb
+e2e-delegate-calls:
+  DO +E2E_TEST --test=./src/e2e_delegate_calls
 
-    FOR circuit IN $circuits
-        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
-    END
+e2e-deploy-contract:
+  DO +E2E_TEST --test=./src/e2e_deploy_contract
 
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+e2e-encryption:
+  DO +E2E_TEST --test=./src/e2e_encryption.test.ts
 
-rollup-verifier-contract:
-    FROM +bb-cli
-    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraVerifier.sol
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+e2e-escrow-contract:
+  DO +E2E_TEST --test=./src/e2e_escrow_contract.test.ts
 
-aztec-prod:
-    FROM +build
-    RUN yarn workspaces focus @aztec/aztec @aztec/builder --production && yarn cache clean
-    # Remove a bunch of stuff that we don't need that takes up space.
-    RUN rm -rf \
-        ../noir-projects \
-        ../l1-contracts \
-        ../barretenberg/ts/src \
-        ../barretenberg/ts/dest/node-cjs \
-        ../barretenberg/ts/dest/browser \
-        aztec.js/dest/main.js \
-        end-to-end \
-        **/src \
-        **/artifacts
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    SAVE ARTIFACT /usr/src /usr/src
+e2e-key-registry:
+  DO +E2E_TEST --test=./src/e2e_key_registry.test.ts
 
-aztec:
-    FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-    COPY +aztec-prod/usr/src /usr/src
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-    LET port=8080
-    ENV PORT=$port
-    HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
-        CMD curl -fsSd '{\"jsonrpc\":\"2.0\",\"method\":\"pxe_getNodeInfo\",\"id\":1}' http://127.0.0.1:$port
-    EXPOSE $port
+e2e-keys:
+  DO +E2E_TEST --test=./src/e2e_keys.test.ts
 
-# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
-end-to-end-prod:
-    FROM +build
-    RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
-    # Remove a bunch of stuff that we don't need that takes up space.
-    RUN rm -rf \
-        ../noir-projects \
-        ../l1-contracts \
-        ../barretenberg/ts/src \
-        ../barretenberg/ts/dest/node-cjs \
-        ../barretenberg/ts/dest/browser \
-        **/artifacts
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    SAVE ARTIFACT /usr/src /usr/src
+e2e-lending-contract:
+  DO +E2E_TEST --test=./src/e2e_lending_contract.test.ts
 
-anvil:
-    FROM ../build-images+build
-    SAVE ARTIFACT /opt/foundry/bin/anvil
+e2e-max-block-number:
+  DO +E2E_TEST --test=./src/e2e_max_block_number.test.ts
 
-end-to-end:
-    FROM ubuntu:noble
-    # add repository for chromium
-    RUN apt-get update && apt-get install -y software-properties-common \
-        && apt-get update \
-        && apt-get install -y wget gnupg \
-        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-        && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
-        && rm -rf /var/lib/apt/lists/*
-    ENV CHROME_BIN="/usr/bin/chromium"
-    ENV PATH=/opt/foundry/bin:$PATH
-    ENV HARDWARE_CONCURRENCY=""
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    ENV PROVER_AGENT_CONCURRENCY=8
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
-    COPY +anvil/anvil /opt/foundry/bin/anvil
-    COPY +end-to-end-prod/usr/src /usr/src
-    WORKDIR /usr/src/yarn-project/end-to-end
-    RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
-    ENTRYPOINT ["yarn", "test"]
+e2e-multiple-accounts-1-enc-key:
+  DO +E2E_TEST --test=./src/e2e_multiple_accounts_1_enc_key.test.ts
 
-scripts-prod:
-    FROM +build
-    RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
-    SAVE ARTIFACT /usr/src /usr/src
+e2e-nested-contract:
+  DO +E2E_TEST --test=./src/e2e_nested_contract
 
-all:
-    BUILD +aztec
-    BUILD +end-to-end
+e2e-non-contract-account:
+  DO +E2E_TEST --test=./src/e2e_non_contract_account.test.ts
 
-export-aztec:
-    ARG EARTHLY_GIT_HASH
-    FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+e2e-note-getter:
+  DO +E2E_TEST --test=./src/e2e_note_getter.test.ts
 
-export-end-to-end:
-    ARG EARTHLY_GIT_HASH
-    FROM +end-to-end
-    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+e2e-ordering:
+  DO +E2E_TEST --test=./src/e2e_ordering.test.ts
 
-export-e2e-test-images:
-    BUILD +export-aztec
-    BUILD +export-end-to-end
+e2e-outbox:
+  DO +E2E_TEST --test=./src/e2e_outbox.test.ts
 
-format-check:
-    FROM +build
-    RUN yarn formatting
+e2e-pending-note-hashes-contract:
+  DO +E2E_TEST --test=./src/e2e_pending_note_hashes_contract.test.ts
 
-test:
-    FROM +build
-    RUN yarn test
+e2e-private-voting-contract:
+  DO +E2E_TEST --test=./src/e2e_private_voting_contract.test.ts
 
-run-e2e:
-    ARG test
-    ARG debug=""
-    FROM +end-to-end
-    RUN DEBUG=$debug yarn test $test
+e2e-fees-private-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
 
-prover-client-test:
-    FROM +build
-    ARG test
-    ARG debug=""
-    RUN cd prover-client && DEBUG=$debug yarn test $test
+e2e-fees-gas-estimation:
+  DO +E2E_TEST --test=./src/e2e_fees/gas_estimation.test.ts
+
+e2e-fees-dapp-subscription:
+  DO +E2E_TEST --test=./src/e2e_fees/dapp_subscription.test.ts
+
+e2e-fees-failures:
+  DO +E2E_TEST --test=./src/e2e_fees/failures.test.ts
+
+e2e-fees-native-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/native_payments.test.ts
+
+e2e-fees-account-init:
+  DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
+
+e2e-public-cross-chain-messaging:
+  DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
+
+e2e-public-to-private-messaging:
+  DO +E2E_TEST --test=./src/e2e_public_to_private_messaging.test.ts
+
+e2e-state-vars:
+  DO +E2E_TEST --test=./src/e2e_state_vars.test.ts
+
+e2e-logs:
+  DO +E2E_TEST --test=./src/e2e_event_logs.test.ts
+
+e2e-static-calls:
+  DO +E2E_TEST --test=./src/e2e_static_calls.test.ts
+
+e2e-token-contract:
+  DO +E2E_TEST --test=./src/e2e_token_contract
+
+flakey-e2e-tests:
+  DO +E2E_TEST --test=./src/flakey --allow_fail=true
+
+e2e-sandbox-example:
+  DO +E2E_COMPOSE_TEST --test=e2e_sandbox_example.test.ts
+
+uniswap-trade-on-l1-from-l2:
+  DO +E2E_COMPOSE_TEST --test=uniswap_trade_on_l1_from_l2.test.ts
+
+integration-l1-publisher:
+  DO +E2E_COMPOSE_TEST --test=integration_l1_publisher.test.ts
+
+# Disabled, TODO https://github.com/AztecProtocol/aztec-packages/issues/6624
+# integration-proof-verification:
+#  DO +E2E_COMPOSE_TEST --compose_file=./scripts/docker-compose-no-sandbox.yml --test=integration_proof_verification.test.ts
+
+e2e-browser:
+  DO +E2E_COMPOSE_TEST --test=e2e_aztec_js_browser.test.ts
+
+pxe:
+  DO +E2E_COMPOSE_TEST --test=pxe.test.ts
+
+e2e-docs-examples:
+  DO +E2E_COMPOSE_TEST --test=docs_examples.test.ts
+
+guides-writing-an-account-contract:
+  DO +E2E_COMPOSE_TEST --test=guides/writing_an_account_contract.test.ts
+
+guides-dapp-testing:
+  DO +E2E_COMPOSE_TEST --test=guides/dapp_testing.test.ts
+
+# TODO intermittent failure
+# guides-sample-dapp:
+#   DO +E2E_COMPOSE_TEST --test=sample-dapp
+
+# TODO currently hangs for hour+
+# guides-up-quick-start:
+#   DO +E2E_COMPOSE_TEST --test=guides/up_quick_start.test.ts
+
+bench-publish-rollup:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+
+bench-process-history:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+
+bench-tx-size:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+
+bench-prover:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
