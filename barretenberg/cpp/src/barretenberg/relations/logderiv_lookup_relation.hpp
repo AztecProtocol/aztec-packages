@@ -31,6 +31,12 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // Ensure the input does not contain a lookup gate or data that is being read
+        return in.q_lookup.is_zero() && in.lookup_read_counts.is_zero();
+    }
+
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
         return (row.q_lookup == 1) || (row.lookup_read_tags == 1);
