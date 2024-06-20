@@ -71,6 +71,28 @@ unconstrained pub fn add_authwit(address: AztecAddress, message_hash: Field) {
     orable_add_authwit(address, message_hash)
 }
 
+unconstrained pub fn assert_public_call_fails(target_address: AztecAddress, function_selector: FunctionSelector, args: [Field]) {
+    oracle_assert_public_call_fails(target_address, function_selector, args)
+}
+
+unconstrained pub fn assert_private_call_fails(
+    target_address: AztecAddress,
+    function_selector: FunctionSelector,
+    argsHash: Field,
+    sideEffectsCounter: Field,
+    isStaticCall: bool,
+    isDelegateCall: bool
+) {
+    oracle_assert_private_call_fails(
+        target_address,
+        function_selector,
+        argsHash,
+        sideEffectsCounter,
+        isStaticCall,
+        isDelegateCall
+    )
+}
+
 #[oracle(reset)]
 fn oracle_reset() {}
 
@@ -127,3 +149,20 @@ fn oracle_get_side_effects_counter() -> u32 {}
 
 #[oracle(addAuthWitness)]
 fn orable_add_authwit(address: AztecAddress, message_hash: Field) {}
+
+#[oracle(assertPublicCallFails)]
+fn oracle_assert_public_call_fails(
+    target_address: AztecAddress,
+    function_selector: FunctionSelector,
+    args: [Field]
+) {}
+
+#[oracle(assertPrivateCallFails)]
+fn oracle_assert_private_call_fails(
+    target_address: AztecAddress,
+    function_selector: FunctionSelector,
+    argsHash: Field,
+    sideEffectsCounter: Field,
+    isStaticCall: bool,
+    isDelegateCall: bool
+) {}

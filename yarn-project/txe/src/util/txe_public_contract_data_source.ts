@@ -56,8 +56,9 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     throw new Error('Method not implemented.');
   }
 
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.txeOracle.getContractDataOracle().getContractArtifact(address);
+  async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    const instance = await this.txeOracle.getContractDataOracle().getContractInstance(address);
+    return this.txeOracle.getContractDataOracle().getContractArtifact(instance.contractClassId);
   }
 
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {

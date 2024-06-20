@@ -28,6 +28,7 @@ import {
   toForeignCallResult,
   toSingle,
 } from '../util/encoding.js';
+import { ExpectedFailureError } from '../util/expected_failure_error.js';
 import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
@@ -211,6 +212,54 @@ export class TXEService {
 
   addAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
     (this.typedOracle as TXE).addAuthWitness(fromSingle(address), fromSingle(messageHash));
+    return toForeignCallResult([]);
+  }
+
+  async assertPublicCallFails(
+    address: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    args: ForeignCallArray,
+  ) {
+    const parsedAddress = fromSingle(address);
+    const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
+    let result = await (this.typedOracle as TXE).avmOpcodeCall(
+      parsedAddress,
+      parsedSelector,
+      fromArray(args),
+      false,
+      false,
+    );
+    if (!result.reverted) {
+      throw new ExpectedFailureError('Public call did not revert');
+    }
+
+    return toForeignCallResult([]);
+  }
+
+  async assertPrivateCallFails(
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
+    sideEffectCounter: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
+    isDelegateCall: ForeignCallSingle,
+  ) {
+    try {
+      await this.typedOracle.callPrivateFunction(
+        fromSingle(targetContractAddress),
+        FunctionSelector.fromField(fromSingle(functionSelector)),
+        fromSingle(argsHash),
+        fromSingle(sideEffectCounter).toNumber(),
+        fromSingle(isStaticCall).toBool(),
+        fromSingle(isDelegateCall).toBool(),
+      );
+      throw new ExpectedFailureError('Private call did not fail');
+    } catch (e) {
+      if (e instanceof ExpectedFailureError) {
+        throw e;
+      }
+    }
     return toForeignCallResult([]);
   }
 
@@ -449,6 +498,24 @@ export class TXEService {
       AztecAddress.fromField(fromSingle(targetAddress)),
     );
     return toForeignCallResult([toSingle(new Fr(exists))]);
+  }
+
+  async avmOpcodeCall(
+    _gas: ForeignCallArray,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    args: ForeignCallArray,
+    functionSelector: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(
+      fromSingle(address),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromArray(args),
+      false,
+      false,
+    );
+
+    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
   }
 
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {

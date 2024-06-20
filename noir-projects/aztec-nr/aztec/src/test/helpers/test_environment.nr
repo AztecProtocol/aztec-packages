@@ -128,6 +128,7 @@ impl TestEnvironment {
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_private_context_inputs(cheatcodes::get_block_number() - 1);
         inputs.call_context.function_selector = call_interface.get_selector();
+        inputs.call_context.is_static_call = call_interface.get_is_static();
         let public_inputs = original_fn(inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
@@ -148,6 +149,7 @@ impl TestEnvironment {
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_private_context_inputs(cheatcodes::get_block_number() - 1);
         inputs.call_context.function_selector = call_interface.get_selector();
+        inputs.call_context.is_static_call = call_interface.get_is_static();
         let public_inputs = original_fn(inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
@@ -166,6 +168,7 @@ impl TestEnvironment {
         let mut inputs = cheatcodes::get_public_context_inputs();
         inputs.selector = call_interface.get_selector().to_field();
         inputs.args_hash = hash_args(call_interface.get_args());
+        inputs.is_static_call = call_interface.get_is_static();
         let result = original_fn(inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
@@ -173,21 +176,23 @@ impl TestEnvironment {
         result
     }
 
-    fn call_public_void<C, M, Env, N>(self, call_interface: C) where C: CallInterface<M, PublicContextInputs, (), Env> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = cheatcodes::get_contract_address();
-        let target_address = call_interface.get_contract_address();
+    fn assert_public_call_fails<C, M, T, Env, N>(self, call_interface: C) where C: CallInterface<M, PublicContextInputs, T, Env> {
+        cheatcodes::assert_public_call_fails(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args()
+        );
+    }
 
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.selector = call_interface.get_selector().to_field();
-        inputs.args_hash = hash_args(call_interface.get_args());
-        original_fn(inputs);
-
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
+    fn assert_private_call_fails<C, M, T, Env, N>(self, call_interface: C) where C: CallInterface<M, PrivateContextInputs, T, Env> {
+        cheatcodes::assert_private_call_fails(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            hash_args(call_interface.get_args()),
+            cheatcodes::get_side_effects_counter() as Field,
+            call_interface.get_is_static(),
+            false
+        );
     }
 
     pub fn store_note_in_cache<Note, N, M>(

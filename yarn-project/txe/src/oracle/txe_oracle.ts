@@ -243,7 +243,7 @@ export class TXE implements TypedOracle {
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const contractInstance = await this.txeDatabase.getContractInstance(address);
+    const contractInstance = await this.contractDataOracle.getContractInstance(address);
     if (!contractInstance) {
       throw new Error(`Contract instance not found for address ${address}`);
     }
@@ -517,49 +517,52 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-      const execError = new ExecutionError(
-        err.message,
-        {
-          contractAddress: targetContractAddress,
-          functionSelector,
-        },
-        extractCallStack(err, artifact.debug),
-        { cause: err },
+    try {
+      const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+        const execError = new ExecutionError(
+          err.message,
+          {
+            contractAddress: targetContractAddress,
+            functionSelector,
+          },
+          extractCallStack(err, artifact.debug),
+          { cause: err },
+        );
+        this.logger.debug(
+          `Error executing private function ${targetContractAddress}:${functionSelector}\n${createSimulationError(
+            execError,
+          )}`,
+        );
+        throw execError;
+      });
+      const duration = timer.ms();
+      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
+      const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+
+      const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+      this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
+        circuitName: 'app-circuit',
+        duration,
+        eventName: 'circuit-witness-generation',
+        inputSize: initialWitnessSize,
+        outputSize: publicInputs.toBuffer().length,
+        appCircuitName: 'noname',
+      } satisfies CircuitWitnessGenerationStats);
+
+      const callStackItem = new PrivateCallStackItem(
+        targetContractAddress,
+        new FunctionData(functionSelector, true),
+        publicInputs,
       );
-      this.logger.debug(
-        `Error executing private function ${targetContractAddress}:${functionSelector}\n${createSimulationError(
-          execError,
-        )}`,
-      );
-      throw execError;
-    });
-    const duration = timer.ms();
-    const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
-    const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+      // Apply side effects
+      this.sideEffectsCounter += publicInputs.endSideEffectCounter.toNumber();
 
-    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
-    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
-      circuitName: 'app-circuit',
-      duration,
-      eventName: 'circuit-witness-generation',
-      inputSize: initialWitnessSize,
-      outputSize: publicInputs.toBuffer().length,
-      appCircuitName: 'noname',
-    } satisfies CircuitWitnessGenerationStats);
-
-    const callStackItem = new PrivateCallStackItem(
-      targetContractAddress,
-      new FunctionData(functionSelector, true),
-      publicInputs,
-    );
-    // Apply side effects
-    this.sideEffectsCounter += publicInputs.endSideEffectCounter.toNumber();
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
-
-    return callStackItem;
+      return callStackItem;
+    } finally {
+      this.setContractAddress(currentContractAddress);
+      this.setMsgSender(currentMessageSender);
+      this.setFunctionSelector(currentFunctionSelector);
+    }
   }
 
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number) {
@@ -579,11 +582,11 @@ export class TXE implements TypedOracle {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const instance = await this.txeDatabase.getContractInstance(address);
+    const instance = await this.contractDataOracle.getContractInstance(address);
     if (!instance) {
       return Promise.resolve(undefined);
     }
-    const artifact = await this.txeDatabase.getContractArtifact(instance!.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance!.contractClassId);
     if (!artifact) {
       return Promise.resolve(undefined);
     }
@@ -680,6 +683,45 @@ export class TXE implements TypedOracle {
       bytecode,
       fnName,
     );
+    return executionResult;
+  }
+
+  async avmOpcodeCall(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ) {
+    // Store and modify env
+    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
+    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    this.setMsgSender(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
+
+    const callContext = CallContext.empty();
+    callContext.msgSender = this.msgSender;
+    callContext.functionSelector = this.functionSelector;
+    callContext.sideEffectCounter = this.sideEffectsCounter;
+    callContext.storageContractAddress = targetContractAddress;
+    callContext.isStaticCall = isStaticCall;
+    callContext.isDelegateCall = isDelegateCall;
+
+    const executionResult = await this.executePublicFunction(
+      targetContractAddress,
+      functionSelector,
+      args,
+      callContext,
+    );
+
+    // Apply side effects
+    this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
     return executionResult;
   }
 

@@ -397,48 +397,6 @@ contract Token {
     }
     // docs:end:balance_of_private
 
-    use crate::test;
-    use dep::aztec::test::helpers::cheatcodes;
-    use dep::authwit::test as autwit_test;
-
-    #[test]
-    unconstrained fn test_private_transfer() {
-        // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-        let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint(/* with_account_contracts */ false);
-        // Transfer tokens
-        let transfer_amount = 1000;
-        let private_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, transfer_amount);
-        env.call_private_void(private_transfer_call_interface);
-
-        // Check balances
-        test::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
-        test::check_private_balance(token_contract_address, recipient, transfer_amount);
-    }
-
-    #[test]
-    unconstrained fn test_private_transfer_from() {
-        // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-        let (env, token_contract_address, owner, recipient, mint_amount) = test::setup_and_mint(/* with_account_contracts */ true);
-        // Impersonate recipient to test authwits
-        cheatcodes::set_contract_address(recipient);
-        let transfer_amount = 1000;
-        let private_transfer_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
-        autwit_test::add_authwit_from_call_interface(owner, recipient, private_transfer_from_call_interface);
-        // Transfer tokens
-        env.call_private_void(private_transfer_from_call_interface);
-        // Check balances
-        test::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
-        test::check_private_balance(token_contract_address, recipient, transfer_amount);
-    }
-
-    #[test]
-    unconstrained fn test_unshield() {
-        // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-        let (env, token_contract_address, owner, _, _) = test::setup_and_mint(/* with_account_contracts */ false);
-        let unshield_amount = 1000;
-        let unshield_call_interface = Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0);
-        env.call_private_void(unshield_call_interface);
-        test::check_public_balance(token_contract_address, owner, unshield_amount);
-    }
+   
 }
 // docs:end:token_all
