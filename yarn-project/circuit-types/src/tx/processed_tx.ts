@@ -27,6 +27,7 @@ import {
   type VerificationKeyData,
   makeEmptyProof,
   type TUBE_PROOF_LENGTH,
+  ClientIvcProof,
 } from '@aztec/circuits.js';
 
 /**
@@ -68,7 +69,7 @@ export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
  * Represents a tx that has been processed by the sequencer public processor,
  * so its kernel circuit public inputs are filled in.
  */
-export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
+export type ProcessedTx = Pick<Tx, 'proof' | 'clientIvcProof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
   /**
    * Output of the private tail or public tail kernel circuit for this tx.
    */
@@ -160,6 +161,8 @@ export function makeProcessedTx(
     hash: tx.getTxHash(),
     data: kernelOutput,
     proof,
+    // LONDONTODO(AD) deal with this client proof
+    clientIvcProof: tx.clientIvcProof,
     // TODO(4712): deal with non-revertible logs here
     noteEncryptedLogs: revertReason ? EncryptedNoteTxL2Logs.empty() : tx.noteEncryptedLogs,
     encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
@@ -198,6 +201,8 @@ export function makePaddingProcessedTx(
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: kernelOutput.inputs,
     proof: kernelOutput.proof.binaryProof,
+    // LONDONTODO will this cause issues?
+    clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
     publicProvingRequests: [],
@@ -223,6 +228,8 @@ export function makePaddingProcessedTxFromTubeProof(
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: kernelOutput.inputs,
     proof: kernelOutput.proof.binaryProof,
+    // LONDONTODO will this cause issues?
+    clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
     publicProvingRequests: [],
@@ -253,6 +260,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
     proof: emptyProof,
+    clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
     publicProvingRequests: [],

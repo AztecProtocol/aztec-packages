@@ -597,8 +597,7 @@ export class ProvingOrchestrator {
       signal =>
         this.prover.getBaseRollupProof(
           tx.baseRollupInputs,
-          // TODO(TubeInput): tx.tubeRollupInputs
-          TubeInputs.empty(),
+          new TubeInputs(tx.processedTx.clientIvcProof),
           signal,
         ),
       result => {

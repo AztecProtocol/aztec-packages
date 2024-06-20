@@ -64,6 +64,7 @@ import { type Abi, type WitnessMap } from '@noir-lang/types';
 import { info } from 'console';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 
 import {
   type BBSuccess,
@@ -258,6 +259,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
     // logger.debug(`kernel Data proof after ensureValidProof: ${baseRollupInput.kernelData.proof}`);
 
+    if (tubeInput.clientIVCData.isEmpty()) {
+      throw new Error("Trying to create getBaseRollupProof but TubeInputs client IVC is empty");
+    }
     const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
     baseRollupInput.kernelData.vk = tubeVK;
     baseRollupInput.kernelData.proof = tubeProof;
@@ -540,16 +544,17 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     hasher.update(input.toBuffer());
     const hash = hasher.digest("hex");
 
-    const tubeResultPath = "~/.aztec/cache/" + hash;
+    const tubeResultPath = path.join(os.homedir(), '.aztec', 'cache', hash);
     try {
-      await fs.access("~/.aztec/cache/" + hash);
+      await fs.access(path.join(tubeResultPath, 'success.txt'));
       return { status: BB_RESULT.SUCCESS, duration: 0, proofPath: tubeResultPath, vkPath: tubeResultPath };
     } catch {
-      await fs.mkdir("~/.aztec/cache/" + hash, { recursive: true });
+      await fs.mkdir(tubeResultPath, { recursive: true });
 
-      await input.clientIVCData.writeToOutputDirectory(this.config.bbWorkingDirectory);
-      const provingResult = await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, logger.verbose)
+      await input.clientIVCData.writeToOutputDirectory(tubeResultPath);
+      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose)
 
+      await fs.writeFile(path.join(tubeResultPath, 'success.txt'), 'success');
       if (provingResult.status === BB_RESULT.FAILURE) {
         logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
         throw new Error(provingResult.reason);

@@ -44,7 +44,8 @@ export function createDebugLogger(name: string): DebugLogger {
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
+    error: (msg: string, err?: unknown, data?: LogData) =>
+      logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
     warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data),
     info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
     verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),

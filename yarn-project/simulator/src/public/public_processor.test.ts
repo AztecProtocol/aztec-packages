@@ -116,6 +116,7 @@ describe('public_processor', () => {
         noteEncryptedLogs: tx.noteEncryptedLogs,
         encryptedLogs: tx.encryptedLogs,
         unencryptedLogs: tx.unencryptedLogs,
+        clientIvcProof: tx.clientIvcProof,
         isEmpty: false,
         revertReason: undefined,
         publicProvingRequests: [],
