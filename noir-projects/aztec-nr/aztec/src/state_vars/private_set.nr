@@ -7,7 +7,7 @@ use crate::note::{
     constants::MAX_NOTES_PER_PAGE, lifecycle::{create_note, create_note_hash_from_public, destroy_note},
     note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
     note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_request
+    utils::compute_note_hash_for_read_request, note_emission::NoteEmission
 };
 use crate::state_vars::storage::Storage;
 
@@ -39,29 +39,10 @@ impl<Note> PrivateSet<Note, &mut PublicContext> {
 
 impl<Note> PrivateSet<Note, &mut PrivateContext> {
     // docs:start:insert
-    pub fn insert<N, M>(
-        self,
-        note: &mut Note,
-        ovpk_m: GrumpkinPoint,
-        ivpk_m: GrumpkinPoint
-    ) where Note: NoteInterface<N, M> {
-        create_note(self.context, self.storage_slot, note, ovpk_m, ivpk_m);
+    pub fn insert<N, M>(self, note: &mut Note) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
+        create_note(self.context, self.storage_slot, note)
     }
     // docs:end:insert
-
-    // DEPRECATED
-    fn assert_contains_and_remove(_self: Self, _note: &mut Note, _nonce: Field) {
-        assert(
-            false, "`assert_contains_and_remove` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() and PrivateSet.remove() in your contract to verify and remove a note."
-        );
-    }
-
-    // DEPRECATED
-    fn assert_contains_and_remove_publicly_created(_self: Self, _note: &mut Note) {
-        assert(
-            false, "`assert_contains_and_remove_publicly_created` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() and PrivateSet.remove() in your contract to verify and remove a note."
-        );
-    }
 
     // docs:start:remove
     pub fn remove<N, M>(self, note: Note) where Note: NoteInterface<N, M> {
@@ -77,10 +58,8 @@ impl<Note> PrivateSet<Note, &mut PrivateContext> {
     pub fn get_notes<N, M, FILTER_ARGS>(
         self,
         options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
-    ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
-        let storage_slot = self.storage_slot;
-        let opt_notes = get_notes(self.context, storage_slot, options);
-        opt_notes
+    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> {
+        get_notes(self.context, self.storage_slot, options)
     }
     // docs:end:get_notes
 }
@@ -90,7 +69,7 @@ impl<Note> PrivateSet<Note, UnconstrainedContext> {
     unconstrained pub fn view_notes<N, M>(
         self,
         options: NoteViewerOptions<Note, N, M>
-    ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N, M> {
+    ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> where Note: NoteInterface<N, M> {
         view_notes(self.storage_slot, options)
     }
     // docs:end:view_notes

@@ -12,7 +12,7 @@
 namespace bb::avm_trace {
 
 AvmKernelTraceBuilder::AvmKernelTraceBuilder(VmPublicInputs public_inputs)
-    : public_inputs(public_inputs)
+    : public_inputs(std::move(public_inputs))
 {}
 
 void AvmKernelTraceBuilder::reset()
@@ -57,6 +57,10 @@ FF AvmKernelTraceBuilder::op_sender()
 FF AvmKernelTraceBuilder::op_address()
 {
     return perform_kernel_input_lookup(ADDRESS_SELECTOR);
+}
+FF AvmKernelTraceBuilder::op_storage_address()
+{
+    return perform_kernel_input_lookup(STORAGE_ADDRESS_SELECTOR);
 }
 
 FF AvmKernelTraceBuilder::op_fee_per_da_gas()
@@ -142,9 +146,15 @@ void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk,
                                                 const FF& nullifier,
                                                 uint32_t result)
 {
-    uint32_t offset = START_NULLIFIER_EXISTS_OFFSET + nullifier_exists_offset;
+    uint32_t offset = 0;
+    if (result == 1) {
+        offset = START_NULLIFIER_EXISTS_OFFSET + nullifier_exists_offset;
+        nullifier_exists_offset++;
+    } else {
+        offset = START_NULLIFIER_NON_EXISTS_OFFSET + nullifier_non_exists_offset;
+        nullifier_non_exists_offset++;
+    }
     perform_kernel_output_lookup(offset, side_effect_counter, nullifier, FF(result));
-    nullifier_exists_offset++;
 
     KernelTraceEntry entry = {
         .clk = clk,
@@ -205,10 +215,13 @@ void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, uint32_t side_
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, uint32_t side_effect_counter, const FF& l2_to_l1_msg)
+void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk,
+                                                 uint32_t side_effect_counter,
+                                                 const FF& l2_to_l1_msg,
+                                                 const FF& recipient)
 {
     uint32_t offset = START_L2_TO_L1_MSG_WRITE_OFFSET + emit_l2_to_l1_msg_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, l2_to_l1_msg, FF(0));
+    perform_kernel_output_lookup(offset, side_effect_counter, l2_to_l1_msg, recipient);
     emit_l2_to_l1_msg_offset++;
 
     KernelTraceEntry entry = {

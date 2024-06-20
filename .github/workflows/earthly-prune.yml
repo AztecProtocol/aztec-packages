@@ -9,7 +9,7 @@ on:
         required: false
         type: string
       prune_flags:
-        default: "--age 8h"
+        default: "--reset"
         type: string
 
 concurrency:
@@ -27,7 +27,7 @@ jobs:
 
   publish:
     needs: setup
-    runs-on: master-x86
+    runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with:

@@ -25,9 +25,6 @@ type DerivedField<T extends BaseField> = {
  * Conversions from Buffer to BigInt and vice-versa are not cheap.
  * We allow construction with either form and lazily convert to other as needed.
  * We only check we are within the field modulus when initializing with bigint.
- * If NODE_ENV === 'test', we will always initialize both types to check the modulus.
- * This is also necessary in test environment as a lot of tests just use deep equality to check equality.
- * WARNING: This could lead to a bugs in production that don't reveal in tests, but it's low risk.
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
@@ -40,6 +37,11 @@ abstract class BaseField {
    * */
   get value(): bigint {
     return this.toBigInt();
+  }
+
+  /** Returns the size in bytes. */
+  get size(): number {
+    return BaseField.SIZE_IN_BYTES;
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
@@ -61,14 +63,6 @@ abstract class BaseField {
       this.asBigInt = value.asBigInt;
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
-    }
-
-    // Loads of our tests are just doing deep equality rather than calling e.g. toBigInt() first.
-    // This ensures the deep equality passes regardless of the internal representation.
-    // It also ensures the value range is checked even when initializing as a buffer.
-    if (process.env.NODE_ENV === 'test') {
-      this.toBuffer();
-      this.toBigInt();
     }
   }
 
@@ -243,6 +237,14 @@ export class Fr extends BaseField {
     return new Fr((this.toBigInt() + rhs.toBigInt()) % Fr.MODULUS);
   }
 
+  square() {
+    return new Fr((this.toBigInt() * this.toBigInt()) % Fr.MODULUS);
+  }
+
+  negate() {
+    return new Fr(Fr.MODULUS - this.toBigInt());
+  }
+
   sub(rhs: Fr) {
     const result = this.toBigInt() - rhs.toBigInt();
     return new Fr(result < 0 ? result + Fr.MODULUS : result);
@@ -391,4 +393,23 @@ export const GrumpkinScalar = Fq;
 /** Wraps a function that returns a buffer so that all results are reduced into a field of the given type. */
 export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) => Buffer, field: DerivedField<TField>) {
   return (input: TInput) => fromBufferReduce(fn(input), field);
+}
+
+/** If we are in test mode, we register a special equality for fields. */
+if (process.env.NODE_ENV === 'test') {
+  const areFieldsEqual = (a: unknown, b: unknown): boolean | undefined => {
+    const isAField = a instanceof BaseField;
+    const isBField = b instanceof BaseField;
+
+    if (isAField && isBField) {
+      return a.equals(b);
+    } else if (isAField === isBField) {
+      return undefined;
+    } else {
+      return false;
+    }
+  };
+
+  // `addEqualityTesters` doesn't seem to be in the types yet.
+  (expect as any).addEqualityTesters([areFieldsEqual]);
 }
