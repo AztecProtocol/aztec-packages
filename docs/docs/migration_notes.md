@@ -11,7 +11,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ### [Aztec.nr] changes to `NoteInterface`
 `compute_nullifier` function was renamed to `compute_note_hash_and_nullifier` and now the function has to return not only the nullifier but also the note hash used to compute the nullifier.
 The same change was done to `compute_nullifier_without_context` function.
-These changes were done because having the note hash exposed allowed su to not having to re-compute it again in `destroy_note` function of Aztec.nr which led to significant decrease in gate counts (see the [optimization PR](https://github.com/AztecProtocol/aztec-packages/pull/7103) for more details).
+These changes were done because having the note hash exposed allowed us to not having to re-compute it again in `destroy_note` function of Aztec.nr which led to significant decrease in gate counts (see the [optimization PR](https://github.com/AztecProtocol/aztec-packages/pull/7103) for more details).
 
 
 ```diff
