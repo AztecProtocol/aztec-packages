@@ -189,7 +189,12 @@ Also, there is a header file "barretenberg/smt_verification/utl/smt_util.hpp" th
 
 These functions will write witness variables in c-like array format into file named `fname`.
 The vector of `special_names` is the values that you want ot see in stdout.
-`pack` argument tells this function to save an `msgpack` buffer of the witness on disk. Name of the file will be `fname`.pack
+`pack` argument tells this function to save an `msgpack` buffer of the witness on disk. Name of the file will be `fname`.pack 
+
+You can then import the saved witness using one of the following functions:
+
+- `vec<vec<fr>> import_witness(str fname)`
+- `vec<fr> import_witness_single(str fname)`
  
 ## 4. Automated verification of a unique witness
 There's a static member of `StandardCircuit` and `UltraCircuit` 

@@ -2,6 +2,7 @@
 
 /**
  * @brief Converts a string of an arbitrary base to fr.
+ * Note: there should be no prefix
  *
  * @param number string to be converted
  * @param base base representation of the string
@@ -23,14 +24,15 @@ bb::fr string_to_fr(const std::string& number, int base, size_t step)
         return 0;
     }
 
+    size_t i = number[0] == '-' ? 1 : 0;
     bb::fr step_power = bb::fr(base).pow(step);
-    for (size_t i = 0; i < number.size(); i += step) {
+    for (; i < number.size(); i += step) {
         std::string slice = number.substr(i, step);
         bb::fr cur_power = i + step > number.size() ? bb::fr(base).pow(number.size() - i) : step_power;
         res *= cur_power;
         res += std::strtoull(slice.data(), &ptr, base);
     }
-
+    res = number[0] == '-' ? -res : res;
     return res;
 }
 
@@ -187,6 +189,62 @@ void default_model_single(const std::vector<std::string>& special,
     for (const auto& vname : special) {
         info(vname, " = ", mmap1[vname]);
     }
+}
+
+/**
+ * @brief Import witness, obtained by solver, from file.
+ * @details Imports the witness, that was packed by default_model function
+ *
+ * @param fname
+ * @return std::vector<std::vector<bb::fr>>
+ */
+std::vector<std::vector<bb::fr>> import_witness(const std::string& fname)
+{
+    std::ifstream fin;
+    fin.open(fname, std::ios::ate | std::ios::binary);
+    if (!fin.is_open()) {
+        throw std::invalid_argument("file not found");
+    }
+    if (fin.tellg() == -1) {
+        throw std::invalid_argument("something went wrong");
+    }
+
+    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
+    fin.seekg(0, std::ios_base::beg);
+
+    std::vector<std::vector<bb::fr>> res;
+    char* encoded_data = new char[fsize];
+    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
+    msgpack::unpack(encoded_data, fsize).get().convert(res);
+    return res;
+}
+
+/**
+ * @brief Import witness, obtained by solver, from file.
+ * @details Imports the witness, that was packed by default_model_single function
+ *
+ * @param fname
+ * @return std::vector<std::vector<bb::fr>>
+ */
+std::vector<bb::fr> import_witness_single(const std::string& fname)
+{
+    std::ifstream fin;
+    fin.open(fname, std::ios::ate | std::ios::binary);
+    if (!fin.is_open()) {
+        throw std::invalid_argument("file not found");
+    }
+    if (fin.tellg() == -1) {
+        throw std::invalid_argument("something went wrong");
+    }
+
+    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
+    fin.seekg(0, std::ios_base::beg);
+
+    std::vector<bb::fr> res;
+    char* encoded_data = new char[fsize];
+    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
+    msgpack::unpack(encoded_data, fsize).get().convert(res);
+    return res;
 }
 
 /**
