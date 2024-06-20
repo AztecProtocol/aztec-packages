@@ -69,11 +69,11 @@ Inside this, paste these imports:
 
 We are using various utils within the Aztec library:
 
-- `Context` and `PrivateContext` - exposes things such as the contract address, msg_sender, etc
+- `Context` and `PrivateContext` - Exposes things such as the **contract address**, **msg_sender**, etc
 - `AztecAddress` - A type for storing an address on Aztec
 - `FunctionSelector` - Used for computing a selector to call a function
 - `Map` - A data storage type for storing candidates with the number of votes they have
-- `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
+- `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as **PublicMutables**
 
 ## Set up storage
 
