@@ -3,8 +3,7 @@ use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interf
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__INNER_NOTE_HASH,
     hash::{
-    pedersen_hash, compute_unique_note_hash,
-    compute_siloed_note_hash as compute_siloed_note_hash_from_preimage,
+    pedersen_hash, compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
     compute_siloed_nullifier as compute_siloed_nullifier_from_preimage
 },
     utils::arr_copy_slice
@@ -20,13 +19,6 @@ fn compute_inner_note_hash<Note, N, M>(note: Note) -> Field where Note: NoteInte
     )
 }
 
-fn compute_siloed_note_hash<Note, N, M>(note_with_header: Note) -> Field where Note: NoteInterface<N, M> {
-    let unique_note_hash = compute_note_hash_for_read_request(note_with_header);
-
-    let header = note_with_header.get_header();
-    compute_siloed_note_hash_from_preimage(header.contract_address, unique_note_hash)
-}
-
 pub fn compute_siloed_nullifier<Note, N, M>(
     note_with_header: Note,
     context: &mut PrivateContext
@@ -37,18 +29,24 @@ pub fn compute_siloed_nullifier<Note, N, M>(
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
-pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    let header = note.get_header();
-
-    let inner_note_hash = compute_inner_note_hash(note);
-
+fn compute_note_hash_for_read_request_from_innter_and_nonce(
+    inner_note_hash: Field,
+    nonce: Field
+) -> Field {
     // TODO(#1386): This if-else can be nuked once we have nonces injected from public
-    if (header.nonce == 0) {
+    if (nonce == 0) {
         // If nonce is zero, that means we are reading a public note.
         inner_note_hash
     } else {
-        compute_unique_note_hash(header.nonce, inner_note_hash)
+        compute_unique_note_hash(nonce, inner_note_hash)
     }
+}
+
+pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
+    let nonce = note.get_header().nonce;
+    let inner_note_hash = compute_inner_note_hash(note);
+
+    compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, nonce)
 }
 
 pub fn compute_note_hash_for_consumption<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
@@ -58,15 +56,18 @@ pub fn compute_note_hash_for_consumption<Note, N, M>(note: Note) -> Field where 
     // 2. The note was inserted in a previous transaction, and was inserted in public
     // 3. The note was inserted in a previous transaction, and was inserted in private
 
+    let inner_note_hash = compute_inner_note_hash(note);
+
     if (header.note_hash_counter != 0) {
         // If a note is transient, we just read the inner_note_hash (kernel will silo by contract address).
-        compute_inner_note_hash(note)
+        inner_note_hash
     } else {
         // If a note is not transient, that means we are reading a settled note (from tree) created in a
         // previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        compute_siloed_note_hash(note)
+        let unique_note_hash = compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, header.nonce);
+        compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
         // nullification, it is not strictly necessary to silo the note hash before computing
@@ -98,7 +99,7 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, N, M, S>(
         inner_note_hash
     };
 
-    let siloed_note_hash = compute_siloed_note_hash_from_preimage(note_header.contract_address, unique_note_hash);
+    let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
         let (_, nullifier) = note.compute_note_hash_and_nullifier_without_context();
