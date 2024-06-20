@@ -84,6 +84,7 @@ import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+import crypto from 'crypto';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -521,20 +522,40 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
+  // async checkResultCache(hash: string) {
+  //   try {
+  //     await fs.mkdir("~/.aztec/cache", { recursive: true });
+  //     await fs.access(path.join("~/.aztec/cache", hash));
+  //     // fs.copyFile
+  //     console.log('Cache entry exists');
+  //   } catch (error) {
+  //     console.log('Cache entry does not exist');
+  //   }
+  // }
+
   private async generateTubeProofWithBB(input: TubeInputs): Promise<BBSuccess> {
     logger.debug(`Proving tube...`);
 
-    const provingResult = await runInDirectory(this.config.bbWorkingDirectory, async (dir) => {
-      input.clientIVCData.writeToOutputDirectory(dir);
-      return await generateTubeProof(this.config.bbBinaryPath, dir, logger.verbose)
-    });
+    const hasher = crypto.createHash("sha256");
+    hasher.update(input.toBuffer());
+    const hash = hasher.digest("hex");
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+    const tubeResultPath = "~/.aztec/cache/" + hash;
+    try {
+      await fs.access("~/.aztec/cache/" + hash);
+      return { status: BB_RESULT.SUCCESS, duration: 0, proofPath: tubeResultPath, vkPath: tubeResultPath };
+    } catch {
+      await fs.mkdir("~/.aztec/cache/" + hash, { recursive: true });
+
+      await input.clientIVCData.writeToOutputDirectory(this.config.bbWorkingDirectory);
+      const provingResult = await generateTubeProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, logger.verbose)
+
+      if (provingResult.status === BB_RESULT.FAILURE) {
+        logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
+        throw new Error(provingResult.reason);
+      }
+      return provingResult;
     }
-
-    return provingResult;
   }
 
   private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
