@@ -15,6 +15,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/generated/copy/copy.hpp"
 #include "barretenberg/relations/generated/copy/copy_main.hpp"
+#include "barretenberg/relations/generated/copy/copy_second.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -36,15 +37,15 @@ class CopyFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 10;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 20;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 12;
+    static constexpr size_t NUM_ALL_ENTITIES = 22;
 
-    using GrandProductRelations = std::tuple<copy_main_relation<FF>>;
+    using GrandProductRelations = std::tuple<copy_main_relation<FF>, copy_second_relation<FF>>;
 
-    using Relations = std::tuple<Copy_vm::copy<FF>, copy_main_relation<FF>>;
+    using Relations = std::tuple<Copy_vm::copy<FF>, copy_main_relation<FF>, copy_second_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -67,9 +68,9 @@ class CopyFlavor {
       public:
         using DataType = DataType_;
 
-        DEFINE_FLAVOR_MEMBERS(DataType, copy_c)
+        DEFINE_FLAVOR_MEMBERS(DataType, copy_n)
 
-        RefVector<DataType> get_selectors() { return { copy_c }; };
+        RefVector<DataType> get_selectors() { return { copy_n }; };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };
@@ -77,19 +78,15 @@ class CopyFlavor {
 
     template <typename DataType> class WitnessEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(
-            DataType, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y, copy_z, copy_main, id_0, id_1, id_2)
-
-        RefVector<DataType> get_wires()
-        {
-            return { copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y, copy_z, copy_main, id_0, id_1, id_2 };
-        };
-    };
-
-    template <typename DataType> class AllEntities {
-      public:
         DEFINE_FLAVOR_MEMBERS(DataType,
+                              copy_a,
+                              copy_b,
                               copy_c,
+                              copy_d,
+                              copy_sigma_a,
+                              copy_sigma_b,
+                              copy_sigma_c,
+                              copy_sigma_d,
                               copy_sigma_x,
                               copy_sigma_y,
                               copy_sigma_z,
@@ -97,20 +94,58 @@ class CopyFlavor {
                               copy_y,
                               copy_z,
                               copy_main,
+                              copy_second,
                               id_0,
                               id_1,
                               id_2,
+                              id_3)
+
+        RefVector<DataType> get_wires()
+        {
+            return { copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a, copy_sigma_b, copy_sigma_c,
+                     copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,       copy_y,       copy_z,
+                     copy_main,    copy_second,  id_0,         id_1,         id_2,         id_3 };
+        };
+    };
+
+    template <typename DataType> class AllEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              copy_n,
+                              copy_a,
+                              copy_b,
+                              copy_c,
+                              copy_d,
+                              copy_sigma_a,
+                              copy_sigma_b,
+                              copy_sigma_c,
+                              copy_sigma_d,
+                              copy_sigma_x,
+                              copy_sigma_y,
+                              copy_sigma_z,
+                              copy_x,
+                              copy_y,
+                              copy_z,
+                              copy_main,
+                              copy_second,
+                              id_0,
+                              id_1,
+                              id_2,
+                              id_3,
                               copy_x_shift)
 
         RefVector<DataType> get_wires()
         {
-            return { copy_c, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y,
-                     copy_z, copy_main,    id_0,         id_1,         id_2,   copy_x_shift };
+            return { copy_n,       copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a,
+                     copy_sigma_b, copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z,
+                     copy_x,       copy_y,       copy_z,       copy_main,    copy_second,  id_0,
+                     id_1,         id_2,         id_3,         copy_x_shift };
         };
         RefVector<DataType> get_unshifted()
         {
-            return { copy_c, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y,
-                     copy_z, copy_main,    id_0,         id_1,         id_2 };
+            return { copy_n,       copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a, copy_sigma_b,
+                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,       copy_y,
+                     copy_z,       copy_main,    copy_second,  id_0,         id_1,         id_2,         id_3 };
         };
         RefVector<DataType> get_to_be_shifted() { return { copy_x }; };
         RefVector<DataType> get_shifted() { return { copy_x_shift }; };
@@ -131,6 +166,8 @@ class CopyFlavor {
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
 
             bb::compute_logderivative_inverse<CopyFlavor, copy_main_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<CopyFlavor, copy_second_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
         }
     };
@@ -168,7 +205,7 @@ class CopyFlavor {
             }
         }
 
-        [[nodiscard]] size_t get_polynomial_size() const { return copy_sigma_x.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return copy_a.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
          * represents one row in the execution trace.
@@ -228,7 +265,15 @@ class CopyFlavor {
         CommitmentLabels()
             : AllEntities<std::string>()
         {
+            Base::copy_n = "COPY_N";
+            Base::copy_a = "COPY_A";
+            Base::copy_b = "COPY_B";
             Base::copy_c = "COPY_C";
+            Base::copy_d = "COPY_D";
+            Base::copy_sigma_a = "COPY_SIGMA_A";
+            Base::copy_sigma_b = "COPY_SIGMA_B";
+            Base::copy_sigma_c = "COPY_SIGMA_C";
+            Base::copy_sigma_d = "COPY_SIGMA_D";
             Base::copy_sigma_x = "COPY_SIGMA_X";
             Base::copy_sigma_y = "COPY_SIGMA_Y";
             Base::copy_sigma_z = "COPY_SIGMA_Z";
@@ -236,9 +281,11 @@ class CopyFlavor {
             Base::copy_y = "COPY_Y";
             Base::copy_z = "COPY_Z";
             Base::copy_main = "COPY_MAIN";
+            Base::copy_second = "COPY_SECOND";
             Base::id_0 = "ID_0";
             Base::id_1 = "ID_1";
             Base::id_2 = "ID_2";
+            Base::id_3 = "ID_3";
         };
     };
 
@@ -249,7 +296,7 @@ class CopyFlavor {
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            copy_c = verification_key->copy_c;
+            copy_n = verification_key->copy_n;
         }
     };
 
@@ -257,6 +304,14 @@ class CopyFlavor {
       public:
         uint32_t circuit_size;
 
+        Commitment copy_a;
+        Commitment copy_b;
+        Commitment copy_c;
+        Commitment copy_d;
+        Commitment copy_sigma_a;
+        Commitment copy_sigma_b;
+        Commitment copy_sigma_c;
+        Commitment copy_sigma_d;
         Commitment copy_sigma_x;
         Commitment copy_sigma_y;
         Commitment copy_sigma_z;
@@ -264,9 +319,11 @@ class CopyFlavor {
         Commitment copy_y;
         Commitment copy_z;
         Commitment copy_main;
+        Commitment copy_second;
         Commitment id_0;
         Commitment id_1;
         Commitment id_2;
+        Commitment id_3;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -286,6 +343,14 @@ class CopyFlavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
+            copy_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_sigma_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_sigma_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_sigma_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_sigma_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_sigma_x = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_sigma_y = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_sigma_z = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -293,9 +358,11 @@ class CopyFlavor {
             copy_y = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_z = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_main = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_second = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             id_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             id_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             id_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            id_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
@@ -319,6 +386,14 @@ class CopyFlavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
+            serialize_to_buffer<Commitment>(copy_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_d, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_sigma_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_sigma_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_sigma_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_sigma_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_sigma_x, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_sigma_y, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_sigma_z, Transcript::proof_data);
@@ -326,9 +401,11 @@ class CopyFlavor {
             serialize_to_buffer<Commitment>(copy_y, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_z, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_main, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_second, Transcript::proof_data);
             serialize_to_buffer<Commitment>(id_0, Transcript::proof_data);
             serialize_to_buffer<Commitment>(id_1, Transcript::proof_data);
             serialize_to_buffer<Commitment>(id_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(id_3, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);

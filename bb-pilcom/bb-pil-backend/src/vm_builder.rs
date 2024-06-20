@@ -49,9 +49,6 @@ struct ColumnGroups {
     all_cols_with_shifts: Vec<String>,
     /// Inverses from lookups and permuations
     inverses: Vec<String>,
-    /// TODO(md): might not need 
-    /// The identity columns that will be used in lookups
-    id_columns: Vec<String>,
 }
 
 /// Analyzed to cpp
@@ -114,7 +111,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         shifted,
         all_cols_with_shifts,
         inverses,
-        id_columns: _,
     } = get_all_col_names(
         fixed,
         witness,
@@ -246,6 +242,5 @@ fn get_all_col_names(
         shifted,
         all_cols_with_shifts,
         inverses,
-        id_columns
     }
 }

@@ -143,7 +143,6 @@ git submodule update --init --recursive
 check_toolchains
 
 PROJECTS=(
-  bb-pilcom
   barretenberg
   noir
   l1-contracts

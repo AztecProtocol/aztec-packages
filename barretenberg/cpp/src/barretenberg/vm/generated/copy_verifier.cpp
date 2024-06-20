@@ -53,6 +53,14 @@ bool CopyVerifier::verify_proof(const HonkProof& proof)
     }
 
     // Get commitments to VM wires
+    commitments.copy_a = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_a);
+    commitments.copy_b = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_b);
+    commitments.copy_c = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_c);
+    commitments.copy_d = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_d);
+    commitments.copy_sigma_a = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_a);
+    commitments.copy_sigma_b = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_b);
+    commitments.copy_sigma_c = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_c);
+    commitments.copy_sigma_d = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_d);
     commitments.copy_sigma_x = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_x);
     commitments.copy_sigma_y = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_y);
     commitments.copy_sigma_z = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_sigma_z);
@@ -62,6 +70,7 @@ bool CopyVerifier::verify_proof(const HonkProof& proof)
     commitments.id_0 = transcript->template receive_from_prover<Commitment>(commitment_labels.id_0);
     commitments.id_1 = transcript->template receive_from_prover<Commitment>(commitment_labels.id_1);
     commitments.id_2 = transcript->template receive_from_prover<Commitment>(commitment_labels.id_2);
+    commitments.id_3 = transcript->template receive_from_prover<Commitment>(commitment_labels.id_3);
 
     auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
@@ -69,6 +78,7 @@ bool CopyVerifier::verify_proof(const HonkProof& proof)
 
     // Get commitments to inverses
     commitments.copy_main = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_main);
+    commitments.copy_second = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_second);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);

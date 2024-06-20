@@ -30,6 +30,11 @@ impl Debug for Copy {
     }
 }
 
+/// Copy Builder
+/// 
+/// Copy builder will create a copy_settings file for each copy relation required
+/// Barretenberg includes a `generic_copy_relation` that can construct copy's out of these
+/// generic relations
 pub trait CopyBuilder {
     fn create_copy_files<F: FieldElement>(
         &self,
@@ -57,10 +62,10 @@ impl CopyBuilder for BBFiles {
             pair
         }).collect();
 
-        let num_id_columns = get_copy_airty(&copy_pairs);
+        // Airity 
+        let num_id_columns = get_copy_max_airity(&copy_pairs);
 
-        println!("Number of id columns {num_id_columns}");
-
+        // Create the copy settings files from each copy pair
         create_copies(self, name, &copy_pairs);
 
         Copies {
@@ -70,15 +75,26 @@ impl CopyBuilder for BBFiles {
     }
 }
 
-fn get_copy_airty(copies: &Vec<Copy>) -> usize {
-    // Get the maximum length of the copy vectors, left and right are asserted to be of same length
+/// Get Copy Max Arity
+/// 
+/// We are required to commit to "pre-commit" to the number of id columns that will be used as the 
+/// disjoint subgroups for our copy constraint relations 
+/// 
+/// These groups can be shared across copy constraints, however we need to accomodate for a maximum size
+fn get_copy_max_airity(copies: &Vec<Copy>) -> usize {
     copies.iter().map(|copy| copy.left.len()).max().unwrap_or(0)
 }
 
+/// Get Inverses from Copies
+/// 
+/// We use the provided attribute name as the name of the inverse column for our copy constraints
 pub fn get_inverses_from_copies(copies: &Copies) -> Vec<String> {
     copies.copy_pairs.iter().map(|copy| copy.attribute.clone().unwrap_or_else(|| "copy_inverse".to_string())).collect()
 }
 
+/// Get Copy Cols
+/// 
+/// Returns the name of the columns involved in a copy constraint definition
 fn get_copy_cols<F: FieldElement>(
     def: &SelectedExpressions<AlgebraicExpression<F>>,
 ) -> Vec<String> {
@@ -90,13 +106,15 @@ fn get_copy_cols<F: FieldElement>(
     def.expressions.iter().map(get_name).collect_vec()
 }
 
+/// Create Copies
+/// 
+/// Create the copy settings file which can be fed to the `generic copy relation`
+/// This file will be included as a relation in the flavor AND in the circuit checker
 fn create_copies(bb_files: &BBFiles, project_name: &str, copies: &Vec<Copy>) {
     for copy in copies {
         // Copy settings define a log derivative version of the copy constraints that can be 
         // used with the existing log derivative library
         let copy_settings = create_copy_settings_file(copy);
-        println!("Writing copy settings file");
-        println!("{copy_settings}");
         
         let folder = format!("{}/{}", bb_files.rel, &snake_case(project_name));
         let file_name = format!(
@@ -104,7 +122,6 @@ fn create_copies(bb_files: &BBFiles, project_name: &str, copies: &Vec<Copy>) {
             copy.attribute.clone().unwrap_or("NONAME".to_owned()),
             ".hpp".to_owned()
         );
-        println!("Writing filename {file_name}");
         bb_files.write_file(&folder, &file_name, &copy_settings);
     }
 }
@@ -137,7 +154,6 @@ fn create_copy_settings_file(copy: &Copy) -> String {
     log::trace!("Copy: {:?}", copy);
     let columns_per_set = copy.left.len();
 
-    // TODO: catch this earlier??? dont make an option in the parser????? - same for lookup and permutation
     let copy_name = copy
         .attribute
         .clone()
@@ -148,14 +164,10 @@ fn create_copy_settings_file(copy: &Copy) -> String {
     let id_cols = get_id_column_names(columns_per_set);
 
     // 0.                       The polynomial containing the inverse products -> taken from the attributes
-    // 4.. + columns per set.   lhs cols
-    // 4 + columns per set.. .  rhs cols
-    // 4 + 2 * columns per set. id cols
-    let mut copy_entities: Vec<String> = [
-        copy_name.clone(),
-    ]
-    .to_vec();
-
+    // 0..cols_per_set                       .......... value cols
+    // cols_per_set..2*cols_per_set columns  .......... sigma cols
+    // 2*cols_per_set..3*cols_per_set        .......... id cols
+    let mut copy_entities: Vec<String> = vec![copy_name];
     copy_entities.extend(lhs_cols);
     copy_entities.extend(rhs_cols);
     copy_entities.extend(id_cols);

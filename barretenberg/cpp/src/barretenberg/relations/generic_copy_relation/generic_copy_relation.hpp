@@ -26,17 +26,24 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     static constexpr size_t WRITE_TERMS = 1;
     // 1 + polynomial degree of this relation
 
-    static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET + 2;
+    // As each copy tuple is multiplied together
+    static constexpr size_t LENGTH = Settings::COLUMNS_PER_SET + 3;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
         LENGTH  // log-derived terms subrelation
     };
 
-    // TODO(md): comments
+    // Contains the index of the polynomial used to calculate lookup inverses
     static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+
+    // The lhs (read) terms will be COLUMNS_PER_SET long starting from index 1
     static constexpr size_t COPY_SET_POLYNOMIAL_INDEX = 1;
+
+    // The rhs (write) terms will be COLUMNS_PER_SET long starting from the end of COPY_SET
     static constexpr size_t SIGMA_SET_POLYNOMIAL_INDEX = COPY_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
+
+    // The identity terms will be the last set of polynomials, and will be COLUMNS_PER_SET long
     static constexpr size_t IDENTITY_SET_POLYNOMIAL_INDEX = SIGMA_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
 
     /**
@@ -126,20 +133,11 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
         // Retrieve all polynomials used
         const auto all_polynomials = Settings::get_const_entities(in);
 
-        auto result = Accumulator(1);
+        auto result = Accumulator(0);
 
         // Iterate over tuple and sum as a polynomial over beta
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            // info("read term ",
-            //      i,
-            //      " value ",
-            //      std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
-            //      " id ",
-            //      std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
-
-            // info("\n");
-
-            result *= View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
+            result += View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
                       View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
         });
 
@@ -166,19 +164,10 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
         // Get all used entities
         const auto& all_polynomials = Settings::get_const_entities(in);
 
-        auto result = Accumulator(1);
+        auto result = Accumulator(0);
 
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            // info("write term ",
-            //      i,
-            //      " value ",
-            //      std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
-            //      " sigma ",
-            //      std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
-
-            // info("\n");
-
-            result *= View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
+            result += View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
                       View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
         });
 

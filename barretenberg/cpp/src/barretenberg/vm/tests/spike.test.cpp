@@ -40,21 +40,38 @@ TEST_F(SpikeCopyTests, copyTest)
     // Fill in the id columns
     for (size_t i = 0; i < circuit_size; ++i) {
         Row row{
+            // Second set
+            .copy_sigma_a = i,
+            .copy_sigma_b = circuit_size + i,
+            .copy_sigma_c = 2 * circuit_size + i,
+            .copy_sigma_d = 3 * circuit_size + i,
+
+            // First set
             .copy_sigma_x = i,
             .copy_sigma_y = circuit_size + i,
             .copy_sigma_z = 2 * circuit_size + i,
+
+            // Id cols
             .id_0 = i,
             .id_1 = circuit_size + i,
             .id_2 = 2 * circuit_size + i,
+            .id_3 = 3 * circuit_size + i,
         };
         rows.push_back(row);
     }
 
     // Fill in x y and z with all zeros as a naive test
     for (size_t i = 0; i < circuit_size; ++i) {
+        // First set
         rows[i].copy_x = 0;
         rows[i].copy_y = 0;
         rows[i].copy_z = 0;
+
+        // Second set
+        rows[i].copy_a = 0;
+        rows[i].copy_b = 0;
+        rows[i].copy_c = 0;
+        rows[i].copy_d = 0;
     }
 
     circuit_builder.set_trace(std::move(rows));

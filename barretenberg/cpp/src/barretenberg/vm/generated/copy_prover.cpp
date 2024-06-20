@@ -59,6 +59,14 @@ void CopyProver::execute_wire_commitments_round()
 
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
+    witness_commitments.copy_a = commitment_key->commit(key->copy_a);
+    witness_commitments.copy_b = commitment_key->commit(key->copy_b);
+    witness_commitments.copy_c = commitment_key->commit(key->copy_c);
+    witness_commitments.copy_d = commitment_key->commit(key->copy_d);
+    witness_commitments.copy_sigma_a = commitment_key->commit(key->copy_sigma_a);
+    witness_commitments.copy_sigma_b = commitment_key->commit(key->copy_sigma_b);
+    witness_commitments.copy_sigma_c = commitment_key->commit(key->copy_sigma_c);
+    witness_commitments.copy_sigma_d = commitment_key->commit(key->copy_sigma_d);
     witness_commitments.copy_sigma_x = commitment_key->commit(key->copy_sigma_x);
     witness_commitments.copy_sigma_y = commitment_key->commit(key->copy_sigma_y);
     witness_commitments.copy_sigma_z = commitment_key->commit(key->copy_sigma_z);
@@ -68,8 +76,17 @@ void CopyProver::execute_wire_commitments_round()
     witness_commitments.id_0 = commitment_key->commit(key->id_0);
     witness_commitments.id_1 = commitment_key->commit(key->id_1);
     witness_commitments.id_2 = commitment_key->commit(key->id_2);
+    witness_commitments.id_3 = commitment_key->commit(key->id_3);
 
     // Send all commitments to the verifier
+    transcript->send_to_verifier(commitment_labels.copy_a, witness_commitments.copy_a);
+    transcript->send_to_verifier(commitment_labels.copy_b, witness_commitments.copy_b);
+    transcript->send_to_verifier(commitment_labels.copy_c, witness_commitments.copy_c);
+    transcript->send_to_verifier(commitment_labels.copy_d, witness_commitments.copy_d);
+    transcript->send_to_verifier(commitment_labels.copy_sigma_a, witness_commitments.copy_sigma_a);
+    transcript->send_to_verifier(commitment_labels.copy_sigma_b, witness_commitments.copy_sigma_b);
+    transcript->send_to_verifier(commitment_labels.copy_sigma_c, witness_commitments.copy_sigma_c);
+    transcript->send_to_verifier(commitment_labels.copy_sigma_d, witness_commitments.copy_sigma_d);
     transcript->send_to_verifier(commitment_labels.copy_sigma_x, witness_commitments.copy_sigma_x);
     transcript->send_to_verifier(commitment_labels.copy_sigma_y, witness_commitments.copy_sigma_y);
     transcript->send_to_verifier(commitment_labels.copy_sigma_z, witness_commitments.copy_sigma_z);
@@ -79,6 +96,7 @@ void CopyProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.id_0, witness_commitments.id_0);
     transcript->send_to_verifier(commitment_labels.id_1, witness_commitments.id_1);
     transcript->send_to_verifier(commitment_labels.id_2, witness_commitments.id_2);
+    transcript->send_to_verifier(commitment_labels.id_3, witness_commitments.id_3);
 }
 
 void CopyProver::execute_log_derivative_inverse_round()
@@ -92,9 +110,11 @@ void CopyProver::execute_log_derivative_inverse_round()
 
     // Commit to all logderivative inverse polynomials
     witness_commitments.copy_main = commitment_key->commit(key->copy_main);
+    witness_commitments.copy_second = commitment_key->commit(key->copy_second);
 
     // Send all commitments to the verifier
     transcript->send_to_verifier(commitment_labels.copy_main, witness_commitments.copy_main);
+    transcript->send_to_verifier(commitment_labels.copy_second, witness_commitments.copy_second);
 }
 
 /**
