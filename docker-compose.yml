@@ -143,6 +143,13 @@ services:
       - source: grafana-sources
         target: /etc/grafana/provisioning/datasources/default.yml
 
+  jaeger:
+    image: jaegertracing/all-in-one
+    ports:
+      - 16686:16686
+    profiles:
+      - metrics
+
 volumes:
   aztec:
   grafana:
@@ -187,9 +194,17 @@ configs:
         prometheus:
           endpoint: 0.0.0.0:8889
           metric_expiration: 5m
+        otlp/jaeger:
+            endpoint: "jaeger:4317"
+            tls:
+              insecure: true
 
       service:
         pipelines:
+          traces:
+            receivers: [otlp]
+            processors: [batch]
+            exporters: [otlp/jaeger]
           metrics:
             receivers: [otlp]
             processors: [batch]
