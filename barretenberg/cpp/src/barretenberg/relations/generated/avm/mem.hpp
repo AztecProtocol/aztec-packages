@@ -112,7 +112,7 @@ template <typename FF_> class memImpl {
 
     static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 4, 3, 4, 3, 4, 3, 3,
-        3, 4, 4, 4, 4, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 4, 4, 4, 4, 4, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -365,9 +365,8 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(27);
 
-            auto tmp = ((((-mem_skip_check_tag + FF(1)) * (-mem_rw + FF(1))) *
-                         (((mem_r_in_tag - mem_tag) * (-mem_one_min_inv + FF(1))) - mem_tag_err)) -
-                        FF(0));
+            auto tmp = (((-mem_skip_check_tag + FF(1)) * (-mem_rw + FF(1))) *
+                        (((mem_r_in_tag - mem_tag) * (-mem_one_min_inv + FF(1))) - mem_tag_err));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
