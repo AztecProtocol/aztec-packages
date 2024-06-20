@@ -47,7 +47,7 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
 
     check_trace(trace);
 
-    log_avm_trace(trace, 0, 10);
+    // log_avm_trace(trace, 0, 10);
     validate_trace(std::move(trace), public_inputs);
 }
 
@@ -67,7 +67,7 @@ TEST_F(AvmGasPositiveTests, gasAdd)
 
     auto checks = [=](const std::vector<Row>& trace) {
         auto sender_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == FF(1); });
+            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
     };
 
