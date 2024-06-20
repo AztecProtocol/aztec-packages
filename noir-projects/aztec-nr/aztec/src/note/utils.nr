@@ -70,10 +70,14 @@ pub fn compute_note_hash_for_insertion<Note, N, M>(note: Note) -> Field where No
 pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
     let header = note.get_header();
 
-    if (header.nonce != 0) {
-        compute_unique_note_hash(note)
+    let inner_note_hash = compute_inner_note_hash(note);
+
+    // TODO(#1386): This if-else can be nuked once we have nonces injected from public
+    if (header.nonce == 0) {
+        // If nonce is zero, that means we are reading a public note.
+        inner_note_hash
     } else {
-        compute_inner_note_hash(note)
+        compute_unique_hash(header.nonce, inner_note_hash)
     }
 }
 
