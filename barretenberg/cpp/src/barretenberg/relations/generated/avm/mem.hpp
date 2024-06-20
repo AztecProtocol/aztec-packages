@@ -112,7 +112,7 @@ template <typename FF_> class memImpl {
 
     static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 4, 3, 4, 3, 4, 3, 3,
-        3, 4, 4, 4, 4, 4, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 4, 4, 4, 4, 4, 6, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -374,7 +374,11 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(28);
 
+<<<<<<< HEAD
             auto tmp = (((-mem_tag_err + FF(1)) * mem_one_min_inv) - FF(0));
+=======
+            auto tmp = ((mem_tag * (-mem_tag_err + FF(1))) * mem_one_min_inv);
+>>>>>>> ed5b34d52f (7080: repair unit tests related to unitialized indirect memory in a MOV)
             tmp *= scaling_factor;
             std::get<28>(evals) += tmp;
         }
