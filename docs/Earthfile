@@ -1,13 +1,16 @@
 VERSION 0.8
 
+FROM ../build-images/+base-slim-node
+WORKDIR /usr/src/docs
+
 deps:
-  FROM ../build-images+build
-  WORKDIR /usr/src/docs
+  RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
   COPY ./yarn.lock ./yarn.lock
   COPY ./package.json ./package.json
   RUN yarn install --frozen-lockfile
 
 build:
+  ARG ENV
   ARG COMMIT_TAG
   ENV COMMIT_TAG=$COMMIT_TAG
   BUILD ../yarn-project/+build-dev
@@ -20,6 +23,7 @@ build:
   SAVE ARTIFACT build
 
 serve:
+  ARG ENV
   FROM +deps
   COPY +build/build build
   COPY ./static static
@@ -33,8 +37,18 @@ serve:
   SAVE ARTIFACT /usr/src/docs
   SAVE IMAGE aztecprotocol/docs-server
 
+serve-test:
+  FROM ../build-images/+build
+  COPY --dir ../yarn-project/+build-dev/usr/src /usr
+  COPY --dir +serve/ /usr/src
+  COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
+
+  ENTRYPOINT ["yarn", "serve"]
+  EXPOSE 3000
+  SAVE ARTIFACT /usr/src/docs
+  
 test:
-  FROM +serve
+  FROM +serve-test
 
   COPY --dir ../yarn-project/+build-dev/usr/src /usr
   COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
@@ -49,6 +63,7 @@ test:
 
 deploy-preview:
   BUILD ../yarn-project/+scripts-prod
+  ARG ENV
   ARG NETLIFY_AUTH_TOKEN
   ARG NETLIFY_SITE_ID
   ARG AZTEC_BOT_COMMENTER_GITHUB_TOKEN
