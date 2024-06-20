@@ -37,10 +37,6 @@ pub fn compute_siloed_nullifier<Note, N, M>(
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
-pub fn compute_note_hash_for_insertion<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    compute_inner_note_hash(note)
-}
-
 pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
     let header = note.get_header();
 
