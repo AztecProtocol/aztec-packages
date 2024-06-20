@@ -1017,7 +1017,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     vinfo("binary proof written to: ", proofPath);
 
     // Write the proof as fields
-    std::string proofJson = proof_to_json(proof);
+    std::string proofJson = to_json(proof);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
     vinfo("proof as fields written to: ", proofFieldsPath);
 
