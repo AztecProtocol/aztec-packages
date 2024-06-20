@@ -21,7 +21,7 @@ void construct_lookup_table_polynomials(RefArray<typename Flavor::Polynomial, 4>
     //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
-    // WORKTODO: eventually just construct the tables (and therefore the counts) at the top of the trace
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     ASSERT(dyadic_circuit_size > circuit.get_tables_size() + additional_offset);
     size_t offset = dyadic_circuit_size - circuit.get_tables_size() - additional_offset;
 
@@ -39,8 +39,11 @@ void construct_lookup_table_polynomials(RefArray<typename Flavor::Polynomial, 4>
 }
 
 /**
- * @brief WORKTODO
- *
+ * @brief Construct polynomial whose value at index i is the number of times the table entry at that index has been
+ * read.
+ * @details Read counts are needed for the log derivative lookup argument. The table polynomials are constructed as a
+ * concatenation of basic 3-column tables. Similarly, the read counts polynomial is constructed as the concatenation of
+ * read counts for the individual tables.
  */
 template <typename Flavor>
 typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
@@ -48,25 +51,27 @@ typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polyno
                                                          typename Flavor::CircuitBuilder& circuit,
                                                          size_t dyadic_circuit_size)
 {
-    // WORKTODO: eventually just construct the tables (and therefore the counts) at the top of the trace
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t offset = dyadic_circuit_size - circuit.get_tables_size();
 
     size_t table_offset = offset; // offset of the present table in the table polynomials
+    // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {
         table.initialize_index_map();
 
         for (auto& entry : table.lookup_gates) {
+            // convert lookup entry to an array of three field elements, one for each of the 3 columns
             auto data = entry.to_sorted_list_components(table.use_twin_keys);
 
-            // find the index of the current lookup gate in the table
+            // find the index of the entry in the table
             auto index_in_table = table.index_map[data];
 
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
             read_counts[index_in_poly]++;
-            read_tags[index_in_poly] = 1;
+            read_tags[index_in_poly] = 1; // tag is 1 if entry has been read 1 or more times
         }
-        table_offset += table.size();
+        table_offset += table.size(); // set the offset of the next table within the polynomials
     }
 
     return read_counts;
