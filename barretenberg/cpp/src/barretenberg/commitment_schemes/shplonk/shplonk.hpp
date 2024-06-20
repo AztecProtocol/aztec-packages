@@ -25,7 +25,7 @@ namespace bb {
  *
  * @tparam Curve EC parameters
  */
-template <typename Curve> using OutputWitness = bb::Polynomial<typename Curve::ScalarField>;
+// template <typename Curve> using OutputWitness = bb::Polynomial<typename Curve::ScalarField>;
 
 /**
  * @brief Prover output (claim=([G], r, 0), witness = G(X), proof = [Q])
@@ -33,10 +33,10 @@ template <typename Curve> using OutputWitness = bb::Polynomial<typename Curve::S
  *
  * @tparam Curve EC parameters
  */
-template <typename Curve> struct ShplonkProverOutput {
-    OpeningPair<Curve> opening_pair; // single opening pair (challenge, evaluation)
-    OutputWitness<Curve> witness;    // single polynomial G(X)
-};
+// template <typename Curve> struct ShplonkProverOutput {
+//     OpeningPair<Curve> opening_pair; // single opening pair (challenge, evaluation)
+//     OutputWitness<Curve> witness;    // single polynomial G(X)
+// };
 
 /**
  * @brief Shplonk Prover
@@ -97,7 +97,7 @@ template <typename Curve> class ShplonkProver_ {
      * @param z_challenge
      * @return Output{OpeningPair, Polynomial}
      */
-    static ShplonkProverOutput<Curve> compute_partially_evaluated_batched_quotient(
+    static ProverOpeningClaim<Curve> compute_partially_evaluated_batched_quotient(
         std::span<const OpeningPair<Curve>> opening_pairs,
         std::span<const Polynomial> witness_polynomials,
         Polynomial&& batched_quotient_Q,
@@ -116,7 +116,7 @@ template <typename Curve> class ShplonkProver_ {
 
         // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ ),
         // s.t. G(r) = 0
-        Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
+        Polynomial G(batched_quotient_Q); // G(X) = Q(X)
 
         // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ )
         Fr current_nu = Fr::one();
@@ -137,7 +137,7 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
-        return { .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() }, .witness = std::move(G) };
+        return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
 };
 

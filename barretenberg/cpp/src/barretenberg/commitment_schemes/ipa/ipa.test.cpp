@@ -307,10 +307,10 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     prover_transcript->send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
     const Fr z_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:z");
-    const auto [shplonk_opening_pair, shplonk_witness] = ShplonkProver::compute_partially_evaluated_batched_quotient(
+    const auto [polynomial, opening_pair] = ShplonkProver::compute_partially_evaluated_batched_quotient(
         gemini_opening_pairs, gemini_witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
-    IPA::compute_opening_proof(this->ck(), shplonk_opening_pair, shplonk_witness, prover_transcript);
+    IPA::compute_opening_proof(this->ck(), opening_pair, polynomial, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 

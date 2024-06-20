@@ -145,12 +145,12 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     prover_transcript->send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
     const Fr z_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:z");
-    const auto [shplonk_opening_pair, shplonk_witness] = ShplonkProver::compute_partially_evaluated_batched_quotient(
+    const auto opening_claim = ShplonkProver::compute_partially_evaluated_batched_quotient(
         gemini_opening_pairs, gemini_witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    KZG::compute_opening_proof(this->ck(), shplonk_opening_pair, shplonk_witness, prover_transcript);
+    KZG::compute_opening_proof(this->ck(), opening_claim.opening_pair, opening_claim.polynomial, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 

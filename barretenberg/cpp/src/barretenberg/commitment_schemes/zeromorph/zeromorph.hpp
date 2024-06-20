@@ -65,7 +65,8 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<const FF> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial& polynomial,
+                                                                 std::span<const FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
@@ -456,7 +457,10 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param x_challenge
      * @return Commitment
      */
-    static Commitment compute_C_zeta_x(Commitment C_q, std::vector<Commitment>& C_q_k, FF y_challenge, FF x_challenge)
+    static Commitment compute_C_zeta_x(const Commitment& C_q,
+                                       std::vector<Commitment>& C_q_k,
+                                       FF y_challenge,
+                                       FF x_challenge)
     {
         size_t log_N = C_q_k.size();
         size_t N = 1 << log_N;
@@ -519,7 +523,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param concatenation_groups_commitments
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(Commitment first_g1,
+    static Commitment compute_C_Z_x(const Commitment& first_g1,
                                     RefSpan<Commitment> f_commitments,
                                     RefSpan<Commitment> g_commitments,
                                     std::span<Commitment> C_q_k,
@@ -643,7 +647,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         RefSpan<FF> unshifted_evaluations,
         RefSpan<FF> shifted_evaluations,
         std::span<FF> multivariate_challenge,
-        Commitment first_g1,
+        const Commitment& first_g1,
         auto& transcript,
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<FF> concatenated_evaluations = {})
@@ -728,7 +732,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                       RefSpan<FF> unshifted_evaluations,
                                       RefSpan<FF> shifted_evaluations,
                                       std::span<FF> multivariate_challenge,
-                                      Commitment first_g1,
+                                      const Commitment& first_g1,
                                       auto& transcript,
                                       const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                       RefSpan<FF> concatenated_evaluations = {})

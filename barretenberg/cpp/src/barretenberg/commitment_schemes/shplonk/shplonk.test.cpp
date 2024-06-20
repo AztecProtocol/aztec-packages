@@ -52,12 +52,11 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     prover_transcript->send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
     const Fr z_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:z");
-    const auto [prover_opening_pair, shplonk_prover_witness] =
-        ShplonkProver::compute_partially_evaluated_batched_quotient(
-            opening_pairs, polynomials, std::move(batched_quotient_Q), nu_challenge, z_challenge);
+    const auto opening_claim = ShplonkProver::compute_partially_evaluated_batched_quotient(
+        opening_pairs, polynomials, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
     // An intermediate check to confirm the opening of the shplonk prover witness Q
-    this->verify_opening_pair(prover_opening_pair, shplonk_prover_witness);
+    this->verify_opening_pair(opening_claim.opening_pair, opening_claim.polynomial);
 
     // Aggregate polynomial commitments and their opening pairs
     std::vector<OpeningClaim> opening_claims;
@@ -69,6 +68,6 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     // Execute the shplonk verifier functionality
     const auto verifier_claim = ShplonkVerifier::reduce_verification(this->vk(), opening_claims, verifier_transcript);
 
-    this->verify_opening_claim(verifier_claim, shplonk_prover_witness);
+    this->verify_opening_claim(verifier_claim, opening_claim.polynomial);
 }
 } // namespace bb
