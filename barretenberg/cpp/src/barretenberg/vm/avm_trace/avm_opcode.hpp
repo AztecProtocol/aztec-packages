@@ -104,6 +104,8 @@ enum class OpCode : uint8_t {
     POSEIDON2,
     SHA256,
     PEDERSEN,
+    ECADD,
+    MSM,
     // Conversions
     TORADIXLE,
     // Future Gadgets -- pending changes in noir
@@ -132,5 +134,7 @@ std::string to_hex(T value)
     return stream.str();
 }
 std::string to_hex(OpCode opcode);
+
+std::string to_string(OpCode opcode);
 
 } // namespace bb::avm_trace

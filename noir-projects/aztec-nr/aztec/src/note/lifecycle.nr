@@ -2,24 +2,22 @@ use dep::protocol_types::grumpkin_point::GrumpkinPoint;
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption}
+    utils::{compute_inner_note_hash, compute_note_hash_for_consumption}, note_emission::NoteEmission
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
 pub fn create_note<Note, N, M>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    note: &mut Note,
-    ovpk_m: GrumpkinPoint,
-    ivpk_m: GrumpkinPoint
-) where Note: NoteInterface<N, M> {
+    note: &mut Note
+) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
     // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
-    let inner_note_hash = compute_note_hash_for_insertion(*note);
+    let inner_note_hash = compute_inner_note_hash(*note);
 
     // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
     let serialized_note: [Field; N] = Note::serialize_content(*note);
@@ -36,7 +34,7 @@ pub fn create_note<Note, N, M>(
 
     context.push_new_note_hash(inner_note_hash);
 
-    Note::broadcast(*note, context, storage_slot, ovpk_m, ivpk_m);
+    NoteEmission::new(*note)
 }
 
 pub fn create_note_hash_from_public<Note, N, M>(
@@ -47,9 +45,8 @@ pub fn create_note_hash_from_public<Note, N, M>(
     let contract_address = (*context).this_address();
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };
-    // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
-    Note::set_header(note, header);
-    let inner_note_hash = compute_note_hash_for_insertion(*note);
+    note.set_header(header);
+    let inner_note_hash = compute_inner_note_hash(*note);
 
     context.push_new_note_hash(inner_note_hash);
 }
@@ -58,24 +55,23 @@ pub fn destroy_note<Note, N, M>(
     context: &mut PrivateContext,
     note: Note
 ) where Note: NoteInterface<N, M> {
-    let mut nullifier = 0;
-    let mut consumed_note_hash: Field = 0;
-    nullifier = note.compute_nullifier(context);
+    let (note_hash, nullifier) = note.compute_note_hash_and_nullifier(context);
 
-    // We also need the note hash corresponding to the "nullifier"
-    let header = note.get_header();
-    // `consumed_note_hash` is used to inform the kernel which pending note hash
-    // the nullifier corresponds to so they can be matched and both squashed/deleted.
-    // nonzero nonce implies "persistable" nullifier (nullifies a persistent/in-tree
-    // note hash) in which case `consumed_note_hash` is not used since the kernel
-    // just siloes and forwards the nullifier to its output.
-    if (header.note_hash_counter != 0) {
-        // TODO(1718): Can we reuse the note hash computed in `compute_nullifier`?
-        consumed_note_hash = compute_note_hash_for_consumption(note);
-    }
+    let note_hash_counter = note.get_header().note_hash_counter;
+    let note_hash_for_consumption = if (note_hash_counter == 0) {
+        // Counter is zero, so we're nullifying a non-transient note and we don't populate the note_hash with real
+        // value (if we did so the `notifyNullifiedNote` oracle would throw).
+        0
+    } else {
+        // A non-zero note hash counter implies that we're nullifying a transient note (i.e. one that has not yet been
+        // persisted in the trees and is instead in the pending new note hashes array). In such a case we populate its
+        // hash with real value to inform the kernel which note we're nullifyng so that it can find it and squash both
+        // the note and the nullifier.
+        note_hash
+    };
 
     let nullifier_counter = context.side_effect_counter;
-    assert(notify_nullified_note(nullifier, consumed_note_hash, nullifier_counter) == 0);
+    assert(notify_nullified_note(nullifier, note_hash_for_consumption, nullifier_counter) == 0);
 
-    context.push_new_nullifier(nullifier, consumed_note_hash)
+    context.push_new_nullifier(nullifier, note_hash_for_consumption)
 }

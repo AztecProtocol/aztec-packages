@@ -1,5 +1,15 @@
-use dep::std::array;
-use dep::std::cmp::Eq;
+mod assert_sorted_array;
+mod assert_sorted_transformed_value_array;
+mod sort_by_counters;
+mod sort_get_order_hints;
+mod sort_get_sorted_tuple;
+
+// Re-exports.
+use assert_sorted_array::assert_sorted_array;
+use assert_sorted_transformed_value_array::assert_sorted_transformed_value_array;
+use sort_by_counters::{sort_by_counters_asc, sort_by_counters_desc};
+use sort_get_order_hints::{OrderHint, sort_get_order_hints_asc};
+
 use crate::traits::{Empty, is_empty};
 use crate::abis::side_effect::{Positioned, Ordered};
 
@@ -42,7 +52,7 @@ pub fn filter_array_to_bounded_vec<T, N>(arr: [T; N], should_propagate: [bool; N
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
-pub fn validate_array<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+pub fn validate_array<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let mut seen_empty = false;
     let mut length = 0;
     for i in 0..N {
@@ -56,7 +66,7 @@ pub fn validate_array<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
     length
 }
 
-unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let mut length = 0;
     let mut seen_empty = false;
     for elem in array {
@@ -71,7 +81,7 @@ unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u64 where T: E
 
 // Helper function to count the number of non-empty elements in a validated array.
 // Important: Only use it for validated arrays: validate_array(array) should be true.
-pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+pub fn array_length<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let length = count_non_empty_elements(array);
     if length != 0 {
         assert(!is_empty(array[length - 1]));
@@ -93,7 +103,7 @@ pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: Empty
     eq
 }
 
-pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u64 {
+pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
     let mut index = N;
     for i in 0..N {
         if (index == N) & find(array[i]) {
@@ -144,7 +154,7 @@ pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empt
 pub fn check_permutation<T, N>(
     original_array: [T; N],
     permuted_array: [T; N],
-    original_indexes: [u64; N]
+    original_indexes: [u32; N]
 ) where T: Eq + Empty {
     let mut seen_value = [false; N];
     for i in 0..N {
@@ -156,34 +166,10 @@ pub fn check_permutation<T, N>(
     }
 }
 
-pub fn assert_sorted_array<T, N, Env>(
-    original_array: [T; N],
-    sorted_array: [T; N],
-    sorted_indexes: [u64; N],
-    ordering: fn[Env](T, T) -> bool
-) where T: Eq + Empty {
-    let mut seen_empty = false;
-    for i in 0..N {
-        let original_value = original_array[i];
-        if is_empty(original_value) {
-            seen_empty = true;
-            assert(is_empty(sorted_array[i]), "Empty values must not be mixed with sorted values");
-        } else {
-            assert(!seen_empty, "Empty values must be padded to the right");
-
-            let index = sorted_indexes[i];
-            assert(sorted_array[index].eq(original_value), "Invalid index");
-            if i != 0 {
-                assert(ordering(sorted_array[i - 1], sorted_array[i]), "Values not sorted");
-            }
-        }
-    }
-}
-
 pub fn assert_deduped_array<T, N, Env>(
     original_array: [T; N],
     deduped_array: [T; N],
-    run_lengths: [u64; N]
+    run_lengths: [u32; N]
 ) where T: Positioned + Ordered + Empty + Eq {
     /*
     The original_array here needs to be sorted based on the `position` field of the container,
@@ -612,68 +598,4 @@ fn check_permutation_invalid_index() {
     let permuted_array = [1, 0, 0];
     let indexes = [1, 0, 2];
     check_permutation(original_array, permuted_array, indexes);
-}
-
-#[test]
-fn assert_sorted_array_asc() {
-    let original = [30, 20, 90, 50, 0, 0];
-    let sorted = [20, 30, 50, 90, 0, 0];
-    let indexes = [1, 0, 3, 2, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
-}
-
-#[test]
-fn assert_sorted_array_desc() {
-    let original = [30, 20, 90, 50, 0, 0];
-    let sorted = [90, 50, 30, 20, 0, 0];
-    let indexes = [2, 3, 0, 1, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| b.lt(a));
-}
-
-#[test]
-fn assert_sorted_array_all_empty() {
-    let original = [0, 0, 0, 0, 0, 0];
-    let sorted = [0, 0, 0, 0, 0, 0];
-    let indexes = [0, 0, 0, 0, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
-}
-
-#[test(should_fail_with="Values not sorted")]
-fn assert_sorted_array_failed_ordering() {
-    let original = [30, 20, 90, 50, 0, 0];
-    let sorted = [20, 30, 90, 50, 0, 0];
-    let indexes = [1, 0, 2, 3, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
-}
-
-#[test(should_fail_with="Values not sorted")]
-fn assert_sorted_array_failed_misplaced_sorted() {
-    let original = [30, 20, 90, 50, 0, 0];
-    let sorted = [20, 30, 50, 0, 0, 90];
-    let indexes = [1, 0, 5, 2, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
-}
-
-#[test(should_fail_with="Invalid index")]
-fn assert_sorted_array_failed_wrong_index() {
-    let original = [30, 20, 90, 50, 0, 0];
-    let sorted = [20, 30, 50, 90, 0, 0];
-    let indexes = [1, 1, 2, 3, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
-}
-
-#[test(should_fail_with="Empty values must be padded to the right")]
-fn assert_sorted_array_failed_not_padded() {
-    let original = [30, 20, 90, 0, 50, 0];
-    let sorted = [20, 30, 90, 0, 0, 0];
-    let indexes = [1, 0, 2, 0, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
-}
-
-#[test(should_fail_with="Empty values must not be mixed with sorted values")]
-fn assert_sorted_array_failed_mixed_empty() {
-    let original = [30, 20, 90, 0, 0, 0];
-    let sorted = [20, 30, 90, 0, 0, 10];
-    let indexes = [1, 0, 2, 0, 0, 0];
-    assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
 }

@@ -24,12 +24,14 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
+    use dep::std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul};
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
+    use dep::aztec::context::gas::GasOpts;
     use dep::compressed_string::CompressedString;
 
     #[aztec(storage)]
@@ -133,6 +135,24 @@ contract AvmTest {
         a % 2
     }
 
+    #[aztec(public)]
+    fn elliptic_curve_add_and_double() -> EmbeddedCurvePoint {
+        let g = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+
+        let doubled = g + g;
+        let added = g + doubled;
+        added
+    }
+
+    #[aztec(public)]
+    fn variable_base_msm() -> [Field; 3] {
+        let g = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+        let scalar = EmbeddedCurveScalar { lo: 3, hi: 0 };
+        let scalar2 = EmbeddedCurveScalar { lo: 20, hi: 0 };
+        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
+        triple_g
+    }
+
     /************************************************************************
      * Misc 
      ************************************************************************/
@@ -176,6 +196,12 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log_format("whole array: {}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
+    }
+
+    #[aztec(public)]
+    fn assert_same(arg_a: Field, arg_b: Field) -> pub Field {
+        assert(arg_a == arg_b, "Values are not equal");
+        1
     }
 
     /************************************************************************
@@ -281,10 +307,21 @@ contract AvmTest {
         context.timestamp()
     }
 
-    // #[aztec(public)]
-    // fn get_contract_call_depth() -> Field {
-    //     context.contract_call_depth()
-    // }
+    #[aztec(public)]
+    fn get_l2_gas_left() -> Field {
+        context.l2_gas_left()
+    }
+
+    #[aztec(public)]
+    fn get_da_gas_left() -> Field {
+        context.da_gas_left()
+    }
+
+    #[aztec(public)]
+    fn assert_timestamp(expected_timestamp: u64) {
+        let timestamp = context.timestamp();
+        assert(timestamp == expected_timestamp, "timestamp does not match");
+    }
 
     #[aztec(public)]
     fn check_selector() {
@@ -300,10 +337,10 @@ contract AvmTest {
 
     #[aztec(public)]
     fn emit_unencrypted_log() {
-        context.emit_unencrypted_log_with_selector(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log_with_selector(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log_with_selector(/*event_selector=*/ 10, /*message=*/ s);
+        context.emit_unencrypted_log(/*message=*/ s);
     }
 
     #[aztec(public)]
@@ -358,6 +395,49 @@ contract AvmTest {
     #[aztec(public)]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
+    }
+
+    /************************************************************************
+     * Nested calls
+     ************************************************************************/
+    #[aztec(public)]
+    fn nested_call_to_add_with_gas(
+        arg_a: Field,
+        arg_b: Field,
+        l2_gas: Field,
+        da_gas: Field
+    ) -> pub Field {
+        AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(l2_gas, da_gas)).call(&mut context)
+    }
+
+    // Use the `call_public_function` wrapper to initiate a nested call to the add function
+    #[aztec(public)]
+    fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
+        AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
+    }
+
+    // Indirectly call_static the external call opcode to initiate a nested call to the add function
+    #[aztec(public)]
+    fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
+        AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).view(&mut context)
+    }
+
+    // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
+    #[aztec(public)]
+    fn nested_static_call_to_set_storage() {
+        AvmTest::at(context.this_address()).set_storage_single(20).view(&mut context);
+    }
+
+    #[aztec(public)]
+    fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
+        AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
+    }
+
+    #[aztec(public)]
+    fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
+        AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 
     /**
