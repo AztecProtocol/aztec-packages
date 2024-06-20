@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718900714518,
+  "lastUpdate": 1718901345276,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -47484,6 +47484,78 @@ window.BENCHMARK_DATA = {
             "value": 166598249,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166598249 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7bd7c66de6adb1f703509e9a8e8911ff0ec2025c",
+          "message": "feat: added prove_output_all flow for honk (#6869)\n\nAdds new flow, prove_honk_output_all that is needed for rollup circuits.",
+          "timestamp": "2024-06-20T16:28:40Z",
+          "tree_id": "e070afb8db80173b50e3de2aed91f39d0dceede4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7bd7c66de6adb1f703509e9a8e8911ff0ec2025c"
+        },
+        "date": 1718901342230,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15334.755858999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10765.713473999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5502.240677999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5158.0800309999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49041.929357,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49041931000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16973.733308,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16973734000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5156794524,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5156794524 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199078586,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199078586 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4256916722,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4256916722 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163442803,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163442803 ns\nthreads: 1"
           }
         ]
       }
