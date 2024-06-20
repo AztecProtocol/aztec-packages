@@ -137,8 +137,8 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
             format!(
                 "let mut args_acc: [Field] = &[];
                 {}
-                let args_hash = aztec::hash::hash_args(args_acc);
-                assert(args_hash == aztec::oracle::arguments::pack_arguments(args_acc));",
+                let args_hash = dep::aztec::hash::hash_args(args_acc);
+                assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));",
                 call_args
             )
         } else {
@@ -151,18 +151,16 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
 
         format!(
             "{}
-                aztec::context::{}{}{}CallInterface {{
-                    target_contract: self.target_contract,
-                    selector: {},
-                    args_hash,
-                }}",
-            args_hash, aztec_visibility, is_static, is_void, fn_selector,
-        );
-        format!(
-            "pub fn {}(self, {}) -> aztec::context::{}{}{}CallInterface{} {{
-                    {}
-                }}",
-            fn_name, fn_parameters, aztec_visibility, is_static, is_void, return_type_hint, fn_body
+            let selector = {};
+            dep::aztec::context::{}{}{}CallInterface {{
+                target_contract: self.target_contract,
+                selector,
+                name: \"{}\",
+                args_hash,
+                args: args_acc,
+                original: {}
+            }}",
+            args_hash, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
         )
     } else {
         let args = format!(
@@ -173,22 +171,32 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         );
         format!(
             "{}
-            aztec::context::Public{}{}CallInterface {{
+            let selector = {};
+            dep::aztec::context::{}{}{}CallInterface {{
                 target_contract: self.target_contract,
                 selector,
                 name: \"{}\",
                 args: args_acc,
-                gas_opts: aztec::context::gas::GasOpts::default(),
+                gas_opts: dep::aztec::context::gas::GasOpts::default(),
+                original: {}
             }}",
-            args, is_static, is_void, fn_selector,
-        );
-        format!(
-            "pub fn {}(self, {}) -> aztec::context::Public{}{}CallInterface{} {{
-                    {}
-            }}",
-            fn_name, fn_parameters, is_static, is_void, return_type_hint, fn_body
+            args, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
         )
-    }
+    };
+
+    format!(
+        "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface<{},{} {{
+                {}
+        }}",
+        fn_name,
+        fn_parameters,
+        aztec_visibility,
+        is_static,
+        is_void,
+        fn_name.len(),
+        generics,
+        fn_body
+    )
 }
 
 // Generates the contract interface as a struct with an `at` function that holds the stubbed functions and provides
