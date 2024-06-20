@@ -7,6 +7,7 @@ use noirc_errors::Location;
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::ast::{BinaryOpKind, FunctionKind, IntegerBitSize, Signedness};
+use crate::hir_def::expr::HirQuoted;
 use crate::{
     hir_def::{
         expr::{
@@ -25,13 +26,18 @@ use crate::{
     Shared, Type, TypeBinding, TypeBindings, TypeVariableKind,
 };
 
+use self::unquote::UnquoteArgs;
+
 use super::errors::{IResult, InterpreterError};
 use super::value::Value;
+
+mod builtin;
+mod unquote;
 
 #[allow(unused)]
 pub struct Interpreter<'interner> {
     /// To expand macros the Interpreter may mutate hir nodes within the NodeInterner
-    pub(super) interner: &'interner mut NodeInterner,
+    pub interner: &'interner mut NodeInterner,
 
     /// Each value currently in scope in the interpreter.
     /// Each element of the Vec represents a scope with every scope together making
@@ -56,8 +62,6 @@ impl<'a> Interpreter<'a> {
         arguments: Vec<(Value, Location)>,
         location: Location,
     ) -> IResult<Value> {
-        let previous_state = self.enter_function();
-
         let meta = self.interner.function_meta(&function);
         if meta.parameters.len() != arguments.len() {
             return Err(InterpreterError::ArgumentCountMismatch {
@@ -72,6 +76,8 @@ impl<'a> Interpreter<'a> {
         }
 
         let parameters = meta.parameters.0.clone();
+        let previous_state = self.enter_function();
+
         for ((parameter, typ, _), (argument, arg_location)) in parameters.iter().zip(arguments) {
             self.define_pattern(parameter, typ, argument, arg_location)?;
         }
@@ -94,16 +100,22 @@ impl<'a> Interpreter<'a> {
             .expect("all builtin functions must contain a function  attribute which contains the opcode which it links to");
 
         if let Some(builtin) = func_attrs.builtin() {
-            let item = format!("Evaluation for builtin functions like {builtin}");
-            Err(InterpreterError::Unimplemented { item, location })
+            match builtin.as_str() {
+                "array_len" => builtin::array_len(&arguments),
+                "as_slice" => builtin::as_slice(arguments),
+                _ => {
+                    let item = format!("Comptime evaluation for builtin function {builtin}");
+                    Err(InterpreterError::Unimplemented { item, location })
+                }
+            }
         } else if let Some(foreign) = func_attrs.foreign() {
-            let item = format!("Evaluation for foreign functions like {foreign}");
+            let item = format!("Comptime evaluation for foreign functions like {foreign}");
             Err(InterpreterError::Unimplemented { item, location })
         } else if let Some(oracle) = func_attrs.oracle() {
             if oracle == "print" {
                 self.print_oracle(arguments)
             } else {
-                let item = format!("Evaluation for oracle functions like {oracle}");
+                let item = format!("Comptime evaluation for oracle functions like {oracle}");
                 Err(InterpreterError::Unimplemented { item, location })
             }
         } else {
@@ -315,14 +327,11 @@ impl<'a> Interpreter<'a> {
     }
 
     /// Evaluate an expression and return the result
-    pub(super) fn evaluate(&mut self, id: ExprId) -> IResult<Value> {
+    pub fn evaluate(&mut self, id: ExprId) -> IResult<Value> {
         match self.interner.expression(&id) {
             HirExpression::Ident(ident, _) => self.evaluate_ident(ident, id),
             HirExpression::Literal(literal) => self.evaluate_literal(literal, id),
-            HirExpression::Block(block) => {
-                dbg!("going to evaluate a block");
-                self.evaluate_block(block)
-            }
+            HirExpression::Block(block) => self.evaluate_block(block),
             HirExpression::Prefix(prefix) => self.evaluate_prefix(prefix, id),
             HirExpression::Infix(infix) => self.evaluate_infix(infix, id),
             HirExpression::Index(index) => self.evaluate_index(index, id),
@@ -334,7 +343,7 @@ impl<'a> Interpreter<'a> {
             HirExpression::If(if_) => self.evaluate_if(if_, id),
             HirExpression::Tuple(tuple) => self.evaluate_tuple(tuple),
             HirExpression::Lambda(lambda) => self.evaluate_lambda(lambda, id),
-            HirExpression::Quote(block) => Ok(Value::Code(Rc::new(block))),
+            HirExpression::Quote(block) => self.evaluate_quote(block, id),
             HirExpression::Comptime(block) => self.evaluate_block(block),
             HirExpression::Unquote(block) => {
                 // An Unquote expression being found is indicative of a macro being
@@ -1125,6 +1134,15 @@ impl<'a> Interpreter<'a> {
 
         let typ = self.interner.id_type(id);
         Ok(Value::Closure(lambda, environment, typ))
+    }
+
+    fn evaluate_quote(&mut self, mut quoted: HirQuoted, expr_id: ExprId) -> IResult<Value> {
+        let file = self.interner.expr_location(&expr_id).file;
+        let values = try_vecmap(quoted.unquoted_exprs, |value| self.evaluate(value))?;
+        let args = UnquoteArgs { values, file };
+
+        self.substitute_unquoted_values_into_block(&mut quoted.quoted_block, &args);
+        Ok(Value::Code(Rc::new(quoted.quoted_block)))
     }
 
     pub fn evaluate_statement(&mut self, statement: StmtId) -> IResult<Value> {
