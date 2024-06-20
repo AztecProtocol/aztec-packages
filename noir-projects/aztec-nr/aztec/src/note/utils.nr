@@ -38,17 +38,9 @@ fn compute_unique_note_hash<Note, N, M>(note_with_header: Note) -> Field where N
 }
 
 fn compute_siloed_note_hash<Note, N, M>(note_with_header: Note) -> Field where Note: NoteInterface<N, M> {
+    let unique_note_hash = compute_note_hash_for_read_request(note_with_header);
+
     let header = note_with_header.get_header();
-
-    let unique_note_hash = if (header.nonce == 0) {
-        // If nonce is zero, that means we are reading a public note.
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-        // Remove this once notes added from public also include nonces.
-        compute_inner_note_hash(note_with_header)
-    } else {
-        compute_unique_note_hash(note_with_header)
-    };
-
     compute_siloed_hash(header.contract_address, unique_note_hash)
 }
 
