@@ -1,8 +1,11 @@
-use dep::aztec::{hash::compute_secret_hash, prelude::AztecAddress};
-use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
-use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
-use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
-use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+use dep::aztec::{
+    hash::compute_secret_hash, prelude::AztecAddress,
+    test::helpers::{cheatcodes, test_environment::TestEnvironment},
+    protocol_types::storage::map::derive_storage_slot_in_map,
+    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
+    oracle::storage::storage_read
+};
+
 use crate::{types::{token_note::TokenNote, transparent_note::TransparentNote}, Token};
 
 pub fn setup_and_mint(with_account_contracts: bool) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
@@ -60,7 +63,16 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (TestEnvironment, AztecAd
     (env, token_contract_address, owner, recipient, mint_amount)
 }
 
-pub fn check_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+pub fn check_public_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+    cheatcodes::set_contract_address(token_contract_address);
+
+    let balances_slot = Token::storage().public_balances.slot;
+    let address_slot = derive_storage_slot_in_map(balances_slot, address);
+    let fields = storage_read(address_slot);
+    assert(U128::deserialize(fields).to_field() == address_amount);
+}
+
+pub fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
     cheatcodes::set_contract_address(token_contract_address);
 
     let balances_slot = Token::storage().balances.slot;

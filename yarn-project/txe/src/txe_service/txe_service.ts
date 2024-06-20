@@ -546,4 +546,29 @@ export class TXEService {
     }
     return toForeignCallResult([toArray(authWitness)]);
   }
+
+  async enqueuePublicFunctionCall(
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
+    sideEffectCounter: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
+    isDelegateCall: ForeignCallSingle,
+  ) {
+    const publicCallRequest = await this.typedOracle.enqueuePublicFunctionCall(
+      fromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromSingle(argsHash),
+      fromSingle(sideEffectCounter).toNumber(),
+      fromSingle(isStaticCall).toBool(),
+      fromSingle(isDelegateCall).toBool(),
+    );
+    const fields = [
+      publicCallRequest.contractAddress.toField(),
+      publicCallRequest.functionSelector.toField(),
+      ...publicCallRequest.callContext.toFields(),
+      publicCallRequest.getArgsHash(),
+    ];
+    return toForeignCallResult([toArray(fields)]);
+  }
 }

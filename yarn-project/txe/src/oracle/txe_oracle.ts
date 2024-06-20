@@ -10,11 +10,15 @@ import {
   TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { AvmSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  CallContext,
   type CompleteAddress,
   FunctionData,
-  type Header,
+  Gas,
+  GasSettings,
+  GlobalVariables,
+  Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
@@ -24,7 +28,7 @@ import {
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateContextInputs,
-  type PublicCallRequest,
+  PublicCallRequest,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   computeContractClassId,
@@ -41,14 +45,23 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle } from '@aztec/pxe';
 import {
+  AvmContext,
+  AvmMachineState,
+  AvmPersistableStateManager,
+  AvmSimulator,
+  ContractsDataSourcePublicDB,
   ExecutionError,
   type ExecutionNoteCache,
+  HostStorage,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   type PackedValuesCache,
   type TypedOracle,
+  WorldStateDB,
   acvm,
+  convertAvmResultsToPxResult,
+  createAvmExecutionEnvironment,
   createSimulationError,
   extractCallStack,
   pickNotes,
@@ -59,6 +72,8 @@ import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { type TXEDatabase } from '../util/txe_database.js';
+import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
+import { TXEPublicStateDB } from '../util/txe_public_state_db.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 0;
@@ -114,6 +129,10 @@ export class TXE implements TypedOracle {
 
   getTrees() {
     return this.trees;
+  }
+
+  getContractDataOracle() {
+    return this.contractDataOracle;
   }
 
   getTXEDatabase() {
@@ -579,26 +598,187 @@ export class TXE implements TypedOracle {
     return Promise.resolve(`${artifact.name}:${f.name}`);
   }
 
-  callPublicFunction(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<Fr[]> {
-    throw new Error('Method not implemented.');
+  async executePublicFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    callContext: CallContext,
+  ) {
+    const fnName =
+      (await this.getDebugFunctionName(targetContractAddress, functionSelector)) ??
+      `${targetContractAddress}:${functionSelector}`;
+
+    this.logger.debug(`[AVM] Executing public external function ${fnName}.`);
+    const timer = new Timer();
+    const startGas = Gas.test();
+    const hostStorage = new HostStorage(
+      new TXEPublicStateDB(this),
+      new ContractsDataSourcePublicDB(new TXEPublicContractDataSource(this)),
+      new WorldStateDB(this.trees.asLatest()),
+    );
+
+    const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+    for (const nullifier of this.noteCache.getNullifiers(targetContractAddress)) {
+      worldStateJournal.nullifiers.cache.appendSiloed(new Fr(nullifier));
+    }
+    worldStateJournal.trace.accessCounter = callContext.sideEffectCounter;
+    const execution = {
+      contractAddress: targetContractAddress,
+      functionSelector,
+      args,
+      callContext,
+    };
+    const header = Header.empty();
+    header.state = await this.trees.getStateReference(true);
+    header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
+    header.state.partial.nullifierTree.root = Fr.fromBuffer(
+      (await this.trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
+    );
+    header.state.partial.noteHashTree.root = Fr.fromBuffer(
+      (await this.trees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true)).root,
+    );
+    header.state.partial.publicDataTree.root = Fr.fromBuffer(
+      (await this.trees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE, true)).root,
+    );
+    header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
+      (await this.trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
+    );
+    const executionEnv = createAvmExecutionEnvironment(
+      execution,
+      header,
+      GlobalVariables.empty(),
+      GasSettings.default(),
+      Fr.ZERO,
+    );
+
+    const machineState = new AvmMachineState(startGas);
+    const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
+    const simulator = new AvmSimulator(avmContext);
+    const avmResult = await simulator.execute();
+    const bytecode = simulator.getBytecode();
+
+    await avmContext.persistableState.publicStorage.commitToDB();
+
+    this.logger.verbose(
+      `[AVM] ${fnName} returned, reverted: ${avmResult.reverted}${
+        avmResult.reverted ? ', reason: ' + avmResult.revertReason : ''
+      }.`,
+      {
+        eventName: 'avm-simulation',
+        appCircuitName: fnName,
+        duration: timer.ms(),
+        bytecodeSize: bytecode!.length,
+      } satisfies AvmSimulationStats,
+    );
+
+    const executionResult = convertAvmResultsToPxResult(
+      avmResult,
+      callContext.sideEffectCounter,
+      execution,
+      startGas,
+      avmContext,
+      bytecode,
+      fnName,
+    );
+    return executionResult;
   }
 
-  enqueuePublicFunctionCall(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
+  async callPublicFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ): Promise<Fr[]> {
+    // Store and modify env
+    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
+    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    this.setMsgSender(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
+
+    const callContext = CallContext.empty();
+    callContext.msgSender = this.msgSender;
+    callContext.functionSelector = this.functionSelector;
+    callContext.sideEffectCounter = sideEffectCounter;
+    callContext.storageContractAddress = targetContractAddress;
+    callContext.isStaticCall = isStaticCall;
+    callContext.isDelegateCall = isDelegateCall;
+
+    const args = this.packedValuesCache.unpack(argsHash);
+
+    const executionResult = await this.executePublicFunction(
+      targetContractAddress,
+      functionSelector,
+      args,
+      callContext,
+    );
+
+    // Apply side effects
+    this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    return executionResult.returnValues;
+  }
+
+  async enqueuePublicFunctionCall(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
-    throw new Error('Method not implemented.');
+    // Store and modify env
+    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
+    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    this.setMsgSender(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
+
+    const callContext = CallContext.empty();
+    callContext.msgSender = this.msgSender;
+    callContext.functionSelector = this.functionSelector;
+    callContext.sideEffectCounter = sideEffectCounter;
+    callContext.storageContractAddress = targetContractAddress;
+    callContext.isStaticCall = isStaticCall;
+    callContext.isDelegateCall = isDelegateCall;
+
+    const args = this.packedValuesCache.unpack(argsHash);
+
+    const executionResult = await this.executePublicFunction(
+      targetContractAddress,
+      functionSelector,
+      args,
+      callContext,
+    );
+
+    // Apply side effects
+    this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    const parentCallContext = CallContext.empty();
+    parentCallContext.msgSender = currentMessageSender;
+    parentCallContext.functionSelector = currentFunctionSelector;
+    parentCallContext.sideEffectCounter = sideEffectCounter;
+    parentCallContext.storageContractAddress = currentContractAddress;
+    parentCallContext.isStaticCall = isStaticCall;
+    parentCallContext.isDelegateCall = isDelegateCall;
+
+    return PublicCallRequest.from({
+      parentCallContext,
+      contractAddress: targetContractAddress,
+      functionSelector,
+      callContext,
+      args,
+    });
   }
 
   setPublicTeardownFunctionCall(
