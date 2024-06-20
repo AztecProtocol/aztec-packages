@@ -365,8 +365,9 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(27);
 
-            auto tmp = (((-mem_skip_check_tag + FF(1)) * (-mem_rw + FF(1))) *
-                        (((mem_r_in_tag - mem_tag) * (-mem_one_min_inv + FF(1))) - mem_tag_err));
+            auto tmp = ((((mem_tag * (-mem_skip_check_tag + FF(1))) * (-mem_rw + FF(1))) *
+                         (((mem_r_in_tag - mem_tag) * (-mem_one_min_inv + FF(1))) - mem_tag_err)) -
+                        FF(0));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -374,11 +375,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(28);
 
-<<<<<<< HEAD
-            auto tmp = (((-mem_tag_err + FF(1)) * mem_one_min_inv) - FF(0));
-=======
-            auto tmp = ((mem_tag * (-mem_tag_err + FF(1))) * mem_one_min_inv);
->>>>>>> ed5b34d52f (7080: repair unit tests related to unitialized indirect memory in a MOV)
+            auto tmp = (((mem_tag * (-mem_tag_err + FF(1))) * mem_one_min_inv) - FF(0));
             tmp *= scaling_factor;
             std::get<28>(evals) += tmp;
         }
