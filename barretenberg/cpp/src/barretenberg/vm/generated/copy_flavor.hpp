@@ -14,6 +14,7 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/generated/copy/copy.hpp"
+#include "barretenberg/relations/generated/copy/copy_main.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -34,14 +35,16 @@ class CopyFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 0;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 10;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 10;
+    static constexpr size_t NUM_ALL_ENTITIES = 12;
 
-    using Relations = std::tuple<Copy_vm::copy<FF>>;
+    using GrandProductRelations = std::tuple<copy_main_relation<FF>>;
+
+    using Relations = std::tuple<Copy_vm::copy<FF>, copy_main_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -66,7 +69,7 @@ class CopyFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, copy_c)
 
-        RefVector<DataType> get_selectors() { return {}; };
+        RefVector<DataType> get_selectors() { return { copy_c }; };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };
@@ -75,38 +78,39 @@ class CopyFlavor {
     template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(
-            DataType, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y, copy_z, id_0, id_1, id_2)
+            DataType, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y, copy_z, copy_main, id_0, id_1, id_2)
 
         RefVector<DataType> get_wires()
         {
-            return { copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y, copy_z, id_0, id_1, id_2 };
+            return { copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y, copy_z, copy_main, id_0, id_1, id_2 };
         };
     };
 
     template <typename DataType> class AllEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
+                              copy_c,
                               copy_sigma_x,
                               copy_sigma_y,
                               copy_sigma_z,
                               copy_x,
                               copy_y,
                               copy_z,
+                              copy_main,
                               id_0,
                               id_1,
                               id_2,
-                              copy_x_shift,
-                              copy_main_inverse)
+                              copy_x_shift)
 
         RefVector<DataType> get_wires()
         {
-            return { copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,       copy_y,           copy_z,
-                     id_0,         id_1,         id_2,         copy_x_shift, copy_main_inverse };
+            return { copy_c, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y,
+                     copy_z, copy_main,    id_0,         id_1,         id_2,   copy_x_shift };
         };
         RefVector<DataType> get_unshifted()
         {
-            return { copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y,
-                     copy_z,       id_0,         id_1,         id_2,   copy_main_inverse };
+            return { copy_c, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x, copy_y,
+                     copy_z, copy_main,    id_0,         id_1,         id_2 };
         };
         RefVector<DataType> get_to_be_shifted() { return { copy_x }; };
         RefVector<DataType> get_shifted() { return { copy_x_shift }; };
@@ -121,6 +125,14 @@ class CopyFlavor {
         using Base::Base;
 
         RefVector<DataType> get_to_be_shifted() { return { copy_x }; };
+
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
+
+            bb::compute_logderivative_inverse<CopyFlavor, copy_main_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+        }
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
@@ -216,16 +228,17 @@ class CopyFlavor {
         CommitmentLabels()
             : AllEntities<std::string>()
         {
+            Base::copy_c = "COPY_C";
             Base::copy_sigma_x = "COPY_SIGMA_X";
             Base::copy_sigma_y = "COPY_SIGMA_Y";
             Base::copy_sigma_z = "COPY_SIGMA_Z";
             Base::copy_x = "COPY_X";
             Base::copy_y = "COPY_Y";
             Base::copy_z = "COPY_Z";
+            Base::copy_main = "COPY_MAIN";
             Base::id_0 = "ID_0";
             Base::id_1 = "ID_1";
             Base::id_2 = "ID_2";
-            Base::copy_main_inverse = "COPY_MAIN_INVERSE";
         };
     };
 
@@ -234,7 +247,10 @@ class CopyFlavor {
         using Base = AllEntities<Commitment>;
 
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key) {}
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
+        {
+            copy_c = verification_key->copy_c;
+        }
     };
 
     class Transcript : public NativeTranscript {
@@ -247,10 +263,10 @@ class CopyFlavor {
         Commitment copy_x;
         Commitment copy_y;
         Commitment copy_z;
+        Commitment copy_main;
         Commitment id_0;
         Commitment id_1;
         Commitment id_2;
-        Commitment copy_main_inverse;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -276,10 +292,10 @@ class CopyFlavor {
             copy_x = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_y = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             copy_z = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            copy_main = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             id_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             id_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             id_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            copy_main_inverse = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
@@ -309,10 +325,10 @@ class CopyFlavor {
             serialize_to_buffer<Commitment>(copy_x, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_y, Transcript::proof_data);
             serialize_to_buffer<Commitment>(copy_z, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(copy_main, Transcript::proof_data);
             serialize_to_buffer<Commitment>(id_0, Transcript::proof_data);
             serialize_to_buffer<Commitment>(id_1, Transcript::proof_data);
             serialize_to_buffer<Commitment>(id_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(copy_main_inverse, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);

@@ -18,21 +18,23 @@ template <typename FF> std::string field_to_string(const FF& ff)
 
 template <typename FF> std::vector<std::string> CopyFullRow<FF>::names()
 {
-    return { "copy_sigma_x", "copy_sigma_y", "copy_sigma_z", "copy_x", "copy_y", "copy_z", "id_0", "id_1", "id_2", "" };
+    return { "copy_c", "copy_sigma_x", "copy_sigma_y", "copy_sigma_z", "copy_x", "copy_y",
+             "copy_z", "copy_main",    "id_0",         "id_1",         "id_2",   "" };
 }
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, CopyFullRow<FF> const& row)
 {
-    return os << field_to_string(row.copy_sigma_x) << "," << field_to_string(row.copy_sigma_y) << ","
-              << field_to_string(row.copy_sigma_z) << "," << field_to_string(row.copy_x) << ","
-              << field_to_string(row.copy_y) << "," << field_to_string(row.copy_z) << "," << field_to_string(row.id_0)
-              << "," << field_to_string(row.id_1) << "," << field_to_string(row.id_2)
+    return os << field_to_string(row.copy_c) << "," << field_to_string(row.copy_sigma_x) << ","
+              << field_to_string(row.copy_sigma_y) << "," << field_to_string(row.copy_sigma_z) << ","
+              << field_to_string(row.copy_x) << "," << field_to_string(row.copy_y) << "," << field_to_string(row.copy_z)
+              << "," << field_to_string(row.copy_main) << "," << field_to_string(row.id_0) << ","
+              << field_to_string(row.id_1) << "," << field_to_string(row.id_2)
               << ","
                  "";
 }
 
 // Explicit template instantiation.
-template std::ostream& operator<<(std::ostream& os, AvmFullRow<bb::AvmFlavor::FF> const& row);
-template std::vector<std::string> AvmFullRow<bb::AvmFlavor::FF>::names();
+template std::ostream& operator<<(std::ostream& os, CopyFullRow<bb::CopyFlavor::FF> const& row);
+template std::vector<std::string> CopyFullRow<bb::CopyFlavor::FF>::names();
 
 } // namespace bb

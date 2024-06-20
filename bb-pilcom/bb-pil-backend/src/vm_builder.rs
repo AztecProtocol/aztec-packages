@@ -16,6 +16,7 @@ use crate::copy_builder::Copies;
 use crate::copy_builder::Copy;
 use crate::copy_builder::CopyBuilder;
 use crate::copy_builder::get_id_column_names;
+use crate::copy_builder::get_inverses_from_copies;
 use crate::prover_builder::ProverBuilder;
 use crate::relation_builder::RelationBuilder;
 use crate::relation_builder::RelationOutput;
@@ -198,13 +199,14 @@ fn get_all_col_names(
     let perm_inverses = get_inverses_from_permutations(permutations);
     let lookup_inverses = get_inverses_from_lookups(lookups);
     let lookup_counts = get_counts_from_lookups(lookups);
+    let copy_inverses = get_inverses_from_copies(copies);
     let id_columns = get_id_column_names(copies.num_id_columns);
 
     // Gather sanitized column names
     let fixed_names = collect_col(fixed, sanitize);
     let witness_names = collect_col(witness, sanitize);
     let public_names = collect_col(public, sanitize);
-    let inverses = flatten(&[perm_inverses, lookup_inverses]);
+    let inverses = flatten(&[perm_inverses, lookup_inverses, copy_inverses]);
     let witnesses_without_inverses = flatten(&[
         public_names.clone(),
         witness_names.clone(),

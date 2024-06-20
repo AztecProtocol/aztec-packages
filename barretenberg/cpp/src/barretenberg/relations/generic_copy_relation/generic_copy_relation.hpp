@@ -16,17 +16,6 @@
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
-/**
- * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
- *
- */
-enum GenericCopySettingIndices {
-    INVERSE_POLYNOMIAL_INDEX,                /* The index of the inverse polynomial*/
-    PERMUTATION_SETS_START_POLYNOMIAL_INDEX, /* The starting index of the polynomials that are used in the permutation
-                                                sets*/
-    IDENTITY_COLUMNS_START_POLYNOMIAL_INDEX  /* The starting index of the polynomials that are used as the identity of
-                                                the permutation sets */
-};
 
 template <typename Settings, typename FF_> class GenericCopyRelationImpl {
   public:
@@ -37,13 +26,18 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     static constexpr size_t WRITE_TERMS = 1;
     // 1 + polynomial degree of this relation
 
-    // TODO(md): this will be much higher for copy constraints - most likely * 2 for the READ_TERMS
-    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
+    static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET + 2;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
         LENGTH  // log-derived terms subrelation
     };
+
+    // TODO(md): comments
+    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+    static constexpr size_t COPY_SET_POLYNOMIAL_INDEX = 1;
+    static constexpr size_t SIGMA_SET_POLYNOMIAL_INDEX = COPY_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
+    static constexpr size_t IDENTITY_SET_POLYNOMIAL_INDEX = SIGMA_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
 
     /**
      * @brief We apply the power polynomial only to the first subrelation
@@ -86,7 +80,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     static Accumulator compute_inverse_exists([[maybe_unused]] const AllEntities& in)
     {
         // For copy constraints this is always true
-        return 1;
+        return Accumulator(1);
     }
 
     /**
@@ -98,7 +92,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& in)
 
     {
-        return 1;
+        return Accumulator(1);
     }
 
     /**
@@ -109,7 +103,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     template <typename Accumulator, size_t write_index, typename AllEntities>
     static Accumulator compute_write_term_predicate([[maybe_unused]] const AllEntities& in)
     {
-        return 1;
+        return Accumulator(1);
     }
 
     /**
@@ -136,9 +130,17 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
 
         // Iterate over tuple and sum as a polynomial over beta
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            result *=
-                View(std::get<Settings::PERMUTATION_SETS_START_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
-                View(std::get<Settings::IDENTITY_COLUMNS_START_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
+            // info("read term ",
+            //      i,
+            //      " value ",
+            //      std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
+            //      " id ",
+            //      std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+
+            // info("\n");
+
+            result *= View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
+                      View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
         });
 
         return result;
@@ -165,12 +167,19 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
         const auto& all_polynomials = Settings::get_const_entities(in);
 
         auto result = Accumulator(1);
+
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            result *=
-                View(std::get<Settings::PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET + i>(
-                    all_polynomials)) +
-                params.gamma +
-                View(std::get<Settings::IDENTITY_COLUMNS_START_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
+            // info("write term ",
+            //      i,
+            //      " value ",
+            //      std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
+            //      " sigma ",
+            //      std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+
+            // info("\n");
+
+            result *= View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
+                      View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
         });
 
         return result;

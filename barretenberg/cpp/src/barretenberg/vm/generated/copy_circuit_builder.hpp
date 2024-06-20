@@ -17,17 +17,20 @@
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 
 #include "barretenberg/relations/generated/copy/copy.hpp"
+#include "barretenberg/relations/generated/copy/copy_main.hpp"
 #include "barretenberg/vm/generated/copy_flavor.hpp"
 
 namespace bb {
 
 template <typename FF> struct CopyFullRow {
+    FF copy_c{};
     FF copy_sigma_x{};
     FF copy_sigma_y{};
     FF copy_sigma_z{};
     FF copy_x{};
     FF copy_y{};
     FF copy_z{};
+    FF copy_main{};
     FF id_0{};
     FF id_1{};
     FF id_2{};
@@ -48,8 +51,8 @@ class CopyCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 10;
-    static constexpr size_t num_polys = 9;
+    static constexpr size_t num_fixed_columns = 12;
+    static constexpr size_t num_polys = 11;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -65,6 +68,7 @@ class CopyCircuitBuilder {
         }
 
         for (size_t i = 0; i < rows.size(); i++) {
+            polys.copy_c[i] = rows[i].copy_c;
             polys.copy_sigma_x[i] = rows[i].copy_sigma_x;
             polys.copy_sigma_y[i] = rows[i].copy_sigma_y;
             polys.copy_sigma_z[i] = rows[i].copy_sigma_z;
@@ -83,6 +87,19 @@ class CopyCircuitBuilder {
 
     [[maybe_unused]] bool check_circuit()
     {
+
+        const FF gamma = FF::random_element();
+        const FF beta = FF::random_element();
+        bb::RelationParameters<typename Flavor::FF> params{
+            .eta = 0,
+            .beta = beta,
+            .gamma = gamma,
+            .public_input_delta = 0,
+            .lookup_grand_product_delta = 0,
+            .beta_sqr = 0,
+            .beta_cube = 0,
+            .eccvm_set_permutation_delta = 0,
+        };
 
         auto polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
@@ -114,8 +131,33 @@ class CopyCircuitBuilder {
             return true;
         };
 
+        const auto evaluate_logderivative = [&]<typename LogDerivativeSettings>(const std::string& lookup_name) {
+            // Check the logderivative relation
+            bb::compute_logderivative_inverse<Flavor, LogDerivativeSettings>(polys, params, num_rows);
+
+            typename LogDerivativeSettings::SumcheckArrayOfValuesOverSubrelations lookup_result;
+
+            for (auto& r : lookup_result) {
+                r = 0;
+            }
+            for (size_t i = 0; i < num_rows; ++i) {
+                LogDerivativeSettings::accumulate(lookup_result, polys.get_row(i), params, 1);
+            }
+            for (auto r : lookup_result) {
+                if (r != 0) {
+                    throw_or_abort(format("Lookup ", lookup_name, " failed."));
+                    return false;
+                }
+            }
+            return true;
+        };
+
         auto copy = [=]() {
             return evaluate_relation.template operator()<Copy_vm::copy<FF>>("copy", Copy_vm::get_relation_label_copy);
+        };
+
+        auto copy_main = [=]() {
+            return evaluate_logderivative.template operator()<copy_main_relation<FF>>("COPY_MAIN");
         };
 
 #ifndef __wasm__
@@ -124,6 +166,8 @@ class CopyCircuitBuilder {
         std::vector<std::future<bool>> relation_futures;
 
         relation_futures.emplace_back(std::async(std::launch::async, copy));
+
+        relation_futures.emplace_back(std::async(std::launch::async, copy_main));
 
         // Wait for lookup evaluations to complete
         for (auto& future : relation_futures) {
@@ -135,6 +179,8 @@ class CopyCircuitBuilder {
 #else
 
         copy();
+
+        copy_main();
 
 #endif
 

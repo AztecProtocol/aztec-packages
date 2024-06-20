@@ -298,8 +298,8 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, {name}FullRow<
 }}
 
 // Explicit template instantiation.
-template std::ostream& operator<<(std::ostream& os, AvmFullRow<bb::AvmFlavor::FF> const& row);
-template std::vector<std::string> AvmFullRow<bb::AvmFlavor::FF>::names();
+template std::ostream& operator<<(std::ostream& os, {name}FullRow<bb::{name}Flavor::FF> const& row);
+template std::vector<std::string> {name}FullRow<bb::{name}Flavor::FF>::names();
 
 }} // namespace bb"
         );

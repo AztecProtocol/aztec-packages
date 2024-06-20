@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter, Result};
 
 use crate::file_writer::BBFiles;
-use crate::utils::{create_get_const_entities, create_get_nonconst_entities, snake_case},
+use crate::utils::{create_get_const_entities, create_get_nonconst_entities, snake_case};
 use crate::utils::sanitize_name;
 use itertools::Itertools;
 use powdr_ast::{
@@ -26,7 +26,7 @@ pub struct Copy {
 
 impl Debug for Copy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Copy {{ left: {:?}, right: {:?} }}", self.left, self.right)
+        write!(f, "Copy {:?} {{ left: {:?}, right: {:?} }}", self.attribute, self.left, self.right)
     }
 }
 
@@ -57,10 +57,11 @@ impl CopyBuilder for BBFiles {
             pair
         }).collect();
 
-        // TODO: better name get arity?
-        let num_id_columns = get_number_of_id_columns(&copy_pairs);
+        let num_id_columns = get_copy_airty(&copy_pairs);
 
-        println!("Number of id columns {num_columns}");
+        println!("Number of id columns {num_id_columns}");
+
+        create_copies(self, name, &copy_pairs);
 
         Copies {
             copy_pairs,
@@ -69,13 +70,13 @@ impl CopyBuilder for BBFiles {
     }
 }
 
-fn get_number_of_id_columns(copies: &Vec<Copy>) -> usize {
+fn get_copy_airty(copies: &Vec<Copy>) -> usize {
     // Get the maximum length of the copy vectors, left and right are asserted to be of same length
     copies.iter().map(|copy| copy.left.len()).max().unwrap_or(0)
 }
 
-pub fn get_inverses_from_copys(copies: &[Copy]) -> Vec<String> {
-    copies.iter().map(|copy| copy.attribute.clone().unwrap_or_else(|| "copy_inverse".to_string())).collect()
+pub fn get_inverses_from_copies(copies: &Copies) -> Vec<String> {
+    copies.copy_pairs.iter().map(|copy| copy.attribute.clone().unwrap_or_else(|| "copy_inverse".to_string())).collect()
 }
 
 fn get_copy_cols<F: FieldElement>(
@@ -94,25 +95,28 @@ fn create_copies(bb_files: &BBFiles, project_name: &str, copies: &Vec<Copy>) {
         // Copy settings define a log derivative version of the copy constraints that can be 
         // used with the existing log derivative library
         let copy_settings = create_copy_settings_file(copy);
+        println!("Writing copy settings file");
+        println!("{copy_settings}");
         
         let folder = format!("{}/{}", bb_files.rel, &snake_case(project_name));
         let file_name = format!(
             "{}{}",
-            permutation.attribute.clone().unwrap_or("NONAME".to_owned()),
+            copy.attribute.clone().unwrap_or("NONAME".to_owned()),
             ".hpp".to_owned()
         );
-        bb_files.write_file(&folder, &file_name, &perm_settings);
+        println!("Writing filename {file_name}");
+        bb_files.write_file(&folder, &file_name, &copy_settings);
     }
 }
 
 fn create_relation_exporter(copy_name: &str) -> String {
     let settings_name = format!("{}_copy_settings", copy_name);
-    let permutation_export = format!("template <typename FF_> using {copy_name}_relation = GenericCopyRelation<{settings_name}, FF_>;");
+    let copy_export = format!("template <typename FF_> using {copy_name}_relation = GenericCopyRelation<{settings_name}, FF_>;");
     let relation_export = format!("template <typename FF_> using {copy_name} = GenericCopy<{settings_name}, FF_>;");
 
     format!(
         "
-    {permutation_export} 
+    {copy_export} 
     {relation_export} 
     "
     )
@@ -169,7 +173,7 @@ fn create_copy_settings_file(copy: &Copy) -> String {
 
         namespace bb {{
 
-        class {copy_name}_permutation_settings {{
+        class {copy_name}_copy_settings {{
             public:
                   constexpr static size_t COLUMNS_PER_SET = {columns_per_set};
               
@@ -188,7 +192,7 @@ fn create_copy_settings_file(copy: &Copy) -> String {
 
 fn create_inverse_computed_at() -> String {
     format!("
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in) {{
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row([[maybe_unused]] const AllEntities& in) {{
         return 1;
     }}")
 }

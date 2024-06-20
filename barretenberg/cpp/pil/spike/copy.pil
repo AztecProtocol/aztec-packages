@@ -4,10 +4,11 @@ namespace copy(256);
     pol commit x,y,z;
     pol commit sigma_x, sigma_y, sigma_z;
 
+    #[COPY_MAIN]
     {x,y,z} connect {sigma_x, sigma_y, sigma_z};
 
     // Include SOME relation
-    x' = x + 1;
+    x' = x;
 
     // Include another larger copy that will share the same ID columns
     // pol commit a,b,c,d;

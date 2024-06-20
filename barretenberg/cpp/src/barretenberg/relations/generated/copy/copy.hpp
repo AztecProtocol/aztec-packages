@@ -38,7 +38,7 @@ template <typename FF_> class copyImpl {
         {
             Copy_DECLARE_VIEWS(0);
 
-            auto tmp = (copy_x_shift - (copy_x + FF(1)));
+            auto tmp = (copy_x_shift - copy_x);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }

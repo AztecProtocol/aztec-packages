@@ -1,4 +1,5 @@
 
+
 #pragma once
 
 #include "barretenberg/relations/generic_copy_relation/generic_copy_relation.hpp"
@@ -12,7 +13,6 @@ class copy_main_copy_settings {
   public:
     constexpr static size_t COLUMNS_PER_SET = 3;
 
-    // For copy constraints the inverse will always be calculated
     template <typename AllEntities>
     static inline auto inverse_polynomial_is_computed_at_row([[maybe_unused]] const AllEntities& in)
     {
@@ -22,7 +22,7 @@ class copy_main_copy_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.copy_main_inverse,
+        return std::forward_as_tuple(in.copy_main,
                                      in.copy_x,
                                      in.copy_y,
                                      in.copy_z,
@@ -37,7 +37,7 @@ class copy_main_copy_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.copy_main_inverse,
+        return std::forward_as_tuple(in.copy_main,
                                      in.copy_x,
                                      in.copy_y,
                                      in.copy_z,
