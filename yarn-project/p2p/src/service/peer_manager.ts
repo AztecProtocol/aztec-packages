@@ -30,9 +30,9 @@ export class PeerManager {
     this.libP2PNode.addEventListener('peer:connect', evt => {
       const peerId = evt.detail;
       if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-        this.logger.info(`Connected to bootstrap peer ${peerId.toString()}`);
+        this.logger.debug(`Connected to bootstrap peer ${peerId.toString()}`);
       } else {
-        this.logger.info(`Connected to transaction peer ${peerId.toString()}`);
+        this.logger.debug(`Connected to transaction peer ${peerId.toString()}`);
       }
     });
 
@@ -40,9 +40,9 @@ export class PeerManager {
     this.libP2PNode.addEventListener('peer:disconnect', evt => {
       const peerId = evt.detail;
       if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-        this.logger.info(`Disconnected from bootstrap peer ${peerId.toString()}`);
+        this.logger.debug(`Disconnected from bootstrap peer ${peerId.toString()}`);
       } else {
-        this.logger.info(`Disconnected from transaction peer ${peerId.toString()}`);
+        this.logger.debug(`Disconnected from transaction peer ${peerId.toString()}`);
       }
     });
 
