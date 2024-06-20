@@ -37,20 +37,17 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return in.q_lookup.is_zero() && in.lookup_read_counts.is_zero();
     }
 
+    // Used to determine whether the polynomial of inverses must be computed at a given row
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
+        // is lookup gate or row contains data that has been read
         return (row.q_lookup == 1) || (row.lookup_read_tags == 1);
     }
 
-    /**
-     * @brief Get the inverse lookup polynomial
-     *
-     * @tparam AllEntities
-     * @param in
-     * @return auto&
-     */
+    // Get the inverse lookup polynomial for this relation
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
 
+    // Used to toggle the inverse correctness check in the inverse correctness subrelation
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
@@ -65,7 +62,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-
         return Accumulator(View(in.lookup_read_counts));
     }
 
@@ -74,14 +70,12 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
     {
         using View = typename Accumulator::View;
-
         return Accumulator(View(in.q_lookup));
     }
 
     template <typename Accumulator, size_t write_index, typename AllEntities>
     static Accumulator compute_write_term_predicate([[maybe_unused]] const AllEntities& in)
     {
-        // using View = typename Accumulator::View;
         return Accumulator(1);
     }
 
@@ -131,7 +125,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto negative_column_3_step_size = View(in.q_c);
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
-        // step_size*w_i_shift should result in a values that exists in table_i.
+        // step_size*w_i_shift result in values present in column i of a corresponding table.
         auto derived_table_entry_1 = w_1 + gamma + negative_column_1_step_size * w_1_shift;
         auto derived_table_entry_2 = w_2 + negative_column_2_step_size * w_2_shift;
         auto derived_table_entry_3 = w_3 + negative_column_3_step_size * w_3_shift;
@@ -143,12 +137,41 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     }
 
     /**
-     * @brief WORKTODO
+     * @brief Log-derivative style lookup argument for conventional lookups form tables with 3 or fewer columns
+     * @details The identity to be checked is of the form
      *
-     * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the fully extended Accumulator edges.
-     * @param relation_params contains beta, gamma, and public_input_delta, ....
-     * @param scaling_factor optional term to scale the evaluation before adding to evals.
+     * \sum{i=0}^{n-1} \frac{read_counts_i}{write_term_i} - \frac{q_lookup}{read_term_i} = 0
+     *
+     * where write_term = table_col_1 + \gamma + table_col_2 * \eta_1 + table_col_3 * \eta_2 + table_index * \eta_3
+     * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \eta_1 + derived_table_entry_3 * \eta_2
+     * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size\cdot w_i_shift. (The table entries must
+     * be 'derived' from wire values in this way since the stored witnesses are actually successive accumulators, the
+     * differences of which are equal to entries in a table. This is an efficiency trick to avoid using additional gates
+     * to reconstruct full size values from the limbs contained in tables).
+     *
+     * In practice this identity is expressed in terms of polynomials by defining a polynomial of inverses I_i =
+     * \frac{1}{read_term_i\cdot write_term_i} then rewriting the above identity as
+     *
+     * (1) \sum{i=0}^{n-1} (read_counts_i\cdot I_i\cdot read_term_i) - (q_lookup\cdot I_i\cdot write_term_i) = 0
+     *
+     * This requires a second subrelation to check that polynomial I was computed correctly. For all i, it must hold
+     * that
+     *
+     * (2) I_i\cdot read_term_i\cdot write_term_i - 1 = 0
+     *
+     * Note that (1) is 'linearly dependent' in the sense that it holds only as a sum across the entire execution trace.
+     * (2) on the other hand holds independently at every row. Finally, note that to avoid unnecessary computation, we
+     * only compute I_i at indices where the relation is 'active', i.e. on rows which either contain a lookup gate or
+     * table data that has been read. For inactive rows i, we set I_i = 0. We can thus rewrite (2) as
+     *
+     * (2) I_i\cdot read_term_i\cdot write_term_i - is_active_i
+     *
+     * where is_active = q_lookup + read_tags - q_lookup\cdot read_tags
+     *
+     * and read_tags is a polynomial taking boolean values indicating whether the table entry at the corresponding row
+     * has been read or not.
+     * @note This relation utilizes functionality in the log-derivative library to compute the polynomial of inverses
+     *
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
@@ -170,17 +193,13 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
-        // Degrees:                     2 (3)       1 (2)        1
+        // Degrees:                     2 (3)       1 (2)        1              1
         std::get<0>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor; // Deg 4 (6)
 
-        // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
-        // entire trace, not on a per-row basis. Degree
-        // Degrees:                       1             2 (3)           1            3 (4)
+        // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
+        // i.e. enforced across the entire trace, not on a per-row basis. Degree
+        // Degrees:                       1            2 (3)            1            3 (4)
         std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
-
-        // ******************
-        // accumulate_logderivative_lookup_subrelation_contributions<FF, LogDerivLookupRelationImpl<FF>>(
-        //     accumulator, in, params, scaling_factor);
     }
 };
 

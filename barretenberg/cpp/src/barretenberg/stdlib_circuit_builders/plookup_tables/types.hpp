@@ -268,10 +268,22 @@ struct MultiTable {
 
 // }
 
+/**
+ * @brief A map from 'entry' to 'index' where entry is a row in a BasicTable and index is the row at which that entry
+ * exists in the table
+ * @details Such a map is needed to in order to construct read_counts (the polynomial containing the number of reads
+ * from each entry in a table) for the log-derivative lookup argument. A BasicTable essentially consists of 3 columns,
+ * and 'lookups' are recorded as rows in this table. The index at which this data exists in the table is not explicitly
+ * known at the time of lookup gate creation. This map can be used to construct read counts from the set of lookups that
+ * have been performed via an operation like read_counts[index_map[lookup_data]]++
+ *
+ */
 struct LookupHashTable {
     using FF = bb::fr;
-    using Key = std::array<FF, 3>;
-    using Value = size_t;
+    using Key = std::array<FF, 3>; // an entry in a lookup table
+    using Value = size_t;          // the index of an entry in a lookup table
+
+    // Define a simple hash on three field elements
     struct HashFunction {
         FF mult_const;
         FF const_sqr;
@@ -290,9 +302,9 @@ struct LookupHashTable {
 
     std::unordered_map<Key, Value, HashFunction> index_map;
 
-    // Default constructor
     LookupHashTable() = default;
 
+    // Initialize the entry-index map with the columns of a table
     void initialize(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3)
     {
         for (size_t i = 0; i < column_1.size(); ++i) {
@@ -300,6 +312,7 @@ struct LookupHashTable {
         }
     }
 
+    // Given an entry in the table, return its index in the table
     Value operator[](const Key& key) const
     {
         auto it = index_map.find(key);
@@ -360,6 +373,7 @@ struct BasicTable {
     std::vector<bb::fr> column_3;
     std::vector<LookupEntry> lookup_gates; // wire data for all lookup gates created for lookups on this table
 
+    // Map from a table entry to its index in the table; used for constructing read counts
     LookupHashTable index_map;
 
     void initialize_index_map() { index_map.initialize(column_1, column_2, column_3); }

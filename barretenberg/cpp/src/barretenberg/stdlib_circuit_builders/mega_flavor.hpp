@@ -65,8 +65,6 @@ class MegaFlavor {
                                   bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    // using LogDerivLookupRelation = LogDerivLookupRelation<FF>;
-
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
@@ -178,20 +176,20 @@ class MegaFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              z_perm,                  // column 5
-                              lookup_inverses,         // column 6
+                              z_perm,                  // column 4
+                              lookup_inverses,         // column 5
                               lookup_read_counts,      // column 6
-                              lookup_read_tags,        // column 6
-                              ecc_op_wire_1,           // column 7
-                              ecc_op_wire_2,           // column 8
-                              ecc_op_wire_3,           // column 9
-                              ecc_op_wire_4,           // column 10
-                              calldata,                // column 11
-                              calldata_read_counts,    // column 12
-                              calldata_inverses,       // column 13
-                              return_data,             // column 14
-                              return_data_read_counts, // column 15
-                              return_data_inverses);   // column 16
+                              lookup_read_tags,        // column 7
+                              ecc_op_wire_1,           // column 8
+                              ecc_op_wire_2,           // column 9
+                              ecc_op_wire_3,           // column 10
+                              ecc_op_wire_4,           // column 11
+                              calldata,                // column 12
+                              calldata_read_counts,    // column 13
+                              calldata_inverses,       // column 14
+                              return_data,             // column 15
+                              return_data_read_counts, // column 16
+                              return_data_inverses);   // column 17
     };
 
     /**
@@ -241,7 +239,7 @@ class MegaFlavor {
                               w_r_shift,     // column 5
                               w_o_shift,     // column 6
                               w_4_shift,     // column 7
-                              z_perm_shift)
+                              z_perm_shift)  // column 8
     };
 
   public:
@@ -406,7 +404,7 @@ class MegaFlavor {
         }
 
         /**
-         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm polynomial
+         * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
          */

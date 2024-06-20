@@ -57,8 +57,6 @@ class UltraFlavor {
                                   bb::AuxiliaryRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    // using LogDerivLookupRelation = bb::LogDerivLookupRelation<FF>;
-
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -149,10 +147,10 @@ class UltraFlavor {
                               w_r,                // column 1
                               w_o,                // column 2
                               w_4,                // column 3
-                              z_perm,             // column 5
-                              lookup_inverses,    // column 6
+                              z_perm,             // column 4
+                              lookup_inverses,    // column 5
                               lookup_read_counts, // column 6
-                              lookup_read_tags)   // column 6
+                              lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
 
@@ -335,7 +333,7 @@ class UltraFlavor {
         }
 
         /**
-         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm polynomial
+         * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
          */
