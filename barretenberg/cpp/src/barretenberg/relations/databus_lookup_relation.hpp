@@ -57,6 +57,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
         LENGTH  // log-derivative lookup argument subrelation
     };
 
+    // Note: Actual adjustments are +2 and +1 respectively for (1) inverse correctness subrel and (2) log-deriv argument
+    // subrel. However, since we've already overshot the length for (1) by +1 above, it is sufficient to adjust all
+    // subrelations by +1.
+    static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> TOTAL_LENGTH_ADJUSTMENTS{
+        1, // inverse polynomial correctness subrelation
+        1, // log-derivative lookup argument subrelation
+        1, // inverse polynomial correctness subrelation
+        1  // log-derivative lookup argument subrelation
+    };
+
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
     static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
