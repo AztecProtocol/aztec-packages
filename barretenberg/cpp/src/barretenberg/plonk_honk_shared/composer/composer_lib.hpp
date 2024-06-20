@@ -46,10 +46,10 @@ void construct_lookup_table_polynomials(RefArray<typename Flavor::Polynomial, 4>
  * read counts for the individual tables.
  */
 template <typename Flavor>
-typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
-                                                         typename Flavor::Polynomial& read_tags,
-                                                         typename Flavor::CircuitBuilder& circuit,
-                                                         size_t dyadic_circuit_size)
+void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
+                                  typename Flavor::Polynomial& read_tags,
+                                  typename Flavor::CircuitBuilder& circuit,
+                                  size_t dyadic_circuit_size)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t offset = dyadic_circuit_size - circuit.get_tables_size();
@@ -61,6 +61,7 @@ typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polyno
 
         for (auto& entry : table.lookup_gates) {
             // convert lookup entry to an array of three field elements, one for each of the 3 columns
+            // WORKTODO change name of this method
             auto data = entry.to_sorted_list_components(table.use_twin_keys);
 
             // find the index of the entry in the table
@@ -73,8 +74,6 @@ typename Flavor::Polynomial construct_lookup_read_counts(typename Flavor::Polyno
         }
         table_offset += table.size(); // set the offset of the next table within the polynomials
     }
-
-    return read_counts;
 }
 
 } // namespace bb
