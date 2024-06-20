@@ -139,6 +139,8 @@ impl PrivateContext {
         self.new_note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
     }
 
+    // TODO(#7112): This function is called with non-zero note hash only in 1 of 25 cases in aztec-packages repo
+    // - consider creating a separate function with 1 arg for the zero note hash case.
     fn push_new_nullifier(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.new_nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash, counter: self.next_counter() });
     }
@@ -193,10 +195,10 @@ impl PrivateContext {
     }
 
     pub fn end_setup(&mut self) {
-        dep::protocol_types::debug_log::debug_log_format(
-            "Ending setup at counter {0}",
-            [self.side_effect_counter as Field]
-        );
+        // dep::protocol_types::debug_log::debug_log_format(
+        //     "Ending setup at counter {0}",
+        //     [self.side_effect_counter as Field]
+        // );
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 

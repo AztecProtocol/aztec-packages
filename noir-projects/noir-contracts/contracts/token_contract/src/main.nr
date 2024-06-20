@@ -281,7 +281,7 @@ contract Token {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
+        let note = notes.get_unchecked(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
@@ -310,7 +310,24 @@ contract Token {
 
     // docs:start:transfer
     #[aztec(private)]
-    fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer(to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+
+        // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
+        // be needed twice.
+        let header = context.get_header();
+        let from_ovpk = header.get_ovpk_m(&mut context, from);
+        let from_ivpk = header.get_ivpk_m(&mut context, from);
+        let to_ivpk = header.get_ivpk_m(&mut context, to);
+
+        let amount = U128::from_integer(amount);
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
+    }
+    // docs:end:transfer
+
+    #[aztec(private)]
+    fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -334,7 +351,6 @@ contract Token {
         // docs:end:increase_private_balance
         storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
     }
-    // docs:end:transfer
 
     // docs:start:burn
     #[aztec(private)]
@@ -379,5 +395,75 @@ contract Token {
         storage.balances.balance_of(owner).to_field()
     }
     // docs:end:balance_of_private
+
+    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
+    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+
+    #[test]
+    fn test_private_transfer() {
+        // Setup env, generate keys
+        let mut env = TestEnvironment::new();
+        let owner = env.create_account();
+        let recipient = env.create_account();
+        let mint_amount = 10000;
+
+        // Start the test in the account contract address
+        cheatcodes::set_contract_address(owner);
+
+        // Deploy token contract
+        let initializer_call_interface = Token::interface().constructor(
+            owner,
+            "TestToken0000000000000000000000",
+            "TT00000000000000000000000000000",
+            18
+        );
+        let token_contract_address = env.deploy("@aztec/noir-contracts.js/Token").with_public_initializer(initializer_call_interface);
+        env.advance_block_by(1);
+
+        // Mint some tokens
+        let secret = 1;
+        let secret_hash = compute_secret_hash(secret);
+        let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
+        env.call_public(mint_private_call_interface);
+
+        // Time travel so we can read keys from the registry
+        env.advance_block_by(6);
+
+        // Store a note in the cache so we can redeem it
+        env.store_note_in_cache(
+            &mut TransparentNote::new(mint_amount, secret_hash),
+            Token::storage().pending_shields.slot,
+            token_contract_address
+        );
+
+        // Redeem our shielded tokens
+        let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
+        env.call_private_void(redeem_shield_call_interface);
+
+        // Not really sure why this is needed? Nullifier inclusion in contract initializer fails otherwise. 
+        // If it were to fail, it should do it at line 443, investigation required
+        env.advance_block_by(1);
+
+        // Transfer tokens
+        let transfer_amount = 1000;
+        let private_token_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, transfer_amount);
+        env.call_private_void(private_token_transfer_call_interface);
+
+        // Check balances
+        cheatcodes::set_contract_address(token_contract_address);
+
+        let balances_slot = Token::storage().balances.slot;
+        let recipient_slot = derive_storage_slot_in_map(balances_slot, recipient);
+        let mut options = NoteViewerOptions::new();
+        let notes: BoundedVec<TokenNote, MAX_NOTES_PER_PAGE> = view_notes(recipient_slot, options);
+        assert(notes.get(0).amount.to_field() == transfer_amount);
+
+        let owner_slot = derive_storage_slot_in_map(balances_slot, owner);
+        let mut options = NoteViewerOptions::new();
+        let notes: BoundedVec<TokenNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        assert(notes.get(0).amount.to_field() == mint_amount - transfer_amount);
+    }
 }
 // docs:end:token_all

@@ -418,7 +418,7 @@ jobs:
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
-    needs: [setup, changes]
+    needs: [setup, changes, build]
     runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
     steps:

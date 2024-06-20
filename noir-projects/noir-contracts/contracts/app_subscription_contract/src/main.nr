@@ -12,7 +12,7 @@ contract AppSubscription {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt,
         protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
     },
-        authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
+        authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
         gas_token::GasToken, token::Token
     };
 
@@ -103,7 +103,7 @@ contract AppSubscription {
     ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        Token::at(storage.subscription_token_address.read_private()).transfer(
+        Token::at(storage.subscription_token_address.read_private()).transfer_from(
             context.msg_sender(),
             storage.subscription_recipient_address.read_private(),
             storage.subscription_price.read_private(),
