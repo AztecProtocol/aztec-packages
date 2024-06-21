@@ -28,7 +28,7 @@ export interface NoirFunctionAbi {
      * The visibility of the return value.
      */
     visibility: ABIParameterVisibility;
-  };
+  } | null;
 }
 
 /**
