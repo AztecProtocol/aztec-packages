@@ -404,7 +404,7 @@ template <typename PCS> class ZeroMorphProver_ {
         }
         // TODO(CONSTANT_PROOF_SIZE): Send some BS q_ks (We dont have Flavor tho.. ick)
         for (size_t idx = log_N; idx < MAX_LOG_CIRCUIT_SIZE; ++idx) {
-            auto buffer_element = Commitment::one();
+            auto buffer_element = Commitment::one() * FF(idx); // LONDONTODO: avoiding zero denom in zm batch mul.
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, buffer_element);
         }
@@ -519,7 +519,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
             // for (auto& commitment : commitments) {
             //     info("commitment: ", commitment.get_value());
             // }
-            return Commitment::batch_mul(commitments, scalars);
+            return Commitment::batch_mul(commitments, scalars, /* max_num_bits */ 0, /* with_edgecases */ true);
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -790,7 +790,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
         if constexpr (Curve::is_stdlib_type) {
-
             // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };

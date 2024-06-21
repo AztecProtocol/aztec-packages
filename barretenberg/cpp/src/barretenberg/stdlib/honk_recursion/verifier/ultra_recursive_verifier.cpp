@@ -56,6 +56,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     CommitmentLabels commitment_labels;
 
     FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
+    info("circuit size extracted from proof: ", circuit_size);
     transcript->template receive_from_prover<FF>("public_input_size");
     transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
@@ -161,6 +162,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("sumcheck failed");
+        // return {};
+    }
+
     if constexpr (!IsSimulator<Builder>) {
         // info("after sumcheck verify: ",
         //      builder->num_gates,
@@ -182,6 +188,6 @@ template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBui
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-// template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-// template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 } // namespace bb::stdlib::recursion::honk

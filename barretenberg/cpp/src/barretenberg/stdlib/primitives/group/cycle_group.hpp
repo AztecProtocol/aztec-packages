@@ -213,8 +213,22 @@ template <typename Builder> class cycle_group {
         return batch_mul(base_points, cycle_scalars, context);
     }
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
+                                 const std::vector<BigScalarField>& scalars,
+                                 [[maybe_unused]] const size_t max_num_bits,
+                                 [[maybe_unused]] const bool with_edgecases)
+    {
+        return batch_mul(base_points, scalars);
+    }
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
                                  const std::vector<cycle_scalar>& scalars,
                                  GeneratorContext context = {});
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
+                                 const std::vector<cycle_scalar>& scalars,
+                                 [[maybe_unused]] const size_t max_num_bits,
+                                 [[maybe_unused]] const bool with_edgecases)
+    {
+        return batch_mul(base_points, scalars);
+    };
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;

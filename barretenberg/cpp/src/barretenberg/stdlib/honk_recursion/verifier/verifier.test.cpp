@@ -46,7 +46,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      *
      * @param builder
      * @param public_inputs
-     * @param log_num_gates
+     * @param log_num_gates WORKTODO: this is just the number of arithmetic gates; pin size in test?
      */
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
@@ -164,6 +164,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     {
         // Create an arbitrary inner circuit
         auto inner_circuit = create_inner_circuit();
+        info("inner circuit size is: ", inner_circuit.num_gates);
 
         // Generate a proof over the inner circuit
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
@@ -179,6 +180,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        EXPECT_TRUE(CircuitChecker::check(outer_circuit));
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.

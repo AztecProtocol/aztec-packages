@@ -451,8 +451,10 @@ template <typename Flavor> class SumcheckVerifier {
         bool checked = false;
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
+            info("stdlib target total sum: ", round.target_total_sum.get_value());
             checked = (full_honk_relation_purported_value.get_value() == round.target_total_sum.get_value());
         } else {
+            info("native target total sum: ", round.target_total_sum);
             checked = (full_honk_relation_purported_value == round.target_total_sum);
         }
         verified = verified && checked;

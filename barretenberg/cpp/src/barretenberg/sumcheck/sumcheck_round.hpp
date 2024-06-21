@@ -476,11 +476,12 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                   const RelationSeparator alpha)
     {
         // The verifier should never skip computation of contributions from any relation
+        info("pow_polynomial.partial_evaluation_result: ", pow_polynomial.partial_evaluation_result);
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);
 
-        auto running_challenge = FF(1);
-        auto output = FF(0);
+        FF running_challenge{ 1 };
+        FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
         return output;
     }
