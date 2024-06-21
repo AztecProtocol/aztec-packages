@@ -10,7 +10,7 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -27,18 +27,21 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     // 1 + polynomial degree of this relation
 
     // As each copy tuple is multiplied together
-    static constexpr size_t LENGTH = Settings::COLUMNS_PER_SET + 3;
+    static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET + 2;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
         LENGTH  // log-derived terms subrelation
     };
 
-    // Contains the index of the polynomial used to calculate lookup inverses
-    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+    // Contains the index of the polynomial used to calculate grand products
+    static constexpr size_t GRAND_PRODUCT_POLYNOMIAL_INDEX = 0;
+
+    // Contains the index of the polynomial that is a shift of the grand product
+    static constexpr size_t GRAND_PRODUCT_SHIFT_POLYNOMIAL_INDEX = 1;
 
     // The lhs (read) terms will be COLUMNS_PER_SET long starting from index 1
-    static constexpr size_t COPY_SET_POLYNOMIAL_INDEX = 1;
+    static constexpr size_t COPY_SET_POLYNOMIAL_INDEX = 2;
 
     // The rhs (write) terms will be COLUMNS_PER_SET long starting from the end of COPY_SET
     static constexpr size_t SIGMA_SET_POLYNOMIAL_INDEX = COPY_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
@@ -56,61 +59,21 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     /**
-     * @brief Check if we need to compute the inverse polynomial element value for this row
-     * @details This proxies to a method in the Settings class
+     * @brief Get the grand product polynomial (needed to compute its value)
      *
-     * @param row All values at row
      */
-    template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
-
+    template <typename AllEntities> static auto& get_grand_product_polynomial(AllEntities& in)
     {
-        return Settings::inverse_polynomial_is_computed_at_row(row);
+        return std::get<GRAND_PRODUCT_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
     }
 
     /**
-     * @brief Get the inverse permutation polynomial (needed to compute its value)
+     * @brief Get the grand product shift polynomial
      *
      */
-    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
+    template <typename AllEntities> static auto& get_grand_product_shift_polynomial(AllEntities& in)
     {
-        // WIRE containing the inverse of the product of terms at this row. Used to reconstruct individual inversed
-        // terms
-        return std::get<INVERSE_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
-    }
-
-    /**
-     * @brief Get selector/wire switching on(1) or off(0) inverse computation
-     * We turn it on if either of the permutation contribution selectors are active
-     *
-     */
-    template <typename Accumulator, typename AllEntities>
-    static Accumulator compute_inverse_exists([[maybe_unused]] const AllEntities& in)
-    {
-        // For copy constraints this is always true
-        return Accumulator(1);
-    }
-
-    /**
-     * @brief Compute if the value from the first set exists in this row
-     *
-     * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
-     */
-    template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& in)
-
-    {
-        return Accumulator(1);
-    }
-
-    /**
-     * @brief Compute if the value from the second set exists in this row
-     *
-     * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
-     */
-    template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate([[maybe_unused]] const AllEntities& in)
-    {
-        return Accumulator(1);
+        return std::get<GRAND_PRODUCT_SHIFT_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
     }
 
     /**
@@ -119,41 +82,36 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
      * @details Computes the polynomial \sum_{i=0}^{num_columns}(\gamma + column^i + id^i*\beta^i), so the tuple of
      * columns is in the first set
      *
-     * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
-     *
      * @param params Used for beta and gamma
      */
-    template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-
-        static_assert(read_index < READ_TERMS);
+        using ParameterView = GetParameterView<Parameters, View>;
 
         // Retrieve all polynomials used
         const auto all_polynomials = Settings::get_const_entities(in);
 
-        auto result = Accumulator(0);
+        auto result = Accumulator(1);
 
         // Iterate over tuple and sum as a polynomial over beta
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
+            const auto& value = View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+            const auto& id = View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+            const auto& gamma = ParameterView(params.gamma);
+            const auto& beta = ParameterView(params.beta);
+
             if (i == 0 || i == 1) {
-                info("values for write: ",
-                     std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
-                     " ",
-                     " id    ",
-                     std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+                info("values for write: ", value, " ", " id    ", id);
             }
             if (i == 1) {
                 info("");
             }
 
-            result = result + (View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) +
-                               (View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta));
+            result = result * (value + gamma + id * beta);
         });
 
-        // TODO: temporary
-        // result = result + params.gamma;
         info("numer result ", result);
         return result;
     }
@@ -164,39 +122,33 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
      * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
      * in the second set
      *
-     * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
-     *
      * @param params Used for beta and gamma
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
-    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-
-        static_assert(write_index < WRITE_TERMS);
+        using ParameterView = GetParameterView<Parameters, View>;
 
         // Get all used entities
         const auto& all_polynomials = Settings::get_const_entities(in);
 
-        auto result = Accumulator(0);
-
+        auto result = Accumulator(1);
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
+            const auto& value = View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+            const auto& sigma = View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+            const auto& gamma = ParameterView(params.gamma);
+            const auto& beta = ParameterView(params.beta);
+
             if (i == 0 || i == 1) {
-                info("values for write: ",
-                     std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
-                     " ",
-                     " sigma ",
-                     std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+                info("values for write: ", value, " ", " sigma ", sigma);
             }
             if (i == 1) {
                 info("");
             }
 
-            result = result + (View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) +
-                               (View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta));
+            result = result * (value + gamma + sigma * beta);
         });
-
-        // result = result + params.gamma;
 
         info("denom result ", result);
         return result;
@@ -215,7 +167,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        accumulate_logderivative_copy_subrelation_contributions<FF, GenericCopyRelationImpl<Settings, FF>>(
+        accumulate_grand_product_subrelation_contributions<FF, GenericCopyRelationImpl<Settings, FF>>(
             accumulator, in, params, scaling_factor);
     }
 };

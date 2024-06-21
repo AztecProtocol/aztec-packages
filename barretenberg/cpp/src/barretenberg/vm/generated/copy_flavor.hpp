@@ -4,6 +4,7 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
@@ -36,11 +37,11 @@ class CopyFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 17;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 19;
+    static constexpr size_t NUM_ALL_ENTITIES = 20;
 
     using GrandProductRelations = std::tuple<copy_main_relation<FF>>;
 
@@ -93,14 +94,15 @@ class CopyFlavor {
                               copy_y,
                               copy_z,
                               copy_main,
+                              copy_main_shift,
                               id_0,
                               id_1)
 
         RefVector<DataType> get_wires()
         {
-            return { copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a, copy_sigma_b,
-                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,
-                     copy_y,       copy_z,       copy_main,    id_0,         id_1 };
+            return { copy_a,       copy_b,       copy_c,       copy_d,          copy_sigma_a, copy_sigma_b,
+                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y,    copy_sigma_z, copy_x,
+                     copy_y,       copy_z,       copy_main,    copy_main_shift, id_0,         id_1 };
         };
     };
 
@@ -125,13 +127,14 @@ class CopyFlavor {
                               copy_main,
                               id_0,
                               id_1,
-                              copy_d_shift)
+                              copy_d_shift,
+                              copy_main_shift)
 
         RefVector<DataType> get_wires()
         {
-            return { copy_n,       copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a, copy_sigma_b,
-                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,       copy_y,
-                     copy_z,       copy_main,    id_0,         id_1,         copy_d_shift };
+            return { copy_n,       copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a,   copy_sigma_b,
+                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,         copy_y,
+                     copy_z,       copy_main,    id_0,         id_1,         copy_d_shift, copy_main_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -139,8 +142,8 @@ class CopyFlavor {
                      copy_sigma_b, copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z,
                      copy_x,       copy_y,       copy_z,       copy_main,    id_0,         id_1 };
         };
-        RefVector<DataType> get_to_be_shifted() { return { copy_d }; };
-        RefVector<DataType> get_shifted() { return { copy_d_shift }; };
+        RefVector<DataType> get_to_be_shifted() { return { copy_d, copy_main }; };
+        RefVector<DataType> get_shifted() { return { copy_d_shift, copy_main_shift }; };
     };
 
   public:
@@ -151,14 +154,15 @@ class CopyFlavor {
         using Base = ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
-        RefVector<DataType> get_to_be_shifted() { return { copy_d }; };
+        RefVector<DataType> get_to_be_shifted() { return { copy_d, copy_main }; };
 
-        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        void compute_logderivative_inverses([[maybe_unused]] const RelationParameters<FF>& relation_parameters)
         {
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
 
-            bb::compute_logderivative_inverse<CopyFlavor, copy_main_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
+            // TODO(md): get working with compute grand products - might just be type shimmying
+
+            // bb::compute_grand_product<CopyFlavor, copy_main_relation<FF>>(prover_polynomials, &relation_parameters);
         }
     };
 

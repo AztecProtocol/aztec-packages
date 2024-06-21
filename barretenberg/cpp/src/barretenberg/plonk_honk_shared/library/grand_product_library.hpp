@@ -159,4 +159,26 @@ void compute_grand_products(typename Flavor::ProverPolynomials& full_polynomials
     });
 }
 
+template <typename FF, typename Relation, typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+void accumulate_grand_product_subrelation_contributions(ContainerOverSubrelations& accumulator,
+                                                        const AllEntities& in,
+                                                        const Parameters& params,
+                                                        const FF& scaling_factor)
+{
+    auto copy_relation = Relation();
+
+    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+    using View = typename Accumulator::View;
+
+    const auto grand_product = View(copy_relation.template get_grand_product_polynomial(in));
+    const auto grand_product_shift = View(copy_relation.template get_grand_product_shift_polynomial(in));
+
+    const Accumulator numerator = copy_relation.template compute_grand_product_numerator<Accumulator>(in, params);
+    const Accumulator denominator = copy_relation.template compute_grand_product_denominator<Accumulator>(in, params);
+
+    // TODO: probably need to not enable on the last row
+    // Grand product polynomials will need to be shifted and begin at zero from the start???
+    std::get<0>(accumulator) += ((grand_product * numerator) - (grand_product_shift * denominator)) * scaling_factor;
+}
+
 } // namespace bb
