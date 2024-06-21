@@ -50,12 +50,12 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
-    for (auto comm : commitments.get_all()) {
-        info("verifier comm: ", comm);
-    }
+    // for (auto [comm, label] : zip_view(commitments.get_all(), commitments.get_labels())) {
+    //     info("commitment to ", label, ": ", comm);
+    // }
     CommitmentLabels commitment_labels;
 
-    transcript->template receive_from_prover<FF>("circuit_size");
+    FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     transcript->template receive_from_prover<FF>("public_input_size");
     transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
@@ -68,6 +68,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
         public_inputs.emplace_back(transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i)));
     }
+    info("num public inputs in recursive verifier: ", public_inputs.size());
 
     // Get commitments to first three wire polynomials
     commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
@@ -112,10 +113,24 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.return_data_inverses =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_inverses);
     }
+    if constexpr (!IsSimulator<Builder>) {
+        // info("before public input delta: ",
+        //      builder->num_gates,
+        //      " and arithmetic gates ",
+        //      builder->blocks.arithmetic.q_m().size());
+    }
 
+    // FF circuit_size = witness_t<Builder>(builder, key->circuit_size);
     const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, key->circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, key->circuit_size);
+        public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("after public input delta: ",
+    //          builder->num_gates,
+    //          " and arithmetic gates ",
+    //          builder->blocks.arithmetic.q_m().size());
+    // }
+    // static_cast<void>(public_input_delta);
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -125,7 +140,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
     commitments.z_lookup = transcript->template receive_from_prover<Commitment>(commitment_labels.z_lookup);
-
+    if constexpr (!IsSimulator<Builder>) {
+        // info(
+        //     "before sumcheck: ", builder->num_gates, " and arithmetic gates ",
+        //     builder->blocks.arithmetic.q_m().size());
+    }
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
@@ -142,7 +161,12 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    info("after sumcheck verify: ", builder->num_gates);
+    if constexpr (!IsSimulator<Builder>) {
+        // info("after sumcheck verify: ",
+        //      builder->num_gates,
+        //      " and arithmetic gates ",
+        //      builder->blocks.arithmetic.q_m().size());
+    }
     // Execute ZeroMorph multilinear PCS evaluation verifier
     auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),
@@ -150,6 +174,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
                                                   claimed_evaluations.get_shifted(),
                                                   multivariate_challenge,
                                                   transcript);
+    // std::array<typename Flavor::GroupElement, 2> verifier_accumulator = {};
     return verifier_accumulator;
 }
 
@@ -157,6 +182,6 @@ template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBui
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+// template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+// template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 } // namespace bb::stdlib::recursion::honk

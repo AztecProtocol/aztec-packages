@@ -414,7 +414,7 @@ template <typename Flavor> class SumcheckVerifier {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx < num_padding_univariates);
                 bool checked = round.check_sum(round_univariate, dummy_round);
-                info("checked: ", checked, " at round: ", round_idx, " and dummy round: ", dummy_round.get_value());
+                // info("checked: ", checked, " at round: ", round_idx, " and dummy round: ", dummy_round.get_value());
                 // ignore the checked value if its a padded univariate
                 if (round_idx >= num_padding_univariates) {
                     verified = verified && checked;

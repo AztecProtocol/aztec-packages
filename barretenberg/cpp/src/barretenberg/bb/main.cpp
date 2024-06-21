@@ -24,6 +24,7 @@
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -754,7 +755,11 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
     info("q_m");
-    info(builder.blocks.arithmetic.q_m());
+    uint64_t circuit_hash = builder.hash_circuit().data[0];
+    info("hashing circuit: ", circuit_hash);
+    std::ofstream file("../../../q_m-" + std::to_string(circuit_hash));
+    file << builder.blocks.arithmetic.q_m();
+    file.close();
     // Construct Honk proof
     Prover prover{ builder };
     return prover;

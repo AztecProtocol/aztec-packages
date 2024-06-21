@@ -501,7 +501,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                 // constrain zero to be 0
                 // builder->create_add_gate({ zero.witness_index, 0, 0, 1, 0, 0, 0 });
                 stdlib::witness_t pred_witness(builder, k < log_N);
-                info("pred_witness witness: ", pred_witness.witness);
+                // info("pred_witness witness: ", pred_witness.witness);
                 stdlib::bool_t pred = pred_witness;
                 scalar = FF::conditional_assign(pred, scalar, zero);
             } else {
@@ -516,9 +516,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
         // Compute batch mul to get the result
         if constexpr (Curve::is_stdlib_type) {
             info("executing C_zeta_x batch mul");
-            for (auto& commitment : commitments) {
-                info("commitment: ", commitment.get_value());
-            }
+            // for (auto& commitment : commitments) {
+            //     info("commitment: ", commitment.get_value());
+            // }
             return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
@@ -660,15 +660,18 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            info("executing batch_mul of length ", commitments.size());
-            info("number of gates: ", commitments[0].get_context()->num_gates);
-            for (size_t idx = 0; idx < commitments.size(); ++idx) {
-                info(commitments[idx].get_value());
-                info(commitments[idx].get_value().on_curve());
-            }
-            for (size_t idx = 0; idx < scalars.size(); ++idx) {
-                info(scalars[idx]);
-            }
+            // info("executing batch_mul of length ", commitments.size());
+            // info("number of gates: ",
+            //      commitments[0].get_context()->num_gates,
+            //      " and arithmetic gates ",
+            //      commitments[0].get_context()->blocks.arithmetic.q_m().size());
+            // for (size_t idx = 0; idx < commitments.size(); ++idx) {
+            //     info(commitments[idx].get_value());
+            //     info(commitments[idx].get_value().on_curve());
+            // }
+            // for (size_t idx = 0; idx < scalars.size(); ++idx) {
+            //     info(scalars[idx]);
+            // }
             return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
@@ -751,15 +754,19 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
 
         // Compute commitment C_{\zeta_x}
-        info("before compute_C_zeta_x: ");
         if constexpr (Curve::is_stdlib_type) {
-            info(z_challenge.get_context()->num_gates);
+            // info("before compute_C_zeta_x: ",
+            //      z_challenge.get_context()->num_gates,
+            //      " and arithmetic gates ",
+            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
         }
 
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N);
-        info("after compute_C_zeta_x: ");
         if constexpr (Curve::is_stdlib_type) {
-            info(z_challenge.get_context()->num_gates);
+            // info("after compute_C_zeta_x: ",
+            //      z_challenge.get_context()->num_gates,
+            //      " and arithmetic gates ",
+            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
         }
 
         // Compute commitment C_{Z_x}
@@ -775,7 +782,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                          concatenation_group_commitments);
         info("after compute_C_Z_x: ");
         if constexpr (Curve::is_stdlib_type) {
-            info(z_challenge.get_context()->num_gates);
+            // info(z_challenge.get_context()->num_gates,
+            //      " and arithmetic gates ",
+            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
         }
 
         // Compute commitment C_{\zeta,Z}

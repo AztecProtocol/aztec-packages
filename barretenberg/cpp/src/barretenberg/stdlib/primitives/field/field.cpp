@@ -348,8 +348,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
-
     auto* ctx = get_context() ? get_context() : exponent.get_context();
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("at pow: ", ctx->num_gates, " and arithmetic gates ", ctx->blocks.arithmetic.q_m().size());
+    // }
     uint256_t exponent_value = exponent.get_value();
     if constexpr (IsSimulator<Builder>) {
         if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
@@ -358,8 +360,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
         return get_value().pow(exponent_value & MASK_32_BITS);
     }
-
     bool exponent_constant = exponent.is_constant();
+    // info("exponent_constant: ", exponent_constant);
     std::vector<bool_t<Builder>> exponent_bits(32);
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
@@ -368,7 +370,12 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
     }
-
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("after first loop in pow : ",
+    //          ctx->num_gates,
+    //          " and arithmetic gates ",
+    //          ctx->blocks.arithmetic.q_m().size());
+    // }
     if (!exponent_constant) {
         field_t<Builder> exponent_accumulator(ctx, 0);
         for (const auto& bit : exponent_bits) {
@@ -377,6 +384,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         }
         exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
     }
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("before second loop: ", ctx->num_gates, " and arithmetic gates ", ctx->blocks.arithmetic.q_m().size());
+    // }
     field_t accumulator(ctx, 1);
     field_t mul_coefficient = *this - 1;
     for (size_t i = 0; i < 32; ++i) {
@@ -384,6 +394,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         const auto bit = exponent_bits[i];
         accumulator *= (mul_coefficient * bit + 1);
     }
+    // if constexpr (!IsSimulator<Builder>) {
+    //     info("after second loop : ", ctx->num_gates, " and arithmetic gates ", ctx->blocks.arithmetic.q_m().size());
+    // }
     accumulator = accumulator.normalize();
     return accumulator;
 }

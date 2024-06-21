@@ -213,7 +213,10 @@ void build_constraints(Builder& builder,
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }
-    info("num constraints before creating honk recursion constraints: ", builder.num_gates);
+    // info("num constraints before creating honk recursion constraints: ",
+    //      builder.num_gates,
+    //      " and arithmetic gates: ",
+    //      builder.blocks.arithmetic.q_m().size());
     // HonkRecursionConstraint
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
     // not yet dealing with proper recursion
@@ -311,7 +314,10 @@ void build_constraints(Builder& builder,
         //     builder.set_recursive_proof(proof_output_witness_indices);
         // }
     }
-    info("num constraints after build = ", builder.num_gates);
+    // info("num constraints after build = ",
+    //      builder.num_gates,
+    //      " and arithmetic gates: ",
+    //      builder.blocks.arithmetic.q_m().size());
 }
 
 /**
