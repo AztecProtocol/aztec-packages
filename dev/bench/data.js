@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718987086352,
+  "lastUpdate": 1718988496624,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -49744,6 +49744,78 @@ window.BENCHMARK_DATA = {
             "value": 162864093,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162864093 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5e80ee9b6298f7edf39b99ff51ae7cc26b8cbd8",
+          "message": "refactor: indirects and read/write slices (#7082)\n\nThis PR does a few things to clean up the indirect and mem handling in\r\nthe avm trace.\r\n\r\n1) Adds support to resolve indirects across all operands in a similar\r\nway to the simulator.\r\n2) Introduces the `constrained_read` and `constrained_write` mem\r\nabstractions that handle the (potential) indirect load step without\r\nneeding to manually write them.\r\n3) Indirect handling in the `write_slice` and `read_slice` helpers.\r\n4) Clean up gadgets read/write cycle - dropping unnecessary reads of\r\nindirect destination offset thanks to above point\r\n5) Simplified gadgets execution tests, removed checks other than return\r\nresult since they were arbitrary based on our read pattern at the time\r\nand not reflective of what the tests should look like when they are\r\nconstrained.\r\n\r\nNote the CMOV, MOV and JUMPI have been left for a later refactor as they\r\nuse specific load patterns in the mem trace, plus this PR was getting\r\nlarge..",
+          "timestamp": "2024-06-21T16:38:39Z",
+          "tree_id": "685c9023c354ed09e36d084597279f9460f31b1e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5e80ee9b6298f7edf39b99ff51ae7cc26b8cbd8"
+        },
+        "date": 1718988494382,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15439.390011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10799.412201000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5525.033254999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5182.805539 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49092.335779,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49092337000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17005.120746,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17005121000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5209743533,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5209743533 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201416635,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201416635 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4287294030,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4287294030 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163994507,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163994507 ns\nthreads: 1"
           }
         ]
       }
