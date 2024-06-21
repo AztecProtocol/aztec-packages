@@ -3,3 +3,4 @@ mod burn;
 mod utils;
 mod transfer;
 mod unshield;
+mod minting;

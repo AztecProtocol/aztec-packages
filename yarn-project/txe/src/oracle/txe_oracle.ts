@@ -717,7 +717,9 @@ export class TXE implements TypedOracle {
     );
 
     // Apply side effects
-    this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    if (!executionResult.reverted) {
+      this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    }
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
     this.setFunctionSelector(currentFunctionSelector);

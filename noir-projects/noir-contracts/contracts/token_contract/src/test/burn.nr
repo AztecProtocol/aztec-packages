@@ -78,29 +78,29 @@ unconstrained fn burn_private_success() {
     utils::check_private_balance(token_contract_address, owner, mint_amount - 2 * burn_amount);
 }
 
-#[test]
+#[test(should_fail_with="Balance too low")]
 unconstrained fn burn_private_failure_more_than_balance() {
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Burn more than balance 
     let burn_amount = mint_amount * 10;
     let burn_call_interface = Token::at(token_contract_address).burn(owner, burn_amount, 0);
-    env.assert_private_call_fails(burn_call_interface);
+    env.call_private_void(burn_call_interface);
     // Private doesnt revert, so we cannot check balances here since notes have already been nullified. Test is done.
 }
 
-#[test]
+#[test(should_fail_with="invalid nonce")]
 unconstrained fn burn_private_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Burn more than balance 
     let burn_amount = mint_amount / 10;
     let burn_call_interface = Token::at(token_contract_address).burn(owner, burn_amount, unsafe_rand());
-    env.assert_private_call_fails(burn_call_interface);
+    env.call_private_void(burn_call_interface);
     // Private doesnt revert, so we cannot check balances here since notes have already been nullified. Test is done.
 }
 
-#[test]
+#[test(should_fail)]
 unconstrained fn burn_private_failure_on_behalf_of_other_more_than_balance() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
@@ -111,11 +111,11 @@ unconstrained fn burn_private_failure_on_behalf_of_other_more_than_balance() {
     authwit_cheatcodes::add_private_authwit_from_call_interface(owner, recipient, burn_call_interface);
     // Impersonate recipient to perform the call
     cheatcodes::set_contract_address(recipient);
-    env.assert_private_call_fails(burn_call_interface);
+    env.call_private_void(burn_call_interface);
     // Private doesnt revert, so we cannot check balances here since notes have already been nullified. Test is done.
 }
 
-#[test]
+#[test(should_fail)]
 unconstrained fn burn_private_failure_on_behalf_of_other_without_approval() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
@@ -125,11 +125,11 @@ unconstrained fn burn_private_failure_on_behalf_of_other_without_approval() {
     let burn_call_interface = Token::at(token_contract_address).burn(owner, burn_amount, unsafe_rand());
     // Impersonate recipient to perform the call
     cheatcodes::set_contract_address(recipient);
-    env.assert_private_call_fails(burn_call_interface);
+    env.call_private_void(burn_call_interface);
     // Private doesnt revert, so we cannot check balances here since notes have already been nullified. Test is done.
 }
 
-#[test]
+#[test(should_fail)]
 unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
@@ -140,6 +140,6 @@ unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller
     authwit_cheatcodes::add_private_authwit_from_call_interface(owner, owner, burn_call_interface);
     // Impersonate recipient to perform the call
     cheatcodes::set_contract_address(recipient);
-    env.assert_private_call_fails(burn_call_interface);
+    env.call_private_void(burn_call_interface);
     // Private doesnt revert, so we cannot check balances here since notes have already been nullified. Test is done.
 }

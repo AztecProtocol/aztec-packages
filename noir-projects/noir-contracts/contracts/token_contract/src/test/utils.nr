@@ -66,6 +66,7 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
     env.call_private_void(redeem_shield_call_interface);
 
+    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
     // Not really sure why this is needed? Nullifier inclusion in contract initializer fails otherwise. 
     // If it were to fail, it should do it at line 443, investigation required
     env.advance_block_by(1);
@@ -74,15 +75,18 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
 }
 
 pub fn check_public_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+    let current_contract_address = cheatcodes::get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
 
     let balances_slot = Token::storage().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
     let fields = storage_read(address_slot);
     assert(U128::deserialize(fields).to_field() == address_amount);
+    cheatcodes::set_contract_address(current_contract_address);
 }
 
 pub fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+    let current_contract_address = cheatcodes::get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
 
     let balances_slot = Token::storage().balances.slot;
@@ -90,4 +94,5 @@ pub fn check_private_balance(token_contract_address: AztecAddress, address: Azte
     let mut options = NoteViewerOptions::new();
     let opt_notes: [Option<TokenNote>; MAX_NOTES_PER_PAGE] = view_notes(address_slot, options);
     assert(opt_notes[0].unwrap().amount.to_field() == address_amount);
+    cheatcodes::set_contract_address(current_contract_address);
 }

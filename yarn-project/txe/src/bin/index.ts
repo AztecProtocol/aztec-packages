@@ -35,13 +35,13 @@ class TXEDispatcher {
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
     if (!TXESessions.has(sessionId) && functionName != 'reset') {
-      this.logger.debug(`Creating new session ${sessionId}`);
+      this.logger.info(`Creating new session ${sessionId}`);
       TXESessions.set(sessionId, await TXEService.init(logger));
     }
 
     if (functionName === 'reset') {
       TXESessions.delete(sessionId) &&
-        this.logger.debug(`Called reset on session ${sessionId}, yeeting it out of existence`);
+        this.logger.info(`Called reset on session ${sessionId}, yeeting it out of existence`);
       return toForeignCallResult([]);
     } else {
       const txeService = TXESessions.get(sessionId);

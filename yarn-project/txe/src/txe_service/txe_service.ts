@@ -62,7 +62,7 @@ export class TXEService {
 
   async timeTravel(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
-    this.logger.info(`time traveling ${nBlocks} blocks`);
+    this.logger.debug(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
     const header = Header.empty();
     const l2Block = L2Block.empty();
