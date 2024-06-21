@@ -72,7 +72,7 @@ unconstrained fn shielding_on_behalf_of_other() {
 #[test]
 unconstrained fn shielding_failure_on_behalf_of_self_more_than_balance() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     // Shield tokens
@@ -88,7 +88,7 @@ unconstrained fn shielding_failure_on_behalf_of_self_more_than_balance() {
 #[test]
 unconstrained fn shielding_failure_on_behalf_of_self_invalid_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     // Shield tokens

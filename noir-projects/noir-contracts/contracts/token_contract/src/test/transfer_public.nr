@@ -63,7 +63,7 @@ unconstrained fn public_transfer_failure_more_than_balance() {
 #[test]
 unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
     let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, unsafe_rand());
