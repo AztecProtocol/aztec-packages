@@ -7,8 +7,8 @@
 namespace bb::Copy_vm {
 
 template <typename FF> struct CopyRow {
-    FF copy_x{};
-    FF copy_x_shift{};
+    FF copy_d{};
+    FF copy_d_shift{};
 
     [[maybe_unused]] static std::vector<std::string> names();
 };
@@ -38,7 +38,7 @@ template <typename FF_> class copyImpl {
         {
             Copy_DECLARE_VIEWS(0);
 
-            auto tmp = (copy_x_shift - copy_x);
+            auto tmp = (copy_d_shift - copy_d);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }

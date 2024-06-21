@@ -137,10 +137,24 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
 
         // Iterate over tuple and sum as a polynomial over beta
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            result += View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
-                      View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
+            if (i == 0 || i == 1) {
+                info("values for write: ",
+                     std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
+                     " ",
+                     " id    ",
+                     std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+            }
+            if (i == 1) {
+                info("");
+            }
+
+            result = result + (View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) +
+                               (View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta));
         });
 
+        // TODO: temporary
+        // result = result + params.gamma;
+        info("numer result ", result);
         return result;
     }
 
@@ -167,10 +181,24 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
         auto result = Accumulator(0);
 
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            result += View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) + params.gamma +
-                      View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta;
+            if (i == 0 || i == 1) {
+                info("values for write: ",
+                     std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials),
+                     " ",
+                     " sigma ",
+                     std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
+            }
+            if (i == 1) {
+                info("");
+            }
+
+            result = result + (View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) +
+                               (View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials)) * params.beta));
         });
 
+        // result = result + params.gamma;
+
+        info("denom result ", result);
         return result;
     }
 
@@ -187,7 +215,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        accumulate_logderivative_permutation_subrelation_contributions<FF, GenericCopyRelationImpl<Settings, FF>>(
+        accumulate_logderivative_copy_subrelation_contributions<FF, GenericCopyRelationImpl<Settings, FF>>(
             accumulator, in, params, scaling_factor);
     }
 };

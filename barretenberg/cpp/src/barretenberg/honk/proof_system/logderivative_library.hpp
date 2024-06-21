@@ -247,4 +247,28 @@ void accumulate_logderivative_permutation_subrelation_contributions(ContainerOve
     std::get<1>(accumulator) -=
         permutation_relation.template compute_write_term_predicate<Accumulator, 0>(in) * denominator_accumulator[1];
 }
+
+template <typename FF, typename Relation, typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+void accumulate_logderivative_copy_subrelation_contributions(ContainerOverSubrelations& accumulator,
+                                                             const AllEntities& in,
+                                                             const Parameters& params,
+                                                             const FF& scaling_factor)
+{
+    auto permutation_relation = Relation();
+
+    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+    using View = typename Accumulator::View;
+
+    const auto inverse = View(permutation_relation.template get_inverse_polynomial(in));
+
+    const auto read_term = permutation_relation.template compute_read_term<Accumulator, 0>(in, params);
+    const auto write_term = permutation_relation.template compute_write_term<Accumulator, 0>(in, params);
+
+    const auto read_inverse = inverse * write_term;
+    const auto write_inverse = inverse * read_term;
+    const auto inverse_exists = 1;
+
+    std::get<0>(accumulator) += (read_term * write_term * inverse - inverse_exists) * scaling_factor;
+    std::get<1>(accumulator) += read_inverse - write_inverse;
+}
 } // namespace bb

@@ -18,7 +18,6 @@
 
 #include "barretenberg/relations/generated/copy/copy.hpp"
 #include "barretenberg/relations/generated/copy/copy_main.hpp"
-#include "barretenberg/relations/generated/copy/copy_second.hpp"
 #include "barretenberg/vm/generated/copy_flavor.hpp"
 
 namespace bb {
@@ -40,12 +39,9 @@ template <typename FF> struct CopyFullRow {
     FF copy_y{};
     FF copy_z{};
     FF copy_main{};
-    FF copy_second{};
     FF id_0{};
     FF id_1{};
-    FF id_2{};
-    FF id_3{};
-    FF copy_x_shift{};
+    FF copy_d_shift{};
 
     [[maybe_unused]] static std::vector<std::string> names();
 };
@@ -62,8 +58,8 @@ class CopyCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 22;
-    static constexpr size_t num_polys = 21;
+    static constexpr size_t num_fixed_columns = 19;
+    static constexpr size_t num_polys = 18;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -96,11 +92,9 @@ class CopyCircuitBuilder {
             polys.copy_z[i] = rows[i].copy_z;
             polys.id_0[i] = rows[i].id_0;
             polys.id_1[i] = rows[i].id_1;
-            polys.id_2[i] = rows[i].id_2;
-            polys.id_3[i] = rows[i].id_3;
         }
 
-        polys.copy_x_shift = Polynomial(polys.copy_x.shifted());
+        polys.copy_d_shift = Polynomial(polys.copy_d.shifted());
 
         return polys;
     }
@@ -108,12 +102,12 @@ class CopyCircuitBuilder {
     [[maybe_unused]] bool check_circuit()
     {
 
-        const FF gamma = FF::random_element();
-        const FF beta = FF::random_element();
+        // const FF gamma = FF::random_element();
+        // const FF beta = FF::random_element();
         bb::RelationParameters<typename Flavor::FF> params{
             .eta = 0,
-            .beta = beta,
-            .gamma = gamma,
+            .beta = FF(1),
+            .gamma = FF(1),
             .public_input_delta = 0,
             .lookup_grand_product_delta = 0,
             .beta_sqr = 0,
@@ -160,8 +154,12 @@ class CopyCircuitBuilder {
             for (auto& r : lookup_result) {
                 r = 0;
             }
+            info("\n\n\n\n\n");
             for (size_t i = 0; i < num_rows; ++i) {
                 LogDerivativeSettings::accumulate(lookup_result, polys.get_row(i), params, 1);
+                info("rel 0: ", lookup_result[0]);
+                info("rel 1: ", lookup_result[1]);
+                info();
             }
             for (auto r : lookup_result) {
                 if (r != 0) {
@@ -180,10 +178,6 @@ class CopyCircuitBuilder {
             return evaluate_logderivative.template operator()<copy_main_relation<FF>>("COPY_MAIN");
         };
 
-        auto copy_second = [=]() {
-            return evaluate_logderivative.template operator()<copy_second_relation<FF>>("COPY_SECOND");
-        };
-
 #ifndef __wasm__
 
         // Evaluate check circuit closures as futures
@@ -192,8 +186,6 @@ class CopyCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, copy));
 
         relation_futures.emplace_back(std::async(std::launch::async, copy_main));
-
-        relation_futures.emplace_back(std::async(std::launch::async, copy_second));
 
         // Wait for lookup evaluations to complete
         for (auto& future : relation_futures) {
@@ -207,8 +199,6 @@ class CopyCircuitBuilder {
         copy();
 
         copy_main();
-
-        copy_second();
 
 #endif
 

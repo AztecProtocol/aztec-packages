@@ -167,7 +167,7 @@ fn create_copy_settings_file(copy: &Copy) -> String {
     // 0..cols_per_set                       .......... value cols
     // cols_per_set..2*cols_per_set columns  .......... sigma cols
     // 2*cols_per_set..3*cols_per_set        .......... id cols
-    let mut copy_entities: Vec<String> = vec![copy_name];
+    let mut copy_entities: Vec<String> = vec![copy_name.clone()];
     copy_entities.extend(lhs_cols);
     copy_entities.extend(rhs_cols);
     copy_entities.extend(id_cols);
