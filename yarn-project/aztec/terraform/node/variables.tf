@@ -77,12 +77,3 @@ variable "AGENTS_PER_SEQUENCER" {
   type    = string
   default = 4
 }
-
-variable "AVAILABILITY_ORACLE_CONTRACT_ADDRESS" { type = string }
-variable "ROLLUP_CONTRACT_ADDRESS" { type = string }
-variable "REGISTRY_CONTRACT_ADDRESS" { type = string }
-variable "INBOX_CONTRACT_ADDRESS" { type = string }
-variable "OUTBOX_CONTRACT_ADDRESS" { type = string }
-variable "GAS_TOKEN_CONTRACT_ADDRESS" { type = string }
-variable "GAS_PORTAL_CONTRACT_ADDRESS" { type = string }
-
