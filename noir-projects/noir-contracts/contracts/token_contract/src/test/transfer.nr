@@ -4,7 +4,7 @@ use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 
 #[test]
-unconstrained fn private_transfer() {
+fn private_transfer() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
@@ -18,7 +18,7 @@ unconstrained fn private_transfer() {
 }
 
 #[test]
-unconstrained fn private_transfer_on_behalf_of() {
+fn private_transfer_on_behalf_of() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     // Add authwit
@@ -35,7 +35,7 @@ unconstrained fn private_transfer_on_behalf_of() {
 }
 
 #[test]
-unconstrained fn public_transfer() {
+fn public_transfer() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
@@ -49,7 +49,7 @@ unconstrained fn public_transfer() {
 }
 
 #[test]
-unconstrained fn public_transfer_on_behalf_of() {
+fn public_transfer_on_behalf_of() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let transfer_amount = 1000;

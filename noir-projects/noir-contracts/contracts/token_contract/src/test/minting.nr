@@ -3,7 +3,7 @@ use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, ha
 use crate::{types::transparent_note::TransparentNote, Token};
 
 #[test]
-unconstrained fn mint_public_success() {
+fn mint_public_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
@@ -20,7 +20,7 @@ unconstrained fn mint_public_success() {
 }
 
 #[test]
-unconstrained fn mint_public_failures() {
+fn mint_public_failures() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
 
@@ -58,7 +58,7 @@ unconstrained fn mint_public_failures() {
 }
 
 #[test]
-unconstrained fn mint_private_success() {
+fn mint_private_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
@@ -89,7 +89,7 @@ unconstrained fn mint_private_success() {
 }
 
 #[test(should_fail_with="Cannot return zero notes")]
-unconstrained fn mint_private_failure_double_spend() {
+fn mint_private_failure_double_spend() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
@@ -127,7 +127,7 @@ unconstrained fn mint_private_failure_double_spend() {
 }
 
 #[test(should_fail_with="caller is not minter")]
-unconstrained fn mint_private_failure_non_minter() {
+fn mint_private_failure_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
@@ -141,7 +141,7 @@ unconstrained fn mint_private_failure_non_minter() {
 }
 
 #[test(should_fail_with="call to assert_max_bit_size")]
-unconstrained fn mint_private_failure_overflow() {
+fn mint_private_failure_overflow() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
@@ -154,7 +154,7 @@ unconstrained fn mint_private_failure_overflow() {
 }
 
 #[test(should_fail_with="attempt to add with overflow")]
-unconstrained fn mint_private_failure_overflow_recipient() {
+fn mint_private_failure_overflow_recipient() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
@@ -192,7 +192,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
 }
 
 #[test(should_fail_with="attempt to add with overflow")]
-unconstrained fn mint_private_failure_overflow_total_supply() {
+fn mint_private_failure_overflow_total_supply() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
