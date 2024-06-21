@@ -213,7 +213,7 @@ struct MultiTable {
 //         std::array<bb::fr, 2> value{ bb::fr(0), bb::fr(0) };
 //         bool operator<(const KeyEntry& other) const { return key < other.key; }
 
-//         std::array<bb::fr, 3> to_sorted_list_components(const bool use_two_keys) const
+//         std::array<bb::fr, 3> to_table_components(const bool use_two_keys) const
 //         {
 //             return {
 //                 key[0],
@@ -248,7 +248,7 @@ struct MultiTable {
 //             return (key.from_montgomery_form() < other.key.from_montgomery_form());
 //         }
 
-//         std::array<bb::fr, 3> to_sorted_list_components() const { return { key, values[0], values[0] }; }
+//         std::array<bb::fr, 3> to_table_components() const { return { key, values[0], values[0] }; }
 //     }
 
 //     BasicTableId id;
@@ -349,7 +349,8 @@ struct BasicTable {
             return key[0] < other.key[0] || ((key[0] == other.key[0]) && key[1] < other.key[1]);
         }
 
-        std::array<bb::fr, 3> to_sorted_list_components(const bool use_two_keys) const
+        // Express the key-value pair as the entries of a 3-column row in a table
+        std::array<bb::fr, 3> to_table_components(const bool use_two_keys) const
         {
             return {
                 bb::fr(key[0]),

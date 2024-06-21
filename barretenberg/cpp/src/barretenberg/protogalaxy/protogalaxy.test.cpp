@@ -408,8 +408,9 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(instances), get<1>(instances));
 
         // Expect failure in manual target sum check and decider
-        bool expected_result check_accumulator_target_sum_manual(prover_accumulator, false);
-        decide_and_verify(prover_accumulator, verifier_accumulator, false);
+        bool expected_result = false;
+        check_accumulator_target_sum_manual(prover_accumulator, expected_result);
+        decide_and_verify(prover_accumulator, verifier_accumulator, expected_result);
     }
 
     /**

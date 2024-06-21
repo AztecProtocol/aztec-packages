@@ -59,13 +59,12 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
     for (auto& table : circuit.lookup_tables) {
         table.initialize_index_map();
 
-        for (auto& entry : table.lookup_gates) {
-            // convert lookup entry to an array of three field elements, one for each of the 3 columns
-            // WORKTODO change name of this method
-            auto data = entry.to_sorted_list_components(table.use_twin_keys);
+        for (auto& gate_data : table.lookup_gates) {
+            // convert lookup gate data to an array of three field elements, one for each of the 3 columns
+            auto table_entry = gate_data.to_table_components(table.use_twin_keys);
 
             // find the index of the entry in the table
-            auto index_in_table = table.index_map[data];
+            auto index_in_table = table.index_map[table_entry];
 
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;

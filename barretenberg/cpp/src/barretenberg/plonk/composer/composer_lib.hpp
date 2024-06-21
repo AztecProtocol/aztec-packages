@@ -112,7 +112,7 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
 #endif
 
         for (const auto& entry : lookup_gates) {
-            const auto components = entry.to_sorted_list_components(table.use_twin_keys);
+            const auto components = entry.to_table_components(table.use_twin_keys);
             sorted_polynomials[0][s_index] = components[0];
             sorted_polynomials[1][s_index] = components[1];
             sorted_polynomials[2][s_index] = components[2];

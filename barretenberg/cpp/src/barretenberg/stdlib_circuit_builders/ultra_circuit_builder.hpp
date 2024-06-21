@@ -659,7 +659,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      */
     size_t get_total_circuit_size() const
     {
-        // WORKTODO: update everywhere that uses the old s_accum size
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
         auto num_filled_gates = get_num_gates() + this->public_inputs.size();
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;

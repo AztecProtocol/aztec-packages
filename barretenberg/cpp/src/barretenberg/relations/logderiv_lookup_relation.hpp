@@ -23,7 +23,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         LENGTH  // log derivative lookup argument sub-relation
     };
 
-    // WORKTODO: shouldnt first one be 2? code doesnt compile that way
+    // WORKTODO: shouldnt first one be 2? Why do tests pass with 1? (Note: if setting to 2, both need to be 2 due to
+    // structure of relation algebra)
     static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
         1, // inverse construction sub-relation
         1  // log derivative lookup argument sub-relation
@@ -144,10 +145,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
      *
      * where write_term = table_col_1 + \gamma + table_col_2 * \eta_1 + table_col_3 * \eta_2 + table_index * \eta_3
      * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \eta_1 + derived_table_entry_3 * \eta_2
-     * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size\cdot w_i_shift. (The table entries must
-     * be 'derived' from wire values in this way since the stored witnesses are actually successive accumulators, the
-     * differences of which are equal to entries in a table. This is an efficiency trick to avoid using additional gates
-     * to reconstruct full size values from the limbs contained in tables).
+     * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift. (The table entries
+     * must be 'derived' from wire values in this way since the stored witnesses are actually successive accumulators,
+     * the differences of which are equal to entries in a table. This is an efficiency trick to avoid using additional
+     * gates to reconstruct full size values from the limbs contained in tables).
      *
      * In practice this identity is expressed in terms of polynomials by defining a polynomial of inverses I_i =
      * \frac{1}{read_term_i\cdot write_term_i} then rewriting the above identity as
