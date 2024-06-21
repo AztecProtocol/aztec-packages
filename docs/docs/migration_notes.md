@@ -93,13 +93,13 @@ To further reduce gate count, you can iterate over `options.limit` instead of `m
 
 The private authwit validation is now making a static call to the account contract instead of passing over control flow. This is to ensure that it cannot be used for re-entry.
 
-To make this change however, we cannot allow emitting a nullifying from the account contract, since that would break the static call. Instead, we will be changing the `verify_private_authwit` to a `verify_private_authwit` and in the `auth` library emit the nullifier. This means that the "calling" contract will now be emitting the nullifier, and not the account. For example, for a token contract, the nullifier is now emitted by the token contract. However, as this is done inside the `auth` library, the token contract don't need to change much.
+To make this change however, we cannot allow emitting a nullifier from the account contract, since that would break the static call. Instead, we will be changing the `spend_private_authwit` to a `verify_private_authwit` and in the `auth` library emit the nullifier. This means that the "calling" contract will now be emitting the nullifier, and not the account. For example, for a token contract, the nullifier is now emitted by the token contract. However, as this is done inside the `auth` library, the token contract doesn't need to change much.
 
 The biggest difference is related to "cancelling" an authwit. Since it is no longer in the account contract, you cannot just emit a nullifier from it anymore. Instead it must rely on the token contract providing functionality for cancelling.
 
 There are also a few general changes to how authwits are generated, namely to more easily support the data required for a validity lookup now. Previously we could lookup the `message_hash` directly at the account contract, now we instead need to use the `inner_hash` and the contract of the consumer to figure out if it have already been emitted.
 
-A minor extension have been made to the authwit creations to make it easier specific a hash that needs to be signed with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been amde internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
+A minor extension have been made to the authwit creations to make it easier to sign a specific a hash with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been amde internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
 
 ```diff
 const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), entrypointPackedArgs.hash]);

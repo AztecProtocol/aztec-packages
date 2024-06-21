@@ -8,10 +8,8 @@ import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
 /** Creates authorization witnesses. */
 export interface AuthWitnessProvider {
   /**
-   * Computes an authentication witness from either a message hash or an intent (caller and an action).
-   * If a message hash is provided, it will create a witness for that directly.
-   * Otherwise, it will compute the message hash using the caller and the action of the intent.
-   * @param messageHash - The message hash or the intent (caller and action) to approve
+   * Computes an authentication witness from either a message hash
+   * @param messageHash - The message hash to approve
    * @returns The authentication witness
    */
   createAuthWit(messageHash: Fr | Buffer): Promise<AuthWitness>;

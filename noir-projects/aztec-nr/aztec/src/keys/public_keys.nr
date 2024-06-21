@@ -4,8 +4,6 @@ use dep::protocol_types::{
 };
 use crate::keys::constants::{NUM_KEY_TYPES, NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
-use dep::std::println;
-
 global PUBLIC_KEYS_LENGTH = 8;
 
 struct PublicKeys {

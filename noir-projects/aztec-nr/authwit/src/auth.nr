@@ -19,6 +19,7 @@ pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf
 // docs:end:assert_current_call_valid_authwit
 
 pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress, inner_hash: Field) {
+    // We perform a static call here and not a standard one to ensure that the account contract cannot re-enter.
     let result: Field = context.static_call_private_function(
         on_behalf_of,
         FunctionSelector::from_signature("verify_private_authwit(Field)"),

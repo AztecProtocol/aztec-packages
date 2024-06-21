@@ -36,7 +36,7 @@ describe('e2e_authwit_tests', () => {
       it('happy path', async () => {
         // What are we doing here:
         // 1. We compute an inner hash which is here just a hash of random data
-        // 2. We then compute the other, which is binding it to a "caller", here the "auth" contract
+        // 2. We then compute the outer, which is binding it to a "consumer" (here the "auth" contract)
         // 3. We then create an authwit for this outer hash.
         // 4. We add this authwit to the wallet[1]
         // 5. We check that the authwit is valid in private for wallet[0] (check that it is signed by 0)
@@ -66,7 +66,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: false,
         });
 
-        // Consume the inner hash using the wallets[0] as the on behalf of.
+        // Consume the inner hash using the wallets[0] as the "on behalf of".
         await auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).send().wait();
 
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
