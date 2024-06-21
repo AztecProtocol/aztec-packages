@@ -13,7 +13,7 @@ namespace bb {
 template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // minimum circuit size due to lookup argument
-    const size_t min_size_due_to_lookups = circuit.get_tables_size();
+    const size_t min_size_due_to_lookups = circuit.get_tables_size() + circuit.get_lookups_size();
 
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
