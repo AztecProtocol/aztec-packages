@@ -7,7 +7,7 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct MemRow {
-    FF main_first{};
+    FF main_sel_first{};
     FF mem_addr{};
     FF mem_clk{};
     FF mem_diff_hi{};
@@ -15,26 +15,26 @@ template <typename FF> struct MemRow {
     FF mem_diff_mid{};
     FF mem_glob_addr{};
     FF mem_glob_addr_shift{};
-    FF mem_ind_op_a{};
-    FF mem_ind_op_b{};
-    FF mem_ind_op_c{};
-    FF mem_ind_op_d{};
     FF mem_last{};
     FF mem_lastAccess{};
-    FF mem_mem_sel{};
-    FF mem_mem_sel_shift{};
     FF mem_one_min_inv{};
-    FF mem_op_a{};
-    FF mem_op_b{};
-    FF mem_op_c{};
-    FF mem_op_d{};
     FF mem_r_in_tag{};
-    FF mem_rng_chk_sel{};
     FF mem_rw{};
     FF mem_rw_shift{};
-    FF mem_sel_cmov{};
-    FF mem_sel_mov_a{};
-    FF mem_sel_mov_b{};
+    FF mem_sel_mem{};
+    FF mem_sel_mem_shift{};
+    FF mem_sel_mov_ia_to_ic{};
+    FF mem_sel_mov_ib_to_ic{};
+    FF mem_sel_op_a{};
+    FF mem_sel_op_b{};
+    FF mem_sel_op_c{};
+    FF mem_sel_op_cmov{};
+    FF mem_sel_op_d{};
+    FF mem_sel_resolve_ind_addr_a{};
+    FF mem_sel_resolve_ind_addr_b{};
+    FF mem_sel_resolve_ind_addr_c{};
+    FF mem_sel_resolve_ind_addr_d{};
+    FF mem_sel_rng_chk{};
     FF mem_skip_check_tag{};
     FF mem_space_id{};
     FF mem_tag{};
@@ -112,7 +112,7 @@ template <typename FF_> class memImpl {
 
     static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 4, 3, 4, 3, 4, 3, 3,
-        3, 4, 4, 4, 4, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 4, 4, 4, 4, 4, 6, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -126,7 +126,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(0);
 
-            auto tmp = (mem_lastAccess * (-mem_lastAccess + FF(1)));
+            auto tmp = ((mem_lastAccess * (-mem_lastAccess + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
@@ -134,7 +134,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(1);
 
-            auto tmp = (mem_last * (-mem_last + FF(1)));
+            auto tmp = ((mem_last * (-mem_last + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
@@ -142,7 +142,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(2);
 
-            auto tmp = (mem_rw * (-mem_rw + FF(1)));
+            auto tmp = ((mem_rw * (-mem_rw + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
@@ -150,7 +150,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(3);
 
-            auto tmp = (mem_tag_err * (-mem_tag_err + FF(1)));
+            auto tmp = ((mem_tag_err * (-mem_tag_err + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
@@ -158,7 +158,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(4);
 
-            auto tmp = (mem_op_a * (-mem_op_a + FF(1)));
+            auto tmp = ((mem_sel_op_a * (-mem_sel_op_a + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<4>(evals) += tmp;
         }
@@ -166,7 +166,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(5);
 
-            auto tmp = (mem_op_b * (-mem_op_b + FF(1)));
+            auto tmp = ((mem_sel_op_b * (-mem_sel_op_b + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<5>(evals) += tmp;
         }
@@ -174,7 +174,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(6);
 
-            auto tmp = (mem_op_c * (-mem_op_c + FF(1)));
+            auto tmp = ((mem_sel_op_c * (-mem_sel_op_c + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<6>(evals) += tmp;
         }
@@ -182,7 +182,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(7);
 
-            auto tmp = (mem_op_d * (-mem_op_d + FF(1)));
+            auto tmp = ((mem_sel_op_d * (-mem_sel_op_d + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<7>(evals) += tmp;
         }
@@ -190,7 +190,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(8);
 
-            auto tmp = (mem_ind_op_a * (-mem_ind_op_a + FF(1)));
+            auto tmp = ((mem_sel_resolve_ind_addr_a * (-mem_sel_resolve_ind_addr_a + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<8>(evals) += tmp;
         }
@@ -198,7 +198,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(9);
 
-            auto tmp = (mem_ind_op_b * (-mem_ind_op_b + FF(1)));
+            auto tmp = ((mem_sel_resolve_ind_addr_b * (-mem_sel_resolve_ind_addr_b + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<9>(evals) += tmp;
         }
@@ -206,7 +206,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(10);
 
-            auto tmp = (mem_ind_op_c * (-mem_ind_op_c + FF(1)));
+            auto tmp = ((mem_sel_resolve_ind_addr_c * (-mem_sel_resolve_ind_addr_c + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<10>(evals) += tmp;
         }
@@ -214,7 +214,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(11);
 
-            auto tmp = (mem_ind_op_d * (-mem_ind_op_d + FF(1)));
+            auto tmp = ((mem_sel_resolve_ind_addr_d * (-mem_sel_resolve_ind_addr_d + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<11>(evals) += tmp;
         }
@@ -223,9 +223,11 @@ template <typename FF_> class memImpl {
             Avm_DECLARE_VIEWS(12);
 
             auto tmp =
-                (mem_mem_sel -
-                 (((((((mem_op_a + mem_op_b) + mem_op_c) + mem_op_d) + mem_ind_op_a) + mem_ind_op_b) + mem_ind_op_c) +
-                  mem_ind_op_d));
+                (mem_sel_mem -
+                 (((((((mem_sel_op_a + mem_sel_op_b) + mem_sel_op_c) + mem_sel_op_d) + mem_sel_resolve_ind_addr_a) +
+                    mem_sel_resolve_ind_addr_b) +
+                   mem_sel_resolve_ind_addr_c) +
+                  mem_sel_resolve_ind_addr_d));
             tmp *= scaling_factor;
             std::get<12>(evals) += tmp;
         }
@@ -233,7 +235,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(13);
 
-            auto tmp = (mem_mem_sel * (mem_mem_sel - FF(1)));
+            auto tmp = ((mem_sel_mem * (mem_sel_mem - FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<13>(evals) += tmp;
         }
@@ -241,7 +243,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(14);
 
-            auto tmp = (((-main_first + FF(1)) * mem_mem_sel_shift) * (-mem_mem_sel + FF(1)));
+            auto tmp = ((((-main_sel_first + FF(1)) * mem_sel_mem_shift) * (-mem_sel_mem + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<14>(evals) += tmp;
         }
@@ -249,7 +251,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(15);
 
-            auto tmp = (main_first * mem_mem_sel);
+            auto tmp = ((main_sel_first * mem_sel_mem) - FF(0));
             tmp *= scaling_factor;
             std::get<15>(evals) += tmp;
         }
@@ -257,7 +259,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(16);
 
-            auto tmp = (((-mem_last + FF(1)) * mem_mem_sel) * (-mem_mem_sel_shift + FF(1)));
+            auto tmp = ((((-mem_last + FF(1)) * mem_sel_mem) * (-mem_sel_mem_shift + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<16>(evals) += tmp;
         }
@@ -265,7 +267,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(17);
 
-            auto tmp = (mem_rng_chk_sel - (mem_mem_sel * (-mem_last + FF(1))));
+            auto tmp = (mem_sel_rng_chk - (mem_sel_mem * (-mem_last + FF(1))));
             tmp *= scaling_factor;
             std::get<17>(evals) += tmp;
         }
@@ -276,10 +278,15 @@ template <typename FF_> class memImpl {
             auto tmp =
                 (mem_tsp -
                  ((mem_clk * FF(12)) +
-                  (mem_mem_sel *
-                   ((((mem_ind_op_b + mem_op_b) + ((mem_ind_op_c + mem_op_c) * FF(2))) +
-                     ((mem_ind_op_d + mem_op_d) * FF(3))) +
-                    (((-(((mem_ind_op_a + mem_ind_op_b) + mem_ind_op_c) + mem_ind_op_d) + FF(1)) + mem_rw) * FF(4))))));
+                  (mem_sel_mem *
+                   ((((mem_sel_resolve_ind_addr_b + mem_sel_op_b) +
+                      ((mem_sel_resolve_ind_addr_c + mem_sel_op_c) * FF(2))) +
+                     ((mem_sel_resolve_ind_addr_d + mem_sel_op_d) * FF(3))) +
+                    (((-(((mem_sel_resolve_ind_addr_a + mem_sel_resolve_ind_addr_b) + mem_sel_resolve_ind_addr_c) +
+                         mem_sel_resolve_ind_addr_d) +
+                       FF(1)) +
+                      mem_rw) *
+                     FF(4))))));
             tmp *= scaling_factor;
             std::get<18>(evals) += tmp;
         }
@@ -295,7 +302,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(20);
 
-            auto tmp = (main_first * (-mem_lastAccess + FF(1)));
+            auto tmp = ((main_sel_first * (-mem_lastAccess + FF(1))) - FF(0));
             tmp *= scaling_factor;
             std::get<20>(evals) += tmp;
         }
@@ -303,7 +310,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(21);
 
-            auto tmp = ((-mem_lastAccess + FF(1)) * (mem_glob_addr_shift - mem_glob_addr));
+            auto tmp = (((-mem_lastAccess + FF(1)) * (mem_glob_addr_shift - mem_glob_addr)) - FF(0));
             tmp *= scaling_factor;
             std::get<21>(evals) += tmp;
         }
@@ -311,11 +318,12 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(22);
 
-            auto tmp = (mem_rng_chk_sel * (((((mem_lastAccess * (mem_glob_addr_shift - mem_glob_addr)) +
-                                              ((-mem_lastAccess + FF(1)) * (mem_tsp_shift - mem_tsp))) -
-                                             (mem_diff_hi * FF(4294967296UL))) -
-                                            (mem_diff_mid * FF(65536))) -
-                                           mem_diff_lo));
+            auto tmp = ((mem_sel_rng_chk * (((((mem_lastAccess * (mem_glob_addr_shift - mem_glob_addr)) +
+                                               ((-mem_lastAccess + FF(1)) * (mem_tsp_shift - mem_tsp))) -
+                                              (mem_diff_hi * FF(4294967296UL))) -
+                                             (mem_diff_mid * FF(65536))) -
+                                            mem_diff_lo)) -
+                        FF(0));
             tmp *= scaling_factor;
             std::get<22>(evals) += tmp;
         }
@@ -323,7 +331,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(23);
 
-            auto tmp = (((-mem_lastAccess + FF(1)) * (-mem_rw_shift + FF(1))) * (mem_val_shift - mem_val));
+            auto tmp = ((((-mem_lastAccess + FF(1)) * (-mem_rw_shift + FF(1))) * (mem_val_shift - mem_val)) - FF(0));
             tmp *= scaling_factor;
             std::get<23>(evals) += tmp;
         }
@@ -331,7 +339,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(24);
 
-            auto tmp = (((-mem_lastAccess + FF(1)) * (-mem_rw_shift + FF(1))) * (mem_tag_shift - mem_tag));
+            auto tmp = ((((-mem_lastAccess + FF(1)) * (-mem_rw_shift + FF(1))) * (mem_tag_shift - mem_tag)) - FF(0));
             tmp *= scaling_factor;
             std::get<24>(evals) += tmp;
         }
@@ -339,7 +347,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(25);
 
-            auto tmp = ((mem_lastAccess * (-mem_rw_shift + FF(1))) * mem_val_shift);
+            auto tmp = (((mem_lastAccess * (-mem_rw_shift + FF(1))) * mem_val_shift) - FF(0));
             tmp *= scaling_factor;
             std::get<25>(evals) += tmp;
         }
@@ -347,8 +355,9 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(26);
 
-            auto tmp = (mem_skip_check_tag - (mem_sel_cmov * ((mem_op_d + (mem_op_a * (-mem_sel_mov_a + FF(1)))) +
-                                                              (mem_op_b * (-mem_sel_mov_b + FF(1))))));
+            auto tmp = (mem_skip_check_tag -
+                        (mem_sel_op_cmov * ((mem_sel_op_d + (mem_sel_op_a * (-mem_sel_mov_ia_to_ic + FF(1)))) +
+                                            (mem_sel_op_b * (-mem_sel_mov_ib_to_ic + FF(1))))));
             tmp *= scaling_factor;
             std::get<26>(evals) += tmp;
         }
@@ -356,8 +365,9 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(27);
 
-            auto tmp = (((-mem_skip_check_tag + FF(1)) * (-mem_rw + FF(1))) *
-                        (((mem_r_in_tag - mem_tag) * (-mem_one_min_inv + FF(1))) - mem_tag_err));
+            auto tmp = ((((mem_tag * (-mem_skip_check_tag + FF(1))) * (-mem_rw + FF(1))) *
+                         (((mem_r_in_tag - mem_tag) * (-mem_one_min_inv + FF(1))) - mem_tag_err)) -
+                        FF(0));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -365,7 +375,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(28);
 
-            auto tmp = ((-mem_tag_err + FF(1)) * mem_one_min_inv);
+            auto tmp = (((mem_tag * (-mem_tag_err + FF(1))) * mem_one_min_inv) - FF(0));
             tmp *= scaling_factor;
             std::get<28>(evals) += tmp;
         }
@@ -373,7 +383,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(29);
 
-            auto tmp = ((mem_skip_check_tag + mem_rw) * mem_tag_err);
+            auto tmp = (((mem_skip_check_tag + mem_rw) * mem_tag_err) - FF(0));
             tmp *= scaling_factor;
             std::get<29>(evals) += tmp;
         }
@@ -381,7 +391,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(30);
 
-            auto tmp = (mem_rw * (mem_w_in_tag - mem_tag));
+            auto tmp = ((mem_rw * (mem_w_in_tag - mem_tag)) - FF(0));
             tmp *= scaling_factor;
             std::get<30>(evals) += tmp;
         }
@@ -389,7 +399,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(31);
 
-            auto tmp = (mem_rw * mem_tag_err);
+            auto tmp = ((mem_rw * mem_tag_err) - FF(0));
             tmp *= scaling_factor;
             std::get<31>(evals) += tmp;
         }
@@ -397,7 +407,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(32);
 
-            auto tmp = (mem_ind_op_a * (mem_r_in_tag - FF(3)));
+            auto tmp = ((mem_sel_resolve_ind_addr_a * (mem_r_in_tag - FF(3))) - FF(0));
             tmp *= scaling_factor;
             std::get<32>(evals) += tmp;
         }
@@ -405,7 +415,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(33);
 
-            auto tmp = (mem_ind_op_b * (mem_r_in_tag - FF(3)));
+            auto tmp = ((mem_sel_resolve_ind_addr_b * (mem_r_in_tag - FF(3))) - FF(0));
             tmp *= scaling_factor;
             std::get<33>(evals) += tmp;
         }
@@ -413,7 +423,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(34);
 
-            auto tmp = (mem_ind_op_c * (mem_r_in_tag - FF(3)));
+            auto tmp = ((mem_sel_resolve_ind_addr_c * (mem_r_in_tag - FF(3))) - FF(0));
             tmp *= scaling_factor;
             std::get<34>(evals) += tmp;
         }
@@ -421,7 +431,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(35);
 
-            auto tmp = (mem_ind_op_d * (mem_r_in_tag - FF(3)));
+            auto tmp = ((mem_sel_resolve_ind_addr_d * (mem_r_in_tag - FF(3))) - FF(0));
             tmp *= scaling_factor;
             std::get<35>(evals) += tmp;
         }
@@ -429,7 +439,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(36);
 
-            auto tmp = (mem_ind_op_a * mem_rw);
+            auto tmp = ((mem_sel_resolve_ind_addr_a * mem_rw) - FF(0));
             tmp *= scaling_factor;
             std::get<36>(evals) += tmp;
         }
@@ -437,7 +447,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(37);
 
-            auto tmp = (mem_ind_op_b * mem_rw);
+            auto tmp = ((mem_sel_resolve_ind_addr_b * mem_rw) - FF(0));
             tmp *= scaling_factor;
             std::get<37>(evals) += tmp;
         }
@@ -445,7 +455,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(38);
 
-            auto tmp = (mem_ind_op_c * mem_rw);
+            auto tmp = ((mem_sel_resolve_ind_addr_c * mem_rw) - FF(0));
             tmp *= scaling_factor;
             std::get<38>(evals) += tmp;
         }
@@ -453,7 +463,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(39);
 
-            auto tmp = (mem_ind_op_d * mem_rw);
+            auto tmp = ((mem_sel_resolve_ind_addr_d * mem_rw) - FF(0));
             tmp *= scaling_factor;
             std::get<39>(evals) += tmp;
         }
@@ -461,7 +471,7 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(40);
 
-            auto tmp = ((mem_sel_mov_a + mem_sel_mov_b) * mem_tag_err);
+            auto tmp = (((mem_sel_mov_ia_to_ic + mem_sel_mov_ib_to_ic) * mem_tag_err) - FF(0));
             tmp *= scaling_factor;
             std::get<40>(evals) += tmp;
         }

@@ -63,7 +63,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                         claimed_evaluations.get_unshifted(),
                                                         claimed_evaluations.get_shifted(),
                                                         multivariate_challenge,
-                                                        key->pcs_verification_key->get_first_g1(),
+                                                        key->pcs_verification_key->get_g1_identity(),
                                                         transcript);
     bool multivariate_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, multivariate_opening_claim, transcript);
