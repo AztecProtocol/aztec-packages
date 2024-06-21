@@ -57,9 +57,9 @@ jobs:
           aws-region: us-west-2
 
       - name: Deploy Bootstrap Nodes
-        working-directory: ./yarn-project/aztec/terraform/node
+        working-directory: ./yarn-project/p2p-bootstrap/terraform
         run: |
-          terraform init -input=false -backend-config="key=devnet/aztec-node"
+          terraform init -input=false -backend-config="key=devnet/p2p-bootstrap"
           terraform apply -input=false -auto-approve
 
       - name: Deploy Aztec Nodes
