@@ -10,6 +10,7 @@ import {
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
+  type AvmExecutionHints,
   Fr,
   type Gas,
   type GasFees,
@@ -30,11 +31,11 @@ import {
  * Used to communicate to the prover which type of circuit to prove
  */
 export enum PublicKernelType {
-  NON_PUBLIC,
-  SETUP,
-  APP_LOGIC,
-  TEARDOWN,
-  TAIL,
+  NON_PUBLIC = 'non-public',
+  SETUP = 'setup',
+  APP_LOGIC = 'app-logic',
+  TEARDOWN = 'teardown',
+  TAIL = 'tail',
 }
 
 export type PublicKernelTailRequest = {
@@ -53,8 +54,10 @@ export const AVM_REQUEST = 'AVM' as const;
 
 export type AvmProvingRequest = {
   type: typeof AVM_REQUEST;
+  functionName: string; // informational only
   bytecode: Buffer;
   calldata: Fr[];
+  avmHints: AvmExecutionHints;
   kernelRequest: PublicKernelNonTailRequest;
 };
 
@@ -157,9 +160,9 @@ export function makeProcessedTx(
     data: kernelOutput,
     proof,
     // TODO(4712): deal with non-revertible logs here
-    noteEncryptedLogs: revertReason ? EncryptedNoteTxL2Logs.empty() : tx.noteEncryptedLogs,
-    encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
-    unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
+    noteEncryptedLogs: tx.noteEncryptedLogs,
+    encryptedLogs: tx.encryptedLogs,
+    unencryptedLogs: tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
     publicProvingRequests,

@@ -76,6 +76,8 @@ export enum Opcode {
   POSEIDON2,
   SHA256COMPRESSION,
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+  ECADD,
+  MSM,
   // Conversion
   TORADIXLE,
 }

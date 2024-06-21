@@ -1,12 +1,14 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/tests/helpers.test.hpp"
 #include <array>
 #include <cstdint>
 
 namespace tests_avm {
+
 using namespace bb;
 using namespace bb::avm_trace;
 
@@ -23,32 +25,32 @@ void common_validate_arithmetic_op(Row const& main_row,
                                    avm_trace::AvmMemoryTag const tag)
 {
     // Check that the correct result is stored at the expected memory location.
-    EXPECT_EQ(main_row.avm_main_ic, c);
-    EXPECT_EQ(main_row.avm_main_mem_idx_c, addr_c);
-    EXPECT_EQ(main_row.avm_main_mem_op_c, FF(1));
-    EXPECT_EQ(main_row.avm_main_rwc, FF(1));
+    EXPECT_EQ(main_row.main_ic, c);
+    EXPECT_EQ(main_row.main_mem_addr_c, addr_c);
+    EXPECT_EQ(main_row.main_sel_mem_op_c, FF(1));
+    EXPECT_EQ(main_row.main_rwc, FF(1));
 
     // Check that ia and ib registers are correctly set with memory load operations.
-    EXPECT_EQ(main_row.avm_main_ia, a);
-    EXPECT_EQ(main_row.avm_main_mem_idx_a, addr_a);
-    EXPECT_EQ(main_row.avm_main_mem_op_a, FF(1));
-    EXPECT_EQ(main_row.avm_main_rwa, FF(0));
-    EXPECT_EQ(main_row.avm_main_ib, b);
-    EXPECT_EQ(main_row.avm_main_mem_idx_b, addr_b);
-    EXPECT_EQ(main_row.avm_main_mem_op_b, FF(1));
-    EXPECT_EQ(main_row.avm_main_rwb, FF(0));
+    EXPECT_EQ(main_row.main_ia, a);
+    EXPECT_EQ(main_row.main_mem_addr_a, addr_a);
+    EXPECT_EQ(main_row.main_sel_mem_op_a, FF(1));
+    EXPECT_EQ(main_row.main_rwa, FF(0));
+    EXPECT_EQ(main_row.main_ib, b);
+    EXPECT_EQ(main_row.main_mem_addr_b, addr_b);
+    EXPECT_EQ(main_row.main_sel_mem_op_b, FF(1));
+    EXPECT_EQ(main_row.main_rwb, FF(0));
 
     // Check the read instruction tag
-    EXPECT_EQ(main_row.avm_main_r_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(main_row.main_r_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that intermediate registers are correctly copied in Alu trace
-    EXPECT_EQ(alu_row.avm_alu_ia, a);
-    EXPECT_EQ(alu_row.avm_alu_ib, b);
-    EXPECT_EQ(alu_row.avm_alu_ic, c);
+    EXPECT_EQ(alu_row.alu_ia, a);
+    EXPECT_EQ(alu_row.alu_ib, b);
+    EXPECT_EQ(alu_row.alu_ic, c);
 
     // Check that no error is raised
-    EXPECT_EQ(main_row.avm_main_tag_err, FF(0));
-    EXPECT_EQ(main_row.avm_main_op_err, FF(0));
+    EXPECT_EQ(main_row.main_tag_err, FF(0));
+    EXPECT_EQ(main_row.main_op_err, FF(0));
 }
 
 Row common_validate_add(std::vector<Row> const& trace,
@@ -61,22 +63,22 @@ Row common_validate_add(std::vector<Row> const& trace,
                         avm_trace::AvmMemoryTag const tag)
 {
     // Find the first row enabling the addition selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
 
     // Find the corresponding Alu trace row
-    auto clk = row->avm_main_clk;
-    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk; });
+    auto clk = row->main_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.alu_clk == clk; });
 
     // Check that both rows were found
     EXPECT_TRUE(row != trace.end());
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
-    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that addition selector is set.
-    EXPECT_EQ(row->avm_main_sel_op_add, FF(1));
-    EXPECT_EQ(alu_row->avm_alu_op_add, FF(1));
+    EXPECT_EQ(row->main_sel_op_add, FF(1));
+    EXPECT_EQ(alu_row->alu_op_add, FF(1));
 
     return *alu_row;
 }
@@ -91,22 +93,22 @@ Row common_validate_sub(std::vector<Row> const& trace,
                         avm_trace::AvmMemoryTag const tag)
 {
     // Find the first row enabling the subtraction selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == FF(1); });
 
     // Find the corresponding Alu trace row
-    auto clk = row->avm_main_clk;
-    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk; });
+    auto clk = row->main_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.alu_clk == clk; });
 
     // Check that both rows were found
     EXPECT_TRUE(row != trace.end());
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
-    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that subtraction selector is set.
-    EXPECT_EQ(row->avm_main_sel_op_sub, FF(1));
-    EXPECT_EQ(alu_row->avm_alu_op_sub, FF(1));
+    EXPECT_EQ(row->main_sel_op_sub, FF(1));
+    EXPECT_EQ(alu_row->alu_op_sub, FF(1));
 
     return *alu_row;
 }
@@ -121,22 +123,22 @@ size_t common_validate_mul(std::vector<Row> const& trace,
                            avm_trace::AvmMemoryTag const tag)
 {
     // Find the first row enabling the multiplication selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == FF(1); });
 
     // Find the corresponding Alu trace row
-    auto clk = row->avm_main_clk;
-    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk; });
+    auto clk = row->main_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.alu_clk == clk; });
 
     // Check that both rows were found
     EXPECT_TRUE(row != trace.end());
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
-    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that multiplication selector is set.
-    EXPECT_EQ(row->avm_main_sel_op_mul, FF(1));
-    EXPECT_EQ(alu_row->avm_alu_op_mul, FF(1));
+    EXPECT_EQ(row->main_sel_op_mul, FF(1));
+    EXPECT_EQ(alu_row->alu_op_mul, FF(1));
 
     return static_cast<size_t>(alu_row - trace.begin());
 }
@@ -151,22 +153,22 @@ size_t common_validate_eq(std::vector<Row> const& trace,
                           avm_trace::AvmMemoryTag const tag)
 {
     // Find the first row enabling the equality selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
 
     // Find the corresponding Alu trace row
-    auto clk = row->avm_main_clk;
-    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk; });
+    auto clk = row->main_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.alu_clk == clk; });
 
     // Check that both rows were found
     EXPECT_TRUE(row != trace.end());
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
-    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
+    EXPECT_EQ(row->main_w_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
 
     // Check that equality selector is set.
-    EXPECT_EQ(row->avm_main_sel_op_eq, FF(1));
-    EXPECT_EQ(alu_row->avm_alu_op_eq, FF(1));
+    EXPECT_EQ(row->main_sel_op_eq, FF(1));
+    EXPECT_EQ(alu_row->alu_op_eq, FF(1));
 
     return static_cast<size_t>(alu_row - trace.begin());
 }
@@ -181,21 +183,21 @@ size_t common_validate_div(std::vector<Row> const& trace,
                            avm_trace::AvmMemoryTag const tag)
 {
     // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_div == FF(1); });
 
     // Find the corresponding Alu trace row
-    auto clk = row->avm_main_clk;
-    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk; });
+    auto clk = row->main_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.alu_clk == clk; });
 
     // Check that both rows were found
     EXPECT_TRUE(row != trace.end());
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
-    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that division selector is set.
-    EXPECT_EQ(alu_row->avm_alu_op_div, FF(1));
+    EXPECT_EQ(alu_row->alu_op_div, FF(1));
 
     return static_cast<size_t>(alu_row - trace.begin());
 }
@@ -244,7 +246,7 @@ class AvmArithmeticTests : public ::testing::Test {
         trace_builder.halt();
         auto trace = trace_builder.finalize();
 
-        auto select_row = [](Row r) { return r.avm_main_sel_op_add == FF(1); };
+        auto select_row = [](Row r) { return r.main_sel_op_add == FF(1); };
         mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
         return trace;
@@ -261,7 +263,7 @@ class AvmArithmeticTests : public ::testing::Test {
         trace_builder.halt();
         auto trace = trace_builder.finalize();
 
-        auto select_row = [](Row r) { return r.avm_main_sel_op_sub == FF(1); };
+        auto select_row = [](Row r) { return r.main_sel_op_sub == FF(1); };
         mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
         return trace;
@@ -278,7 +280,7 @@ class AvmArithmeticTests : public ::testing::Test {
         trace_builder.halt();
         auto trace = trace_builder.finalize();
 
-        auto select_row = [](Row r) { return r.avm_main_sel_op_mul == FF(1); };
+        auto select_row = [](Row r) { return r.main_sel_op_mul == FF(1); };
         mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
         return trace;
@@ -298,16 +300,16 @@ class AvmArithmeticTests : public ::testing::Test {
         trace_builder.halt();
         auto trace = trace_builder.finalize();
 
-        auto select_row = [](Row r) { return r.avm_main_sel_op_eq == FF(1); };
+        auto select_row = [](Row r) { return r.main_sel_op_eq == FF(1); };
         mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
         auto main_trace_row = std::ranges::find_if(trace.begin(), trace.end(), select_row);
-        auto main_clk = main_trace_row->avm_main_clk;
+        auto main_clk = main_trace_row->main_clk;
         auto alu_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) { return r.avm_alu_clk == main_clk; });
+            std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) { return r.alu_clk == main_clk; });
 
-        main_trace_row->avm_alu_op_eq_diff_inv = mutated_inv_diff;
-        alu_row->avm_alu_op_eq_diff_inv = mutated_inv_diff;
+        main_trace_row->alu_op_eq_diff_inv = mutated_inv_diff;
+        alu_row->alu_op_eq_diff_inv = mutated_inv_diff;
 
         return trace;
     }
@@ -380,9 +382,9 @@ TEST_F(AvmArithmeticTestsFF, addition)
 
     auto alu_row = common_validate_add(trace, FF(37), FF(4), FF(41), FF(0), FF(1), FF(4), AvmMemoryTag::FF);
 
-    EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
 
     validate_trace(std::move(trace), public_inputs, true);
 }
@@ -399,11 +401,11 @@ TEST_F(AvmArithmeticTestsFF, subtraction)
 
     auto alu_row = common_validate_sub(trace, FF(17), FF(8), FF(9), FF(2), FF(0), FF(1), AvmMemoryTag::FF);
 
-    EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic multiplication over finite field type.
@@ -419,11 +421,11 @@ TEST_F(AvmArithmeticTestsFF, multiplication)
     auto alu_row_index = common_validate_mul(trace, FF(20), FF(5), FF(100), FF(2), FF(0), FF(1), AvmMemoryTag::FF);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on multiplication by zero over finite field type.
@@ -439,11 +441,11 @@ TEST_F(AvmArithmeticTestsFF, multiplicationByZero)
     auto alu_row_index = common_validate_mul(trace, FF(127), FF(0), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::FF);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic division over finite field type.
@@ -457,16 +459,16 @@ TEST_F(AvmArithmeticTestsFF, fDivision)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avm_main_ic, FF(21));
-    EXPECT_EQ(row->avm_main_mem_idx_c, FF(2));
-    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
-    EXPECT_EQ(row->avm_main_rwc, FF(1));
+    EXPECT_EQ(row->main_ic, FF(21));
+    EXPECT_EQ(row->main_mem_addr_c, FF(2));
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_rwc, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on division with zero numerator over finite field type.
@@ -480,16 +482,16 @@ TEST_F(AvmArithmeticTestsFF, fDivisionNumeratorZero)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avm_main_ic, FF(0));
-    EXPECT_EQ(row->avm_main_mem_idx_c, FF(0));
-    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
-    EXPECT_EQ(row->avm_main_rwc, FF(1));
+    EXPECT_EQ(row->main_ic, FF(0));
+    EXPECT_EQ(row->main_mem_addr_c, FF(0));
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_rwc, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on division by zero over finite field type.
@@ -504,17 +506,17 @@ TEST_F(AvmArithmeticTestsFF, fDivisionByZeroError)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avm_main_ic, FF(0));
-    EXPECT_EQ(row->avm_main_mem_idx_c, FF(2));
-    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
-    EXPECT_EQ(row->avm_main_rwc, FF(1));
-    EXPECT_EQ(row->avm_main_op_err, FF(1));
+    EXPECT_EQ(row->main_ic, FF(0));
+    EXPECT_EQ(row->main_mem_addr_c, FF(2));
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_rwc, FF(1));
+    EXPECT_EQ(row->main_op_err, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on division of zero by zero over finite field type.
@@ -527,17 +529,17 @@ TEST_F(AvmArithmeticTestsFF, fDivisionZeroByZeroError)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avm_main_ic, FF(0));
-    EXPECT_EQ(row->avm_main_mem_idx_c, FF(2));
-    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
-    EXPECT_EQ(row->avm_main_rwc, FF(1));
-    EXPECT_EQ(row->avm_main_op_err, FF(1));
+    EXPECT_EQ(row->main_ic, FF(0));
+    EXPECT_EQ(row->main_mem_addr_c, FF(2));
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_rwc, FF(1));
+    EXPECT_EQ(row->main_op_err, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Testing an execution of the different arithmetic opcodes over finite field
@@ -577,9 +579,9 @@ TEST_F(AvmArithmeticTestsFF, equality)
     auto alu_row_index = common_validate_eq(trace, elem, elem, FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::FF);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0)); // Expect 0 as inv of (q-1) - (q-1)
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0)); // Expect 0 as inv of (q-1) - (q-1)
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test correct non-equality of FF elements
@@ -594,9 +596,9 @@ TEST_F(AvmArithmeticTestsFF, nonEquality)
     auto alu_row_index = common_validate_eq(trace, elem, FF(0), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::FF);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(-1).invert());
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(-1).invert());
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_P(AvmArithmeticTestsDiv, division)
@@ -612,7 +614,7 @@ TEST_P(AvmArithmeticTestsDiv, division)
     common_validate_div(trace, a, b, output, 0, 1, 2, mem_tag);
     // auto alu_row = trace.at(alu_row_index);
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 INSTANTIATE_TEST_SUITE_P(AvmArithmeticTestsDiv,
                          AvmArithmeticTestsDiv,
@@ -629,17 +631,17 @@ TEST_F(AvmArithmeticTests, DivisionByZeroError)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the div selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_div == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avm_main_ic, FF(0));
-    EXPECT_EQ(row->avm_main_mem_idx_c, FF(2));
-    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
-    EXPECT_EQ(row->avm_main_rwc, FF(1));
-    EXPECT_EQ(row->avm_main_op_err, FF(1));
+    EXPECT_EQ(row->main_ic, FF(0));
+    EXPECT_EQ(row->main_mem_addr_c, FF(2));
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_rwc, FF(1));
+    EXPECT_EQ(row->main_op_err, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************
@@ -660,11 +662,11 @@ TEST_F(AvmArithmeticTestsU8, addition)
 
     auto alu_row = common_validate_add(trace, FF(62), FF(29), FF(91), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(91));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(91));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic addition over u8 type with carry.
@@ -681,12 +683,12 @@ TEST_F(AvmArithmeticTestsU8, additionCarry)
 
     auto alu_row = common_validate_add(trace, FF(159), FF(100), FF(3), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(3));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(3));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u8 type.
@@ -703,11 +705,11 @@ TEST_F(AvmArithmeticTestsU8, subtraction)
 
     auto alu_row = common_validate_sub(trace, FF(162), FF(29), FF(133), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(133));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(133));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on subtraction over u8 type with carry.
@@ -725,19 +727,19 @@ TEST_F(AvmArithmeticTestsU8, subtractionCarry)
 
     auto alu_row = common_validate_sub(trace, FF(5), FF(29), FF(232), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(232));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(UINT8_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(232));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(UINT8_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(UINT16_MAX));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic multiplication over u8 type.
@@ -754,13 +756,13 @@ TEST_F(AvmArithmeticTestsU8, multiplication)
     auto alu_row_index = common_validate_mul(trace, FF(13), FF(15), FF(195), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit registers
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(195));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(195));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on multiplication over u8 type with overflow.
@@ -777,14 +779,14 @@ TEST_F(AvmArithmeticTestsU8, multiplicationOverflow)
     auto alu_row_index = common_validate_mul(trace, FF(200), FF(170), FF(208), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit registers
     // 34'000 = 208 + 132 * 256
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(208));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(132));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(208));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(132));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test of equality on u8 elements
@@ -795,9 +797,9 @@ TEST_F(AvmArithmeticTestsU8, equality)
     auto alu_row_index = common_validate_eq(trace, FF(128), FF(128), FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::U8);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test correct non-equality of U8 elements
@@ -808,9 +810,9 @@ TEST_F(AvmArithmeticTestsU8, nonEquality)
     auto alu_row_index = common_validate_eq(trace, 84, 200, FF(0), FF(12), FF(15), FF(28), AvmMemoryTag::U8);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(-116).invert());
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(-116).invert());
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************
@@ -831,12 +833,12 @@ TEST_F(AvmArithmeticTestsU16, addition)
     auto alu_row =
         common_validate_add(trace, FF(33005), FF(1775), FF(34780), FF(546), FF(119), FF(5), AvmMemoryTag::U16);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xDC)); // 34780 = 0x87DC
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0x87));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xDC)); // 34780 = 0x87DC
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0x87));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic addition over u16 type with carry.
@@ -853,12 +855,12 @@ TEST_F(AvmArithmeticTestsU16, additionCarry)
     auto alu_row =
         common_validate_add(trace, FF(1000), FF(UINT16_MAX - 982), FF(17), FF(1), FF(0), FF(0), AvmMemoryTag::U16);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(17));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(17));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u16 type.
@@ -875,13 +877,13 @@ TEST_F(AvmArithmeticTestsU16, subtraction)
     auto alu_row =
         common_validate_sub(trace, FF(33005), FF(1775), FF(31230), FF(546), FF(119), FF(5), AvmMemoryTag::U16);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xFE)); // 31230 in Hex: 79FE
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0x79));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xFE)); // 31230 in Hex: 79FE
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0x79));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u16 type with carry.
@@ -899,19 +901,19 @@ TEST_F(AvmArithmeticTestsU16, subtractionCarry)
     auto alu_row =
         common_validate_sub(trace, FF(1000), FF(UINT16_MAX - 982), FF(1983), FF(1), FF(0), FF(0), AvmMemoryTag::U16);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xBF)); // 1983 = 0x7BF
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(7));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xBF)); // 1983 = 0x7BF
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(7));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(UINT16_MAX));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic multiplication over u16 type.
@@ -929,14 +931,14 @@ TEST_F(AvmArithmeticTestsU16, multiplication)
         common_validate_mul(trace, FF(200), FF(245), FF(49000), FF(0), FF(1), FF(2), AvmMemoryTag::U16);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit and 16-bit registers
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0x68)); // 49000 = 0xBF68
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0xBF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0x68)); // 49000 = 0xBF68
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0xBF));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on multiplication over u16 type with overflow.
@@ -953,16 +955,16 @@ TEST_F(AvmArithmeticTestsU16, multiplicationOverflow)
     auto alu_row_index = common_validate_mul(trace, FF(512), FF(1024), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::U16);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 512 * 1024 = 0 + 8 * 2^16
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(8));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(8));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test of equality on U16 elements
@@ -973,9 +975,9 @@ TEST_F(AvmArithmeticTestsU16, equality)
     auto alu_row_index = common_validate_eq(trace, FF(35823), FF(35823), FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::U16);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test correct non-equality of U16 elements
@@ -986,9 +988,9 @@ TEST_F(AvmArithmeticTestsU16, nonEquality)
     auto alu_row_index = common_validate_eq(trace, 35'823, 50'123, FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::U16);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u16_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(-14'300).invert());
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(-14'300).invert());
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************
@@ -1009,13 +1011,13 @@ TEST_F(AvmArithmeticTestsU32, addition)
     auto alu_row = common_validate_add(
         trace, FF(1000000000), FF(1234567891), FF(2234567891LLU), FF(8), FF(9), FF(0), AvmMemoryTag::U32);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(2234567891LLU & UINT8_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF((2234567891LLU >> 8) & UINT8_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(2234567891LLU >> 16));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(2234567891LLU & UINT8_MAX));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF((2234567891LLU >> 8) & UINT8_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(2234567891LLU >> 16));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic addition over u32 type with carry.
@@ -1032,12 +1034,12 @@ TEST_F(AvmArithmeticTestsU32, additionCarry)
     auto alu_row =
         common_validate_add(trace, FF(UINT32_MAX - 1293), FF(2293), FF(999), FF(8), FF(9), FF(0), AvmMemoryTag::U32);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(231)); // 999 = 3 * 256 + 231
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(3));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(231)); // 999 = 3 * 256 + 231
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(3));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u32 type.
@@ -1054,16 +1056,16 @@ TEST_F(AvmArithmeticTestsU32, subtraction)
     auto alu_row = common_validate_sub(
         trace, FF(1345678991), FF(1234567891), FF(111111100), FF(8), FF(9), FF(0), AvmMemoryTag::U32);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
 
     // 111111100 = 0x69F6BBC
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xBC));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0x6B));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0x69F));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xBC));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0x6B));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0x69F));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u32 type with carry.
@@ -1081,21 +1083,21 @@ TEST_F(AvmArithmeticTestsU32, subtractionCarry)
     auto alu_row = common_validate_sub(
         trace, FF(3210987654LLU), FF(UINT32_MAX - 99), FF(3210987754LLU), FF(9), FF(8), FF(0), AvmMemoryTag::U32);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(1));
 
     // 3210987754 = 0xBF63C8EA
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xEA));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0xC8));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0xBF63));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xEA));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0xC8));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0xBF63));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(UINT16_MAX));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic multiplication over u32 type.
@@ -1113,18 +1115,18 @@ TEST_F(AvmArithmeticTestsU32, multiplication)
         common_validate_mul(trace, FF(11111), FF(11111), FF(123454321), FF(0), FF(1), FF(2), AvmMemoryTag::U32);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 123454321 = 0x75BC371
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0x71));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0xC3));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0x75B));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0x71));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0xC3));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0x75B));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on multiplication over u32 type with overflow.
@@ -1142,18 +1144,18 @@ TEST_F(AvmArithmeticTestsU32, multiplicationOverflow)
         common_validate_mul(trace, FF(11 << 25), FF(13 << 22), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::U32);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 143 * 2^47 = 0 + 0 * 2^16 + 2^15 * 2^32 + 71 * 2^48
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(32768)); // 2^15
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(71));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(32768)); // 2^15
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(71));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test of equality on U32 elements
@@ -1165,9 +1167,9 @@ TEST_F(AvmArithmeticTestsU32, equality)
         common_validate_eq(trace, 0xb435e9c1, 0xb435e9c1, FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::U32);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test correct non-equality of U32 elements
@@ -1179,9 +1181,9 @@ TEST_F(AvmArithmeticTestsU32, nonEquality)
         common_validate_eq(trace, 0xb435e9c1, 0xb435e9c0, FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::U32);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u32_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(1).invert());
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(1).invert());
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************
@@ -1205,17 +1207,17 @@ TEST_F(AvmArithmeticTestsU64, addition)
 
     auto alu_row = common_validate_add(trace, FF(a), FF(b), FF(c), FF(8), FF(9), FF(9), AvmMemoryTag::U64);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
 
     // c in HEX: 2436849FE16F1D
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0x1D));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0x6F));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0x9FE1));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0x3684));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0x24));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0x1D));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0x6F));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0x9FE1));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0x3684));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0x24));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic addition over u64 type with carry.
@@ -1235,15 +1237,15 @@ TEST_F(AvmArithmeticTestsU64, additionCarry)
 
     auto alu_row = common_validate_add(trace, FF(a), FF(b), FF(c), FF(0), FF(1), FF(0), AvmMemoryTag::U64);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(UINT8_MAX - 201));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(UINT8_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(UINT8_MAX - 201));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(UINT8_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(UINT16_MAX));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u64 type.
@@ -1263,18 +1265,18 @@ TEST_F(AvmArithmeticTestsU64, subtraction)
 
     auto alu_row = common_validate_sub(trace, FF(a), FF(b), FF(c), FF(8), FF(9), FF(9), AvmMemoryTag::U64);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
 
     // 10000000000000000 = 0x2386F26FC10000
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0X6FC1));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0X86F2));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0X23));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0X6FC1));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0X86F2));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0X23));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u64 type with carry.
@@ -1295,19 +1297,19 @@ TEST_F(AvmArithmeticTestsU64, subtractionCarry)
 
     auto alu_row = common_validate_sub(trace, FF(a), FF(b), FF(c), FF(0), FF(1), FF(0), AvmMemoryTag::U64);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(1));
 
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(UINT8_MAX - 74));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(UINT8_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(UINT16_MAX));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(UINT8_MAX - 74));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(UINT8_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(UINT16_MAX));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic multiplication over u64 type.
@@ -1325,18 +1327,18 @@ TEST_F(AvmArithmeticTestsU64, multiplication)
         trace, FF(999888777), FF(555444333), FF(555382554814950741LLU), FF(0), FF(1), FF(2), AvmMemoryTag::U64);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 555,382,554,814,950,741 = 0x 7B5 1D7D B631 AD55
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0x55));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0xAD));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0xB631));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0x1D7D));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0x7B5));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0x55));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0xAD));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0xB631));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0x1D7D));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0x7B5));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on multiplication over u64 type with overflow.
@@ -1357,21 +1359,21 @@ TEST_F(AvmArithmeticTestsU64, multiplicationOverflow)
     auto alu_row_index = common_validate_mul(trace, FF(a), FF(b), FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::U64);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
 
     // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 2^128 - 2^65 + 1
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(UINT16_MAX - 1));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(UINT16_MAX - 1));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(UINT16_MAX));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmArithmeticTestsU64, equality)
@@ -1382,9 +1384,9 @@ TEST_F(AvmArithmeticTestsU64, equality)
         trace, 0xffffffffffffffe0LLU, 0xffffffffffffffe0LLU, FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::U64);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test correct non-equality of U64 elements
@@ -1396,9 +1398,9 @@ TEST_F(AvmArithmeticTestsU64, nonEquality)
         trace, 0xffffffffffffffe0LLU, 0xffffffffffaeffe0LLU, FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::U64);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u64_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0x510000).invert());
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0x510000).invert());
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************
@@ -1429,19 +1431,19 @@ TEST_F(AvmArithmeticTestsU128, addition)
                                        FF(9),
                                        AvmMemoryTag::U128);
 
-    EXPECT_EQ(alu_row.avm_alu_u128_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xEE));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0xEE));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0xFFFF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0xAAAA));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0xDDDD));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0x5555));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(0x6666));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(0x4444));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(0x8888));
+    EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xEE));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0xEE));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0xAAAA));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0xDDDD));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0x5555));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(0x6666));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(0x4444));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(0x8888));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic addition over u128 type with carry.
@@ -1469,19 +1471,19 @@ TEST_F(AvmArithmeticTestsU128, additionCarry)
                                        FF(9),
                                        AvmMemoryTag::U128);
 
-    EXPECT_EQ(alu_row.avm_alu_u128_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0x9B));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0xDD));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0xF97E));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0xFFFF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0xFFFF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0xFFFF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(0xFFFF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(0xFFFF));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(1));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0x9B));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0xDD));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0xF97E));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(0xFFFF));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(0xFFFF));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u128 type.
@@ -1508,22 +1510,22 @@ TEST_F(AvmArithmeticTestsU128, subtraction)
                                        FF(9),
                                        AvmMemoryTag::U128);
 
-    EXPECT_EQ(alu_row.avm_alu_u128_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
 
     // 36771555 = 23116E3
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0xE3));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0x16));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0x231));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r7, FF(0));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0xE3));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0x16));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0x231));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r7, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic subtraction over u128 type with carry.
@@ -1550,20 +1552,20 @@ TEST_F(AvmArithmeticTestsU128, subtractionCarry)
                                        FF(9),
                                        AvmMemoryTag::U128);
 
-    EXPECT_EQ(alu_row.avm_alu_u128_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_cf, FF(0));
 
-    EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0x88));
-    EXPECT_EQ(alu_row.avm_alu_u8_r1, FF(0x88));
-    EXPECT_EQ(alu_row.avm_alu_u16_r0, FF(0x5555));
-    EXPECT_EQ(alu_row.avm_alu_u16_r1, FF(0x8888));
-    EXPECT_EQ(alu_row.avm_alu_u16_r2, FF(0x3333));
-    EXPECT_EQ(alu_row.avm_alu_u16_r3, FF(0x3333));
-    EXPECT_EQ(alu_row.avm_alu_u16_r4, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r5, FF(0));
-    EXPECT_EQ(alu_row.avm_alu_u16_r6, FF(0x2222));
+    EXPECT_EQ(alu_row.alu_u8_r0, FF(0x88));
+    EXPECT_EQ(alu_row.alu_u8_r1, FF(0x88));
+    EXPECT_EQ(alu_row.alu_u16_r0, FF(0x5555));
+    EXPECT_EQ(alu_row.alu_u16_r1, FF(0x8888));
+    EXPECT_EQ(alu_row.alu_u16_r2, FF(0x3333));
+    EXPECT_EQ(alu_row.alu_u16_r3, FF(0x3333));
+    EXPECT_EQ(alu_row.alu_u16_r4, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r5, FF(0));
+    EXPECT_EQ(alu_row.alu_u16_r6, FF(0x2222));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on basic multiplication over u128 type.
@@ -1583,23 +1585,23 @@ TEST_F(AvmArithmeticTestsU128, multiplication)
         trace, FF(0x38D64BF685FFBLLU), FF(555444333222111LLU), c, FF(0), FF(1), FF(2), AvmMemoryTag::U128);
     auto alu_row_first = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row_first.avm_alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row_first.alu_u128_tag, FF(1));
 
     // Decomposition of the first operand in 16-bit registers
-    EXPECT_EQ(alu_row_first.avm_alu_u8_r0, FF(0xFB));
-    EXPECT_EQ(alu_row_first.avm_alu_u8_r1, FF(0x5F));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r0, FF(0xBF68));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r1, FF(0x8D64));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r2, FF(0x3));
+    EXPECT_EQ(alu_row_first.alu_u8_r0, FF(0xFB));
+    EXPECT_EQ(alu_row_first.alu_u8_r1, FF(0x5F));
+    EXPECT_EQ(alu_row_first.alu_u16_r0, FF(0xBF68));
+    EXPECT_EQ(alu_row_first.alu_u16_r1, FF(0x8D64));
+    EXPECT_EQ(alu_row_first.alu_u16_r2, FF(0x3));
 
     // Decomposition of the second operand in 16-bit registers
     auto alu_row_second = trace.at(alu_row_index + 1);
-    EXPECT_EQ(alu_row_second.avm_alu_u8_r0, FF(0xDF));
-    EXPECT_EQ(alu_row_second.avm_alu_u8_r1, FF(0x98));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r0, FF(0x762C));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r1, FF(0xF92C));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r2, FF(0x1));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row_second.alu_u8_r0, FF(0xDF));
+    EXPECT_EQ(alu_row_second.alu_u8_r1, FF(0x98));
+    EXPECT_EQ(alu_row_second.alu_u16_r0, FF(0x762C));
+    EXPECT_EQ(alu_row_second.alu_u16_r1, FF(0xF92C));
+    EXPECT_EQ(alu_row_second.alu_u16_r2, FF(0x1));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test on multiplication over u128 type with overflow.
@@ -1628,30 +1630,30 @@ TEST_F(AvmArithmeticTestsU128, multiplicationOverflow)
                                              AvmMemoryTag::U128);
     auto alu_row_first = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row_first.avm_alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row_first.alu_u128_tag, FF(1));
 
     // Decomposition of the first operand in 16-bit registers
-    EXPECT_EQ(alu_row_first.avm_alu_u8_r0, FF(0xFE));
-    EXPECT_EQ(alu_row_first.avm_alu_u8_r1, FF(0xFF));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r0, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r2, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r3, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u8_r0, FF(0xFE));
+    EXPECT_EQ(alu_row_first.alu_u8_r1, FF(0xFF));
+    EXPECT_EQ(alu_row_first.alu_u16_r0, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r6, FF(UINT16_MAX));
 
     // Decomposition of the second operand in 16-bit registers
     auto alu_row_second = trace.at(alu_row_index + 1);
-    EXPECT_EQ(alu_row_second.avm_alu_u8_r0, FF(0xFC));
-    EXPECT_EQ(alu_row_second.avm_alu_u8_r1, FF(0xFF));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r0, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r1, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r2, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r3, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r4, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r5, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_second.avm_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u8_r0, FF(0xFC));
+    EXPECT_EQ(alu_row_second.alu_u8_r1, FF(0xFF));
+    EXPECT_EQ(alu_row_second.alu_u16_r0, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.alu_u16_r6, FF(UINT16_MAX));
 
     // Other registers involved in the relevant relations
     // PIL relation (avm_alu.pil): a * b_l + a_l * b_h * 2^64 = (CF * 2^64 + R_64) * 2^128 + c
@@ -1660,14 +1662,14 @@ TEST_F(AvmArithmeticTestsU128, multiplicationOverflow)
     // Therefore, CF = 1 and R_64 = 2^64 - 7
 
     // R_64 is decomposed over the 4 following 16-bit registers
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r7, FF(UINT16_MAX - 6));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r8, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r9, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row_first.avm_alu_u16_r10, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r7, FF(UINT16_MAX - 6));
+    EXPECT_EQ(alu_row_first.alu_u16_r8, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r9, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.alu_u16_r10, FF(UINT16_MAX));
     // CF
-    EXPECT_EQ(alu_row_first.avm_alu_cf, FF(1));
+    EXPECT_EQ(alu_row_first.alu_cf, FF(1));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmArithmeticTestsU128, equality)
@@ -1685,9 +1687,9 @@ TEST_F(AvmArithmeticTestsU128, equality)
                                             AvmMemoryTag::U128);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u128_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0));
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Test correct non-equality of U128 elements
@@ -1707,9 +1709,9 @@ TEST_F(AvmArithmeticTestsU128, nonEquality)
                                             AvmMemoryTag::U128);
     auto alu_row = trace.at(alu_row_index);
 
-    EXPECT_EQ(alu_row.avm_alu_u128_tag, FF(1));
-    EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(0xdeadbeefLLU << 32).invert());
-    validate_trace(std::move(trace));
+    EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.alu_op_eq_diff_inv, FF(0xdeadbeefLLU << 32).invert());
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************
@@ -1768,7 +1770,7 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivision)
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    auto select_row = [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); };
+    auto select_row = [](Row r) { return r.main_sel_op_fdiv == FF(1); };
     mutate_ic_in_trace(trace, std::move(select_row), FF(0));
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV");
@@ -1786,18 +1788,18 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivisionNoZeroButError)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     size_t const index = static_cast<size_t>(row - trace.begin());
 
     // Activate the operator error
-    trace[index].avm_main_op_err = FF(1);
+    trace[index].main_op_err = FF(1);
     auto trace2 = trace;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_ZERO_ERR1");
 
     // Even more malicious, one makes the first relation passes by setting the inverse to zero.
-    trace2[index].avm_main_inv = FF(0);
+    trace2[index].main_inv = FF(0);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace2)), "SUBOP_FDIV_ZERO_ERR2");
 }
 
@@ -1812,10 +1814,10 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivisionByZeroNoError)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Remove the operator error flag
-    row->avm_main_op_err = FF(0);
+    row->main_op_err = FF(0);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV");
 }
@@ -1829,10 +1831,10 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivisionZeroByZeroNoError)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Remove the operator error flag
-    row->avm_main_op_err = FF(0);
+    row->main_op_err = FF(0);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_ZERO_ERR1");
 }
@@ -1847,10 +1849,10 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivisionWrongRInTag)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Change read instruction tag
-    row->avm_main_r_in_tag = FF(3);
+    row->main_r_in_tag = FF(3);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_R_IN_TAG_FF");
 }
@@ -1865,10 +1867,10 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivisionWrongWInTag)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == FF(1); });
 
     // Change write instruction tag
-    row->avm_main_w_in_tag = FF(3);
+    row->main_w_in_tag = FF(3);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_W_IN_TAG_FF");
 }
@@ -1886,14 +1888,14 @@ TEST_F(AvmArithmeticNegativeTestsFF, operationWithErrorFlag)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the addition selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
 
     // Activate the operator error
-    row->avm_main_op_err = FF(1);
+    row->main_op_err = FF(1);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 
-    trace_builder.reset();
+    trace_builder = AvmTraceBuilder(public_inputs);
 
     trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ 8, 4, 17 });
 
@@ -1903,14 +1905,14 @@ TEST_F(AvmArithmeticNegativeTestsFF, operationWithErrorFlag)
     trace = trace_builder.finalize();
 
     // Find the first row enabling the subtraction selector
-    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == FF(1); });
+    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == FF(1); });
 
     // Activate the operator error
-    row->avm_main_op_err = FF(1);
+    row->main_op_err = FF(1);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 
-    trace_builder.reset();
+    trace_builder = AvmTraceBuilder(public_inputs);
 
     trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ 5, 0, 20 });
 
@@ -1920,10 +1922,10 @@ TEST_F(AvmArithmeticNegativeTestsFF, operationWithErrorFlag)
     trace = trace_builder.finalize();
 
     // Find the first row enabling the multiplication selector
-    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == FF(1); });
+    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == FF(1); });
 
     // Activate the operator error
-    row->avm_main_op_err = FF(1);
+    row->main_op_err = FF(1);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 }
@@ -1961,10 +1963,10 @@ TEST_F(AvmArithmeticNegativeTestsFF, eqOutputWrongTag)
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the eq selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
     ASSERT_TRUE(row != trace.end());
 
-    row->avm_main_w_in_tag = FF(4);
+    row->main_w_in_tag = FF(4);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OUTPUT_U8");
 }
 
@@ -2029,10 +2031,10 @@ TEST_F(AvmArithmeticNegativeTestsU8, eqOutputWrongTag)
     auto trace = gen_trace_eq(2, 3, 23, 24, 25, AvmMemoryTag::U8);
 
     // Find the first row enabling the eq selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
     ASSERT_TRUE(row != trace.end());
 
-    row->avm_main_w_in_tag = FF(3);
+    row->main_w_in_tag = FF(3);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OUTPUT_U8");
 }
 
@@ -2096,10 +2098,10 @@ TEST_F(AvmArithmeticNegativeTestsU16, eqOutputWrongTag)
     auto trace = gen_trace_eq(1515, 1515, 23, 24, 25, AvmMemoryTag::U16);
 
     // Find the first row enabling the eq selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
     ASSERT_TRUE(row != trace.end());
 
-    row->avm_main_w_in_tag = FF(5);
+    row->main_w_in_tag = FF(5);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OUTPUT_U8");
 }
 
@@ -2163,10 +2165,10 @@ TEST_F(AvmArithmeticNegativeTestsU32, eqOutputWrongTag)
     auto trace = gen_trace_eq(15, 15, 23, 24, 25, AvmMemoryTag::U32);
 
     // Find the first row enabling the eq selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
     ASSERT_TRUE(row != trace.end());
 
-    row->avm_main_w_in_tag = FF(6);
+    row->main_w_in_tag = FF(6);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OUTPUT_U8");
 }
 
@@ -2237,10 +2239,10 @@ TEST_F(AvmArithmeticNegativeTestsU64, eqOutputWrongTag)
     auto trace = gen_trace_eq(198732, 15, 23, 24, 25, AvmMemoryTag::U64);
 
     // Find the first row enabling the eq selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
     ASSERT_TRUE(row != trace.end());
 
-    row->avm_main_w_in_tag = FF(2);
+    row->main_w_in_tag = FF(2);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OUTPUT_U8");
 }
 
@@ -2299,6 +2301,41 @@ TEST_F(AvmArithmeticNegativeTestsU128, multiplication)
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_MULTIPLICATION_OUT_U128");
 }
 
+// Test that the second row of an U128 multiplication cannot be enabled for
+// another alu operation.
+TEST_F(AvmArithmeticNegativeTestsU128, multiplicationSecondRowNoOp)
+{
+    trace_builder.op_set(0, 3, 0, AvmMemoryTag::U128);
+    trace_builder.op_set(0, 4, 1, AvmMemoryTag::U128);
+
+    trace_builder.op_mul(0, 0, 1, 2, AvmMemoryTag::U128);
+    trace_builder.return_op(0, 0, 0);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row_index = common_validate_mul(trace, FF(3), FF(4), FF(12), FF(0), FF(1), FF(2), AvmMemoryTag::U128);
+
+    // We have to enable alu_sel otherwise another relation will fail.
+    trace.at(alu_row_index + 1).alu_sel_alu = 1;
+
+    // Add an LTE selector in the next row (second part of U128 multiplication)
+    auto trace_lte = trace;
+    trace_lte.at(alu_row_index + 1).alu_op_lte = 1;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_lte)), "TWO_LINE_OP_NO_OVERLAP");
+
+    // Try with SUB selector.
+    auto trace_sub = trace;
+    trace_sub.at(alu_row_index + 1).alu_op_sub = 1;
+    // Adjust to not violate #[RNG_CHK_LOOKUP_SELECTOR]
+    trace_sub.at(alu_row_index + 1).alu_sel_rng_chk_lookup = 2;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_sub)), "TWO_LINE_OP_NO_OVERLAP");
+
+    // Try with another MUL selector.
+    trace.at(alu_row_index + 1).alu_op_mul = 1;
+    // Adjust to not violate #[RNG_CHK_LOOKUP_SELECTOR]
+    trace.at(alu_row_index + 1).alu_sel_rng_chk_lookup = 2;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "TWO_LINE_OP_NO_OVERLAP");
+}
+
 // Tests a situation for U128 elements where a != b but c == 1;
 TEST_F(AvmArithmeticNegativeTestsU128, invalidEquality)
 {
@@ -2336,10 +2373,10 @@ TEST_F(AvmArithmeticNegativeTestsU128, eqOutputWrongTag)
     auto trace = gen_trace_eq(1587, 1587, 23, 24, 25, AvmMemoryTag::U128);
 
     // Find the first row enabling the eq selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == FF(1); });
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_eq == FF(1); });
     ASSERT_TRUE(row != trace.end());
 
-    row->avm_main_w_in_tag = FF(4);
+    row->main_w_in_tag = FF(4);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OUTPUT_U8");
 }
 

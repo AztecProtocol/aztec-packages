@@ -23,7 +23,9 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-  ) {}
+  ) {
+    // TODO: Do we want to check if the point is on the curve here?
+  }
 
   /**
    * Generate a random Point instance.
@@ -44,7 +46,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader.readBytes(32)), Fr.fromBuffer(reader.readBytes(32)));
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -133,6 +135,30 @@ export class Point {
 
   hash() {
     return poseidon2Hash(this.toFields());
+  }
+
+  /**
+   * Check if this is point at infinity.
+   * Check this is consistent with how bb is encoding the point at infinity
+   */
+  public get inf() {
+    return this.x == Fr.ZERO;
+  }
+  public toFieldsWithInf() {
+    return [this.x, this.y, new Fr(this.inf)];
+  }
+
+  isOnGrumpkin() {
+    // TODO: Check this against how bb handles curve check and infinity point check
+    if (this.inf) {
+      return true;
+    }
+
+    // p.y * p.y == p.x * p.x * p.x - 17
+    const A = new Fr(17);
+    const lhs = this.y.square();
+    const rhs = this.x.square().mul(this.x).sub(A);
+    return lhs.equals(rhs);
   }
 }
 

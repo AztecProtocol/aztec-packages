@@ -1,5 +1,6 @@
 #include "bigint_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
@@ -198,12 +199,14 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
     apply_constraints(constraint_system, contraints3);
     apply_constraints(constraint_system, contraints4);
     apply_constraints(constraint_system, contraints5);
+    mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
@@ -268,8 +271,9 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
-
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     WitnessVector witness{
         0, 3, 6, 3, 0,
@@ -323,6 +327,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
@@ -333,6 +338,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
     constraint_system.bigint_operations.push_back(get<0>(contraints5));
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
@@ -382,6 +388,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
@@ -392,6 +399,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
     constraint_system.bigint_operations.push_back(get<0>(contraints5));
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
@@ -462,8 +470,9 @@ TEST_F(BigIntTests, TestBigIntDIV)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
-
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     WitnessVector witness{
         0, 6, 3, 2, 0,

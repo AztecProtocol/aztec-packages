@@ -1,4 +1,5 @@
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
+import { EcAdd } from '../opcodes/ec_add.js';
 import { Keccak, Pedersen, Poseidon2, Sha256Compression } from '../opcodes/hashing.js';
 import type { Instruction } from '../opcodes/index.js';
 import {
@@ -52,6 +53,7 @@ import {
   Version,
   Xor,
 } from '../opcodes/index.js';
+import { MultiScalarMul } from '../opcodes/multi_scalar_mul.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { Opcode } from './instruction_serialization.js';
 
@@ -137,10 +139,12 @@ const INSTRUCTION_SET = () =>
     [DebugLog.opcode, DebugLog],
 
     // Gadgets
+    [EcAdd.opcode, EcAdd],
     [Keccak.opcode, Keccak],
     [Poseidon2.opcode, Poseidon2],
     [Sha256Compression.opcode, Sha256Compression],
     [Pedersen.opcode, Pedersen],
+    [MultiScalarMul.opcode, MultiScalarMul],
     // Conversions
     [ToRadixLE.opcode, ToRadixLE],
   ]);

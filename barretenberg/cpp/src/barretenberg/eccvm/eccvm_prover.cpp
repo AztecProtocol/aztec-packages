@@ -33,7 +33,6 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
 void ECCVMProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    info("circuit_size");
     transcript->send_to_verifier("circuit_size", circuit_size);
 }
 
@@ -105,19 +104,24 @@ void ECCVMProver::execute_relation_check_rounds()
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to prove the multilinear evaluations produced by Sumcheck
+ * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
+ * Sumcheck and then produce an opening proof with a univariate PCS
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
-void ECCVMProver::execute_zeromorph_rounds()
+void ECCVMProver::execute_pcs_rounds()
 {
-    ZeroMorph::prove(key->polynomials.get_unshifted(),
-                     key->polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations.get_unshifted(),
-                     sumcheck_output.claimed_evaluations.get_shifted(),
-                     sumcheck_output.challenge,
-                     commitment_key,
-                     transcript);
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
+    auto prover_opening_claim = ZeroMorph::prove(key->polynomials.get_unshifted(),
+                                                 key->polynomials.get_to_be_shifted(),
+                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                 sumcheck_output.claimed_evaluations.get_shifted(),
+                                                 sumcheck_output.challenge,
+                                                 commitment_key,
+                                                 transcript);
+    PCS::compute_opening_proof(
+        commitment_key, prover_opening_claim.opening_pair, prover_opening_claim.polynomial, transcript);
 }
 
 /**
@@ -204,7 +208,7 @@ HonkProof ECCVMProver::construct_proof()
 
     execute_relation_check_rounds();
 
-    execute_zeromorph_rounds();
+    execute_pcs_rounds();
 
     execute_transcript_consistency_univariate_opening_round();
 

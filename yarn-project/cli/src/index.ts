@@ -220,6 +220,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
+    .option(
+      '--skip-initialization',
+      'Skip initializing the account contract. Useful for publicly deploying an existing account.',
+    )
+    .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
     .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
     .addOption(pxeOption)
     .addOptions(FeeOpts.getOptions())
@@ -232,26 +237,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(async args => {
       const { createAccount } = await import('./cmds/create_account.js');
-      const { rpcUrl, privateKey, wait, registerOnly } = args;
-      await createAccount(rpcUrl, privateKey, registerOnly, wait, FeeOpts.fromCli(args, log), debugLogger, log);
-    });
-
-  program
-    .command('register-account')
-    .description(
-      'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
-    )
-    .summary('Registers an aztec account that can be used for sending transactions.')
-    .addOption(createPrivateKeyOption('Private key for account.', true))
-    .requiredOption(
-      '-pa, --partial-address <partialAddress>',
-      'The partially computed address of the account contract.',
-      parsePartialAddress,
-    )
-    .addOption(pxeOption)
-    .action(async ({ rpcUrl, privateKey, partialAddress }) => {
-      const { registerAccount } = await import('./cmds/register_account.js');
-      await registerAccount(rpcUrl, privateKey, partialAddress, debugLogger, log);
+      const { rpcUrl, privateKey, wait, registerOnly, skipInitialization, publicDeploy } = args;
+      await createAccount(
+        rpcUrl,
+        privateKey,
+        registerOnly,
+        skipInitialization,
+        publicDeploy,
+        wait,
+        FeeOpts.fromCli(args, log),
+        debugLogger,
+        log,
+      );
     });
 
   program
@@ -332,20 +329,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('check-deploy')
-    .description('Checks if a contract is deployed to the specified Aztec address.')
-    .requiredOption(
-      '-ca, --contract-address <address>',
-      'An Aztec address to check if contract has been deployed to.',
-      parseAztecAddress,
-    )
-    .addOption(pxeOption)
-    .action(async options => {
-      const { checkDeploy } = await import('./cmds/check_deploy.js');
-      await checkDeploy(options.rpcUrl, options.contractAddress, debugLogger, log);
-    });
-
-  program
     .command('add-contract')
     .description(
       'Adds an existing contract to the PXE. This is useful if you have deployed a contract outside of the PXE and want to use it with the PXE.',
@@ -377,13 +360,24 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('get-tx-receipt')
+    .command('get-tx')
     .description('Gets the receipt for the specified transaction hash.')
     .argument('<txHash>', 'A transaction hash to get the receipt for.', parseTxHash)
     .addOption(pxeOption)
     .action(async (txHash, options) => {
-      const { getTxReceipt } = await import('./cmds/get_tx_receipt.js');
-      await getTxReceipt(options.rpcUrl, txHash, debugLogger, log);
+      const { getTx } = await import('./cmds/get_tx.js');
+      await getTx(options.rpcUrl, txHash, debugLogger, log);
+    });
+
+  program
+    .command('get-block')
+    .description('Gets info for a given block or latest.')
+    .argument('[blockNumber]', 'Block height', parseOptionalInteger)
+    .option('-f, --follow', 'Keep polling for new blocks')
+    .addOption(pxeOption)
+    .action(async (blockNumber, options) => {
+      const { getBlock } = await import('./cmds/get_block.js');
+      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
     });
 
   program
@@ -630,6 +624,15 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('get-pxe-info')
+    .description('Gets the information of a PXE at a URL.')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { getPXEInfo } = await import('./cmds/get_pxe_info.js');
+      await getPXEInfo(options.rpcUrl, debugLogger, log);
+    });
+
+  program
     .command('inspect-contract')
     .description('Shows list of external callable functions for a contract')
     .argument(
@@ -648,6 +651,39 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async (functionSignature: string) => {
       const { computeSelector } = await import('./cmds/compute_selector.js');
       computeSelector(functionSignature, log);
+    });
+
+  program
+    .command('sequencers')
+    .argument('<command>', 'Command to run: list, add, remove, who-next')
+    .argument('[who]', 'Who to add/remove')
+    .description('Manages or queries registered sequencers on the L1 rollup contract.')
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic for the sender of the tx',
+      'test test test test test test test test test test test junk',
+    )
+    .option('--block-number <number>', 'Block number to query next sequencer for', parseOptionalInteger)
+    .addOption(pxeOption)
+    .action(async (command, who, options) => {
+      const { sequencers } = await import('./cmds/sequencers.js');
+      await sequencers({
+        command: command,
+        who,
+        mnemonic: options.mnemonic,
+        rpcUrl: options.rpcUrl,
+        l1RpcUrl: options.l1RpcUrl,
+        apiKey: options.apiKey ?? '',
+        blockNumber: options.blockNumber,
+        log,
+        debugLogger,
+      });
     });
 
   return program;

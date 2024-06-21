@@ -3,7 +3,8 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
@@ -16,6 +17,7 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
+import { type TracedContractInstance } from '../journal/trace_types.js';
 
 /**
  * Create a new AVM context with default values.
@@ -141,11 +143,13 @@ export function getAvmTestContractBytecode(functionName: string): Buffer {
   return artifact.bytecode;
 }
 
-export function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
-  const artifact = AvmNestedCallsTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
-  );
-  return artifact.bytecode;
+export function randomTracedContractInstance(): TracedContractInstance {
+  const instance = SerializableContractInstance.random();
+  const address = AztecAddress.random();
+  return { exists: true, ...instance, address };
+}
+
+export function emptyTracedContractInstance(withAddress?: AztecAddress): TracedContractInstance {
+  const instance = SerializableContractInstance.empty().withAddress(withAddress ?? AztecAddress.zero());
+  return { exists: false, ...instance };
 }

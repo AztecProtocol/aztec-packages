@@ -3,7 +3,7 @@ use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
 
 #[oracle(notifyCreatedNote)]
-fn notify_created_note_oracle<N>(
+unconstrained fn notify_created_note_oracle<N>(
     _storage_slot: Field,
     _note_type_id: Field,
     _serialized_note: [Field; N],
@@ -28,11 +28,7 @@ unconstrained pub fn notify_created_note<N>(
 }
 
 #[oracle(notifyNullifiedNote)]
-fn notify_nullified_note_oracle<N>(
-    _nullifier: Field,
-    _inner_note_hash: Field,
-    _counter: u32
-) -> Field {}
+unconstrained fn notify_nullified_note_oracle<N>(_nullifier: Field, _inner_note_hash: Field, _counter: u32) -> Field {}
 
 unconstrained pub fn notify_nullified_note<N>(
     nullifier: Field,
@@ -43,7 +39,7 @@ unconstrained pub fn notify_nullified_note<N>(
 }
 
 #[oracle(getNotes)]
-fn get_notes_oracle<N, S>(
+unconstrained fn get_notes_oracle<N, S>(
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; N],
@@ -136,14 +132,14 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
         status,
         placeholder_fields
     );
-    let num_notes = fields[0] as u64;
+    let num_notes = fields[0] as u32;
     let contract_address = AztecAddress::from_field(fields[1]);
     for i in 0..placeholder_opt_notes.len() {
         if i < num_notes {
             // lengths named as per typescript.
-            let return_header_length: u64 = 2; // num_notes & contract_address.
-            let extra_preimage_length: u64 = 2; // nonce & note_hash_counter.
-            let read_offset: u64 = return_header_length + i * (N + extra_preimage_length);
+            let return_header_length: u32 = 2; // num_notes & contract_address.
+            let extra_preimage_length: u32 = 2; // nonce & note_hash_counter.
+            let read_offset: u32 = return_header_length + i * (N + extra_preimage_length);
             let nonce = fields[read_offset];
             let note_hash_counter = fields[read_offset + 1] as u32;
             let header = NoteHeader { contract_address, nonce, storage_slot, note_hash_counter };
@@ -159,7 +155,7 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
 
 // Only ever use this in private!
 #[oracle(checkNullifierExists)]
-fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
 // Only ever use this in private!
 unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {

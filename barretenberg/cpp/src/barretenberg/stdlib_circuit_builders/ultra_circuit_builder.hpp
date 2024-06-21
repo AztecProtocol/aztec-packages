@@ -11,6 +11,9 @@
 #include <optional>
 #include <unordered_set>
 
+#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+
 namespace bb {
 
 template <typename FF> struct non_native_field_witnesses {
@@ -278,8 +281,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     // TODO(#216)(Adrian): Why is this not in CircuitBuilderBase
     std::map<FF, uint32_t> constant_variable_indices;
 
+    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     std::vector<plookup::BasicTable> lookup_tables;
-    std::vector<plookup::MultiTable> lookup_multi_tables;
+
     std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
 
     /**
@@ -364,7 +368,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
-        lookup_multi_tables = other.lookup_multi_tables;
         range_lists = other.range_lists;
         ram_arrays = other.ram_arrays;
         rom_arrays = other.rom_arrays;
@@ -381,7 +384,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
-        lookup_multi_tables = other.lookup_multi_tables;
         range_lists = other.range_lists;
         ram_arrays = other.ram_arrays;
         rom_arrays = other.rom_arrays;
@@ -467,7 +469,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                 .q_o = 0,
                 .q_c = 0,
             });
-            create_new_range_constraint(variable_index, 1ULL << num_bits, msg);
+            create_new_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
         } else {
             decompose_into_default_range(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
@@ -628,7 +630,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     {
         size_t tables_size = 0;
         for (const auto& table : lookup_tables) {
-            tables_size += table.size;
+            tables_size += table.size();
         }
         return tables_size;
     }
@@ -699,7 +701,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                                       std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
 
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
-    plookup::MultiTable& create_table(const plookup::MultiTableId id);
+    plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
@@ -811,6 +813,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void process_RAM_arrays();
 
     uint256_t hash_circuit();
+
+    msgpack::sbuffer export_circuit() override;
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

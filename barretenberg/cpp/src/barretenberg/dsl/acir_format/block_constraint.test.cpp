@@ -1,5 +1,6 @@
 #include "block_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
@@ -166,7 +167,9 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = { block },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
@@ -214,7 +217,9 @@ TEST_F(MegaHonk, Databus)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = { block },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     // Construct a bberg circuit from the acir representation
     auto circuit = acir_format::create_circuit<Builder>(constraint_system, 0, witness_values);
@@ -291,7 +296,7 @@ TEST_F(MegaHonk, DatabusReturn)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
-        .num_acir_opcodes = 1,
+        .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -317,7 +322,9 @@ TEST_F(MegaHonk, DatabusReturn)
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
         .block_constraints = { block },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     // Construct a bberg circuit from the acir representation
     auto circuit = acir_format::create_circuit<Builder>(constraint_system, 0, witness_values);
