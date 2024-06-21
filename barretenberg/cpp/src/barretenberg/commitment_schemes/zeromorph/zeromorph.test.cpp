@@ -18,13 +18,35 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
     using VerifierAccumulator = typename PCS::VerifierAccumulator;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
-    using TupleOfPolynomialsEvaluationsCommitments =
-        std::tuple<std::vector<Polynomial>, std::vector<Fr>, std::vector<Commitment>>;
 
     using TupleOfConcatenationInputs = std::tuple<std::vector<std::vector<Polynomial>>,
                                                   std::vector<Polynomial>,
                                                   std::vector<Fr>,
                                                   std::vector<std::vector<Commitment>>>;
+
+    /**
+     * @brief Data structure for encapsulating a set of multilinear polynomials used to test the protocol, their
+     * evaluations at the point that we want to create an evaluation proof for and
+     * their commitments. Alternatively, the polynomials and commitments can be the ones to-be-shifted, while the
+     * evaluations are for their shifted version.
+     *
+     */
+    struct PolynomialsEvaluationsCommitments {
+        std::vector<Polynomial> polynomials;
+        std::vector<Fr> evaluations;
+        std::vector<Commitment> commitments;
+    };
+
+    /**
+     * @brief Data structure used to test the protocol's alternative for Goblin Translator.
+     *
+     */
+    struct ConcatenationInputs {
+        std::vector<std::vector<Polynomial>> concatenation_groups;
+        std::vector<Polynomial> concatenated_polynomials;
+        std::vector<Fr> c_evaluations;
+        std::vector<std::vector<Commitment>> concatenation_groups_commitments;
+    };
 
     /**
      * @brief Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
@@ -58,18 +80,19 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
 
         // Construct some random multilinear polynomials f_i, their commitments and their evaluations v_i = f_i(u)
-        auto unshifted_tuple = polynomials_comms_and_evaluations(u_challenge, NUM_UNSHIFTED);
+        PolynomialsEvaluationsCommitments unshifted_input =
+            polynomials_comms_and_evaluations(u_challenge, NUM_UNSHIFTED);
 
         // Construct polynomials and commitments from f_i that are to be shifted and compute their shifted evaluations
-        auto shifted_tuple =
-            to_be_shifted_polynomials_and_comms_and_shifted_evaluations(unshifted_tuple, u_challenge, NUM_SHIFTED);
+        PolynomialsEvaluationsCommitments shifted_input =
+            to_be_shifted_polynomials_and_comms_and_shifted_evaluations(unshifted_input, u_challenge, NUM_SHIFTED);
 
         bool verified = false;
         if (NUM_CONCATENATED == 0) {
-            verified = prove_and_verify(unshifted_tuple, shifted_tuple, u_challenge);
+            verified = prove_and_verify(unshifted_input, shifted_input, u_challenge);
         } else {
             verified =
-                prove_and_verify_with_concatenation(unshifted_tuple, shifted_tuple, u_challenge, NUM_CONCATENATED);
+                prove_and_verify_with_concatenation(unshifted_input, shifted_input, u_challenge, NUM_CONCATENATED);
         }
 
         return verified;
@@ -79,8 +102,8 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
      * @brief Generate some random multilinear polynomials and compute their evaluation at the set challenge as well as
      * their commitments, returned as a tuple to be used in the subsequent protocol.
      */
-    TupleOfPolynomialsEvaluationsCommitments polynomials_comms_and_evaluations(std::vector<Fr> u_challenge,
-                                                                               size_t NUM_UNSHIFTED)
+    PolynomialsEvaluationsCommitments polynomials_comms_and_evaluations(std::vector<Fr> u_challenge,
+                                                                        size_t NUM_UNSHIFTED)
     {
         // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
         std::vector<Polynomial> f_polynomials; // unshifted polynomials
@@ -100,11 +123,11 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
      * @brief Generate shifts of polynomials and compute their evaluation at the
      * set challenge as well as their commitments, returned as a tuple to be used in the subsequent protocol.
      */
-    TupleOfPolynomialsEvaluationsCommitments to_be_shifted_polynomials_and_comms_and_shifted_evaluations(
-        TupleOfPolynomialsEvaluationsCommitments unshifted_input, std::vector<Fr> u_challenge, size_t NUM_SHIFTED)
+    PolynomialsEvaluationsCommitments to_be_shifted_polynomials_and_comms_and_shifted_evaluations(
+        PolynomialsEvaluationsCommitments unshifted_inputs, std::vector<Fr> u_challenge, size_t NUM_SHIFTED)
     {
-        std::vector<Polynomial> f_polynomials = std::get<0>(unshifted_input);
-        std::vector<Commitment> f_commitments = std::get<2>(unshifted_input);
+        std::vector<Polynomial> f_polynomials = unshifted_inputs.polynomials;
+        std::vector<Commitment> f_commitments = unshifted_inputs.commitments;
 
         std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
         std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
@@ -125,7 +148,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
      * @brief Generate the tuple of concatenation inputs used to test Zeromorph special functionality that avoids high
      * degrees in the Goblin Translator.
      */
-    TupleOfConcatenationInputs concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
+    ConcatenationInputs concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
     {
 
         size_t concatenation_index = 2;
@@ -182,19 +205,17 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return { concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments };
     };
 
-    bool prove_and_verify(TupleOfPolynomialsEvaluationsCommitments unshifted,
-                          TupleOfPolynomialsEvaluationsCommitments shifted,
+    bool prove_and_verify(PolynomialsEvaluationsCommitments& unshifted,
+                          PolynomialsEvaluationsCommitments& shifted,
                           std::vector<Fr> u_challenge)
     {
-        auto [f_polynomials, v_evaluations, f_commitments] = unshifted;
-        auto [g_polynomials, w_evaluations, g_commitments] = shifted;
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Execute Prover protocol
-        auto prover_opening_claim = ZeroMorphProver::prove(RefVector(f_polynomials),
-                                                           RefVector(g_polynomials),
-                                                           RefVector(v_evaluations),
-                                                           RefVector(w_evaluations),
+        auto prover_opening_claim = ZeroMorphProver::prove(RefVector(unshifted.polynomials), // unshifted
+                                                           RefVector(shifted.polynomials),   // to-be shifted
+                                                           RefVector(unshifted.evaluations), // unshifted
+                                                           RefVector(shifted.evaluations),   // shifted
                                                            u_challenge,
                                                            this->commitment_key,
                                                            prover_transcript);
@@ -206,12 +227,12 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
 
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-        auto verifier_opening_claim = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
-                                                                RefVector(g_commitments), // to-be-shifted
-                                                                RefVector(v_evaluations), // unshifted
-                                                                RefVector(w_evaluations), // shifted
+        auto verifier_opening_claim = ZeroMorphVerifier::verify(RefVector(unshifted.commitments), // unshifted
+                                                                RefVector(shifted.commitments),   // to-be-shifted
+                                                                RefVector(unshifted.evaluations), // unshifted
+                                                                RefVector(shifted.evaluations),   // shifted
                                                                 u_challenge,
-                                                                this->vk()->get_first_g1(),
+                                                                this->vk()->get_g1_identity(),
                                                                 verifier_transcript);
         VerifierAccumulator result;
 
@@ -232,29 +253,27 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         return verified;
     };
 
-    bool prove_and_verify_with_concatenation(TupleOfPolynomialsEvaluationsCommitments unshifted_input,
-                                             TupleOfPolynomialsEvaluationsCommitments shifted_input,
+    bool prove_and_verify_with_concatenation(PolynomialsEvaluationsCommitments& unshifted,
+                                             PolynomialsEvaluationsCommitments& shifted,
                                              std::vector<Fr> u_challenge,
                                              size_t NUM_CONCATENATED)
     {
-        auto [f_polynomials, v_evaluations, f_commitments] = unshifted_input;
-        auto [g_polynomials, w_evaluations, g_commitments] = shifted_input;
-        auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-            concatenation_inputs(u_challenge, NUM_CONCATENATED);
+        ConcatenationInputs concatenation = concatenation_inputs(u_challenge, NUM_CONCATENATED);
 
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Execute Prover protocol
-        auto prover_opening_claim = ZeroMorphProver::prove(RefVector(f_polynomials), // unshifted
-                                                           RefVector(g_polynomials), // to-be-shifted
-                                                           RefVector(v_evaluations), // unshifted
-                                                           RefVector(w_evaluations), // shifted
-                                                           u_challenge,
-                                                           this->commitment_key,
-                                                           prover_transcript,
-                                                           RefVector(concatenated_polynomials),
-                                                           RefVector(c_evaluations),
-                                                           to_vector_of_ref_vectors(concatenation_groups));
+        auto prover_opening_claim =
+            ZeroMorphProver::prove(RefVector(unshifted.polynomials), // unshifted
+                                   RefVector(shifted.polynomials),   // to-be-shifted
+                                   RefVector(unshifted.evaluations), // unshifted
+                                   RefVector(shifted.evaluations),   // shifted
+                                   u_challenge,
+                                   this->commitment_key,
+                                   prover_transcript,
+                                   RefVector(concatenation.concatenated_polynomials),
+                                   RefVector(concatenation.c_evaluations),
+                                   to_vector_of_ref_vectors(concatenation.concatenation_groups));
         PCS::compute_opening_proof(this->commitment_key,
                                    prover_opening_claim.opening_pair,
                                    prover_opening_claim.polynomial,
@@ -263,15 +282,15 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
         auto verifier_opening_claim =
-            ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
-                                      RefVector(g_commitments), // to-be-shifted
-                                      RefVector(v_evaluations), // unshifted
-                                      RefVector(w_evaluations), // shifted
+            ZeroMorphVerifier::verify(RefVector(unshifted.commitments), // unshifted
+                                      RefVector(shifted.commitments),   // to-be-shifted
+                                      RefVector(unshifted.evaluations), // unshifted
+                                      RefVector(shifted.evaluations),   // shifted
                                       u_challenge,
-                                      this->vk()->get_first_g1(),
+                                      this->vk()->get_g1_identity(),
                                       verifier_transcript,
-                                      to_vector_of_ref_vectors(concatenation_groups_commitments),
-                                      RefVector(c_evaluations));
+                                      to_vector_of_ref_vectors(concatenation.concatenation_groups_commitments),
+                                      RefVector(concatenation.c_evaluations));
         VerifierAccumulator result;
 
         bool verified = false;
