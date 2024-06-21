@@ -79,12 +79,3 @@ variable "PROVING_ENABLED" {
   type    = bool
   default = true
 }
-
-variable "IMAGE_TAG" {
-  type = string
-}
-
-variable "FULL_IMAGE" {
-  type    = string
-  default = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
-}
