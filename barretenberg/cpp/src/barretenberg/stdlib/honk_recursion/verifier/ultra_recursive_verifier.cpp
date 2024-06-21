@@ -165,6 +165,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         info("recursive sumcheck failed");
         // return {};
+    } else if (sumcheck_verified.has_value()) {
+        info("recursive sumcheck passed");
     }
 
     if constexpr (!IsSimulator<Builder>) {

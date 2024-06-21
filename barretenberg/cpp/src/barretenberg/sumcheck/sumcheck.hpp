@@ -200,6 +200,8 @@ template <typename Flavor> class SumcheckProver {
         for (size_t idx = 0; idx < num_padding_univariates; idx++) {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            pow_univariate.current_element_idx++;
+            pow_univariate.periodicity *= 2;
         }
 
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
@@ -410,7 +412,7 @@ template <typename Flavor> class SumcheckVerifier {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
             // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
-
+            info("in round ", round_idx);
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx < num_padding_univariates);
@@ -423,7 +425,7 @@ template <typename Flavor> class SumcheckVerifier {
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
-                info("round ", round_idx, " with sum ", round.target_total_sum);
+                // info("round ", round_idx, " with sum ", round.target_total_sum);
                 pow_univariate.partially_evaluate(round_challenge, dummy_round);
 
             } else {
@@ -434,8 +436,11 @@ template <typename Flavor> class SumcheckVerifier {
 
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     pow_univariate.partially_evaluate(round_challenge);
+                } else {
+                    pow_univariate.current_element_idx++;
+                    pow_univariate.periodicity *= 2;
                 }
-                info("round ", round_idx, " with sum ", round.target_total_sum);
+                // info("round ", round_idx, " with sum ", round.target_total_sum);
             }
         }
 
