@@ -73,6 +73,7 @@ void CopyProver::execute_wire_commitments_round()
     witness_commitments.copy_x = commitment_key->commit(key->copy_x);
     witness_commitments.copy_y = commitment_key->commit(key->copy_y);
     witness_commitments.copy_z = commitment_key->commit(key->copy_z);
+    witness_commitments.copy_main = commitment_key->commit(key->copy_main);
     witness_commitments.id_0 = commitment_key->commit(key->id_0);
     witness_commitments.id_1 = commitment_key->commit(key->id_1);
 
@@ -91,25 +92,12 @@ void CopyProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.copy_x, witness_commitments.copy_x);
     transcript->send_to_verifier(commitment_labels.copy_y, witness_commitments.copy_y);
     transcript->send_to_verifier(commitment_labels.copy_z, witness_commitments.copy_z);
+    transcript->send_to_verifier(commitment_labels.copy_main, witness_commitments.copy_main);
     transcript->send_to_verifier(commitment_labels.id_0, witness_commitments.id_0);
     transcript->send_to_verifier(commitment_labels.id_1, witness_commitments.id_1);
 }
 
-void CopyProver::execute_log_derivative_inverse_round()
-{
-
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
-
-    key->compute_logderivative_inverses(relation_parameters);
-
-    // Commit to all logderivative inverse polynomials
-    witness_commitments.copy_main = commitment_key->commit(key->copy_main);
-
-    // Send all commitments to the verifier
-    transcript->send_to_verifier(commitment_labels.copy_main, witness_commitments.copy_main);
-}
+void CopyProver::execute_log_derivative_inverse_round() {}
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
@@ -161,7 +149,6 @@ HonkProof CopyProver::construct_proof()
     execute_wire_commitments_round();
 
     // Compute sorted list accumulator and commitment
-    execute_log_derivative_inverse_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

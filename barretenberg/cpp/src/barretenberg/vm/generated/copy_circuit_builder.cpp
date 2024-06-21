@@ -18,7 +18,8 @@ template <typename FF> std::string field_to_string(const FF& ff)
 
 template <typename FF> std::vector<std::string> CopyFullRow<FF>::names()
 {
-    return { "copy_n",
+    return { "copy_lagrange_first",
+             "copy_lagrange_last",
              "copy_a",
              "copy_b",
              "copy_c",
@@ -41,14 +42,15 @@ template <typename FF> std::vector<std::string> CopyFullRow<FF>::names()
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, CopyFullRow<FF> const& row)
 {
-    return os << field_to_string(row.copy_n) << "," << field_to_string(row.copy_a) << "," << field_to_string(row.copy_b)
-              << "," << field_to_string(row.copy_c) << "," << field_to_string(row.copy_d) << ","
-              << field_to_string(row.copy_sigma_a) << "," << field_to_string(row.copy_sigma_b) << ","
-              << field_to_string(row.copy_sigma_c) << "," << field_to_string(row.copy_sigma_d) << ","
-              << field_to_string(row.copy_sigma_x) << "," << field_to_string(row.copy_sigma_y) << ","
-              << field_to_string(row.copy_sigma_z) << "," << field_to_string(row.copy_x) << ","
-              << field_to_string(row.copy_y) << "," << field_to_string(row.copy_z) << ","
-              << field_to_string(row.copy_main) << "," << field_to_string(row.id_0) << "," << field_to_string(row.id_1)
+    return os << field_to_string(row.copy_lagrange_first) << "," << field_to_string(row.copy_lagrange_last) << ","
+              << field_to_string(row.copy_a) << "," << field_to_string(row.copy_b) << "," << field_to_string(row.copy_c)
+              << "," << field_to_string(row.copy_d) << "," << field_to_string(row.copy_sigma_a) << ","
+              << field_to_string(row.copy_sigma_b) << "," << field_to_string(row.copy_sigma_c) << ","
+              << field_to_string(row.copy_sigma_d) << "," << field_to_string(row.copy_sigma_x) << ","
+              << field_to_string(row.copy_sigma_y) << "," << field_to_string(row.copy_sigma_z) << ","
+              << field_to_string(row.copy_x) << "," << field_to_string(row.copy_y) << "," << field_to_string(row.copy_z)
+              << "," << field_to_string(row.copy_main) << "," << field_to_string(row.id_0) << ","
+              << field_to_string(row.id_1)
               << ","
                  "";
 }

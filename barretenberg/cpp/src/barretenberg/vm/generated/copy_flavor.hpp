@@ -4,7 +4,6 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
@@ -36,14 +35,12 @@ class CopyFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 17;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 20;
-
-    using GrandProductRelations = std::tuple<copy_main_relation<FF>>;
+    static constexpr size_t NUM_ALL_ENTITIES = 21;
 
     using Relations = std::tuple<Copy_vm::copy<FF>, copy_main_relation<FF>>;
 
@@ -68,9 +65,9 @@ class CopyFlavor {
       public:
         using DataType = DataType_;
 
-        DEFINE_FLAVOR_MEMBERS(DataType, copy_n)
+        DEFINE_FLAVOR_MEMBERS(DataType, copy_lagrange_first, copy_lagrange_last)
 
-        RefVector<DataType> get_selectors() { return { copy_n }; };
+        RefVector<DataType> get_selectors() { return { copy_lagrange_first, copy_lagrange_last }; };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };
@@ -94,22 +91,22 @@ class CopyFlavor {
                               copy_y,
                               copy_z,
                               copy_main,
-                              copy_main_shift,
                               id_0,
                               id_1)
 
         RefVector<DataType> get_wires()
         {
-            return { copy_a,       copy_b,       copy_c,       copy_d,          copy_sigma_a, copy_sigma_b,
-                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y,    copy_sigma_z, copy_x,
-                     copy_y,       copy_z,       copy_main,    copy_main_shift, id_0,         id_1 };
+            return { copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a, copy_sigma_b,
+                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,
+                     copy_y,       copy_z,       copy_main,    id_0,         id_1 };
         };
     };
 
     template <typename DataType> class AllEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              copy_n,
+                              copy_lagrange_first,
+                              copy_lagrange_last,
                               copy_a,
                               copy_b,
                               copy_c,
@@ -132,15 +129,49 @@ class CopyFlavor {
 
         RefVector<DataType> get_wires()
         {
-            return { copy_n,       copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a,   copy_sigma_b,
-                     copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z, copy_x,         copy_y,
-                     copy_z,       copy_main,    id_0,         id_1,         copy_d_shift, copy_main_shift };
+            return { copy_lagrange_first,
+                     copy_lagrange_last,
+                     copy_a,
+                     copy_b,
+                     copy_c,
+                     copy_d,
+                     copy_sigma_a,
+                     copy_sigma_b,
+                     copy_sigma_c,
+                     copy_sigma_d,
+                     copy_sigma_x,
+                     copy_sigma_y,
+                     copy_sigma_z,
+                     copy_x,
+                     copy_y,
+                     copy_z,
+                     copy_main,
+                     id_0,
+                     id_1,
+                     copy_d_shift,
+                     copy_main_shift };
         };
         RefVector<DataType> get_unshifted()
         {
-            return { copy_n,       copy_a,       copy_b,       copy_c,       copy_d,       copy_sigma_a,
-                     copy_sigma_b, copy_sigma_c, copy_sigma_d, copy_sigma_x, copy_sigma_y, copy_sigma_z,
-                     copy_x,       copy_y,       copy_z,       copy_main,    id_0,         id_1 };
+            return { copy_lagrange_first,
+                     copy_lagrange_last,
+                     copy_a,
+                     copy_b,
+                     copy_c,
+                     copy_d,
+                     copy_sigma_a,
+                     copy_sigma_b,
+                     copy_sigma_c,
+                     copy_sigma_d,
+                     copy_sigma_x,
+                     copy_sigma_y,
+                     copy_sigma_z,
+                     copy_x,
+                     copy_y,
+                     copy_z,
+                     copy_main,
+                     id_0,
+                     id_1 };
         };
         RefVector<DataType> get_to_be_shifted() { return { copy_d, copy_main }; };
         RefVector<DataType> get_shifted() { return { copy_d_shift, copy_main_shift }; };
@@ -155,15 +186,6 @@ class CopyFlavor {
         using Base::Base;
 
         RefVector<DataType> get_to_be_shifted() { return { copy_d, copy_main }; };
-
-        void compute_logderivative_inverses([[maybe_unused]] const RelationParameters<FF>& relation_parameters)
-        {
-            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
-
-            // TODO(md): get working with compute grand products - might just be type shimmying
-
-            // bb::compute_grand_product<CopyFlavor, copy_main_relation<FF>>(prover_polynomials, &relation_parameters);
-        }
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
@@ -259,7 +281,8 @@ class CopyFlavor {
         CommitmentLabels()
             : AllEntities<std::string>()
         {
-            Base::copy_n = "COPY_N";
+            Base::copy_lagrange_first = "COPY_LAGRANGE_FIRST";
+            Base::copy_lagrange_last = "COPY_LAGRANGE_LAST";
             Base::copy_a = "COPY_A";
             Base::copy_b = "COPY_B";
             Base::copy_c = "COPY_C";
@@ -287,7 +310,8 @@ class CopyFlavor {
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            copy_n = verification_key->copy_n;
+            copy_lagrange_first = verification_key->copy_lagrange_first;
+            copy_lagrange_last = verification_key->copy_lagrange_last;
         }
     };
 

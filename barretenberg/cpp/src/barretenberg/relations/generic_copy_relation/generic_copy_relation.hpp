@@ -1,8 +1,8 @@
 /**
- * @file generic_permutation_relation.hpp
- * @author Rumata888
- * @brief This file contains the template for the generic permutation that can be specialized to enforce various
- * permutations (for explanation on how to define them, see "relation_definer.hpp")
+ * @file generic_copy_relation.hpp
+ * @author Maddiaa0
+ * @brief This file contains the template for the generic grand products that can be specialized to enforce various
+ * copy constraints
  *
  */
 #pragma once
@@ -27,6 +27,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     // 1 + polynomial degree of this relation
 
     // As each copy tuple is multiplied together
+    // TODO(md): update relation degree lengths
     static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET + 2;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
@@ -40,8 +41,14 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     // Contains the index of the polynomial that is a shift of the grand product
     static constexpr size_t GRAND_PRODUCT_SHIFT_POLYNOMIAL_INDEX = 1;
 
+    // Contains the index of the LAGRANGE FIRST polynomial
+    static constexpr size_t LAGRANGE_FIRST_POLYMONIAL_INDEX = 2;
+
+    // Contains the index of the LAGRANGE LAST polynomial
+    static constexpr size_t LAGRANGE_LAST_POLYMONIAL_INDEX = 3;
+
     // The lhs (read) terms will be COLUMNS_PER_SET long starting from index 1
-    static constexpr size_t COPY_SET_POLYNOMIAL_INDEX = 2;
+    static constexpr size_t COPY_SET_POLYNOMIAL_INDEX = 4;
 
     // The rhs (write) terms will be COLUMNS_PER_SET long starting from the end of COPY_SET
     static constexpr size_t SIGMA_SET_POLYNOMIAL_INDEX = COPY_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
@@ -56,7 +63,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
      *The second relation computes the inverses of individual terms, which are then summed up with sumcheck
      *
      */
-    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
+    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, true };
 
     /**
      * @brief Get the grand product polynomial (needed to compute its value)
@@ -77,6 +84,22 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     }
 
     /**
+     * @brief Get the lagrange first polynomial
+     */
+    template <typename AllEntities> static auto& get_lagrange_first_polynomial(AllEntities& in)
+    {
+        return std::get<LAGRANGE_FIRST_POLYMONIAL_INDEX>(Settings::get_nonconst_entities(in));
+    }
+
+    /**
+     * @brief Get the lagrange last polynomial
+     */
+    template <typename AllEntities> static auto& get_lagrange_last_polynomial(AllEntities& in)
+    {
+        return std::get<LAGRANGE_LAST_POLYMONIAL_INDEX>(Settings::get_nonconst_entities(in));
+    }
+
+    /**
      * @brief Compute the value of a single item in the set
      *
      * @details Computes the polynomial \sum_{i=0}^{num_columns}(\gamma + column^i + id^i*\beta^i), so the tuple of
@@ -90,29 +113,21 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        // Retrieve all polynomials used
-        const auto all_polynomials = Settings::get_const_entities(in);
+        const auto grand_product_contribution_polynomials = Settings::get_const_entities(in);
+
+        const ParameterView& gamma = ParameterView(params.gamma);
+        const ParameterView& beta = ParameterView(params.beta);
 
         auto result = Accumulator(1);
 
-        // Iterate over tuple and sum as a polynomial over beta
+        // For each polynomial in the permuatation sets
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            const auto& value = View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
-            const auto& id = View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
-            const auto& gamma = ParameterView(params.gamma);
-            const auto& beta = ParameterView(params.beta);
+            const View& value = View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(grand_product_contribution_polynomials));
+            const View& id = View(std::get<IDENTITY_SET_POLYNOMIAL_INDEX + i>(grand_product_contribution_polynomials));
 
-            if (i == 0 || i == 1) {
-                info("values for write: ", value, " ", " id    ", id);
-            }
-            if (i == 1) {
-                info("");
-            }
-
-            result = result * (value + gamma + id * beta);
+            result = result * (value + (id * beta) + gamma);
         });
 
-        info("numer result ", result);
         return result;
     }
 
@@ -130,27 +145,19 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        // Get all used entities
-        const auto& all_polynomials = Settings::get_const_entities(in);
+        const auto& grand_product_contribution_polynomials = Settings::get_const_entities(in);
+
+        const ParameterView& gamma = ParameterView(params.gamma);
+        const ParameterView& beta = ParameterView(params.beta);
 
         auto result = Accumulator(1);
         bb::constexpr_for<0, Settings::COLUMNS_PER_SET, 1>([&]<size_t i>() {
-            const auto& value = View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
-            const auto& sigma = View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(all_polynomials));
-            const auto& gamma = ParameterView(params.gamma);
-            const auto& beta = ParameterView(params.beta);
+            const View& value = View(std::get<COPY_SET_POLYNOMIAL_INDEX + i>(grand_product_contribution_polynomials));
+            const View& sigma = View(std::get<SIGMA_SET_POLYNOMIAL_INDEX + i>(grand_product_contribution_polynomials));
 
-            if (i == 0 || i == 1) {
-                info("values for write: ", value, " ", " sigma ", sigma);
-            }
-            if (i == 1) {
-                info("");
-            }
-
-            result = result * (value + gamma + sigma * beta);
+            result = result * (value + (sigma * beta) + gamma);
         });
 
-        info("denom result ", result);
         return result;
     }
 

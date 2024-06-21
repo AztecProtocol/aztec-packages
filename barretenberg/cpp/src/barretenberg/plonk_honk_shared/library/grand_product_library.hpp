@@ -159,6 +159,7 @@ void compute_grand_products(typename Flavor::ProverPolynomials& full_polynomials
     });
 }
 
+// A generic accumulation method for a generic grand product argument
 template <typename FF, typename Relation, typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
 void accumulate_grand_product_subrelation_contributions(ContainerOverSubrelations& accumulator,
                                                         const AllEntities& in,
@@ -170,15 +171,18 @@ void accumulate_grand_product_subrelation_contributions(ContainerOverSubrelation
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
-    const auto grand_product = View(copy_relation.template get_grand_product_polynomial(in));
-    const auto grand_product_shift = View(copy_relation.template get_grand_product_shift_polynomial(in));
+    const View grand_product = View(copy_relation.template get_grand_product_polynomial(in));
+    const View grand_product_shift = View(copy_relation.template get_grand_product_shift_polynomial(in));
+    const View lagrange_first = View(copy_relation.template get_lagrange_first_polynomial(in));
+    const View lagrange_last = View(copy_relation.template get_lagrange_last_polynomial(in));
 
     const Accumulator numerator = copy_relation.template compute_grand_product_numerator<Accumulator>(in, params);
     const Accumulator denominator = copy_relation.template compute_grand_product_denominator<Accumulator>(in, params);
 
-    // TODO: probably need to not enable on the last row
-    // Grand product polynomials will need to be shifted and begin at zero from the start???
-    std::get<0>(accumulator) += ((grand_product * numerator) - (grand_product_shift * denominator)) * scaling_factor;
+    std::get<0>(accumulator) += (((grand_product + lagrange_first) * numerator)) -
+                                ((grand_product_shift + lagrange_last) * denominator) * scaling_factor;
+
+    std::get<1>(accumulator) += (lagrange_last * grand_product_shift) * scaling_factor;
 }
 
 } // namespace bb

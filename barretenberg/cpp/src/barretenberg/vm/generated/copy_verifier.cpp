@@ -67,15 +67,11 @@ bool CopyVerifier::verify_proof(const HonkProof& proof)
     commitments.copy_x = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_x);
     commitments.copy_y = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_y);
     commitments.copy_z = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_z);
+    commitments.copy_main = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_main);
     commitments.id_0 = transcript->template receive_from_prover<Commitment>(commitment_labels.id_0);
     commitments.id_1 = transcript->template receive_from_prover<Commitment>(commitment_labels.id_1);
 
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
-
     // Get commitments to inverses
-    commitments.copy_main = transcript->template receive_from_prover<Commitment>(commitment_labels.copy_main);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
