@@ -64,7 +64,18 @@ variable "P2P_MAX_PEERS" {
 }
 
 variable "P2P_ENABLED" {
-  type = bool
+  type    = bool
+  default = true
+}
+
+variable "PROVING_ENABLED" {
+  type    = bool
+  default = true
+}
+
+variable "AGENTS_PER_SEQUENCER" {
+  type    = string
+  default = 4
 }
 
 variable "AVAILABILITY_ORACLE_CONTRACT_ADDRESS" { type = string }
@@ -74,8 +85,4 @@ variable "INBOX_CONTRACT_ADDRESS" { type = string }
 variable "OUTBOX_CONTRACT_ADDRESS" { type = string }
 variable "GAS_TOKEN_CONTRACT_ADDRESS" { type = string }
 variable "GAS_PORTAL_CONTRACT_ADDRESS" { type = string }
-variable "AGENTS_PER_SEQUENCER" { type = string }
-variable "PROVING_ENABLED" {
-  type    = bool
-  default = true
-}
+
