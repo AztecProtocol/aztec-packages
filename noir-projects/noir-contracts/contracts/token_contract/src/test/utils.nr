@@ -3,7 +3,7 @@ use dep::aztec::{
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
-    oracle::storage::storage_read
+    oracle::{unsafe_rand::unsafe_rand, storage::storage_read}
 };
 
 use crate::{types::{token_note::TokenNote, transparent_note::TransparentNote}, Token};
@@ -44,7 +44,7 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -81,18 +81,14 @@ pub fn check_public_balance(token_contract_address: AztecAddress, address: Aztec
     let balances_slot = Token::storage().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
     let fields = storage_read(address_slot);
-    assert(U128::deserialize(fields).to_field() == address_amount);
+    assert(U128::deserialize(fields).to_field() == address_amount, "Public balance is not correct");
     cheatcodes::set_contract_address(current_contract_address);
 }
 
 pub fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
     let current_contract_address = cheatcodes::get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
-
-    let balances_slot = Token::storage().balances.slot;
-    let address_slot = derive_storage_slot_in_map(balances_slot, address);
-    let mut options = NoteViewerOptions::new();
-    let opt_notes: [Option<TokenNote>; MAX_NOTES_PER_PAGE] = view_notes(address_slot, options);
-    assert(opt_notes[0].unwrap().amount.to_field() == address_amount);
+    let balance_of_private = Token::balance_of_private(address);
+    assert(balance_of_private == address_amount, "Private balance is not correct");
     cheatcodes::set_contract_address(current_contract_address);
 }

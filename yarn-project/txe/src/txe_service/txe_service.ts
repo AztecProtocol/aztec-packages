@@ -521,7 +521,6 @@ export class TXEService {
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {
     const parsedAddress = AztecAddress.fromField(fromSingle(address));
     const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
-
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
   }
 
@@ -637,5 +636,13 @@ export class TXEService {
       publicCallRequest.getArgsHash(),
     ];
     return toForeignCallResult([toArray(fields)]);
+  }
+
+  async getChainId() {
+    return toForeignCallResult([toSingle(await this.typedOracle.getChainId())]);
+  }
+
+  async getVersion() {
+    return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
   }
 }

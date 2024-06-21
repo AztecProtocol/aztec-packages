@@ -2,8 +2,6 @@ use crate::test::utils;
 use dep::aztec::test::helpers::cheatcodes;
 use crate::Token;
 
-// Access control
-
 #[test]
 unconstrained fn access_control() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough

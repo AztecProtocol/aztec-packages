@@ -63,7 +63,7 @@ unconstrained fn mint_private_success() {
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -94,7 +94,7 @@ unconstrained fn mint_private_failure_double_spend() {
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -129,12 +129,12 @@ unconstrained fn mint_private_failure_double_spend() {
 #[test(should_fail_with="caller is not minter")]
 unconstrained fn mint_private_failure_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Try to mint some tokens impersonating recipient
     cheatcodes::set_contract_address(recipient);
 
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -147,7 +147,7 @@ unconstrained fn mint_private_failure_overflow() {
 
     // Overflow recipient
     let mint_amount = 2.pow_32(128);
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -156,10 +156,10 @@ unconstrained fn mint_private_failure_overflow() {
 #[test(should_fail_with="attempt to add with overflow")]
 unconstrained fn mint_private_failure_overflow_recipient() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -185,7 +185,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
 
     let mint_amount = 2.pow_32(128) - mint_amount;
     // Mint some tokens
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -197,8 +197,8 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret_owner = 1;
-    let secret_recipient = 2;
+    let secret_owner = unsafe_rand();
+    let secret_recipient = unsafe_rand();
     let secret_hash_owner = compute_secret_hash(secret_owner);
     let secret_hash_recipient = compute_secret_hash(secret_recipient);
 
@@ -241,7 +241,7 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     cheatcodes::set_contract_address(owner);
     let mint_amount = 2.pow_32(128) - 2 * mint_amount;
     // Try to mint some tokens
-    let secret = 1;
+    let secret = unsafe_rand();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);

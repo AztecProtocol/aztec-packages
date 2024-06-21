@@ -39,7 +39,7 @@ import { Aes128, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type FunctionAbi, FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fq, Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
@@ -102,20 +102,12 @@ export class TXE implements TypedOracle {
 
   // Utils
 
-  getChainId(): Promise<Fr> {
-    return Promise.resolve(this.chainId);
+  async getChainId() {
+    return this.chainId;
   }
 
-  getVersion(): Promise<Fr> {
-    return Promise.resolve(this.version);
-  }
-
-  setChainId(chainId: Fr) {
-    this.chainId = chainId;
-  }
-
-  setVersion(version: Fr) {
-    this.version = version;
+  async getVersion() {
+    return this.version;
   }
 
   getMsgSender() {
@@ -171,7 +163,12 @@ export class TXE implements TypedOracle {
     await this.txeDatabase.addContractArtifact(computeContractClassId(contractClass), artifact);
   }
 
-  async getPrivateContextInputs(blockNumber: number, sideEffectsCounter = this.sideEffectsCounter) {
+  async getPrivateContextInputs(
+    blockNumber: number,
+    sideEffectsCounter = this.sideEffectsCounter,
+    isStaticCall = false,
+    isDelegateCall = false,
+  ) {
     const trees = this.getTrees();
     const stateReference = await trees.getStateReference(true);
     const inputs = PrivateContextInputs.empty();
@@ -180,6 +177,8 @@ export class TXE implements TypedOracle {
     inputs.callContext.msgSender = this.msgSender;
     inputs.callContext.storageContractAddress = this.contractAddress;
     inputs.callContext.sideEffectCounter = sideEffectsCounter;
+    inputs.callContext.isStaticCall = isStaticCall;
+    inputs.callContext.isDelegateCall = isDelegateCall;
     inputs.startSideEffectCounter = sideEffectsCounter;
     inputs.callContext.functionSelector = this.functionSelector;
     return inputs;
@@ -208,14 +207,14 @@ export class TXE implements TypedOracle {
     const db = this.trees.asLatest();
     const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
-    return Promise.resolve();
+    return;
   }
 
   async avmOpcodeEmitNoteHash(innerNoteHash: Fr) {
     const db = this.trees.asLatest();
     const noteHash = siloNoteHash(this.contractAddress, innerNoteHash);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
-    return Promise.resolve();
+    return;
   }
 
   deriveKeys(secret: Fr) {
@@ -233,28 +232,28 @@ export class TXE implements TypedOracle {
 
   // TypedOracle
 
-  getBlockNumber(): Promise<number> {
-    return Promise.resolve(this.blockNumber);
+  async getBlockNumber() {
+    return this.blockNumber;
   }
 
-  getContractAddress(): Promise<AztecAddress> {
-    return Promise.resolve(this.contractAddress);
+  async getContractAddress() {
+    return this.contractAddress;
   }
 
   getRandomField() {
     return Fr.random();
   }
 
-  packArgumentsArray(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(args));
+  async packArgumentsArray(args: Fr[]): Promise<Fr> {
+    return this.packedValuesCache.pack(args);
   }
 
-  packReturns(returns: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
+  async packReturns(returns: Fr[]): Promise<Fr> {
+    return this.packedValuesCache.pack(returns);
   }
 
-  unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+  async unpackReturns(returnsHash: Fr): Promise<Fr[]> {
+    return this.packedValuesCache.unpack(returnsHash);
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -266,7 +265,7 @@ export class TXE implements TypedOracle {
     if (!contractInstance) {
       throw new Error(`Contract instance not found for address ${address}`);
     }
-    return Promise.resolve(contractInstance);
+    return contractInstance;
   }
 
   getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
@@ -333,19 +332,19 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.resolve(this.txeDatabase.getAccount(account));
+  async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+    return this.txeDatabase.getAccount(account);
   }
 
   async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return await this.txeDatabase.getAuthWitness(messageHash);
+    return this.txeDatabase.getAuthWitness(messageHash);
   }
 
   popCapsule(): Promise<Fr[]> {
     throw new Error('Method not implemented.');
   }
 
-  getNotes(
+  async getNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -388,7 +387,7 @@ export class TXE implements TypedOracle {
         .join(', ')}`,
     );
 
-    return Promise.resolve(notes);
+    return notes;
   }
 
   async notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr, counter: number) {
@@ -414,7 +413,7 @@ export class TXE implements TypedOracle {
     const db = this.trees.asLatest();
     const siloedNullifier = siloNullifier(this.contractAddress, innerNullifier);
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
-    return Promise.resolve();
+    return;
   }
 
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
@@ -512,8 +511,8 @@ export class TXE implements TypedOracle {
     functionSelector: FunctionSelector,
     argsHash: Fr,
     sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
     this.logger.verbose(
       `Executing external function ${targetContractAddress}:${functionSelector}(${await this.getDebugFunctionName(
@@ -533,7 +532,13 @@ export class TXE implements TypedOracle {
     const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
 
     const acir = artifact.bytecode;
-    const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter);
+    const initialWitness = await this.getInitialWitness(
+      artifact,
+      argsHash,
+      sideEffectCounter,
+      isStaticCall,
+      isDelegateCall,
+    );
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     try {
@@ -547,12 +552,8 @@ export class TXE implements TypedOracle {
           extractCallStack(err, artifact.debug),
           { cause: err },
         );
-        this.logger.debug(
-          `Error executing private function ${targetContractAddress}:${functionSelector}\n${createSimulationError(
-            execError,
-          )}`,
-        );
-        throw execError;
+        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+        throw createSimulationError(execError);
       });
       const duration = timer.ms();
       const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
@@ -584,7 +585,13 @@ export class TXE implements TypedOracle {
     }
   }
 
-  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number) {
+  async getInitialWitness(
+    abi: FunctionAbi,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ) {
     const argumentsSize = countArgumentsSize(abi);
 
     const args = this.packedValuesCache.unpack(argsHash);
@@ -593,7 +600,12 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const privateContextInputs = await this.getPrivateContextInputs(this.blockNumber - 1, sideEffectCounter);
+    const privateContextInputs = await this.getPrivateContextInputs(
+      this.blockNumber - 1,
+      sideEffectCounter,
+      isStaticCall,
+      isDelegateCall,
+    );
 
     const fields = [...privateContextInputs.toFields(), ...args];
 
@@ -603,21 +615,21 @@ export class TXE implements TypedOracle {
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(address);
     if (!instance) {
-      return Promise.resolve(undefined);
+      return undefined;
     }
     const artifact = await this.contractDataOracle.getContractArtifact(instance!.contractClassId);
     if (!artifact) {
-      return Promise.resolve(undefined);
+      return undefined;
     }
 
     const f = artifact.functions.find(f =>
       FunctionSelector.fromNameAndParameters(f.name, f.parameters).equals(selector),
     );
     if (!f) {
-      return Promise.resolve(undefined);
+      return undefined;
     }
 
-    return Promise.resolve(`${artifact.name}:${f.name}`);
+    return `${artifact.name}:${f.name}`;
   }
 
   async executePublicFunction(

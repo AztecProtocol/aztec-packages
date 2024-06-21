@@ -24,22 +24,33 @@ unconstrained fn burn_public_success() {
 }
 
 #[test]
-unconstrained fn burn_public_failure() {
-    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
+unconstrained fn burn_public_failure_more_than_balance() {
+    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Burn more than balance 
     let burn_amount = mint_amount * 10;
     let burn_call_interface = Token::at(token_contract_address).burn_public(owner, burn_amount, 0);
     env.assert_public_call_fails(burn_call_interface);
     utils::check_public_balance(token_contract_address, owner, mint_amount);
+}
+
+#[test]
+unconstrained fn burn_public_failure_on_behalf_of_self_non_zero_nonce() {
+    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Burn on behalf of self with non-zero nonce
     let burn_amount = mint_amount / 10;
     let burn_call_interface = Token::at(token_contract_address).burn_public(owner, burn_amount, unsafe_rand());
     env.assert_public_call_fails(burn_call_interface);
     utils::check_public_balance(token_contract_address, owner, mint_amount);
+}
+
+#[test]
+unconstrained fn burn_public_failure_on_behalf_of_other_without_approval() {
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
 
     // Burn on behalf of other without approval
+    let burn_amount = mint_amount / 10;
     let burn_call_interface = Token::at(token_contract_address).burn_public(owner, burn_amount, unsafe_rand());
     // Impersonate recipient to perform the call
     cheatcodes::set_contract_address(recipient);
@@ -56,17 +67,34 @@ unconstrained fn burn_public_failure() {
 }
 
 #[test]
-unconstrained fn burn_private_success() {
+unconstrained fn burn_public_failure_on_behalf_of_other_wrong_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
+
+    // Burn on behalf of other, wrong designated caller
+    let burn_amount = mint_amount / 10;
+    let burn_call_interface = Token::at(token_contract_address).burn_public(owner, burn_amount, unsafe_rand());
+    authwit_cheatcodes::add_public_authwit_from_call_interface(owner, owner, burn_call_interface);
+    // Impersonate recipient to perform the call
+    cheatcodes::set_contract_address(recipient);
+    env.assert_public_call_fails(burn_call_interface);
+    utils::check_public_balance(token_contract_address, owner, mint_amount);
+}
+
+#[test]
+unconstrained fn burn_private_on_behalf_of_self() {
+    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     let burn_amount = mint_amount / 10;
 
     // Burn less than balance 
     let burn_call_interface = Token::at(token_contract_address).burn(owner, burn_amount, 0);
     env.call_private_void(burn_call_interface);
     utils::check_private_balance(token_contract_address, owner, mint_amount - burn_amount);
+}
 
-    // Another misterious initializer nullifier failure
-    env.advance_block_by(1);
+#[test]
+unconstrained fn burn_private_on_behalf_of_other() {
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
+    let burn_amount = mint_amount / 10;
 
     // Burn on behalf of other
     let burn_call_interface = Token::at(token_contract_address).burn(owner, burn_amount, unsafe_rand());
@@ -75,7 +103,7 @@ unconstrained fn burn_private_success() {
     cheatcodes::set_contract_address(recipient);
     // Burn tokens
     env.call_private_void(burn_call_interface);
-    utils::check_private_balance(token_contract_address, owner, mint_amount - 2 * burn_amount);
+    utils::check_private_balance(token_contract_address, owner, mint_amount - burn_amount);
 }
 
 #[test(should_fail_with="Balance too low")]

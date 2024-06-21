@@ -1,4 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
+import { Fr } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -58,7 +59,7 @@ class TXEDispatcher {
  * @returns A running http server.
  */
 export function startTXEHttpServer(dispatcher: TXEDispatcher, port: string | number): http.Server {
-  const txeServer = new JsonRpcServer(dispatcher, {}, {}, ['init']);
+  const txeServer = new JsonRpcServer(dispatcher, { Fr }, {}, ['init']);
 
   const app = txeServer.getApp();
   const httpServer = http.createServer(app.callback());
