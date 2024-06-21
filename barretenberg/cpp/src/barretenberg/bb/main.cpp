@@ -749,7 +749,12 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
-
+    // info("q_m");
+    // uint64_t circuit_hash = builder.hash_circuit().data[0];
+    // info("hashing circuit: ", circuit_hash);
+    // std::ofstream file("../../../q_m-" + std::to_string(circuit_hash));
+    // file << builder.blocks.arithmetic.q_m();
+    // file.close();
     // Construct Honk proof
     Prover prover{ builder };
     return prover;
@@ -774,6 +779,18 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
+    typename Flavor::VerificationKey vk(prover.instance->proving_key);
+    info("vk size: ",
+         vk.circuit_size,
+         ", num public inputs: ",
+         vk.num_public_inputs,
+         ", pub input offset: ",
+         vk.pub_inputs_offset,
+         ", hash: ",
+         vk.hash());
+    // for (auto comm : vk.get_all()) {
+    //     info("comm: ", comm);
+    // }
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {
@@ -809,10 +826,20 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-
-    Verifier verifier{ verification_key };
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+    // info("vk size: ",
+    //      vk->circuit_size,
+    //      ", num public inputs: ",
+    //      vk->num_public_inputs,
+    //      ", pub input offset: ",
+    //      vk->pub_inputs_offset,
+    //      ", hash: ",
+    //      vk.hash());
+    // for (auto comm : vk->get_all()) {
+    //     info("comm: ", comm);
+    // }
+    Verifier verifier{ vk };
 
     bool verified = verifier.verify_proof(proof);
 
@@ -841,7 +868,17 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& witnessPa
     ProverInstance& prover_inst = *prover.instance;
     VerificationKey vk(
         prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
-
+    info("vk size: ",
+         vk.circuit_size,
+         ", num public inputs: ",
+         vk.num_public_inputs,
+         ", pub input offset: ",
+         vk.pub_inputs_offset,
+         ", hash: ",
+         vk.hash());
+    // for (auto comm : vk.get_all()) {
+    //     info("comm: ", comm);
+    // }
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);
