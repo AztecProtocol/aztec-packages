@@ -34,11 +34,12 @@ pub fn private_functions_root_from_siblings(
     root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path)
 }
 
-fn compute_note_hash_nonce(first_nullifier: Field, note_hash_index: u32) -> Field {
+fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
+    // Hashing tx hash with note index in tx is guaranteed to be unique
     pedersen_hash(
         [
-        first_nullifier,
-        note_hash_index as Field
+        tx_hash,
+        note_index_in_tx as Field
     ],
         GENERATOR_INDEX__NOTE_HASH_NONCE
     )
@@ -63,7 +64,6 @@ pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_t
     if note_hash.contract_address.is_zero() {
         0
     } else {
-        // Hashing tx hash with note index in tx is guaranteed to be unique
         let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
         let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
         compute_siloed_note_hash(note_hash.contract_address, unique_note_hash)
