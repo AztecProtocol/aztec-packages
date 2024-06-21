@@ -1,0 +1,629 @@
+  [31;1mrandomness_singleton[0m Using true randomness
+  [34;1msnapshot_manager:full_prover_integration/full_prover WARN[0m No data path given, will not persist any snapshots.
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Initializing state...
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Starting anvil...
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Deploying L1 contracts...
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Deployed Registry at 0x5fbdb2315678afecb367f032d93f642f64180aa3
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Deployed AvailabilityOracle at 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Deployed Gas Token at 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Deployed Rollup at 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Inbox available at 0x6d544390eb535d61e196c87d6b9c80dcd8628acd
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Outbox available at 0xb1ede3f5ac8654124cb5124adf0fd3885cbdd1f7
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Deployed Gas Portal at 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Initialized Gas Portal at 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707 to bridge between L1 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0 to L2 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889
+  [34;1msnapshot_manager:full_prover_integration/full_prover INFO[0m Funded rollup contract with gas tokens
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Using native ACVM binary at ../../noir/noir-repo/target/release/acvm with working directory /tmp/3b562dc3/acvm
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Creating and synching an aztec node...
+  [35;1mnode:lmdb INFO[0m Opening LMDB database at temporary location
+  [34;1marchiver INFO[0m Performing initial chain sync...
+  [31;1mworld_state INFO[0m Started block downloader from block 1
+  [31;1mp2p[0m Next block 1 already beyond latest block at 0
+  [31;1mp2p[0m Started block downloader from block 1
+  [31;1mnode INFO[0m Using native ACVM at ../../noir/noir-repo/target/release/acvm and working directory /tmp/3b562dc3/acvm
+  [35;1marchiver:block_store[0m Clamping start block 0 to 1
+  [34;1mprover-client:prover-pool:queue INFO[0m Proving queue started
+  [34;1mprover-client:prover-agent INFO[0m Agent started with concurrency=1
+  [33;1msequencer[0m Initialized sequencer with 1-32 txs per block.
+  [33;1msequencer INFO[0m Sequencer started
+  [31;1mnode INFO[0m Started Aztec Node against chain 0x7a69 with contracts - 
+Rollup: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
+Registry: 0x5fbdb2315678afecb367f032d93f642f64180aa3
+Inbox: 0x6d544390eb535d61e196c87d6b9c80dcd8628acd
+Outbox: 0xb1ede3f5ac8654124cb5124adf0fd3885cbdd1f7
+Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Creating pxe...
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [35;1marchiver:block_store[0m Clamping start block 0 to 1
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [36;1mpxe_service INFO[0m Added contract ContractClassRegisterer at 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417
+  [36;1mpxe_service INFO[0m Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934
+  [36;1mpxe_service INFO[0m Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b
+  [36;1mpxe_service INFO[0m Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889
+  [36;1mpxe_service INFO[0m Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351
+  [35;1marchiver:block_store[0m Clamping start block 0 to 1
+  [34;1mpxe_synchronizer INFO[0m Initial sync complete
+  [36;1mpxe_service INFO[0m Started PXE connected to chain 31337 version 1
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Deploying key registry...
+  [36;1mpxe_service INFO[0m Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351
+  [32;1mjs:contract_interaction INFO[0m Creating request for registering contract class 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46 as part of deployment for 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:0x60dc069d(MultiCallEntrypoint:entrypoint)
+  [36;1msimulator:secret_execution[0m Executing external function 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417:0x98bc6593(ContractClassRegisterer:register)
+  [31;1msimulator:client_execution_context[0m debug_log ContractClassRegistered: 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46,0x23e2d15ea4a2510192615125560d92335d7f0d0db9d6d96edb2d4aca282ed6a9,0x15d28cad4c0736decea8997cb324cf0a0e0602f4d74472cd977bce2c8dd9923f,0x0000000000000000000000000000000000000000000000000000000000000005
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..."
+  [36;1msimulator:secret_execution[0m Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy)
+  [31;1msimulator:client_execution_context[0m debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351,0x0000000000000000000000000000000000000000000000000000000000000001,0x0000000000000000000000000000000000000000000000000000000000000001,0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46,0x0000000000000000000000000000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000000000000000000000000000
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..."
+  [36;1mpxe_service[0m Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint
+  [31;1mnode INFO[0m Simulating tx 2aee81cb7a3d6e8140a1a731ad5b9c17efbad21d6001e7587e685139823d4df2
+  [35;1marchiver:block_store[0m Clamping start block 0 to 1
+  [35;1marchiver:block_store[0m Clamping start block 0 to 1
+  [36;1mpxe_service INFO[0m Sending transaction 2aee81cb7a3d6e8140a1a731ad5b9c17efbad21d6001e7587e685139823d4df2
+  [31;1mnode INFO[0m Received tx 2aee81cb7a3d6e8140a1a731ad5b9c17efbad21d6001e7587e685139823d4df2
+  [36;1mtx_pool INFO[0m Adding tx with id 2aee81cb7a3d6e8140a1a731ad5b9c17efbad21d6001e7587e685139823d4df2 eventName=tx-added-to-pool txHash=2aee81cb7a3d6e8140a1a731ad5b9c17efbad21d6001e7587e685139823d4df2 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=2 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=640512 newCommitmentCount=0 newNullifierCount=3 proofSize=42 size=650697 feePaymentMethod=none classRegisteredCount=1
+  [35;1marchiver:block_store[0m Clamping start block 0 to 1
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.2663578987121582 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.3573446273803711 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.422818660736084 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 1 with 1 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 1
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.13385915756225586 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.32801294326782227 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.37314510345458984 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 2aee81cb7a3d6e8140a1a731ad5b9c17efbad21d6001e7587e685139823d4df2
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 1!
+  [33;1msequencer[0m Assembled block 1 eventName=l2-block-built duration=2139.445287704468 publicProcessDuration=266.77684211730957 rollupCircuitsDuration=1986.5103340148926 txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512
+  [33;1msequencer:publisher INFO[0m TxEffects size=640761 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x004865b6d10cc51c33464df26e4a6174d4d90a279c823c81f1e887955e5191f9
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1344888747 gasUsed=634691 transactionHash=0x917bd5ad3343a7e8be5d9223b2d7afbf8a65d2f89f7112470600b223ff5a773c calldataGas=9404 calldataSize=1412 txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 1 with 1 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 1 and 10.
+  [34;1marchiver[0m Registering contract class 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46
+  [34;1marchiver[0m Storing contract instance at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 1 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=96.46457862854004 isBlockOurs=true txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512
+  [34;1mjs:deploy_sent_tx INFO[0m Contract 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 successfully deployed.
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Applying state transition for 2_accounts...
+  [36;1mfull_prover_test:full_prover[0m Simulating account deployment...
+  [36;1mpxe_service INFO[0m Registered account 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [36;1mpxe_service INFO[0m Added contract SchnorrAccount at 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:0x60dc069d(MultiCallEntrypoint:entrypoint)
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0xaf9f8c44(SchnorrAccount:constructor)
+  [36;1mpxe_service[0m Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint
+  [31;1mnode INFO[0m Simulating tx 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b
+  [36;1mpxe_service INFO[0m Registered account 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [36;1mpxe_service INFO[0m Added contract SchnorrAccount at 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:0x60dc069d(MultiCallEntrypoint:entrypoint)
+  [36;1msimulator:secret_execution[0m Executing external function 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2:0xaf9f8c44(SchnorrAccount:constructor)
+  [36;1mpxe_service[0m Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint
+  [31;1mnode INFO[0m Simulating tx 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777
+  [36;1mfull_prover_test:full_prover[0m Deploying accounts...
+  [36;1mpxe_service INFO[0m Sending transaction 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b
+  [31;1mnode INFO[0m Received tx 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b
+  [36;1mpxe_service INFO[0m Sending transaction 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777
+  [31;1mnode INFO[0m Received tx 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777
+  [36;1mtx_pool INFO[0m Adding tx with id 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b eventName=tx-added-to-pool txHash=17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=3 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0
+  [36;1mtx_pool INFO[0m Adding tx with id 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777 eventName=tx-added-to-pool txHash=131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777 noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=3 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.10933828353881836 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.2591371536254883 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.29365968704223633 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.15174055099487305 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.1621108055114746 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.20284414291381836 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 2 with 2 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 2
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.050952911376953125 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.1534409523010254 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.1942129135131836 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.13746976852416992 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.29287004470825195 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.3301730155944824 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 2!
+  [33;1msequencer[0m Assembled block 2 eventName=l2-block-built duration=1894.1122026443481 publicProcessDuration=384.213397026062 rollupCircuitsDuration=1887.0462002754211 txCount=2 blockNumber=2 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16
+  [33;1msequencer:publisher INFO[0m TxEffects size=1734 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x0006ba3acfbe43e3ff5e7263b1ea490c495beee879e8fba3a0b1170f2676940e
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1266496577 gasUsed=610297 transactionHash=0x3df4973d623ee24d6cb5ad1264beb7d0e74aacae17d91c514e51528cf18a320b calldataGas=9476 calldataSize=1412 txCount=2 blockNumber=2 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 2 with 2 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 11 and 12.
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 2 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=75.27791023254395 isBlockOurs=true txCount=2 blockNumber=2 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [33;1mnote_processor[0m Added incoming note for contract 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 with nullifier 0x1161090055dba2f0db183c029a710768080af9c8254afe2a18a51c7d54eb93bc
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [33;1mnote_processor[0m Added incoming note for contract 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 with nullifier 0x01b48cf96c8a7ce547027dc29a10b195255547cb9e7f4c0406c2d02fc920d51d
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m State transition for 2_accounts complete.
+  [36;1mfull_prover_test:full_prover[0m Wallet 0 address: 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [36;1mfull_prover_test:full_prover[0m Wallet 1 address: 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Applying state transition for client_prover_integration...
+  [36;1mfull_prover_test:full_prover[0m Public deploy accounts...
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [36;1msimulator:secret_execution[0m Executing external function 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417:0x98bc6593(ContractClassRegisterer:register)
+  [31;1msimulator:client_execution_context[0m debug_log ContractClassRegistered: 0x28b05de1b208c9474f6f796564e30890657db748c497eeb03c7d1bacb0d9fe70,0x210ca6537bc9b306eb3a024053fa6fdd88c58ab21e782807893ebc9c4707cf22,0x2e8cc6fa55ddb080752ad6ca01538b0d7f88de4122227bd9cbe9be9e771864f3,0x0000000000000000000000000000000000000000000000000000000000000005
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..."
+  [36;1msimulator:secret_execution[0m Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy)
+  [31;1msimulator:client_execution_context[0m debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03,0x0000000000000000000000000000000000000000000000000000000000000001,0x0000000000000000000000000000000000000000000000000000000000000001,0x28b05de1b208c9474f6f796564e30890657db748c497eeb03c7d1bacb0d9fe70,0x1916c2c687b4fd9a120b065fb1a267e6ceac541b27069cac0aec286d5da8333b,0x2ffc2cf9e23a8eca950c3f21e946259a3b777acee2acc73cdd982bd8909ff4d0,0x0000000000000000000000000000000000000000000000000000000000000000
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..."
+  [36;1msimulator:secret_execution[0m Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy)
+  [31;1msimulator:client_execution_context[0m debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2,0x0000000000000000000000000000000000000000000000000000000000000001,0x0000000000000000000000000000000000000000000000000000000000000001,0x28b05de1b208c9474f6f796564e30890657db748c497eeb03c7d1bacb0d9fe70,0x2d1fba01e7a3af1828ee2fb8a706d63ccc9c47574ab2c36c1d830a867b211305,0x1978ac60ba274c3142ecbdfdb4165422577369469b3c6de0920b470f8ab715c9,0x0000000000000000000000000000000000000000000000000000000000000000
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..."
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 0a65291bc7a9c7d4fb0e332d8f2dbc2a0a931fa7cc81e32e807827d321db880c
+  [36;1mpxe_service INFO[0m Sending transaction 0a65291bc7a9c7d4fb0e332d8f2dbc2a0a931fa7cc81e32e807827d321db880c
+  [31;1mnode INFO[0m Received tx 0a65291bc7a9c7d4fb0e332d8f2dbc2a0a931fa7cc81e32e807827d321db880c
+  [36;1mtx_pool INFO[0m Adding tx with id 0a65291bc7a9c7d4fb0e332d8f2dbc2a0a931fa7cc81e32e807827d321db880c eventName=tx-added-to-pool txHash=0a65291bc7a9c7d4fb0e332d8f2dbc2a0a931fa7cc81e32e807827d321db880c noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=3 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=640812 newCommitmentCount=0 newNullifierCount=4 proofSize=42 size=650997 feePaymentMethod=none classRegisteredCount=1
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.09897708892822266 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.25551843643188477 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.3026900291442871 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.33416318893432617 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 3 with 1 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 3
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.10780715942382812 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.2974100112915039 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.3398628234863281 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.37451601028442383 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 0a65291bc7a9c7d4fb0e332d8f2dbc2a0a931fa7cc81e32e807827d321db880c
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 3!
+  [33;1msequencer[0m Assembled block 3 eventName=l2-block-built duration=2091.735915660858 publicProcessDuration=280.09439420700073 rollupCircuitsDuration=1975.013000011444 txCount=1 blockNumber=3 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812
+  [33;1msequencer:publisher INFO[0m TxEffects size=641093 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x00a4adae448a08c9914f76bd98af9df118fac907ef11bf373e565b1b20639abf
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1220445176 gasUsed=610285 transactionHash=0x08f86326d27f40895381eeaa7803aa9ea0a6e1f9c37d230bea68fcf291ccaf8b calldataGas=9464 calldataSize=1412 txCount=1 blockNumber=3 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 3 with 1 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 13 and 14.
+  [34;1marchiver[0m Registering contract class 0x28b05de1b208c9474f6f796564e30890657db748c497eeb03c7d1bacb0d9fe70
+  [34;1marchiver[0m Storing contract instance at 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [34;1marchiver[0m Storing contract instance at 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 3 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=57.28530979156494 isBlockOurs=true txCount=1 blockNumber=3 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812
+  [36;1mfull_prover_test:full_prover[0m Deploying TokenContract...
+  [36;1mpxe_service INFO[0m Added contract Token at 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  [32;1mjs:contract_interaction INFO[0m Creating request for registering contract class 0x0abf0fa8fc45c91280564fba308e147cb1c947522d4f4ace63d869a3d72c24ca as part of deployment for 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [36;1msimulator:secret_execution[0m Executing external function 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417:0x98bc6593(ContractClassRegisterer:register)
+  [31;1msimulator:client_execution_context[0m debug_log ContractClassRegistered: 0x0abf0fa8fc45c91280564fba308e147cb1c947522d4f4ace63d869a3d72c24ca,0x174cb48f57132eb446f0cab26dd120652390447779e2604a32a9765eadb09f84,0x0488114b880887348c50fbaeebde008bfca23238238be04c262ea0fd4d050bf8,0x0000000000000000000000000000000000000000000000000000000000000005
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..."
+  [36;1msimulator:secret_execution[0m Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy)
+  [31;1msimulator:client_execution_context[0m debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899,0x0000000000000000000000000000000000000000000000000000000000000001,0x20fc9d960f85fc554767810ad4e58fe92827cc924fd8ef430d99e80b028a6f13,0x0abf0fa8fc45c91280564fba308e147cb1c947522d4f4ace63d869a3d72c24ca,0x257badbed18519e1c6d98a7a1d5f87b00096dc5ada3b2a42f00e2ea09f9ce27b,0x0000000000000000000000000000000000000000000000000000000000000000,0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [31;1msimulator:client_execution_context[0m Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..."
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [12] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x9a397c37(constructor)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [36;1msequencer:app-logic[0m Processing tx 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:constructor.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07033491134643555 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:constructor returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:constructor duration=67.09381103515625
+  [33;1msequencer:tail[0m Processing tx 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [36;1mpxe_service INFO[0m Sending transaction 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [31;1mnode INFO[0m Received tx 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [36;1mtx_pool INFO[0m Adding tx with id 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a eventName=tx-added-to-pool txHash=30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=2 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=640512 newCommitmentCount=0 newNullifierCount=3 proofSize=42 size=734313 feePaymentMethod=none classRegisteredCount=1
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.09956693649291992 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.2483062744140625 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.2960700988769531 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 4 with 1 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 4
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [36;1msequencer:app-logic[0m Processing tx 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:constructor.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.043763160705566406 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:constructor returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:constructor duration=59.66854286193848
+  [33;1msequencer:tail[0m Processing tx 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.16346073150634766 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.48554325103759766 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.53277587890625 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.5687789916992188 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 30586bf3c6bf874c23b9ddabd7c9e7c108b5e559c45633dbab967d0bf53b8a7a
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 4!
+  [33;1msequencer[0m Assembled block 4 eventName=l2-block-built duration=7186.038088798523 publicProcessDuration=2941.776246070862 rollupCircuitsDuration=7025.243137359619 txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516
+  [33;1msequencer:publisher INFO[0m TxEffects size=641309 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x0040810d82bc504834fc2eeb2aa8506148cd02731d2d4cc1de733ebf79495c12
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1183011688 gasUsed=610297 transactionHash=0x170cc05118bdb8fcc3650778f604ed6dec8d753730015541e88b843e8dc6b9f7 calldataGas=9476 calldataSize=1412 txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 4 with 1 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 15 and 16.
+  [34;1marchiver[0m Registering contract class 0x0abf0fa8fc45c91280564fba308e147cb1c947522d4f4ace63d869a3d72c24ca
+  [34;1marchiver[0m Storing contract instance at 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 4 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=62.036755084991455 isBlockOurs=true txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516
+  [34;1mjs:deploy_sent_tx INFO[0m Contract 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899 successfully deployed.
+  [36;1mfull_prover_test:full_prover[0m Token deployed to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m State transition for client_prover_integration complete.
+  [36;1mfull_prover_test:full_prover[0m Token contract address: 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0xf851a440(admin)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 05c20a06301fd918eadf9eefd10007446367bae6de1e3868c6af069cd02fee82
+  [36;1msequencer:app-logic[0m Processing tx 05c20a06301fd918eadf9eefd10007446367bae6de1e3868c6af069cd02fee82
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:admin.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.10745763778686523 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:admin returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:admin duration=7.236615180969238
+  [33;1msequencer:tail[0m Processing tx 05c20a06301fd918eadf9eefd10007446367bae6de1e3868c6af069cd02fee82
+  [36;1mpxe_service INFO[0m Executed local simulation for 05c20a06301fd918eadf9eefd10007446367bae6de1e3868c6af069cd02fee82
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m Applying state transition for mint...
+  [36;1mfull_prover_test:full_prover[0m Minting 10000 publicly...
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x6bfd1d5b(mint_public)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [36;1msequencer:app-logic[0m Processing tx 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:mint_public.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.09236574172973633 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:mint_public returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:mint_public duration=30.12174081802368
+  [33;1msequencer:tail[0m Processing tx 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [36;1mpxe_service INFO[0m Sending transaction 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [31;1mnode INFO[0m Received tx 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [36;1mtx_pool INFO[0m Adding tx with id 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10 eventName=tx-added-to-pool txHash=1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=0 newNullifierCount=1 proofSize=42 size=91825 feePaymentMethod=none classRegisteredCount=0
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.06735515594482422 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 5 with 1 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 5
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [36;1msequencer:app-logic[0m Processing tx 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:mint_public.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07166481018066406 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:mint_public returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:mint_public duration=34.08581209182739
+  [33;1msequencer:tail[0m Processing tx 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.21167421340942383 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 1db35cd4a2ea534b8275571820cab9e02c729f0cffe6567b399b7f1b61d65a10
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 5!
+  [33;1msequencer[0m Assembled block 5 eventName=l2-block-built duration=6197.490846157074 publicProcessDuration=2429.5533418655396 rollupCircuitsDuration=6172.1088099479675 txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12
+  [33;1msequencer:publisher INFO[0m TxEffects size=325 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x000b00b74c3dfd1b15debcc00e439af6e27ab4aee4ef2d9d936bb68e60868c83
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1141152361 gasUsed=610273 transactionHash=0x01ee25cdd2f41415612aded3d619a8dedfe573bd91e1892914dc490ef2613e23 calldataGas=9452 calldataSize=1412 txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 5 with 1 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 17 and 18.
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 5 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=54.31805610656738 isBlockOurs=true txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12
+  [36;1mfull_prover_test:full_prover[0m Minting 10000 privately...
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x10763932(mint_private)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [36;1msequencer:app-logic[0m Processing tx 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:mint_private.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.06671380996704102 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:mint_private returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:mint_private duration=16.0144362449646
+  [33;1msequencer:tail[0m Processing tx 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [36;1mpxe_service INFO[0m Sending transaction 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [31;1mnode INFO[0m Received tx 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [36;1mtx_pool INFO[0m Adding tx with id 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195 eventName=tx-added-to-pool txHash=29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=0 newNullifierCount=1 proofSize=42 size=91825 feePaymentMethod=none classRegisteredCount=0
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.06258392333984375 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 6 with 1 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 6
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [36;1msequencer:app-logic[0m Processing tx 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:mint_private.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07511520385742188 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:mint_private returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:mint_private duration=53.183557987213135
+  [33;1msequencer:tail[0m Processing tx 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07042503356933594 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 29f7c13ced55fe2910f561b6061db9586ce1ad105b48314c90a8240a5d051195
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 6!
+  [33;1msequencer[0m Assembled block 6 eventName=l2-block-built duration=6045.268504142761 publicProcessDuration=2337.254608154297 rollupCircuitsDuration=6019.1253452301025 txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12
+  [33;1msequencer:publisher INFO[0m TxEffects size=293 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x00344dfa5f24c577adfdaa07683d2975402fe7b07e1a85f61229d850d610a691
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1108867218 gasUsed=610285 transactionHash=0x0c436c26b049d622a7d838e8ced8c4c0d0eaa932a8f39e43553d161799f459f1 calldataGas=9464 calldataSize=1412 txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 6 with 1 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 19 and 20.
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 6 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=72.92393970489502 isBlockOurs=true txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  console.log
+    exec request is private? undefined
+
+      at ../../pxe/src/pxe_service/pxe_service.ts:477:15
+
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [36;1msimulator:secret_execution[0m Executing external function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0xb77168f2(Token:redeem_shield)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 019db6a267eafe08b9fc2d4ee78729e47bebee3a11035888cf0697fc2c8404a4
+  [36;1mpxe_service INFO[0m Sending transaction 019db6a267eafe08b9fc2d4ee78729e47bebee3a11035888cf0697fc2c8404a4
+  [31;1mnode INFO[0m Received tx 019db6a267eafe08b9fc2d4ee78729e47bebee3a11035888cf0697fc2c8404a4
+  [36;1mtx_pool INFO[0m Adding tx with id 019db6a267eafe08b9fc2d4ee78729e47bebee3a11035888cf0697fc2c8404a4 eventName=tx-added-to-pool txHash=019db6a267eafe08b9fc2d4ee78729e47bebee3a11035888cf0697fc2c8404a4 noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=2 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07941532135009766 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.20645380020141602 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 7 with 1 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 7
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.04708290100097656 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.11845779418945312 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 019db6a267eafe08b9fc2d4ee78729e47bebee3a11035888cf0697fc2c8404a4
+  [32;1mprover:proving-orchestrator INFO[0m Successfully proven block 7!
+  [33;1msequencer[0m Assembled block 7 eventName=l2-block-built duration=1709.3199048042297 publicProcessDuration=174.96177196502686 rollupCircuitsDuration=1703.3786368370056 txCount=1 blockNumber=7 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8
+  [33;1msequencer:publisher INFO[0m TxEffects size=837 bytes
+  [33;1msequencer:publisher INFO[0m Block txs effects published, txsEffectsHash: 0x00d2152accab2d0e0c916930ef9f8f59fe9465b1d5541117c4afc6632ddf2edb
+  [33;1msequencer:publisher INFO[0m Published L2 block to L1 rollup contract gasPrice=1083986470 gasUsed=610273 transactionHash=0x0cb84db05d078b9234fe816685d85bbbc048b9f4827934d251a04f929612969c calldataGas=9452 calldataSize=1412 txCount=1 blockNumber=7 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 eventName=rollup-published-to-l1
+  [33;1msequencer INFO[0m Submitted rollup block 7 with 1 transactions
+  [34;1marchiver[0m Retrieved 1 new L2 blocks between L1 blocks 21 and 22.
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [32;1mmerkle_trees[0m Block 7 is ours, committing world state
+  [31;1mworld_state[0m Handled new L2 block eventName=l2-block-handled duration=68.67455911636353 isBlockOurs=true txCount=1 blockNumber=7 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [33;1mnote_processor[0m Added incoming note for contract 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899 at slot 0x07c18ea7736e37dd0933a71131cc0945686a018854f96bec853b862284f845b1 with nullifier 0x304de52454ce3b0ac1698d6855b939011138b386ce6f7c573b7cb5b34e811b6a
+  [33;1mnote_processor[0m Removed note for contract 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899 at slot 0x0000000000000000000000000000000000000000000000000000000000000005 with nullifier 0x20370bee94a901b11113f9529d02bdc8b6f68facbb69dd8b91d9bb933479562d
+  [36;1mfull_prover_test:full_prover[0m Minting complete.
+  [34;1msnapshot_manager:full_prover_integration/full_prover[0m State transition for mint complete.
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0xd6421a4e(balance_of_public)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 015f49ba7a37a8d7d044c68f2e5777714ac6531919c03d03f314645bb14bb1a3
+  [36;1msequencer:app-logic[0m Processing tx 015f49ba7a37a8d7d044c68f2e5777714ac6531919c03d03f314645bb14bb1a3
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:balance_of_public.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07229471206665039 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:balance_of_public returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=16.38719081878662
+  [33;1msequencer:tail[0m Processing tx 015f49ba7a37a8d7d044c68f2e5777714ac6531919c03d03f314645bb14bb1a3
+  [36;1mpxe_service INFO[0m Executed local simulation for 015f49ba7a37a8d7d044c68f2e5777714ac6531919c03d03f314645bb14bb1a3
+  [36;1mfull_prover_test:full_prover[0m Public balance of wallet 0: 10000
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x98d16d67(balance_of_private)
+  [36;1mpxe_service[0m Unconstrained simulation for 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899.balance_of_private completed
+  [36;1mfull_prover_test:full_prover[0m Private balance of wallet 0: 10000
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x3940e9ee(total_supply)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 2f269bbfcaa50ff149f3829c2662f4634d9c487bdce6335663a0d3641b311e41
+  [36;1msequencer:app-logic[0m Processing tx 2f269bbfcaa50ff149f3829c2662f4634d9c487bdce6335663a0d3641b311e41
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:total_supply.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.08473587036132812 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:total_supply returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:total_supply duration=17.61079502105713
+  [33;1msequencer:tail[0m Processing tx 2f269bbfcaa50ff149f3829c2662f4634d9c487bdce6335663a0d3641b311e41
+  [36;1mpxe_service INFO[0m Executed local simulation for 2f269bbfcaa50ff149f3829c2662f4634d9c487bdce6335663a0d3641b311e41
+  [36;1mfull_prover_test:full_prover[0m Total supply: 20000
+  [36;1mfull_prover_test:full_prover[0m Using native ACVM binary at ../../noir/noir-repo/target/release/acvm with working directory /tmp/aa131448/acvm
+  [36;1mbb-prover INFO[0m Using native BB at /mnt/user-data/cody/aztec-packages/barretenberg/cpp/build/bin/bb and working directory /tmp/bb-h6959R
+  [36;1mbb-prover INFO[0m Using native ACVM at ../../noir/noir-repo/target/release/acvm and working directory /tmp/3b562dc3/acvm
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract ContractClassRegisterer at 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351
+  [34;1mpxe_synchronizer_c6e0b7 INFO[0m Initial sync complete
+  [33;1mpxe_service_c6e0b7 INFO[0m Started PXE connected to chain 31337 version 1
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract Token at 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  [33;1mpxe_service_c6e0b7 INFO[0m Registered account 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [33;1mnote_processor WARN[0m DB has no contract with address 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [33;1mnote_processor[0m Deferred note for contract 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [33;1mnote_processor[0m Added incoming note for contract 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899 at slot 0x07c18ea7736e37dd0933a71131cc0945686a018854f96bec853b862284f845b1 with nullifier 0x304de52454ce3b0ac1698d6855b939011138b386ce6f7c573b7cb5b34e811b6a
+  [36;1mpxe_service INFO[0m Registered account 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [33;1mpxe_service_c6e0b7 INFO[0m Registered account 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [33;1mnote_processor WARN[0m DB has no contract with address 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [33;1mnote_processor[0m Deferred note for contract 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777
+  [36;1mpxe_service INFO[0m Registered account 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [33;1mpxe_service_c6e0b7 INFO[0m Added contract SchnorrAccount at 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [34;1mkv-store:lmdb INFO[0m Opening LMDB database at temporary location
+  [34;1mpxe_service_06ee11 INFO[0m Added contract ContractClassRegisterer at 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417
+  [34;1mpxe_service_06ee11 INFO[0m Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934
+  [34;1mpxe_service_06ee11 INFO[0m Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b
+  [34;1mpxe_service_06ee11 INFO[0m Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889
+  [34;1mpxe_service_06ee11 INFO[0m Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351
+  [33;1mpxe_synchronizer_06ee11 INFO[0m Initial sync complete
+  [34;1mpxe_service_06ee11 INFO[0m Started PXE connected to chain 31337 version 1
+  [34;1mpxe_service_06ee11 INFO[0m Added contract Token at 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899
+  [34;1mpxe_service_06ee11 INFO[0m Registered account 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [33;1mnote_processor WARN[0m DB has no contract with address 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [33;1mnote_processor[0m Deferred note for contract 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 17d626c165ea390c319d00ef4dab435cd3630baa5aafbb031af28bc64b7a801b
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [33;1mnote_processor[0m Added incoming note for contract 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899 at slot 0x07c18ea7736e37dd0933a71131cc0945686a018854f96bec853b862284f845b1 with nullifier 0x304de52454ce3b0ac1698d6855b939011138b386ce6f7c573b7cb5b34e811b6a
+  [36;1mpxe_service INFO[0m Registered account 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [34;1mpxe_service_06ee11 INFO[0m Registered account 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [33;1mnote_processor WARN[0m DB has no contract with address 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [33;1mnote_processor[0m Deferred note for contract 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 131f7a859ee380f82d694409b29e8e511e26b29a5edf6c639e46f33e5bf20777
+  [36;1mpxe_service INFO[0m Registered account 0x24c542f5c8144cb907945c27591950d6305cdca2f7522b1c07d559abc90facd2
+  [34;1mpxe_service_06ee11 INFO[0m Added contract SchnorrAccount at 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x00000000(compute_note_hash_and_optionally_a_nullifier)
+  [36;1mfull_prover_test:full_prover INFO[0m Starting test using function: 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x98d16d67
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x98d16d67(balance_of_private)
+  [33;1mpxe_service_c6e0b7[0m Unconstrained simulation for 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899.balance_of_private completed
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0xd6421a4e(balance_of_public)
+  [34;1mpxe_service_06ee11[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 128af0dadd4a40b98dda6a84c7f80e838b24fe9299af5340d83dedae7fa90d17
+  [36;1msequencer:app-logic[0m Processing tx 128af0dadd4a40b98dda6a84c7f80e838b24fe9299af5340d83dedae7fa90d17
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:balance_of_public.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.10167694091796875 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:balance_of_public returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=16.163397312164307
+  [33;1msequencer:tail[0m Processing tx 128af0dadd4a40b98dda6a84c7f80e838b24fe9299af5340d83dedae7fa90d17
+  [34;1mpxe_service_06ee11 INFO[0m Executed local simulation for 128af0dadd4a40b98dda6a84c7f80e838b24fe9299af5340d83dedae7fa90d17
+  [33;1mpxe_service_c6e0b7 INFO[0m Sending transaction 29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148
+  [31;1mnode INFO[0m Received tx 29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148
+  [34;1mpxe_service_06ee11 INFO[0m Sending transaction 23ec77cc2b78863fe9bc5150184786ac7acc62cca251551daa72431a57018dd3
+  [31;1mnode INFO[0m Received tx 23ec77cc2b78863fe9bc5150184786ac7acc62cca251551daa72431a57018dd3
+  [36;1mtx_pool INFO[0m Adding tx with id 29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148 eventName=tx-added-to-pool txHash=29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148 noteEncryptedLogCount=2 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=1168 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=2 newNullifierCount=2 proofSize=24740 size=175888 feePaymentMethod=none classRegisteredCount=0
+  [36;1mtx_pool INFO[0m Adding tx with id 23ec77cc2b78863fe9bc5150184786ac7acc62cca251551daa72431a57018dd3 eventName=tx-added-to-pool txHash=23ec77cc2b78863fe9bc5150184786ac7acc62cca251551daa72431a57018dd3 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=0 newNullifierCount=1 proofSize=133124 size=224971 feePaymentMethod=none classRegisteredCount=0
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.10161685943603516 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07193517684936523 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.13795900344848633 operation=get-nullifier-index
+  [33;1msequencer INFO[0m Building block 8 with 2 transactions
+  [33;1msequencer[0m Retrieved 0 L1 to L2 messages for block 8
+  [32;1mprover:proving-orchestrator INFO[0m Starting new block with 2 transactions
+  [36;1msequencer:app-logic[0m Processing tx 23ec77cc2b78863fe9bc5150184786ac7acc62cca251551daa72431a57018dd3
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function undefined.
+  [33;1msequencer:public-processor WARN[0m Failed to process tx 23ec77cc2b78863fe9bc5150184786ac7acc62cca251551daa72431a57018dd3: Contract 0x1fa8af0b3aee9c8a6240235fce0ac043679ec0dd42c0ac78aaa392b108f4b288 not found Error: Contract 0x1fa8af0b3aee9c8a6240235fce0ac043679ec0dd42c0ac78aaa392b108f4b288 not found
+    at ContractsDataSourcePublicDB.getBytecode (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/public_db_sources.ts:91:13)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at AvmSimulator.execute (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/avm/avm_simulator.ts:33:22)
+    at PublicExecutor.simulate (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/executor.ts:72:23)
+    at AppLogicPhaseManager.processEnqueuedPublicCalls (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/abstract_phase_manager.ts:266:13)
+    at AppLogicPhaseManager.handle (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/app_logic_phase_manager.ts:37:7)
+    at PublicProcessor.processTxWithPublicCalls (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/public_processor.ts:230:22)
+    at PublicProcessor.process (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/public_processor.ts:123:13)
+    at elapsed (/mnt/user-data/cody/aztec-packages/yarn-project/foundation/src/timer/elapsed.ts:10:18)
+    at Sequencer.work (/mnt/user-data/cody/aztec-packages/yarn-project/sequencer-client/src/sequencer/sequencer.ts:244:68)
+    at poll (/mnt/user-data/cody/aztec-packages/yarn-project/foundation/src/promise/running-promise.ts:23:9)
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.07579469680786133 operation=get-nullifier-index
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.12802886962890625 operation=get-nullifier-index
+  [32;1mprover:proving-orchestrator INFO[0m Received transaction: 29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148
+  [33;1msequencer:public-processor WARN[0m Failed to process tx 29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148: Leaf with value 0x2d3f5ccafe4c56c733b58f4609373caddc4e7a3b61ffb33a57a5bb070e2a5e4a not found in tree ARCHIVE Error: Leaf with value 0x2d3f5ccafe4c56c733b58f4609373caddc4e7a3b61ffb33a57a5bb070e2a5e4a not found in tree ARCHIVE
+    at getMembershipWitnessFor (/mnt/user-data/cody/aztec-packages/yarn-project/prover-client/src/orchestrator/block-building-helpers.ts:419:11)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at buildBaseRollupInput (/mnt/user-data/cody/aztec-packages/yarn-project/prover-client/src/orchestrator/block-building-helpers.ts:161:40)
+    at ProvingOrchestrator.prepareBaseRollupInputs (/mnt/user-data/cody/aztec-packages/yarn-project/prover-client/src/orchestrator/orchestrator.ts:509:20)
+    at ProvingOrchestrator.prepareTransaction (/mnt/user-data/cody/aztec-packages/yarn-project/prover-client/src/orchestrator/orchestrator.ts:401:22)
+    at ProvingOrchestrator.addNewTx (/mnt/user-data/cody/aztec-packages/yarn-project/prover-client/src/orchestrator/orchestrator.ts:210:37)
+    at PublicProcessor.process (/mnt/user-data/cody/aztec-packages/yarn-project/simulator/src/public/public_processor.ts:145:11)
+    at elapsed (/mnt/user-data/cody/aztec-packages/yarn-project/foundation/src/timer/elapsed.ts:10:18)
+    at Sequencer.work (/mnt/user-data/cody/aztec-packages/yarn-project/sequencer-client/src/sequencer/sequencer.ts:244:68)
+    at poll (/mnt/user-data/cody/aztec-packages/yarn-project/foundation/src/promise/running-promise.ts:23:9)
+  [33;1msequencer[0m No txs processed correctly to build block. Exiting
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-h6959R/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-h6959R/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1mbb-prover INFO[0m Generated proof for BaseParityArtifact in 2172 ms, size: 390 fields circuitName=base-parity circuitSize=131072 duration=2171.114294052124 inputSize=64 proofSize=12548 eventName=circuit-proving numPublicInputs=2
+  [36;1mbb-prover INFO[0m Generated proof for BaseParityArtifact in 2262 ms, size: 390 fields circuitName=base-parity circuitSize=131072 duration=2261.8529720306396 inputSize=64 proofSize=12548 eventName=circuit-proving numPublicInputs=2
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [34;1mprover-client:prover-pool:queue WARN[0m Job id=11ebff49 not found. Can't resolve
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [34;1mprover-client:prover-pool:queue WARN[0m Job id=4cb11394 not found. Can't resolve
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x3940e9ee(total_supply)
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [5] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0xd6421a4e(balance_of_public)
+  [31;1msimulator:client_execution_context[0m Created PublicCallRequest of type [enqueued], side-effect counter [6] to 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0xd6421a4e(balance_of_public)
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 070c6d0f73c9fd7bca7290b8cf84ee3104efe8818fd088439d0b686e2f8731d6
+  [36;1msequencer:app-logic[0m Processing tx 070c6d0f73c9fd7bca7290b8cf84ee3104efe8818fd088439d0b686e2f8731d6
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:total_supply.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.15044021606445312 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:total_supply returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:total_supply duration=64.64702320098877
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:balance_of_public.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.20792388916015625 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:balance_of_public returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=17.24862003326416
+  [36;1msimulator:public_executor[0m [AVM] Executing public external function Token:balance_of_public.
+  [34;1msequencer:world-state-db[0m [DB] Fetched nullifier index eventName=public-db-access duration=0.0778050422668457 operation=get-nullifier-index
+  [36;1msimulator:public_executor[0m [AVM] Token:balance_of_public returned, reverted: false, reason: undefined. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=18.592392921447754
+  [33;1msequencer:tail[0m Processing tx 070c6d0f73c9fd7bca7290b8cf84ee3104efe8818fd088439d0b686e2f8731d6
+  [36;1mpxe_service INFO[0m Executed local simulation for 070c6d0f73c9fd7bca7290b8cf84ee3104efe8818fd088439d0b686e2f8731d6
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x98d16d67(balance_of_private)
+  [36;1mpxe_service[0m Unconstrained simulation for 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899.balance_of_private completed
+  [31;1msimulator:unconstrained_execution[0m Executing unconstrained function 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899:0x98d16d67(balance_of_private)
+  [36;1mpxe_service[0m Unconstrained simulation for 0x09851f96d00893afcfbf164a7e3e5c39bec5a1d0714b948e938f5573c2791899.balance_of_private completed
+  [36;1msimulator:secret_execution[0m Executing external function 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:0x80056ba0(SchnorrAccount:entrypoint)
+  [31;1msimulator:client_execution_context[0m debug_log Ending setup at counter 0x0000000000000000000000000000000000000000000000000000000000000003
+  [36;1mpxe_service[0m Simulation completed for 0x28dd55dd972c51f6f861ffd39e87589d2e11c993c1b61bd303701488d2fa5e03:entrypoint
+  [31;1mnode INFO[0m Simulating tx 1152dd9b4e789d4377a87b7d85e0de68cf2dd3fc56d081fd43cec54b938378e1
+  [36;1mpxe_service INFO[0m Executed local simulation for 1152dd9b4e789d4377a87b7d85e0de68cf2dd3fc56d081fd43cec54b938378e1
+  [31;1mnode INFO[0m Stopping
+  [33;1msequencer INFO[0m Stopped sequencer
+  [31;1mp2p INFO[0m P2P client stopped...
+  [31;1mworld_state INFO[0m Stopped
+  [34;1marchiver INFO[0m Stopped.
+  [34;1mprover-client:prover-agent INFO[0m Agent stopped
+  [34;1mprover-client:prover-pool:queue INFO[0m Proving queue stopped
+  [31;1mnode INFO[0m Stopped
+  [36;1mpxe_service INFO[0m Cancelled Job Queue
+  [34;1mpxe_synchronizer INFO[0m Stopped
+  [36;1mpxe_service INFO[0m Stopped Synchronizer
+  [33;1mpxe_service_c6e0b7 INFO[0m Cancelled Job Queue
+  [34;1mpxe_synchronizer_c6e0b7 INFO[0m Stopped
+  [33;1mpxe_service_c6e0b7 INFO[0m Stopped Synchronizer
+  [34;1mpxe_service_06ee11 INFO[0m Cancelled Job Queue
+  [33;1mpxe_synchronizer_06ee11 INFO[0m Stopped
+  [34;1mpxe_service_06ee11 INFO[0m Stopped Synchronizer
+FAIL src/e2e_prover/full.test.ts
+  full_prover
+    ✕ makes both public and private transfers (24050 ms)
+    ○ skipped rejects txs with invalid proofs
+
+  ● full_prover › makes both public and private transfers
+
+    Transaction 29a7053494dc5cf3e66edae4fa9fc6545dc77c746d0eba55b7cda2a6e5120148 was dropped. Reason: Tx dropped by P2P node.
+
+      74 |     const receipt = await this.waitForReceipt(opts);
+      75 |     if (receipt.status !== TxStatus.SUCCESS && !opts?.dontThrowOnRevert) {
+    > 76 |       throw new Error(
+         |             ^
+      77 |         `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
+      78 |       );
+      79 |     }
+
+      at SentTx.wait (../../aztec.js/src/contract/sent_tx.ts:76:13)
+          at async Promise.all (index 0)
+      at Object.<anonymous> (e2e_prover/full.test.ts:99:7)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 skipped, 2 total
+Snapshots:   0 total
+Time:        137.577 s, estimated 138 s
+Ran all test suites matching /src\/e2e_prover\/full.test.ts/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

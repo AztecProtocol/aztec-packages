@@ -67,14 +67,14 @@ describe('full_prover', () => {
       const publicTxBuffer = fs.existsSync(cachedPublicTxPath) ? fs.readFileSync(cachedPublicTxPath) : undefined;
       const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
       fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
-
-      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      // logger.info(`Verifying kernel tail to public proof`);
-      // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
-
+      
       // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       // logger.info(`Verifying private kernel tail proof`);
       // await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+      
+      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      // logger.info(`Verifying kernel tail to public proof`);
+      // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
 
       // const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
       // const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
