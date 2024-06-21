@@ -431,7 +431,7 @@ impl<F: AcirField> GeneratedAcir<F> {
         let inputs = vec![BrilligInputs::Single(expr)];
         let outputs = vec![BrilligOutputs::Simple(inverted_witness)];
         self.brillig_call(
-            Some(Expression::one()),
+            None,
             &inverse_code,
             inputs,
             outputs,
@@ -579,32 +579,35 @@ impl<F: AcirField> GeneratedAcir<F> {
         brillig_function_index: u32,
         stdlib_func: Option<BrilligStdlibFunc>,
     ) {
-        let opcode =
+        
+            let opcode =
             AcirOpcode::BrilligCall { id: brillig_function_index, inputs, outputs, predicate };
-        self.push_opcode(opcode);
-        if let Some(stdlib_func) = stdlib_func {
-            self.brillig_stdlib_func_locations
-                .insert(self.last_acir_opcode_location(), stdlib_func);
-        }
-
-        for (brillig_index, call_stack) in generated_brillig.locations.iter() {
-            self.locations.insert(
-                OpcodeLocation::Brillig {
-                    acir_index: self.opcodes.len() - 1,
-                    brillig_index: *brillig_index,
-                },
-                call_stack.clone(),
-            );
-        }
-        for (brillig_index, message) in generated_brillig.assert_messages.iter() {
-            self.assertion_payloads.insert(
-                OpcodeLocation::Brillig {
-                    acir_index: self.opcodes.len() - 1,
-                    brillig_index: *brillig_index,
-                },
-                AssertionPayload::StaticString(message.clone()),
-            );
-        }
+            self.push_opcode(opcode);
+            if let Some(stdlib_func) = stdlib_func {
+                self.brillig_stdlib_func_locations
+                    .insert(self.last_acir_opcode_location(), stdlib_func);
+            }
+    
+            for (brillig_index, call_stack) in generated_brillig.locations.iter() {
+                self.locations.insert(
+                    OpcodeLocation::Brillig {
+                        acir_index: self.opcodes.len() - 1,
+                        brillig_index: *brillig_index,
+                    },
+                    call_stack.clone(),
+                );
+            }
+            for (brillig_index, message) in generated_brillig.assert_messages.iter() {
+                self.assertion_payloads.insert(
+                    OpcodeLocation::Brillig {
+                        acir_index: self.opcodes.len() - 1,
+                        brillig_index: *brillig_index,
+                    },
+                    AssertionPayload::StaticString(message.clone()),
+                );
+            }
+        
+        
     }
 
     // We can only resolve the Brillig stdlib after having processed the entire ACIR
