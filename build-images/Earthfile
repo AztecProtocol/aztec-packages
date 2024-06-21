@@ -71,7 +71,7 @@ osxcross:
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  RUN git clone --depth=1 https://github.com/tpoechtrager/osxcross.git \
+  RUN git clone https://github.com/tpoechtrager/osxcross.git \
       && cd /osxcross \
       && git reset --hard ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b \
       && export OSX_SDK="MacOSX14.0.sdk" \
