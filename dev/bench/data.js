@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718977494109,
+  "lastUpdate": 1718978324893,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -49196,6 +49196,78 @@ window.BENCHMARK_DATA = {
             "value": 164218845,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164218845 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e19267872bae6fa2df258a1e363f1ba2f2f47922",
+          "message": "chore: take the PCS out of Zeromorph and refactor tests (#7078)\n\nSeparate the PCS from Zeromorph and do some refactoring of Zeromorph\r\ntests as a precursor for Shplonking ECCVM.",
+          "timestamp": "2024-06-21T13:47:55Z",
+          "tree_id": "f300c8d415e7383a945fff1beb9220532c3eb6ef",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e19267872bae6fa2df258a1e363f1ba2f2f47922"
+        },
+        "date": 1718978322450,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15466.14602400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10697.615393000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5519.44515000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5201.902483999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48892.823319999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48892825000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17007.853586000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17007853000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5205010212,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5205010212 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199178385,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199178385 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4290510387,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4290510387 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162893293,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162893293 ns\nthreads: 1"
           }
         ]
       }
