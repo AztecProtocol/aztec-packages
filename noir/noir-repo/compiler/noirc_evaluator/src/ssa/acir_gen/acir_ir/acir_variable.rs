@@ -1537,10 +1537,9 @@ impl<F: AcirField> AcirContext<F> {
                 }
             });
 
-            return Ok(outputs_var)
+            return Ok(outputs_var);
         }
 
-        
         let brillig_inputs: Vec<BrilligInputs<F>> =
             try_vecmap(inputs, |i| -> Result<_, InternalError> {
                 match i {
@@ -1663,11 +1662,7 @@ impl<F: AcirField> AcirContext<F> {
 
     /// Recursively create acir values for returned arrays. This is necessary because a brillig returned array can have nested arrays as elements.
     /// A singular array of witnesses is collected for a top level array, by deflattening the assigned witnesses at each level.
-    fn zeroed_array_output(
-        &mut self,
-        element_types: &[AcirType],
-        size: usize,
-    ) -> AcirValue {
+    fn zeroed_array_output(&mut self, element_types: &[AcirType], size: usize) -> AcirValue {
         let mut array_values = im::Vector::new();
         for _ in 0..size {
             for element_type in element_types {
