@@ -4,6 +4,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
 #ifndef DISABLE_AZTEC_VM
@@ -1055,6 +1056,11 @@ int main(int argc, char* argv[])
             return 1;
         }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1034): This is present
+        // to help make testing deterministic.
+        if (flag_present(args, "--unsafe_deterministic_randomness")) {
+            numeric::set_use_deterministic_randomness();
+        }
         std::string command = args[0];
 
         std::string bytecode_path = get_option(args, "-b", "./target/program.json");

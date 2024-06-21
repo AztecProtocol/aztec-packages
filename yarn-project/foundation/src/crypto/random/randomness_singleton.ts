@@ -1,5 +1,6 @@
 import { createDebugLogger } from '../../log/logger.js';
 
+
 /**
  * A number generator which is used as a source of randomness in the system. If the SEED env variable is set, the
  * generator will be deterministic and will always produce the same sequence of numbers. Otherwise a true randomness
@@ -7,6 +8,7 @@ import { createDebugLogger } from '../../log/logger.js';
  * @remarks This class was implemented so that tests can be run deterministically.
  *
  * TODO(#3949): This is not safe enough for production and should be made safer or removed before mainnet.
+ * Note: Currently duplicated with barretenberg/ts for simplicity.
  */
 export class RandomnessSingleton {
   private static instance: RandomnessSingleton;
