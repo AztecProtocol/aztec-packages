@@ -413,7 +413,7 @@ template <class DataType> class ReadData {
 
     std::vector<BasicTable::LookupEntry> lookup_entries;
 
-    //   private:
+  private:
     // Container for the lookup accumulators; 0th index of each column contains full accumulated value
     std::array<std::vector<DataType>, 3> columns;
 };

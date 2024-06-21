@@ -45,10 +45,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return (row.q_lookup == 1) || (row.lookup_read_tags == 1);
     }
 
-    // Get the inverse lookup polynomial for this relation
+    // Get the inverse polynomial for this relation
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
 
-    // Used to toggle the inverse correctness check in the inverse correctness subrelation
+    // Used in the inverse correctness subrelation; facilitates only computing inverses where necessary
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
@@ -66,20 +66,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return Accumulator(View(in.lookup_read_counts));
     }
 
-    template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate(const AllEntities& in)
-
-    {
-        using View = typename Accumulator::View;
-        return Accumulator(View(in.q_lookup));
-    }
-
-    template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate([[maybe_unused]] const AllEntities& in)
-    {
-        return Accumulator(1);
-    }
-
+    // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
     template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {

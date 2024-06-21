@@ -382,7 +382,7 @@ class MegaFlavor {
         }
 
         /**
-         * @brief Compute the inverse polynomial used in the databus log derivative lookup argument
+         * @brief Compute the inverse polynomials used in the log derivative lookup relations
          *
          * @tparam Flavor
          * @param beta

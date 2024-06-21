@@ -110,7 +110,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
-
+    // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
     relation_parameters.eta = eta;
@@ -119,8 +119,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
 
     proving_key.add_plookup_memory_records_to_wire_4(
         relation_parameters.eta, relation_parameters.eta_two, relation_parameters.eta_three);
-    // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
-    // polynomial
+
+    // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     witness_commitments.lookup_read_counts = commitment_key->commit(proving_key.polynomials.lookup_read_counts);
     witness_commitments.lookup_read_tags = commitment_key->commit(proving_key.polynomials.lookup_read_tags);
     witness_commitments.w_4 = commitment_key->commit(proving_key.polynomials.w_4);

@@ -61,7 +61,7 @@ class MockCircuits {
 
     /**
      * @brief Add lookup gates using the uint32 XOR lookup table (table size 4096)
-     * @brief Each iteration adds 6 lookup gates
+     * @brief Each iteration adds 6 lookup gates and results in a minimum circuit size of 4096
      *
      * @param builder
      * @param num_gates

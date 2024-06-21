@@ -87,13 +87,14 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
  */
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
-    // Get challenge for sorted list batching and wire four memory records
+    // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
-    // Get commitments to sorted list accumulator and fourth wire
+
+    // Get commitments to lookup argument polynomials and fourth wire
     witness_comms.lookup_read_counts =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
     witness_comms.lookup_read_tags =

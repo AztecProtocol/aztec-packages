@@ -89,13 +89,13 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
     }
 
-    // Get challenge for sorted list batching and wire four memory records
+    // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
 
-    // Get commitments to sorted list accumulator and fourth wire
+    // Get commitments to lookup argument polynomials and fourth wire
     commitments.lookup_read_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_read_counts);
     commitments.lookup_read_tags =

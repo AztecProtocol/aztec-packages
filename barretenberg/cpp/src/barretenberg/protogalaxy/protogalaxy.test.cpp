@@ -379,8 +379,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_protogalaxy_bad_lookup_failure()
     {
-
-        // Failure case: tamper with one of the lookup gates
         // Construct two equivalent circuits
         Builder builder1;
         Builder builder2;

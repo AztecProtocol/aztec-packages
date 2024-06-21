@@ -248,7 +248,7 @@ TEST_F(UltraHonkComposerTests, LookupFailure)
         auto& polynomials = instance->proving_key.polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
-        // Note: updating only one or the other may not cause failure due to the relation algebra
+        // Note: updating only one or the other may not cause failure due to the design of the relation algebra
         polynomials.lookup_read_counts[25] = 1;
         polynomials.lookup_read_tags[25] = 1;
 
