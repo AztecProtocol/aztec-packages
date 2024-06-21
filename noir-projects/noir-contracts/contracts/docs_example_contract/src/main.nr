@@ -211,17 +211,15 @@ contract DocsExample {
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
-    unconstrained fn read_note(amount: Field, comparator: u8) -> pub [Option<CardNote>; 10] {
+    unconstrained fn read_note(amount: Field, comparator: u8) -> pub BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
-        let notes = storage.set.view_notes(
+        storage.set.view_notes(
             options.select(
                 CardNote::properties().points,
                 amount,
                 Option::some(comparator)
             )
-        );
-
-        notes
+        )
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
@@ -259,7 +257,8 @@ contract DocsExample {
     }
 
     #[aztec(private)]
-    fn spend_private_authwit(inner_hash: Field) -> Field {
+    #[aztec(view)]
+    fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }
 

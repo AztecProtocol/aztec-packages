@@ -22,7 +22,7 @@ contract Token {
     };
 
     // docs:start:import_authwit
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
+    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     // docs:end:import_authwit
 
     use crate::types::{transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
@@ -282,7 +282,7 @@ contract Token {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
+        let note = notes.get_unchecked(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
@@ -326,6 +326,17 @@ contract Token {
         storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
     }
     // docs:end:transfer
+
+    /**
+     * Cancel a private authentication witness.
+     * @param inner_hash The inner hash of the authwit to cancel.
+     */
+    #[aztec(private)]
+    fn cancel_authwit(inner_hash: Field) {
+        let on_behalf_of = context.msg_sender();
+        let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
+        context.push_new_nullifier(nullifier, 0);
+    }
 
     #[aztec(private)]
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
@@ -396,7 +407,5 @@ contract Token {
         storage.balances.balance_of(owner).to_field()
     }
     // docs:end:balance_of_private
-
-   
 }
 // docs:end:token_all
