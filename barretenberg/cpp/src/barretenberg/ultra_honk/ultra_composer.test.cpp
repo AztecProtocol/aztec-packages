@@ -213,23 +213,12 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
  */
 TEST_F(UltraHonkComposerTests, LookupFailure)
 {
+    // Construct a circuit with lookup and arithmetic gates
     auto construct_circuit_with_lookups = []() {
         UltraCircuitBuilder builder;
-        auto UINT32_XOR = plookup::MultiTableId::UINT32_XOR;
 
-        // define some arbitrary inputs to uint32 XOR
-        uint32_t left_value = engine.get_random_uint32();
-        uint32_t right_value = engine.get_random_uint32();
-
-        fr left = fr{ left_value, 0, 0, 0 }.to_montgomery_form();
-        fr right = fr{ right_value, 0, 0, 0 }.to_montgomery_form();
-
-        auto left_idx = builder.add_variable(left);
-        auto right_idx = builder.add_variable(right);
-
-        // perform lookups from the uint32 XOR table
-        auto accumulators = plookup::get_lookup_accumulators(UINT32_XOR, left, right, /*is_2_to_1_lookup*/ true);
-        builder.create_gates_from_plookup_accumulators(UINT32_XOR, accumulators, left_idx, right_idx);
+        MockCircuits::add_lookup_gates(builder);
+        MockCircuits::add_arithmetic_gates(builder);
 
         return builder;
     };
@@ -256,10 +245,12 @@ TEST_F(UltraHonkComposerTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto instance = std::make_shared<ProverInstance>(builder);
+        auto& polynomials = instance->proving_key.polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
-        instance->proving_key.polynomials.lookup_read_counts[25] = 1;
-        instance->proving_key.polynomials.lookup_read_tags[25] = 1;
+        // Note: updating only one or the other may not cause failure due to the relation algebra
+        polynomials.lookup_read_counts[25] = 1;
+        polynomials.lookup_read_tags[25] = 1;
 
         EXPECT_FALSE(prove_and_verify(instance));
     }
@@ -269,7 +260,6 @@ TEST_F(UltraHonkComposerTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto instance = std::make_shared<ProverInstance>(builder);
-
         auto& polynomials = instance->proving_key.polynomials;
 
         // Find a lookup gate and alter one of the wire values
@@ -288,12 +278,11 @@ TEST_F(UltraHonkComposerTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto instance = std::make_shared<ProverInstance>(builder);
-
         auto& polynomials = instance->proving_key.polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
         EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        instance->proving_key.polynomials.q_lookup[25] = 1;
+        polynomials.q_lookup[25] = 1;
 
         EXPECT_FALSE(prove_and_verify(instance));
     }
