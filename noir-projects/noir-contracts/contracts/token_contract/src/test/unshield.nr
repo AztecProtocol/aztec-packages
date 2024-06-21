@@ -2,7 +2,7 @@ use crate::test::utils;
 use crate::Token;
 
 #[test]
-fn unshield() {
+unconstrained fn unshield() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     let unshield_amount = 1000;
