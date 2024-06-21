@@ -400,6 +400,7 @@ template <typename Flavor> class SumcheckVerifier {
         multivariate_challenge.reserve(multivariate_d);
         const size_t MAX_LOG_CIRCUIT_SIZE = 28;
         const size_t num_padding_univariates = MAX_LOG_CIRCUIT_SIZE - multivariate_d;
+        info("num_padding_univariates: ", num_padding_univariates);
         for (size_t round_idx = 0; round_idx < MAX_LOG_CIRCUIT_SIZE; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
@@ -422,6 +423,7 @@ template <typename Flavor> class SumcheckVerifier {
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
+                info("round ", round_idx, " with sum ", round.target_total_sum);
                 pow_univariate.partially_evaluate(round_challenge, dummy_round);
 
             } else {
@@ -433,6 +435,7 @@ template <typename Flavor> class SumcheckVerifier {
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     pow_univariate.partially_evaluate(round_challenge);
                 }
+                info("round ", round_idx, " with sum ", round.target_total_sum);
             }
         }
 

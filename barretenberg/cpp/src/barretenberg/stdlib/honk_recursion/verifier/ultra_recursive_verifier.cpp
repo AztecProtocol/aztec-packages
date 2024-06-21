@@ -163,7 +163,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("sumcheck failed");
+        info("recursive sumcheck failed");
         // return {};
     }
 
