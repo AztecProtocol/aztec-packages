@@ -227,7 +227,7 @@ function getStorageLayout(input: NoirCompiledContract) {
     const name = field.name;
     const slot = field.value.fields[0].value as IntegerValue;
     acc[name] = {
-      slot: new Fr(BigInt(slot.value)),
+      slot: new Fr(BigInt('0x' + slot.value)),
     };
     return acc;
   }, {});
@@ -252,7 +252,7 @@ function getNoteTypes(input: NoirCompiledContract) {
 
   return notes.reduce((acc: Record<string, ContractNote>, note) => {
     const name = note.fields[1].value as string;
-    const id = new Fr(BigInt(note.fields[0].value));
+    const id = new Fr(BigInt('0x' + note.fields[0].value));
     acc[name] = {
       id,
       typ: name,
