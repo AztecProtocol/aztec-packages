@@ -271,8 +271,6 @@ fn includes_cpp(name: &str) -> String {
     #include \"barretenberg/honk/proof_system/permutation_library.hpp\"
     #include \"barretenberg/plonk_honk_shared/library/grand_product_library.hpp\"
     #include \"barretenberg/polynomials/polynomial.hpp\"
-    #include \"barretenberg/relations/lookup_relation.hpp\"
-    #include \"barretenberg/relations/permutation_relation.hpp\"
     #include \"barretenberg/sumcheck/sumcheck.hpp\"
     "
     )

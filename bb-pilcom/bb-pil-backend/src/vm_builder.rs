@@ -16,7 +16,7 @@ use crate::copy_builder::Copies;
 
 use crate::copy_builder::CopyBuilder;
 use crate::copy_builder::get_id_column_names;
-use crate::copy_builder::get_inverses_from_copies;
+use crate::copy_builder::get_grand_products_from_copies;
 use crate::prover_builder::ProverBuilder;
 use crate::relation_builder::RelationBuilder;
 use crate::relation_builder::RelationOutput;
@@ -49,6 +49,8 @@ struct ColumnGroups {
     all_cols_with_shifts: Vec<String>,
     /// Inverses from lookups and permuations
     inverses: Vec<String>,
+    /// Grand Products from copy constrainst
+    grand_products: Vec<String>
 }
 
 /// Analyzed to cpp
@@ -111,6 +113,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         shifted,
         all_cols_with_shifts,
         inverses,
+        grand_products
     } = get_all_col_names(
         fixed,
         witness,
@@ -126,6 +129,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         file_name,
         &relations,
         &inverses,
+        &grand_products,
         &all_cols_without_inverses,
         &all_cols,
         &to_be_shifted,
@@ -139,6 +143,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         file_name,
         &relations,
         &inverses,
+        &grand_products,
         &fixed,
         &witness,
         &all_cols,
@@ -193,18 +198,19 @@ fn get_all_col_names(
     let perm_inverses = get_inverses_from_permutations(permutations);
     let lookup_inverses = get_inverses_from_lookups(lookups);
     let lookup_counts = get_counts_from_lookups(lookups);
-    let copy_inverses = get_inverses_from_copies(copies);
+    let grand_products = get_grand_products_from_copies(copies);
     let id_columns = get_id_column_names(copies.num_id_columns);
 
     // Gather sanitized column names
     let fixed_names = collect_col(fixed, sanitize);
     let witness_names = collect_col(witness, sanitize);
     let public_names = collect_col(public, sanitize);
-    let inverses = flatten(&[perm_inverses, lookup_inverses, copy_inverses]);
+    let inverses = flatten(&[perm_inverses, lookup_inverses]);
     let witnesses_without_inverses = flatten(&[
         public_names.clone(),
         witness_names.clone(),
         lookup_counts.clone(),
+        grand_products.clone(),
         id_columns.clone(),
     ]);
     let witnesses_with_inverses = flatten(&[
@@ -212,10 +218,14 @@ fn get_all_col_names(
         witness_names,
         inverses.clone(),
         lookup_counts,
+        grand_products.clone(),
         id_columns.clone()
     ]);
 
     // Group columns by properties
+    /// Redefine to be shifted as grand products will also need to be shifted
+    let to_be_shifted = &flatten(&[to_be_shifted.to_vec(), grand_products.clone()]);
+
     let shifted = transform_map(to_be_shifted, append_shift);
     let all_cols_without_inverses: Vec<String> =
         flatten(&[fixed_names.clone(), witnesses_without_inverses.clone()]);
@@ -242,5 +252,6 @@ fn get_all_col_names(
         shifted,
         all_cols_with_shifts,
         inverses,
+        grand_products,
     }
 }

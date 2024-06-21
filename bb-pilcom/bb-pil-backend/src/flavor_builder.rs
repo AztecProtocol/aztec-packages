@@ -10,6 +10,7 @@ pub trait FlavorBuilder {
         name: &str,
         relation_file_names: &[String],
         lookups: &[String],
+        grand_products: &[String],
         fixed: &[String],
         witness: &[String],
         all_cols: &[String],
@@ -26,6 +27,7 @@ impl FlavorBuilder for BBFiles {
         name: &str,
         relation_file_names: &[String],
         lookups: &[String],
+        grand_products: &[String],
         fixed: &[String],
         witness: &[String],
         all_cols: &[String],
@@ -34,14 +36,14 @@ impl FlavorBuilder for BBFiles {
         all_cols_and_shifts: &[String],
     ) {
         let first_poly = &witness[0];
-        let includes = flavor_includes(&snake_case(name), relation_file_names, lookups);
+        let includes = flavor_includes(&snake_case(name), relation_file_names, lookups, grand_products);
         let num_precomputed = fixed.len();
         let num_witness = witness.len();
         let num_all = all_cols_and_shifts.len();
 
         // Top of file boilerplate
         let class_aliases = create_class_aliases();
-        let relation_definitions = create_relation_definitions(name, relation_file_names, lookups);
+        let relation_definitions = create_relation_definitions(name, relation_file_names, lookups, grand_products);
         let container_size_definitions =
             container_size_definitions(num_precomputed, num_witness, num_all);
 
@@ -112,8 +114,8 @@ class {name}Flavor {{
 }
 
 /// Imports located at the top of the flavor files
-fn flavor_includes(name: &str, relation_file_names: &[String], lookups: &[String]) -> String {
-    let relation_imports = get_relations_imports(name, relation_file_names, lookups);
+fn flavor_includes(name: &str, relation_file_names: &[String], lookups: &[String], grand_products: &[String]) -> String {
+    let relation_imports = get_relations_imports(name, relation_file_names, lookups, grand_products);
 
     format!(
         "#pragma once
@@ -145,7 +147,7 @@ fn create_relations_tuple(master_name: &str, relation_file_names: &[String]) -> 
         .join(", ")
 }
 
-/// Creates comma separated relations tuple file
+/// Creates comma separated lookups tuple file
 fn create_lookups_tuple(lookups: &[String]) -> Option<String> {
     if lookups.is_empty() {
         return None;
@@ -191,17 +193,24 @@ fn create_relation_definitions(
     name: &str,
     relation_file_names: &[String],
     lookups: &[String],
+    grand_products: &[String],
 ) -> String {
     // Relations tuple = ns::relation_name_0, ns::relation_name_1, ... ns::relation_name_n (comma speratated)
     let comma_sep_relations = create_relations_tuple(name, relation_file_names);
     let comma_sep_lookups: Option<String> = create_lookups_tuple(lookups);
+    let comma_sep_grand_products: Option<String> = create_lookups_tuple(grand_products);
 
     // We only include the grand product relations if we are given lookups
     let mut grand_product_relations = String::new();
     let mut all_relations = comma_sep_relations.to_string();
     if let Some(lookups) = comma_sep_lookups {
         all_relations = all_relations + &format!(", {lookups}");
+        // TODO(md): i dont think this is even required
+        // Try removing
         grand_product_relations = format!("using GrandProductRelations = std::tuple<{lookups}>;");
+    }
+    if let Some(grand_products) = comma_sep_grand_products {
+        all_relations = all_relations + &format!(", {grand_products}");
     }
 
     format!("

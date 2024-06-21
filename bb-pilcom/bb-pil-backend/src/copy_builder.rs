@@ -16,7 +16,7 @@ pub struct Copies {
 }
 
 pub struct Copy {
-    // The name of the inverses column
+    // The name of the grand product column
     attribute: Option<String>,
     // Columns involved in the lhs of the copy relation
     left: Vec<String>,
@@ -85,10 +85,10 @@ fn get_copy_max_airity(copies: &Vec<Copy>) -> usize {
     copies.iter().map(|copy| copy.left.len()).max().unwrap_or(0)
 }
 
-/// Get Inverses from Copies
+/// Get Grand products from Copies
 /// 
-/// We use the provided attribute name as the name of the inverse column for our copy constraints
-pub fn get_inverses_from_copies(copies: &Copies) -> Vec<String> {
+/// We use the provided attribute name as the name of the grand product column
+pub fn get_grand_products_from_copies(copies: &Copies) -> Vec<String> {
     copies.copy_pairs.iter().map(|copy| copy.attribute.clone().unwrap_or_else(|| "copy_inverse".to_string())).collect()
 }
 
@@ -158,23 +158,24 @@ fn create_copy_settings_file(copy: &Copy) -> String {
         .attribute
         .clone()
         .expect("Inverse column name must be provided using attribute syntax");
+    let copy_shift = format!("{}_shift", copy_name.clone());
 
     let lhs_cols = copy.left.clone();
     let rhs_cols = copy.right.clone();
     let id_cols = get_id_column_names(columns_per_set);
 
-    // 0.                       The polynomial containing the inverse products -> taken from the attributes
-    // 0..cols_per_set                       .......... value cols
-    // cols_per_set..2*cols_per_set columns  .......... sigma cols
-    // 2*cols_per_set..3*cols_per_set        .......... id cols
-    let mut copy_entities: Vec<String> = vec![copy_name.clone()];
+    // 0.                       The polynomial containing the grand product -> taken from the attributes
+    // 1.                       The virtual polynomial containing the grand product shift
+    // 2..cols_per_set                          .......... value cols
+    // 2 + cols_per_set..2*cols_per_set columns .......... sigma cols
+    // 2 + 2*cols_per_set..3*cols_per_set       .......... id cols
+    let mut copy_entities: Vec<String> = vec![copy_name.clone(), copy_shift];
     copy_entities.extend(lhs_cols);
     copy_entities.extend(rhs_cols);
     copy_entities.extend(id_cols);
 
     let copy_settings_includes = copy_settings_includes();
 
-    let inverse_computed_at = create_inverse_computed_at();
     let const_entities = create_get_const_entities(&copy_entities);
     let nonconst_entities = create_get_nonconst_entities(&copy_entities);
     let relation_exporter = create_relation_exporter(&copy_name);
@@ -189,8 +190,6 @@ fn create_copy_settings_file(copy: &Copy) -> String {
             public:
                   constexpr static size_t COLUMNS_PER_SET = {columns_per_set};
               
-                  {inverse_computed_at}
-              
                   {const_entities}
               
                   {nonconst_entities}
@@ -200,13 +199,6 @@ fn create_copy_settings_file(copy: &Copy) -> String {
     }}
         "
     )
-}
-
-fn create_inverse_computed_at() -> String {
-    "
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row([[maybe_unused]] const AllEntities& in) {
-        return 1;
-    }".to_string()
 }
 
 pub fn get_id_column_names(number_of_cols: usize) -> Vec<String> {
