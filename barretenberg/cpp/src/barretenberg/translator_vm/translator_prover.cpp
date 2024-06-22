@@ -170,7 +170,8 @@ void TranslatorProver::execute_relation_check_rounds()
 void TranslatorProver::execute_zeromorph_rounds()
 {
     using ZeroMorph = ZeroMorphProver_<PCS>;
-    ZeroMorph::prove(key->polynomials.get_unshifted_without_concatenated(),
+    ZeroMorph::prove(key->circuit_size,
+                     key->polynomials.get_unshifted_without_concatenated(),
                      key->polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
                      sumcheck_output.claimed_evaluations.get_shifted(),

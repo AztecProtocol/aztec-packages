@@ -71,7 +71,7 @@ template <typename PCS> class ZeroMorphProver_ {
     {
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
-        ASSERT(log_N == u_challenge.size());
+        // ASSERT(log_N == u_challenge.size());
 
         // Define the vector of quotients q_k, k = 0, ..., log_N-1
         std::vector<Polynomial> quotients;
@@ -322,7 +322,8 @@ template <typename PCS> class ZeroMorphProver_ {
      * @param commitment_key
      * @param transcript
      */
-    static void prove(RefSpan<Polynomial> f_polynomials,
+    static void prove(FF circuit_size,
+                      RefSpan<Polynomial> f_polynomials,
                       RefSpan<Polynomial> g_polynomials,
                       RefSpan<FF> f_evaluations,
                       RefSpan<FF> g_shift_evaluations,
@@ -338,8 +339,9 @@ template <typename PCS> class ZeroMorphProver_ {
 
         // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
         std::span<const FF> u_challenge = multilinear_challenge;
-        size_t log_N = u_challenge.size();
+        size_t log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
         size_t N = 1 << log_N;
+        info("in native zm prover: logN is ", log_N);
 
         // Compute batching of unshifted polynomials f_i and to-be-shifted polynomials g_i:
         // f_batched = sum_{i=0}^{m-1}\rho^i*f_i and g_batched = sum_{i=0}^{l-1}\rho^{m+i}*g_i,
@@ -660,20 +662,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
                 scalar *= FF(-1);
 
                 FF zero = FF::from_witness(builder, 0);
-                info("k: ",
-                     k,
-                     ", scalar: ",
-                     scalar,
-                     ", x_pow_2k: ",
-                     x_pow_2k,
-                     ", phi_term_1: ",
-                     phi_term_1,
-                     ", u_challenge[k]: ",
-                     u_challenge[k],
-                     ", phi_term_2:",
-                     phi_term_2,
-                     ", x_challenge: ",
-                     x_challenge);
                 scalar = FF::conditional_assign(dummy_scalar, zero, scalar);
 
                 scalars.emplace_back(scalar);

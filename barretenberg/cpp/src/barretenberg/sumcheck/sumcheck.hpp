@@ -199,7 +199,8 @@ template <typename Flavor> class SumcheckProver {
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
         for (size_t idx = 0; idx < num_padding_univariates; idx++) {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
-            transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            multivariate_challenge.emplace_back(round_challenge);
             pow_univariate.current_element_idx++;
             pow_univariate.periodicity *= 2;
         }
