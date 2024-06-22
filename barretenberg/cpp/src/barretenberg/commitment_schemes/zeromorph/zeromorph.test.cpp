@@ -82,7 +82,9 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Execute Prover protocol
-        ZeroMorphProver::prove(RefVector(f_polynomials),
+        // LONDONTODO: these tests need to be updated
+        ZeroMorphProver::prove(N,
+                               RefVector(f_polynomials),
                                RefVector(g_polynomials),
                                RefVector(v_evaluations),
                                RefVector(w_evaluations),
@@ -96,7 +98,8 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         bool verified = false;
         if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
             // Execute Verifier protocol without the need for vk prior the final check
-            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+            result = ZeroMorphVerifier::verify(N,
+                                               RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
                                                RefVector(w_evaluations), // shifted
@@ -105,7 +108,8 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
             verified = this->vk()->pairing_check(result[0], result[1]);
         } else {
             // Execute Verifier protocol with vk
-            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+            result = ZeroMorphVerifier::verify(N,
+                                               RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
                                                RefVector(w_evaluations), // shifted
@@ -247,7 +251,8 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Execute Prover protocol
-        ZeroMorphProver::prove(RefVector(f_polynomials), // unshifted
+        ZeroMorphProver::prove(N,
+                               RefVector(f_polynomials), // unshifted
                                RefVector(g_polynomials), // to-be-shifted
                                RefVector(v_evaluations), // unshifted
                                RefVector(w_evaluations), // shifted
@@ -262,7 +267,8 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
         VerifierAccumulator result;
         if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
             // Execute Verifier protocol without the need for vk prior the final check
-            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+            result = ZeroMorphVerifier::verify(N,
+                                               RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
                                                RefVector(w_evaluations), // shifted
@@ -274,7 +280,8 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
 
         } else {
             // Execute Verifier protocol with vk
-            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+            result = ZeroMorphVerifier::verify(N,
+                                               RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
                                                RefVector(w_evaluations), // shifted
