@@ -57,7 +57,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
+    bool multivariate_opening_verified = ZeroMorph::verify(circuit_size,
+                                                           commitments.get_unshifted(),
                                                            commitments.get_to_be_shifted(),
                                                            claimed_evaluations.get_unshifted(),
                                                            claimed_evaluations.get_shifted(),

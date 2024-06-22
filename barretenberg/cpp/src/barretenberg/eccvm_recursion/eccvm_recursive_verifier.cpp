@@ -61,6 +61,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     // maximum possible size of an ECCVM circuit otherwise we might run into problem because the number of rounds of
     // sumcheck is dependent on circuit size.
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
+    const size_t circuit_size_ = static_cast<uint32_t>(circuit_size.get_value());
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript, FF(0));
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
@@ -72,7 +73,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // removed return bool
-    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
+    bool multivariate_opening_verified = ZeroMorph::verify(circuit_size_,
+                                                           commitments.get_unshifted(),
                                                            commitments.get_to_be_shifted(),
                                                            claimed_evaluations.get_unshifted(),
                                                            claimed_evaluations.get_shifted(),
