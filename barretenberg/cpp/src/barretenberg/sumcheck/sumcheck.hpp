@@ -437,6 +437,7 @@ template <typename Flavor> class SumcheckVerifier {
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     pow_univariate.partially_evaluate(round_challenge);
                 } else {
+                    multivariate_challenge.emplace_back(round_challenge);
                     pow_univariate.current_element_idx++;
                     pow_univariate.periodicity *= 2;
                 }
