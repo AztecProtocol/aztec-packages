@@ -78,6 +78,21 @@ template <typename FF> struct PowPolynomial {
     }
 
     /**
+     * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
+     * @details Update the constant \f$c_{i} \to c_{i+1} \f$ multiplying it by \f$pow_{\beta}\f$'s factor \f$\left(
+     * (1-X_i) + X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.
+     * @param challenge \f$ i \f$-th verifier challenge \f$ u_{i}\f$
+     */
+    template <typename Builder> void partially_evaluate(FF challenge, stdlib::bool_t<Builder> dummy)
+    {
+        FF current_univariate_eval = univariate_eval(challenge);
+        partial_evaluation_result = FF::conditional_assign(
+            dummy, partial_evaluation_result, partial_evaluation_result * current_univariate_eval);
+        current_element_idx++;
+        periodicity *= 2;
+    }
+
+    /**
      * @brief Given \f$ \vec\beta = (\beta_0,...,\beta_{d-1})\f$ compute \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec
      * \ell)\f$ for \f$ \ell =0,\ldots,2^{d}-1\f$.
      *

@@ -274,4 +274,9 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
     TestFixture::test_recursive_verification_fails();
 };
 
+HEAVY_TYPED_TEST(RecursiveVerifierTest, Zeromorph)
+{
+    TestFixture::test_recursive_verification();
+};
+
 } // namespace bb::stdlib::recursion::honk

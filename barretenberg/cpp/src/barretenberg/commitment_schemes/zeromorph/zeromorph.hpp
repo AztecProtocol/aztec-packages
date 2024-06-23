@@ -502,8 +502,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Compute batch mul to get the result
         if constexpr (Curve::is_stdlib_type) {
-            info("executing batch mul");
-            return Commitment::batch_mul(commitments, scalars);
+            return Commitment::batch_mul(commitments, scalars, /* max_num_bits */ 0, /* with_edgecases */ true);
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -551,6 +550,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         std::vector<Commitment> commitments;
 
         // Phi_n(x) = (x^N - 1) / (x - 1)
+        // WORKTODO: this should be a witness... oh it is but it's disconnected
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
@@ -623,7 +623,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            return Commitment::batch_mul(commitments, scalars);
+            return Commitment::batch_mul(commitments, scalars, /* max_num_bits */ 0, /* with_edgecases */ true);
         } else {
             return batch_mul_native(commitments, scalars);
         }
