@@ -70,7 +70,7 @@ template <typename PCS> class ZeroMorphProver_ {
     static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<const FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
-        // The size of the multilinear challenge must equal the log of the polynomial size
+        // // The size of the multilinear challenge must equal the log of the polynomial size
         // ASSERT(log_N == u_challenge.size());
 
         // Define the vector of quotients q_k, k = 0, ..., log_N-1
@@ -535,6 +535,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
             // for (auto& commitment : commitments) {
             //     info("commitment: ", commitment.get_value());
             // }
+            // LONDONTODO: This mul is working, right?
             return Commitment::batch_mul(commitments, scalars, /* max_num_bits */ 0, /* with_edgecases */ true);
         } else {
             return batch_mul_native(commitments, scalars);
@@ -595,6 +596,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         std::vector<Commitment> commitments;
 
         // Phi_n(x) = (x^N - 1) / (x - 1)
+        // WORKTODO: this should be a witness... oh it is but it's disconnected
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
@@ -840,7 +842,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
-            info("after computing C_zeta_Z using batch_mul");
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
         }
