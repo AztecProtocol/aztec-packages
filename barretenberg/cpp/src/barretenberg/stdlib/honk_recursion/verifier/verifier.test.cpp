@@ -188,7 +188,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto native_result = native_verifier.verify_proof(inner_proof);
         auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
                                                                                          pairing_points[1].get_value());
-        EXPECT_EQ(recursive_result, native_result);
+        EXPECT_TRUE(native_result);
+        EXPECT_TRUE(recursive_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
