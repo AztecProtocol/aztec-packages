@@ -53,6 +53,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     CommitmentLabels commitment_labels;
 
     FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
+    info("circuit size extracted from proof: ", circuit_size);
     transcript->template receive_from_prover<FF>("public_input_size");
     transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
@@ -109,10 +110,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.return_data_inverses =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_inverses);
     }
-
     const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, key->circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, key->circuit_size);
+        public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -138,7 +138,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("recursive sumcheck failed");
+        // return {};
+    } else if (sumcheck_verified.has_value()) {
+        info("recursive sumcheck passed");
+    }
     // Execute ZeroMorph multilinear PCS evaluation verifier
+    info("ultra rec verifier N: ", key->circuit_size);
     auto verifier_accumulator = ZeroMorph::verify(circuit_size,
                                                   commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),
@@ -146,6 +153,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
                                                   claimed_evaluations.get_shifted(),
                                                   multivariate_challenge,
                                                   transcript);
+    // std::array<typename Flavor::GroupElement, 2> verifier_accumulator = {};
     return verifier_accumulator;
 }
 
