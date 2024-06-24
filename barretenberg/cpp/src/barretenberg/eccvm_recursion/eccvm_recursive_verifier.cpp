@@ -72,14 +72,15 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // removed return bool
-    bool multivariate_opening_verified = ZeroMorph::verify(cirsuit_size,
-                                                           commitments.get_unshifted(),
-                                                           commitments.get_to_be_shifted(),
-                                                           claimed_evaluations.get_unshifted(),
-                                                           claimed_evaluations.get_shifted(),
-                                                           multivariate_challenge,
-                                                           key->pcs_verification_key,
-                                                           transcript);
+    bool multivariate_opening_verified =
+        ZeroMorph::verify(static_cast<int>(static_cast<uint256_t>(circuit_size.get_value())),
+                          commitments.get_unshifted(),
+                          commitments.get_to_be_shifted(),
+                          claimed_evaluations.get_unshifted(),
+                          claimed_evaluations.get_shifted(),
+                          multivariate_challenge,
+                          key->pcs_verification_key,
+                          transcript);
     // Execute transcript consistency univariate opening round
     // TODO(#768): Find a better way to do this. See issue for details.
     bool univariate_opening_verified = false;

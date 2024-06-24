@@ -9,6 +9,7 @@
 namespace bb::curve {
 class BN254 {
   public:
+    using NativeCurve = BN254; // WORKTODO: remove?
     using ScalarField = bb::fr;
     using BaseField = bb::fq;
     using Group = typename bb::g1;

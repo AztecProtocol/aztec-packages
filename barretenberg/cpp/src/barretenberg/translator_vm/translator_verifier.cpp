@@ -109,7 +109,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
     auto pairing_points =
-        ZeroMorphVerifier_<Flavor::PCS>::verify(commitments.get_unshifted_without_concatenated(),
+        ZeroMorphVerifier_<Flavor::PCS>::verify(circuit_size,
+                                                commitments.get_unshifted_without_concatenated(),
                                                 commitments.get_to_be_shifted(),
                                                 claimed_evaluations.get_unshifted_without_concatenated(),
                                                 claimed_evaluations.get_shifted(),
