@@ -570,7 +570,7 @@ export class TXE implements TypedOracle {
         publicInputs,
       );
       // Apply side effects
-      this.sideEffectsCounter += publicInputs.endSideEffectCounter.toNumber();
+      this.sideEffectsCounter = publicInputs.endSideEffectCounter.toNumber();
 
       return callStackItem;
     } finally {
@@ -747,7 +747,7 @@ export class TXE implements TypedOracle {
     );
 
     // Apply side effects
-    this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber();
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
     this.setFunctionSelector(currentFunctionSelector);
