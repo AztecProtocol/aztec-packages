@@ -23,8 +23,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         LENGTH  // log derivative lookup argument sub-relation
     };
 
-    // WORKTODO: shouldnt first one be 2? Why do tests pass with 1? (Note: if setting to 2, both need to be 2 due to
-    // structure of relation algebra)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1036): Scrutinize these adjustment factors. Counting
+    // degrees suggests the first subrelation should require an adjustment of 2.
     static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
         1, // inverse construction sub-relation
         1  // log derivative lookup argument sub-relation
@@ -38,10 +38,19 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return in.q_lookup.is_zero() && in.lookup_read_counts.is_zero();
     }
 
-    // Used to determine whether the polynomial of inverses must be computed at a given row
+    /**
+     * @brief Does the provided row contain data relevant to table lookups; Used to determine whether the polynomial of
+     * inverses must be computed at a given row
+     * @details In order to avoid unnecessary computation, the polynomial of inverses I is only computed for rows at
+     * which the lookup relation is "active". It is active if either (1) the present row contains a lookup gate (i.e.
+     * q_lookup == 1), or (2) the present row contains table data that has been looked up in this circuit
+     * (lookup_read_tags == 1, or equivalently, if the row in consideration has index i, the data in polynomials table_i
+     * has been utlized in the circuit).
+     *
+     */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
-        // is lookup gate or row contains data that has been read
+        // is the row a lookup gate or does it contain table data that has been read at some point in this circuit
         return (row.q_lookup == 1) || (row.lookup_read_tags == 1);
     }
 
@@ -113,7 +122,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto negative_column_3_step_size = View(in.q_c);
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
-        // step_size*w_i_shift result in values present in column i of a corresponding table.
+        // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
+        // method get_lookup_accumulators() in  for a detailed explanation.
         auto derived_table_entry_1 = w_1 + gamma + negative_column_1_step_size * w_1_shift;
         auto derived_table_entry_2 = w_2 + negative_column_2_step_size * w_2_shift;
         auto derived_table_entry_3 = w_3 + negative_column_3_step_size * w_3_shift;
@@ -186,7 +196,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         std::get<0>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor; // Deg 4 (6)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
-        // i.e. enforced across the entire trace, not on a per-row basis. Degree
+        // i.e. enforced across the entire trace, not on a per-row basis.
         // Degrees:                       1            2 (3)            1            3 (4)
         std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
     }

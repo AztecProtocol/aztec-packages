@@ -117,7 +117,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
 
-    proving_key.add_plookup_memory_records_to_wire_4(
+    proving_key.add_ram_rom_memory_records_to_wire_4(
         relation_parameters.eta, relation_parameters.eta_two, relation_parameters.eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial

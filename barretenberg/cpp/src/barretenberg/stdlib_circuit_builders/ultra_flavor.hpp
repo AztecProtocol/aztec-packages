@@ -286,7 +286,7 @@ class UltraFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         /**
-         * @brief Add plookup memory records to the fourth wire polynomial
+         * @brief Add RAM/ROM memory records to the fourth wire polynomial
          *
          * @details This operation must be performed after the first three wires have been
          * committed to, hence the dependence on the `eta` challenge.
@@ -294,11 +294,11 @@ class UltraFlavor {
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
          */
-        void add_plookup_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
+        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
-            // The plookup memory record values are computed at the indicated indices as
+            // The memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-            // (See plookup_auxiliary_widget.hpp for details)
+            // (See the Auxiliary relation for details)
             auto wires = polynomials.get_wires();
 
             // Compute read record values

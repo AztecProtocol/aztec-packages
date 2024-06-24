@@ -156,7 +156,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     instance->relation_parameters.beta = FF::random_element();
     instance->relation_parameters.gamma = FF::random_element();
 
-    instance->proving_key.add_plookup_memory_records_to_wire_4(instance->relation_parameters.eta,
+    instance->proving_key.add_ram_rom_memory_records_to_wire_4(instance->relation_parameters.eta,
                                                                instance->relation_parameters.eta_two,
                                                                instance->relation_parameters.eta_three);
     instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);

@@ -91,7 +91,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
     }
 
-    // Get eta challenges
+    // Get eta challenges; used in RAM/ROM memory records and log derivative lookup argument
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;

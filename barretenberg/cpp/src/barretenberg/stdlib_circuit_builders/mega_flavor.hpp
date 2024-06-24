@@ -358,7 +358,7 @@ class MegaFlavor {
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
          */
-        void add_plookup_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
+        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
