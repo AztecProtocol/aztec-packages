@@ -18,7 +18,9 @@ contract Benchmarking {
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[aztec(private)]
     fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+        // docs:start:increment_valuenote
         increment(storage.notes.at(owner), value, owner, outgoing_viewer);
+         // docs:end:increment_valuenote
     }
 
     // Deletes a note at a specific index in the set and creates a new one with the same value.

@@ -11,7 +11,9 @@ contract Crowdfunding {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt,
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
+    // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
+    // docs:end:import_valuenote
     use dep::token::Token;
     // docs:end:all-deps
 
@@ -80,7 +82,9 @@ contract Crowdfunding {
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
         let donor_npk_m_hash = header.get_npk_m_hash(&mut context, donor);
+        // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor_npk_m_hash);
+        // docs:end:valuenote_new
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt(&mut context, donor, donor));
     }
     // docs:end:donate
