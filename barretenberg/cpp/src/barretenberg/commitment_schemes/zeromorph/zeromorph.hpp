@@ -590,7 +590,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
         } else {
             log_N = static_cast<uint32_t>(log_circuit_size);
         }
-        E std::vector<Commitment> commitments;
+        info("in C_Z_x N: ", N, " and log_N: ", log_N);
+        std::vector<FF> scalars;
+        std::vector<Commitment> commitments;
 
         // Phi_n(x) = (x^N - 1) / (x - 1)
         // WORKTODO: this should be a witness... oh it is but it's disconnected
@@ -623,7 +625,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         // If applicable, add contribution from concatenated polynomial commitments
         // Note: this is an implementation detail related to Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
-            info("DOING CONCATENATION GROUPS STUFF");
             size_t CONCATENATION_GROUP_SIZE = concatenation_groups_commitments[0].size();
             size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
             std::vector<FF> x_shifts;
@@ -642,7 +643,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
             }
         }
 
-        // Add contributions: scalar * [q_k],  k = 0,...,log_N-1, where
+        // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
         // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))
         auto x_pow_2k = x_challenge;                 // x^{2^k}
         auto x_pow_2kp1 = x_challenge * x_challenge; // x^{2^{k + 1}}
@@ -652,7 +653,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         for (size_t k = 0; k < MAX_LOG_CIRCUIT_SIZE; ++k) {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
-                // LEFT OFF HERE
                 stdlib::bool_t dummy_scalar = stdlib::witness_t(builder, k >= log_N);
                 auto phi_term_1 = phi_numerator / (x_pow_2kp1 - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
                 auto phi_term_2 = phi_numerator / (x_pow_2k - 1);   // \Phi_{n-k}(x^{2^k})
@@ -664,14 +664,14 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
                 FF zero = FF::from_witness(builder, 0);
                 zero.fix_witness();
-                FF scalar_to_add = FF::conditional_assign(dummy_scalar, zero, scalar);
-                scalars.emplace_back(scalar_to_add);
+                scalar = FF::conditional_assign(dummy_scalar, zero, scalar);
+                scalars.emplace_back(scalar);
                 commitments.emplace_back(C_q_k[k]);
 
                 x_pow_2k = FF::conditional_assign(dummy_scalar, x_pow_2k, x_pow_2kp1);
                 x_pow_2kp1 = FF::conditional_assign(dummy_scalar, x_pow_2kp1, x_pow_2kp1 * x_pow_2kp1);
             } else {
-                if (k < log_N) {
+                if (k >= log_N) {
                     scalars.emplace_back(0);
                     commitments.emplace_back(C_q_k[k]);
                 } else {
@@ -694,12 +694,12 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
+            info("recursive C_Z_x executing batch_mul of length ", commitments.size(), " with scalars: ");
             // info("number of gates: ", commitments[0].get_context()->num_gates);
             // for (size_t idx = 0; idx < commitments.size(); ++idx) {
             //     info(commitments[idx].get_value());
             //     info(commitments[idx].get_value().on_curve());
             // }
-            info("recursive C_Z_x executing batch_mul of length ", commitments.size(), " with scalars: ");
             for (size_t idx = 0; idx < scalars.size(); ++idx) {
                 info(scalars[idx]);
             }
@@ -710,10 +710,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
             //     info(commitments[idx]);
             //     info(commitments[idx].on_curve());
             // }
-            info("recursive C_Z_x executing batch_mul of length ", commitments.size(), " with scalars: ");
-            for (size_t idx = 0; idx < scalars.size(); ++idx) {
-                info(scalars[idx]);
-            }
+            // for (size_t idx = 0; idx < scalars.size(); ++idx) {
+            //     info(scalars[idx]);
+            // }
             return batch_mul_native(commitments, scalars);
         }
     }
@@ -848,7 +847,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
         }
 
-        info("C_zeta_Z: ", C_zeta_Z);
         return { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z };
     }
 
