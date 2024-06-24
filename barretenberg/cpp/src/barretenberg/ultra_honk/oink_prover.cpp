@@ -91,9 +91,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         // Commit to DataBus columns and corresponding read counts
         witness_commitments.calldata = commitment_key->commit(proving_key.polynomials.calldata);
         witness_commitments.calldata_read_counts = commitment_key->commit(proving_key.polynomials.calldata_read_counts);
+        witness_commitments.calldata_read_tags = commitment_key->commit(proving_key.polynomials.calldata_read_tags);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata, witness_commitments.calldata);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata_read_counts,
                                      witness_commitments.calldata_read_counts);
+        transcript->send_to_verifier(domain_separator + commitment_labels.calldata_read_tags,
+                                     witness_commitments.calldata_read_tags);
         witness_commitments.return_data = commitment_key->commit(proving_key.polynomials.return_data);
         witness_commitments.return_data_read_counts =
             commitment_key->commit(proving_key.polynomials.return_data_read_counts);

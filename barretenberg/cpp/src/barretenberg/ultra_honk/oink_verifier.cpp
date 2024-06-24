@@ -74,6 +74,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata);
         witness_comms.calldata_read_counts =
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata_read_counts);
+        witness_comms.calldata_read_tags =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata_read_tags);
         witness_comms.return_data =
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.return_data);
         witness_comms.return_data_read_counts = transcript->template receive_from_prover<Commitment>(
