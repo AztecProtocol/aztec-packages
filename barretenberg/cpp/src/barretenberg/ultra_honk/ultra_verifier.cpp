@@ -69,7 +69,10 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("sumcheck failed");
         return false;
+    } else if (sumcheck_verified.has_value()) {
+        info("sumcheck passed");
     }
 
     // Execute ZeroMorph rounds and check the pcs verifier accumulator returned. See
