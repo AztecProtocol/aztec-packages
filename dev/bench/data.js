@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719247051377,
+  "lastUpdate": 1719248229158,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -51316,6 +51316,78 @@ window.BENCHMARK_DATA = {
             "value": 164486163,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164486163 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d4a9a29ad37543aa0058bd43fa533f19a91e019",
+          "message": "chore(avm): separate some fixed tables (#7163)\n\nAn experiment in separating fixed tables and (for now mannually)\ncreating a `merge_into` function to merge them into the main trace.\n\nTODO:\n* Avoid having to create dummy relations\n* autogen merge_into\n* apply concept to other non-fixed tables",
+          "timestamp": "2024-06-24T17:46:12+01:00",
+          "tree_id": "19cc7b4fba61e4696e3c60f96024ac79126beda9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1d4a9a29ad37543aa0058bd43fa533f19a91e019"
+        },
+        "date": 1719248225945,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15492.48584899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10847.588792000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5596.753533000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5099.655221000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49032.11668199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49032118000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17161.875041,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17161875000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5214820798,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5214820798 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 241080237,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 241080237 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4311506279,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4311506279 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163341835,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163341835 ns\nthreads: 1"
           }
         ]
       }
