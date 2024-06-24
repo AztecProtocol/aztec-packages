@@ -14,7 +14,7 @@ use crate::oracle::notes::notify_nullified_note;
 
 pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
-    for nullifier in  public_inputs.new_nullifiers {
+    for nullifier in public_inputs.new_nullifiers {
         if nullifier.value != 0 {
             nullifiers = nullifiers.push_back(nullifier.value);
         }

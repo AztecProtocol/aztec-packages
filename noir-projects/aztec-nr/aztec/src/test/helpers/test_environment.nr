@@ -23,7 +23,7 @@ struct TestEnvironment {}
 impl TestEnvironment {
     fn new() -> Self {
         cheatcodes::reset();
-        Self {  }
+        Self {}
     }
 
     fn block_number(self) -> u32 {
