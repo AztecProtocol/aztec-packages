@@ -9,7 +9,7 @@ import {
   PublicDataTreeLeaf,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
@@ -644,5 +644,15 @@ export class TXEService {
 
   async getVersion() {
     return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
+  }
+
+  async addNullifier(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, nullifiers: ForeignCallArray) {
+    await (this.typedOracle as TXE).addNullifiers(fromSingle(contractAddress), fromArray(nullifiers));
+    return toForeignCallResult([]);
+  }
+
+  async addNoteHash(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
+    await (this.typedOracle as TXE).addNoteHashes(fromSingle(contractAddress), fromArray(noteHashes));
+    return toForeignCallResult([]);
   }
 }

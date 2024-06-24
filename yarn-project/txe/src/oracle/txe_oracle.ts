@@ -165,7 +165,7 @@ export class TXE implements TypedOracle {
     isDelegateCall = false,
   ) {
     const trees = this.getTrees();
-    const stateReference = await trees.getStateReference(true);
+    const stateReference = await trees.getStateReference(false);
     const inputs = PrivateContextInputs.empty();
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
@@ -223,6 +223,19 @@ export class TXE implements TypedOracle {
     const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
     const authWitness = new AuthWitness(messageHash, [...signature]);
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
+  }
+
+  async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
+    const db = this.trees.asLatest();
+    const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier).toBuffer());
+
+    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, siloedNullifiers, NULLIFIER_SUBTREE_HEIGHT);
+  }
+
+  async addNoteHashes(contractAddress: AztecAddress, innerNoteHashes: Fr[]) {
+    const db = this.trees.asLatest();
+    const siloedNoteHashes = innerNoteHashes.map(innerNoteHash => siloNoteHash(contractAddress, innerNoteHash));
+    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
 
   // TypedOracle
@@ -358,10 +371,6 @@ export class TXE implements TypedOracle {
     // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
-    // const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
-    // const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status);
-    // const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
-
     const notes = pickNotes<NoteData>(pendingNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
@@ -398,16 +407,11 @@ export class TXE implements TypedOracle {
       },
       counter,
     );
-    const db = this.trees.asLatest();
-    const noteHash = siloNoteHash(this.contractAddress, innerNoteHash);
-    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+    return;
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, _counter: number) {
     this.noteCache.nullifyNote(this.contractAddress, innerNullifier, innerNoteHash);
-    const db = this.trees.asLatest();
-    const siloedNullifier = siloNullifier(this.contractAddress, innerNullifier);
-    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
     return;
   }
 
@@ -571,6 +575,16 @@ export class TXE implements TypedOracle {
       );
       // Apply side effects
       this.sideEffectsCounter = publicInputs.endSideEffectCounter.toNumber();
+
+      await this.addNullifiers(
+        targetContractAddress,
+        publicInputs.newNullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+      );
+
+      await this.addNoteHashes(
+        targetContractAddress,
+        publicInputs.newNoteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
+      );
 
       return callStackItem;
     } finally {

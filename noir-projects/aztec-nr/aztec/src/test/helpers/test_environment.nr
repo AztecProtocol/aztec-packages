@@ -8,7 +8,7 @@ use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
-use crate::test::helpers::{cheatcodes, types::{Deployer, TestAccount}, keys};
+use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer, TestAccount}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::{hash_args, hash_args_array};
 
@@ -18,16 +18,12 @@ use crate::note::{
 };
 use crate::oracle::notes::notify_created_note;
 
-struct TestEnvironment {
-    contract_address: Option<AztecAddress>,
-    args_hash: Option<Field>,
-    function_selector: Option<FunctionSelector>
-}
+struct TestEnvironment {}
 
 impl TestEnvironment {
     fn new() -> Self {
         cheatcodes::reset();
-        Self { contract_address: Option::none(), args_hash: Option::none(), function_selector: Option::none() }
+        Self {  }
     }
 
     fn block_number(self) -> u32 {
@@ -130,6 +126,7 @@ impl TestEnvironment {
         inputs.call_context.function_selector = call_interface.get_selector();
         inputs.call_context.is_static_call = call_interface.get_is_static();
         let public_inputs = original_fn(inputs);
+        apply_side_effects_private(target_address, public_inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
@@ -151,6 +148,7 @@ impl TestEnvironment {
         inputs.call_context.function_selector = call_interface.get_selector();
         inputs.call_context.is_static_call = call_interface.get_is_static();
         let public_inputs = original_fn(inputs);
+        apply_side_effects_private(target_address, public_inputs);
 
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);

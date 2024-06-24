@@ -118,9 +118,6 @@ unconstrained fn mint_private_failure_double_spend() {
 
     utils::check_private_balance(token_contract_address, owner, mint_amount);
 
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
-    env.advance_block_by(1);
-
     // Attempt to double spend
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(recipient, mint_amount, secret);
     env.call_private_void(redeem_shield_call_interface);
@@ -180,9 +177,6 @@ unconstrained fn mint_private_failure_overflow_recipient() {
 
     utils::check_private_balance(token_contract_address, owner, mint_amount);
 
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
-    env.advance_block_by(1);
-
     let mint_amount = 2.pow_32(128) - mint_amount;
     // Mint some tokens
     let secret = unsafe_rand();
@@ -226,9 +220,6 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     cheatcodes::set_contract_address(owner);
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret_owner);
     env.call_private_void(redeem_shield_call_interface);
-
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
-    env.advance_block_by(1);
 
     // Redeem recipient's shielded tokens
     cheatcodes::set_contract_address(recipient);

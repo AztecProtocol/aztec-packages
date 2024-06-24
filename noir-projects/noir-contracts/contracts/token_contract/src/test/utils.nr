@@ -66,11 +66,6 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
     env.call_private_void(redeem_shield_call_interface);
 
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
-    // Not really sure why this is needed? Nullifier inclusion in contract initializer fails otherwise. 
-    // If it were to fail, it should do it at line 443, investigation required
-    env.advance_block_by(1);
-
     (env, token_contract_address, owner, recipient, mint_amount)
 }
 

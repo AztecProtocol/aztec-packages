@@ -3,7 +3,7 @@ use dep::protocol_types::{
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
 };
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
-use crate::test::helpers::types::{Deployer, TestAccount};
+use crate::test::helpers::utils::{Deployer, TestAccount};
 use crate::keys::public_keys::PublicKeys;
 
 unconstrained pub fn reset() {
@@ -93,6 +93,14 @@ unconstrained pub fn assert_private_call_fails(
     )
 }
 
+unconstrained pub fn add_nullifiers(contractAddress: AztecAddress, nullifiers: [Field]) {
+    oracle_add_nullifiers(contractAddress, nullifiers)
+}
+
+unconstrained pub fn add_note_hashes(contractAddress: AztecAddress, inner_note_hashes: [Field]) {
+    oracle_add_note_hashes(contractAddress, inner_note_hashes)
+}
+
 #[oracle(reset)]
 fn oracle_reset() {}
 
@@ -166,3 +174,10 @@ fn oracle_assert_private_call_fails(
     isStaticCall: bool,
     isDelegateCall: bool
 ) {}
+
+#[oracle(addNullifiers)]
+fn oracle_add_nullifiers(contractAddress: AztecAddress, nullifiers: [Field]) {}
+
+#[oracle(addNoteHashes)]
+fn oracle_add_note_hashes(contractAddress: AztecAddress, inner_note_hashes: [Field]) {}
+

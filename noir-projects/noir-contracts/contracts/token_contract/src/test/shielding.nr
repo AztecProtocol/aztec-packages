@@ -14,9 +14,6 @@ unconstrained fn shielding_on_behalf_of_self() {
     let shield_call_interface = Token::at(token_contract_address).shield(owner, shield_amount, secret_hash, 0);
     env.call_public(shield_call_interface);
 
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
-    env.advance_block_by(1);
-
     // Store a note in the cache so we can redeem it
     env.store_note_in_cache(
         &mut TransparentNote::new(shield_amount, secret_hash),
@@ -47,9 +44,6 @@ unconstrained fn shielding_on_behalf_of_other() {
     cheatcodes::set_contract_address(recipient);
     // Shield tokens
     env.call_public(shield_call_interface);
-
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/7086
-    env.advance_block_by(1);
 
     // Become owner again
     cheatcodes::set_contract_address(owner);
