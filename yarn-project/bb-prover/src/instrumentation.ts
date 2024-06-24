@@ -1,14 +1,7 @@
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import { type Timer } from '@aztec/foundation/timer';
-import {
-  Attributes,
-  type Gauge,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, type Gauge, type Histogram, Metrics, type Tracer, ValueType } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/global';
 
 /**
  * Instrumentation class for Prover implementations.
@@ -27,7 +20,7 @@ export class ProverInstrumentation {
 
   public readonly tracer: Tracer;
 
-  constructor(telemetry: TelemetryClient, name: string) {
+  constructor(name: string, telemetry = getTelemetryClient()) {
     this.tracer = telemetry.getTracer(name);
     const meter = telemetry.getMeter(name);
 

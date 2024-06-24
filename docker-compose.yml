@@ -62,6 +62,7 @@ services:
       PEER_ID_PRIVATE_KEY:
       AZTEC_PORT: 8999
       TEL_COLLECTOR_BASE_URL: ${TEL_COLLECTOR_BASE_URL:-http://otel-collector:4318}
+      TEL_SERVICE_NAME: aztec-node
     secrets:
       - ethereum-host
       - p2p-boot-node

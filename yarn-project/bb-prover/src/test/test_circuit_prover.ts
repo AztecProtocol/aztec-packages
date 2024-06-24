@@ -57,7 +57,7 @@ import {
   convertSimulatedPublicTailOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
-import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { trackSpan } from '@aztec/telemetry-client';
 
 import { ProverInstrumentation } from '../instrumentation.js';
 import { SimulatedPublicKernelArtifactMapping } from '../mappings/mappings.js';
@@ -86,11 +86,10 @@ export class TestCircuitProver implements ServerCircuitProver {
   private instrumentation: ProverInstrumentation;
 
   constructor(
-    telemetry: TelemetryClient,
     private simulationProvider?: SimulationProvider,
     private logger = createDebugLogger('aztec:test-prover'),
   ) {
-    this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
+    this.instrumentation = new ProverInstrumentation('TestCircuitProver');
   }
 
   get tracer() {

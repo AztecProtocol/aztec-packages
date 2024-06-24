@@ -8,14 +8,11 @@ import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
 import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
-import {
-  createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
-} from '@aztec/telemetry-client/start';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { MNEMONIC, createAztecNode, createAztecPXE, deployContractsToL1 } from '../../sandbox.js';
+import { initTelemetryClient } from '../telemetry.js';
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
 
 const { DEPLOY_AZTEC_CONTRACTS } = process.env;
@@ -25,6 +22,8 @@ export const startNode = async (
   signalHandlers: (() => Promise<void>)[],
   userLog: LogFn,
 ): Promise<ServerList> => {
+  initTelemetryClient();
+
   // Services that will be started in a single multi-rpc server
   const services: ServerList = [];
   // get env vars first
@@ -85,8 +84,7 @@ export const startNode = async (
   }
 
   // Create and start Aztec Node.
-  const telemetryClient = createAndStartTelemetryClient(getTelemetryClientConfig());
-  const node = await createAztecNode(telemetryClient, nodeConfig);
+  const node = await createAztecNode(nodeConfig);
   const nodeServer = createAztecNodeRpcServer(node);
 
   // Add node to services list

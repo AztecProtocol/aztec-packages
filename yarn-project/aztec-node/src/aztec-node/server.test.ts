@@ -1,5 +1,4 @@
 import { createEthereumChain } from '@aztec/ethereum';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type AztecNodeConfig, AztecNodeService } from '../index.js';
 
@@ -11,9 +10,7 @@ describe('aztec node service', () => {
       chainId: 12345, // not the testnet chain id
     };
     const ethereumChain = createEthereumChain(config.rpcUrl!, config.apiKey);
-    await expect(() =>
-      AztecNodeService.createAndSync(config as AztecNodeConfig, new NoopTelemetryClient()),
-    ).rejects.toThrow(
+    await expect(() => AztecNodeService.createAndSync(config as AztecNodeConfig)).rejects.toThrow(
       `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.chainId}`,
     );
   });

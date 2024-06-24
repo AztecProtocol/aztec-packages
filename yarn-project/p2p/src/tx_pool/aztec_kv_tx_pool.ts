@@ -2,7 +2,6 @@ import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { TxPoolInstrumentation } from './instrumentation.js';
 import { type TxPool } from './tx_pool.js';
@@ -27,11 +26,11 @@ export class AztecKVTxPool implements TxPool {
    * @param store - A KV store.
    * @param log - A logger.
    */
-  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createDebugLogger('aztec:tx_pool')) {
+  constructor(store: AztecKVStore, log = createDebugLogger('aztec:tx_pool')) {
     this.#txs = store.openMap('txs');
     this.#store = store;
     this.#log = log;
-    this.#metrics = new TxPoolInstrumentation(telemetry, 'AztecKVTxPool');
+    this.#metrics = new TxPoolInstrumentation('AztecKVTxPool');
   }
 
   /**

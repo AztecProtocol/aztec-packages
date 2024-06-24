@@ -55,7 +55,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import { Attributes, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/global';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -96,13 +97,8 @@ export class ProvingOrchestrator {
 
   public readonly tracer: Tracer;
 
-  constructor(
-    private db: MerkleTreeOperations,
-    private prover: ServerCircuitProver,
-    telemetryClient: TelemetryClient,
-    private initialHeader?: Header,
-  ) {
-    this.tracer = telemetryClient.getTracer('ProvingOrchestrator');
+  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver, private initialHeader?: Header) {
+    this.tracer = getTelemetryClient().getTracer('ProvingOrchestrator');
   }
 
   /**
