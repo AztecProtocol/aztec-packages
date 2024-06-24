@@ -21,24 +21,6 @@
 namespace bb {
 
 /**
- * @brief Polynomial G(X) = Q(X) - ∑ₖ ẑₖ(r)⋅( Bₖ(X) − Tₖ(z) ), where Q(X) = ∑ₖ ( Bₖ(X) − Tₖ(X) ) / zₖ(X)
- *
- * @tparam Curve EC parameters
- */
-// template <typename Curve> using OutputWitness = bb::Polynomial<typename Curve::ScalarField>;
-
-/**
- * @brief Prover output (claim=([G], r, 0), witness = G(X), proof = [Q])
- * that can be passed on to a univariate opening protocol.
- *
- * @tparam Curve EC parameters
- */
-// template <typename Curve> struct ShplonkProverOutput {
-//     OpeningPair<Curve> opening_pair; // single opening pair (challenge, evaluation)
-//     OutputWitness<Curve> witness;    // single polynomial G(X)
-// };
-
-/**
  * @brief Shplonk Prover
  *
  * @tparam Curve EC parameters
@@ -59,7 +41,6 @@ template <typename Curve> class ShplonkProver_ {
     static Polynomial compute_batched_quotient(std::span<const ProverOpeningClaim<Curve>> opening_claims, const Fr& nu)
     {
         // Find n, the maximum size of all polynomials fⱼ(X)
-        // WORKTODO: the sizes will alwas be the same so do we want this generality?
         size_t max_poly_size{ 0 };
         for (const auto& claim : opening_claims) {
             max_poly_size = std::max(max_poly_size, claim.polynomial.size());
@@ -136,6 +117,15 @@ template <typename Curve> class ShplonkProver_ {
         return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
 
+    /**
+     * @brief Returns a batched opening claim equivalent to a set of opening claims consisting of polynomials, each
+     * opened at a single point.
+     *
+     * @param commitment_key
+     * @param opening_claims
+     * @param transcript
+     * @return ProverOpeningClaim<Curve>
+     */
     static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                            std::span<ProverOpeningClaim<Curve>> opening_claims,
                                            auto& transcript)
@@ -164,8 +154,8 @@ template <typename Curve> class ShplonkVerifier_ {
      * @brief Recomputes the new claim commitment [G] given the proof and
      * the challenge r. No verification happens so this function always succeeds.
      *
+     * @param g1_identity the identity element for the Curve
      * @param claims list of opening claims (Cⱼ, xⱼ, vⱼ) for a witness polynomial fⱼ(X), s.t. fⱼ(xⱼ) = vⱼ.
-     * @param proof [Q(X)] = [ ∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ ) ]
      * @param transcript
      * @return OpeningClaim
      */

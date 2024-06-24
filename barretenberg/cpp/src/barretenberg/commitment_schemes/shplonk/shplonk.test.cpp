@@ -22,6 +22,8 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     using ShplonkProver = ShplonkProver_<TypeParam>;
     using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
+    using ProverOpeningClaim = ProverOpeningClaim<TypeParam>;
+
     using OpeningClaim = OpeningClaim<TypeParam>;
 
     const size_t n = 16;
@@ -41,23 +43,23 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     const auto commitment2 = this->commit(poly2);
 
     // Aggregate polynomials and their opening pairs
-    std::vector<ProverOpeningClaim<TypeParam>> prover_opening_claims = { { poly1, { r1, eval1 } },
-                                                                         { poly2, { r2, eval2 } } };
+    std::vector<ProverOpeningClaim> prover_opening_claims = { { poly1, { r1, eval1 } }, { poly2, { r2, eval2 } } };
 
     // Execute the shplonk prover functionality
-    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
+    const auto batched_opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     // An intermediate check to confirm the opening of the shplonk prover witness Q
-    this->verify_opening_pair(opening_claim.opening_pair, opening_claim.polynomial);
+    this->verify_opening_pair(batched_opening_claim.opening_pair, batched_opening_claim.polynomial);
 
     // Aggregate polynomial commitments and their opening pairs
-    std::vector<OpeningClaim> opening_claims = { { { r1, eval1 }, commitment1 }, { { r2, eval2 }, commitment2 } };
+    std::vector<OpeningClaim> verifier_opening_claims = { { { r1, eval1 }, commitment1 },
+                                                          { { r2, eval2 }, commitment2 } };
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     // Execute the shplonk verifier functionality
-    const auto verifier_claim =
-        ShplonkVerifier::reduce_verification(this->vk()->get_g1_identity(), opening_claims, verifier_transcript);
+    const auto batched_verifier_claim = ShplonkVerifier::reduce_verification(
+        this->vk()->get_g1_identity(), verifier_opening_claims, verifier_transcript);
 
-    this->verify_opening_claim(verifier_claim, opening_claim.polynomial);
+    this->verify_opening_claim(batched_verifier_claim, opening_claim.polynomial);
 }
 } // namespace bb

@@ -256,8 +256,6 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
         this->construct_eccvm_honk_manifest(prover.key->circuit_size, prover.sumcheck_output.challenge.size());
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
-    prover_manifest.print();
-    manifest_expected.print();
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
     }

@@ -74,7 +74,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
-    // Construct arrays of commitments and evaluations to be batched, with the evaluations received from the prover
+    // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
     const size_t NUM_UNIVARIATES = 6;
     std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
         commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
@@ -89,10 +89,10 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
     };
 
-    // Get another challenge for batching the univariate claims
+    // Get the batching challenge for commitments and evaluations
     FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
-    // Construct the batched commitment and batched evaluation
+    // Compute the batched commitment and batched evaluation for the univariate opening claim
     auto batched_commitment = transcript_commitments[0];
     auto batched_transcript_eval = transcript_evaluations[0];
     auto batching_scalar = ipa_batching_challenge;
@@ -106,7 +106,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                           { { evaluation_challenge_x, batched_transcript_eval },
                                                             batched_commitment } };
 
-    // Construct and verify batched opening claim
+    // Construct and verify the combined opening claim
     auto batched_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 

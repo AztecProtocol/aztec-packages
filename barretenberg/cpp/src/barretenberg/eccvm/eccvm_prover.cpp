@@ -105,9 +105,9 @@ void ECCVMProver::execute_relation_check_rounds()
 }
 
 /**
- * @brief Produce a univariate opening claim from the sumcheck multivariate evalutions and  a batched univariate claim
- * for the transcript polynomials that serves for the Translator consistency check. Reduce the two opening claims to one
- * via Shplonk and produce an opening proof with the univariate PCS (IPA when operation on Grumpkin).
+ * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
+ * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
+ * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled ZeroMorph
  * protocol.
  *
@@ -140,10 +140,10 @@ void ECCVMProver::execute_pcs_rounds()
     }
     transcript->send_to_verifier("Translation:hack_commitment", commitment_key->commit(hack));
 
-    // Get the challenge at which we evaluate  all the polynomials as univariates
+    // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
-    // Evaluation the transcript polynomials at the challenge
+    // Evaluate the transcript polynomials at the challenge
     translation_evaluations.op = key->polynomials.transcript_op.evaluate(evaluation_challenge_x);
     translation_evaluations.Px = key->polynomials.transcript_Px.evaluate(evaluation_challenge_x);
     translation_evaluations.Py = key->polynomials.transcript_Py.evaluate(evaluation_challenge_x);
@@ -160,7 +160,7 @@ void ECCVMProver::execute_pcs_rounds()
     FF hack_evaluation = hack.evaluate(evaluation_challenge_x);
     transcript->send_to_verifier("Translation:hack_evaluation", hack_evaluation);
 
-    // Get another challenge for batching the univariates
+    // Get another challenge for batching the univariates and evaluations
     FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
     // Collect the polynomials and evaluations to be batched
@@ -193,7 +193,7 @@ void ECCVMProver::execute_pcs_rounds()
     PCS::compute_opening_proof(
         commitment_key, batched_opening_claim.opening_pair, batched_opening_claim.polynomial, transcript);
 
-    // Produce another challenge for batching the univariate claims in the translator verifier
+    // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
 }
 
