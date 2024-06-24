@@ -158,7 +158,6 @@ __metadata:
     ts-loader: ^9.4.4
     ts-node: ^10.9.1
     tslib: ^2.4.0
-    tty-browserify: ^0.0.1
     typescript: ^5.0.4
     util: ^0.12.5
     webpack: ^5.88.2
@@ -464,7 +463,6 @@ __metadata:
     ts-loader: ^9.4.4
     ts-node: ^10.9.1
     tslib: ^2.4.0
-    tty-browserify: ^0.0.1
     typescript: ^5.0.4
     util: ^0.12.5
     viem: ^2.7.15
@@ -930,6 +928,34 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     viem: ^2.7.15
+  languageName: unknown
+  linkType: soft
+
+"@aztec/txe@workspace:txe":
+  version: 0.0.0-use.local
+  resolution: "@aztec/txe@workspace:txe"
+  dependencies:
+    "@aztec/archiver": "workspace:^"
+    "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/key-store": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/pxe": "workspace:^"
+    "@aztec/simulator": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.7.23
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.3
+    ts-node: ^10.9.1
+    typescript: ^5.0.4
+  bin:
+    txe: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -13577,13 +13603,6 @@ __metadata:
   peerDependencies:
     typescript: ">=2.8.0 || >= 3.2.0-dev || >= 3.3.0-dev || >= 3.4.0-dev || >= 3.5.0-dev || >= 3.6.0-dev || >= 3.6.0-beta || >= 3.7.0-dev || >= 3.7.0-beta"
   checksum: 1843f4c1b2e0f975e08c4c21caa4af4f7f65a12ac1b81b3b8489366826259323feb3fc7a243123453d2d1a02314205a7634e048d4a8009921da19f99755cdc48
-  languageName: node
-  linkType: hard
-
-"tty-browserify@npm:^0.0.1":
-  version: 0.0.1
-  resolution: "tty-browserify@npm:0.0.1"
-  checksum: 93b745d43fa5a7d2b948fa23be8d313576d1d884b48acd957c07710bac1c0d8ac34c0556ad4c57c73d36e11741763ef66b3fb4fb97b06b7e4d525315a3cd45f5
   languageName: node
   linkType: hard
 
