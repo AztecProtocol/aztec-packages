@@ -10,6 +10,7 @@
 
 using namespace bb;
 using Builder = UltraCircuitBuilder;
+// using Builder = CircuitSimulatorBN254;
 using PCSTypes = ::testing::Types<KZG<stdlib::bn254<Builder>>, IPA<stdlib::grumpkin<Builder>>>;
 TYPED_TEST_SUITE(ZeroMorphTest, PCSTypes);
 TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, PCSTypes);
@@ -329,7 +330,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
 
     // Execute Prover protocol
     // LONDONTODO: these tests need to be updated
-    ZeroMorphProver::prove(RefVector(f_polynomials),
+    ZeroMorphProver::prove(N,
+                           RefVector(f_polynomials),
                            RefVector(g_polynomials),
                            RefVector(v_evaluations),
                            RefVector(w_evaluations),
@@ -371,7 +373,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     std::fill_n(u_challenge_in_circuit.begin(), MAX_LOG_CIRCUIT_SIZE, Fr::from_witness(&builder, 0));
     u_challenge_in_circuit[MAX_LOG_CIRCUIT_SIZE - 1] = Fr(&builder, u_challenge[0]);
 
-    [[maybe_unused]] auto result = ZeroMorphVerifier::verify(RefVector(stdlib_f_commitments), // unshifted
+    [[maybe_unused]] auto result = ZeroMorphVerifier::verify(Fr::from_witness(&builder, N),
+                                                             RefVector(stdlib_f_commitments), // unshifted
                                                              RefVector(stdlib_g_commitments), // to-be-shifted
                                                              RefVector(stdlib_v_evaluations), // unshifted
                                                              RefVector(stdlib_w_evaluations), // shifted
