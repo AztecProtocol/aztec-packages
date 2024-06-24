@@ -4,18 +4,18 @@ title: Using Address Note in Aztec.nr
 
 Address notes hold one unique property - an `address` in the type `AztecAddress`.
 
-## ValueNote
+## AddressNote
 
 This is the AddressNote struct:
 
-#include_code address-note-def noir-projects/aztec-nr/address-note/src/address_note.nr rust
+#include_code address_note_def noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
 ## Importing AddressNote
 
 ### In Nargo.toml
 
 ```toml
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
 ```
 
 ### In your contract
