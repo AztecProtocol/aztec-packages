@@ -205,7 +205,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "ETHEREUM_HOST",
-        "value": "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+        "value": "https://aztec-dev-mainnet-fork.aztec.network:8545/${var.API_KEY}"
       },
       {
         "name": "DATA_DIRECTORY",

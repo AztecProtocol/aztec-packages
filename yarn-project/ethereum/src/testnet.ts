@@ -2,9 +2,7 @@ import { type Chain } from 'viem';
 
 import { type EthereumChain } from './ethereum_chain.js';
 
-// TODO: restore DEPLOY_TAG
-// Temporarily hardcoding DEPLOY_TAG to 'aztec-dev' until mainnet fork is also deployed via devnet flow
-const { /* DEPLOY_TAG = 'aztec-dev', */ CHAIN_ID = 31337 } = process.env;
+const { DEPLOY_TAG = 'aztec-dev', CHAIN_ID = 31337 } = process.env;
 
 export const createTestnetChain = (apiKey: string) => {
   const chain: Chain = {
@@ -18,12 +16,10 @@ export const createTestnetChain = (apiKey: string) => {
     },
     rpcUrls: {
       default: {
-        // http: [`https://${DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${apiKey}`],
-        http: [`https://aztec-dev-mainnet-fork.aztec.network:8545/${apiKey}`],
+        http: [`https://${DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${apiKey}`],
       },
       public: {
-        // http: [`https://${DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${apiKey}`],
-        http: [`https://aztec-dev-mainnet-fork.aztec.network:8545/${apiKey}`],
+        http: [`https://${DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${apiKey}`],
       },
     },
   };
