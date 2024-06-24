@@ -55,7 +55,7 @@ impl NoteInterface<CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN> for CardNote {
         (note_hash_for_nullify, nullifier)
     }
 }
-// docs:start:note_interface
+// docs:end:note_interface
 
 // docs:start:serialize
 impl Serialize<3> for CardNote {
