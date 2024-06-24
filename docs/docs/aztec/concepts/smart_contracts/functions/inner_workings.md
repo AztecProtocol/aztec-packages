@@ -6,7 +6,9 @@ tags: [functions]
 
 Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract and what the attributes are really doing.
 
-## Private functions (#[aztec(private)])
+If you are looking for a reference of function macros, go [here](../../../../reference/smart_contract_reference/macros.md).
+
+## Private functions #[aztec(private)]
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[aztec(private)]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
@@ -73,7 +75,7 @@ Any state variables declared in the `Storage` struct can now be accessed as norm
 
 This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
 
-## Unconstrained functions (#[aztec(unconstrained)])
+## Unconstrained functions #[aztec(unconstrained)]
 
 Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as un-trusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
 
@@ -105,7 +107,7 @@ Beyond using them inside your other functions, they are convenient for providing
 Note, that unconstrained functions can have access to both public and private data when executed on the user's device. This is possible since it is not actually part of the circuits that are executed in contract execution.
 :::
 
-## `Public` Functions (#[aztec(public)])
+## `Public` Functions #[aztec(public)]
 
 A public function is executed by the sequencer and has access to a state model that is very similar to that of the EVM and Ethereum. Even though they work in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
 
@@ -117,6 +119,14 @@ To create a public function you can annotate it with the `#[aztec(public)]` attr
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
+TODO more to write here
+
 ## Further reading
 - [How do macros work](./function_types_macros.md)
 - [Macros reference](../../../../reference/smart_contract_reference/macros.md)
+
+## Constrained `view` Functions #[aztec(view)]
+## `Initializer` Functions #[aztec(initializer)]
+## #[aztec(noinitcheck)]
+## `Internal` functions #[aztec(internal)]
+## Custom notes #[aztec(note)]
