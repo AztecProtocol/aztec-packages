@@ -355,7 +355,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
                        });
         return commitments_in_biggroup;
     };
-    const auto elements_to_witness_ref_vector = [&](const auto& elements) {
+    const auto elements_to_witness = [&](const auto& elements) {
         std::vector<Fr> elements_in_circuit(elements.size());
         std::transform(elements.begin(),
                        elements.end(),
@@ -365,13 +365,13 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     };
     auto stdlib_f_commitments = commitments_to_witnesses(f_commitments);
     auto stdlib_g_commitments = commitments_to_witnesses(g_commitments);
-    auto stdlib_v_evaluations = elements_to_witness_ref_vector(v_evaluations);
-    auto stdlib_w_evaluations = elements_to_witness_ref_vector(w_evaluations);
+    auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
+    auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
 
     const size_t MAX_LOG_CIRCUIT_SIZE = 28;
     std::vector<Fr> u_challenge_in_circuit(MAX_LOG_CIRCUIT_SIZE);
     std::fill_n(u_challenge_in_circuit.begin(), MAX_LOG_CIRCUIT_SIZE, Fr::from_witness(&builder, 0));
-    u_challenge_in_circuit[MAX_LOG_CIRCUIT_SIZE - 1] = Fr(&builder, u_challenge[0]);
+    u_challenge_in_circuit[0] = Fr::from_witness(&builder, u_challenge[0]);
 
     [[maybe_unused]] auto result = ZeroMorphVerifier::verify(Fr::from_witness(&builder, N),
                                                              RefVector(stdlib_f_commitments), // unshifted
