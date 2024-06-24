@@ -303,7 +303,7 @@ impl StmtId {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone, PartialOrd, Ord)]
 pub struct ExprId(Index);
 
 impl ExprId {
@@ -622,15 +622,6 @@ impl NodeInterner {
     pub fn update_struct(&mut self, type_id: StructId, f: impl FnOnce(&mut StructType)) {
         let mut value = self.structs.get_mut(&type_id).unwrap().borrow_mut();
         f(&mut value);
-    }
-
-    pub fn update_struct_attributes(
-        &mut self,
-        type_id: StructId,
-        f: impl FnOnce(&mut StructAttributes),
-    ) {
-        let value = self.struct_attributes.get_mut(&type_id).unwrap();
-        f(value);
     }
 
     pub fn update_trait(&mut self, trait_id: TraitId, f: impl FnOnce(&mut Trait)) {

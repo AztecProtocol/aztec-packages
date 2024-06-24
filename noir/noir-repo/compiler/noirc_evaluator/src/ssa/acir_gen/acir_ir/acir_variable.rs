@@ -1215,6 +1215,31 @@ impl<F: AcirField> AcirContext<F> {
     ) -> Result<Vec<AcirVar>, RuntimeError> {
         // Separate out any arguments that should be constants
         let (constant_inputs, constant_outputs) = match name {
+            BlackBoxFunc::PedersenCommitment | BlackBoxFunc::PedersenHash => {
+                // The last argument of pedersen is the domain separator, which must be a constant
+                let domain_var = match inputs.pop() {
+                    Some(domain_var) => domain_var.into_var()?,
+                    None => {
+                        return Err(RuntimeError::InternalError(InternalError::MissingArg {
+                            name: "pedersen call".to_string(),
+                            arg: "domain separator".to_string(),
+                            call_stack: self.get_call_stack(),
+                        }))
+                    }
+                };
+
+                let domain_constant = match self.vars[&domain_var].as_constant() {
+                    Some(domain_constant) => domain_constant,
+                    None => {
+                        return Err(RuntimeError::InternalError(InternalError::NotAConstant {
+                            name: "domain separator".to_string(),
+                            call_stack: self.get_call_stack(),
+                        }))
+                    }
+                };
+
+                (vec![*domain_constant], Vec::new())
+            }
             BlackBoxFunc::Poseidon2Permutation => {
                 // The last argument is the state length, which must be a constant
                 let state_len = match inputs.pop() {
@@ -1539,6 +1564,8 @@ impl<F: AcirField> AcirContext<F> {
 
             return Ok(outputs_var);
         }
+        // Remove "always true" predicates.
+        let predicate = if predicate == Expression::one() { None } else { Some(predicate) };
 
         let brillig_inputs: Vec<BrilligInputs<F>> =
             try_vecmap(inputs, |i| -> Result<_, InternalError> {
@@ -1589,7 +1616,7 @@ impl<F: AcirField> AcirContext<F> {
         });
 
         self.acir_ir.brillig_call(
-            Some(predicate),
+            predicate,
             generated_brillig,
             brillig_inputs,
             brillig_outputs,
@@ -1660,8 +1687,7 @@ impl<F: AcirField> AcirContext<F> {
         Ok(())
     }
 
-    /// Recursively create acir values for returned arrays. This is necessary because a brillig returned array can have nested arrays as elements.
-    /// A singular array of witnesses is collected for a top level array, by deflattening the assigned witnesses at each level.
+    /// Recursively create zeroed-out acir values for returned arrays. This is necessary because a brillig returned array can have nested arrays as elements.
     fn zeroed_array_output(&mut self, element_types: &[AcirType], size: usize) -> AcirValue {
         let mut array_values = im::Vector::new();
         for _ in 0..size {

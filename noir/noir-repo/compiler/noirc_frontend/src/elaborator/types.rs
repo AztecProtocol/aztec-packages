@@ -24,8 +24,8 @@ use crate::{
         traits::TraitConstraint,
     },
     macros_api::{
-        HirExpression, HirLiteral, HirStatement, Path, PathKind, Signedness, UnaryOp,
-        UnresolvedType, UnresolvedTypeData,
+        HirExpression, HirLiteral, HirStatement, Path, PathKind, SecondaryAttribute, Signedness,
+        UnaryOp, UnresolvedType, UnresolvedTypeData,
     },
     node_interner::{DefinitionKind, ExprId, GlobalId, TraitId, TraitImplKind, TraitMethodId},
     Generics, Type, TypeBinding, TypeVariable, TypeVariableKind,
@@ -192,17 +192,17 @@ impl<'context> Elaborator<'context> {
                 }
 
                 let expected_generic_count = struct_type.borrow().generics.len();
-                // if !self.in_contract
-                //     && self
-                //         .interner
-                //         .struct_attributes(&struct_type.borrow().id)
-                //         .iter()
-                //         .any(|attr| matches!(attr, SecondaryAttribute::Abi(_)))
-                // {
-                //     self.push_err(ResolverError::AbiAttributeOutsideContract {
-                //         span: struct_type.borrow().name.span(),
-                //     });
-                // }
+                if !self.in_contract
+                    && self
+                        .interner
+                        .struct_attributes(&struct_type.borrow().id)
+                        .iter()
+                        .any(|attr| matches!(attr, SecondaryAttribute::Abi(_)))
+                {
+                    self.push_err(ResolverError::AbiAttributeOutsideContract {
+                        span: struct_type.borrow().name.span(),
+                    });
+                }
                 self.verify_generics_count(expected_generic_count, &mut args, span, || {
                     struct_type.borrow().to_string()
                 });

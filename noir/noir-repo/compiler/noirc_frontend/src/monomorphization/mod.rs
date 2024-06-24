@@ -241,9 +241,7 @@ impl<'interner> Monomorphizer<'interner> {
                         Definition::Oracle(opcode.to_string())
                     }
                     FunctionKind::Recursive => {
-                        let id =
-                            self.queue_function(id, expr_id, typ, turbofish_generics, trait_method);
-                        Definition::Function(id)
+                        unreachable!("Only main can be specified as recursive, which should already be checked");
                     }
                 }
             }
@@ -891,7 +889,11 @@ impl<'interner> Monomorphizer<'interner> {
             DefinitionKind::Local(_) => match self.lookup_captured_expr(ident.id) {
                 Some(expr) => expr,
                 None => {
-                    let ident = self.local_ident(&ident)?.unwrap();
+                    let Some(ident) = self.local_ident(&ident)? else {
+                        let location = self.interner.id_location(expr_id);
+                        let message = "ICE: Variable not found during monomorphization";
+                        return Err(MonomorphizationError::InternalError { location, message });
+                    };
                     ast::Expression::Ident(ident)
                 }
             },
