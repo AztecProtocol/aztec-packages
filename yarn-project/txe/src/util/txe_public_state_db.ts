@@ -1,4 +1,4 @@
-import { MerkleTreeId, PublicDataWrite } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   Fr,
@@ -8,7 +8,6 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type PublicStateDB } from '@aztec/simulator';
-import { MerkleTrees } from '@aztec/world-state';
 
 import { type TXE } from '../oracle/txe_oracle.js';
 

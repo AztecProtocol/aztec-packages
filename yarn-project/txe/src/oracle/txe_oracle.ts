@@ -10,13 +10,11 @@ import {
   TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { AvmSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
-  type CompleteAddress,
   FunctionData,
   Gas,
-  GasSettings,
   GlobalVariables,
   Header,
   type KeyValidationRequest,
@@ -97,12 +95,12 @@ export class TXE implements TypedOracle {
 
   // Utils
 
-  async getChainId() {
-    return this.chainId;
+  getChainId() {
+    return Promise.resolve(this.chainId);
   }
 
-  async getVersion() {
-    return this.version;
+  getVersion() {
+    return Promise.resolve(this.version);
   }
 
   getMsgSender() {
@@ -217,7 +215,7 @@ export class TXE implements TypedOracle {
   }
 
   async addAuthWitness(address: AztecAddress, messageHash: Fr) {
-    const account = await this.txeDatabase.getAccount(address);
+    const account = this.txeDatabase.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
     const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
@@ -240,28 +238,28 @@ export class TXE implements TypedOracle {
 
   // TypedOracle
 
-  async getBlockNumber() {
-    return this.blockNumber;
+  getBlockNumber() {
+    return Promise.resolve(this.blockNumber);
   }
 
-  async getContractAddress() {
-    return this.contractAddress;
+  getContractAddress() {
+    return Promise.resolve(this.contractAddress);
   }
 
   getRandomField() {
     return Fr.random();
   }
 
-  async packArgumentsArray(args: Fr[]): Promise<Fr> {
-    return this.packedValuesCache.pack(args);
+  packArgumentsArray(args: Fr[]) {
+    return Promise.resolve(this.packedValuesCache.pack(args));
   }
 
-  async packReturns(returns: Fr[]): Promise<Fr> {
-    return this.packedValuesCache.pack(returns);
+  packReturns(returns: Fr[]) {
+    return Promise.resolve(this.packedValuesCache.pack(returns));
   }
 
-  async unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return this.packedValuesCache.unpack(returnsHash);
+  unpackReturns(returnsHash: Fr) {
+    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -340,11 +338,11 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return this.txeDatabase.getAccount(account);
+  getCompleteAddress(account: AztecAddress) {
+    return Promise.resolve(this.txeDatabase.getAccount(account));
   }
 
-  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+  getAuthWitness(messageHash: Fr) {
     return this.txeDatabase.getAuthWitness(messageHash);
   }
 
@@ -352,7 +350,7 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async getNotes(
+  getNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -391,10 +389,10 @@ export class TXE implements TypedOracle {
         .join(', ')}`,
     );
 
-    return notes;
+    return Promise.resolve(notes);
   }
 
-  async notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr, counter: number) {
+  notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -410,7 +408,7 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  async notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, _counter: number) {
+  notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, _counter: number) {
     this.noteCache.nullifyNote(this.contractAddress, innerNullifier, innerNoteHash);
     return Promise.resolve();
   }

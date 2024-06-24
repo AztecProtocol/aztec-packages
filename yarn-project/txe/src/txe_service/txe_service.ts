@@ -9,11 +9,10 @@ import {
   PublicDataTreeLeaf,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { MerkleTrees } from '@aztec/world-state';
@@ -210,8 +209,8 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(counter))]);
   }
 
-  addAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
-    (this.typedOracle as TXE).addAuthWitness(fromSingle(address), fromSingle(messageHash));
+  async addAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
+    await (this.typedOracle as TXE).addAuthWitness(fromSingle(address), fromSingle(messageHash));
     return toForeignCallResult([]);
   }
 

@@ -26,14 +26,10 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    let contractClass;
-    let privateFunctionsRoot;
-    try {
-      contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
-      const artifact = await this.txeOracle.getContractDataOracle().getContractArtifact(id);
-      const tree = new PrivateFunctionsTree(artifact);
-      privateFunctionsRoot = await tree.getFunctionTreeRoot();
-    } catch {}
+    const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
+    const artifact = await this.txeOracle.getContractDataOracle().getContractArtifact(id);
+    const tree = new PrivateFunctionsTree(artifact);
+    const privateFunctionsRoot = tree.getFunctionTreeRoot();
 
     return {
       id,
