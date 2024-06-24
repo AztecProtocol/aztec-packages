@@ -508,7 +508,6 @@ pub fn generate_storage_layout(
     let mut storable_fields = vec![];
     let mut storable_fields_impl = vec![];
 
-
     definition.fields.iter().for_each(|(field_ident, _)| {
         storable_fields.push(format!("{}: dep::aztec::prelude::Storable", field_ident));
         storable_fields_impl

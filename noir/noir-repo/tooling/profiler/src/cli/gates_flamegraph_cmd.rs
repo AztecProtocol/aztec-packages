@@ -10,9 +10,9 @@ use inferno::flamegraph::{from_lines, Options};
 use serde::{Deserialize, Serialize};
 
 use acir::circuit::OpcodeLocation;
+use nargo::errors::Location;
 use noirc_artifacts::debug::DebugArtifact;
 use noirc_artifacts::program::ProgramArtifact;
-use nargo::errors::Location;
 use noirc_errors::reporter::line_and_column_from_span;
 
 #[derive(Debug, Clone, Args)]
