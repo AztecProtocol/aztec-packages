@@ -399,7 +399,6 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         const size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        info("multivariate_d: ", multivariate_d);
         for (size_t round_idx = 0; round_idx < MAX_LOG_CIRCUIT_SIZE; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
@@ -409,7 +408,6 @@ template <typename Flavor> class SumcheckVerifier {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
             // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
-            info("in round ", round_idx);
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
@@ -457,7 +455,6 @@ template <typename Flavor> class SumcheckVerifier {
         bool checked = false;
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            info("stdlib target total sum: ", round.target_total_sum.get_value());
             checked = (full_honk_relation_purported_value.get_value() == round.target_total_sum.get_value());
         } else {
             info("native target total sum: ", round.target_total_sum);

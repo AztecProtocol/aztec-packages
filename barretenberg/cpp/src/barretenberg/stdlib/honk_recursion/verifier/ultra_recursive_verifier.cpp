@@ -53,7 +53,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     CommitmentLabels commitment_labels;
 
     FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    info("circuit size extracted from proof: ", circuit_size);
     transcript->template receive_from_prover<FF>("public_input_size");
     transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
