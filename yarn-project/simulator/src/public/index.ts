@@ -8,4 +8,3 @@ export * from './public_db_sources.js';
 export * from './public_kernel.js';
 export * from './public_kernel_circuit_simulator.js';
 export { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
-export * from './transitional_adaptors.js';

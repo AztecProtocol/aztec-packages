@@ -31,6 +31,7 @@ import {
   PublicCallRequest,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  TxContext,
   computeContractClassId,
   deriveKeys,
   getContractClassFromArtifact,
@@ -45,23 +46,17 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle } from '@aztec/pxe';
 import {
-  AvmContext,
-  AvmMachineState,
-  AvmPersistableStateManager,
-  AvmSimulator,
   ContractsDataSourcePublicDB,
   ExecutionError,
   type ExecutionNoteCache,
-  HostStorage,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   type PackedValuesCache,
+  PublicExecutor,
   type TypedOracle,
   WorldStateDB,
   acvm,
-  convertAvmResultsToPxResult,
-  createAvmExecutionEnvironment,
   createSimulationError,
   extractCallStack,
   pickNotes,
@@ -638,30 +633,6 @@ export class TXE implements TypedOracle {
     args: Fr[],
     callContext: CallContext,
   ) {
-    const fnName =
-      (await this.getDebugFunctionName(targetContractAddress, functionSelector)) ??
-      `${targetContractAddress}:${functionSelector}`;
-
-    this.logger.debug(`[AVM] Executing public external function ${fnName}.`);
-    const timer = new Timer();
-    const startGas = Gas.test();
-    const hostStorage = new HostStorage(
-      new TXEPublicStateDB(this),
-      new ContractsDataSourcePublicDB(new TXEPublicContractDataSource(this)),
-      new WorldStateDB(this.trees.asLatest()),
-    );
-
-    const worldStateJournal = new AvmPersistableStateManager(hostStorage);
-    for (const nullifier of this.noteCache.getNullifiers(targetContractAddress)) {
-      worldStateJournal.nullifiers.cache.appendSiloed(new Fr(nullifier));
-    }
-    worldStateJournal.trace.accessCounter = callContext.sideEffectCounter;
-    const execution = {
-      contractAddress: targetContractAddress,
-      functionSelector,
-      args,
-      callContext,
-    };
     const header = Header.empty();
     header.state = await this.trees.getStateReference(true);
     header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
@@ -677,44 +648,28 @@ export class TXE implements TypedOracle {
     header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
       (await this.trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
     );
-    const executionEnv = createAvmExecutionEnvironment(
-      execution,
+    const executor = new PublicExecutor(
+      new TXEPublicStateDB(this),
+      new ContractsDataSourcePublicDB(new TXEPublicContractDataSource(this)),
+      new WorldStateDB(this.trees.asLatest()),
       header,
-      GlobalVariables.empty(),
-      GasSettings.default(),
-      Fr.ZERO,
     );
+    const execution = {
+      contractAddress: targetContractAddress,
+      functionSelector,
+      args,
+      callContext,
+    };
 
-    const machineState = new AvmMachineState(startGas);
-    const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
-    const simulator = new AvmSimulator(avmContext);
-    const avmResult = await simulator.execute();
-    const bytecode = simulator.getBytecode();
-
-    await avmContext.persistableState.publicStorage.commitToDB();
-
-    this.logger.verbose(
-      `[AVM] ${fnName} returned, reverted: ${avmResult.reverted}${
-        avmResult.reverted ? ', reason: ' + avmResult.revertReason : ''
-      }.`,
-      {
-        eventName: 'avm-simulation',
-        appCircuitName: fnName,
-        duration: timer.ms(),
-        bytecodeSize: bytecode!.length,
-      } satisfies AvmSimulationStats,
-    );
-
-    const executionResult = convertAvmResultsToPxResult(
-      avmResult,
-      callContext.sideEffectCounter,
+    return executor.simulate(
       execution,
-      startGas,
-      avmContext,
-      bytecode,
-      fnName,
+      GlobalVariables.empty(),
+      Gas.test(),
+      TxContext.empty(),
+      [],
+      Fr.ZERO,
+      callContext.sideEffectCounter,
     );
-    return executionResult;
   }
 
   async avmOpcodeCall(

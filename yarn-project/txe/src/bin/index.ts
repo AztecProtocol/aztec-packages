@@ -63,6 +63,7 @@ export function startTXEHttpServer(dispatcher: TXEDispatcher, port: string | num
 
   const app = txeServer.getApp();
   const httpServer = http.createServer(app.callback());
+  httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
   httpServer.listen(port);
 
   return httpServer;
