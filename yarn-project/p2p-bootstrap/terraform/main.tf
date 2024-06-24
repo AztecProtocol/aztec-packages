@@ -104,7 +104,7 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
   container_definitions = <<DEFINITIONS
 [
   {
-    "name": "${var.DEPLOY_TAG}-p2p-bootstrap-node-${count.index + 1}",
+    "name": "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
     "command": ["start", "--p2p-bootstrap"],
     "essential": true,
