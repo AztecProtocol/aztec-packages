@@ -25,6 +25,12 @@ export class NoteSelector extends Selector {
     return new NoteSelector(value);
   }
 
+  static fromString(buf: string) {
+    const withoutPrefix = buf.replace(/^0x/i, '');
+    const buffer = Buffer.from(withoutPrefix, 'hex');
+    return NoteSelector.fromBuffer(buffer);
+  }
+
   /**
    * Converts a field to selector.
    * @param fr - The field to convert.
