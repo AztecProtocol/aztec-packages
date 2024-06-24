@@ -666,8 +666,8 @@ export class TXE implements TypedOracle {
       GlobalVariables.empty(),
       Gas.test(),
       TxContext.empty(),
-      [],
-      Fr.ZERO,
+      /* pendingNullifiers */ [],
+      /* transactionFee */ Fr.ZERO,
       callContext.sideEffectCounter,
     );
   }
