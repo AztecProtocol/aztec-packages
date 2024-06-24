@@ -646,12 +646,12 @@ export class TXEService {
     return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
   }
 
-  async addNullifier(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, nullifiers: ForeignCallArray) {
+  async addNullifiers(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, nullifiers: ForeignCallArray) {
     await (this.typedOracle as TXE).addNullifiers(fromSingle(contractAddress), fromArray(nullifiers));
     return toForeignCallResult([]);
   }
 
-  async addNoteHash(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
+  async addNoteHashes(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
     await (this.typedOracle as TXE).addNoteHashes(fromSingle(contractAddress), fromArray(noteHashes));
     return toForeignCallResult([]);
   }
