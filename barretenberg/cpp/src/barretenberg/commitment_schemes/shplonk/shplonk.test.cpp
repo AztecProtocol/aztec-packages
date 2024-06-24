@@ -60,6 +60,6 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     const auto batched_verifier_claim = ShplonkVerifier::reduce_verification(
         this->vk()->get_g1_identity(), verifier_opening_claims, verifier_transcript);
 
-    this->verify_opening_claim(batched_verifier_claim, opening_claim.polynomial);
+    this->verify_opening_claim(batched_verifier_claim, batched_opening_claim.polynomial);
 }
 } // namespace bb
