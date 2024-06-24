@@ -295,22 +295,18 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
         mle_opening_point, std::move(gemini_polynomials), r_challenge);
 
+    std::vector<ProverOpeningClaim<Curve>> opening_claims;
+
     for (size_t l = 0; l < log_n; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
         const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
         prover_transcript->send_to_verifier(label, evaluation);
+        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
     }
+    opening_claims.emplace_back(gemini_witnesses[log_n], gemini_opening_pairs[log_n]);
 
-    const Fr nu_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:nu");
-    auto batched_quotient_Q =
-        ShplonkProver::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
-    prover_transcript->send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
-
-    const Fr z_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:z");
-    const auto [polynomial, opening_pair] = ShplonkProver::compute_partially_evaluated_batched_quotient(
-        gemini_opening_pairs, gemini_witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
-
-    IPA::compute_opening_proof(this->ck(), opening_pair, polynomial, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(this->ck(), opening_claims, prover_transcript);
+    IPA::compute_opening_proof(this->ck(), opening_claim.opening_pair, opening_claim.polynomial, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
@@ -321,7 +317,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
                                                                      verifier_transcript);
 
     const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
+        ShplonkVerifier::reduce_verification(this->vk()->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
     auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
