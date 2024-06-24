@@ -13,6 +13,8 @@ use noirc_frontend::{
 
 use acvm::AcirField;
 use regex::Regex;
+// TODO(#7165): nuke the following dependency from here and Cargo.toml
+use tiny_keccak::{Hasher, Keccak};
 
 use crate::{
     chained_dep,
@@ -184,8 +186,9 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         }
 
         if !check_trait_method_implemented(trait_impl, "get_note_type_id") {
+            let note_type_id = compute_note_type_id(&note_type);
             let get_note_type_id_fn =
-                generate_get_note_type_id(&note_type, note_interface_impl_span)?;
+                generate_get_note_type_id(note_type_id, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_note_type_id_fn));
         }
 
@@ -325,17 +328,17 @@ fn generate_note_set_header(
 // Automatically generate the note type id getter method. The id itself its calculated as the concatenation
 // of the conversion of the characters in the note's struct name to unsigned integers.
 fn generate_get_note_type_id(
-    note_type: &str,
+    note_type_id: u32,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
+    // TODO(#7165): replace {} with dep::aztec::protocol_types::abis::note_selector::compute_note_selector(\"{}\") in the function source below
     let function_source = format!(
         "
-        fn get_note_type_id() -> Field {{
-            let id = dep::aztec::protocol_types::abis::note_selector::compute_note_selector(\"{}\");
-            id
-        }}
-    ",
-        note_type
+            fn get_note_type_id() -> Field {{
+                {}
+            }}
+        ",
+        note_type_id
     )
     .to_string();
 
@@ -684,6 +687,20 @@ fn generate_note_deserialize_content_source(
         note_serialize_len, note_type, note_fields
     )
     .to_string()
+}
+
+// TODO(#7165): nuke this function
+// Utility function to generate the note type id as a Field
+fn compute_note_type_id(note_type: &str) -> u32 {
+    // TODO(#4519) Improve automatic note id generation and assignment
+    let mut keccak = Keccak::v256();
+    let mut result = [0u8; 32];
+    keccak.update(note_type.as_bytes());
+    keccak.finalize(&mut result);
+    // Take the first 4 bytes of the hash and convert them to an integer
+    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
+    let num_bytes_per_note_type_id = 4;
+    u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
 }
 
 pub fn inject_note_exports(
