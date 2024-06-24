@@ -3,12 +3,12 @@ mod dapp_payload;
 
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
-    
+
     use dep::aztec::{
         prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
-        },
+    },
         encrypted_logs::encrypted_note_emission::encode_and_encrypt,
         protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
     };
