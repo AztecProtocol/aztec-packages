@@ -22,17 +22,17 @@ WORKDIR /usr/src/noir-projects
 COPY . .
 
 # Build & test
-RUN cd ./noir-protocol-circuits && ./bootstrap.sh && nargo test --silence-warnings
+RUN cd ./noir-protocol-circuits && ./bootstrap.sh && nargo test --use-legacy --silence-warnings
 
 RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 
     # Wait for TXE to initialize
     sleep 5 && \ 
     cd ./noir-contracts && \
-    ./bootstrap.sh && nargo test --silence-warnings --oracle-resolver http://localhost:8080 ; \
+    ./bootstrap.sh && nargo test --use-legacy --silence-warnings --oracle-resolver http://localhost:8080 ; \
     kill $(cat /tmp/txe.pid)
 
 RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \ 
     # Wait for TXE to initialize
     sleep 5 && \ 
     cd ./aztec-nr && \
-    nargo test --silence-warnings --oracle-resolver http://localhost:8080
+    nargo test --use-legacy --silence-warnings --oracle-resolver http://localhost:8080
