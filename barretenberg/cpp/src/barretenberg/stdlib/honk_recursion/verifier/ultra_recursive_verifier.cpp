@@ -52,7 +52,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    transcript->template receive_from_prover<FF>("circuit_size");
+    FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     transcript->template receive_from_prover<FF>("public_input_size");
     transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
@@ -139,7 +139,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
     // Execute ZeroMorph multilinear PCS evaluation verifier
-    auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
+    auto verifier_accumulator = ZeroMorph::verify(circuit_size,
+                                                  commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),
                                                   claimed_evaluations.get_unshifted(),
                                                   claimed_evaluations.get_shifted(),

@@ -27,7 +27,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
+    const BF circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1017): This is a hack to ensure zero commitments
@@ -72,7 +72,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // removed return bool
-    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
+    bool multivariate_opening_verified = ZeroMorph::verify(cirsuit_size,
+                                                           commitments.get_unshifted(),
                                                            commitments.get_to_be_shifted(),
                                                            claimed_evaluations.get_unshifted(),
                                                            claimed_evaluations.get_shifted(),
