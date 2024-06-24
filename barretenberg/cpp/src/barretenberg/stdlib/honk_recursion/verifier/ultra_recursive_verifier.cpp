@@ -177,7 +177,10 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     // Execute ZeroMorph multilinear PCS evaluation verifier
     info("ultra rec verifier N: ", key->circuit_size);
-
+    info("challenge being passes: ");
+    for (const auto& val : multivariate_challenge) {
+        info(val);
+    }
     auto verifier_accumulator = ZeroMorph::verify(key->circuit_size,
                                                   commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),

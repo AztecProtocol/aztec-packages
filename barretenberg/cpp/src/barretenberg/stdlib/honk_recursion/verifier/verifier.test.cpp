@@ -175,6 +175,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        info("RUNNING RECURSIVE VERIFIER");
         auto pairing_points = verifier.verify_proof(inner_proof);
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
 
@@ -185,6 +186,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
         InnerVerifier native_verifier(verification_key);
+        info("RUNNING NATIVE VERIFIER");
         auto native_result = native_verifier.verify_proof(inner_proof);
         auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
                                                                                          pairing_points[1].get_value());
@@ -205,7 +207,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterProver prover(instance);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
             OuterVerifier verifier(verification_key);
+            info("PROVING RECURSIVE VERIFIER");
             auto proof = prover.construct_proof();
+            info("VERIFYING RECURSIVE VERIFIER");
             bool verified = verifier.verify_proof(proof);
 
             ASSERT(verified);
