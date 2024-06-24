@@ -202,14 +202,14 @@ export class TXE implements TypedOracle {
     const db = this.trees.asLatest();
     const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
-    return;
+    return Promise.resolve();
   }
 
   async avmOpcodeEmitNoteHash(innerNoteHash: Fr) {
     const db = this.trees.asLatest();
     const noteHash = siloNoteHash(this.contractAddress, innerNoteHash);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
-    return;
+    return Promise.resolve();
   }
 
   deriveKeys(secret: Fr) {
@@ -407,12 +407,12 @@ export class TXE implements TypedOracle {
       },
       counter,
     );
-    return;
+    return Promise.resolve();
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, _counter: number) {
     this.noteCache.nullifyNote(this.contractAddress, innerNullifier, innerNoteHash);
-    return;
+    return Promise.resolve();
   }
 
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {

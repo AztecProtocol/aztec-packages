@@ -1,16 +1,16 @@
 import { MerkleTreeId, PublicDataWrite } from '@aztec/circuit-types';
 import {
-  AztecAddress,
+  type AztecAddress,
   Fr,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
+  type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { PublicStateDB } from '@aztec/simulator';
+import { type PublicStateDB } from '@aztec/simulator';
 import { MerkleTrees } from '@aztec/world-state';
 
-import { TXE } from '../oracle/txe_oracle.js';
+import { type TXE } from '../oracle/txe_oracle.js';
 
 export class TXEPublicStateDB implements PublicStateDB {
   constructor(private txeOracle: TXE) {}

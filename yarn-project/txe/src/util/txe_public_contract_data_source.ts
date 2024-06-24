@@ -1,14 +1,14 @@
-import { AztecAddress, Fr, FunctionSelector, unpackBytecode } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress, Fr, type FunctionSelector, unpackBytecode } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 import {
-  ContractClassPublic,
-  ContractDataSource,
-  ContractInstanceWithAddress,
-  PublicFunction,
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+  type PublicFunction,
 } from '@aztec/types/contracts';
 
-import { TXE } from '../oracle/txe_oracle.js';
+import { type TXE } from '../oracle/txe_oracle.js';
 
 export class TXEPublicContractDataSource implements ContractDataSource {
   constructor(private txeOracle: TXE) {}

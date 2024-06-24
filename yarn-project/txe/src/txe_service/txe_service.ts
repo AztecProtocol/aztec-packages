@@ -223,7 +223,7 @@ export class TXEService {
   ) {
     const parsedAddress = fromSingle(address);
     const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
-    let result = await (this.typedOracle as TXE).avmOpcodeCall(
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(
       parsedAddress,
       parsedSelector,
       fromArray(args),
