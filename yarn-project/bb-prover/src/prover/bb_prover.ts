@@ -331,13 +331,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateProofWithBB<
     Input extends { toBuffer: () => Buffer },
     Output extends { toBuffer: () => Buffer },
+    PROOF_LENGTH extends number,
   >(
     input: Input,
+    proofLength: PROOF_LENGTH,
     circuitType: ServerProtocolArtifact,
     convertInput: (input: Input) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => Output,
     workingDirectory: string,
-  ): Promise<{ circuitOutput: Output; vkData: VerificationKeyData; provingResult: BBSuccess }> {
+  ): Promise<{ vkData: VerificationKeyData; provingResult: BBSuccess; proof: RecursiveProof<PROOF_LENGTH>|undefined; rawProof: Buffer; circuitOutput: Output; }> {
     // Have the ACVM write the partial witness here
     const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
 
@@ -355,8 +357,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const inputWitness = convertInput(input);
     const timer = new Timer();
-    const simulateOperation = async () => await simulator.simulateCircuit(inputWitness, artifact);
-    const outputWitness = await withProverCache('BBNativeRollupProver.generateProofWithBB(simulation)', [inputWitness, artifact], simulateOperation)
+    const simulateOperation = async () => {
+      const outputWitness = await simulator.simulateCircuit(inputWitness, artifact);
+      const outputWitnessFileBuffer = await fs.readFile(outputWitnessFile);
+      return { outputWitness, outputWitnessFileBuffer };
+    }
+    const { outputWitness, outputWitnessFileBuffer } = await withProverCache('BBNativeRollupProver.generateProofWithBB(simulation)', [inputWitness, artifact], simulateOperation)
+    // Rewrite in case we cached above. TODO better abstraction here not reliant on file path fixups
+    await fs.writeFile(outputWitnessFile, outputWitnessFileBuffer);
     const witnessGenerationDuration = timer.ms();
     const output = convertOutput(outputWitness);
     logger.debug(`Generated witness`, {
@@ -387,7 +395,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       // Ensure our vk cache is up to date
       const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
-      return {vkData, provingResult}
+      // Read the proof as fields
+      const proof = proofLength === 0 ? undefined : await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
+      // Read the binary proof
+      const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
+      return {vkData, provingResult, proof, rawProof}
     }
     return {
       circuitOutput: output,
@@ -405,11 +417,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const {
         provingResult,
         vkData,
+        rawProof,
         circuitOutput: output,
-      } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
-
-      // Read the binary proof
-      const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
+      } = await this.generateProofWithBB(input, 0, circuitType, convertInput, convertOutput, bbWorkingDirectory);
 
       const proof = new Proof(rawProof, vkData.numPublicInputs);
       logger.info(`Generated proof for ${circuitType} in ${Math.ceil(provingResult.duration)} ms`, {
@@ -501,22 +511,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const {
         provingResult,
         vkData,
+        proof,
         circuitOutput: output,
-      } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
-
-      // Read the proof as fields
-      const proof = await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
+      } = await this.generateProofWithBB(input, proofLength, circuitType, convertInput, convertOutput, bbWorkingDirectory);
 
       logger.info(
         `Generated proof for ${circuitType} in ${Math.ceil(provingResult.duration)} ms, size: ${
-          proof.proof.length
+          proof!.proof.length
         } fields`,
         {
           circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
           circuitSize: vkData.circuitSize,
           duration: provingResult.duration,
           inputSize: output.toBuffer().length,
-          proofSize: proof.binaryProof.buffer.length,
+          proofSize: proof!.binaryProof.buffer.length,
           eventName: 'circuit-proving',
           numPublicInputs: vkData.numPublicInputs,
         } satisfies CircuitProvingStats,
@@ -524,7 +532,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return {
         circuitOutput: output,
-        proof,
+        proof: proof!,
       };
     };
     return await runInDirectory(this.config.bbWorkingDirectory, operation);
