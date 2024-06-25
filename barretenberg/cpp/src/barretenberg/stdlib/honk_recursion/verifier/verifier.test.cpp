@@ -173,7 +173,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             [[maybe_unused]] auto pairing_points = verifier.verify_proof(inner_proof);
 
             auto outer_instance = std::make_shared<OuterProverInstance>(outer_circuit);
-            return std::move(instance->proving_key.polynomials);
+            return std::move(outer_instance->proving_key.polynomials);
         };
 
         bool broke(false);
