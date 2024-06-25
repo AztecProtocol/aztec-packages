@@ -54,11 +54,13 @@ pub enum BlackBoxFuncCall {
         message: Vec<FunctionInput>,
         output: Witness,
     },
+    /// Will be deprecated
     PedersenCommitment {
         inputs: Vec<FunctionInput>,
         domain_separator: u32,
         outputs: (Witness, Witness),
     },
+    /// Will be deprecated
     PedersenHash {
         inputs: Vec<FunctionInput>,
         domain_separator: u32,
