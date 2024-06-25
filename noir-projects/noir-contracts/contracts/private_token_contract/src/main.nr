@@ -1,4 +1,5 @@
 mod types;
+mod test;
 
 // Minimal token implementation that supports `AuthWit` accounts and private refunds
 
@@ -8,7 +9,7 @@ contract PrivateToken {
         hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
         protocol_types::abis::function_selector::FunctionSelector, oracle::unsafe_rand::unsafe_rand,
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt, encode_and_encrypt_with_keys}
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys}
     };
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
     use crate::types::{token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
@@ -94,12 +95,11 @@ contract PrivateToken {
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
-        storage.balances.add(caller, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, caller, caller));
+        storage.balances.add(caller, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, caller));
         PrivateToken::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     #[aztec(public)]
-    #[aztec(internal)]
     fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
         let supply = storage.total_supply.read() + U128::from_integer(amount);
@@ -115,8 +115,8 @@ contract PrivateToken {
         let to_ivpk = header.get_ivpk_m(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk));
     }
 
     #[aztec(private)]
@@ -124,6 +124,10 @@ contract PrivateToken {
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
         storage.balances.to_unconstrained().balance_of(owner_npk_m_hash).to_integer()
+    }
+
+    unconstrained fn balance_of_unconstrained(owner_npk_m_hash: Field) -> pub Field {
+        storage.balances.balance_of(owner_npk_m_hash).to_integer()
     }
 
     #[aztec(private)]
