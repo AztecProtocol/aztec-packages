@@ -1,6 +1,5 @@
 
 namespace copy(256);
-    // TODO: automatically generate lagrange first and last
     pol commit x, y, z;
     pol commit sigma_x, sigma_y, sigma_z;
 

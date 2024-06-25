@@ -27,7 +27,6 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     // 1 + polynomial degree of this relation
 
     // As each copy tuple is multiplied together
-    // TODO(md): update relation degree lengths
     static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{

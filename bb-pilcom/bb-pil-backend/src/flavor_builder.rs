@@ -214,21 +214,15 @@ fn create_relation_definitions(
     let comma_sep_grand_products: Option<String> = create_lookups_tuple(grand_products);
 
     // We only include the grand product relations if we are given lookups
-    let mut grand_product_relations = String::new();
     let mut all_relations = comma_sep_relations.to_string();
     if let Some(lookups) = comma_sep_lookups {
         all_relations = all_relations + &format!(", {lookups}");
-        // TODO(md): i dont think this is even required
-        // Try removing
-        grand_product_relations = format!("using GrandProductRelations = std::tuple<{lookups}>;");
     }
     if let Some(grand_products) = comma_sep_grand_products {
         all_relations = all_relations + &format!(", {grand_products}");
     }
 
     format!("
-        {grand_product_relations}
-
         using Relations = std::tuple<{all_relations}>;
 
         static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
