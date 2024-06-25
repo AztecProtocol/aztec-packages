@@ -116,7 +116,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
  */
 VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_inputs_vec)
 {
-    VmPublicInputs public_inputs = {};
+    VmPublicInputs public_inputs;
 
     // Case where we pass in empty public inputs - this will be used in tests where they are not required
     if (public_inputs_vec.empty()) {
@@ -306,7 +306,10 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    AvmTraceBuilder trace_builder(public_inputs, execution_hints);
+    uint32_t start_side_effect_counter =
+        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
+                                   : 0;
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -663,6 +666,23 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(2)),
                                            std::get<uint32_t>(inst.operands.at(3)),
                                            std::get<uint32_t>(inst.operands.at(4)));
+            break;
+        case OpCode::ECADD:
+            trace_builder.op_ec_add(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)),
+                                    std::get<uint32_t>(inst.operands.at(4)),
+                                    std::get<uint32_t>(inst.operands.at(5)),
+                                    std::get<uint32_t>(inst.operands.at(6)),
+                                    std::get<uint32_t>(inst.operands.at(7)));
+            break;
+        case OpCode::MSM:
+            trace_builder.op_variable_msm(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint32_t>(inst.operands.at(1)),
+                                          std::get<uint32_t>(inst.operands.at(2)),
+                                          std::get<uint32_t>(inst.operands.at(3)),
+                                          std::get<uint32_t>(inst.operands.at(4)));
             break;
         case OpCode::REVERT:
             trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),

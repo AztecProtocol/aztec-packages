@@ -18,20 +18,14 @@ struct TestNote {
 
 impl NoteInterface<TEST_NOTE_LEN, TEST_NOTE_BYTES_LENGTH> for TestNote {
 
-    fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
+    fn compute_note_hash_and_nullifier(self, _context: &mut PrivateContext) -> (Field, Field) {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
-        0
+        (0, 0)
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
-        0
-    }
-
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
-      // TestNote does not support broadcasting. Since this function gets called in various places anyway we will verify
-      // that the dev really did not intend to broadcast by checking that zero keys were passed in.
-      assert(ovpk_m.is_zero() & ivpk_m.is_zero(), "TestNote does not support broadcast.");
+        (0, 0)
     }
 }
 

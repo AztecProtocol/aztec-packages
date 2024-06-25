@@ -8,7 +8,6 @@ use dep::aztec::{
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
     fn get_amount(self) -> U128;
-    fn get_owner_npk_m_hash(self) -> Field;
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
@@ -27,40 +26,27 @@ struct TokenNote {
 
 impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:start:nullifier
-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
     // docs:end:nullifier
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
-    }
-
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
-      // We only bother inserting the note if non-empty to save funds on gas.
-      // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
-      if !(self.amount == U128::from_integer(0)) {
-          context.encrypt_and_emit_note(
-              (*context).this_address(),
-              slot,
-              ovpk_m,
-              ivpk_m,
-              self,
-          );
-      }
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 }
 
@@ -76,9 +62,5 @@ impl OwnedNote for TokenNote {
 
     fn get_amount(self) -> U128 {
         self.amount
-    }
-
-    fn get_owner_npk_m_hash(self) -> Field {
-        self.npk_m_hash
     }
 }

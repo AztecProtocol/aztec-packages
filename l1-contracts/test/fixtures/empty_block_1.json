@@ -10,7 +10,7 @@
   "block": {
     "archive": "0x2dbab1a4e5b832f21c2ccdeff72a6f11dedf5262a0fa321c33d9598663509c04",
     "body": "0x00000000",
-    "txsEffectsHash": "0x00f063d3d04bdfdbb13c70a1733363ef91abb4e69976167b3241ac2d3f18042f",
+    "txsEffectsHash": "0x00d09e7feff5a1049661763ded52742f02aac5d9793b27a40d6b9c60a668bdf2",
     "decodedHeader": {
       "contentCommitment": {
         "inHash": "0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c",
@@ -49,8 +49,8 @@
             "root": "0x0bcfa3e9f1a8922ee92c6dc964d6595907c1804a86753774322b468f69d4f278"
           },
           "publicDataTree": {
-            "nextAvailableLeafIndex": 192,
-            "root": "0x0572c8db882674dd026b8877fbba1b700a4407da3ae9ce5fa43215a28163362b"
+            "nextAvailableLeafIndex": 384,
+            "root": "0x021a6cc64c830b4914600d0296c3968c5d28c1b00c5c4b0b33d1f39d948edbd4"
           }
         }
       }

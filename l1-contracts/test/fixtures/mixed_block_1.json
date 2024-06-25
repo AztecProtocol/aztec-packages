@@ -99,8 +99,8 @@
             "root": "0x268020a622156e2beac47431b0cd70e1c81fef9a6aa3c365bfcbed9aa7301c5e"
           },
           "publicDataTree": {
-            "nextAvailableLeafIndex": 320,
-            "root": "0x0ee4500a6da6149b24ba7884e07f916566fffb9379000a844792848da4de83f2"
+            "nextAvailableLeafIndex": 640,
+            "root": "0x2f1b0fefdce35aa5d17156a75b5df1128daa19c74dd56455e4545054d6a48eff"
           }
         }
       }

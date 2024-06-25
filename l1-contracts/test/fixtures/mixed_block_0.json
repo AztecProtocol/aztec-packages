@@ -82,7 +82,7 @@
       },
       "lastArchive": {
         "nextAvailableLeafIndex": 1,
-        "root": "0x05b0b6df52f1d47d0406318558052c89a174fbc9d615def82b3cc9ccc1937db8"
+        "root": "0x0afb332dff10b3b4221c5c26ead8202d94bb977f644c91b06dec3ee098acc2b6"
       },
       "stateReference": {
         "l1ToL2MessageTree": {
@@ -99,8 +99,8 @@
             "root": "0x01c16141039343d4d403501e66deecff1b024bd76794820a43dc3424087813a2"
           },
           "publicDataTree": {
-            "nextAvailableLeafIndex": 192,
-            "root": "0x0532008cb92c2c85ee50d2dd890979d7e26de6e1023ea344b577a7ed2fd3ea9b"
+            "nextAvailableLeafIndex": 384,
+            "root": "0x2f72d4fe80aa0b43708532e4fb05cdf574bfd36c8c6bba1ff4ec3c6e0ffc9b3a"
           }
         }
       }

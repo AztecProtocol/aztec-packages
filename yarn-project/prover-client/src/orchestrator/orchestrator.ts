@@ -781,6 +781,7 @@ export class ProvingOrchestrator {
       // Nothing downstream depends on the AVM proof yet. So having this mode lets us incrementally build the AVM circuit.
       const doAvmProving = async (signal: AbortSignal) => {
         const inputs: AvmCircuitInputs = new AvmCircuitInputs(
+          publicFunction.vmRequest!.functionName,
           publicFunction.vmRequest!.bytecode,
           publicFunction.vmRequest!.calldata,
           publicFunction.vmRequest!.kernelRequest.inputs.publicCall.callStackItem.publicInputs,
@@ -888,5 +889,9 @@ function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
     Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LENGTH),
     Fr.SIZE_IN_BYTES * numPublicInputs,
   );
+  // TODO(#7159): Remove the following workaround
+  if (buffer.length === 0) {
+    return Array.from({ length: AGGREGATION_OBJECT_LENGTH }, () => Fr.ZERO);
+  }
   return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LENGTH, Fr);
 }

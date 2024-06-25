@@ -3,18 +3,22 @@ import {
   type AztecNode,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
+  type EventMetadata,
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
+  type IncomingNotesFilter,
+  L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
-  type NoteFilter,
+  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type ProofCreator,
   SimulatedTx,
   SimulationError,
+  TaggedLog,
   Tx,
   type TxEffect,
   type TxExecutionRequest,
@@ -31,8 +35,14 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
-import { type Fq, Fr } from '@aztec/foundation/fields';
+import {
+  type ContractArtifact,
+  type DecodedReturn,
+  EventSelector,
+  FunctionSelector,
+  encodeArguments,
+} from '@aztec/foundation/abi';
+import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
@@ -285,11 +295,11 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot);
   }
 
-  public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
-    const noteDaos = await this.db.getNotes(filter);
+  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getIncomingNotes(filter);
 
-    // TODO(benesjan): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key derivation will affect all this
+    // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
+    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -298,6 +308,27 @@ export class PXEService implements PXE {
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for IvpkM ${dao.ivpkM.toString()}`);
+        }
+        owner = completeAddresses.address;
+      }
+      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.noteTypeId, dao.txHash);
+    });
+    return Promise.all(extendedNotes);
+  }
+
+  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getOutgoingNotes(filter);
+
+    // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
+    // key rotation will affect this
+    const extendedNotes = noteDaos.map(async dao => {
+      let owner = filter.owner;
+      if (owner === undefined) {
+        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
+          address.publicKeys.masterOutgoingViewingPublicKey.equals(dao.ovpkM),
+        );
+        if (completeAddresses === undefined) {
+          throw new Error(`Cannot find complete address for OvpkM ${dao.ovpkM.toString()}`);
         }
         owner = completeAddresses.address;
       }
@@ -318,13 +349,15 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        note.note,
-      );
+      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndOptionallyANullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          true,
+          note.note,
+        );
 
       const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
       if (index === undefined) {
@@ -354,6 +387,54 @@ export class PXEService implements PXE {
     }
   }
 
+  public async addNullifiedNote(note: ExtendedNote) {
+    const owner = await this.db.getCompleteAddress(note.owner);
+    if (!owner) {
+      throw new Error(`Unknown account: ${note.owner.toString()}`);
+    }
+
+    const nonces = await this.getNoteNonces(note);
+    if (nonces.length === 0) {
+      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
+    }
+
+    for (const nonce of nonces) {
+      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndOptionallyANullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          false,
+          note.note,
+        );
+
+      if (!innerNullifier.equals(Fr.ZERO)) {
+        throw new Error('Unexpectedly received non-zero nullifier.');
+      }
+
+      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
+      if (index === undefined) {
+        throw new Error('Note does not exist.');
+      }
+
+      await this.db.addNullifiedNote(
+        new IncomingNoteDao(
+          note.note,
+          note.contractAddress,
+          note.storageSlot,
+          note.noteTypeId,
+          note.txHash,
+          nonce,
+          innerNoteHash,
+          Fr.ZERO, // We are not able to derive
+          index,
+          owner.publicKeys.masterIncomingViewingPublicKey,
+        ),
+      );
+    }
+  }
+
   /**
    * Finds the nonce(s) for a given note.
    * @param note - The note to find the nonces for.
@@ -373,11 +454,12 @@ export class PXEService implements PXE {
     // Remove this once notes added from public also include nonces.
     {
       const publicNoteNonce = Fr.ZERO;
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         publicNoteNonce,
         note.storageSlot,
         note.noteTypeId,
+        false,
         note.note,
       );
       if (tx.noteHashes.some(hash => hash.equals(siloedNoteHash))) {
@@ -394,11 +476,12 @@ export class PXEService implements PXE {
       }
 
       const nonce = computeNoteHashNonce(firstNullifier, i);
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
         note.noteTypeId,
+        false,
         note.note,
       );
       if (hash.equals(siloedNoteHash)) {
@@ -755,5 +838,46 @@ export class PXEService implements PXE {
 
   public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
+  }
+
+  public async getEvents<T>(from: number, limit: number, eventMetadata: EventMetadata<T>, ivpk: Point): Promise<T[]> {
+    const blocks = await this.node.getBlocks(from, limit);
+
+    const txEffects = blocks.flatMap(block => block.body.txEffects);
+    const encryptedTxLogs = txEffects.flatMap(txEffect => txEffect.encryptedLogs);
+
+    const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
+
+    const ivsk = await this.keyStore.getMasterSecretKey(ivpk);
+
+    const visibleEvents = encryptedLogs
+      .map(encryptedLog => TaggedLog.decryptAsIncoming(encryptedLog, ivsk, L1EventPayload))
+      .filter(item => item !== undefined) as TaggedLog<L1EventPayload>[];
+
+    const decodedEvents = visibleEvents
+      .map(visibleEvent => {
+        if (visibleEvent.payload === undefined) {
+          return undefined;
+        }
+        if (!EventSelector.fromField(visibleEvent.payload.eventTypeId).equals(eventMetadata.eventSelector)) {
+          return undefined;
+        }
+        if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
+          throw new Error(
+            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+          );
+        }
+
+        return eventMetadata.fieldNames.reduce(
+          (acc, curr, i) => ({
+            ...acc,
+            [curr]: visibleEvent.payload.event.items[i],
+          }),
+          {} as T,
+        );
+      })
+      .filter(visibleEvent => visibleEvent !== undefined) as T[];
+
+    return decodedEvents;
   }
 }

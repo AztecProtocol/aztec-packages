@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_ecc.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_pedersen.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
@@ -20,6 +21,14 @@
 namespace bb::avm_trace {
 
 using Row = bb::AvmFullRow<bb::fr>;
+enum class AddressingMode {
+    DIRECT,
+    INDIRECT,
+};
+struct AddressWithMode {
+    AddressingMode mode;
+    uint32_t offset;
+};
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
@@ -28,9 +37,11 @@ using Row = bb::AvmFullRow<bb::fr>;
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {}, ExecutionHints execution_hints = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+                    ExecutionHints execution_hints = {},
+                    uint32_t side_effect_counter = 0);
 
-    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
+    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = ENABLE_PROVING);
     void reset();
 
     uint32_t getPc() const { return pc; }
@@ -192,20 +203,31 @@ class AvmTraceBuilder {
                           uint32_t output_offset,
                           uint32_t input_offset,
                           uint32_t input_size_offset);
+    // Embedded EC Add - the offsets are temporary
+    void op_ec_add(uint8_t indirect,
+                   uint32_t lhs_x_offset,
+                   uint32_t lhs_y_offset,
+                   uint32_t lhs_is_inf_offset,
+                   uint32_t rhs_x_offset,
+                   uint32_t rhs_y_offset,
+                   uint32_t rhs_is_inf_offset,
+                   uint32_t output_offset);
+    void op_variable_msm(uint8_t indirect,
+                         uint32_t points_offset,
+                         uint32_t scalars_offset,
+                         uint32_t output_offset,
+                         uint32_t point_length_offset);
 
-  private:
-    // Used for the standard indirect address resolution of three operands opcode.
-    struct IndirectThreeResolution {
-        bool tag_match = false;
-        uint32_t direct_a_offset;
-        uint32_t direct_b_offset;
-        uint32_t direct_c_offset;
-
-        bool indirect_flag_a = false;
-        bool indirect_flag_b = false;
-        bool indirect_flag_c = false;
+    struct MemOp {
+        bool is_indirect;
+        uint32_t indirect_address;
+        uint32_t direct_address;
+        AvmMemoryTag tag;
+        bool tag_match;
+        FF val;
     };
 
+  private:
     std::vector<Row> main_trace;
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
@@ -217,6 +239,7 @@ class AvmTraceBuilder {
     AvmPoseidon2TraceBuilder poseidon2_trace_builder;
     AvmKeccakTraceBuilder keccak_trace_builder;
     AvmPedersenTraceBuilder pedersen_trace_builder;
+    AvmEccTraceBuilder ecc_trace_builder;
 
     /**
      * @brief Create a kernel lookup opcode object
@@ -231,7 +254,7 @@ class AvmTraceBuilder {
      * @return Row
      */
     Row create_kernel_lookup_opcode(
-        bool indirect, uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+        uint8_t indirect, uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
 
     /**
      * @brief Create a kernel output opcode object
@@ -303,40 +326,52 @@ class AvmTraceBuilder {
 
     void finalise_mem_trace_lookup_counts();
 
-    IndirectThreeResolution resolve_ind_three(
-        uint8_t space_id, uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t c_offset);
-
     uint32_t pc = 0;
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
 
-    // Side effect counter will incremenent when any state writing values are
+    // Side effect counter will increment when any state writing values are
     // encountered
     uint32_t side_effect_counter = 0;
+    uint32_t initial_side_effect_counter; // This one is constant.
     uint32_t external_call_counter = 0;
 
     // Execution hints aid witness solving for instructions that require auxiliary information to construct
     // Mapping of side effect counter -> value
     ExecutionHints execution_hints;
 
+    MemOp constrained_read_from_memory(uint8_t space_id,
+                                       uint32_t clk,
+                                       AddressWithMode addr,
+                                       AvmMemoryTag read_tag,
+                                       AvmMemoryTag write_tag,
+                                       IntermRegister reg);
+    MemOp constrained_write_to_memory(uint8_t space_id,
+                                      uint32_t clk,
+                                      AddressWithMode addr,
+                                      FF const& value,
+                                      AvmMemoryTag read_tag,
+                                      AvmMemoryTag write_tag,
+                                      IntermRegister reg);
+
     // TODO(ilyas: #6383): Temporary way to bulk read slices
     template <typename MEM>
     uint32_t read_slice_to_memory(uint8_t space_id,
                                   uint32_t clk,
-                                  uint32_t src_offset,
+                                  AddressWithMode addr,
                                   AvmMemoryTag r_tag,
                                   AvmMemoryTag w_tag,
                                   FF internal_return_ptr,
                                   size_t slice_len,
                                   std::vector<MEM>& slice);
-    void write_slice_to_memory(uint8_t space_id,
-                               uint32_t clk,
-                               uint32_t dst_offset,
-                               AvmMemoryTag r_tag,
-                               AvmMemoryTag w_tag,
-                               FF internal_return_ptr,
-                               std::vector<FF> const& slice);
+    uint32_t write_slice_to_memory(uint8_t space_id,
+                                   uint32_t clk,
+                                   AddressWithMode addr,
+                                   AvmMemoryTag r_tag,
+                                   AvmMemoryTag w_tag,
+                                   FF internal_return_ptr,
+                                   std::vector<FF> const& slice);
 };
 
 } // namespace bb::avm_trace

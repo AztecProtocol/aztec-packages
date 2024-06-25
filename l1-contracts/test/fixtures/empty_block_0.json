@@ -10,7 +10,7 @@
   "block": {
     "archive": "0x134f4064b5b040746f9f4d8ed9cb89b79b5f25b9cad5eb6ef2cd5ccdb6404bd4",
     "body": "0x00000000",
-    "txsEffectsHash": "0x00f063d3d04bdfdbb13c70a1733363ef91abb4e69976167b3241ac2d3f18042f",
+    "txsEffectsHash": "0x00d09e7feff5a1049661763ded52742f02aac5d9793b27a40d6b9c60a668bdf2",
     "decodedHeader": {
       "contentCommitment": {
         "inHash": "0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c",
@@ -32,7 +32,7 @@
       },
       "lastArchive": {
         "nextAvailableLeafIndex": 1,
-        "root": "0x05b0b6df52f1d47d0406318558052c89a174fbc9d615def82b3cc9ccc1937db8"
+        "root": "0x0afb332dff10b3b4221c5c26ead8202d94bb977f644c91b06dec3ee098acc2b6"
       },
       "stateReference": {
         "l1ToL2MessageTree": {
@@ -49,8 +49,8 @@
             "root": "0x0bcfa3e9f1a8922ee92c6dc964d6595907c1804a86753774322b468f69d4f278"
           },
           "publicDataTree": {
-            "nextAvailableLeafIndex": 128,
-            "root": "0x0572c8db882674dd026b8877fbba1b700a4407da3ae9ce5fa43215a28163362b"
+            "nextAvailableLeafIndex": 256,
+            "root": "0x021a6cc64c830b4914600d0296c3968c5d28c1b00c5c4b0b33d1f39d948edbd4"
           }
         }
       }
