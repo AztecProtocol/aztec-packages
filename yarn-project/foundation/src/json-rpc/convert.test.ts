@@ -1,14 +1,17 @@
 import { Buffer } from 'buffer';
 
+
+
 import { ClassConverter } from './class_converter.js';
 import { convertBigintsInObj, convertFromJsonObj, convertToJsonObj } from './convert.js';
 import { ToStringClass as ToStringClassA } from './fixtures/class_a.js';
 import { ToStringClass as ToStringClassB } from './fixtures/class_b.js';
 import { TestNote } from './fixtures/test_state.js';
 
+
 const TEST_BASE64 = 'YmFzZTY0IGRlY29kZXI=';
 it('test an RPC function over client', () => {
-  const cc = new ClassConverter({ TestNote });
+  const cc = new ClassConverter({ fromString: { TestNote } });
   const buffer = Buffer.from(TEST_BASE64, 'base64');
   expect(convertFromJsonObj(cc, convertToJsonObj(cc, buffer)).toString('base64')).toBe(TEST_BASE64);
   const note = new TestNote('1');
@@ -28,7 +31,7 @@ it('does not convert a string', () => {
 });
 
 it('converts a registered class', () => {
-  const cc = new ClassConverter({ ToStringClass: ToStringClassA });
+  const cc = new ClassConverter({ fromString: { ToStringClass: ToStringClassA } });
   const obj = { content: new ToStringClassA('a', 'b') };
   const serialized = convertToJsonObj(cc, obj);
   const deserialized = convertFromJsonObj(cc, serialized) as { content: ToStringClassA };
@@ -40,7 +43,7 @@ it('converts a registered class', () => {
 it('converts a class by name in the event of duplicate modules being loaded', () => {
   expect(ToStringClassA.prototype.constructor.name).toEqual('ToStringClass');
   expect(ToStringClassB.prototype.constructor.name).toEqual('ToStringClass');
-  const cc = new ClassConverter({ ToStringClass: ToStringClassA });
+  const cc = new ClassConverter({ fromString: { ToStringClass: ToStringClassA } });
   const obj = { content: new ToStringClassB('a', 'b') };
   const serialized = convertToJsonObj(cc, obj);
   const deserialized = convertFromJsonObj(cc, serialized) as { content: ToStringClassA };
@@ -50,7 +53,7 @@ it('converts a class by name in the event of duplicate modules being loaded', ()
 });
 
 it('converts a class by constructor instead of name in the event of minified bundle', () => {
-  const cc = new ClassConverter({ NotMinifiedToStringClassName: ToStringClassA });
+  const cc = new ClassConverter({ fromString: { NotMinifiedToStringClassName: ToStringClassA } });
   const obj = { content: new ToStringClassA('a', 'b') };
   const serialized = convertToJsonObj(cc, obj);
   const deserialized = convertFromJsonObj(cc, serialized) as { content: ToStringClassA };
@@ -76,7 +79,7 @@ it('refuses to convert to json an unknown class', () => {
     constructor(public a = 10, public b = [20, 30], public c = 'foo') {
     }
   }
-  const cc = new ClassConverter({}, {}, {}, { PlainClass });
+  const cc = new ClassConverter({ fromMembers: { PlainClass } });
   const serialized = convertToJsonObj(cc, new PlainClass());
   expect(serialized).toEqual({
     type: "PlainClass",
@@ -90,7 +93,7 @@ it('refuses to convert to json an unknown class', () => {
 });
 
 it('refuses to convert from json an unknown class', () => {
-  const cc = new ClassConverter({ ToStringClass: ToStringClassA });
+  const cc = new ClassConverter({ fromString: { ToStringClass: ToStringClassA } });
   const serialized = convertToJsonObj(cc, { content: new ToStringClassA('a', 'b') });
   expect(() => convertFromJsonObj(new ClassConverter(), serialized)).toThrow(/not registered/);
 });

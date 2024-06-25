@@ -1,21 +1,11 @@
 import { format } from 'util';
 
 import { createDebugLogger } from '../../log/index.js';
-import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
 import { assert, hasOwnProperty } from '../js_utils.js';
+import { ClassConverter, ClassConverterInput } from '../class_converter.js';
 
 const log = createDebugLogger('json-rpc:json_proxy');
-
-/**
- * A map of class names to class constructors.
- */
-export type ClassMaps = {
-  /** The String class map */
-  stringClassMap: StringClassConverterInput;
-  /** The object class map */
-  objectClassMap: JsonClassConverterInput;
-};
 
 /**
  * Handles conversion of objects over the write.
@@ -25,10 +15,9 @@ export class JsonProxy {
   classConverter: ClassConverter;
   constructor(
     private handler: object,
-    private stringClassMap: StringClassConverterInput,
-    private objectClassMap: JsonClassConverterInput,
+    private classMap: ClassConverterInput,
   ) {
-    this.classConverter = new ClassConverter(stringClassMap, objectClassMap);
+    this.classConverter = new ClassConverter(classMap);
   }
   /**
    * Call an RPC method.

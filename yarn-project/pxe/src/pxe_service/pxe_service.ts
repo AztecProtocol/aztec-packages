@@ -21,7 +21,7 @@ import {
   TaggedLog,
   Tx,
   type TxEffect,
-  type TxExecutionRequest,
+  TxExecutionRequest,
   type TxHash,
   type TxReceipt,
   UnencryptedTxL2Logs,
@@ -76,6 +76,7 @@ import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { withProverCache } from '../../../bb-prover/src/prover/bb_prover_cache.js';
+import { ClassConverter } from '@aztec/foundation/json-rpc';
 
 /**
  * A Private eXecution Environment (PXE) implementation.
@@ -759,7 +760,7 @@ export class PXEService implements PXE {
       const executionResult = await this.#simulate(txExecutionRequest, msgSender);
       return new CacheableExecutionResult(executionResult);
     };
-    const cacheableExecutionResult = await withProverCache(CacheableExecutionResult, [txExecutionRequest], operation);
+    const cacheableExecutionResult = await withProverCache(new ClassConverter({buffer: {TxExecutionRequest}}), 'PXEService.simulate', [txExecutionRequest], operation);
     const executionResult = cacheableExecutionResult.executionResult;
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);

@@ -6,9 +6,9 @@ import compress from 'koa-compress';
 import Router from 'koa-router';
 
 import { createDebugLogger } from '../../log/index.js';
-import { type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { convertBigintsInObj } from '../convert.js';
-import { type ClassMaps, JsonProxy } from './json_proxy.js';
+import { JsonProxy } from './json_proxy.js';
+import { type ClassConverterInput } from '../class_converter.js';
 
 /**
  * JsonRpcServer.
@@ -21,13 +21,12 @@ export class JsonRpcServer {
   public proxy: JsonProxy;
   constructor(
     private handler: object,
-    private stringClassMap: StringClassConverterInput,
-    private objectClassMap: JsonClassConverterInput,
+    private classMap: ClassConverterInput,
     /** List of methods to disallow from calling remotely */
     public readonly disallowedMethods: string[] = [],
     private log = createDebugLogger('aztec:foundation:json-rpc:server'),
   ) {
-    this.proxy = new JsonProxy(handler, stringClassMap, objectClassMap);
+    this.proxy = new JsonProxy(handler, classMap);
   }
 
   /**
@@ -158,8 +157,8 @@ export class JsonRpcServer {
    * Gets the class maps that were used to create the proxy.
    * @returns The string & object class maps.
    */
-  public getClassMaps(): ClassMaps {
-    return { stringClassMap: this.stringClassMap, objectClassMap: this.objectClassMap };
+  public getClassMaps(): ClassConverterInput {
+    return this.classMap;
   }
 
   /**
@@ -230,7 +229,7 @@ export function createNamespacedJsonRpcServer(
 ): JsonRpcServer {
   const handler = {} as any;
   const disallowedMethods: string[] = [];
-  const classMapsArr: ClassMaps[] = [];
+  const classMapsArr: ClassConverterInput[] = [];
 
   for (const serverEntry of servers) {
     const [namespace, server] = Object.entries(serverEntry)[0];
@@ -248,22 +247,19 @@ export function createNamespacedJsonRpcServer(
     disallowedMethods.push(...server.disallowedMethods.map(method => `${namespace}_${method}`));
     // get the combined classmaps from all servers.
     const classMap = server.getClassMaps();
-    classMapsArr.push({
-      stringClassMap: classMap.stringClassMap,
-      objectClassMap: classMap.objectClassMap,
-    });
+    classMapsArr.push(classMap);
   }
 
   // Get the combined stringClassMap & objectClassMap from all servers
   const classMaps = classMapsArr.reduce(
     (acc, curr) => {
       return {
-        stringClassMap: { ...acc.stringClassMap, ...curr.stringClassMap },
-        objectClassMap: { ...acc.objectClassMap, ...curr.objectClassMap },
+        fromString: { ...acc.fromString, ...curr.fromString },
+        fromJSON: { ...acc.fromJSON, ...curr.fromJSON },
       };
     },
-    { stringClassMap: {}, objectClassMap: {} } as ClassMaps,
+    { fromString: {}, fromJSON: {} },
   );
 
-  return new JsonRpcServer(Object.create(handler), classMaps.stringClassMap, classMaps.objectClassMap, [], log);
+  return new JsonRpcServer(Object.create(handler), classMaps, [], log);
 }

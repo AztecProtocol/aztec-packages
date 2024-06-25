@@ -1,7 +1,6 @@
 import { convertFromJsonObj, convertToJsonObj } from './convert.js';
 import { assert } from './js_utils.js';
 
-
 /**
  * Represents a class compatible with our class conversion system.
  * E.g. PublicKey here satisfies 'StringIOClass'.
@@ -77,7 +76,6 @@ interface BufferIOClass {
   fromBuffer: (buffer: Buffer) => any;
 }
 
-
 /**
  * Either a StringIOClass or ObjIOClass
  */
@@ -109,6 +107,12 @@ export interface BufferClassConverterInput {
  */
 export interface PlainClassConverterInput {
   [className: string]: any;
+}
+export interface ClassConverterInput {
+  fromString?: StringClassConverterInput;
+  fromJSON?: JsonClassConverterInput;
+  fromBuffer?: BufferClassConverterInput;
+  fromMembers?: PlainClassConverterInput;
 }
 
 /**
@@ -143,25 +147,27 @@ export class ClassConverter {
    * @param objectClassMap - The class table of complex object classes
    * @param bufferClassMap - The class table of buffer encoded classes
    */
-  constructor(stringClassMap?: StringClassConverterInput, objectClassMap?: JsonClassConverterInput, bufferClassMap?: BufferClassConverterInput, plainClassMap?: PlainClassConverterInput ) {
-    if (stringClassMap) {
-      for (const key of Object.keys(stringClassMap)) {
-        this.register(key, stringClassMap[key], 'string');
+  constructor(
+    input: ClassConverterInput = {}
+  ) {
+    if (input.fromString) {
+      for (const key of Object.keys(input.fromString)) {
+        this.register(key, input.fromString[key], 'string');
       }
     }
-    if (objectClassMap) {
-      for (const key of Object.keys(objectClassMap)) {
-        this.register(key, objectClassMap[key], 'object');
+    if (input.fromJSON) {
+      for (const key of Object.keys(input.fromJSON)) {
+        this.register(key, input.fromJSON[key], 'object');
       }
     }
-    if (bufferClassMap) {
-      for (const key of Object.keys(bufferClassMap)) {
-        this.register(key, bufferClassMap[key], 'buffer');
+    if (input.fromBuffer) {
+      for (const key of Object.keys(input.fromBuffer)) {
+        this.register(key, input.fromBuffer[key], 'buffer');
       }
     }
-    if (plainClassMap) {
-      for (const key of Object.keys(plainClassMap)) {
-        this.register(key, plainClassMap[key], 'plain');
+    if (input.fromMembers) {
+      for (const key of Object.keys(input.fromMembers)) {
+        this.register(key, input.fromMembers[key], 'plain');
       }
     }
   }
@@ -207,21 +213,21 @@ export class ClassConverter {
 
     const [class_, encoding] = result;
     switch (encoding) {
-      case "plain": {
+      case 'plain': {
         const obj = Object.create(class_.prototype);
         for (const [key, value] of Object.entries(jsonObj.data)) {
-          obj[key] = convertFromJsonObj(this, value)
+          obj[key] = convertFromJsonObj(this, value);
         }
         return obj;
       }
-      case "string":
+      case 'string':
         return (class_ as StringIOClass).fromString(jsonObj.data);
-      case "object":
+      case 'object':
         return (class_ as ObjIOClass).fromJSON(jsonObj.data as object);
-      case "buffer":
+      case 'buffer':
         return (class_ as BufferIOClass).fromBuffer(Buffer.from(jsonObj.data, 'base64'));
       default:
-        throw new Error("unexpected case");
+        throw new Error('unexpected case');
     }
   }
   /**
@@ -232,16 +238,16 @@ export class ClassConverter {
   toJsonObj(classObj: any): EncodedClass {
     const { type, encoding } = this.lookupObject(classObj);
     switch (encoding) {
-      case "plain":
-        return {type: type!, data: convertToJsonObj(this, {...classObj})}
-      case "string":
+      case 'plain':
+        return { type: type!, data: convertToJsonObj(this, { ...classObj }) };
+      case 'string':
         return { type: type!, data: classObj.toString() };
-      case "object":
+      case 'object':
         return { type: type!, data: classObj.toJSON() };
-      case "buffer":
+      case 'buffer':
         return { type: type!, data: classObj.toBuffer().toString('base64') };
       default:
-        throw new Error("unexpected case");
+        throw new Error('unexpected case');
     }
   }
 

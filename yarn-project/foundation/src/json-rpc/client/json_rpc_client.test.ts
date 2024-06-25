@@ -6,7 +6,7 @@ import { createJsonRpcClient } from './json_rpc_client.js';
 
 it('test an RPC function over client', async () => {
   const mockFetch = async (host: string, method: string, body: any) => {
-    const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote }, {});
+    const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { fromString: { TestNote } });
     const result = await request(server.getApp().callback()).post(`/`).send(body);
     return JSON.parse(result.text);
   };
@@ -23,7 +23,7 @@ it('test an RPC function over client', async () => {
 it('test a namespaced RPC function over client', async () => {
   const namespace = 'testService';
   const mockFetch = async (host: string, method: string, body: any) => {
-    const service = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote }, {});
+    const service = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { fromString: { TestNote } });
     const server = createNamespacedJsonRpcServer([{ [namespace]: service }]);
     const result = await request(server.getApp().callback()).post('/').send(body);
     return JSON.parse(result.text);

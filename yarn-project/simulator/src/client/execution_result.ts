@@ -92,11 +92,12 @@ export class CacheableExecutionResult {
   constructor(public executionResult: ExecutionResult) {}
   private static getClassConverter(): ClassConverter {
     // NOTE(AD): We have accumulated a handful of serialization styles, but as long as we can sanely combine them...
-    return new ClassConverter(
-      /* fromString() classes */ { Fr },
-      /* fromJSON() classes */ { },
-      /* fromBuffer() classes */ { PrivateCallStackItem, PublicCallRequest, Note, EncryptedL2Log, EncryptedL2NoteLog, UnencryptedL2Log },
-      /* None of the above, plain-js-classes */{CountedNoteLog, CountedLog}
+    return new ClassConverter({
+      fromString: { Fr },
+      fromJSON: {},
+      fromBuffer: { PrivateCallStackItem, PublicCallRequest, Note, EncryptedL2Log, EncryptedL2NoteLog, UnencryptedL2Log },
+      fromMembers: { CountedNoteLog, CountedLog }
+    }
     );
   }
   public toJSON(): object {
