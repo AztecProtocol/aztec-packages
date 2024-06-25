@@ -10,8 +10,10 @@ import {
   type IncomingNotesFilter,
   L1EventPayload,
   type L2Block,
+  type L2BlockNumber,
   type LogFilter,
   MerkleTreeId,
+  type NullifierMembershipWitness,
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
@@ -879,5 +881,12 @@ export class PXEService implements PXE {
       .filter(visibleEvent => visibleEvent !== undefined) as T[];
 
     return decodedEvents;
+  }
+
+  public async getLowNullifierMembershipWitness(
+    blockNumber: L2BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return await this.node.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 }

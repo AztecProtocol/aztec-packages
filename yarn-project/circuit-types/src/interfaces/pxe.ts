@@ -23,6 +23,8 @@ import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
+import { type L2BlockNumber } from './l2_block_number.js';
+import { type NullifierMembershipWitness } from './nullifier_tree.js';
 import { type SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
@@ -389,6 +391,20 @@ export interface PXE {
    * @returns - The deserialized events.
    */
   getEvents<T>(from: number, limit: number, eventMetadata: EventMetadata<T>, ivpk: Point): Promise<T[]>;
+
+  /**
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the data.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
+   */
+  getLowNullifierMembershipWitness(
+    blockNumber: L2BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined>;
 }
 // docs:end:pxe-interface
 

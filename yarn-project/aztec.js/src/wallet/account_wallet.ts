@@ -1,5 +1,14 @@
-import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { AuthWitness, type PXE, PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  CANONICAL_KEY_REGISTRY_ADDRESS,
+  Fq,
+  Fr,
+  GasSettings,
+  TxContext,
+  derivePublicKeyFromSecretKey,
+} from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
 
@@ -10,9 +19,12 @@ import {
   type IntentAction,
   type IntentInnerHash,
   computeAuthWitMessageHash,
+  computeAuthwitNullifier,
   computeInnerAuthWitHashFromAction,
 } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
+
+const IS_VALID = new Fr(0xabf64ad4);
 
 /**
  * A wallet implementation that forwards authentication requests to a provided account.
@@ -144,10 +156,40 @@ export class AccountWallet extends BaseWallet {
     // Check private
     const witness = await this.getAuthWitness(messageHash);
     if (witness !== undefined) {
-      results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
-        consumer,
-        innerHash,
-      ]).simulate()) as boolean;
+      const authwitNullifier = computeAuthwitNullifier(onBehalfOf, innerHash);
+      const nullifier = siloNullifier(consumer, authwitNullifier);
+      const low = await this.getLowNullifierMembershipWitness(await this.getBlockNumber(), nullifier);
+
+      const isSpent = low !== undefined && low.leafPreimage.nullifier.equals(nullifier);
+
+      if (isSpent) {
+        results.isValidInPrivate = false;
+      } else {
+        // Prepare a call that goes DIRECTLY to the account contract to check the validity of the authwit.
+        // bypass the entrypoint.
+        const call = new ContractFunctionInteraction(this, onBehalfOf, this.getVerifyPrivateAuthwitAbi(), [
+          innerHash,
+        ]).request();
+
+        const entrypointPackedValues = PackedValues.fromValues(call.args);
+
+        const request = new TxExecutionRequest(
+          call.to,
+          call.selector,
+          entrypointPackedValues.hash,
+          new TxContext(this.getChainId(), this.getVersion(), GasSettings.default()),
+          [entrypointPackedValues],
+          [new AuthWitness(messageHash, witness)],
+        );
+
+        try {
+          results.isValidInPrivate =
+            (await this.simulateTx(request, false, consumer))?.privateReturnValues?.values?.[0]?.equals(IS_VALID) ??
+            false;
+        } catch (e) {
+          // We silently ignore the error here, and can simply interpret is as the authwit being invalid.
+        }
+      }
     }
 
     // check public
@@ -218,15 +260,15 @@ export class AccountWallet extends BaseWallet {
     };
   }
 
-  private getLookupValidityAbi(): FunctionAbi {
+  private getVerifyPrivateAuthwitAbi(): FunctionAbi {
     return {
-      name: 'lookup_validity',
+      name: 'verify_private_authwit',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
-      isStatic: false,
-      parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
-      returnTypes: [{ kind: 'boolean' }],
+      isStatic: true,
+      parameters: [{ name: 'inner_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
+      returnTypes: [{ kind: 'field' }],
     };
   }
 

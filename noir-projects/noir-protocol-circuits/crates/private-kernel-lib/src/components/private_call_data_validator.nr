@@ -129,7 +129,6 @@ impl PrivateCallDataValidator {
         let public_inputs = self.data.call_stack_item.public_inputs;
         let call_context = public_inputs.call_context;
         assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
-        assert(call_context.is_static_call == false, "Users cannot make a static call");
 
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
         // No need to check that the min_revertible_side_effect_counter falls in the counter range of the private call.

@@ -101,3 +101,14 @@ export const computeInnerAuthWitHash = (args: Fr[]) => {
 const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
   return pedersenHash([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
 };
+
+/**
+ * Compute the nullifier for an authentication witness.
+ *
+ * @param onBehalfOf - The address that the inner hash is on behalf of
+ * @param innerHash - The inner hash
+ * @returns
+ */
+export const computeAuthwitNullifier = (onBehalfOf: AztecAddress, innerHash: Fr) => {
+  return pedersenHash([onBehalfOf.toField(), innerHash], GeneratorIndex.AUTHWIT_NULLIFIER);
+};

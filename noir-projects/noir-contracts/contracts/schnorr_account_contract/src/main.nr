@@ -82,38 +82,4 @@ contract SchnorrAccount {
         // docs:end:entrypoint
         true
     }
-
-    /**
-    * @notice Helper function to check validity of private authwitnesses
-    * @param consumer The address of the consumer of the message
-    * @param message_hash The message hash of the message to check the validity
-    * @return True if the message_hash can be consumed, false otherwise
-    */
-    unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> pub bool {
-        let public_key = storage.signing_public_key.view_note();
-
-        let message_hash = compute_outer_authwit_hash(consumer, context.chain_id(), context.version(), inner_hash);
-
-        let witness: [Field; 64] = get_auth_witness(message_hash);
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
-        let valid_in_private = std::schnorr::verify_signature_slice(
-            public_key.x,
-            public_key.y,
-            signature,
-            message_hash.to_be_bytes(32)
-        );
-
-        // Compute the nullifier and check if it is spent
-        // This will BLINDLY TRUST the oracle, but the oracle is us, and
-        // it is not as part of execution of the contract, so we are good.
-        let nullifier = compute_authwit_nullifier(context.this_address(), inner_hash);
-        let siloed_nullifier = compute_siloed_nullifier(consumer, nullifier);
-        let lower_wit = get_low_nullifier_membership_witness(context.block_number(), siloed_nullifier);
-        let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
-
-        !is_spent & valid_in_private
-    }
 }

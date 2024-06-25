@@ -5,7 +5,9 @@ import {
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
   type L2Block,
+  type L2BlockNumber,
   type LogFilter,
+  type NullifierMembershipWitness,
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
@@ -188,5 +190,12 @@ export abstract class BaseWallet implements Wallet {
     ivpk: Point = this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
   ): Promise<T[]> {
     return this.pxe.getEvents(from, limit, eventMetadata, ivpk);
+  }
+
+  public getLowNullifierMembershipWitness(
+    blockNumber: L2BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return this.pxe.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 }
