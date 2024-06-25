@@ -69,7 +69,7 @@ So, let's create an `index.ts` file and add those imports. Since we're here, let
 
 <Test replaceLines="0" file="index.ts">
 
-```js
+```ts
 import { createPXEClient } from "@aztec/aztec.js";
 import { createAccount } from "@aztec/accounts/testing";
 import { MainContract } from "./artifacts/Main";
@@ -96,12 +96,6 @@ const wallet = await createAccount(pxe);
 const { address } = await MainContract.deploy(wallet).send().deployed();
 console.log("Yey! Address: ", address);
 ```
-
-</Test>
-
-<Test replaceLines="4" file="index.ts" hidden>
-
-`ts const pxe = createPXEClient("http://aztec:8080") `
 
 </Test>
 
@@ -311,7 +305,9 @@ You can deploy now! Just make sure to add the address as a parameter to the `dep
   file="index.ts"
   hidden
 >
-  ```const {address} = await MainContract.deploy(wallet, wallet.getAddress()).send().deployed()```
+  ```
+  const {address} = await MainContract.deploy(wallet, wallet.getAddress()).send().deployed()
+  ```
 </Test>
 {/* <!-- prettier-ignore-end --> */}
 

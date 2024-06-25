@@ -4,9 +4,9 @@ import path from "path";
 import { execFileSync } from "child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 
-const TEST_FOLDER =
-  `${process.env.TEST_FOLDER}/_temp_test` ||
-  path.resolve("(/usr/test/_temp_test");
+const TEST_FOLDER = process.env.TEST_FOLDER
+  ? `${process.env.TEST_FOLDER}/_temp_test`
+  : path.resolve(__dirname, "..", "..", "..", "..", "_temp_test");
 
 test.beforeEach(async () => {
   rmSync(TEST_FOLDER, { recursive: true, force: true });
@@ -17,10 +17,10 @@ export async function execute(locator: Locator) {
   const content = (await locator.innerText()).trim();
 
   // tells which file are we working on
-  const file = await locator.getAttribute("file");
+  const file = await locator.getAttribute("data-file");
 
   // tells if we should just compare the conteant with the file
-  const compare = await locator.getAttribute("compare");
+  const compare = await locator.getAttribute("data-compare");
   if (compare) {
     const trim = (c: string) =>
       c
@@ -41,7 +41,10 @@ export async function execute(locator: Locator) {
   // + to append
   // null if none
   // we use the same syntax as Array.slice(), so negative numbers means lines from the end
-  const replaceLines = await locator.getAttribute("replaceLines");
+  const replaceLines = await locator.getAttribute("data-replacelines");
+
+  console.log("testFolder", TEST_FOLDER);
+  console.log("file", file);
 
   if (replaceLines === null) {
     content.split("\n").map((c) => {
@@ -55,7 +58,7 @@ export async function execute(locator: Locator) {
   } else if (replaceLines === "0") {
     writeFileSync(path.resolve(TEST_FOLDER, file), content + "\n");
   } else if (replaceLines === "+") {
-    writeFileSync(path.resolve(TEST_FOLDER, file), content + "\n", {
+    writeFileSync(path.resolve(TEST_FOLDER, file), content, {
       flag: "a",
     });
   } else {
@@ -69,7 +72,7 @@ export async function execute(locator: Locator) {
     const splitNewContent = content.split("\n");
 
     // we tell which lines we want to remove
-    const removedElements = splitContent.slice(begin, end);
+    const removedElements = splitContent.slice(begin, end ? end : begin + 1);
 
     // we start at begin -1 because lines are 1-indexed
     // and we remove the elements we want to replace

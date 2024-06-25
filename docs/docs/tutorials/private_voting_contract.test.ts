@@ -1,7 +1,7 @@
 import { test } from "@playwright/test";
 import { execute } from "../../src/components/Test/testLibrary";
 
-test("Deploying, setting, and getting a number", async ({ page }) => {
+test("Private Voting Tutorial", async ({ page }) => {
   test.slow();
 
   await page.goto("/");
@@ -16,10 +16,10 @@ test("Deploying, setting, and getting a number", async ({ page }) => {
     return spans.length;
   });
 
-  for (let i = 0; i <= cmdCount; i++) {
-    console.log("executing command", i);
+  for (let i = 1; i <= cmdCount; i++) {
     await page.getByTestId(`${i}`).waitFor({ state: "attached" });
     const cmd = page.getByTestId(`${i}`);
+    console.log("executing command", await cmd.innerText());
     await execute(cmd);
   }
 });
