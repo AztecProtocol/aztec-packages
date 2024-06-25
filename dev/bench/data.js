@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719322972542,
+  "lastUpdate": 1719324781452,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -52136,6 +52136,78 @@ window.BENCHMARK_DATA = {
             "value": 163693340,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163693340 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34eb5a01d34e5ff5d1414fff53ca0623d83bde5d",
+          "message": "feat: Shplonk revival in ECCVM (#7164)\n\nRefactor Shplonk to have better encapsulated functionality on proving\r\nside and integrate it in ECCVM. Until now, we performed two IPA rounds\r\nin ECCVM, the second one necessary to ensure the consistency of\r\ntranscript polynomials. We introduce Shplonk to batch the two opening\r\nclaims and perform one round of IPA which reduces the number of\r\nconstraints by ~5 million constraints in the ClientIVCRecursiveVerifier.\r\nThe branch also includes small refactorings in ECCVM prover and\r\nverifier.\r\n```\r\nBefore: 17956264\r\nAfter: 12495384\r\n```\r\n(number of gates produced by running the `prove_tube` flow in branch and\r\nmaster)",
+          "timestamp": "2024-06-25T14:03:35Z",
+          "tree_id": "17bdd9f917c4421ef2492383bb6acb1a29d38273",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/34eb5a01d34e5ff5d1414fff53ca0623d83bde5d"
+        },
+        "date": 1719324778022,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15056.524431999975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10416.966348 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5523.915098000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5111.124056000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 48295.304037999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 48295306000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17050.830253,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17050830000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5147009730,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5147009730 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198728087,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198728087 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4279025114,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4279025114 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164050526,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164050526 ns\nthreads: 1"
           }
         ]
       }
