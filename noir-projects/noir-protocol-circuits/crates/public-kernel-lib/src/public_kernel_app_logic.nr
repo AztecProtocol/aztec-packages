@@ -3,7 +3,14 @@ use dep::types::abis::public_kernel_data::PublicKernelData;
 use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
+use dep::types::constants::{PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX};
 use crate::common;
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+    PUBLIC_KERNEL_SETUP_INDEX,
+    PUBLIC_KERNEL_APP_LOGIC_INDEX,
+];
 
 struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -41,6 +48,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
         self.previous_kernel.verify();
+        self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

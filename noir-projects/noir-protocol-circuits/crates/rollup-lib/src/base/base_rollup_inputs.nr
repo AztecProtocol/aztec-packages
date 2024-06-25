@@ -25,7 +25,7 @@ use dep::types::{
     MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
     NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -35,6 +35,11 @@ use dep::types::{
     public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
 };
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_TAIL_INDEX,
+    PUBLIC_KERNEL_TAIL_INDEX,
+];
 
 struct BaseRollupInputs {
     kernel_data: KernelData,
@@ -59,6 +64,7 @@ impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
         // Verify the kernel circuit proof
         self.kernel_data.verify();
+        self.kernel_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Verify the kernel chain_id and versions
         assert(
@@ -68,6 +74,9 @@ impl BaseRollupInputs {
         assert(
             self.kernel_data.public_inputs.constants.tx_context.version
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
+        );
+        assert(
+            self.kernel_data.public_inputs.constants.vk_tree_root == self.constants.vk_tree_root, "kernel vk_tree_root does not match the rollup vk_tree_root"
         );
 
         // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.

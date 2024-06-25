@@ -124,6 +124,7 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
+    vk_tree_root: Field,
     
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -189,6 +190,7 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
             global_variables: self.global_variables
         }
     }
@@ -958,6 +960,7 @@ impl Empty for FixtureBuilder {
             vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
+            vk_tree_root: 0,
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

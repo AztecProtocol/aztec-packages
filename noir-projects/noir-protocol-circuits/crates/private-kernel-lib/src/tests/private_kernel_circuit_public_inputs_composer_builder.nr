@@ -8,7 +8,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     private_call_request::ScopedPrivateCallRequest
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, tests::fixture_builder::FixtureBuilder,
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, tests::{fixture_builder::FixtureBuilder, fixtures},
     transaction::tx_request::TxRequest
 };
 
@@ -34,7 +34,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
     pub fn new_from_tx_request(self) -> PrivateKernelCircuitPublicInputsComposer {
         let private_call = self.private_call.to_private_circuit_public_inputs();
-        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call)
+        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call, fixtures::VK_TREE_ROOT)
     }
 
     pub fn new_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputsComposer {

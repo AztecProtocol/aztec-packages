@@ -4,11 +4,22 @@ use dep::types::abis::{
     public_kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
 };
 use dep::types::utils::arrays::array_to_bounded_vec;
+use dep::types::constants::{
+    PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX,
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX
+};
 
 struct PublicKernelTeardownCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+    PUBLIC_KERNEL_SETUP_INDEX,
+    PUBLIC_KERNEL_APP_LOGIC_INDEX,
+    PUBLIC_KERNEL_TEARDOWN_INDEX,
+];
 
 impl PublicKernelTeardownCircuitPrivateInputs {
     fn initialize_revert_code(self, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
@@ -96,6 +107,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
         self.previous_kernel.verify();
+        self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

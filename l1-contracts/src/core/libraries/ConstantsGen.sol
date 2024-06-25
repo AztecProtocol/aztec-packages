@@ -177,13 +177,13 @@ library Constants {
   uint256 internal constant VALIDATION_REQUESTS_LENGTH = 1602;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 333;
-  uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 40;
+  uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 41;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1152;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2803;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2804;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3834;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 383;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3835;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 384;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 30;
   uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH = 9;

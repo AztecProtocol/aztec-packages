@@ -11,12 +11,19 @@ use dep::types::{
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX,
+    PUBLIC_KERNEL_TEARDOWN_INDEX
 },
     data::public_data_hint::PublicDataHint,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
     partial_state_reference::PartialStateReference, utils::{arrays::array_length}, address::AztecAddress
 };
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PUBLIC_KERNEL_SETUP_INDEX,
+    PUBLIC_KERNEL_APP_LOGIC_INDEX,
+    PUBLIC_KERNEL_TEARDOWN_INDEX,
+];
 
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -61,6 +68,7 @@ impl PublicKernelTailCircuitPrivateInputs {
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
         // verify the previous kernel proof
         self.previous_kernel.verify();
+        self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
         self.validate_inputs();
 

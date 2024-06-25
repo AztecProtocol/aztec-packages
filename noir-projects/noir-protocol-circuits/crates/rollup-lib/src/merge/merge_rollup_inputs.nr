@@ -1,7 +1,12 @@
-use dep::types::traits::Empty;
+use dep::types::{traits::Empty, constants::{BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX}};
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE};
 use crate::components;
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    BASE_ROLLUP_INDEX,
+    MERGE_ROLLUP_INDEX,
+];
 
 struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
@@ -23,7 +28,10 @@ impl MergeRollupInputs {
 
         // Verify the previous rollup proofs
         self.previous_rollup_data[0].verify();
+        self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+
         self.previous_rollup_data[1].verify();
+        self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
