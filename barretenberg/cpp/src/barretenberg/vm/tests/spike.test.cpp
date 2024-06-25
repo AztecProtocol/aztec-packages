@@ -16,17 +16,17 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-template <int Start, int End, std::size_t... Ints> constexpr auto make_seq_range(std::index_sequence<Ints...>)
+template <uint Start, uint End, std::size_t... Ints> constexpr auto make_seq_range(std::index_sequence<Ints...>)
 {
     return std::array<CopyCircuitBuilder::FF, sizeof...(Ints)>{ (Start + Ints)... };
 }
 
-template <int Start, int End> constexpr auto make_sequence()
+template <uint Start, uint End> constexpr auto make_sequence()
 {
     return make_seq_range<Start, End>(std::make_index_sequence<End - Start>{});
 }
 
-const size_t CIRCUIT_SIZE = 16;
+const uint32_t CIRCUIT_SIZE = 16;
 
 class SpikeCopyTests : public ::testing::Test {
 
