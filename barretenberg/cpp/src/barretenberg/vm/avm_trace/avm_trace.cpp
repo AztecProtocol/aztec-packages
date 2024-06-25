@@ -1469,6 +1469,8 @@ void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_off
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::EMITNOTEHASH);
 
     main_trace.push_back(row);
+
+    debug("emit_note_hash side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
@@ -1484,16 +1486,18 @@ void AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_off
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::EMITNULLIFIER);
 
     main_trace.push_back(row);
+
+    debug("emit_nullifier side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
-void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t msg_offset)
+void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Note: unorthadox order - as seen in L2ToL1Message struct in TS
     Row row = create_kernel_output_opcode_with_metadata(
-        indirect, clk, msg_offset, AvmMemoryTag::FF, recipient_offset, AvmMemoryTag::FF);
+        indirect, clk, content_offset, AvmMemoryTag::FF, recipient_offset, AvmMemoryTag::FF);
     kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.main_ia, row.main_ib);
     row.main_sel_op_emit_l2_to_l1_msg = FF(1);
 
@@ -1501,6 +1505,8 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::SENDL2TOL1MSG);
 
     main_trace.push_back(row);
+
+    debug("emit_l2_to_l1_msg side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
@@ -1520,6 +1526,8 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::EMITUNENCRYPTEDLOG);
 
     main_trace.push_back(row);
+
+    debug("emit_unencrypted_log side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
@@ -1537,14 +1545,17 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect, uint32_t log_offs
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::L1TOL2MSGEXISTS);
 
     main_trace.push_back(row);
+
+    debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
-void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect, uint32_t note_offset, uint32_t dest_offset)
+void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect, uint32_t note_hash_offset, uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode_with_set_metadata_output_from_hint(indirect, clk, note_offset, dest_offset);
+    Row row =
+        create_kernel_output_opcode_with_set_metadata_output_from_hint(indirect, clk, note_hash_offset, dest_offset);
     kernel_trace_builder.op_note_hash_exists(
         clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_note_hash_exists = FF(1);
@@ -1553,6 +1564,8 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect, uint32_t note_offset
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::NOTEHASHEXISTS);
 
     main_trace.push_back(row);
+
+    debug("note_hash_exists side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
@@ -1570,6 +1583,8 @@ void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect, uint32_t nullifier_o
     gas_trace_builder.constrain_gas_lookup(clk, OpCode::NULLIFIEREXISTS);
 
     main_trace.push_back(row);
+
+    debug("nullifier_exists side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 }
 
@@ -1629,6 +1644,8 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         gas_trace_builder.constrain_gas_lookup(clk, OpCode::SLOAD);
 
         main_trace.push_back(row);
+
+        debug("sload: side-effect cnt", side_effect_counter);
         side_effect_counter++;
         clk++;
 
@@ -1691,6 +1708,8 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         gas_trace_builder.constrain_gas_lookup(clk, OpCode::SSTORE);
 
         main_trace.push_back(row);
+
+        debug("sstore: side-effect cnt", side_effect_counter);
         side_effect_counter++;
         clk++;
         // All future reads are direct, increment the direct address
@@ -2676,6 +2695,9 @@ void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t addres
                           AvmMemoryTag::FF,
                           internal_return_ptr,
                           contract_instance_vec);
+
+    debug("contract_instance cnt: ", side_effect_counter);
+    side_effect_counter++;
 }
 
 /**
