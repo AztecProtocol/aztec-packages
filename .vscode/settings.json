@@ -168,5 +168,5 @@
     "**/dest/**": true,
     "**/noir/noir-repo/docs/versioned_docs/**": true
   },
-  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
+  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp"
 }
