@@ -68,18 +68,6 @@ export class TXEService {
     header.state = await trees.getStateReference(true);
     const blockNumber = await this.typedOracle.getBlockNumber();
     header.globalVariables.blockNumber = new Fr(blockNumber);
-    header.state.partial.nullifierTree.root = Fr.fromBuffer(
-      (await trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
-    );
-    header.state.partial.noteHashTree.root = Fr.fromBuffer(
-      (await trees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true)).root,
-    );
-    header.state.partial.publicDataTree.root = Fr.fromBuffer(
-      (await trees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE, true)).root,
-    );
-    header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
-      (await trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
-    );
     l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
     l2Block.header = header;
     for (let i = 0; i < nBlocks; i++) {
