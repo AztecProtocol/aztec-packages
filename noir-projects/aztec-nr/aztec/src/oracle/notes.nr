@@ -3,7 +3,7 @@ use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
 
 #[oracle(notifyCreatedNote)]
-fn notify_created_note_oracle<N>(
+unconstrained fn notify_created_note_oracle<N>(
     _storage_slot: Field,
     _note_type_id: Field,
     _serialized_note: [Field; N],
@@ -28,11 +28,7 @@ unconstrained pub fn notify_created_note<N>(
 }
 
 #[oracle(notifyNullifiedNote)]
-fn notify_nullified_note_oracle<N>(
-    _nullifier: Field,
-    _inner_note_hash: Field,
-    _counter: u32
-) -> Field {}
+unconstrained fn notify_nullified_note_oracle<N>(_nullifier: Field, _inner_note_hash: Field, _counter: u32) -> Field {}
 
 unconstrained pub fn notify_nullified_note<N>(
     nullifier: Field,
@@ -43,7 +39,7 @@ unconstrained pub fn notify_nullified_note<N>(
 }
 
 #[oracle(getNotes)]
-fn get_notes_oracle<N, S>(
+unconstrained fn get_notes_oracle<N, S>(
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; N],
@@ -149,8 +145,7 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
             let header = NoteHeader { contract_address, nonce, storage_slot, note_hash_counter };
             let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
             let mut note = Note::deserialize_content(serialized_note);
-            // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
-            Note::set_header(&mut note, header);
+            note.set_header(header);
             placeholder_opt_notes[i] = Option::some(note);
         };
     }
@@ -159,7 +154,7 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
 
 // Only ever use this in private!
 #[oracle(checkNullifierExists)]
-fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
 // Only ever use this in private!
 unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {

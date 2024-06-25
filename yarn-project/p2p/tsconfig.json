@@ -17,6 +17,9 @@
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]

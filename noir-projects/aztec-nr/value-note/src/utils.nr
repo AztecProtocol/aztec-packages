@@ -1,7 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
 use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
-use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
+use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN}};
 
 // Sort the note values (0th field) in descending order.
@@ -23,7 +23,7 @@ pub fn increment(
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note).emit(encode_and_encrypt(balance.context, outgoing_viewer, recipient));
+    balance.insert(&mut note).emit(encode_and_encrypt_note(balance.context, outgoing_viewer, recipient));
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -55,12 +55,12 @@ pub fn decrement_by_at_most(
     outgoing_viewer: AztecAddress
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
-    let opt_notes = balance.get_notes(options);
+    let notes = balance.get_notes(options);
 
     let mut decremented = 0;
-    for i in 0..opt_notes.len() {
-        if opt_notes[i].is_some() {
-            let note = opt_notes[i].unwrap_unchecked();
+    for i in 0..options.limit {
+        if i < notes.len() {
+            let note = notes.get_unchecked(i);
 
             decremented += destroy_note(balance, note);
         }

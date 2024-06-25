@@ -5,6 +5,11 @@ import { FullProverTest } from './e2e_prover_test.js';
 
 const TIMEOUT = 1_800_000;
 
+// This makes AVM proving throw if there's a failure.
+process.env.AVM_PROVING_STRICT = '1';
+// Enable proving the full lookup tables (no truncation).
+process.env.AVM_ENABLE_FULL_PROVING = '1';
+
 describe('full_prover', () => {
   const t = new FullProverTest('full_prover', 2);
   let { provenAssets, accounts, tokenSim, logger } = t;
@@ -55,8 +60,8 @@ describe('full_prover', () => {
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
-      const sentPrivateTx = privateInteraction.send();
-      const sentPublicTx = publicInteraction.send();
+      const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
+      const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
       await Promise.all([
         sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
         sentPublicTx.wait({ timeout: 1200, interval: 10 }),

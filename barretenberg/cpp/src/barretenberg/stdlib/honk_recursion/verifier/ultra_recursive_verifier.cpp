@@ -40,7 +40,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<PCS>;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -56,7 +57,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     transcript->template receive_from_prover<FF>("public_input_size");
     transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
-    // For debugging purposes only
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1032): Uncomment these once it doesn't cause issues
+    // with the flows
     // ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
     // ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
     // ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
@@ -89,18 +91,24 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
     }
 
-    // Get challenge for sorted list batching and wire four memory records
+    // Get eta challenges; used in RAM/ROM memory records and log derivative lookup argument
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
 
-    // Get commitments to sorted list accumulator and fourth wire
-    commitments.sorted_accum = transcript->template receive_from_prover<Commitment>(commitment_labels.sorted_accum);
+    // Get commitments to lookup argument polynomials and fourth wire
+    commitments.lookup_read_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_read_counts);
+    commitments.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_read_tags);
     commitments.w_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.w_4);
 
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+
+    commitments.lookup_inverses =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -120,7 +128,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
-    commitments.z_lookup = transcript->template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -137,23 +144,19 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("recursive sumcheck failed");
-        // return {};
-    } else if (sumcheck_verified.has_value()) {
-        info("recursive sumcheck passed");
-    }
-    // Execute ZeroMorph multilinear PCS evaluation verifier
-    info("ultra rec verifier N: ", key->circuit_size);
-    auto verifier_accumulator = ZeroMorph::verify(circuit_size,
-                                                  commitments.get_unshifted(),
-                                                  commitments.get_to_be_shifted(),
-                                                  claimed_evaluations.get_unshifted(),
-                                                  claimed_evaluations.get_shifted(),
-                                                  multivariate_challenge,
-                                                  transcript);
-    // std::array<typename Flavor::GroupElement, 2> verifier_accumulator = {};
-    return verifier_accumulator;
+
+    // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
+    auto opening_claim = ZeroMorph::verify(circuit_size,
+                                           commitments.get_unshifted(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           Commitment::one(builder),
+                                           transcript);
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+
+    return pairing_points;
 }
 
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
