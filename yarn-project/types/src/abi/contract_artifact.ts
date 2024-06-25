@@ -58,6 +58,9 @@ export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
     if (key === 'bytecode' && typeof value === 'string') {
       return Buffer.from(value, 'base64');
     }
+    if (typeof value === 'object' && value !== null && value.type === 'NoteSelector') {
+      return new NoteSelector(Number(value.value));
+    }
     if (typeof value === 'object' && value !== null && value.type === 'Fr') {
       return new Fr(BigInt(value.value));
     }

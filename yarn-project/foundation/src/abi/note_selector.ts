@@ -2,6 +2,7 @@ import { toBigIntBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/index.js';
 import { type Fr } from '../fields/fields.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
 import { Selector } from './selector.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -55,4 +56,20 @@ export class NoteSelector extends Selector {
   static random() {
     return NoteSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
+
+  toJSON() {
+    return {
+      type: 'NoteSelector',
+      value: this.toString(),
+    };
+  }
+
+  static fromJSON(json: any): NoteSelector {
+    return new NoteSelector(
+      Number(json.value)
+    );
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('NoteSelector', NoteSelector);
