@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719331002266,
+  "lastUpdate": 1719331132491,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -52892,6 +52892,78 @@ window.BENCHMARK_DATA = {
             "value": 160811745,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160811745 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f1212ff0d6bb7a326e571da2d49cfac75a8e5de",
+          "message": "feat: conventional lookups using log-deriv (#7020)\n\nReplaces the plookup based lookup argument in UltraHonk/MegaHonk with a\r\nlog-derivative based argument. This is advantageous in a number of ways\r\nincluding 1) no more committing to expensive z_lookup poly (especially\r\nrelevant for structured trace), 2) prover work is proportional to number\r\nof lookups not size of circuit.'\r\n\r\nBelow are the benchmark results (master vs branch). Note that most of\r\nthe benefit is derived from no longer needing to commit to `z_lookup`\r\nwhich was previously the most expensive single commitment. The Lookup\r\nrelation also goes from being 45% of total accumulate work, to only 10%.\r\n\r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   Iterations UserCounters...\r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      16151 ms        11247 ms            1 \r\nfunction                                  ms     % sum\r\nconstruct_circuits(t)                   3241    20.23%\r\nProverInstance(Circuit&)(t)             1575     9.83%\r\nProtogalaxyProver::fold_instances(t)    7627    47.61%\r\nDecider::construct_proof(t)              503     3.14%\r\nECCVMProver(CircuitBuilder&)(t)          173     1.08%\r\nECCVMProver::construct_proof(t)         1904    11.88%\r\nTranslatorProver::construct_proof(t)     819     5.11%\r\nGoblin::merge(t)                         177     1.11%\r\n\r\nTotal time accounted for: 16019ms/16151ms = 99.18%\r\n\r\nMajor contributors:\r\nfunction                                  ms    % sum\r\ncommit(t)                               4114   25.68%\r\ncompute_combiner(t)                     2824   17.63%\r\ncompute_perturbator(t)                   795    4.96%\r\ncompute_univariate(t)                   1149    7.17%\r\n\r\nBreakdown of ProtogalaxyProver::fold_instances:\r\nProtoGalaxyProver_::preparation_round(t)           3721    48.79%\r\nProtoGalaxyProver_::perturbator_round(t)            795    10.43%\r\nProtoGalaxyProver_::combiner_quotient_round(t)     2826    37.05%\r\nProtoGalaxyProver_::accumulator_update_round(t)     284     3.73%\r\n\r\nRelation contributions (times to be interpreted relatively):\r\nfunction                        ms     % sum\r\nArithmetic::accumulate(t)     1490     5.78%\r\nPermutation::accumulate(t)    6746    26.18%\r\nLookup::accumulate(t)        11679    45.33%\r\nDeltaRange::accumulate(t)      977     3.79%\r\nElliptic::accumulate(t)        635     2.46%\r\nAuxiliary::accumulate(t)      3812    14.79%\r\nEccOp::accumulate(t)             0     0.00%\r\nDatabusRead::accumulate(t)       1     0.01%\r\nPoseidonExt::accumulate(t)     110     0.43%\r\nPoseidonInt::accumulate(t)     316     1.23%\r\n```\r\n\r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   Iterations UserCounters...\r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      15345 ms        10707 ms            1 \r\nfunction                                  ms     % sum\r\nconstruct_circuits(t)                   3183    21.01%\r\nProverInstance(Circuit&)(t)             1697    11.20%\r\nProtogalaxyProver::fold_instances(t)    6754    44.57%\r\nDecider::construct_proof(t)              467     3.08%\r\nECCVMProver(CircuitBuilder&)(t)          176     1.16%\r\nECCVMProver::construct_proof(t)         1910    12.60%\r\nTranslatorProver::construct_proof(t)     815     5.38%\r\nGoblin::merge(t)                         150     0.99%\r\n\r\nTotal time accounted for: 15153ms/15345ms = 98.74%\r\n\r\nMajor contributors:\r\nfunction                                  ms    % sum\r\ncommit(t)                               3379   22.30%\r\ncompute_combiner(t)                     2200   14.52%\r\ncompute_perturbator(t)                   739    4.87%\r\ncompute_univariate(t)                   1118    7.38%\r\n\r\nBreakdown of ProtogalaxyProver::fold_instances:\r\nProtoGalaxyProver_::preparation_round(t)           3529    52.24%\r\nProtoGalaxyProver_::perturbator_round(t)            739    10.94%\r\nProtoGalaxyProver_::combiner_quotient_round(t)     2202    32.60%\r\nProtoGalaxyProver_::accumulator_update_round(t)     285     4.22%\r\n\r\nRelation contributions (times to be interpreted relatively):\r\nfunction                        ms     % sum\r\nArithmetic::accumulate(t)     1474     9.69%\r\nPermutation::accumulate(t)    6515    42.84%\r\nLookup::accumulate(t)         1622    10.67%\r\nDeltaRange::accumulate(t)      952     6.26%\r\nElliptic::accumulate(t)        605     3.98%\r\nAuxiliary::accumulate(t)      3616    23.78%\r\nEccOp::accumulate(t)             0     0.00%\r\nDatabusRead::accumulate(t)       1     0.01%\r\nPoseidonExt::accumulate(t)     112     0.74%\r\nPoseidonInt::accumulate(t)     309     2.03%\r\n```",
+          "timestamp": "2024-06-25T08:41:46-07:00",
+          "tree_id": "d4618a47e0386a3199cff8b2724824b4a349d798",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6f1212ff0d6bb7a326e571da2d49cfac75a8e5de"
+        },
+        "date": 1719331129397,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14241.669293,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9752.029301 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4880.570206000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4407.873843 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43284.464457,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43284465000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14683.977476,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14683978000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4187749167,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4187749167 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197086553,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197086553 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3477848952,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3477848952 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162655810,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162655810 ns\nthreads: 1"
           }
         ]
       }
