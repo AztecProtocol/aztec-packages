@@ -1,3 +1,4 @@
+import { convertFromJsonObj, convertToJsonObj } from './convert.js';
 import { assert } from './js_utils.js';
 
 
@@ -104,6 +105,13 @@ export interface BufferClassConverterInput {
 }
 
 /**
+ * Registered classes available for conversion.
+ */
+export interface PlainClassConverterInput {
+  [className: string]: any;
+}
+
+/**
  * Represents a class in a JSON, string or buffer encoding.
  */
 export interface EncodedClass {
@@ -119,7 +127,7 @@ export interface EncodedClass {
 /**
  * Whether a class is a complex object or simply represented by a string.
  */
-export type ClassEncoding = 'string' | 'object' | 'buffer';
+export type ClassEncoding = 'string' | 'object' | 'buffer' | 'plain';
 
 /**
  * Handles mapping of classes to names, and calling toString and fromString to convert to and from JSON-friendly formats.
@@ -135,7 +143,7 @@ export class ClassConverter {
    * @param objectClassMap - The class table of complex object classes
    * @param bufferClassMap - The class table of buffer encoded classes
    */
-  constructor(stringClassMap?: StringClassConverterInput, objectClassMap?: JsonClassConverterInput, bufferClassMap?: BufferClassConverterInput) {
+  constructor(stringClassMap?: StringClassConverterInput, objectClassMap?: JsonClassConverterInput, bufferClassMap?: BufferClassConverterInput, plainClassMap?: PlainClassConverterInput ) {
     if (stringClassMap) {
       for (const key of Object.keys(stringClassMap)) {
         this.register(key, stringClassMap[key], 'string');
@@ -151,6 +159,11 @@ export class ClassConverter {
         this.register(key, bufferClassMap[key], 'buffer');
       }
     }
+    if (plainClassMap) {
+      for (const key of Object.keys(plainClassMap)) {
+        this.register(key, plainClassMap[key], 'plain');
+      }
+    }
   }
 
   /**
@@ -162,16 +175,6 @@ export class ClassConverter {
    */
   register(type: string, class_: IOClass, encoding: ClassEncoding) {
     assert(type !== 'Buffer', "'Buffer' handling is hardcoded. Cannot use as name.");
-    assert(
-      class_.prototype['toString'] || class_.prototype['toJSON'] || class_.prototype['toBuffer'],
-      `Class ${type} must define a toString() OR toJSON() OR toBuffer() method.`,
-    );
-    assert(
-      (class_ as StringIOClass)['fromString'] ||
-        (class_ as ObjIOClass)['fromJSON'] ||
-        (class_ as BufferIOClass)['fromBuffer'],
-      `Class ${type} must define a fromString() OR fromJSON() OR fromBuffer() static method.`,
-    );
     this.toName.set(class_, [type, encoding]);
     this.toClass.set(type, [class_, encoding]);
   }
@@ -203,12 +206,22 @@ export class ClassConverter {
     assert(result, `Could not find type in lookup.`);
 
     const [class_, encoding] = result;
-    if (encoding === 'string' && typeof jsonObj.data === 'string') {
-      return (class_ as StringIOClass).fromString(jsonObj.data);
-    } else if (encoding === 'buffer' && typeof jsonObj.data === 'string') {
-      return (class_ as BufferIOClass).fromBuffer(Buffer.from(jsonObj.data, 'base64'));
-    } else {
-      return (class_ as ObjIOClass).fromJSON(jsonObj.data as object);
+    switch (encoding) {
+      case "plain": {
+        const obj = Object.create(class_.prototype);
+        for (const [key, value] of Object.entries(jsonObj.data)) {
+          obj[key] = convertFromJsonObj(this, value)
+        }
+        return obj;
+      }
+      case "string":
+        return (class_ as StringIOClass).fromString(jsonObj.data);
+      case "object":
+        return (class_ as ObjIOClass).fromJSON(jsonObj.data as object);
+      case "buffer":
+        return (class_ as BufferIOClass).fromBuffer(Buffer.from(jsonObj.data, 'base64'));
+      default:
+        throw new Error("unexpected case");
     }
   }
   /**
@@ -219,6 +232,8 @@ export class ClassConverter {
   toJsonObj(classObj: any): EncodedClass {
     const { type, encoding } = this.lookupObject(classObj);
     switch (encoding) {
+      case "plain":
+        return {type: type!, data: convertToJsonObj(this, {...classObj})}
       case "string":
         return { type: type!, data: classObj.toString() };
       case "object":

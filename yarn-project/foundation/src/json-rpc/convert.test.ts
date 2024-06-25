@@ -65,9 +65,28 @@ it('converts a plain object', () => {
   expect(convertFromJsonObj(cc, convertToJsonObj(cc, obj))).toEqual(obj);
 });
 
-it('refuses to convert to json an unknown class', () => {
+it('converts a plain class', () => {
+  const obj = { a: 10, b: [20, 30], c: 'foo' };
   const cc = new ClassConverter();
-  expect(() => convertToJsonObj(cc, { content: new ToStringClassA('a', 'b') })).toThrow(/not registered/);
+  expect(convertFromJsonObj(cc, convertToJsonObj(cc, obj))).toEqual(obj);
+});
+
+it('refuses to convert to json an unknown class', () => {
+  class PlainClass {
+    constructor(public a = 10, public b = [20, 30], public c = 'foo') {
+    }
+  }
+  const cc = new ClassConverter({}, {}, {}, { PlainClass });
+  const serialized = convertToJsonObj(cc, new PlainClass());
+  expect(serialized).toEqual({
+    type: "PlainClass",
+    data: {
+      a: 10,
+      b: [20, 30],
+      c: 'foo'
+    }
+  });
+  expect({ ...convertFromJsonObj(cc, serialized) }).toEqual(serialized.data);
 });
 
 it('refuses to convert from json an unknown class', () => {
