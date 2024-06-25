@@ -225,7 +225,7 @@ function generateNotesGetter(input: ContractArtifact) {
     .map(
       ([name, { id }]) =>
         `${name}: {
-          id: new NoteSelector(${id.toField().toBigInt()}),
+          id: new NoteSelector(${id.value}),
         }`,
     )
     .join(',\n');
