@@ -221,7 +221,7 @@ end-to-end-base:
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
     ENV PROVER_AGENT_CONCURRENCY=8
-    RUN mkdir -p $BB_WORKING_DIRECTORY $
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
 
     RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
 
