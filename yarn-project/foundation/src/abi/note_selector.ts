@@ -65,9 +65,7 @@ export class NoteSelector extends Selector {
   }
 
   static fromJSON(json: any): NoteSelector {
-    return new NoteSelector(
-      Number(json.value)
-    );
+    return NoteSelector.fromString(json.value);
   }
 }
 
