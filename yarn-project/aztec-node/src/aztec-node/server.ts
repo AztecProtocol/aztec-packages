@@ -206,6 +206,7 @@ export class AztecNodeService implements AztecNode {
           archiver,
           prover!,
           simulationProvider,
+          telemetry,
         );
 
     return new AztecNodeService(
@@ -753,6 +754,7 @@ export class AztecNodeService implements AztecNode {
       merkleTrees.asLatest(),
       this.contractDataSource,
       new WASMSimulator(),
+      this.telemetry,
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
