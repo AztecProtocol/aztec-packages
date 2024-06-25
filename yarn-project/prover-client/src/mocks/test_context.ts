@@ -19,6 +19,7 @@ import {
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { JSTreeFactory } from '@aztec/merkle-tree';
 import {
   type ContractsDataSourcePublicDB,
   type PublicExecution,
@@ -95,7 +96,8 @@ export class TestContext {
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    const kvStore = openTmpStore();
+    const actualDb = await MerkleTrees.new(kvStore, await JSTreeFactory.init(kvStore)).then(t => t.asLatest());
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,

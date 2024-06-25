@@ -8,7 +8,7 @@ import { type Hasher } from '@aztec/types/interfaces';
 import { HasherWithStats } from './hasher_with_stats.js';
 import { type MerkleTree } from './interfaces/merkle_tree.js';
 
-const MAX_DEPTH = 254;
+export const MAX_DEPTH = 254;
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 const encodeMeta = (root: Buffer, depth: number, size: bigint) => {
@@ -194,7 +194,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     return this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
   }
 
-  public getNode(level: number, index: bigint): Buffer | undefined {
+  public getNode(level: number, index: bigint): Promise<Buffer | undefined> {
     if (level < 0 || level > this.depth) {
       throw Error('Invalid level: ' + level);
     }
@@ -203,7 +203,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
       throw Error('Invalid index: ' + index);
     }
 
-    return this.dbGet(indexToKeyHash(this.name, level, index));
+    return Promise.resolve(this.dbGet(indexToKeyHash(this.name, level, index)));
   }
 
   public getZeroHash(level: number): Buffer {

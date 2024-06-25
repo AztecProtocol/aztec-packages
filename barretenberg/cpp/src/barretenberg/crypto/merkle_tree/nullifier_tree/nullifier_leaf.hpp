@@ -1,11 +1,10 @@
 #pragma once
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 
 namespace bb::crypto::merkle_tree {
-
-typedef uint256_t index_t;
 
 struct nullifier_leaf {
     fr value;

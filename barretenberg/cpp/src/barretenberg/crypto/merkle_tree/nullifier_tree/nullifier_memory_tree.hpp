@@ -99,7 +99,8 @@ NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t ini
     hashes_.resize(total_size_ * 2 - 2);
 
     // Build the entire tree and fill with 0 hashes.
-    auto current = WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf::zero()).hash();
+    // auto current = WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf::zero()).hash();
+    auto current = fr::zero();
     size_t layer_size = total_size_;
     for (size_t offset = 0; offset < hashes_.size(); offset += layer_size, layer_size /= 2) {
         for (size_t i = 0; i < layer_size; ++i) {

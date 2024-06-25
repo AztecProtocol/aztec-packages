@@ -1,17 +1,27 @@
 #pragma once
 
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::crypto::merkle_tree {
-
-typedef uint256_t index_t;
 
 struct indexed_leaf {
     fr value;
     index_t nextIndex;
     fr nextValue;
 
-    bool operator==(indexed_leaf const&) const = default;
+    MSGPACK_FIELDS(value, nextIndex, nextValue)
+
+    bool operator==(indexed_leaf const& other) const
+    {
+        return value == other.value && nextValue == other.nextValue && nextIndex == other.nextIndex;
+    }
+
+    // indexed_leaf operator=(indexed_leaf const& other) const
+    // {
+    //     return indexed_leaf{ .value = other.value, .nextIndex = other.nextIndex, .nextValue = other.nextValue };
+    // }
 
     std::ostream& operator<<(std::ostream& os)
     {
