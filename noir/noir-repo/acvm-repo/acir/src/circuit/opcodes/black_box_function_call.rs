@@ -31,10 +31,6 @@ pub enum BlackBoxFuncCall {
     RANGE {
         input: FunctionInput,
     },
-    SHA256 {
-        inputs: Vec<FunctionInput>,
-        outputs: Box<[Witness; 32]>,
-    },
     Blake2s {
         inputs: Vec<FunctionInput>,
         outputs: Box<[Witness; 32]>,
@@ -185,7 +181,6 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::AND { .. } => BlackBoxFunc::AND,
             BlackBoxFuncCall::XOR { .. } => BlackBoxFunc::XOR,
             BlackBoxFuncCall::RANGE { .. } => BlackBoxFunc::RANGE,
-            BlackBoxFuncCall::SHA256 { .. } => BlackBoxFunc::SHA256,
             BlackBoxFuncCall::Blake2s { .. } => BlackBoxFunc::Blake2s,
             BlackBoxFuncCall::Blake3 { .. } => BlackBoxFunc::Blake3,
             BlackBoxFuncCall::SchnorrVerify { .. } => BlackBoxFunc::SchnorrVerify,
@@ -216,7 +211,6 @@ impl BlackBoxFuncCall {
     pub fn get_inputs_vec(&self) -> Vec<FunctionInput> {
         match self {
             BlackBoxFuncCall::AES128Encrypt { inputs, .. }
-            | BlackBoxFuncCall::SHA256 { inputs, .. }
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
@@ -323,8 +317,7 @@ impl BlackBoxFuncCall {
 
     pub fn get_outputs_vec(&self) -> Vec<Witness> {
         match self {
-            BlackBoxFuncCall::SHA256 { outputs, .. }
-            | BlackBoxFuncCall::Blake2s { outputs, .. }
+            BlackBoxFuncCall::Blake2s { outputs, .. }
             | BlackBoxFuncCall::Blake3 { outputs, .. }
             | BlackBoxFuncCall::Keccak256 { outputs, .. } => outputs.to_vec(),
 

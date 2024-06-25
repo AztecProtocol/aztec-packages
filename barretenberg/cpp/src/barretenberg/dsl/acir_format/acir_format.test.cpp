@@ -45,7 +45,6 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -158,6 +157,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     // EXPR [ (1, _4, _6) (-1, _4) 0 ]
     // EXPR [ (-1, _6) 1 ]
 
+
     AcirFormat constraint_system{
         .varnum = 6,
         .recursive = false,
@@ -166,7 +166,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .logic_constraints = { logic_constraint },
         .range_constraints = { range_a, range_b },
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -237,6 +236,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .result = 76,
         .signature = signature,
     };
+
     AcirFormat constraint_system{
         .varnum = 81,
         .recursive = false,
@@ -245,7 +245,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .logic_constraints = {},
         .range_constraints = range_constraints,
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = { schnorr_constraint },
         .ecdsa_k1_constraints = {},
@@ -351,7 +350,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .logic_constraints = {},
         .range_constraints = range_constraints,
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = { schnorr_constraint },
         .ecdsa_k1_constraints = {},
@@ -470,7 +468,6 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .logic_constraints = {},
         .range_constraints = { range_a, range_b, range_c, range_d },
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -523,7 +520,6 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -554,11 +550,9 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 };
 
     auto builder = create_circuit(constraint_system, /*size_hint=*/0, witness);
-
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
     auto proof = prover.construct_proof();
-
     auto verifier = composer.create_ultra_with_keccak_verifier(builder);
 
     EXPECT_EQ(verifier.verify_proof(proof), true);

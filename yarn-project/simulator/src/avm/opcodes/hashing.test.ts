@@ -1,10 +1,10 @@
-import { keccak256, pedersenHash, sha256 } from '@aztec/foundation/crypto';
+import { keccak256, pedersenHash, sha256Compression } from '@aztec/foundation/crypto';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, type Uint8, Uint32 } from '../avm_memory_types.js';
-import { initContext, randomMemoryBytes, randomMemoryFields } from '../fixtures/index.js';
+import { initContext, randomMemoryBytes, randomMemoryFields, randomMemoryUint32s } from '../fixtures/index.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
-import { Keccak, Pedersen, Poseidon2, Sha256 } from './hashing.js';
+import { Keccak, Pedersen, Poseidon2, Sha256Compression } from './hashing.js';
 
 describe('Hashing Opcodes', () => {
   let context: AvmContext;
@@ -136,72 +136,108 @@ describe('Hashing Opcodes', () => {
     });
   });
 
-  describe('Sha256', () => {
+  describe('Sha256Compression', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Sha256.opcode, // opcode
+        Sha256Compression.opcode, // opcode
         1, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
-        ...Buffer.from('23456789', 'hex'), // messageOffset
-        ...Buffer.from('3456789a', 'hex'), // messageSizeOffset
+        ...Buffer.from('23456789', 'hex'), // stateOffset
+        ...Buffer.from('3456789a', 'hex'), // stateSizeOffset
+        ...Buffer.from('456789ab', 'hex'), // inputsOffset
+        ...Buffer.from('56789abc', 'hex'), // inputsSizeOffset
       ]);
-      const inst = new Sha256(
+      const inst = new Sha256Compression(
         /*indirect=*/ 1,
         /*dstOffset=*/ 0x12345678,
-        /*messageOffset=*/ 0x23456789,
-        /*messageSizeOffset=*/ 0x3456789a,
+        /*stateOffset=*/ 0x23456789,
+        /*stateSizeOffset=*/ 0x3456789a,
+        /*inputsOffset=*/ 0x456789ab,
+        /*inputsSizeOffset=*/ 0x56789abc,
       );
 
-      expect(Sha256.deserialize(buf)).toEqual(inst);
+      expect(Sha256Compression.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should hash correctly - direct', async () => {
-      const args = randomMemoryBytes(10);
+      const state = randomMemoryUint32s(8);
+      const stateArray = Uint32Array.from(state.map(byte => byte.toNumber()));
+      const inputs = randomMemoryUint32s(16);
+      const inputsArray = Uint32Array.from(inputs.map(byte => byte.toNumber()));
       const indirect = 0;
-      const messageOffset = 0;
-      const messageSizeOffset = 15;
-      const dstOffset = 20;
-      context.machineState.memory.set(messageSizeOffset, new Uint32(args.length));
-      context.machineState.memory.setSlice(messageOffset, args);
+      const stateOffset = 0;
+      const stateSizeOffset = 100;
+      const inputsOffset = 200;
+      const inputsSizeOffset = 300;
+      const outputOffset = 300;
+      context.machineState.memory.set(stateSizeOffset, new Uint32(state.length));
+      context.machineState.memory.setSlice(stateOffset, state);
+      context.machineState.memory.set(inputsSizeOffset, new Uint32(inputs.length));
+      context.machineState.memory.setSlice(inputsOffset, inputs);
 
-      await new Sha256(indirect, dstOffset, messageOffset, messageSizeOffset).execute(context);
+      await new Sha256Compression(
+        indirect,
+        outputOffset,
+        stateOffset,
+        stateSizeOffset,
+        inputsOffset,
+        inputsSizeOffset,
+      ).execute(context);
 
-      const resultBuffer = Buffer.concat(
-        context.machineState.memory.getSliceAs<Uint8>(dstOffset, 32).map(byte => byte.toBuffer()),
-      );
-      const inputBuffer = Buffer.concat(args.map(byte => byte.toBuffer()));
-      const expectedHash = sha256(inputBuffer);
-      expect(resultBuffer).toEqual(expectedHash);
+      const output = context.machineState.memory.getSliceAs<Uint32>(outputOffset, 8);
+      const outputArray = Uint32Array.from(output.map(word => word.toNumber()));
+
+      const expectedOutput = sha256Compression(stateArray, inputsArray);
+      expect(outputArray).toEqual(expectedOutput);
     });
 
     it('Should hash correctly - indirect', async () => {
-      const args = randomMemoryBytes(10);
+      const state = randomMemoryUint32s(8);
+      const stateArray = Uint32Array.from(state.map(byte => byte.toNumber()));
+      const inputs = randomMemoryUint32s(16);
+      const inputsArray = Uint32Array.from(inputs.map(byte => byte.toNumber()));
       const indirect = new Addressing([
         /*dstOffset=*/ AddressingMode.INDIRECT,
-        /*messageOffset*/ AddressingMode.INDIRECT,
-        /*messageSizeOffset*/ AddressingMode.INDIRECT,
+        /*stateOffset*/ AddressingMode.INDIRECT,
+        /*stateSizeOffset*/ AddressingMode.INDIRECT,
+        /*inputsOffset*/ AddressingMode.INDIRECT,
+        /*inputsSizeOffset*/ AddressingMode.INDIRECT,
       ]).toWire();
-      const messageOffset = 0;
-      const messageOffsetReal = 10;
-      const messageSizeOffset = 1;
-      const messageSizeOffsetReal = 100;
-      const dstOffset = 2;
-      const dstOffsetReal = 30;
-      context.machineState.memory.set(messageOffset, new Uint32(messageOffsetReal));
-      context.machineState.memory.set(dstOffset, new Uint32(dstOffsetReal));
-      context.machineState.memory.set(messageSizeOffset, new Uint32(messageSizeOffsetReal));
-      context.machineState.memory.set(messageSizeOffsetReal, new Uint32(args.length));
-      context.machineState.memory.setSlice(messageOffsetReal, args);
+      const stateOffset = 0;
+      const stateOffsetReal = 10;
+      const stateSizeOffset = 1;
+      const stateSizeOffsetReal = 100;
+      const inputsOffset = 2;
+      const inputsOffsetReal = 200;
+      const inputsSizeOffset = 3;
+      const inputsSizeOffsetReal = 300;
+      const outputOffset = 4;
+      const outputOffsetReal = 400;
+      context.machineState.memory.set(stateSizeOffset, new Uint32(stateSizeOffsetReal));
+      context.machineState.memory.set(stateSizeOffsetReal, new Uint32(state.length));
+      context.machineState.memory.set(stateOffset, new Uint32(stateOffsetReal));
+      context.machineState.memory.setSlice(stateOffsetReal, state);
+      context.machineState.memory.set(inputsSizeOffset, new Uint32(inputsSizeOffsetReal));
+      context.machineState.memory.set(inputsSizeOffsetReal, new Uint32(inputs.length));
+      context.machineState.memory.set(inputsOffset, new Uint32(inputsOffsetReal));
+      context.machineState.memory.setSlice(inputsOffsetReal, inputs);
+      context.machineState.memory.set(outputOffset, new Uint32(outputOffsetReal));
 
-      await new Sha256(indirect, dstOffset, messageOffset, messageSizeOffset).execute(context);
+      await new Sha256Compression(
+        indirect,
+        outputOffset,
+        stateOffset,
+        stateSizeOffset,
+        inputsOffset,
+        inputsSizeOffset,
+      ).execute(context);
 
-      const resultBuffer = Buffer.concat(
-        context.machineState.memory.getSliceAs<Uint8>(dstOffsetReal, 32).map(byte => byte.toBuffer()),
-      );
-      const inputBuffer = Buffer.concat(args.map(byte => byte.toBuffer()));
-      const expectedHash = sha256(inputBuffer);
-      expect(resultBuffer).toEqual(expectedHash);
+      const output = context.machineState.memory.getSliceAs<Uint32>(outputOffsetReal, 8);
+      const outputArray = Uint32Array.from(output.map(word => word.toNumber()));
+
+      const expectedOutput = sha256Compression(stateArray, inputsArray);
+      expect(outputArray).toEqual(expectedOutput);
     });
   });
 

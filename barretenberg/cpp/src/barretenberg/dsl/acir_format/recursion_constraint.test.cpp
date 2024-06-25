@@ -93,7 +93,6 @@ Builder create_inner_circuit()
         .logic_constraints = { logic_constraint },
         .range_constraints = { range_a, range_b },
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -118,6 +117,7 @@ Builder create_inner_circuit()
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
+
 
     uint256_t inverse_of_five = fr(5).invert();
     WitnessVector witness{
@@ -255,7 +255,6 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
