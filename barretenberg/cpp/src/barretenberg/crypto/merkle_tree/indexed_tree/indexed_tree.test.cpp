@@ -204,12 +204,9 @@ TEST_F(PersistedIndexedTreeTest, test_get_hash_path)
     uint32_t num_to_append = 512;
 
     for (uint32_t i = 0; i < num_to_append; ++i) {
-        std::cout << i + 1 << std::endl;
         memdb.update_element(VALUES[i]);
         add_value(tree, VALUES[i]);
     }
-
-    std::cout << "Append " << num_to_append + 2 << std::endl;
     check_size(tree, num_to_append + 2);
     check_hash_path(tree, 0, memdb.get_hash_path(0));
     check_hash_path(tree, 512, memdb.get_hash_path(512));
@@ -392,8 +389,6 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
     check_size(tree, 1);
     EXPECT_EQ(get_leaf(tree, 0), zero_leaf);
 
-    std::cout << "1" << std::endl;
-
     /**
      * Add new value 30:
      *
@@ -404,16 +399,9 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      *  nextVal   30      0       0       0        0       0       0       0
      */
     add_value(tree, 30);
-    std::cout << "After add" << std::endl;
     check_size(tree, 2);
-    indexed_leaf test = { 0, 1, 30 };
-    EXPECT_EQ(get_leaf(tree, 0), test);
-    test = { 30, 0, 0 };
-    EXPECT_EQ(get_leaf(tree, 1), test);
     EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 1, 30 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 0, 0 }));
-
-    std::cout << "2" << std::endl;
 
     /**
      * Add new value 10:
@@ -426,13 +414,9 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, 10);
     check_size(tree, 3);
-    test = { 0, 2, 10 };
-    EXPECT_EQ(get_leaf(tree, 0), test);
     EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 2, 10 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 0, 0 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf({ 10, 1, 30 }));
-
-    std::cout << "3" << std::endl;
 
     /**
      * Add new value 20:
@@ -445,14 +429,10 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, 20);
     check_size(tree, 4);
-    test = { 0, 2, 10 };
-    EXPECT_EQ(get_leaf(tree, 0), test);
     EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 2, 10 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 0, 0 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf({ 10, 3, 20 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 3)), hash_leaf({ 20, 1, 30 }));
-
-    std::cout << "4" << std::endl;
 
     // Adding the same value must not affect anything
     // tree.update_element(20);
@@ -478,8 +458,6 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
     EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf({ 10, 3, 20 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 3)), hash_leaf({ 20, 1, 30 }));
     EXPECT_EQ(hash_leaf(get_leaf(tree, 4)), hash_leaf({ 50, 0, 0 }));
-
-    std::cout << "5" << std::endl;
 
     // Manually compute the node values
     auto e000 = hash_leaf(get_leaf(tree, 0));
