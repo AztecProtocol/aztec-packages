@@ -1,7 +1,9 @@
 #pragma once
 #include "../hash_path.hpp"
+#include "../node_store//tree_meta.hpp"
 #include "../types.hpp"
 #include "barretenberg/common/thread_pool.hpp"
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -17,9 +19,13 @@ using namespace bb;
  */
 template <typename Store, typename HashingPolicy> class AppendOnlyTree {
   public:
-    typedef std::function<void(bb::fr, index_t)> append_completion_callback;
+    using append_completion_callback = std::function<void(bb::fr, index_t)>;
+    using meta_data_callback = std::function<void(const std::string&, uint32_t, const index_t&, const bb::fr&)>;
+    using hash_path_callback = std::function<void(const fr_hash_path&)>;
+    using commit_callback = std::function<void()>;
+    using rollback_callback = std::function<void()>;
 
-    AppendOnlyTree(Store& store, uint32_t depth, ThreadPool& workers, std::string name);
+    AppendOnlyTree(Store& store, ThreadPool& workers);
     AppendOnlyTree(AppendOnlyTree const& other) = delete;
     AppendOnlyTree(AppendOnlyTree&& other) = delete;
     AppendOnlyTree& operator=(AppendOnlyTree const& other) = delete;
@@ -37,94 +43,100 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     virtual void add_values(const std::vector<fr>& values, const append_completion_callback& on_completion);
 
     /**
-     * @brief Returns the index of the right-most populated leaf in the tree
-     */
-    index_t size() const;
-
-    /**
-     * @brief Returns the root of the tree
-     */
-    fr root() const;
-
-    /**
-     * @brief Returns the depth of the tree
-     */
-    uint32_t depth() const;
-
-    /**
      * @brief Returns the hash path from the leaf at the given index to the root
      */
-    fr_hash_path get_hash_path(const index_t& index) const;
+    void get_hash_path(const index_t& index, const hash_path_callback& on_completion, bool includeUncommitted) const;
+
+    void get_meta_data(bool includeUncommitted, const meta_data_callback& on_completion);
+
+    void commit(const commit_callback& on_completion);
+    void rollback(const rollback_callback& on_completion);
 
   protected:
-    fr get_element_or_zero(uint32_t level, const index_t& index) const;
+    using ReadTransaction = typename Store::ReadTransaction;
+    using ReadTransactionPtr = typename Store::ReadTransactionPtr;
+    fr get_element_or_zero(uint32_t level, const index_t& index, ReadTransaction& tx, bool includeUncommitted) const;
 
     void write_node(uint32_t level, const index_t& index, const fr& value);
-    std::pair<bool, fr> read_node(uint32_t level, const index_t& index) const;
+    std::pair<bool, fr> read_node(uint32_t level,
+                                  const index_t& index,
+                                  ReadTransaction& tx,
+                                  bool includeUncommitted) const;
 
     Store& store_;
-    const uint32_t depth_;
-    const std::string name_;
+    uint32_t depth_;
+    std::string name_;
     std::vector<fr> zero_hashes_;
-    fr root_;
-    index_t size_;
     ThreadPool& workers_;
 };
 
 template <typename Store, typename HashingPolicy>
-AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store,
-                                                     uint32_t depth,
-                                                     ThreadPool& workers,
-                                                     std::string name)
+AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& workers)
     : store_(store)
-    , depth_(depth)
-    , name_(std::move(name))
     , workers_(workers)
 {
-    zero_hashes_.resize(depth + 1);
+    index_t stored_size = 0;
+    bb::fr stored_root = fr::zero();
+    {
+        ReadTransactionPtr tx = store_.createReadTransaction();
+        store_.get_full_meta(stored_size, stored_root, name_, depth_, *tx, false);
+    }
+    zero_hashes_.resize(depth_ + 1);
 
     // Create the zero hashes for the tree
     auto current = HashingPolicy::zero_hash();
-    for (size_t i = depth; i > 0; --i) {
+    for (size_t i = depth_; i > 0; --i) {
         zero_hashes_[i] = current;
         current = HashingPolicy::hash_pair(current, current);
     }
     zero_hashes_[0] = current;
-    root_ = current;
-    size_ = 0;
-}
 
-template <typename Store, typename HashingPolicy> index_t AppendOnlyTree<Store, HashingPolicy>::size() const
-{
-    return size_;
-}
-
-template <typename Store, typename HashingPolicy> fr AppendOnlyTree<Store, HashingPolicy>::root() const
-{
-    return root_;
-}
-
-template <typename Store, typename HashingPolicy> uint32_t AppendOnlyTree<Store, HashingPolicy>::depth() const
-{
-    return depth_;
+    if (stored_size == 0) {
+        store_.put_meta(0, current);
+        store_.commit();
+    }
 }
 
 template <typename Store, typename HashingPolicy>
-fr_hash_path AppendOnlyTree<Store, HashingPolicy>::get_hash_path(const index_t& index) const
+void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted,
+                                                         const meta_data_callback& on_completion)
 {
-    fr_hash_path path;
-    index_t current_index = index;
+    auto job = [=]() {
+        index_t size = 0;
+        bb::fr root = fr::zero();
+        {
+            ReadTransactionPtr tx = store_.createReadTransaction();
+            store_.get_meta(size, root, *tx, includeUncommitted);
+        }
+        on_completion(name_, depth_, size, root);
+    };
+    workers_.enqueue(job);
+}
 
-    for (uint32_t level = depth_; level > 0; --level) {
-        bool is_right = static_cast<bool>(current_index & 0x01);
-        fr right_value =
-            is_right ? get_element_or_zero(level, current_index) : get_element_or_zero(level, current_index + 1);
-        fr left_value =
-            is_right ? get_element_or_zero(level, current_index - 1) : get_element_or_zero(level, current_index);
-        path.emplace_back(left_value, right_value);
-        current_index >>= 1;
-    }
-    return path;
+template <typename Store, typename HashingPolicy>
+void AppendOnlyTree<Store, HashingPolicy>::get_hash_path(const index_t& index,
+                                                         const hash_path_callback& on_completion,
+                                                         bool includeUncommitted) const
+{
+    auto job = [=]() {
+        fr_hash_path path;
+        index_t current_index = index;
+        {
+            ReadTransactionPtr tx = store_.createReadTransaction();
+
+            for (uint32_t level = depth_; level > 0; --level) {
+                bool is_right = static_cast<bool>(current_index & 0x01);
+                fr right_value = is_right ? get_element_or_zero(level, current_index, *tx, includeUncommitted)
+                                          : get_element_or_zero(level, current_index + 1, *tx, includeUncommitted);
+                fr left_value = is_right ? get_element_or_zero(level, current_index - 1, *tx, includeUncommitted)
+                                         : get_element_or_zero(level, current_index, *tx, includeUncommitted);
+                path.emplace_back(left_value, right_value);
+                current_index >>= 1;
+            }
+        }
+        on_completion(path);
+    };
+    workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -137,53 +149,66 @@ template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& values,
                                                       const append_completion_callback& on_completion)
 {
-    index_t start_size = size();
     uint32_t start_level = depth_;
     std::shared_ptr<std::vector<fr>> hashes = std::make_shared<std::vector<fr>>(values);
 
     auto append_op = [=]() -> void {
-        index_t index = start_size;
-        uint32_t level = start_level;
-        uint32_t number_to_insert = static_cast<uint32_t>(values.size());
-        std::vector<fr>& hashes_local = *hashes;
-        // Add the values at the leaf nodes of the tree
-        for (uint32_t i = 0; i < number_to_insert; ++i) {
-            write_node(level, index + i, hashes_local[i]);
-        }
-
-        // Hash the values as a sub tree and insert them
-        while (number_to_insert > 1) {
-            number_to_insert >>= 1;
-            index >>= 1;
-            --level;
+        bb::fr new_root = fr::zero();
+        index_t new_size = 0;
+        {
+            typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+            index_t start_size;
+            bb::fr root;
+            store_.get_meta(start_size, root, *tx, true);
+            index_t index = start_size;
+            uint32_t level = start_level;
+            uint32_t number_to_insert = static_cast<uint32_t>(values.size());
+            std::vector<fr>& hashes_local = *hashes;
+            // Add the values at the leaf nodes of the tree
             for (uint32_t i = 0; i < number_to_insert; ++i) {
-                hashes_local[i] = HashingPolicy::hash_pair(hashes_local[i * 2], hashes_local[i * 2 + 1]);
                 write_node(level, index + i, hashes_local[i]);
             }
-        }
 
-        // Hash from the root of the sub-tree to the root of the overall tree
-        fr new_hash = hashes_local[0];
-        while (level > 0) {
-            bool is_right = static_cast<bool>(index & 0x01);
-            fr left_hash = is_right ? get_element_or_zero(level, index - 1) : new_hash;
-            fr right_hash = is_right ? new_hash : get_element_or_zero(level, index + 1);
-            new_hash = HashingPolicy::hash_pair(left_hash, right_hash);
-            index >>= 1;
-            --level;
-            write_node(level, index, new_hash);
+            // Hash the values as a sub tree and insert them
+            while (number_to_insert > 1) {
+                number_to_insert >>= 1;
+                index >>= 1;
+                --level;
+                for (uint32_t i = 0; i < number_to_insert; ++i) {
+                    hashes_local[i] = HashingPolicy::hash_pair(hashes_local[i * 2], hashes_local[i * 2 + 1]);
+                    write_node(level, index + i, hashes_local[i]);
+                }
+            }
+
+            // Hash from the root of the sub-tree to the root of the overall tree
+            fr new_hash = hashes_local[0];
+            while (level > 0) {
+                bool is_right = static_cast<bool>(index & 0x01);
+                fr left_hash = is_right ? get_element_or_zero(level, index - 1, *tx, true) : new_hash;
+                fr right_hash = is_right ? new_hash : get_element_or_zero(level, index + 1, *tx, true);
+                new_hash = HashingPolicy::hash_pair(left_hash, right_hash);
+                index >>= 1;
+                --level;
+                if (level > 0) {
+                    write_node(level, index, new_hash);
+                }
+            }
+            new_size = start_size + values.size();
+            new_root = new_hash;
+            store_.put_meta(new_size, new_root);
         }
-        size_ += values.size();
-        root_ = new_hash;
-        on_completion(root_, size_);
+        on_completion(new_root, new_size);
     };
     workers_.enqueue(append_op);
 }
 
 template <typename Store, typename HashingPolicy>
-fr AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero(uint32_t level, const index_t& index) const
+fr AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero(uint32_t level,
+                                                             const index_t& index,
+                                                             ReadTransaction& tx,
+                                                             bool includeUncommitted) const
 {
-    const std::pair<bool, fr> read_data = read_node(level, index);
+    const std::pair<bool, fr> read_data = read_node(level, index, tx, includeUncommitted);
     if (read_data.first) {
         return read_data.second;
     }
@@ -196,19 +221,42 @@ void AppendOnlyTree<Store, HashingPolicy>::write_node(uint32_t level, const inde
 {
     std::vector<uint8_t> buf;
     write(buf, value);
-    store_.put(level, index, buf);
+    store_.put_node(level, index, buf);
 }
 
 template <typename Store, typename HashingPolicy>
-std::pair<bool, fr> AppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t level, const index_t& index) const
+std::pair<bool, fr> AppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t level,
+                                                                    const index_t& index,
+                                                                    ReadTransaction& tx,
+                                                                    bool includeUncommitted) const
 {
     std::vector<uint8_t> buf;
-    bool available = store_.get(level, index, buf);
+    bool available = store_.get_node(level, index, buf, tx, includeUncommitted);
     if (!available) {
         return std::make_pair(false, fr::zero());
     }
     fr value = from_buffer<fr>(buf, 0);
     return std::make_pair(true, value);
+}
+
+template <typename Store, typename HashingPolicy>
+void AppendOnlyTree<Store, HashingPolicy>::commit(const commit_callback& on_completion)
+{
+    auto job = [=]() {
+        store_.commit();
+        on_completion();
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void AppendOnlyTree<Store, HashingPolicy>::rollback(const rollback_callback& on_completion)
+{
+    auto job = [=]() {
+        store_.rollback();
+        on_completion();
+    };
+    workers_.enqueue(job);
 }
 
 } // namespace bb::crypto::merkle_tree
