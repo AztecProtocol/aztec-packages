@@ -8,7 +8,8 @@ contract PrivateToken {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        protocol_types::abis::function_selector::FunctionSelector, oracle::unsafe_rand::unsafe_rand
+        protocol_types::abis::function_selector::FunctionSelector, oracle::unsafe_rand::unsafe_rand,
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt, encode_and_encrypt_with_keys}
     };
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
     use crate::types::{token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
@@ -93,11 +94,8 @@ contract PrivateToken {
 
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
-        storage.balances.add(
-            context.msg_sender(),
-            context.msg_sender(),
-            U128::from_integer(amount)
-        );
+        let caller = context.msg_sender();
+        storage.balances.add(caller, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, caller, caller));
         PrivateToken::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
@@ -110,16 +108,16 @@ contract PrivateToken {
     }
 
     #[aztec(private)]
-    fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+    fn transfer(to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+        let header = context.get_header();
+        let from_ovpk = header.get_ovpk_m(&mut context, from);
+        let from_ivpk = header.get_ivpk_m(&mut context, from);
+        let to_ivpk = header.get_ivpk_m(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount);
-        storage.balances.add(from, to, amount);
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
     }
 
     #[aztec(private)]
@@ -141,7 +139,7 @@ contract PrivateToken {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        storage.balances.sub(sponsored_user, U128::from_integer(funded_amount));
+        let _ = storage.balances.sub(sponsored_user, U128::from_integer(funded_amount));
         let points = TokenNote::generate_refund_points(fee_payer, sponsored_user, funded_amount);
         context.set_public_teardown_function(
             context.this_address(),

@@ -4,8 +4,7 @@ use dep::aztec::{
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
 };
-use dep::std::embedded_curve_ops::EmbeddedCurvePoint;
-use crate::lib::{is_on_grumpkin, fixed_base_scalar_mul, fixed_base_multi_scalar_mul};
+use dep::std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul, fixed_base_scalar_mul};
 
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
@@ -30,6 +29,7 @@ trait PrivatelyRefundable {
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global G1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
 #[aztec(note)]
 struct TokenNote {
@@ -43,52 +43,47 @@ struct TokenNote {
 
 impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:start:nullifier
-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> ( Field, Field ) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
     // docs:end:nullifier
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> ( Field, Field ) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
-      // We only bother inserting the note if non-empty to save funds on gas.
-      // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
-      if !(self.amount == U128::from_integer(0)) {
-          context.encrypt_and_emit_note(
-              (*context).this_address(),
-              slot,
-              Self::get_note_type_id(),
-              ovpk_m,
-              ivpk_m,
-              self,
-          );
-      }
-    }
+
 
     fn compute_note_content_hash(self) -> Field {
-        (fixed_base_scalar_mul(
-                self.amount.to_integer()
-            ) + fixed_base_scalar_mul(
-                self.npk_m_hash
-            ) + fixed_base_scalar_mul(
-                self.randomness
-        )).x
-
+        multi_scalar_mul(
+            [G1, G1, G1],
+            [EmbeddedCurveScalar {
+                lo: self.amount.to_integer(),
+                hi: 0
+            },
+            EmbeddedCurveScalar {
+                lo: self.npk_m_hash,
+                hi: 0
+            },
+            EmbeddedCurveScalar {
+                lo: self.randomness,
+                hi: 0
+            }]
+        )[0]
     }
 }
 
@@ -120,26 +115,60 @@ impl PrivatelyRefundable for TokenNote {
 
 
         let fee_payer_nonce = unsafe_rand();
-        let fee_payer_point = fixed_base_multi_scalar_mul([
-            fee_payer.to_field(),
-            fee_payer_nonce,
-        ]);
-        assert_eq(fee_payer_point.is_infinite, false);
+        let fee_payer_point = multi_scalar_mul(
+            [G1, G1],
+            [EmbeddedCurveScalar {
+                lo: fee_payer.to_field(),
+                hi: 0
+            },
+            EmbeddedCurveScalar {
+                lo: fee_payer_nonce,
+                hi: 0
+            }]
+        );
 
         let sponsored_user_nonce = unsafe_rand();
-        let sponsored_user_point = fixed_base_multi_scalar_mul([
-            sponsored_user.to_field(),
-            funded_amount,
-            sponsored_user_nonce,
-        ]);
-        assert_eq(sponsored_user_point.is_infinite, false);
+        let sponsored_user_point = multi_scalar_mul(
+            [G1, G1, G1],
+            [EmbeddedCurveScalar {
+                lo: sponsored_user.to_field(),
+                hi: 0
+            },
+            EmbeddedCurveScalar {
+                lo: funded_amount,
+                hi: 0
+            },
+            EmbeddedCurveScalar {
+                lo: sponsored_user_nonce,
+                hi: 0
+            }]
+        );
 
-        [fee_payer_point, sponsored_user_point]
+        [EmbeddedCurvePoint {
+            x: fee_payer_point[0],
+            y: fee_payer_point[1],
+            is_infinite: fee_payer_point[2] == 1
+        },EmbeddedCurvePoint {
+            x: sponsored_user_point[0],
+            y: sponsored_user_point[1],
+            is_infinite: sponsored_user_point[2] == 1
+        } ]
     }
 
     fn complete_refund(fee_payer_point: EmbeddedCurvePoint, sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> [Field; 2] {
 
-        let fee_point = fixed_base_scalar_mul(transaction_fee);
+        let fee_point_raw = multi_scalar_mul(
+            [G1],
+            [EmbeddedCurveScalar {
+                lo: transaction_fee,
+                hi: 0
+            }]
+        );
+        let fee_point = EmbeddedCurvePoint {
+            x: fee_point_raw[0],
+            y: fee_point_raw[1],
+            is_infinite: fee_point_raw[2] ==1
+        };
 
         let completed_fpc_point = fee_payer_point + fee_point;
 
