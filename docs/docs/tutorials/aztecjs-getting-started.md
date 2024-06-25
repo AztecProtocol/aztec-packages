@@ -144,7 +144,7 @@ Great! The Sandbox is running and we are able to interact with it.
 
 The sandbox is preloaded with multiple accounts so you don't have to sit and create them. Let's load these accounts. Add this code to the `main()` function in `index.ts` below the code that's there:
 
-#include_code load_accounts /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
+# include_code load_accounts /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
 
 An explanation on accounts on Aztec can be found [here](../aztec/concepts/index.md).
 
