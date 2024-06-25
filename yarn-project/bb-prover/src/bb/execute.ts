@@ -4,9 +4,12 @@ import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
+
+
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 import { basename, dirname, join } from 'path';
+
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -67,6 +70,11 @@ export function executeBB(
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
+    if (process.env.SEED) {
+      // We are in deterministic mode
+      logger(`Warning: Executing BB in deterministic mode`);
+      args = args.concat(['--unsafe_deterministic_randomness']);
+    }
     logger(`Executing BB with: ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,

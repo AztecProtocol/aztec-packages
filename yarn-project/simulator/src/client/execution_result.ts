@@ -1,16 +1,14 @@
-import {
-  EncryptedFunctionL2Logs,
-  type EncryptedL2Log,
-  type EncryptedL2NoteLog,
-  EncryptedNoteFunctionL2Logs,
-  type Note,
-  UnencryptedFunctionL2Logs,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { EncryptedFunctionL2Logs, type EncryptedL2Log, type EncryptedL2NoteLog, EncryptedNoteFunctionL2Logs, Note, UnencryptedFunctionL2Logs, type UnencryptedL2Log } from '@aztec/circuit-types';
+import { type IsEmpty, PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import { ClassConverter } from '@aztec/foundation/json-rpc';
 
+
+
+import { EncodedClass } from '../../../foundation/src/json-rpc/class_converter.js';
 import { type ACVMField } from '../acvm/index.js';
+import { convertFromJsonObj, convertToJsonObj } from '../../../foundation/src/json-rpc/convert.js';
+
 
 /**
  * The contents of a new note.
@@ -92,6 +90,30 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
   execResult.nullifiedNoteHashCounters.forEach((value, key) => accum.set(key, value));
   execResult.nestedExecutions.forEach(nested => collectNullifiedNoteHashCounters(nested, accum));
   return accum;
+}
+
+export class CacheableExecutionResult {
+  constructor(public executionResult: ExecutionResult) {}
+  private static getClassConverter(): ClassConverter {
+    // NOTE(AD): We have accumulated a handful of serialization styles, but as long as we can sanely combine them...
+    return new ClassConverter(
+      /* fromString() classes */ { Fr },
+      /* fromJSON() classes */ { },
+      /* fromBuffer() classes */ { PrivateCallStackItem, PublicCallRequest, Note },
+    );
+  }
+  public toJSON(): object {
+    return convertToJsonObj(CacheableExecutionResult.getClassConverter(), this.executionResult);
+  }
+  public toBuffer() {
+    return Buffer.from(JSON.stringify(this.toJSON()));
+  }
+  public static fromJSON(obj: object): CacheableExecutionResult {
+    return new CacheableExecutionResult(convertFromJsonObj(CacheableExecutionResult.getClassConverter(), obj));
+  }
+  public static fromBuffer(buffer: Buffer): CacheableExecutionResult {
+    return CacheableExecutionResult.fromJSON(JSON.parse(buffer.toString()));
+  }
 }
 
 /**

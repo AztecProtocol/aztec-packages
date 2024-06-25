@@ -1,10 +1,9 @@
 import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
 
-import {
-  type ExecutionResult,
-  collectNoteHashLeafIndexMap,
-  collectNullifiedNoteHashCounters,
-} from './execution_result.js';
+
+
+import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters, CacheableExecutionResult } from './execution_result.js';
+
 
 function emptyExecutionResult(): ExecutionResult {
   return {
@@ -106,5 +105,14 @@ describe('collectNullifiedNoteHashCounters', () => {
     expect(res.get(56)).toBe(77);
     expect(res.get(78)).toBe(66);
     expect(res.get(90)).toBe(55);
+  });
+
+  it('should serialize an empty execution result', () => {
+    const childExecution = emptyExecutionResult();
+    childExecution.nullifiedNoteHashCounters.set(56, 77);
+    childExecution.nestedExecutions = [emptyExecutionResult(), emptyExecutionResult()];
+    const serialized = new CacheableExecutionResult(childExecution).toBuffer()
+    const deserialized = CacheableExecutionResult.fromBuffer(serialized).executionResult;
+    expect(deserialized.nestedExecutions.length).toBe(2);
   });
 });

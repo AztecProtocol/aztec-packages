@@ -1,5 +1,6 @@
 import { assert } from './js_utils.js';
 
+
 /**
  * Represents a class compatible with our class conversion system.
  * E.g. PublicKey here satisfies 'StringIOClass'.
@@ -51,9 +52,35 @@ interface ObjIOClass {
 }
 
 /**
+ * Represents a class compatible with our class conversion system.
+ * E.g. PublicKey here satisfies 'BufferIOClass'.
+ * ```
+ *    class PublicKey {
+ *      toJSON() {
+ *        return {...};
+ *      }
+ *      static fromJSON(obj) {
+ *        return new PublicKey({...});
+ *      }
+ *    }
+ * ```
+ */
+interface BufferIOClass {
+  new (...args: any): any;
+
+  // TODO(#4254): Ensure that toJSON method is checked for as well.
+
+  /**
+   * Creates an IOClass from a given JSON object.
+   */
+  fromBuffer: (buffer: Buffer) => any;
+}
+
+
+/**
  * Either a StringIOClass or ObjIOClass
  */
-type IOClass = ObjIOClass | StringIOClass;
+type IOClass = ObjIOClass | StringIOClass | BufferIOClass;
 
 /**
  * Registered classes available for conversion.
@@ -70,36 +97,29 @@ export interface JsonClassConverterInput {
 }
 
 /**
- * Represents a class in a JSON-friendly encoding.
+ * Registered classes available for conversion.
  */
-export interface StringEncodedClass {
-  /**
-   * The class type.
-   */
-  type: string;
-  /**
-   * The class data string.
-   */
-  data: string;
+export interface BufferClassConverterInput {
+  [className: string]: BufferIOClass;
 }
 
 /**
- * Represents a class in a JSON-friendly encoding.
+ * Represents a class in a JSON, string or buffer encoding.
  */
-export interface JsonEncodedClass {
+export interface EncodedClass {
   /**
    * The class type.
    */
   type: string;
   /**
-   * The class data string.
+   * The class data string. Could be an object, string or (base64) buffer.
    */
-  data: object;
+  data: any;
 }
 /**
  * Whether a class is a complex object or simply represented by a string.
  */
-export type ClassEncoding = 'string' | 'object';
+export type ClassEncoding = 'string' | 'object' | 'buffer';
 
 /**
  * Handles mapping of classes to names, and calling toString and fromString to convert to and from JSON-friendly formats.
@@ -113,8 +133,9 @@ export class ClassConverter {
    * Create a class converter from a table of classes.
    * @param stringClassMap - The class table of string encoded classes.
    * @param objectClassMap - The class table of complex object classes
+   * @param bufferClassMap - The class table of buffer encoded classes
    */
-  constructor(stringClassMap?: StringClassConverterInput, objectClassMap?: JsonClassConverterInput) {
+  constructor(stringClassMap?: StringClassConverterInput, objectClassMap?: JsonClassConverterInput, bufferClassMap?: BufferClassConverterInput) {
     if (stringClassMap) {
       for (const key of Object.keys(stringClassMap)) {
         this.register(key, stringClassMap[key], 'string');
@@ -123,6 +144,11 @@ export class ClassConverter {
     if (objectClassMap) {
       for (const key of Object.keys(objectClassMap)) {
         this.register(key, objectClassMap[key], 'object');
+      }
+    }
+    if (bufferClassMap) {
+      for (const key of Object.keys(bufferClassMap)) {
+        this.register(key, bufferClassMap[key], 'buffer');
       }
     }
   }
@@ -137,12 +163,14 @@ export class ClassConverter {
   register(type: string, class_: IOClass, encoding: ClassEncoding) {
     assert(type !== 'Buffer', "'Buffer' handling is hardcoded. Cannot use as name.");
     assert(
-      class_.prototype['toString'] || class_.prototype['toJSON'],
-      `Class ${type} must define a toString() OR toJSON() method.`,
+      class_.prototype['toString'] || class_.prototype['toJSON'] || class_.prototype['toBuffer'],
+      `Class ${type} must define a toString() OR toJSON() OR toBuffer() method.`,
     );
     assert(
-      (class_ as StringIOClass)['fromString'] || (class_ as ObjIOClass)['fromJSON'],
-      `Class ${type} must define a fromString() OR fromJSON() static method.`,
+      (class_ as StringIOClass)['fromString'] ||
+        (class_ as ObjIOClass)['fromJSON'] ||
+        (class_ as BufferIOClass)['fromBuffer'],
+      `Class ${type} must define a fromString() OR fromJSON() OR fromBuffer() static method.`,
     );
     this.toName.set(class_, [type, encoding]);
     this.toClass.set(type, [class_, encoding]);
@@ -170,15 +198,17 @@ export class ClassConverter {
    * @param jsonObj - An object encoding a class.
    * @returns The class object.
    */
-  toClassObj(jsonObj: JsonEncodedClass | StringEncodedClass): any {
+  toClassObj(jsonObj: EncodedClass): any {
     const result = this.toClass.get(jsonObj.type);
     assert(result, `Could not find type in lookup.`);
 
     const [class_, encoding] = result;
     if (encoding === 'string' && typeof jsonObj.data === 'string') {
-      return (class_ as StringIOClass)!.fromString!(jsonObj.data);
+      return (class_ as StringIOClass).fromString(jsonObj.data);
+    } else if (encoding === 'buffer' && typeof jsonObj.data === 'string') {
+      return (class_ as BufferIOClass).fromBuffer(Buffer.from(jsonObj.data, 'base64'));
     } else {
-      return (class_ as ObjIOClass)!.fromJSON!(jsonObj.data as object);
+      return (class_ as ObjIOClass).fromJSON(jsonObj.data as object);
     }
   }
   /**
@@ -186,10 +216,18 @@ export class ClassConverter {
    * @param classObj - A JSON encoding a class.
    * @returns The class object.
    */
-  toJsonObj(classObj: any): JsonEncodedClass | StringEncodedClass {
+  toJsonObj(classObj: any): EncodedClass {
     const { type, encoding } = this.lookupObject(classObj);
-    const data = encoding === 'string' ? classObj.toString() : classObj.toJSON();
-    return { type: type!, data };
+    switch (encoding) {
+      case "string":
+        return { type: type!, data: classObj.toString() };
+      case "object":
+        return { type: type!, data: classObj.toJSON() };
+      case "buffer":
+        return { type: type!, data: classObj.toBuffer().toString('base64') };
+      default:
+        throw new Error("unexpected case");
+    }
   }
 
   /**

@@ -82,6 +82,14 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
   if (obj.type === 'bigint' && typeof obj.data === 'string') {
     return BigInt(obj.data);
   }
+  if (obj.type === "map" && Array.isArray(obj.data)) {
+    const entries: [any, any][] = obj.data;
+    const map = new Map();
+    for (const entry of entries) {
+      map.set(convertFromJsonObj(cc, entry[0]), convertFromJsonObj(cc, entry[1]));
+    }
+    return map;
+  }
 
   // Is this a convertible type?
   if (typeof obj.type === 'string') {
@@ -124,7 +132,16 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
       data: obj.toString(),
     };
   }
-
+  if (obj instanceof Map) {
+    const entries: [any, any][] = [];
+    for (const entry of obj.entries()) {
+      entries.push([convertToJsonObj(cc, entry[0]), convertToJsonObj(cc, entry[1])]);
+    }
+    return {
+      type: 'map',
+      data: entries
+    }
+  }
   if (!obj) {
     return obj; // Primitive type
   }
