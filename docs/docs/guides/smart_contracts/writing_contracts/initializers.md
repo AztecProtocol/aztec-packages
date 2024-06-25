@@ -26,3 +26,5 @@ Initializers are commonly used to set an admin, such as this example:
 #include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 Here, the initializer is calling a public function. It can also call a private function. Learn more about calling functions from functions [here](./call_functions.md).
+
+To see an initializer in action, check out the [Counter Contract Tutorial](../../../tutorials/contract_tutorials/counter_contract.md).
