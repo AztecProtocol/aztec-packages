@@ -28,8 +28,9 @@ const pageLogger = createDebugLogger('aztec:e2e_aztec_browser.js:web:page');
  *    5) go to `yarn-project/end-to-end` and run the test: `yarn test aztec_js_browser`
  *    6) If you get dependency error run `apt install libssn3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxdamage1 libxkbcommon0 libpango-1.0-0 libcairo2`.
  *
- * NOTE: If you see the logs spammed with unexpected logs there is probably a chrome process with a webpage
+ * NOTE 1: If you see the logs spammed with unexpected logs there is probably a chrome process with a webpage
  *       unexpectedly running in the background. Kill it with `killall chrome`
+ * NOTE 2: Don't forget to run `yarn build:web` once you make changes!
  */
 
 const setupApp = async () => {
