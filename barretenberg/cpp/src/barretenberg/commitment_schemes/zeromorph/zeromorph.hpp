@@ -480,7 +480,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         } else {
             N = static_cast<uint32_t>(circuit_size);
         }
-        info("circuit size when computing C_zeta_x: ", N);
+        // info("circuit size when computing C_zeta_x: ", N);
 
         size_t log_N;
         if constexpr (Curve::is_stdlib_type) {
@@ -488,7 +488,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         } else {
             log_N = static_cast<uint32_t>(log_circuit_size);
         }
-        info("log circuit size when computing C_zeta_x: ", log_N);
+        // info("log circuit size when computing C_zeta_x: ", log_N);
         // Instantiate containers for input to batch mul
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
@@ -590,7 +590,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         } else {
             log_N = static_cast<uint32_t>(log_circuit_size);
         }
-        info("in C_Z_x N: ", N, " and log_N: ", log_N);
+        // info("in C_Z_x N: ", N, " and log_N: ", log_N);
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
 
@@ -739,15 +739,15 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                       const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                       RefSpan<FF> concatenated_evaluations = {})
     {
-        info("ZM VERIFIER");
+        // info("ZM VERIFIER");
         FF log_N;
         if constexpr (Curve::is_stdlib_type) {
             log_N = FF(static_cast<int>(numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()))));
         } else {
             log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
         }
-        info("circuit size: ", circuit_size);
-        info("log_N: ", log_N);
+        // info("circuit size: ", circuit_size);
+        // info("log_N: ", log_N);
         FF rho = transcript->template get_challenge<FF>("rho");
 
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
