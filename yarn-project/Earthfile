@@ -208,8 +208,7 @@ end-to-end-base:
     RUN apt-get update && apt-get install -y software-properties-common \
         && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
         && apt-get install -y wget gnupg \
-        && rm -rf /var/lib/apt/lists/*
-    RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
         && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
         && apt update && apt install curl chromium nodejs netcat-openbsd -y \
         && rm -rf /var/lib/apt/lists/*
