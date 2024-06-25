@@ -21,7 +21,7 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 16;
   uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_CALL = 2;
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 32;
-  uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
+  uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 32;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 32;
@@ -37,7 +37,7 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 63;
   uint256 internal constant PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 1;
   uint256 internal constant MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 64;
-  uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 32;
+  uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 64;
   uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 8;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 128;
@@ -47,7 +47,7 @@ library Constants {
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_TX = 64;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
-  uint256 internal constant MAX_PUBLIC_DATA_HINTS = 64;
+  uint256 internal constant MAX_PUBLIC_DATA_HINTS = 128;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
   uint256 internal constant VK_TREE_HEIGHT = 3;
   uint256 internal constant FUNCTION_TREE_HEIGHT = 5;
@@ -100,6 +100,8 @@ library Constants {
   uint256 internal constant FIXED_DA_GAS = 512;
   uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
     2153455745675440165069577621832684870696142028027528497509357256345838682961;
+  uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS =
+    18091885756106795278141309801070173692350235742979924147720536894670507925831;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
     19511485909966796736993840362353440247573331327062358513665772226446629198132;
   uint256 internal constant REGISTERER_CONTRACT_ADDRESS =
@@ -148,21 +150,21 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 23;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 457;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 530;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 578;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 460;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
-  uint256 internal constant VALIDATION_REQUESTS_LENGTH = 1538;
+  uint256 internal constant VALIDATION_REQUESTS_LENGTH = 1602;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 333;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 40;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1152;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2739;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2803;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3770;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3834;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 383;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 14;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 31;

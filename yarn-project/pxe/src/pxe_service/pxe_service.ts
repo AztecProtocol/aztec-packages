@@ -7,11 +7,12 @@ import {
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
+  type IncomingNotesFilter,
   L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
-  type NoteFilter,
+  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type ProofCreator,
@@ -34,7 +35,13 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import {
+  type ContractArtifact,
+  type DecodedReturn,
+  EventSelector,
+  FunctionSelector,
+  encodeArguments,
+} from '@aztec/foundation/abi';
 import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -288,11 +295,11 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot);
   }
 
-  public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
-    const noteDaos = await this.db.getNotes(filter);
+  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getIncomingNotes(filter);
 
-    // TODO(benesjan): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key derivation will affect all this
+    // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
+    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -301,6 +308,27 @@ export class PXEService implements PXE {
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for IvpkM ${dao.ivpkM.toString()}`);
+        }
+        owner = completeAddresses.address;
+      }
+      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.noteTypeId, dao.txHash);
+    });
+    return Promise.all(extendedNotes);
+  }
+
+  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getOutgoingNotes(filter);
+
+    // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
+    // key rotation will affect this
+    const extendedNotes = noteDaos.map(async dao => {
+      let owner = filter.owner;
+      if (owner === undefined) {
+        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
+          address.publicKeys.masterOutgoingViewingPublicKey.equals(dao.ovpkM),
+        );
+        if (completeAddresses === undefined) {
+          throw new Error(`Cannot find complete address for OvpkM ${dao.ovpkM.toString()}`);
         }
         owner = completeAddresses.address;
       }
@@ -831,7 +859,7 @@ export class PXEService implements PXE {
         if (visibleEvent.payload === undefined) {
           return undefined;
         }
-        if (!FunctionSelector.fromField(visibleEvent.payload.eventTypeId).equals(eventMetadata.functionSelector)) {
+        if (!EventSelector.fromField(visibleEvent.payload.eventTypeId).equals(eventMetadata.eventSelector)) {
           return undefined;
         }
         if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
