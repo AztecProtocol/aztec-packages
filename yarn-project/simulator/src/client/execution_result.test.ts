@@ -1,8 +1,5 @@
 import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
-
-
-
-import { CacheableExecutionResult, type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from './execution_result.js';
+import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters, CacheableExecutionResult } from './execution_result.js';
 
 
 function emptyExecutionResult(): ExecutionResult {

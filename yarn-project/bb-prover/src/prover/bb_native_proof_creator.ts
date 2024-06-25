@@ -1,51 +1,60 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { AGGREGATION_OBJECT_LENGTH, Fr, NESTED_RECURSIVE_PROOF_LENGTH, type PrivateCircuitPublicInputs, type PrivateKernelCircuitPublicInputs, type PrivateKernelInitCircuitPrivateInputs, type PrivateKernelInnerCircuitPrivateInputs, type PrivateKernelResetCircuitPrivateInputsVariants, type PrivateKernelTailCircuitPrivateInputs, type PrivateKernelTailCircuitPublicInputs, Proof, RECURSIVE_PROOF_LENGTH, RecursiveProof, VerificationKeyAsFields, type VerificationKeyData, fromBuffer } from '@aztec/circuits.js';
+import {
+  AGGREGATION_OBJECT_LENGTH,
+  Fr,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateCircuitPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
+  type PrivateKernelInitCircuitPrivateInputs,
+  type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
+  Proof,
+  RECURSIVE_PROOF_LENGTH,
+  RecursiveProof,
+  type VerificationKeyAsFields,
+  type VerificationKeyData,
+} from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
-import { ClientCircuitArtifacts, type ClientProtocolArtifact, PrivateResetTagToArtifactName, convertPrivateKernelInitInputsToWitnessMap, convertPrivateKernelInitOutputsFromWitnessMap, convertPrivateKernelInnerInputsToWitnessMap, convertPrivateKernelInnerOutputsFromWitnessMap, convertPrivateKernelResetInputsToWitnessMap, convertPrivateKernelResetOutputsFromWitnessMap, convertPrivateKernelTailForPublicOutputsFromWitnessMap, convertPrivateKernelTailInputsToWitnessMap, convertPrivateKernelTailOutputsFromWitnessMap, convertPrivateKernelTailToPublicInputsToWitnessMap } from '@aztec/noir-protocol-circuits-types';
+import {
+  ClientCircuitArtifacts,
+  type ClientProtocolArtifact,
+  PrivateResetTagToArtifactName,
+  convertPrivateKernelInitInputsToWitnessMap,
+  convertPrivateKernelInitOutputsFromWitnessMap,
+  convertPrivateKernelInnerInputsToWitnessMap,
+  convertPrivateKernelInnerOutputsFromWitnessMap,
+  convertPrivateKernelResetInputsToWitnessMap,
+  convertPrivateKernelResetOutputsFromWitnessMap,
+  convertPrivateKernelTailForPublicOutputsFromWitnessMap,
+  convertPrivateKernelTailInputsToWitnessMap,
+  convertPrivateKernelTailOutputsFromWitnessMap,
+  convertPrivateKernelTailToPublicInputsToWitnessMap,
+} from '@aztec/noir-protocol-circuits-types';
 import { WASMSimulator } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
-
-
 
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import { join } from 'path';
 
-
-
-import { BB_RESULT, PROOF_FIELDS_FILENAME, PROOF_FILENAME, generateKeyForNoirCircuit, generateProof, verifyProof } from '../bb/execute.js';
+import {
+  BB_RESULT,
+  PROOF_FIELDS_FILENAME,
+  PROOF_FILENAME,
+  generateKeyForNoirCircuit,
+  generateProof,
+  verifyProof,
+} from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 import { withProverCache } from './bb_prover_cache.js';
-
-
-// used for serialization in createProof()
-class CreateProofResult {
-  constructor(
-    public proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> | RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-    public verificationKey: VerificationKeyAsFields,
-  ) {}
-  public toBuffer(): Buffer {
-    return serializeToBuffer(this.proof, this.verificationKey);
-  }
-  /**
-   * Deserializes from a Buffer.
-   */
-  public static fromBuffer(buffer: Buffer | BufferReader): CreateProofResult {
-    const reader = BufferReader.asReader(buffer);
-
-    return new CreateProofResult(
-      RecursiveProof.fromBuffer<any>(reader),
-      VerificationKeyAsFields.fromBuffer(reader)
-    );
-  }
-}
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -306,7 +315,6 @@ export class BBNativeProofCreator implements ProofCreator {
       const dbgCircuitName = appCircuitName ? `(${appCircuitName})` : '';
       this.log.info(`Proving ${circuitType}${dbgCircuitName} circuit...`);
 
-
       const timer = new Timer();
 
       const provingResult = await generateProof(
@@ -360,8 +368,12 @@ export class BBNativeProofCreator implements ProofCreator {
       } as CircuitProvingStats);
 
       return { proof, verificationKey: vkData.keyAsFields };
-    }
-    return await withProverCache('bb_native_proof_creator.createProof', [compressedBincodedWitness, bytecode], operation);
+    };
+    return await withProverCache(
+      'bb_native_proof_creator.createProof',
+      [compressedBincodedWitness, bytecode],
+      operation,
+    );
   }
 
   /**

@@ -61,6 +61,7 @@ import {
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
+  CacheableExecutionResult,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -755,9 +756,9 @@ export class PXEService implements PXE {
   ): Promise<SimulatedTx> {
     const operation = async () => {
       // Get values that allow us to reconstruct the block hash
-      return await this.#simulate(txExecutionRequest, msgSender);
+      return new CacheableExecutionResult(await this.#simulate(txExecutionRequest, msgSender));
     };
-    const executionResult = await withProverCache('PXEService.simulate', [txExecutionRequest], operation);
+    const {executionResult} = await withProverCache('PXEService.simulate', [txExecutionRequest], operation);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);

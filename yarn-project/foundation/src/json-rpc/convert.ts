@@ -61,7 +61,7 @@ export function JsonStringify(obj: object, prettify?: boolean): string {
 }
 
 export function convertFromJsonBuffer(cc: ClassConverter, buffer: Buffer): any {
-  return JSON.stringify(convertFromJsonObj(cc, JSON.parse(buffer.toString())));
+  return convertFromJsonObj(cc, JSON.parse(buffer.toString()));
 }
 
 /**
