@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./docs",
-  testMatch: "**.spec.ts",
+  testMatch: "**.test.ts",
   fullyParallel: true,
   retries: 0,
   workers: 3,
@@ -23,7 +23,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn serve",
+    command: process.env.ENV == "dev" ? "yarn dev" : "yarn serve",
     port: 3000,
   },
 });

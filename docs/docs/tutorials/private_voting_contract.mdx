@@ -2,6 +2,8 @@
 title: Private Voting Tutorial
 ---
 
+import { Test } from "@site/src/components/Test/test.tsx";
+
 Aztec is the most powerful blockchain since Ethereum was born. While several projects provide privacy at the protocol level, Aztec leverages extremely complex cryptography for client-side privacy, while keeping the network fully transparent.
 
 But not everything that is complex must be difficult. In this tutorial, you will build a simple project and learn about private and public functions and their composability, state management, and other core principles of Aztec.
@@ -20,21 +22,13 @@ You can also click on this badge and start a codespace - a free remote server th
 
 Start a new project by using the very same `npx` command that powers the codespace:
 
-{/* <!-- prettier-ignore-start --> */}
-
-<span data-testid="0">
-    
-  ```bash
-    yes | npx aztec-app init -v zpedro/tutorials_refactor
-  ```
-</span>
-{/* <!-- prettier-ignore-end --> */}
+<Test hidden>yes | npx aztec-app init -v zpedro/tutorials_refactor</Test>
 
 ```bash
 yes | npx aztec-app init
 ```
 
-<span data-testid="true">```touch yarn.lock```</span>
+<Test hidden>touch yarn.lock</Test>
 
 :::tip
 
@@ -50,30 +44,30 @@ Once upon a time, we could compile and deploy on the CLI. It will come back one 
 
 Ok ok let's compile this little guy. While we're here, we can also use the handy `aztec-builder` package to generate some TS bindings.
 
-<span data-testid="1">
+<Test>
 
 ```bash
 aztec-nargo compile
 aztec-builder codegen -o artifacts target
 ```
 
-</span>
+</Test>
 
 Wait, we don't yet have a project, right? Let's do it now, and btw let's install `@aztec/aztec.js` and `@aztec/accounts`.
 
-<span data-testid="2">
+<Test>
 
 ```bash
 yes | yarn add @aztec/aztec.js @aztec/accounts
 ```
 
-</span>
+</Test>
 
 These two packages are quite useful. `aztec.js` gives us a nice interface to interact with the PXE (your "wallet"), and `accounts` is just a nice collection of account contracts.
 
 So, let's create an `index.ts` file and add those imports. Since we're here, let's import the contract artifact we generated above.
 
-<span data-testid="3" replaceLines="0" file="index.ts" >
+<Test replaceLines="0" file="index.ts">
 
 ```js
 import { createPXEClient } from "@aztec/aztec.js";
@@ -81,7 +75,7 @@ import { createAccount } from "@aztec/accounts/testing";
 import { MainContract } from "./artifacts/Main";
 ```
 
-</span>
+</Test>
 
 ### Deploy 🚀
 
@@ -93,7 +87,7 @@ Since the sandbox is running already, our PXE is also running. Yey! So we call i
 
 Then we can deploy our artifact, broadcast it, and wait for the result:
 
-<span data-testid="4" replaceLines="+" file="index.ts">
+<Test replaceLines="+" file="index.ts">
 
 ```ts
 const pxe = createPXEClient("http://localhost:8080");
@@ -103,28 +97,23 @@ const { address } = await MainContract.deploy(wallet).send().deployed();
 console.log("Yey! Address: ", address);
 ```
 
-</span>
+</Test>
 
-<span
-  data-testid="5"
-  replaceLines="4"
-  file="index.ts"
-  style={{ display: "none" }}
->
-  ```ts
-    const pxe = createPXEClient("http://aztec:8080")
-  ```
-</span>
+<Test replaceLines="4" file="index.ts" hidden>
+
+`ts const pxe = createPXEClient("http://aztec:8080") `
+
+</Test>
 
 With the infra ready, all we need is <s>love</s> hit the button:
 
-<span data-testid="6" >
+<Test>
 
 ```bash
 yes | npx tsx index.ts
 ```
 
-</span>
+</Test>
 
 :::tip
 
@@ -139,7 +128,7 @@ So I like tsx, which uses sensible defaults that "just work" 💡
 
 Ok ok let's dive in the actual voting logic. Let's have a look at our `main.nr`. There's not much in there, but there's an initializer that runs when you deploy it, and turns out we would like to have an admin for our little election. So we pass it as a parameter:
 
-<span data-testid="7" replaceLines="3,-1" file="src/main.nr">
+<Test file="src/main.nr" replaceLines="3,-1">
 
 ```rust
 #[aztec(public)]
@@ -149,13 +138,13 @@ fn constructor(admin: AztecAddress) {
 }
 ```
 
-</span>
+</Test>
 
 ### Storage
 
 What's this storage thing? Well, that's something we need to define. Thankfully, there's a `#[aztec(storage)]` macro for that. Above our initializer, we can add our admin.
 
-<span data-testid="8" replaceLines="3,2" file="src/main.nr">
+<Test file="src/main.nr" replaceLines="3,2">
 
 ```rust
 #[aztec(storage)]
@@ -165,7 +154,7 @@ struct Storage {
 }
 ```
 
-</span>
+</Test>
 
 `PublicMutable` is more or less self-explanatory: it is a public value that can change. As for _who_ can change it, that's up to the contract logic.
 
@@ -173,7 +162,7 @@ We also added another storage value `tally`, which is a map that relates a key (
 
 Here's all the code we have so far:
 
-<span data-testid="9" compare="true" file="src/main.nr">
+<Test compare file="src/main.nr">
 
 ```rust
 contract Main {
@@ -194,7 +183,7 @@ contract Main {
 
 ```
 
-</span>
+</Test>
 
 :::tip
 
@@ -279,7 +268,7 @@ We now need to add +1 to the person we chose to vote for. So we call a public fu
 
 Let's call our own contract with our current execution context, and enqueue our call. And that's it for this function. Feel free to copy it, you lazy goblin!
 
-<span data-testid="10" replaceLines="-1,-1" file="src/main.nr">
+<Test replaceLines="-1,-1" file="src/main.nr">
 
 ```rust
 #[aztec(private)]
@@ -295,11 +284,11 @@ fn cast_vote(candidate: Field) {
 }
 ```
 
-</span>
+</Test>
 
 The `add_to_tally_public` function is quite straightforward. It just reads and writes a public value from the `tally` [Map](../reference/smart_contract_reference/aztec-nr/aztec/state_vars/map#at):
 
-<span data-testid="11" replaceLines="-1,-1" file="src/main.nr">
+<Test replaceLines="-1,-1" file="src/main.nr">
 
 ```rust
 #[aztec(public)]
@@ -309,7 +298,7 @@ fn add_to_tally_public(candidate: Field) {
 }
 ```
 
-</span>
+</Test>
 
 ## Deploying 🔥
 
@@ -317,14 +306,13 @@ You can deploy now! Just make sure to add the address as a parameter to the `dep
 
 {/* <!-- prettier-ignore-start --> */}
 
-<span
-  data-testid="12"
+<Test
   replaceLines="-1"
   file="index.ts"
-  style={{ display: "none" }}
+  hidden
 >
   ```const {address} = await MainContract.deploy(wallet, wallet.getAddress()).send().deployed()```
-</span>
+</Test>
 {/* <!-- prettier-ignore-end --> */}
 
 ```diff
@@ -334,7 +322,7 @@ You can deploy now! Just make sure to add the address as a parameter to the `dep
 
 You also want to import some dependencies we're using, like `AztecAddress`. Make sure to do it _inside_ the `Contract` block:
 
-<span data-testid="13" replaceLines="2,3" file="src/main.nr">
+<Test replaceLines="2,3" file="src/main.nr">
 
 ```rust
 contract Main {
@@ -343,11 +331,11 @@ contract Main {
     // highlight-end
 ```
 
-</span>
+</Test>
 
 Head to your terminal to recompile, generate the artifact, and run:
 
-<span data-testid="14">
+<Test>
 
 ```bash
 aztec-nargo compile
@@ -355,7 +343,7 @@ aztec-builder codegen -o artifacts target
 npx tsx index.ts
 ```
 
-</span>
+</Test>
 
 ![Gentlemen it is with great plesaure to inform you that your code is deployed](@site/static/img/tutorials/private_voting/deployed_frog.jpeg)
 

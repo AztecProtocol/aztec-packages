@@ -1,12 +1,19 @@
-import { test, expect, Page, Locator } from "@playwright/test";
+import { test, expect, Locator } from "@playwright/test";
 import path from "path";
 
 import { execFileSync } from "child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 
-const TEST_FOLDER = path.resolve("../test");
+const TEST_FOLDER =
+  `${process.env.TEST_FOLDER}/_temp_test` ||
+  path.resolve("(/usr/test/_temp_test");
 
-async function exec(locator: Locator) {
+test.beforeEach(async () => {
+  rmSync(TEST_FOLDER, { recursive: true, force: true });
+  mkdirSync(TEST_FOLDER, { recursive: true });
+});
+
+export async function execute(locator: Locator) {
   const content = (await locator.innerText()).trim();
 
   // tells which file are we working on
@@ -79,26 +86,3 @@ async function exec(locator: Locator) {
     );
   }
 }
-
-test.beforeEach(async () => {
-  rmSync(TEST_FOLDER, { recursive: true, force: true });
-  mkdirSync(TEST_FOLDER, { recursive: true });
-});
-
-test("Deploying, setting, and getting a number", async ({ page }) => {
-  test.slow();
-
-  await page.goto("/");
-  await page.getByRole("button", { name: "Tutorials" }).click();
-  await page.getByRole("link", { name: "Private Voting Tutorial" }).click();
-
-  await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(() => !!document.querySelector("code"));
-
-  for (let i = 0; i < 14; i++) {
-    console.log("executing command", i);
-    await page.getByTestId(`${i}`).waitFor({ state: "attached" });
-    const cmd = page.getByTestId(`${i}`);
-    await exec(cmd);
-  }
-});
