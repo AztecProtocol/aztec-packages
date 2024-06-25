@@ -7,6 +7,7 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include "barretenberg/flavor/flavor.hpp"
@@ -183,6 +184,17 @@ class CopyFlavor {
         using Base::Base;
 
         RefVector<DataType> get_to_be_shifted() { return { copy_d, copy_main, copy_second }; };
+
+        void compute_grand_products(const RelationParameters<FF>& relation_parameters)
+        {
+            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
+
+            bb::compute_grand_product<CopyFlavor, copy_main_relation<FF>>(prover_polynomials, relation_parameters);
+            bb::compute_grand_product<CopyFlavor, copy_second_relation<FF>>(prover_polynomials, relation_parameters);
+
+            prover_polynomials.copy_main_shift = static_cast<Polynomial>(prover_polynomials.copy_main.shifted());
+            prover_polynomials.copy_second_shift = static_cast<Polynomial>(prover_polynomials.copy_second.shifted());
+        }
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;

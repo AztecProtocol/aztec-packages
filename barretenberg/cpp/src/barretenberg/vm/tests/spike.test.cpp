@@ -31,7 +31,6 @@ const size_t CIRCUIT_SIZE = 16;
 class SpikeCopyTests : public ::testing::Test {
 
   protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
 
   public:
@@ -43,11 +42,31 @@ class SpikeCopyTests : public ::testing::Test {
     const std::array<FF, CIRCUIT_SIZE> id_1 = make_sequence<1 + CIRCUIT_SIZE, 1 + 2 * CIRCUIT_SIZE>();
     const std::array<FF, CIRCUIT_SIZE> id_2 = make_sequence<1 + 2 * CIRCUIT_SIZE, 1 + 3 * CIRCUIT_SIZE>();
     const std::array<FF, CIRCUIT_SIZE> id_3 = make_sequence<1 + 3 * CIRCUIT_SIZE, 1 + 4 * CIRCUIT_SIZE>();
+
+    Builder circuit_builder;
+
+    // Function to perform check circuit, create a proof and verify on the trace
+    void check_and_verify(std::vector<Row> rows)
+    {
+        circuit_builder.set_trace(std::move(rows));
+
+        // Run circuit checker
+        bool c_sat = circuit_builder.check_circuit();
+        ASSERT_TRUE(c_sat);
+
+        auto composer = CopyComposer();
+        auto prover = composer.create_prover(circuit_builder);
+        HonkProof proof = prover.construct_proof();
+
+        auto verifier = composer.create_verifier(circuit_builder);
+        auto verified = verifier.verify_proof(proof);
+
+        ASSERT_TRUE(verified);
+    }
 };
 
 TEST_F(SpikeCopyTests, simpleAllSameCopyTest)
 {
-    Builder circuit_builder;
     std::vector<Row> rows;
 
     // Fill in the id columns
@@ -91,26 +110,11 @@ TEST_F(SpikeCopyTests, simpleAllSameCopyTest)
     rows[0].lagrange_first = 1;
     rows[CIRCUIT_SIZE - 1].lagrange_last = 1;
 
-    circuit_builder.set_trace(std::move(rows));
-
-    // Run circuit checker
-    bool c_sat = circuit_builder.check_circuit();
-    ASSERT_TRUE(c_sat);
-
-    // auto composer = CopyComposer();
-    // auto prover = composer.create_prover(circuit_builder);
-    // HonkProof proof = prover.construct_proof();
-
-    // auto verifier = composer.create_verifier(circuit_builder);
-    // auto verified = verifier.verify_proof(proof);
-
-    // ASSERT_TRUE(verified);
+    check_and_verify(std::move(rows));
 }
 
 TEST_F(SpikeCopyTests, nonTrivialCopyTest)
 {
-    Builder circuit_builder;
-
     std::vector<Row> rows;
 
     // Fill in the id columns
@@ -129,35 +133,31 @@ TEST_F(SpikeCopyTests, nonTrivialCopyTest)
     // id_0 is paired with sigma_x, id_1 is paired with sigma_y, in order to copy them into each other, we map the pairs
     for (size_t i = 0; i < CIRCUIT_SIZE; ++i) {
         Row& row = rows.at(i);
+        // x wired to y in reverse
         row.copy_sigma_x = id_1[CIRCUIT_SIZE - i - 1];
+        // y wired to x in reverse
         row.copy_sigma_y = id_0[CIRCUIT_SIZE - i - 1];
 
         row.copy_x = i;
         row.copy_y = CIRCUIT_SIZE - i - 1;
-        row.copy_y = i;
     }
 
     // Fill in the rest of the copies to be default
     for (size_t i = 0; i < CIRCUIT_SIZE; ++i) {
         Row& row = rows.at(i);
-
         // First set
-        row.copy_x = 1;
-        row.copy_y = 1;
-        row.copy_z = 1;
+        row.copy_z = 0;
 
-        // Second set
-        row.copy_a = 1;
-        row.copy_b = 1;
-        row.copy_c = 1;
-        row.copy_d = 1;
+        // Second set (keep defaut)
+        row.copy_a = 0;
+        row.copy_b = 0;
+        row.copy_c = 0;
+        row.copy_d = 0;
 
-        // First set permutation
-        row.copy_sigma_x = id_0[i];
-        row.copy_sigma_y = id_1[i];
+        // First set permutation (keep default)
         row.copy_sigma_z = id_2[i];
 
-        // Second set permutation
+        // Second set permutation (keep default)
         row.copy_sigma_a = id_0[i];
         row.copy_sigma_b = id_1[i];
         row.copy_sigma_c = id_2[i];
@@ -168,28 +168,5 @@ TEST_F(SpikeCopyTests, nonTrivialCopyTest)
     rows[0].lagrange_first = 1;
     rows[CIRCUIT_SIZE - 1].lagrange_last = 1;
 
-    // rows.at(0).copy_x = 10;
-    // rows.at(1).copy_y = 10;
-
-    // rows.at(0).copy_sigma_x = id_1[1];
-    // rows.at(1).copy_sigma_y = id_0[0];
-
-    // Note uncommenting these makes it pass - it should work without these commented out
-    // rows.at(1).copy_sigma_x = id_1[0];
-    // rows.at(0).copy_sigma_y = id_0[1];
-
-    circuit_builder.set_trace(std::move(rows));
-
-    // Run circuit checker
-    bool c_sat = circuit_builder.check_circuit();
-    ASSERT_TRUE(c_sat);
-
-    // auto composer = CopyComposer();
-    // auto prover = composer.create_prover(circuit_builder);
-    // HonkProof proof = prover.construct_proof();
-
-    // auto verifier = composer.create_verifier(circuit_builder);
-    // auto verified = verifier.verify_proof(proof);
-
-    // ASSERT_TRUE(verified);
+    check_and_verify(std::move(rows));
 }

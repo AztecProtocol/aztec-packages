@@ -99,8 +99,6 @@ class CopyCircuitBuilder {
             polys.copy_x[i] = rows[i].copy_x;
             polys.copy_y[i] = rows[i].copy_y;
             polys.copy_z[i] = rows[i].copy_z;
-            polys.copy_main[i] = rows[i].copy_main;
-            polys.copy_second[i] = rows[i].copy_second;
             polys.id_0[i] = rows[i].id_0;
             polys.id_1[i] = rows[i].id_1;
             polys.id_2[i] = rows[i].id_2;
@@ -117,8 +115,8 @@ class CopyCircuitBuilder {
     [[maybe_unused]] bool check_circuit()
     {
 
-        const FF gamma = 1;
-        const FF beta = 1;
+        const FF gamma = FF::random_element();
+        const FF beta = FF::random_element();
         bb::RelationParameters<typename Flavor::FF> params{
             .eta = 0,
             .beta = beta,
@@ -180,6 +178,14 @@ class CopyCircuitBuilder {
             return true;
         };
 
+        auto calculate_grand_products = [&]() {
+            bb::compute_grand_product<Flavor, copy_main_relation<FF>>(polys, params);
+            bb::compute_grand_product<Flavor, copy_second_relation<FF>>(polys, params);
+
+            polys.copy_main_shift = static_cast<Polynomial>(polys.copy_main.shifted());
+            polys.copy_second_shift = static_cast<Polynomial>(polys.copy_second.shifted());
+        };
+
         auto copy = [&]() {
             return evaluate_relation.template operator()<Copy_vm::copy<FF>>("copy", Copy_vm::get_relation_label_copy);
         };
@@ -192,16 +198,7 @@ class CopyCircuitBuilder {
             return evaluate_grand_product.template operator()<copy_second_relation<FF>>("COPY_SECOND");
         };
 
-        auto calculate_grand_products = [&]() {
-            bb::compute_grand_product<Flavor, copy_main_relation<FF>>(polys, params);
-            bb::compute_grand_product<Flavor, copy_second_relation<FF>>(polys, params);
-
-            polys.copy_main_shift = static_cast<Polynomial>(polys.copy_main.shifted());
-            polys.copy_second_shift = static_cast<Polynomial>(polys.copy_second.shifted());
-        };
-
 #ifndef __wasm__
-        // before checking relations, we need to calculate all of the grand products
         calculate_grand_products();
 
         // Evaluate check circuit closures as futures

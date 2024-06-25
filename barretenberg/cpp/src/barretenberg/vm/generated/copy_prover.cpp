@@ -71,8 +71,6 @@ void CopyProver::execute_wire_commitments_round()
     witness_commitments.copy_x = commitment_key->commit(key->copy_x);
     witness_commitments.copy_y = commitment_key->commit(key->copy_y);
     witness_commitments.copy_z = commitment_key->commit(key->copy_z);
-    witness_commitments.copy_main = commitment_key->commit(key->copy_main);
-    witness_commitments.copy_second = commitment_key->commit(key->copy_second);
     witness_commitments.id_0 = commitment_key->commit(key->id_0);
     witness_commitments.id_1 = commitment_key->commit(key->id_1);
     witness_commitments.id_2 = commitment_key->commit(key->id_2);
@@ -93,8 +91,6 @@ void CopyProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.copy_x, witness_commitments.copy_x);
     transcript->send_to_verifier(commitment_labels.copy_y, witness_commitments.copy_y);
     transcript->send_to_verifier(commitment_labels.copy_z, witness_commitments.copy_z);
-    transcript->send_to_verifier(commitment_labels.copy_main, witness_commitments.copy_main);
-    transcript->send_to_verifier(commitment_labels.copy_second, witness_commitments.copy_second);
     transcript->send_to_verifier(commitment_labels.id_0, witness_commitments.id_0);
     transcript->send_to_verifier(commitment_labels.id_1, witness_commitments.id_1);
     transcript->send_to_verifier(commitment_labels.id_2, witness_commitments.id_2);
@@ -102,6 +98,20 @@ void CopyProver::execute_wire_commitments_round()
 }
 
 void CopyProver::execute_log_derivative_inverse_round() {}
+
+void CopyProver::execute_grand_products_round()
+{
+
+    key->compute_grand_products(relation_parameters);
+
+    // Commit to all grand product polynomials
+    witness_commitments.copy_main = commitment_key->commit(key->copy_main);
+    witness_commitments.copy_second = commitment_key->commit(key->copy_second);
+
+    // Send all commitments to the verifier
+    transcript->send_to_verifier(commitment_labels.copy_main, witness_commitments.copy_main);
+    transcript->send_to_verifier(commitment_labels.copy_second, witness_commitments.copy_second);
+}
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
@@ -152,7 +162,11 @@ HonkProof CopyProver::construct_proof()
     // Compute wire commitments
     execute_wire_commitments_round();
 
-    // Compute sorted list accumulator and commitment
+    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamm;
+
+    execute_grand_products_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

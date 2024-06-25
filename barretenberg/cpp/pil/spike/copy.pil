@@ -10,6 +10,7 @@ namespace copy(256);
     // Include another larger copy that will share the same ID columns
     pol commit a, b, c, d;
     pol commit sigma_a, sigma_b, sigma_c, sigma_d;
+
     #[COPY_SECOND]
     {a, b, c, d} connect {sigma_a, sigma_b, sigma_c, sigma_d};
 
