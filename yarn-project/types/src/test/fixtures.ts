@@ -2,7 +2,7 @@ import { type ContractArtifact } from '@aztec/foundation/abi';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import { loadContractArtifact } from '../abi/contract_artifact.js';
 import { type NoirCompiledContract } from '../noir/index.js';
