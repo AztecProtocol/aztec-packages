@@ -94,8 +94,8 @@ describe('full_prover', () => {
       //   }
       // });
 
-      const sentPrivateTx = privateInteraction.send();
-      const sentPublicTx = publicInteraction.send();
+      const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
+      const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
       await Promise.all([
         sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
         sentPublicTx.wait({ timeout: 1200, interval: 10 }),
