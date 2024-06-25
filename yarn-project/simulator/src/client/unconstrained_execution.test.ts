@@ -17,6 +17,12 @@ describe('Unconstrained Execution test suite', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
+
+    node = mock<AztecNode>();
+    node.getBlockNumber.mockResolvedValue(42);
+    node.getChainId.mockResolvedValue(1);
+    node.getVersion.mockResolvedValue(1);
+
     acirSimulator = new AcirSimulator(oracle, node);
   });
 

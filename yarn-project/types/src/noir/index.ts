@@ -14,9 +14,9 @@ export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';
 export const AZTEC_INITIALIZER_ATTRIBUTE = 'aztec(initializer)';
 export const AZTEC_VIEW_ATTRIBUTE = 'aztec(view)';
 
-/** The witness indices of the parameters. */
-type ParamWitnessIndices = { /** Start */ start: number; /** End */ end: number };
-
+/**
+ * An error could be a custom error of any regular type or a formatted string error.
+ */
 export type AbiErrorType =
   | {
       error_kind: 'fmtstring';
@@ -29,8 +29,6 @@ export type AbiErrorType =
 export interface NoirFunctionAbi {
   /** The parameters of the function. */
   parameters: ABIParameter[];
-  /** The witness indices of the parameters. Indexed by parameter name. */
-  param_witnesses: { [key: string]: undefined | ParamWitnessIndices[] };
   /** The return type of the function. */
   return_type: {
     /**
@@ -42,8 +40,7 @@ export interface NoirFunctionAbi {
      */
     visibility: ABIParameterVisibility;
   };
-  /** The witness indices of the return type. */
-  return_witnesses: number[];
+  /** Mapping of error selector => error type */
   error_types: Record<string, AbiErrorType>;
 }
 

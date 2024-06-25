@@ -6,7 +6,6 @@ export * from './caller_context.js';
 export * from './complete_address.js';
 export * from './content_commitment.js';
 export * from './context/private_context_inputs.js';
-export * from './context/public_context_inputs.js';
 export * from './contract_storage_read.js';
 export * from './contract_storage_update_request.js';
 export * from './function_data.js';
@@ -85,6 +84,6 @@ export * from './tx_request.js';
 export * from './validation_requests.js';
 export * from './verification_key.js';
 
-export { FunctionSelector } from '@aztec/foundation/abi';
+export { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 export * from '@aztec/foundation/aztec-address';
 export * from '@aztec/foundation/fields';

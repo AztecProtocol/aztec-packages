@@ -96,19 +96,19 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
   family                   = "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "2048"
-  memory                   = "4096"
+  cpu                      = "256"
+  memory                   = "1024"
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
 
   container_definitions = <<DEFINITIONS
 [
   {
-    "name": "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}",
+    "name": "${var.FULL_IMAGE}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
     "command": ["start", "--p2p-bootstrap"],
     "essential": true,
-    "memoryReservation": 3776,
+    "memoryReservation": 776,
     "portMappings": [
       {
         "containerPort": ${var.BOOTNODE_LISTEN_PORT + count.index},
@@ -124,24 +124,16 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
         "value": "production"
       },
       {
-        "name": "P2P_UDP_LISTEN_PORT",
-        "value": "${var.BOOTNODE_LISTEN_PORT + count.index}"
+        "name": "P2P_UDP_LISTEN_ADDR",
+        "value": "0.0.0.0:${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
-        "name": "P2P_UDP_LISTEN_IP",
-        "value": "0.0.0.0"
+        "name": "P2P_UDP_ANNOUNCE_ADDR",
+        "value": "${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}:${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
         "value": "${local.bootnode_keys[count.index]}"
-      },
-      {
-        "name": "P2P_ANNOUNCE_HOSTNAME",
-        "value": "/ip4/${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}"
-      },
-      {
-        "name": "P2P_ANNOUNCE_PORT",
-        "value": "${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
         "name": "DEBUG",

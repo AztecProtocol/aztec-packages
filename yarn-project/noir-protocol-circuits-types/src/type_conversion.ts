@@ -1619,6 +1619,7 @@ export function mapPrivateKernelInitCircuitPrivateInputsToNoir(
     tx_request: mapTxRequestToNoir(inputs.txRequest),
     private_call: mapPrivateCallDataToNoir(inputs.privateCall),
     hints: mapPrivateKernelInitHintsToNoir(inputs.hints),
+    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
   };
 }
 
@@ -1855,6 +1856,7 @@ export function mapStorageReadToNoir(storageRead: ContractStorageRead): StorageR
   return {
     storage_slot: mapFieldToNoir(storageRead.storageSlot),
     current_value: mapFieldToNoir(storageRead.currentValue),
+    counter: mapNumberToNoir(storageRead.sideEffectCounter),
   };
 }
 /**

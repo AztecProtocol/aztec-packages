@@ -14,6 +14,7 @@ import {
 import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { type PublicExecutionResult } from '../../index.js';
 import { type HostStorage } from './host_storage.js';
@@ -21,6 +22,7 @@ import { Nullifiers } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 import { WorldStateAccessTrace } from './trace.js';
 import {
+  type TracedContractInstance,
   type TracedL1toL2MessageCheck,
   type TracedNoteHash,
   type TracedNoteHashCheck,
@@ -55,7 +57,7 @@ export type JournalData = {
 };
 
 // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-type PartialPublicExecutionResult = {
+export type PartialPublicExecutionResult = {
   noteHashReadRequests: ReadRequest[];
   nullifierReadRequests: ReadRequest[];
   nullifierNonExistentReadRequests: ReadRequest[];
@@ -147,15 +149,6 @@ export class AvmPersistableStateManager {
     this.publicStorage.write(storageAddress, slot, value);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    // The current info to the kernel clears any previous read or write request.
-    this.transitionalExecutionResult.contractStorageReads =
-      this.transitionalExecutionResult.contractStorageReads.filter(
-        read => !read.storageSlot.equals(slot) || !read.contractAddress!.equals(storageAddress),
-      );
-    this.transitionalExecutionResult.contractStorageUpdateRequests =
-      this.transitionalExecutionResult.contractStorageUpdateRequests.filter(
-        update => !update.storageSlot.equals(slot) || !update.contractAddress!.equals(storageAddress),
-      );
     this.transitionalExecutionResult.contractStorageUpdateRequests.push(
       new ContractStorageUpdateRequest(slot, value, this.trace.accessCounter, storageAddress),
     );
@@ -178,17 +171,9 @@ export class AvmPersistableStateManager {
     );
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    // The current info to the kernel kernel does not consider cached reads.
-    if (!cached) {
-      // The current info to the kernel removes any previous reads to the same slot.
-      this.transitionalExecutionResult.contractStorageReads =
-        this.transitionalExecutionResult.contractStorageReads.filter(
-          read => !read.storageSlot.equals(slot) || !read.contractAddress!.equals(storageAddress),
-        );
-      this.transitionalExecutionResult.contractStorageReads.push(
-        new ContractStorageRead(slot, value, this.trace.accessCounter, storageAddress),
-      );
-    }
+    this.transitionalExecutionResult.contractStorageReads.push(
+      new ContractStorageRead(slot, value, this.trace.accessCounter, storageAddress),
+    );
 
     // We want to keep track of all performed reads (even reverted ones)
     this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
@@ -208,6 +193,10 @@ export class AvmPersistableStateManager {
     const gotLeafIndex = await this.hostStorage.commitmentsDb.getCommitmentIndex(noteHash);
     const exists = gotLeafIndex === leafIndex.toBigInt();
     this.log.debug(`noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex}, exists: ${exists}.`);
+
+    // TODO: include exists here also - This can for sure come from the trace???
+    this.transitionalExecutionResult.noteHashReadRequests.push(new ReadRequest(noteHash, this.trace.accessCounter));
+
     this.trace.traceNoteHashCheck(storageAddress, noteHash, exists, leafIndex);
     return Promise.resolve(exists);
   }
@@ -279,6 +268,9 @@ export class AvmPersistableStateManager {
     this.log.debug(
       `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
     );
+
+    this.transitionalExecutionResult.l1ToL2MsgReadRequests.push(new ReadRequest(msgHash, this.trace.accessCounter));
+
     this.trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, exists);
     return Promise.resolve(exists);
   }
@@ -320,6 +312,19 @@ export class AvmPersistableStateManager {
     // TODO(6205): why are logs pushed here but logs hashes are traced?
     this.newLogs.push(ulog);
     this.trace.traceNewLog(logHash);
+  }
+
+  public async getContractInstance(contractAddress: Fr): Promise<TracedContractInstance> {
+    let exists = true;
+    const aztecAddress = AztecAddress.fromField(contractAddress);
+    let instance = await this.hostStorage.contractsDb.getContractInstance(aztecAddress);
+    if (instance === undefined) {
+      instance = SerializableContractInstance.empty().withAddress(aztecAddress);
+      exists = false;
+    }
+    const tracedInstance = { ...instance, exists };
+    this.trace.traceGetContractInstance(tracedInstance);
+    return Promise.resolve(tracedInstance);
   }
 
   /**

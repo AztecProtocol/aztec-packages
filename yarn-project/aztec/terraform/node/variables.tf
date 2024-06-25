@@ -55,7 +55,7 @@ variable "SEQ_MIN_TX_PER_BLOCK" {
 
 variable "P2P_MIN_PEERS" {
   type    = string
-  default = 50
+  default = 5
 }
 
 variable "P2P_MAX_PEERS" {
@@ -78,4 +78,13 @@ variable "AGENTS_PER_SEQUENCER" { type = string }
 variable "PROVING_ENABLED" {
   type    = bool
   default = true
+}
+
+variable "IMAGE_TAG" {
+  type = string
+}
+
+variable "FULL_IMAGE" {
+  type    = string
+  default = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
 }

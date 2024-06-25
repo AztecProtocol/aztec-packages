@@ -34,6 +34,22 @@ export class ViewDataOracle extends TypedOracle {
     super();
   }
 
+  public override getBlockNumber(): Promise<number> {
+    return this.aztecNode.getBlockNumber();
+  }
+
+  public override getContractAddress(): Promise<AztecAddress> {
+    return Promise.resolve(this.contractAddress);
+  }
+
+  public override getChainId(): Promise<Fr> {
+    return Promise.resolve(this.aztecNode.getChainId().then(id => new Fr(id)));
+  }
+
+  public override getVersion(): Promise<Fr> {
+    return Promise.resolve(this.aztecNode.getVersion().then(v => new Fr(v)));
+  }
+
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.

@@ -29,6 +29,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { getVKTree } from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
 import {
@@ -113,7 +114,13 @@ export class KernelProver {
           noteHashNullifierCounterMap,
           currentExecution.callStackItem.publicInputs.privateCallRequests,
         );
-        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
+
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(
+          txRequest,
+          Fr.fromBuffer(getVKTree().root),
+          privateCallData,
+          hints,
+        );
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {

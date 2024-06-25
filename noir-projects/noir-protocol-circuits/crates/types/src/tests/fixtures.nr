@@ -10,3 +10,5 @@ global PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
 global CHAIN_ID = 1;
 
 global VERSION = 3;
+
+global VK_TREE_ROOT = 42;

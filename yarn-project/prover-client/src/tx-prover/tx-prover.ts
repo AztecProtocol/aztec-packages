@@ -7,8 +7,9 @@ import {
   type ProvingTicket,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
-import { type Fr, type GlobalVariables, type VerificationKeys } from '@aztec/circuits.js';
+import { type Fr, type GlobalVariables, type Header, type VerificationKeys } from '@aztec/circuits.js';
 import { NativeACVMSimulator } from '@aztec/simulator';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverClientConfig } from '../config.js';
@@ -21,16 +22,19 @@ import { ProverAgent } from '../prover-agent/prover-agent.js';
  */
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
-  private queue = new MemoryProvingQueue();
+  private queue: MemoryProvingQueue;
   private running = false;
 
-  constructor(
+  private constructor(
     private config: ProverClientConfig,
     private worldStateSynchronizer: WorldStateSynchronizer,
     private vks: VerificationKeys,
+    private telemetry: TelemetryClient,
     private agent?: ProverAgent,
+    initialHeader?: Header,
   ) {
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue);
+    this.queue = new MemoryProvingQueue(config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
+    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue, initialHeader);
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig & { vks: VerificationKeys }>): Promise<void> {
@@ -41,7 +45,7 @@ export class TxProver implements ProverClient {
     }
 
     if (newConfig.realProofs !== this.config.realProofs && this.agent) {
-      const circuitProver = await TxProver.buildCircuitProver(newConfig);
+      const circuitProver = await TxProver.buildCircuitProver(newConfig, this.telemetry);
       this.agent.setCircuitProver(circuitProver);
     }
 
@@ -65,6 +69,7 @@ export class TxProver implements ProverClient {
     }
 
     this.running = true;
+    this.queue.start();
     this.agent?.start(this.queue);
     return Promise.resolve();
   }
@@ -78,6 +83,7 @@ export class TxProver implements ProverClient {
     }
     this.running = false;
     await this.agent?.stop();
+    await this.queue.stop();
   }
 
   /**
@@ -91,30 +97,35 @@ export class TxProver implements ProverClient {
     config: ProverClientConfig,
     vks: VerificationKeys,
     worldStateSynchronizer: WorldStateSynchronizer,
+    telemetry: TelemetryClient,
+    initialHeader?: Header,
   ) {
     const agent = config.proverAgentEnabled
       ? new ProverAgent(
-          await TxProver.buildCircuitProver(config),
+          await TxProver.buildCircuitProver(config, telemetry),
           config.proverAgentConcurrency,
           config.proverAgentPollInterval,
         )
       : undefined;
 
-    const prover = new TxProver(config, worldStateSynchronizer, vks, agent);
+    const prover = new TxProver(config, worldStateSynchronizer, vks, telemetry, agent, initialHeader);
     await prover.start();
     return prover;
   }
 
-  private static async buildCircuitProver(config: ProverClientConfig): Promise<ServerCircuitProver> {
+  private static async buildCircuitProver(
+    config: ProverClientConfig,
+    telemetry: TelemetryClient,
+  ): Promise<ServerCircuitProver> {
     if (config.realProofs) {
-      return await BBNativeRollupProver.new(config);
+      return await BBNativeRollupProver.new(config, telemetry);
     }
 
     const simulationProvider = config.acvmBinaryPath
       ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
       : undefined;
 
-    return new TestCircuitProver(simulationProvider);
+    return new TestCircuitProver(telemetry, simulationProvider);
   }
 
   /**

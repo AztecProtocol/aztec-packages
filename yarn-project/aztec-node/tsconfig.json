@@ -37,6 +37,9 @@
       "path": "../p2p"
     },
     {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../prover-client"
     },
     {
@@ -44,6 +47,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
     },
     {
       "path": "../types"

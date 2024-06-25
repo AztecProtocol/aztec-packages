@@ -22,12 +22,14 @@ import {
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -48,6 +50,7 @@ import {
   retrieveBlockMetadataFromRollup,
   retrieveL1ToL2Messages,
 } from './data_retrieval.js';
+import { ArchiverInstrumentation } from './instrumentation.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -64,6 +67,9 @@ export class Archiver implements ArchiveSource {
    * A promise in which we will be continually fetching new L2 blocks.
    */
   private runningPromise?: RunningPromise;
+
+  /** Capture runtime metrics */
+  private instrumentation: ArchiverInstrumentation;
 
   /**
    * Creates a new instance of the Archiver.
@@ -83,8 +89,11 @@ export class Archiver implements ArchiveSource {
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
+    telemetry: TelemetryClient,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
-  ) {}
+  ) {
+    this.instrumentation = new ArchiverInstrumentation(telemetry);
+  }
 
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
@@ -96,6 +105,7 @@ export class Archiver implements ArchiveSource {
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
+    telemetry: TelemetryClient,
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.rpcUrl, config.apiKey);
@@ -113,6 +123,7 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS,
+      telemetry,
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -285,6 +296,7 @@ export class Archiver implements ArchiveSource {
     );
 
     await this.store.addBlocks(retrievedBlocks);
+    this.instrumentation.processNewBlocks(retrievedBlocks.retrievedData);
   }
 
   /**
@@ -292,8 +304,8 @@ export class Archiver implements ArchiveSource {
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   private async storeRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number) {
-    const contractClasses = ContractClassRegisteredEvent.fromLogs(allLogs, getCanonicalClassRegistererAddress()).map(
-      e => e.toContractClassPublic(),
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(allLogs, ClassRegistererAddress).map(e =>
+      e.toContractClassPublic(),
     );
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.log.verbose(`Registering contract class ${c.id.toString()}`));
@@ -315,11 +327,8 @@ export class Archiver implements ArchiveSource {
 
   private async storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
     // Filter out private and unconstrained function broadcast events
-    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, getCanonicalClassRegistererAddress());
-    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
-      allLogs,
-      getCanonicalClassRegistererAddress(),
-    );
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(
@@ -491,5 +500,13 @@ export class Archiver implements ArchiveSource {
 
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
+  }
+
+  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    return this.store.addContractArtifact(address, artifact);
+  }
+
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return this.store.getContractArtifact(address);
   }
 }

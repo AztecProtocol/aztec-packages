@@ -15,12 +15,14 @@ use dep::types::{
 
 struct PrivateKernelInitHints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-    first_revertible_private_call_request_index: u64,
+    // TODO: Build the following hint in noir.
+    first_revertible_private_call_request_index: u32,
 }
 
 // Initialization struct for private inputs to the private kernel
 struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
+    vk_tree_root: Field,
     private_call: PrivateCallData,
     hints: PrivateKernelInitHints,
 }
@@ -72,7 +74,7 @@ mod tests {
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
         constants::MAX_NEW_NOTE_HASHES_PER_CALL,
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+        tests::{fixture_builder::FixtureBuilder, fixtures, utils::assert_array_eq},
         transaction::tx_request::TxRequest
     };
 
@@ -95,7 +97,7 @@ mod tests {
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let private_call = self.private_call.to_private_call_data();
-            PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call, hints: self.hints }.execute()
+            PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call, hints: self.hints, vk_tree_root: fixtures::VK_TREE_ROOT }.execute()
         }
     }
 

@@ -13,7 +13,6 @@ impl EncryptedLogHeader {
         EncryptedLogHeader { address }
     }
 
-    // @todo Issue(#5901) Figure out if we return the bytes or fields for the log
     fn compute_ciphertext(self, secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
         let full_key = point_to_symmetric_key(secret, point);
         let mut sym_key = [0; 16];
@@ -45,7 +44,7 @@ fn test_encrypted_log_header() {
     let ciphertext = header.compute_ciphertext(secret, point);
 
     let expected_header_ciphertext = [
-        131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 179, 36, 250, 95, 56, 167, 171, 16, 195, 164, 223, 57, 75, 5, 24, 119, 198, 34, 99, 189, 193, 183, 227, 43, 79, 204, 214, 89, 221, 153, 246, 64
+        228, 9, 65, 81, 62, 59, 249, 207, 90, 196, 206, 72, 39, 199, 82, 196, 23, 131, 32, 226, 26, 176, 43, 39, 239, 177, 177, 192, 85, 216, 17, 15, 18, 187, 35, 225, 135, 192, 63, 88, 29, 173, 232, 46, 72, 82, 187, 139
     ];
 
     assert_eq(ciphertext, expected_header_ciphertext);
