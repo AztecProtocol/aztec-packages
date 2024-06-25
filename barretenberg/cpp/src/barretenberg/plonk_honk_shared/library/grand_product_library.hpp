@@ -179,8 +179,9 @@ void accumulate_grand_product_subrelation_contributions(ContainerOverSubrelation
     const Accumulator numerator = copy_relation.template compute_grand_product_numerator<Accumulator>(in, params);
     const Accumulator denominator = copy_relation.template compute_grand_product_denominator<Accumulator>(in, params);
 
-    std::get<0>(accumulator) += (((grand_product + lagrange_first) * numerator)) -
-                                ((grand_product_shift + lagrange_last) * denominator) * scaling_factor;
+    std::get<0>(accumulator) +=
+        (((grand_product + lagrange_first) * numerator) - ((grand_product_shift + lagrange_last) * denominator)) *
+        scaling_factor;
 
     std::get<1>(accumulator) += (lagrange_last * grand_product_shift) * scaling_factor;
 }

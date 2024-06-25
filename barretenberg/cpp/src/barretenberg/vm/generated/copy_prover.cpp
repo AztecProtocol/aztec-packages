@@ -7,8 +7,6 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -74,8 +72,11 @@ void CopyProver::execute_wire_commitments_round()
     witness_commitments.copy_y = commitment_key->commit(key->copy_y);
     witness_commitments.copy_z = commitment_key->commit(key->copy_z);
     witness_commitments.copy_main = commitment_key->commit(key->copy_main);
+    witness_commitments.copy_second = commitment_key->commit(key->copy_second);
     witness_commitments.id_0 = commitment_key->commit(key->id_0);
     witness_commitments.id_1 = commitment_key->commit(key->id_1);
+    witness_commitments.id_2 = commitment_key->commit(key->id_2);
+    witness_commitments.id_3 = commitment_key->commit(key->id_3);
 
     // Send all commitments to the verifier
     transcript->send_to_verifier(commitment_labels.copy_a, witness_commitments.copy_a);
@@ -93,8 +94,11 @@ void CopyProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.copy_y, witness_commitments.copy_y);
     transcript->send_to_verifier(commitment_labels.copy_z, witness_commitments.copy_z);
     transcript->send_to_verifier(commitment_labels.copy_main, witness_commitments.copy_main);
+    transcript->send_to_verifier(commitment_labels.copy_second, witness_commitments.copy_second);
     transcript->send_to_verifier(commitment_labels.id_0, witness_commitments.id_0);
     transcript->send_to_verifier(commitment_labels.id_1, witness_commitments.id_1);
+    transcript->send_to_verifier(commitment_labels.id_2, witness_commitments.id_2);
+    transcript->send_to_verifier(commitment_labels.id_3, witness_commitments.id_3);
 }
 
 void CopyProver::execute_log_derivative_inverse_round() {}

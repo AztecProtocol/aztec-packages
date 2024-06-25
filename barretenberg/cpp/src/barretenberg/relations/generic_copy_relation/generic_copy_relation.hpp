@@ -28,11 +28,11 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
 
     // As each copy tuple is multiplied together
     // TODO(md): update relation degree lengths
-    static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET + 2;
+    static constexpr size_t LENGTH = 2 * Settings::COLUMNS_PER_SET;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
-        LENGTH  // log-derived terms subrelation
+        LENGTH  // Final grand product value check
     };
 
     // Contains the index of the polynomial used to calculate grand products
@@ -57,16 +57,13 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     static constexpr size_t IDENTITY_SET_POLYNOMIAL_INDEX = SIGMA_SET_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET;
 
     /**
-     * @brief We apply the power polynomial only to the first subrelation
-     *
-     *@details The first subrelation establishes correspondence between the inverse polynomial elements and the terms.
-     *The second relation computes the inverses of individual terms, which are then summed up with sumcheck
+     * @brief Both relations are linearly independent as the grand product is calculated on a per row basis
      *
      */
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, true };
 
     /**
-     * @brief Get the grand product polynomial (needed to compute its value)
+     * @brief Get the grand product polynomial
      *
      */
     template <typename AllEntities> static auto& get_grand_product_polynomial(AllEntities& in)
@@ -102,8 +99,8 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     /**
      * @brief Compute the value of a single item in the set
      *
-     * @details Computes the polynomial \sum_{i=0}^{num_columns}(\gamma + column^i + id^i*\beta^i), so the tuple of
-     * columns is in the first set
+     * @details Computes the polynomial \sum_{i=0}^{num_columns}(\gamma + column_{i} + id_{i}*\beta_{i}), so the tuple
+     * of
      *
      * @param params Used for beta and gamma
      */
@@ -134,8 +131,8 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     /**
      * @brief Compute the value of a single item in the set
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
-     * in the second set
+     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(val_{i} + \sigma\beta + \gamma), so the tuple
+     * of columns is
      *
      * @param params Used for beta and gamma
      */
@@ -162,7 +159,7 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
     }
 
     /**
-     * @brief Expression for generic log-derivative-based set permutation.
+     * @brief Expression for generic grand product based set permutation.
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param relation_params contains beta, gamma, and public_input_delta, ....
@@ -180,7 +177,6 @@ template <typename Settings, typename FF_> class GenericCopyRelationImpl {
 };
 
 template <typename Settings, typename FF> using GenericCopyRelation = Relation<GenericCopyRelationImpl<Settings, FF>>;
-
 template <typename Settings, typename FF> using GenericCopy = GenericCopyRelationImpl<Settings, FF>;
 
 } // namespace bb

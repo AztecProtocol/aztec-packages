@@ -13,16 +13,13 @@ class copy_second_copy_settings {
   public:
     constexpr static size_t COLUMNS_PER_SET = 4;
 
-    template <typename AllEntities>
-    static inline auto inverse_polynomial_is_computed_at_row([[maybe_unused]] const AllEntities& in)
-    {
-        return 1;
-    }
-
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
         return std::forward_as_tuple(in.copy_second,
+                                     in.copy_second_shift,
+                                     in.lagrange_first,
+                                     in.lagrange_last,
                                      in.copy_a,
                                      in.copy_b,
                                      in.copy_c,
@@ -41,6 +38,9 @@ class copy_second_copy_settings {
     {
 
         return std::forward_as_tuple(in.copy_second,
+                                     in.copy_second_shift,
+                                     in.lagrange_first,
+                                     in.lagrange_last,
                                      in.copy_a,
                                      in.copy_b,
                                      in.copy_c,
