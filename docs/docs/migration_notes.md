@@ -109,7 +109,7 @@ const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), 
 -    new Fr(this.version),
 -    innerHash,
 -);
-+const outerHash = computeAuthWitMessageHash(
++const messageHash = computeAuthWitMessageHash(
 +    { consumer: this.dappEntrypointAddress, innerHash },
 +    { chainId: new Fr(this.chainId), version: new Fr(this.version) },
 +);
