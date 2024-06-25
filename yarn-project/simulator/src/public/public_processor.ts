@@ -98,7 +98,7 @@ export class PublicProcessor {
     telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
-    this.tracer = telemetryClient.getTracer('@aztec/simulator:PublicProcessor');
+    this.tracer = telemetryClient.getTracer('PublicProcessor');
   }
 
   /**

@@ -68,7 +68,7 @@ export class Sequencer {
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.updateConfig(config);
-    this.tracer = telemetry.getTracer('sequencer');
+    this.tracer = telemetry.getTracer('Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
   }
 
@@ -225,10 +225,8 @@ export class Sequencer {
     }
   }
 
-  @trackSpan('Sequencer.buildBlockAndPublish', (validTxs, newGlobalVariables, historicalHeader) => ({
+  @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, newGlobalVariables, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
-    [Attributes.BLOCK_PARENT]: historicalHeader?.globalVariables.blockNumber.toNumber(),
-    [Attributes.BLOCK_CANDIDATE_TXS_COUNT]: validTxs.length,
   }))
   private async buildBlockAndPublish(
     validTxs: Tx[],
@@ -261,7 +259,6 @@ export class Sequencer {
 
     const numRealTxs = validTxs.length;
     const pow2 = Math.log2(numRealTxs);
-    // TODO turn this back into a Math.ceil once we can pad blocks to the next-power-of-2 with empty txs
     const totalTxs = 2 ** Math.ceil(pow2);
     const blockSize = Math.max(2, totalTxs);
 
@@ -321,7 +318,6 @@ export class Sequencer {
    */
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
-    [Attributes.BLOCK_TXS_COUNT]: block.body.txEffects.length,
   }))
   protected async publishL2Block(block: L2Block, aggregationObject: Fr[], proof: Proof) {
     // Publishes new block to the network and awaits the tx to be mined

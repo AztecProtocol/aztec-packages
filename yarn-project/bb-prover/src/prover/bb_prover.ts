@@ -153,7 +153,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  @trackSpan('BBNativeRollupProver.getBaseParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' })
+  @trackSpan('BBNativeRollupProver.getRootParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' })
   public async getRootParityProof(
     inputs: RootParityInputs,
   ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
