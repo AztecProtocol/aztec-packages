@@ -20,7 +20,12 @@ pub trait CircuitBuilder {
     fn create_circuit_builder_cpp(&mut self, name: &str, all_cols: &[String]);
 }
 
-fn circuit_hpp_includes(name: &str, relations: &[String], lookups: &[String], grand_products: &[String]) -> String {
+fn circuit_hpp_includes(
+    name: &str,
+    relations: &[String],
+    lookups: &[String],
+    grand_products: &[String],
+) -> String {
     let relation_imports = get_relations_imports(name, relations, lookups, grand_products);
     format!(
         "
@@ -88,8 +93,9 @@ impl CircuitBuilder for BBFiles {
         // Declare mapping transformations
         let compute_polys_transformation =
             |name: &String| format!("polys.{name}[i] = rows[i].{name};");
-        let all_polys_transformation =
-            |name: &String| format!("polys.{name}_shift = static_cast<Polynomial>(polys.{name}.shifted());");
+        let all_polys_transformation = |name: &String| {
+            format!("polys.{name}_shift = static_cast<Polynomial>(polys.{name}.shifted());")
+        };
         let check_circuit_transformation = |relation_name: &String| {
             format!(
                     "auto {relation_name} = [&]() {{
@@ -137,33 +143,37 @@ impl CircuitBuilder for BBFiles {
             )
         };
 
+        let has_lookups = !lookups.is_empty();
+        let has_grand_products = !grand_products.is_empty();
+
         // Apply transformations
         let compute_polys_assignemnt =
             map_with_newline(all_cols_without_inverses, compute_polys_transformation);
         let all_poly_shifts = map_with_newline(to_be_shifted, all_polys_transformation);
         let check_circuit_for_each_relation =
             map_with_newline(relations, check_circuit_transformation);
-        let check_circuit_for_each_lookup =
-            map_with_newline(lookups, check_lookup_transformation);
-        let check_circuit_for_each_grand_product = map_with_newline(grand_products, check_grand_product_transformation);
+        let check_circuit_for_each_lookup = map_with_newline(lookups, check_lookup_transformation);
+        let check_circuit_for_each_grand_product =
+            map_with_newline(grand_products, check_grand_product_transformation);
 
         // With futures
         let emplace_future_relations = map_with_newline(relations, emplace_future_transformation);
         let emplace_future_lookups = map_with_newline(lookups, emplace_future_transformation);
-        let emplace_future_grand_products = map_with_newline(grand_products, emplace_future_transformation);
+        let emplace_future_grand_products =
+            map_with_newline(grand_products, emplace_future_transformation);
 
         // With threads
         let serial_relations = map_with_newline(relations, execute_serial_transformation);
         let serial_lookups = map_with_newline(lookups, execute_serial_transformation);
         let serial_grand_products = map_with_newline(grand_products, execute_serial_transformation);
 
-        let params = if !(lookups.is_empty() && grand_products.is_empty()) {
+        let params = if has_lookups || has_grand_products {
             get_params()
         } else {
             ""
         };
-        
-        let lookup_check_closure = if !lookups.is_empty() {
+
+        let lookup_check_closure = if has_lookups {
             get_lookup_check_closure()
         } else {
             "".to_owned()
@@ -173,10 +183,18 @@ impl CircuitBuilder for BBFiles {
         } else {
             "".to_owned()
         };
-        let grand_product_check_closure = if !grand_products.is_empty() {
-            get_grand_product_check_closure()
+        let (
+            grand_product_check_closure,
+            compute_grand_product_closure,
+            calculate_grand_products_call,
+        ) = if has_grand_products {
+            (
+                get_grand_product_check_closure(),
+                get_calculate_grand_products_closure(grand_products),
+                "calculate_grand_products();".to_owned(),
+            )
         } else {
-            "".to_owned()
+            ("".to_owned(), "".to_owned(), "".to_owned())
         };
 
         let circuit_hpp = format!("
@@ -235,6 +253,8 @@ class {name}CircuitBuilder {{
 
             {grand_product_check_closure}
 
+            {compute_grand_product_closure}
+
             {check_circuit_for_each_relation}
 
             {check_circuit_for_each_lookup}
@@ -242,6 +262,7 @@ class {name}CircuitBuilder {{
             {check_circuit_for_each_grand_product}
 
 #ifndef __wasm__
+            {calculate_grand_products_call}
 
             // Evaluate check circuit closures as futures
             std::vector<std::future<bool>> relation_futures;
@@ -251,14 +272,15 @@ class {name}CircuitBuilder {{
             {emplace_future_grand_products}
 
 
-            // Wait for lookup evaluations to complete
+            // Wait for evaluations to complete
             for (auto& future : relation_futures) {{
-                int result = future.get();
+                bool result = future.get();
                 if (!result) {{
                     return false;
                 }}
             }}
 #else
+            {calculate_grand_products_call}
             {serial_relations}
             {serial_lookups}
             {serial_grand_products}
@@ -405,12 +427,30 @@ fn get_relation_check_closure() -> String {
     ".to_string()
 }
 
-// TODO(md): could likely combine this with above with some kind of switch
+fn get_calculate_grand_products_closure(grand_products: &[String]) -> String {
+    let compute_gp_transformation = |gp: &String| {
+        format!("bb::compute_grand_product<Flavor, {gp}_relation<FF>>(polys, params);")
+    };
+    let assign_shift_transformation =
+        |gp: &String| format!("polys.{gp}_shift = static_cast<Polynomial>(polys.{gp}.shifted());");
+
+    let compute_gps = map_with_newline(grand_products, compute_gp_transformation);
+    let assign_shifts = map_with_newline(grand_products, assign_shift_transformation);
+
+    format!(
+        "
+        auto calculate_grand_products = [&]() {{
+            {compute_gps}
+
+            {assign_shifts}
+        }};
+    "
+    )
+}
+
 fn get_grand_product_check_closure() -> String {
     "
         const auto evaluate_grand_product = [&]<typename GrandProductSettings>(const std::string& grand_product_name) {
-            bb::compute_grand_product<Flavor, GrandProductSettings>(polys, params);
-
             typename GrandProductSettings::SumcheckArrayOfValuesOverSubrelations grand_product_result;
 
             for (auto& r : grand_product_result) {
@@ -420,10 +460,12 @@ fn get_grand_product_check_closure() -> String {
                 GrandProductSettings::accumulate(grand_product_result, polys.get_row(i), params, 1);
             }
             for (auto r : grand_product_result) {
+                size_t i = 0;
                 if (r != 0) {
-                    throw_or_abort(format(\"Copy \", grand_product_name, \" failed.\"));
+                    throw_or_abort(format(\"Copy \", grand_product_name, \" failed. Subrelation index: \", i));
                     return false;
                 }
+                i++;
             }
             return true;
         };

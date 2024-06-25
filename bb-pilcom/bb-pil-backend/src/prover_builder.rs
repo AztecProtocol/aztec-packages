@@ -9,6 +9,7 @@ pub trait ProverBuilder {
         name: &str,
         commitment_polys: &[String],
         lookup_names: &[String],
+        grand_products: &[String],
     );
 }
 
@@ -38,6 +39,7 @@ impl ProverBuilder for BBFiles {
         void execute_preamble_round();
         void execute_wire_commitments_round();
         void execute_log_derivative_inverse_round();
+        void execute_grand_products_round();
         void execute_relation_check_rounds();
         void execute_zeromorph_rounds();
     
@@ -88,19 +90,41 @@ impl ProverBuilder for BBFiles {
         name: &str,
         commitment_polys: &[String],
         lookup_names: &[String],
+        grand_products: &[String],
     ) {
         let include_str = includes_cpp(&snake_case(name));
 
         let polynomial_commitment_phase = create_commitments_phase(commitment_polys);
 
-        let (call_log_derivative_phase, log_derivative_inverse_phase): (String, String) =
-            if lookup_names.is_empty() {
-                ("".to_owned(), "".to_owned())
-            } else {
+        let has_lookups = !lookup_names.is_empty();
+        let has_grand_products = !grand_products.is_empty();
+
+        let calc_relation_parameters = if has_lookups || has_grand_products {
+            create_relation_parameters()
+        } else {
+            ""
+        };
+
+        // If we have lookups, then create a round to calculate the inverses
+        let (call_log_derivative_round, log_derivative_inverse_phase): (String, String) =
+            if has_lookups {
                 (
                     "execute_log_derivative_inverse_round();".to_owned(),
                     create_log_derivative_inverse_round(lookup_names),
                 )
+            } else {
+                ("".to_owned(), "".to_owned())
+            };
+
+        // If we have grand products, then create a round to calculate the grand product polynomials
+        let (call_grand_products_round, grand_products_phase): (String, String) =
+            if has_grand_products {
+                (
+                    "execute_grand_products_round();".to_owned(),
+                    create_grand_products_round(grand_products),
+                )
+            } else {
+                ("".to_owned(), "".to_owned())
             };
 
         let prover_cpp = format!("
@@ -164,6 +188,11 @@ impl ProverBuilder for BBFiles {
 
         {log_derivative_inverse_phase}
     }}
+
+    void {name}Prover::execute_grand_products_round()
+    {{
+        {grand_products_phase}
+    }}
     
     /**
      * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
@@ -216,9 +245,12 @@ impl ProverBuilder for BBFiles {
     
         // Compute wire commitments
         execute_wire_commitments_round();
+
+        {calc_relation_parameters}
     
-        // Compute sorted list accumulator and commitment
-        {call_log_derivative_phase}
+        {call_log_derivative_round}
+
+        {call_grand_products_round}
     
         // Fiat-Shamir: alpha
         // Run sumcheck subprotocol.
@@ -306,6 +338,20 @@ fn create_commitments_phase(polys_to_commit_to: &[String]) -> String {
     )
 }
 
+/// Create relation parameters
+///
+/// If we have lookups or grand products, then we need to request the beta and gamma challenges
+fn create_relation_parameters() -> &'static str {
+    "
+        auto [beta, gamm] = transcript->template get_challenges<FF>(\"beta\", \"gamma\");
+        relation_parameters.beta = beta;
+        relation_parameters.gamma = gamm;
+    "
+}
+
+/// Create log derivative inverse round
+///
+/// Computes the inverse polynomials, performs commitments, and then sends them to the verifier
 fn create_log_derivative_inverse_round(lookup_operations: &[String]) -> String {
     let all_commit_operations = map_with_newline(lookup_operations, commitment_transform);
     let send_to_verifier_operations =
@@ -313,13 +359,27 @@ fn create_log_derivative_inverse_round(lookup_operations: &[String]) -> String {
 
     format!(
         "
-        auto [beta, gamm] = transcript->template get_challenges<FF>(\"beta\", \"gamma\");
-        relation_parameters.beta = beta;
-        relation_parameters.gamma = gamm;
-
         key->compute_logderivative_inverses(relation_parameters);
 
         // Commit to all logderivative inverse polynomials
+        {all_commit_operations}
+
+        // Send all commitments to the verifier
+        {send_to_verifier_operations}
+        "
+    )
+}
+
+/// Computes the grand_product polynomials, performs commitments, and then sends them to the verifier
+fn create_grand_products_round(grand_products: &[String]) -> String {
+    let all_commit_operations = map_with_newline(grand_products, commitment_transform);
+    let send_to_verifier_operations = map_with_newline(grand_products, send_to_verifier_transform);
+
+    format!(
+        "
+        key->compute_grand_products(relation_parameters);
+
+        // Commit to all grand product polynomials
         {all_commit_operations}
 
         // Send all commitments to the verifier

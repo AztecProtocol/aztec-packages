@@ -9,6 +9,7 @@ pub trait VerifierBuilder {
         name: &str,
         witness: &[String],
         inverses: &[String],
+        grand_products: &[String],
         public_cols: &[(String, usize)],
     );
 
@@ -21,6 +22,7 @@ impl VerifierBuilder for BBFiles {
         name: &str,
         witness: &[String],
         inverses: &[String],
+        grand_products: &[String],
         public_cols: &[(String, usize)],
     ) {
         let include_str = includes_cpp(&snake_case(name));
@@ -34,8 +36,9 @@ impl VerifierBuilder for BBFiles {
 
         let has_public_input_columns = !public_cols.is_empty();
         let has_inverses = !inverses.is_empty();
+        let has_grand_products = !grand_products.is_empty();
 
-        let get_inverse_challenges = if has_inverses {
+        let get_challenges = if has_inverses || has_grand_products {
             "
             auto [beta, gamm] = transcript->template get_challenges<FF>(\"beta\", \"gamma\");
             relation_parameters.beta = beta;
@@ -95,6 +98,7 @@ impl VerifierBuilder for BBFiles {
         };
 
         let inverse_commitments = map_with_newline(inverses, wire_transformation);
+        let grand_product_commitments = map_with_newline(grand_products, wire_transformation);
 
         let ver_cpp = format!("
 {include_str} 
@@ -152,10 +156,11 @@ impl VerifierBuilder for BBFiles {
         // Get commitments to VM wires
         {wire_commitments}
 
-        {get_inverse_challenges}
+        {get_challenges}
 
-        // Get commitments to inverses
         {inverse_commitments}
+
+        {grand_product_commitments}
     
         // Execute Sumcheck Verifier
         const size_t log_circuit_size = numeric::get_msb(circuit_size);
