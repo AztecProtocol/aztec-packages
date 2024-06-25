@@ -11,6 +11,24 @@ terraform {
   }
 }
 
+data "terraform_remote_state" "setup_iac" {
+  backend = "s3"
+  config = {
+    bucket = "aztec-terraform"
+    key    = "setup/setup-iac"
+    region = "eu-west-2"
+  }
+}
+
+data "terraform_remote_state" "aztec2_iac" {
+  backend = "s3"
+  config = {
+    bucket = "aztec-terraform"
+    key    = "aztec2/iac"
+    region = "eu-west-2"
+  }
+}
+
 data "terraform_remote_state" "aztec-network_iac" {
   backend = "s3"
   config = {
