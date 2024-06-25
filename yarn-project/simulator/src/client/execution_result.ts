@@ -88,32 +88,6 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
   return accum;
 }
 
-export class CacheableExecutionResult {
-  constructor(public executionResult: ExecutionResult) {}
-  private static getClassConverter(): ClassConverter {
-    // NOTE(AD): We have accumulated a handful of serialization styles, but as long as we can sanely combine them...
-    return new ClassConverter({
-      fromString: { Fr },
-      fromJSON: {},
-      fromBuffer: { PrivateCallStackItem, PublicCallRequest, Note, EncryptedL2Log, EncryptedL2NoteLog, UnencryptedL2Log },
-      fromMembers: { CountedNoteLog, CountedLog }
-    }
-    );
-  }
-  public toJSON(): object {
-    return convertToJsonObj(CacheableExecutionResult.getClassConverter(), this.executionResult);
-  }
-  public toBuffer() {
-    return Buffer.from(JSON.stringify(this.toJSON()));
-  }
-  public static fromJSON(obj: object): CacheableExecutionResult {
-    return new CacheableExecutionResult(convertFromJsonObj(CacheableExecutionResult.getClassConverter(), obj));
-  }
-  public static fromBuffer(buffer: Buffer): CacheableExecutionResult {
-    return CacheableExecutionResult.fromJSON(JSON.parse(buffer.toString()));
-  }
-}
-
 /**
  * Collect all encrypted logs across all nested executions.
  * @param execResult - The topmost execution result.

@@ -340,7 +340,7 @@ export class BBNativeProofCreator implements ProofCreator {
           numPublicInputs: vkData.numPublicInputs,
         } as CircuitProvingStats);
 
-        return new CreateProofResult(proof, vkData.keyAsFields);
+        return { proof, verificationKey: vkData.keyAsFields };
       }
 
       const vkData = await this.updateVerificationKeyAfterProof(directory, circuitType);
@@ -359,9 +359,9 @@ export class BBNativeProofCreator implements ProofCreator {
         numPublicInputs: vkData.numPublicInputs,
       } as CircuitProvingStats);
 
-      return new CreateProofResult(proof, vkData.keyAsFields);
+      return { proof, verificationKey: vkData.keyAsFields };
     }
-    return await withProverCache(CreateProofResult, [compressedBincodedWitness, bytecode], operation);
+    return await withProverCache('bb_native_proof_creator.createProof', [compressedBincodedWitness, bytecode], operation);
   }
 
   /**

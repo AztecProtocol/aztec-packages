@@ -23,6 +23,7 @@ import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+import { withProverCache } from './bb_prover_cache.js';
 
 
 const logger = createDebugLogger('aztec:bb-prover');
@@ -354,7 +355,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const inputWitness = convertInput(input);
     const timer = new Timer();
-    const outputWitness = await simulator.simulateCircuit(inputWitness, artifact);
+    const simulateOperation = async () => await simulator.simulateCircuit(inputWitness, artifact);
+    const outputWitness = await withProverCache('BBNativeRollupProver.generateProofWithBB(simulation)', [inputWitness, artifact], simulateOperation)
     const witnessGenerationDuration = timer.ms();
     const output = convertOutput(outputWitness);
     logger.debug(`Generated witness`, {
@@ -368,27 +370,28 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Now prove the circuit from the generated witness
     logger.debug(`Proving ${circuitType}...`);
 
-    const provingResult = await generateProof(
-      this.config.bbBinaryPath,
-      workingDirectory,
-      circuitType,
-      Buffer.from(artifact.bytecode, 'base64'),
-      outputWitnessFile,
-      logger.debug,
-    );
+    const provingOperation = async () => {
+      const provingResult = await generateProof(
+        this.config.bbBinaryPath,
+        workingDirectory,
+        circuitType,
+        Buffer.from(artifact.bytecode, 'base64'),
+        outputWitnessFile,
+        logger.debug,
+      );
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+      if (provingResult.status === BB_RESULT.FAILURE) {
+        logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+        throw new Error(provingResult.reason);
+      }
+
+      // Ensure our vk cache is up to date
+      const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
+      return {vkData, provingResult}
     }
-
-    // Ensure our vk cache is up to date
-    const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
-
     return {
       circuitOutput: output,
-      vkData,
-      provingResult,
+      ...await withProverCache('BBNativeRollupProver.generateProofWithBB(proof)', [inputWitness, artifact], provingOperation)
     };
   }
 
