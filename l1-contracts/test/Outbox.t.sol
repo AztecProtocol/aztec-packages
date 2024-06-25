@@ -46,18 +46,18 @@ contract OutboxTest is Test {
 
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector));
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
   }
 
   function testRevertIfInsertingDuplicate() public {
     bytes32 root = zeroedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
 
     vm.prank(ROLLUP_CONTRACT);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__RootAlreadySetAtBlock.selector, 1));
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
   }
 
   // This function tests the insertion of random arrays of L2 to L1 messages
@@ -76,11 +76,11 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(1, root, treeHeight);
+    emit IOutbox.RootAdded(1, root, treeHeight, treeHeight);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, treeHeight);
+    outbox.insert(1, root, treeHeight, treeHeight);
 
-    (bytes32 actualRoot, uint256 actualHeight) = outbox.roots(1);
+    (bytes32 actualRoot, uint256 actualHeight,) = outbox.roots(1);
     assertEq(root, actualRoot);
     assertEq(treeHeight, actualHeight);
   }
@@ -129,7 +129,7 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
     outbox.consume(fakeMessage, 1, 0, path);
@@ -146,7 +146,7 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
 
     NaiveMerkle smallerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
     tree.insertLeaf(leaf);
@@ -175,7 +175,7 @@ contract OutboxTest is Test {
     bytes32 modifiedRoot = modifiedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
@@ -196,7 +196,7 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
 
@@ -235,9 +235,9 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(_blockNumber, root, treeHeight);
+    emit IOutbox.RootAdded(_blockNumber, root, treeHeight, treeHeight);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(_blockNumber, root, treeHeight);
+    outbox.insert(_blockNumber, root, treeHeight, treeHeight);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);

@@ -171,7 +171,7 @@ contract UniswapPortalTest is Test {
     IOutbox outbox = registry.getOutbox();
 
     vm.prank(address(rollup));
-    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot, treeHeight, treeHeight);
 
     return (treeRoot, withdrawSiblingPath, swapSiblingPath);
   }

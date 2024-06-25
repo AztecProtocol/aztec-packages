@@ -6,6 +6,7 @@ pragma solidity >=0.8.18;
 import {Errors} from "../Errors.sol";
 import {Constants} from "../ConstantsGen.sol";
 import {Hash} from "../Hash.sol";
+import {MerkleLib} from "../MerkleLib.sol";
 
 /**
  * @title Txs Decoder Library
@@ -261,7 +262,7 @@ library TxsDecoder {
       }
     }
 
-    return computeRoot(vars.baseLeaves);
+    return computeUnbalancedRoot(vars.baseLeaves);
   }
 
   /**
@@ -517,6 +518,36 @@ library TxsDecoder {
   }
 
   /**
+   * @notice Computes the root for a binary unbalanced Merkle-tree given the leaves and subtree sizes.
+   * @dev Filled in greedily with subtrees. Useful for txsEffectHash and outHash tree.
+   * @param _leaves - The 32 bytes leafs to build the tree of.
+   * @return The root of the Merkle tree.
+   */
+  function computeUnbalancedRoot(bytes32[] memory _leaves) internal pure returns (bytes32) {
+    // e.g. an unbalanced tree of 7 txs will contain subtrees of 4, 2, and 1 tx(s)
+    // Encoded as 000400020001
+    bytes memory subtreeSizes = MerkleLib.computeSubtreeSizes(_leaves.length);
+    // We collect the roots of each subtree
+    bytes32 root;
+    uint256 currentSubtreeSize;
+    uint256 processedLeaves = 0;
+    // We must calculate the smaller rightmost subtrees first, hence working backwards through the leaves/sizes arr
+    for (uint256 j = subtreeSizes.length; j > 0; j -= 2) {
+      currentSubtreeSize = uint16(bytes2(bytes.concat(subtreeSizes[j - 2], subtreeSizes[j - 1])));
+      uint256 start = _leaves.length - processedLeaves - currentSubtreeSize;
+      bytes32[] memory leavesInSubtree = new bytes32[](currentSubtreeSize);
+      for (uint256 i = start; i < start + currentSubtreeSize; i++) {
+        leavesInSubtree[i - start] = _leaves[i];
+      }
+      bytes32 subtreeRoot = computeRoot(leavesInSubtree);
+      root =
+        j == subtreeSizes.length ? subtreeRoot : Hash.sha256ToField(bytes.concat(subtreeRoot, root));
+      processedLeaves += currentSubtreeSize;
+    }
+    return root;
+  }
+
+  /**
    * @notice Wrapper around the slicing to avoid some stack too deep
    * @param _data - The data to slice
    * @param _start - The start of the slice
@@ -592,18 +623,6 @@ library TxsDecoder {
     } else if (_numTxEffects == 1) {
       return 1;
     }
-
-    uint32 v = _numTxEffects;
-
-    // the following rounds _numTxEffects up to the next power of 2 (works only for 4 bytes value!)
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-
-    return v - _numTxEffects;
+    return 0;
   }
 }

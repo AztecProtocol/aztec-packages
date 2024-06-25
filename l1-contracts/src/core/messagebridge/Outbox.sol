@@ -23,6 +23,7 @@ contract Outbox is IOutbox {
     // This is the outhash specified by header.globalvariables.outHash of any given block.
     bytes32 root;
     uint256 minHeight;
+    uint256 maxHeight;
     mapping(uint256 => bool) nullified;
   }
 
@@ -41,8 +42,9 @@ contract Outbox is IOutbox {
    * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
    * @param _minHeight - The min height of the merkle tree that the root corresponds to
+   * @param _maxHeight - The max height of the merkle tree that the root corresponds to
    */
-  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight)
+  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight, uint256 _maxHeight)
     external
     override(IOutbox)
   {
@@ -60,8 +62,9 @@ contract Outbox is IOutbox {
 
     roots[_l2BlockNumber].root = _root;
     roots[_l2BlockNumber].minHeight = _minHeight;
+    roots[_l2BlockNumber].maxHeight = _maxHeight;
 
-    emit RootAdded(_l2BlockNumber, _root, _minHeight);
+    emit RootAdded(_l2BlockNumber, _root, _minHeight, _maxHeight);
   }
 
   /**
@@ -103,16 +106,15 @@ contract Outbox is IOutbox {
 
     // Min height = height of rollup layers
     // The smallest num of messages will require a subtree of height 1
-    uint256 treeHeight = rootData.minHeight;
-    if (treeHeight > _path.length) {
-      revert Errors.Outbox__InvalidPathLength(treeHeight, _path.length);
+    uint256 minHeight = rootData.minHeight;
+    if (minHeight > _path.length) {
+      revert Errors.Outbox__InvalidPathLength(minHeight, _path.length);
     }
 
-    // Max height = height of rollup layers + max possible subtree height
-    // The max num of messages N will require a subtree of height log2(N)
-    uint256 maxSubtreeHeight = calculateTreeHeightFromSize(Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX);
-    if (treeHeight + maxSubtreeHeight < _path.length) {
-      revert Errors.Outbox__InvalidPathLength(treeHeight + maxSubtreeHeight, _path.length);
+    // Max height = max height of rollup layers + max possible subtree height
+    uint256 maxHeight = rootData.maxHeight;
+    if (maxHeight < _path.length) {
+      revert Errors.Outbox__InvalidPathLength(maxHeight, _path.length);
     }
 
     bytes32 messageHash = _message.sha256ToField();
@@ -137,23 +139,5 @@ contract Outbox is IOutbox {
     returns (bool)
   {
     return roots[_l2BlockNumber].nullified[_leafIndex];
-  }
-
-  /**
-   * @notice Calculates a tree height from the amount of elements in the tree
-   * @dev - This mirrors the function in TestUtil, but assumes _size is an exact power of 2
-   * @param _size - The number of elements in the tree
-   */
-  function calculateTreeHeightFromSize(uint256 _size) internal pure returns (uint256) {
-    /// We need the height of the tree that will contain all of our leaves,
-    /// hence the next highest power of two from the amount of leaves - Math.ceil(Math.log2(x))
-    uint256 height = 0;
-
-    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of calculating Math.Floor(Math.log2(x))
-    while (_size > 1) {
-      _size >>= 1;
-      height++;
-    }
-    return height;
   }
 }

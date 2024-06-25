@@ -16,6 +16,7 @@ import {HeaderLib} from "./libraries/HeaderLib.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
+import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 // Contracts
@@ -149,12 +150,19 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    // Currently trying out storing each tx's L2 to L1 messages in variable height trees (smallest tree required)
-    // => path lengths will differ and we cannot provide one here
-    // We can provide a minimum which is the height of the rollup layers (txTreeHeight) and the smallest 'tree' (1 layer)
-    uint256 l2ToL1TreeMinHeight = header.contentCommitment.txTreeHeight + 1;
+    // Both rollup tx trees and each tx's L2 to L1 messages are variable height.
+    // TODO: Is the below necessary? Is it fine to not supply any height?
+    // Min size = smallest path of the rollup tree + 1
+    // Max size = largest path of the rollup tree + log2(max_messages)
+    (uint256 min, uint256 max) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+    uint256 l2ToL1TreeMinHeight = min + 1;
+    uint256 l2ToL1TreeMaxHeight =
+      max + MerkleLib.calculateTreeHeightFromSize(Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX);
     OUTBOX.insert(
-      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
+      header.globalVariables.blockNumber,
+      header.contentCommitment.outHash,
+      l2ToL1TreeMinHeight,
+      l2ToL1TreeMaxHeight
     );
 
     // pay the coinbase 1 gas token if it is not empty and header.totalFees is not zero
