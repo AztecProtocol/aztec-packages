@@ -515,7 +515,7 @@ export class TXE implements TypedOracle {
       `Executing external function ${targetContractAddress}:${functionSelector}(${await this.getDebugFunctionName(
         targetContractAddress,
         functionSelector,
-      )})`,
+      )}) isStaticCall=${isStaticCall} isDelegateCall=${isDelegateCall}`,
     );
 
     // Store and modify env

@@ -36,7 +36,7 @@ impl TestEnvironment {
     }
 
     fn advance_block_by(&mut self, blocks: u32) {
-        cheatcodes::advance_blocks(blocks);
+        cheatcodes::advance_blocks_by(blocks);
     }
 
     fn public(self) -> PublicContext {
@@ -79,7 +79,7 @@ impl TestEnvironment {
             args.as_slice(),
             public_keys.hash().to_field()
         );
-        cheatcodes::advance_blocks(1);
+        cheatcodes::advance_blocks_by(1);
         let test_account = cheatcodes::add_account(
             secret,
             PartialAddress::compute(
@@ -204,12 +204,9 @@ impl TestEnvironment {
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
         let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
-        // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
-        Note::set_header(note, header);
+        note.set_header(header);
         let inner_note_hash = compute_inner_note_hash(*note);
-
-        // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
-        let serialized_note: [Field; N] = Note::serialize_content(*note);
+        let serialized_note = Note::serialize_content(*note);
         assert(
             notify_created_note(
             storage_slot,

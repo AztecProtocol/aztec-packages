@@ -43,7 +43,7 @@ export class TXEService {
     logger.info(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
-    await service.timeTravel(toSingle(new Fr(1n)));
+    await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
   }
 
@@ -59,7 +59,7 @@ export class TXEService {
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
-  async timeTravel(blocks: ForeignCallSingle) {
+  async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();

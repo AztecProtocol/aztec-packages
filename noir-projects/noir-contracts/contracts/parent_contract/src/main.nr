@@ -259,7 +259,7 @@ contract Parent {
         // Deploy child contract
         let child_contract = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
         let child_contract_address = child_contract.to_address();
-        cheatcodes::advance_blocks(1);
+        cheatcodes::advance_blocks_by(1);
 
         // Set value in child through parent
         let value_to_set = 7;

@@ -19,12 +19,15 @@ unconstrained fn access_control() {
     // Impersonate new admin
     cheatcodes::set_contract_address(recipient);
 
-    // Add minter as admin
+    // Check new admin is not a minter
+    let is_minter_call_interface = Token::at(token_contract_address).is_minter(recipient);
+    let is_minter = env.call_public(is_minter_call_interface);
+    assert(is_minter == false);
+    // Set admin as minter
     let set_minter_call_interface = Token::at(token_contract_address).set_minter(recipient, true);
     env.call_public(set_minter_call_interface);
 
     // Check it worked
-    let is_minter_call_interface = Token::at(token_contract_address).is_minter(recipient);
     let is_minter = env.call_public(is_minter_call_interface);
     assert(is_minter == true);
 

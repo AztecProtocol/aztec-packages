@@ -22,8 +22,8 @@ unconstrained pub fn get_block_number() -> u32 {
     oracle_get_block_number()
 }
 
-unconstrained pub fn advance_blocks(blocks: u32) {
-    oracle_time_travel(blocks);
+unconstrained pub fn advance_blocks_by(blocks: u32) {
+    oracle_advance_blocks_by(blocks);
 }
 
 unconstrained pub fn get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {
@@ -113,8 +113,8 @@ fn oracle_set_contract_address(address: AztecAddress) {}
 #[oracle(getBlockNumber)]
 fn oracle_get_block_number() -> u32 {}
 
-#[oracle(timeTravel)]
-fn oracle_time_travel(blocks: u32) {}
+#[oracle(advanceBlocksBy)]
+fn oracle_advance_blocks_by(blocks: u32) {}
 
 #[oracle(getPrivateContextInputs)]
 fn oracle_get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {}
