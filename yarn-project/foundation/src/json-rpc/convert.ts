@@ -60,6 +60,10 @@ export function JsonStringify(obj: object, prettify?: boolean): string {
   );
 }
 
+export function convertFromJsonBuffer(cc: ClassConverter, buffer: Buffer): any {
+  return JSON.stringify(convertFromJsonObj(cc, JSON.parse(buffer.toString())));
+}
+
 /**
  * Convert a JSON-friendly object, which may encode a class object.
  * @param cc - The class converter.
@@ -116,6 +120,10 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
 
   // Leave alone, assume JSON primitive
   return obj;
+}
+
+export function convertToJsonBuffer(cc: ClassConverter, obj: any): Buffer {
+  return Buffer.from(JSON.stringify(convertToJsonObj(cc, obj)))
 }
 
 /**

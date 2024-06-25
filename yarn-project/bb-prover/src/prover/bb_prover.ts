@@ -1,86 +1,29 @@
 /* eslint-disable require-await */
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-  type PublicKernelNonTailRequest,
-  type PublicKernelTailRequest,
-  type ServerCircuitProver,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof, type PublicKernelNonTailRequest, type PublicKernelTailRequest, type ServerCircuitProver, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  AGGREGATION_OBJECT_LENGTH,
-  type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
-  type BaseParityInputs,
-  type BaseRollupInputs,
-  EmptyNestedCircuitInputs,
-  EmptyNestedData,
-  Fr,
-  type KernelCircuitPublicInputs,
-  type MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  type PrivateKernelEmptyInputData,
-  PrivateKernelEmptyInputs,
-  Proof,
-  type PublicKernelCircuitPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  RootParityInput,
-  type RootParityInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type VerificationKeyAsFields,
-  type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-} from '@aztec/circuits.js';
+import { AGGREGATION_OBJECT_LENGTH, type AvmCircuitInputs, type BaseOrMergeRollupPublicInputs, type BaseParityInputs, type BaseRollupInputs, EmptyNestedCircuitInputs, EmptyNestedData, Fr, type KernelCircuitPublicInputs, type MergeRollupInputs, NESTED_RECURSIVE_PROOF_LENGTH, type PrivateKernelEmptyInputData, PrivateKernelEmptyInputs, Proof, type PublicKernelCircuitPublicInputs, RECURSIVE_PROOF_LENGTH, RecursiveProof, RootParityInput, type RootParityInputs, type RootRollupInputs, RootRollupPublicInputs, type VerificationKeyAsFields, type VerificationKeyData, makeRecursiveProofFromBinary } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
-import {
-  EmptyNestedArtifact,
-  ServerCircuitArtifacts,
-  type ServerProtocolArtifact,
-  convertBaseParityInputsToWitnessMap,
-  convertBaseParityOutputsFromWitnessMap,
-  convertBaseRollupInputsToWitnessMap,
-  convertBaseRollupOutputsFromWitnessMap,
-  convertMergeRollupInputsToWitnessMap,
-  convertMergeRollupOutputsFromWitnessMap,
-  convertPrivateKernelEmptyInputsToWitnessMap,
-  convertPrivateKernelEmptyOutputsFromWitnessMap,
-  convertPublicTailInputsToWitnessMap,
-  convertPublicTailOutputFromWitnessMap,
-  convertRootParityInputsToWitnessMap,
-  convertRootParityOutputsFromWitnessMap,
-  convertRootRollupInputsToWitnessMap,
-  convertRootRollupOutputsFromWitnessMap,
-} from '@aztec/noir-protocol-circuits-types';
+import { EmptyNestedArtifact, ServerCircuitArtifacts, type ServerProtocolArtifact, convertBaseParityInputsToWitnessMap, convertBaseParityOutputsFromWitnessMap, convertBaseRollupInputsToWitnessMap, convertBaseRollupOutputsFromWitnessMap, convertMergeRollupInputsToWitnessMap, convertMergeRollupOutputsFromWitnessMap, convertPrivateKernelEmptyInputsToWitnessMap, convertPrivateKernelEmptyOutputsFromWitnessMap, convertPublicTailInputsToWitnessMap, convertPublicTailOutputFromWitnessMap, convertRootParityInputsToWitnessMap, convertRootParityOutputsFromWitnessMap, convertRootRollupInputsToWitnessMap, convertRootRollupOutputsFromWitnessMap } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
+
+
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-import {
-  type BBSuccess,
-  BB_RESULT,
-  PROOF_FIELDS_FILENAME,
-  PROOF_FILENAME,
-  VK_FILENAME,
-  type VerificationFunction,
-  generateAvmProof,
-  generateKeyForNoirCircuit,
-  generateProof,
-  verifyAvmProof,
-  verifyProof,
-  writeProofAsFields,
-} from '../bb/execute.js';
+
+
+import { type BBSuccess, BB_RESULT, PROOF_FIELDS_FILENAME, PROOF_FILENAME, VK_FILENAME, type VerificationFunction, generateAvmProof, generateKeyForNoirCircuit, generateProof, verifyAvmProof, verifyProof, writeProofAsFields } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -88,6 +31,33 @@ const CIRCUITS_WITHOUT_AGGREGATION: Set<ServerProtocolArtifact> = new Set([
   'BaseParityArtifact',
   'EmptyNestedArtifact',
 ]);
+
+
+// used for serialization in createProof()
+class CreateProofResult {
+  constructor(
+    public proof: Proof,
+    public circuitOutput: RootRollupPublicInputs
+  ) {}
+  public toBuffer(): Buffer {
+    return serializeToBuffer(this.proof, this.circuitOutput);
+  }
+  /**
+   * Deserializes from a Buffer.
+   */
+  public static fromBuffer(buffer: Buffer | BufferReader): CreateProofResult {
+    const reader = BufferReader.asReader(buffer);
+
+    return new CreateProofResult(Proof.fromBuffer(reader), RootRollupPublicInputs.fromBuffer(reader));
+  }
+}
+
+class SimulateCircuitInputs {
+  constructor(public proof: Proof, public circuitOutput: RootRollupPublicInputs) {}
+}
+class SimulateCircuitResult {
+  constructor(public proof: Proof, public circuitOutput: RootRollupPublicInputs) {}
+}
 
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty

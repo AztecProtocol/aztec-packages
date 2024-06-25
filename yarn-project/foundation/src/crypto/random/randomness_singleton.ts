@@ -44,6 +44,13 @@ export class RandomnessSingleton {
     return this.seed !== undefined;
   }
 
+  /**
+   * Used to control RNG e.g. resetting for a test or after a sequence of calls of non-deterministic length
+   * Only makes sense with seed defined, otherwise a no-op.
+   */
+  public determinismRewind() {
+    this.counter = 0;
+  }
   public getBytes(length: number): Buffer {
     if (this.seed === undefined) {
       // Note: It would be more natural to just have the contents of randomBytes(...) function from

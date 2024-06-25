@@ -25,6 +25,7 @@ import { extractVkData } from '../verification_key/verification_key_data.js';
 import { withProverCache } from './bb_prover_cache.js';
 
 
+// used for serialization in createProof()
 class CreateProofResult {
   constructor(
     public proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> | RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
