@@ -17,8 +17,15 @@ using namespace testing;
 
 class AvmMemOpcodeTests : public ::testing::Test {
   public:
+    AvmMemOpcodeTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+    }
+
+    VmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
 
   protected:
     std::vector<Row> trace;
@@ -31,17 +38,6 @@ class AvmMemOpcodeTests : public ::testing::Test {
     size_t mem_ind_b_addr;
     size_t mem_ind_c_addr;
     size_t mem_ind_d_addr;
-
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
 
     void build_mov_trace(bool indirect,
                          uint128_t const& val,
@@ -173,7 +169,8 @@ class AvmMemOpcodeTests : public ::testing::Test {
                             uint32_t dst_offset,
                             AvmMemoryTag tag,
                             uint32_t dir_src_offset = 0,
-                            uint32_t dir_dst_offset = 0)
+                            uint32_t dir_dst_offset = 0,
+                            bool indirect_uninitialized = false)
     {
         compute_mov_indices(indirect);
         FF const val_ff = uint256_t::from_uint128(val);
@@ -220,7 +217,9 @@ class AvmMemOpcodeTests : public ::testing::Test {
             EXPECT_THAT(mem_ind_a_row,
                         AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
                               MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                              MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                              MEM_ROW_FIELD_EQ(tag,
+                                               indirect_uninitialized ? static_cast<uint32_t>(AvmMemoryTag::U0)
+                                                                      : static_cast<uint32_t>(AvmMemoryTag::U32)),
                               MEM_ROW_FIELD_EQ(addr, src_offset),
                               MEM_ROW_FIELD_EQ(val, dir_src_offset),
                               MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_a, 1)));
@@ -376,7 +375,7 @@ TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::U0, 0, 1);
+    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::U0, 0, 1, true);
 }
 
 TEST_F(AvmMemOpcodeTests, indirectMov)
