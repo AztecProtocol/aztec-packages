@@ -1,30 +1,88 @@
 /* eslint-disable require-await */
-import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof, type PublicKernelNonTailRequest, type PublicKernelTailRequest, type ServerCircuitProver, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import {
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+  type PublicKernelNonTailRequest,
+  type PublicKernelTailRequest,
+  type ServerCircuitProver,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { AGGREGATION_OBJECT_LENGTH, type AvmCircuitInputs, type BaseOrMergeRollupPublicInputs, type BaseParityInputs, type BaseRollupInputs, EmptyNestedCircuitInputs, EmptyNestedData, Fr, type KernelCircuitPublicInputs, type MergeRollupInputs, NESTED_RECURSIVE_PROOF_LENGTH, type PrivateKernelEmptyInputData, PrivateKernelEmptyInputs, Proof, type PublicKernelCircuitPublicInputs, RECURSIVE_PROOF_LENGTH, RecursiveProof, RootParityInput, type RootParityInputs, type RootRollupInputs, RootRollupPublicInputs, type VerificationKeyAsFields, type VerificationKeyData, makeRecursiveProofFromBinary } from '@aztec/circuits.js';
+import {
+  AGGREGATION_OBJECT_LENGTH,
+  type AvmCircuitInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  EmptyNestedCircuitInputs,
+  EmptyNestedData,
+  Fr,
+  type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateKernelEmptyInputData,
+  PrivateKernelEmptyInputs,
+  Proof,
+  type PublicKernelCircuitPublicInputs,
+  RECURSIVE_PROOF_LENGTH,
+  RecursiveProof,
+  RootParityInput,
+  type RootParityInputs,
+  type RootRollupInputs,
+  RootRollupPublicInputs,
+  type VerificationKeyAsFields,
+  type VerificationKeyData,
+  makeRecursiveProofFromBinary,
+} from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
-import { EmptyNestedArtifact, ServerCircuitArtifacts, type ServerProtocolArtifact, convertBaseParityInputsToWitnessMap, convertBaseParityOutputsFromWitnessMap, convertBaseRollupInputsToWitnessMap, convertBaseRollupOutputsFromWitnessMap, convertMergeRollupInputsToWitnessMap, convertMergeRollupOutputsFromWitnessMap, convertPrivateKernelEmptyInputsToWitnessMap, convertPrivateKernelEmptyOutputsFromWitnessMap, convertPublicTailInputsToWitnessMap, convertPublicTailOutputFromWitnessMap, convertRootParityInputsToWitnessMap, convertRootParityOutputsFromWitnessMap, convertRootRollupInputsToWitnessMap, convertRootRollupOutputsFromWitnessMap } from '@aztec/noir-protocol-circuits-types';
+import {
+  EmptyNestedArtifact,
+  ServerCircuitArtifacts,
+  type ServerProtocolArtifact,
+  convertBaseParityInputsToWitnessMap,
+  convertBaseParityOutputsFromWitnessMap,
+  convertBaseRollupInputsToWitnessMap,
+  convertBaseRollupOutputsFromWitnessMap,
+  convertMergeRollupInputsToWitnessMap,
+  convertMergeRollupOutputsFromWitnessMap,
+  convertPrivateKernelEmptyInputsToWitnessMap,
+  convertPrivateKernelEmptyOutputsFromWitnessMap,
+  convertPublicTailInputsToWitnessMap,
+  convertPublicTailOutputFromWitnessMap,
+  convertRootParityInputsToWitnessMap,
+  convertRootParityOutputsFromWitnessMap,
+  convertRootRollupInputsToWitnessMap,
+  convertRootRollupOutputsFromWitnessMap,
+} from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
-
-
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-
-
-import { type BBSuccess, BB_RESULT, PROOF_FIELDS_FILENAME, PROOF_FILENAME, VK_FILENAME, type VerificationFunction, generateAvmProof, generateKeyForNoirCircuit, generateProof, verifyAvmProof, verifyProof, writeProofAsFields } from '../bb/execute.js';
+import {
+  type BBSuccess,
+  BB_RESULT,
+  PROOF_FIELDS_FILENAME,
+  PROOF_FILENAME,
+  VK_FILENAME,
+  type VerificationFunction,
+  generateAvmProof,
+  generateKeyForNoirCircuit,
+  generateProof,
+  verifyAvmProof,
+  verifyProof,
+  writeProofAsFields,
+} from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 import { withProverCache } from './bb_prover_cache.js';
-
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -33,13 +91,9 @@ const CIRCUITS_WITHOUT_AGGREGATION: Set<ServerProtocolArtifact> = new Set([
   'EmptyNestedArtifact',
 ]);
 
-
 // used for serialization in createProof()
 class CreateProofResult {
-  constructor(
-    public proof: Proof,
-    public circuitOutput: RootRollupPublicInputs
-  ) {}
+  constructor(public proof: Proof, public circuitOutput: RootRollupPublicInputs) {}
   public toBuffer(): Buffer {
     return serializeToBuffer(this.proof, this.circuitOutput);
   }
@@ -339,7 +393,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: Input) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => Output,
     workingDirectory: string,
-  ): Promise<{ vkData: VerificationKeyData; provingResult: BBSuccess; proof: RecursiveProof<PROOF_LENGTH>|undefined; rawProof: Buffer; circuitOutput: Output; }> {
+  ): Promise<{
+    vkData: VerificationKeyData;
+    provingResult: BBSuccess;
+    proof: RecursiveProof<PROOF_LENGTH> | undefined;
+    rawProof: Buffer;
+    circuitOutput: Output;
+  }> {
     // Have the ACVM write the partial witness here
     const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
 
@@ -361,8 +421,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const outputWitness = await simulator.simulateCircuit(inputWitness, artifact);
       const outputWitnessFileBuffer = await fs.readFile(outputWitnessFile);
       return { outputWitness, outputWitnessFileBuffer };
-    }
-    const { outputWitness, outputWitnessFileBuffer } = await withProverCache('BBNativeRollupProver.generateProofWithBB(simulation)', [inputWitness, artifact], simulateOperation)
+    };
+    const { outputWitness, outputWitnessFileBuffer } = await withProverCache(
+      'BBNativeRollupProver.generateProofWithBB(simulation)',
+      [inputWitness, artifact],
+      simulateOperation,
+    );
     // Rewrite in case we cached above. TODO better abstraction here not reliant on file path fixups
     await fs.writeFile(outputWitnessFile, outputWitnessFileBuffer);
     const witnessGenerationDuration = timer.ms();
@@ -378,7 +442,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Now prove the circuit from the generated witness
     logger.debug(`Proving ${circuitType}...`);
 
+    let hitCache = true;
     const provingOperation = async () => {
+      hitCache = false;
       const provingResult = await generateProof(
         this.config.bbBinaryPath,
         workingDirectory,
@@ -396,15 +462,24 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Ensure our vk cache is up to date
       const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
       // Read the proof as fields
-      const proof = proofLength === 0 ? undefined : await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
+      const proof =
+        proofLength === 0
+          ? undefined
+          : await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
       // Read the binary proof
       const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
-      return {vkData, provingResult, proof, rawProof}
-    }
-    return {
-      circuitOutput: output,
-      ...await withProverCache('BBNativeRollupProver.generateProofWithBB(proof)', [inputWitness, artifact], provingOperation)
+      return { vkData, provingResult, proof, rawProof };
     };
+    const result = await withProverCache(
+      'BBNativeRollupProver.generateProofWithBB(proof)',
+      [inputWitness, artifact],
+      provingOperation,
+    );
+    if (hitCache) {
+      // Fixup for reporting
+      result.provingResult.duration = 0;
+    }
+    return { circuitOutput: output, ...result };
   }
 
   private async createProof<Input extends { toBuffer: () => Buffer }, Output extends { toBuffer: () => Buffer }>(
@@ -513,7 +588,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         vkData,
         proof,
         circuitOutput: output,
-      } = await this.generateProofWithBB(input, proofLength, circuitType, convertInput, convertOutput, bbWorkingDirectory);
+      } = await this.generateProofWithBB(
+        input,
+        proofLength,
+        circuitType,
+        convertInput,
+        convertOutput,
+        bbWorkingDirectory,
+      );
 
       logger.info(
         `Generated proof for ${circuitType} in ${Math.ceil(provingResult.duration)} ms, size: ${

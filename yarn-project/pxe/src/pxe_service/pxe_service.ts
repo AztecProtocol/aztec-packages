@@ -1,47 +1,7 @@
-import {
-  type AuthWitness,
-  type AztecNode,
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  type EventMetadata,
-  ExtendedNote,
-  type FunctionCall,
-  type GetUnencryptedLogsResponse,
-  type IncomingNotesFilter,
-  L1EventPayload,
-  type L2Block,
-  type LogFilter,
-  MerkleTreeId,
-  type OutgoingNotesFilter,
-  type PXE,
-  type PXEInfo,
-  type ProofCreator,
-  SimulatedTx,
-  SimulationError,
-  TaggedLog,
-  Tx,
-  type TxEffect,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxReceipt,
-  UnencryptedTxL2Logs,
-  isNoirCallStackUnresolved,
-} from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  type CompleteAddress,
-  type PartialAddress,
-  computeContractClassId,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { type AuthWitness, type AztecNode, EncryptedNoteTxL2Logs, EncryptedTxL2Logs, type EventMetadata, ExtendedNote, type FunctionCall, type GetUnencryptedLogsResponse, type IncomingNotesFilter, L1EventPayload, type L2Block, type LogFilter, MerkleTreeId, type OutgoingNotesFilter, type PXE, type PXEInfo, type ProofCreator, SimulatedTx, SimulationError, TaggedLog, Tx, type TxEffect, type TxExecutionRequest, type TxHash, type TxReceipt, UnencryptedTxL2Logs, isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { AztecAddress, type CompleteAddress, type PartialAddress, computeContractClassId, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import {
-  type ContractArtifact,
-  type DecodedReturn,
-  EventSelector,
-  FunctionSelector,
-  encodeArguments,
-} from '@aztec/foundation/abi';
+import { type ContractArtifact, type DecodedReturn, EventSelector, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -51,21 +11,13 @@ import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
-import {
-  type AcirSimulator,
-  type ExecutionResult,
-  accumulateReturnValues,
-  collectEnqueuedPublicFunctionCalls,
-  collectPublicTeardownFunctionCall,
-  collectSortedEncryptedLogs,
-  collectSortedNoteEncryptedLogs,
-  collectSortedUnencryptedLogs,
-  resolveOpcodeLocations,
-  CacheableExecutionResult,
-} from '@aztec/simulator';
+import { type AcirSimulator, CacheableExecutionResult, type ExecutionResult, accumulateReturnValues, collectEnqueuedPublicFunctionCalls, collectPublicTeardownFunctionCall, collectSortedEncryptedLogs, collectSortedNoteEncryptedLogs, collectSortedUnencryptedLogs, resolveOpcodeLocations } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
+
+
+import { withProverCache } from '../../../bb-prover/src/prover/bb_prover_cache.js';
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -75,7 +27,7 @@ import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
-import { withProverCache } from '../../../bb-prover/src/prover/bb_prover_cache.js';
+
 
 /**
  * A Private eXecution Environment (PXE) implementation.
@@ -754,16 +706,17 @@ export class PXEService implements PXE {
     proofCreator: ProofCreator,
     msgSender?: AztecAddress,
   ): Promise<SimulatedTx> {
-    const operation = async () => {
+    const simulateOperation = async () => {
       // Get values that allow us to reconstruct the block hash
       return new CacheableExecutionResult(await this.#simulate(txExecutionRequest, msgSender));
     };
-    const {executionResult} = await withProverCache('PXEService.simulate', [txExecutionRequest], operation);
+    const {executionResult} = await withProverCache('PXEService.simulate', [txExecutionRequest], simulateOperation);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
-    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    const proveOperation = () => kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    const { proof, publicInputs } = await withProverCache('PXEService.prove', [txExecutionRequest], proveOperation);
 
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);

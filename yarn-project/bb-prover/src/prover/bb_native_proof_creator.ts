@@ -264,7 +264,8 @@ export class BBNativeProofCreator implements ProofCreator {
 
     const witnessMap = convertInputs(inputs);
     const timer = new Timer();
-    const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
+    const simulateOperation = () => this.simulator.simulateCircuit(witnessMap, compiledCircuit);
+    const outputWitness = await withProverCache("BBNativeProofCreator.generateWitnessAndCreateProof(simulate)", [witnessMap, compiledCircuit], simulateOperation);
     const output = convertOutputs(outputWitness);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
@@ -275,12 +276,13 @@ export class BBNativeProofCreator implements ProofCreator {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    const proofOutput = await this.createProof(
+    const operation = () => this.createProof(
       directory,
       outputWitness,
       Buffer.from(compiledCircuit.bytecode, 'base64'),
       circuitType,
     );
+    const proofOutput = await withProverCache("BBNativeProofCreator.generateWitnessAndCreateProof(prove)", [witnessMap, compiledCircuit], operation);
     if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
       throw new Error(`Incorrect proof length`);
     }
