@@ -3,7 +3,7 @@ title: Manual install
 sidebar_position: 1
 ---
 
-You can have some more control over the sandbox by installing it manually through the underlying script used by [`npx aztec-app`](../getting_started.md) and [`codespaces`](./codespaces.md).
+You can have some more control over the sandbox by installing it manually through the underlying script used by [`npx aztec-app`](../getting_started.md).
 
 This involves some knowledge on Docker if you want to stop, restart, or detach from logs. But it also gives you better control over things such as environment variables.
 
@@ -34,7 +34,7 @@ Once these have been installed, to start the sandbox, run:
 aztec-sandbox
 ```
 
-### Have fun!
+### Have fun
 
 **Congratulations, you have just installed and run the Aztec Sandbox!**
 
