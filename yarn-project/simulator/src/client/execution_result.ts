@@ -1,11 +1,7 @@
-import { EncryptedFunctionL2Logs, type EncryptedL2Log, type EncryptedL2NoteLog, EncryptedNoteFunctionL2Logs, Note, UnencryptedFunctionL2Logs, type UnencryptedL2Log } from '@aztec/circuit-types';
+import { EncryptedFunctionL2Logs, EncryptedL2Log, type EncryptedL2NoteLog, EncryptedNoteFunctionL2Logs, Note, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import { type IsEmpty, PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { ClassConverter } from '@aztec/foundation/json-rpc';
-
-
-
-import { EncodedClass } from '../../../foundation/src/json-rpc/class_converter.js';
 import { type ACVMField } from '../acvm/index.js';
 import { convertFromJsonObj, convertToJsonObj } from '../../../foundation/src/json-rpc/convert.js';
 
@@ -99,7 +95,8 @@ export class CacheableExecutionResult {
     return new ClassConverter(
       /* fromString() classes */ { Fr },
       /* fromJSON() classes */ { },
-      /* fromBuffer() classes */ { PrivateCallStackItem, PublicCallRequest, Note },
+      /* fromBuffer() classes */ { PrivateCallStackItem, PublicCallRequest, Note, EncryptedL2Log, UnencryptedL2Log },
+      /* None of the above, plain-js-classes */{CountedNoteLog, CountedLog}
     );
   }
   public toJSON(): object {

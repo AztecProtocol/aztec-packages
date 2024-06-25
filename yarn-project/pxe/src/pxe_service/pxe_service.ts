@@ -61,6 +61,7 @@ import {
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
+  CacheableExecutionResult,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -74,6 +75,7 @@ import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
+import { withProverCache } from '../../../bb-prover/src/prover/bb_prover_cache.js';
 
 /**
  * A Private eXecution Environment (PXE) implementation.
@@ -752,8 +754,13 @@ export class PXEService implements PXE {
     proofCreator: ProofCreator,
     msgSender?: AztecAddress,
   ): Promise<SimulatedTx> {
-    // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest, msgSender);
+    const operation = async () => {
+      // Get values that allow us to reconstruct the block hash
+      const executionResult = await this.#simulate(txExecutionRequest, msgSender);
+      return new CacheableExecutionResult(executionResult);
+    };
+    const cacheableExecutionResult = await withProverCache(CacheableExecutionResult, [txExecutionRequest], operation);
+    const executionResult = cacheableExecutionResult.executionResult;
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
