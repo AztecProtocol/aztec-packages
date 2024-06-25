@@ -140,9 +140,6 @@ fn resolve_path_to_ns(
             // Resolve from the root of the crate
             resolve_path_from_crate_root(crate_id, importing_crate, import_path, def_maps)
         }
-        crate::ast::PathKind::Dep => {
-            resolve_external_dep(def_map, import_directive, def_maps, importing_crate)
-        }
         crate::ast::PathKind::Plain => {
             // There is a possibility that the import path is empty
             // In that case, early return
@@ -153,7 +150,6 @@ fn resolve_path_to_ns(
                     import_path,
                     import_directive.module_id,
                     def_maps,
-                    allow_contracts,
                 );
             }
 
@@ -166,7 +162,6 @@ fn resolve_path_to_ns(
                     def_map,
                     import_directive,
                     def_maps,
-                    allow_contracts,
                     importing_crate,
                 );
             }
@@ -184,7 +179,6 @@ fn resolve_path_to_ns(
             def_map,
             import_directive,
             def_maps,
-            allow_contracts,
             importing_crate,
         ),
     }
