@@ -270,7 +270,15 @@ contract Test {
 
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
-        event.emit(encode_and_encrypt_event_with_keys(&mut context, 5, outgoing_viewer_ovpk_m, owner_ivpk_m));
+        event.emit(
+            encode_and_encrypt_event_with_keys(
+                &mut context,
+                // testing only - a secret random value is passed in here to salt / mask the address
+                5,
+                outgoing_viewer_ovpk_m,
+                owner_ivpk_m
+            )
+        );
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -280,7 +288,13 @@ contract Test {
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
             otherEvent.emit(
-                encode_and_encrypt_event_with_keys(&mut context, 0, outgoing_viewer_ovpk_m, owner_ivpk_m)
+                encode_and_encrypt_event_with_keys(
+                    &mut context,
+                    // testing only - a randomness of 0 signals the kerels to not mask the address
+                    0,
+                    outgoing_viewer_ovpk_m,
+                    owner_ivpk_m
+                )
             );
         }
     }

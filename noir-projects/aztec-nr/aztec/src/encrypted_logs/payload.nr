@@ -27,7 +27,7 @@ pub fn compute_encrypted_event_log<Event, NB, MB, OB>(
     let eph_sk: GrumpkinPrivateKey = fr_to_private_key(unsafe_rand());
     let eph_pk = eph_sk.derive_public_key();
 
-    // @todo This value needs to be populated!
+    // TODO: (#7177) This value needs to be populated!
     let recipient = AztecAddress::from_field(0);
 
     let ivpk_app = compute_ivpk_app(ivpk, contract_address);
@@ -84,7 +84,7 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     let eph_sk: GrumpkinPrivateKey = fr_to_private_key(unsafe_rand());
     let eph_pk = eph_sk.derive_public_key();
 
-    // @todo This value needs to be populated!
+    // TODO: (#7177) This value needs to be populated!
     let recipient = AztecAddress::from_field(0);
 
     let ivpk_app = compute_ivpk_app(ivpk, contract_address);
