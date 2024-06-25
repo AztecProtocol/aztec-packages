@@ -1,5 +1,4 @@
 mod types;
-mod lib;
 
 // Minimal token implementation that supports `AuthWit` accounts and private refunds
 

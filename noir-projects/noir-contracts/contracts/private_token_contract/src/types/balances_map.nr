@@ -98,7 +98,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         );
 
         let mut minuend: U128 = U128::from_integer(0);
-        for i in 0..notes.len() {
+        for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
 

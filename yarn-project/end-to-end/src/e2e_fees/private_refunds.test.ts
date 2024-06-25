@@ -112,18 +112,24 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const nonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
+    this.paymentContract;
+
     const messageHash = computeAuthWitMessageHash(
-      this.paymentContract,
-      this.wallet.getChainId(),
-      this.wallet.getVersion(),
       {
-        name: 'setup_refund',
-        args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
-        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        to: this.asset,
-        returnTypes: [],
+        caller: this.paymentContract,
+        action: {
+          name: 'setup_refund',
+          args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
+          selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          to: this.asset,
+          returnTypes: [],
+        },
+      },
+      {
+        chainId: this.wallet.getChainId(),
+        version: this.wallet.getVersion(),
       },
     );
     await this.wallet.createAuthWit(messageHash);
