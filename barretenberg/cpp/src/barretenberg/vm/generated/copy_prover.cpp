@@ -137,15 +137,16 @@ void CopyProver::execute_relation_check_rounds()
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
-void CopyProver::execute_zeromorph_rounds()
+void CopyProver::execute_pcs_rounds()
 {
-    ZeroMorph::prove(prover_polynomials.get_unshifted(),
-                     prover_polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations.get_unshifted(),
-                     sumcheck_output.claimed_evaluations.get_shifted(),
-                     sumcheck_output.challenge,
-                     commitment_key,
-                     transcript);
+    auto prover_opening_claim = ZeroMorph::prove(prover_polynomials.get_unshifted(),
+                                                 prover_polynomials.get_to_be_shifted(),
+                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                 sumcheck_output.claimed_evaluations.get_shifted(),
+                                                 sumcheck_output.challenge,
+                                                 commitment_key,
+                                                 transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof CopyProver::export_proof()
@@ -174,7 +175,7 @@ HonkProof CopyProver::construct_proof()
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    execute_zeromorph_rounds();
+    execute_pcs_rounds();
 
     return export_proof();
 }

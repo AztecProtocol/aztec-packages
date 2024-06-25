@@ -16,6 +16,8 @@ class CopyProver {
     using Flavor = CopyFlavor;
     using FF = Flavor::FF;
     using PCS = Flavor::PCS;
+    using Curve = Flavor::Curve;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
     using PCSCommitmentKey = Flavor::CommitmentKey;
     using ProvingKey = Flavor::ProvingKey;
     using Polynomial = Flavor::Polynomial;
@@ -31,7 +33,7 @@ class CopyProver {
     void execute_log_derivative_inverse_round();
     void execute_grand_products_round();
     void execute_relation_check_rounds();
-    void execute_zeromorph_rounds();
+    void execute_pcs_rounds();
 
     HonkProof export_proof();
     HonkProof construct_proof();
@@ -55,8 +57,6 @@ class CopyProver {
     SumcheckOutput<Flavor> sumcheck_output;
 
     std::shared_ptr<PCSCommitmentKey> commitment_key;
-
-    using ZeroMorph = ZeroMorphProver_<PCS>;
 
   private:
     HonkProof proof;
