@@ -4,8 +4,6 @@ title: Quickstart
 
 The easiest way to start developing on Aztec locally is through `npx aztec-app`. This is a convenient way of installing the development environment (A.K.A. Sandbox) and starting new projects from a boilerplate.
 
-If you'd like to develop remotely (for example, if you're on Windows or have trouble working with Docker), follow the [codespaces guide](./getting_started/codespaces.md).
-
 To locally install the Sandbox without other tools, see [here](./getting_started/manual_install.md).
 
 ## Prerequisites

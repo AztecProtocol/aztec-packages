@@ -1,6 +1,7 @@
 ---
 title: Codespaces
 sidebar_position: 0
+draft: true
 ---
 
 All machines are different, and you may not want to run the sandbox locally (for example when using Windows). We thought about you exactly ❤️ 
