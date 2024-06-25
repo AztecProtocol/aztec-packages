@@ -38,35 +38,35 @@ serve:
   SAVE IMAGE aztecprotocol/docs-server
 
 serve-test:
-  FROM earthly/dind:ubuntu-23.04-docker-25.0.2-1
+  FROM ../build-images/+build
   COPY --dir ../yarn-project/+build-dev/usr/src /usr
   COPY --dir +serve/ /usr/src
   COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
-  COPY +build/build build
 
-  RUN PROFILE=~/.profile bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash'
-  RUN . ~/.profile && nvm install node && npm i -g yarn
-
+  ENTRYPOINT ["yarn", "serve"]
+  EXPOSE 3000
   SAVE ARTIFACT /usr/src/docs
   
 test:
   FROM +serve-test
+
   COPY --dir ../yarn-project/+build-dev/usr/src /usr
   COPY ../+release-meta/usr/src/.release-please-manifest.json /usr/src
   
   WORKDIR /usr/src/docs
+  RUN yarn global add corepack && corepack enable
+  RUN yarn
+  RUN npx -y playwright@next install --with-deps
+  RUN yarn playwright install
   COPY ../noir/+nargo/nargo /usr/local/bin/aztec-nargo
-  RUN cp -s /usr/src/yarn-project/builder/aztec-builder-dest /usr/local/bin/aztec-builder
+  RUN cp -s /usr/src/yarn-project/builder/aztec-builder-dest /usr/local/bin/aztec-builder 
 
-  RUN . ~/.profile && \
-      yarn && \
-      yarn add @playwright/test && \
-      npx playwright install
 
   COPY docker-compose.yml .
   WITH DOCKER \
+    --load aztecprotocol/aztec:latest=../yarn-project/+aztec \
     --compose docker-compose.yml
-    RUN docker-compose up -d && ls -la && yarn test
+    RUN docker ps && docker compose -f docker-compose.yml up -d && sleep 240 && docker compose logs && yarn test
   END
 
 deploy-preview:

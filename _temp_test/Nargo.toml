@@ -1,6 +1,0 @@
-[package]
-name = "init"
-type = "contract"
-
-[dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "zpedro/tutorials_refactor", directory = "noir-projects/aztec-nr/aztec" }

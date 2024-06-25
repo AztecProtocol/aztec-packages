@@ -8,7 +8,7 @@ services:
   aztec:
     image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
     environment:
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOST: http://127.0.0.1:8545
       CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 50
       P2P_BLOCK_CHECK_INTERVAL_MS: 50
