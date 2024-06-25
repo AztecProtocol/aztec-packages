@@ -94,7 +94,7 @@ template <typename Curve> class ShplonkProver_ {
 
         // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ ),
         // s.t. G(r) = 0
-        Polynomial G(batched_quotient_Q); // G(X) = Q(X)
+        Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
 
         // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ )
         Fr current_nu = Fr::one();

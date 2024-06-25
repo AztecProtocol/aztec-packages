@@ -133,7 +133,7 @@ void ECCVMProver::execute_pcs_rounds()
     // Batch open the transcript polynomials as univariates for Translator consistency check. Since IPA cannot
     // currently handle polynomials for which the latter half of the coefficients are 0, we hackily
     // batch the constant polynomial 1 in with the 5 transcript polynomials.
-
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/768): fix IPA to avoid the need for the hack polynomial
     Polynomial hack(key->circuit_size);
     for (size_t idx = 0; idx < key->circuit_size; idx++) {
         hack[idx] = 1;
@@ -190,8 +190,7 @@ void ECCVMProver::execute_pcs_rounds()
     const OpeningClaim batched_opening_claim = Shplonk::prove(commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(
-        commitment_key, batched_opening_claim.opening_pair, batched_opening_claim.polynomial, transcript);
+    PCS::compute_opening_proof(commitment_key, batched_opening_claim, transcript);
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");

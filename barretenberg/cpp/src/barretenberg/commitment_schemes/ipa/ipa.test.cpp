@@ -67,7 +67,7 @@ TEST_F(IPATest, OpenZeroPolynomial)
 
     // initialize empty prover transcript
     auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
+    IPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
@@ -92,7 +92,7 @@ TEST_F(IPATest, OpenAtZero)
 
     // initialize empty prover transcript
     auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
+    IPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
@@ -131,7 +131,7 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector);
-        EXPECT_ANY_THROW(IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript));
+        EXPECT_ANY_THROW(IPA::compute_opening_proof_internal(this->ck(), { poly, opening_pair }, transcript));
     }
     // Fill out a vector of affine elements that the verifier receives from the prover with generators (we don't care
     // about them right now)
@@ -181,7 +181,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->initialize(random_vector);
 
     // Compute opening proof
-    IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript);
+    IPA::compute_opening_proof_internal(this->ck(), { poly, opening_pair }, transcript);
 
     // Reset indices
     transcript->reset_indices();
@@ -221,7 +221,7 @@ TEST_F(IPATest, Open)
 
     // initialize empty prover transcript
     auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
+    IPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
@@ -306,7 +306,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     opening_claims.emplace_back(gemini_witnesses[log_n], gemini_opening_pairs[log_n]);
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), opening_claims, prover_transcript);
-    IPA::compute_opening_proof(this->ck(), opening_claim.opening_pair, opening_claim.polynomial, prover_transcript);
+    IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 

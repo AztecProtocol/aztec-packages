@@ -41,7 +41,7 @@ TYPED_TEST(KZGTest, single)
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    KZG::compute_opening_proof(this->ck(), opening_pair, witness, prover_transcript);
+    KZG::compute_opening_proof(this->ck(), { witness, opening_pair }, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
     auto pairing_points = KZG::reduce_verify(opening_claim, verifier_transcript);
@@ -146,7 +146,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    KZG::compute_opening_proof(this->ck(), opening_claim.opening_pair, opening_claim.polynomial, prover_transcript);
+    KZG::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
