@@ -509,13 +509,17 @@ template <typename Curve> class ZeroMorphVerifier_ {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
             FF scalar = y_challenge.pow(k);
-            scalar *= x_challenge.pow(N - deg_k - 1);
+            // WORKTODO: ensure size_t exponent doesnt wrap. Think this is ok in terms of constraints since pow operates
+            // on 32 bits regardless?
+            size_t x_exponent = (deg_k + 1) < N ? N - deg_k - 1 : 0;
+            scalar *= x_challenge.pow(x_exponent);
             scalar *= FF(-1);
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
                 // stdlib::witness_t zero_witness(builder, builder->add_variable(0));
                 FF zero = FF::from_witness(builder, 0);
-                zero.fix_witness();
+                // WORKTODO: this causes Simulator to complain. Is it needed? Whats up?
+                // zero.fix_witness();
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, k >= log_N);
                 // WORKTODO: is it kosher to reassign like this?
                 scalar = FF::conditional_assign(dummy_round, zero, scalar);
@@ -658,7 +662,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 scalar *= -FF(1);
 
                 FF zero = FF::from_witness(builder, 0);
-                zero.fix_witness();
+                // WORKTODO: this causes Simulator to complain. Is it needed? Whats up?
+                // zero.fix_witness();
                 scalar = FF::conditional_assign(dummy_scalar, zero, scalar);
                 scalars.emplace_back(scalar);
                 commitments.emplace_back(C_q_k[k]);
