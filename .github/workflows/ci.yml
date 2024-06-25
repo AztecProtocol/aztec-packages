@@ -574,7 +574,7 @@ jobs:
           concurrency_key: boxes-ticktock-tester-build
       - name: Build
         working-directory: ./boxes
-        timeout-minutes: 20
+        timeout-minutes: 40
         run: earthly-ci +export-boxes
 
   boxes-test:
