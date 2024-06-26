@@ -733,16 +733,17 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param transcript
      * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
      */
-    static OpeningClaim<Curve> verify(FF circuit_size,
-                                      RefSpan<Commitment> unshifted_commitments,
-                                      RefSpan<Commitment> to_be_shifted_commitments,
-                                      RefSpan<FF> unshifted_evaluations,
-                                      RefSpan<FF> shifted_evaluations,
-                                      std::span<FF> multivariate_challenge,
-                                      const Commitment& g1_identity,
-                                      auto& transcript,
-                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-                                      RefSpan<FF> concatenated_evaluations = {})
+    static OpeningClaim<Curve> verify(
+        FF circuit_size,
+        [[maybe_unused]] RefSpan<Commitment> unshifted_commitments,
+        [[maybe_unused]] RefSpan<Commitment> to_be_shifted_commitments,
+        RefSpan<FF> unshifted_evaluations,
+        RefSpan<FF> shifted_evaluations,
+        [[maybe_unused]] std::span<FF> multivariate_challenge,
+        [[maybe_unused]] const Commitment& g1_identity,
+        auto& transcript,
+        [[maybe_unused]] const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        RefSpan<FF> concatenated_evaluations = {})
     {
         // info("ZM VERIFIER");
         FF log_N;
@@ -771,75 +772,84 @@ template <typename Curve> class ZeroMorphVerifier_ {
             batching_scalar *= rho;
         }
 
-        // Receive commitments [q_k]
-        std::vector<Commitment> C_q_k;
-        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        C_q_k.reserve(MAX_LOG_CIRCUIT_SIZE);
-        for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
-            C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
-        }
+        // // Receive commitments [q_k]
+        // std::vector<Commitment> C_q_k;
+        // const size_t MAX_LOG_CIRCUIT_SIZE = 28;
+        // C_q_k.reserve(MAX_LOG_CIRCUIT_SIZE);
+        // for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+        //     C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
+        // }
 
-        // Challenge y
-        FF y_challenge = transcript->template get_challenge<FF>("ZM:y");
+        // // Challenge y
+        // FF y_challenge = transcript->template get_challenge<FF>("ZM:y");
 
-        // Receive commitment C_{q}
-        auto C_q = transcript->template receive_from_prover<Commitment>("ZM:C_q");
+        // // Receive commitment C_{q}
+        // auto C_q = transcript->template receive_from_prover<Commitment>("ZM:C_q");
 
-        // Challenges x, z
-        auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
+        // // Challenges x, z
+        // auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
 
-        // Compute commitment C_{\zeta_x}
+        // // Compute commitment C_{\zeta_x}
+        // if constexpr (Curve::is_stdlib_type) {
+        //     // info("before compute_C_zeta_x: ",
+        //     //      z_challenge.get_context()->num_gates,
+        //     //      " and arithmetic gates ",
+        //     //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
+        // }
+
+        // auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N, circuit_size);
+        // if constexpr (Curve::is_stdlib_type) {
+        //     // info("after compute_C_zeta_x: ",
+        //     //      z_challenge.get_context()->num_gates,
+        //     //      " and arithmetic gates ",
+        //     //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
+        // }
+
+        // // Compute commitment C_{Z_x}
+        // Commitment C_Z_x = compute_C_Z_x(g1_identity,
+        //                                  unshifted_commitments,
+        //                                  to_be_shifted_commitments,
+        //                                  C_q_k,
+        //                                  rho,
+        //                                  batched_evaluation,
+        //                                  x_challenge,
+        //                                  multivariate_challenge,
+        //                                  log_N,
+        //                                  circuit_size,
+        //                                  concatenation_group_commitments);
+        // if constexpr (Curve::is_stdlib_type) {
+        //     // info(z_challenge.get_context()->num_gates,
+        //     //      " and arithmetic gates ",
+        //     //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
+        // }
+
+        // // Compute commitment C_{\zeta,Z}
+        // Commitment C_zeta_Z;
+        // if constexpr (Curve::is_stdlib_type) {
+        //     // Express operation as a batch_mul in order to use Goblinization if available
+        //     auto builder = z_challenge.get_context();
+        //     std::vector<FF> scalars = { FF(builder, 1), z_challenge };
+        //     std::vector<Commitment> points = { C_zeta_x, C_Z_x };
+        //     // If Ultra and using biggroup, handle edge cases in batch_mul
+        //     if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+        //         C_zeta_Z = Commitment::batch_mul(points, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+        //     } else {
+        //         C_zeta_Z = Commitment::batch_mul(points, scalars);
+        //     }
+        // } else {
+        //     C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+        // }
+
+        // return { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z };
+
         if constexpr (Curve::is_stdlib_type) {
-            // info("before compute_C_zeta_x: ",
-            //      z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
+            auto builder = rho.get_context();
+            return { .opening_pair = { .challenge = FF(0), .evaluation = FF(0) },
+                     .commitment = Commitment::one(builder) };
 
-        auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N, circuit_size);
-        if constexpr (Curve::is_stdlib_type) {
-            // info("after compute_C_zeta_x: ",
-            //      z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
-
-        // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(g1_identity,
-                                         unshifted_commitments,
-                                         to_be_shifted_commitments,
-                                         C_q_k,
-                                         rho,
-                                         batched_evaluation,
-                                         x_challenge,
-                                         multivariate_challenge,
-                                         log_N,
-                                         circuit_size,
-                                         concatenation_group_commitments);
-        if constexpr (Curve::is_stdlib_type) {
-            // info(z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
-
-        // Compute commitment C_{\zeta,Z}
-        Commitment C_zeta_Z;
-        if constexpr (Curve::is_stdlib_type) {
-            // Express operation as a batch_mul in order to use Goblinization if available
-            auto builder = z_challenge.get_context();
-            std::vector<FF> scalars = { FF(builder, 1), z_challenge };
-            std::vector<Commitment> points = { C_zeta_x, C_Z_x };
-            // If Ultra and using biggroup, handle edge cases in batch_mul
-            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
-                C_zeta_Z = Commitment::batch_mul(points, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
-            } else {
-                C_zeta_Z = Commitment::batch_mul(points, scalars);
-            }
         } else {
-            C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+            return { .opening_pair = { .challenge = FF(0), .evaluation = FF(0) }, .commitment = Commitment::one() };
         }
-
-        return { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z };
     }
 };
 

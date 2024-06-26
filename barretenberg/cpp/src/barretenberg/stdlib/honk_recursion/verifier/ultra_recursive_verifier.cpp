@@ -39,9 +39,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     const StdlibProof<Builder>& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
-    // using PCS = typename Flavor::PCS;
-    // using Curve = typename Flavor::Curve;
-    // using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
+    using PCS = typename Flavor::PCS;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -153,18 +153,18 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         info("Prior to ZM: ");
         builder->blocks.summarize();
     }
-    // // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
-    // auto opening_claim = ZeroMorph::verify(circuit_size,
-    //                                        commitments.get_unshifted(),
-    //                                        commitments.get_to_be_shifted(),
-    //                                        claimed_evaluations.get_unshifted(),
-    //                                        claimed_evaluations.get_shifted(),
-    //                                        multivariate_challenge,
-    //                                        Commitment::one(builder),
-    //                                        transcript);
-    // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
+    auto opening_claim = ZeroMorph::verify(circuit_size,
+                                           commitments.get_unshifted(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           Commitment::one(builder),
+                                           transcript);
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
-    std::array<typename Flavor::GroupElement, 2> pairing_points;
+    // std::array<typename Flavor::GroupElement, 2> pairing_points;
     return pairing_points;
 }
 
