@@ -1,4 +1,3 @@
-
 fn main() {
     let field = 1000;
     let be_bits = field.to_be_bits(16);

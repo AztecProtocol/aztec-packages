@@ -1,4 +1,3 @@
-
 fn sort(mut a: [u32; 4]) -> [u32; 4] {
     for i in 1..4 {
         for j in 0..i {

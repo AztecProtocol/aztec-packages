@@ -1,4 +1,3 @@
-
 fn main(
     hashed_message: [u8; 32],
     pub_key_x: [u8; 32],

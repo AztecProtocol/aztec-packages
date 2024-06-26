@@ -1,4 +1,3 @@
-
 fn main() {
     //Regression for to_le_bits() constant evaluation 
     // binary array representation of u8 1

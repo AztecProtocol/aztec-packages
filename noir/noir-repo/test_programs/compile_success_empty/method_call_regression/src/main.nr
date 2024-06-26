@@ -1,4 +1,3 @@
-
 fn main() {
     // s: Struct<?, ()>
     let s = Struct { b: () };
