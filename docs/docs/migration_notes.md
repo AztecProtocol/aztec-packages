@@ -11,7 +11,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ```diff
 #[aztec(event)]
 struct WithdrawalProcessed {
-    who: AztecAddress,
+    who: Field,
     amount: u64,
 }
 
