@@ -451,7 +451,6 @@ export abstract class AbstractPhaseManager {
 
     const vkTree = getVKTree();
     const leafIndex = vkTree.getIndex(vk.keyAsFields.hash.toBuffer());
-    console.log('Leaf index for previous kernel data', leafIndex, 'hash', vk.keyAsFields.hash.toString());
 
     return new PublicKernelData(
       previousOutput,

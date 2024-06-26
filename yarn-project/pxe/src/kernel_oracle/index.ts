@@ -53,7 +53,6 @@ export class KernelOracle implements ProvingDataOracle {
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
     const vkTree = getVKTree();
     const leafIndex = vkTree.getIndex(vk.hash.toBuffer());
-    console.log('Leaf index', leafIndex, 'hash', vk.hash.toString());
     return Promise.resolve(
       new MembershipWitness(
         VK_TREE_HEIGHT,

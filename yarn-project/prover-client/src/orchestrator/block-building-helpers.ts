@@ -265,7 +265,6 @@ export function getPreviousRollupDataFromPublicInputs(
 ) {
   const vkTree = getVKTree();
   const leafIndex = vkTree.getIndex(vk.hash.toBuffer());
-  console.log('Rollup leaf index', leafIndex, 'hash', vk.hash.toString());
 
   return new PreviousRollupData(
     rollupOutput,
@@ -305,7 +304,6 @@ export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): Kern
   const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
   const vkTree = getVKTree();
   const leafIndex = vkTree.getIndex(vk.keyAsFields.hash.toBuffer());
-  console.log('Leaf index for kernel data', leafIndex, 'hash', vk.keyAsFields.hash.toString());
 
   return new KernelData(
     tx.data,
