@@ -138,10 +138,7 @@ aztec-prod:
         ../barretenberg/ts/dest/browser \
         aztec.js/dest/main.js \
         end-to-end \
-        **/src \
-        noir-contracts.js/artifacts \
-        accounts/artifacts \
-        protocol-contracts/artifacts
+        **/src
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -172,10 +169,7 @@ aztec-faucet-build:
         ../barretenberg/ts/dest/browser \
         aztec.js/dest/main.js \
         end-to-end \
-        **/src \
-        noir-contracts.js/artifacts \
-        accounts/artifacts \
-        protocol-contracts/artifacts
+        **/src
     SAVE ARTIFACT /usr/src /usr/src
 
 aztec-faucet:
