@@ -2,8 +2,8 @@ use crate::{
     abis::{previous_rollup_data::PreviousRollupData, constant_rollup_data::ConstantRollupData},
     components, root::{root_rollup_public_inputs::RootRollupPublicInputs}
 };
-use dep::parity_lib::{root::root_rollup_parity_input::RootRollupParityInput, ParityPublicInputs};
-use dep::types::{
+use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput, ParityPublicInputs};
+use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage},
     constants::{
     NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,

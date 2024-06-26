@@ -4,7 +4,7 @@ mod dapp_payload;
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
 
-    use dep::aztec::{
+    use aztec::{
         prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
@@ -12,9 +12,9 @@ contract AppSubscription {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
     };
-    use dep::authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
-    use dep::gas_token::GasToken;
-    use dep::token::Token;
+    use authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
+    use gas_token::GasToken;
+    use token::Token;
 
     #[aztec(storage)]
     struct Storage {
