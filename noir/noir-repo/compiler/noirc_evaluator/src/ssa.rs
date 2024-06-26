@@ -17,8 +17,7 @@ use acvm::{
             Program as AcirProgram, PublicInputs,
         },
         native_types::Witness,
-    },
-    FieldElement,
+    }, FieldElement
 };
 
 use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVariables};
@@ -206,7 +205,7 @@ pub struct SsaCircuitArtifact {
 }
 
 fn convert_generated_acir_into_circuit(
-    mut generated_acir: GeneratedAcir,
+    mut generated_acir: GeneratedAcir<FieldElement>,
     func_sig: FunctionSignature,
     recursive: bool,
     debug_variables: DebugVariables,
