@@ -770,8 +770,6 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     // file.close();
     // Construct Honk proof
     Prover prover{ builder };
-    info("POST FINALIZE");
-    builder.blocks.summarize();
     return prover;
 }
 
@@ -795,17 +793,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     typename Flavor::VerificationKey vk(prover.instance->proving_key);
-    info("vk size: ",
-         vk.circuit_size,
-         ", num public inputs: ",
-         vk.num_public_inputs,
-         ", pub input offset: ",
-         vk.pub_inputs_offset,
-         ", hash: ",
-         vk.hash());
-    // for (auto comm : vk.get_all()) {
-    //     info("comm: ", comm);
-    // }
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {

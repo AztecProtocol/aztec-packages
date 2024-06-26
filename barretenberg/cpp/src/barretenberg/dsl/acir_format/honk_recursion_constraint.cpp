@@ -226,8 +226,6 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
             builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
             offset += 4;
         }
-        info("offset: ", offset);
-        info("expected length: ", input.proof.size() + input.public_inputs.size());
         ASSERT(offset == input.proof.size() + input.public_inputs.size());
     }
     // Recursively verify the proof
@@ -273,9 +271,6 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     std::copy(result.proof_witness_indices.begin(),
               result.proof_witness_indices.begin() + HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE,
               resulting_output_aggregation_object.begin());
-
-    info("PRE FINALIZE");
-    builder.blocks.summarize();
 
     return resulting_output_aggregation_object;
 }
