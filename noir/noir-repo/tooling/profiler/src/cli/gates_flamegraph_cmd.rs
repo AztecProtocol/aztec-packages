@@ -268,7 +268,11 @@ mod tests {
         debug_info::{DebugInfo, ProgramDebugInfo},
         Location, Span,
     };
-    use std::{cell::RefCell, collections::{BTreeMap, HashMap}, path::{Path, PathBuf}};
+    use std::{
+        cell::RefCell,
+        collections::{BTreeMap, HashMap},
+        path::{Path, PathBuf},
+    };
     use tempfile::TempDir;
 
     use super::{BackendGatesReport, BackendGatesResponse, GatesProvider};
