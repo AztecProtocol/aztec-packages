@@ -1,4 +1,3 @@
-use dep::std;
 
 fn main(x: Field, a: Field) {
     let y: Field = 2040124;

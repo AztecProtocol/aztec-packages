@@ -1,4 +1,3 @@
-use dep::std;
 
 fn main(x: u8, y: u8) {
     assert(std::wrapping_sub(x, 1) == y);

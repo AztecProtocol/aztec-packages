@@ -1,4 +1,3 @@
-use dep::std;
 
 fn main() {
     let x : i8 = -128;

@@ -1,4 +1,3 @@
-use dep::std;
 
 fn main(priv_key: Field, pub_x: pub Field, pub_y: pub Field) {
     let g1_y = 17631683881184975370165255887551781615748388533673675138860;

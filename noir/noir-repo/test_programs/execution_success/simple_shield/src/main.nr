@@ -1,4 +1,3 @@
-use dep::std;
 
 fn main(
     // Public key of note

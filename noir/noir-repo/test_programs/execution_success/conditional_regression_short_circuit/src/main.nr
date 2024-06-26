@@ -1,4 +1,3 @@
-use dep::std;
 
 fn main(a: u32, mut c: [u32; 4], x: [u8; 5], result: pub [u8; 32]) {
     //regression for short-circuit2
