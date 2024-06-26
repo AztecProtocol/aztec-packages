@@ -71,7 +71,7 @@ export class NativeTreesClient {
       name,
       leaves: leaves.map(x => x.toBuffer()),
     };
-    const { promise } = this.sendMessage(104, request);
+    const { promise } = this.sendMessage(WorldStateMsgTypes.INSERT_LEAVES_REQUEST, request);
     const response = (await promise) as InsertLeavesResponse;
     return response;
   }

@@ -194,7 +194,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     return this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
   }
 
-  public getNode(level: number, index: bigint): Promise<Buffer | undefined> {
+  public getNode(level: number, index: bigint): Buffer | undefined {
     if (level < 0 || level > this.depth) {
       throw Error('Invalid level: ' + level);
     }
@@ -203,7 +203,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
       throw Error('Invalid index: ' + index);
     }
 
-    return Promise.resolve(this.dbGet(indexToKeyHash(this.name, level, index)));
+    return this.dbGet(indexToKeyHash(this.name, level, index));
   }
 
   public getZeroHash(level: number): Buffer {

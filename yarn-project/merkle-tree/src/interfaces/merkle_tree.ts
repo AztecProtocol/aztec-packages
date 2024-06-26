@@ -72,7 +72,7 @@ export interface MerkleTree<T extends Bufferable = Buffer> extends SiblingPathSo
 export interface SnapshottedMerkleTree<T extends Bufferable = Buffer> extends MerkleTree<T> {
   getName(): string;
 
-  getNode(level: number, index: bigint): Promise<Buffer | undefined>;
+  getNode(level: number, index: bigint): Buffer | undefined;
 
   getZeroHash(level: number): Buffer;
 } 

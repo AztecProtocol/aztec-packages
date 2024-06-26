@@ -46,7 +46,7 @@ export class StandardTreeNative<T extends Bufferable = Buffer> implements Snapsh
   getName(): string {
     return this.name;
   }
-  getNode(level: number, index: bigint): Promise<Buffer> {
+  getNode(level: number, index: bigint): Buffer {
     throw new Error('Method not implemented.');
   }
   getZeroHash(level: number): Buffer {
