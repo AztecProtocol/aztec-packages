@@ -253,12 +253,12 @@ export class AvmPersistableStateManager {
     if (success) {
       this.acceptNestedCallState(nestedState);
     }
-    let functionName =
+    const functionName =
       (await nestedState.hostStorage.contractsDb.getDebugFunctionName(
         nestedEnvironment.address,
         nestedEnvironment.temporaryFunctionSelector,
       )) ?? `${nestedEnvironment.address}:${nestedEnvironment.temporaryFunctionSelector}`;
-    createDebugLogger('aztec:simulator:external_calls').verbose(`[AVM] Calling nested function ${functionName}`);
+    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
     this.trace.traceNestedCall(
       nestedState.trace,
       nestedEnvironment,
