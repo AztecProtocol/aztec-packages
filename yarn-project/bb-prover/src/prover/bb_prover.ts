@@ -162,7 +162,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    console.log("PUB KERN2", kernelRequest.inputs.previousKernel.vk)
     const { circuitOutput, proof } = await this.createRecursiveProof(
       kernelRequest.inputs,
       'PublicKernelTailArtifact',
@@ -193,7 +192,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       input.kernelData.vk,
     );
 
-    console.log("PUB KERN3", input.kernelData.vk)
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BaseRollupArtifact',

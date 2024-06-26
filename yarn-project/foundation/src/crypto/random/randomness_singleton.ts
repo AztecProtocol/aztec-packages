@@ -57,6 +57,7 @@ export class RandomnessSingleton {
   }
 
   public getBytes(length: number, randomnessGroup: string = 'default'): Buffer {
+    console.error(new Error().stack)
     if (this.seed === undefined) {
       // Note: It would be more natural to just have the contents of randomBytes(...) function from
       // yarn-project/foundation/src/crypto/random/index.ts here but that would result in a larger

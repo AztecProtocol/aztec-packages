@@ -832,7 +832,6 @@ export class ProvingOrchestrator {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
     const request = txProvingState.getPublicFunctionState(functionIndex).publicKernelRequest;
-    console.log("PUB KERN", request.inputs.previousKernel.vk)
 
     this.deferredProving(
       provingState,
