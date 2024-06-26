@@ -1,7 +1,10 @@
 import nodeCrypto from 'crypto';
 import isNode from 'detect-node';
 
+
+
 import { RandomnessSingleton } from './randomness_singleton.js';
+
 
 // limit of Crypto.getRandomValues()
 // https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
@@ -17,11 +20,20 @@ const getWebCrypto = () => {
   return undefined;
 };
 
-export const randomBytes = (len: number) => {
+/**
+ * Returns a good source of randomness, UNLESS the SEED environment variable is set.
+ *
+ * TODO(#3949): Ensure this is always real randomness if a PRODUCTION flag is set (before mainnet).
+ *
+ * @param len the number of bytes
+ * @param randomnessGroup Only used in a debug build. If we set SEED determinism, use an internal simple RNG. Otherwise always returns a series of 1 bytes.
+ * @returns
+ */
+export const randomBytes = (len: number, randomnessGroup?: string) => {
   const singleton = RandomnessSingleton.getInstance();
 
   if (singleton.isDeterministic()) {
-    return singleton.getBytes(len);
+    return singleton.getBytes(len, randomnessGroup);
   }
 
   if (isNode) {

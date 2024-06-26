@@ -7,21 +7,19 @@ import { createDebugLogger } from '../../log/logger.js';
  * sourced by crypto library will be used.
  * @remarks This class was implemented so that tests can be run deterministically.
  *
- * TODO(#3949): This is not safe enough for production and should be made safer or removed before mainnet.
- * Note: Currently duplicated with barretenberg/ts for simplicity.
+ * TODO(#3949): Ensure this is never used if a PRODUCTION flag is set (before mainnet).
  */
 export class RandomnessSingleton {
   private static instance: RandomnessSingleton;
 
-  private counter = 0;
+  private rngStates = new Map<string, number>()
 
   private constructor(
-    private readonly seed?: number,
+    public readonly seed?: number,
     private readonly log = createDebugLogger('aztec:randomness_singleton'),
   ) {
     if (seed !== undefined) {
       this.log.verbose(`Using pseudo-randomness with seed: ${seed}`);
-      this.counter = 1;
     } else {
       this.log.verbose('Using true randomness');
     }
@@ -44,14 +42,7 @@ export class RandomnessSingleton {
     return this.seed !== undefined;
   }
 
-  /**
-   * Used to control RNG e.g. resetting for a test or after a sequence of calls of non-deterministic length
-   * Only makes sense with seed defined, otherwise a no-op.
-   */
-  public determinismRewind() {
-    this.counter = 1;
-  }
-  public getBytes(length: number): Buffer {
+  public getBytes(length: number, randomnessGroup?: string): Buffer {
     if (this.seed === undefined) {
       // Note: It would be more natural to just have the contents of randomBytes(...) function from
       // yarn-project/foundation/src/crypto/random/index.ts here but that would result in a larger
@@ -59,13 +50,19 @@ export class RandomnessSingleton {
       // the singleton within randomBytes func is fine.
       throw new Error('RandomnessSingleton is not implemented for non-deterministic mode');
     }
+    let state = this.seed;
+    if (randomnessGroup && this.rngStates.has(randomnessGroup)) {
+      state = this.rngStates.get(randomnessGroup)!;
+    }
     const result = Buffer.alloc(length);
     for (let i = 0; i < length; i++) {
       // Each byte of the buffer is set to a 1 byte of this.counter's value. 0xff is 255 in decimal and it's used as
-      // a mask to get the last 8 bits of the shifted counter.
-      result[i] = (this.counter >> (i * 8)) & 0xff;
+      // a mask to get the last 8 bits of the counter.
+      result[i] = state & 0xff;
     }
-    this.counter = 1;
+    if (randomnessGroup && this.rngStates.has(randomnessGroup)) {
+      this.rngStates.set(randomnessGroup, state + 1)!;
+    }
     return result;
   }
 }
