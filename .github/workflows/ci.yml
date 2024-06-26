@@ -15,7 +15,7 @@ env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
-  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+  USERNAME: ticktock-tester
   GITHUB_TOKEN: ${{ github.token }}
   GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -29,7 +29,7 @@ jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ github.event.pull_request.user.login || github.actor }}
+      username: ticktock-tester
       runner_type: builder-x86
     secrets: inherit
 
@@ -84,7 +84,7 @@ jobs:
   build:
     needs: [setup, changes]
     if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true' }}
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
       bench_list: ${{ steps.bench_list.outputs.list }}
@@ -207,7 +207,7 @@ jobs:
     needs:
       - acir-bench
       - bench-e2e
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with:
@@ -249,8 +249,8 @@ jobs:
 
   bb-gcc:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -269,7 +269,7 @@ jobs:
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -287,7 +287,7 @@ jobs:
 
   bb-js-test:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -302,7 +302,7 @@ jobs:
 
   noir-build-acir-tests:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -316,7 +316,7 @@ jobs:
 
   bb-acir-tests-bb:
     needs: [noir-build-acir-tests, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -331,7 +331,7 @@ jobs:
 
   bb-acir-tests-sol:
     needs: [noir-build-acir-tests, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -346,7 +346,7 @@ jobs:
 
   bb-acir-tests-bb-js:
     needs: [noir-build-acir-tests, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -361,8 +361,8 @@ jobs:
 
   noir-format:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.noir == 'true' }}
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -380,8 +380,8 @@ jobs:
 
   noir-test:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.noir == 'true' }}
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -393,7 +393,7 @@ jobs:
 
   noir-examples:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -406,7 +406,7 @@ jobs:
 
   noir-packages-test:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -419,7 +419,7 @@ jobs:
 
   noir-projects:
     needs: [setup, changes, build]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -433,7 +433,7 @@ jobs:
 
   avm-format:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -448,7 +448,7 @@ jobs:
 
   yarn-project-formatting:
     needs: build
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -463,7 +463,7 @@ jobs:
   yarn-project-test:
     # quiet machine
     needs: build
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -477,7 +477,7 @@ jobs:
 
   prover-client-test:
     needs: build
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -490,20 +490,20 @@ jobs:
 
   l1-contracts-test:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.l1-contracts == 'true' }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: l1-contracts-${{ github.event.pull_request.user.login || github.actor }}-x86
+          concurrency_key: l1-contracts-ticktock-tester-x86
       - name: "Test l1 contracts"
         run: earthly-ci --no-output ./l1-contracts+test
 
   docs-preview:
     needs: [setup, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -563,23 +563,23 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
 
   boxes:
-    needs: build
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    needs: setup
+    runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           # must be globally unique for build x runner
-          concurrency_key: boxes-${{ github.event.pull_request.user.login || github.actor }}-build
+          concurrency_key: boxes-ticktock-tester-build
       - name: Build
         working-directory: ./boxes
-        timeout-minutes: 20
+        timeout-minutes: 40
         run: earthly-ci +export-boxes
 
   boxes-test:
     needs: boxes
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     strategy:
       fail-fast: false
       matrix:
@@ -593,7 +593,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           # must be globally unique for build x runner
-          concurrency_key: boxes-${{ github.event.pull_request.user.login || github.actor }}-x86-${{ matrix.box }}-${{ matrix.browser }}
+          concurrency_key: boxes-ticktock-tester-x86-${{ matrix.box }}-${{ matrix.browser }}
       - name: Box test
         working-directory: ./boxes
         timeout-minutes: 10
@@ -602,7 +602,7 @@ jobs:
   protocol-circuits-gates-report:
     needs: [setup, changes]
     if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' }}
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ticktock-tester-x86
     permissions:
       pull-requests: write
     steps:
