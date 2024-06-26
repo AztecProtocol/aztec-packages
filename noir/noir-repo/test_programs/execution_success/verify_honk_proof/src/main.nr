@@ -1,4 +1,3 @@
-use dep::std;
 
 // This circuit aggregates a single Honk proof from `assert_statement_recursive`.
 global SIZE_OF_PROOF_IF_LOGN_IS_28 : u32 = 409;
