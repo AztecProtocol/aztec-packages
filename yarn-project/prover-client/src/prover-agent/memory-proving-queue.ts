@@ -42,7 +42,8 @@ type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = {
 
 const MAX_RETRIES = 3;
 
-const defaultIdGenerator = () => randomBytes(4).toString('hex');
+let id: number = 1
+const defaultIdGenerator = () => (id++).toString();// randomBytes(4).toString('hex');
 const defaultTimeSource = () => Date.now();
 
 /**
