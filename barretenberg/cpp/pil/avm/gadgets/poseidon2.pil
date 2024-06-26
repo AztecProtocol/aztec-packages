@@ -157,10 +157,10 @@ namespace poseidon2(256);
 
     // Round 6 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_5_0 = B_5_0 + poseidon2_params.C_5_0;
-    pol ARK_5_1 = B_5_0 + poseidon2_params.C_5_1;
-    pol ARK_5_2 = B_5_0 + poseidon2_params.C_5_2;
-    pol ARK_5_3 = B_5_0 + poseidon2_params.C_5_3;
+    pol ARK_5_0 = B_4_0 + poseidon2_params.C_5_0;
+    pol ARK_5_1 = B_4_1 + poseidon2_params.C_5_1;
+    pol ARK_5_2 = B_4_2 + poseidon2_params.C_5_2;
+    pol ARK_5_3 = B_4_3 + poseidon2_params.C_5_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_5_0 = ARK_5_0 * ARK_5_0 * ARK_5_0 * ARK_5_0 * ARK_5_0;
@@ -176,10 +176,10 @@ namespace poseidon2(256);
 
     // Round 7 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_6_0 = B_6_0 + poseidon2_params.C_6_0;
-    pol ARK_6_1 = B_6_0 + poseidon2_params.C_6_1;
-    pol ARK_6_2 = B_6_0 + poseidon2_params.C_6_2;
-    pol ARK_6_3 = B_6_0 + poseidon2_params.C_6_3;
+    pol ARK_6_0 = B_5_0 + poseidon2_params.C_6_0;
+    pol ARK_6_1 = B_5_1 + poseidon2_params.C_6_1;
+    pol ARK_6_2 = B_5_2 + poseidon2_params.C_6_2;
+    pol ARK_6_3 = B_5_3 + poseidon2_params.C_6_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_6_0 = ARK_6_0 * ARK_6_0 * ARK_6_0 * ARK_6_0 * ARK_6_0;
@@ -195,10 +195,10 @@ namespace poseidon2(256);
 
     // Round 8 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_7_0 = B_7_0 + poseidon2_params.C_7_0;
-    pol ARK_7_1 = B_7_0 + poseidon2_params.C_7_1;
-    pol ARK_7_2 = B_7_0 + poseidon2_params.C_7_2;
-    pol ARK_7_3 = B_7_0 + poseidon2_params.C_7_3;
+    pol ARK_7_0 = B_6_0 + poseidon2_params.C_7_0;
+    pol ARK_7_1 = B_6_1 + poseidon2_params.C_7_1;
+    pol ARK_7_2 = B_6_2 + poseidon2_params.C_7_2;
+    pol ARK_7_3 = B_6_3 + poseidon2_params.C_7_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_7_0 = ARK_7_0 * ARK_7_0 * ARK_7_0 * ARK_7_0 * ARK_7_0;
@@ -214,10 +214,10 @@ namespace poseidon2(256);
 
     // Round 9 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_8_0 = B_8_0 + poseidon2_params.C_8_0;
-    pol ARK_8_1 = B_8_0 + poseidon2_params.C_8_1;
-    pol ARK_8_2 = B_8_0 + poseidon2_params.C_8_2;
-    pol ARK_8_3 = B_8_0 + poseidon2_params.C_8_3;
+    pol ARK_8_0 = B_7_0 + poseidon2_params.C_8_0;
+    pol ARK_8_1 = B_7_1 + poseidon2_params.C_8_1;
+    pol ARK_8_2 = B_7_2 + poseidon2_params.C_8_2;
+    pol ARK_8_3 = B_7_3 + poseidon2_params.C_8_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_8_0 = ARK_8_0 * ARK_8_0 * ARK_8_0 * ARK_8_0 * ARK_8_0;
@@ -233,10 +233,10 @@ namespace poseidon2(256);
 
     // Round 10 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_9_0 = B_9_0 + poseidon2_params.C_9_0;
-    pol ARK_9_1 = B_9_0 + poseidon2_params.C_9_1;
-    pol ARK_9_2 = B_9_0 + poseidon2_params.C_9_2;
-    pol ARK_9_3 = B_9_0 + poseidon2_params.C_9_3;
+    pol ARK_9_0 = B_8_0 + poseidon2_params.C_9_0;
+    pol ARK_9_1 = B_8_1 + poseidon2_params.C_9_1;
+    pol ARK_9_2 = B_8_2 + poseidon2_params.C_9_2;
+    pol ARK_9_3 = B_8_3 + poseidon2_params.C_9_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_9_0 = ARK_9_0 * ARK_9_0 * ARK_9_0 * ARK_9_0 * ARK_9_0;
@@ -252,10 +252,10 @@ namespace poseidon2(256);
 
     // Round 11 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_10_0 = B_10_0 + poseidon2_params.C_10_0;
-    pol ARK_10_1 = B_10_0 + poseidon2_params.C_10_1;
-    pol ARK_10_2 = B_10_0 + poseidon2_params.C_10_2;
-    pol ARK_10_3 = B_10_0 + poseidon2_params.C_10_3;
+    pol ARK_10_0 = B_9_0 + poseidon2_params.C_10_0;
+    pol ARK_10_1 = B_9_1 + poseidon2_params.C_10_1;
+    pol ARK_10_2 = B_9_2 + poseidon2_params.C_10_2;
+    pol ARK_10_3 = B_9_3 + poseidon2_params.C_10_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_10_0 = ARK_10_0 * ARK_10_0 * ARK_10_0 * ARK_10_0 * ARK_10_0;
@@ -271,10 +271,10 @@ namespace poseidon2(256);
 
     // Round 12 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_11_0 = B_11_0 + poseidon2_params.C_11_0;
-    pol ARK_11_1 = B_11_0 + poseidon2_params.C_11_1;
-    pol ARK_11_2 = B_11_0 + poseidon2_params.C_11_2;
-    pol ARK_11_3 = B_11_0 + poseidon2_params.C_11_3;
+    pol ARK_11_0 = B_10_0 + poseidon2_params.C_11_0;
+    pol ARK_11_1 = B_10_1 + poseidon2_params.C_11_1;
+    pol ARK_11_2 = B_10_2 + poseidon2_params.C_11_2;
+    pol ARK_11_3 = B_10_3 + poseidon2_params.C_11_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_11_0 = ARK_11_0 * ARK_11_0 * ARK_11_0 * ARK_11_0 * ARK_11_0;
@@ -290,10 +290,10 @@ namespace poseidon2(256);
 
     // Round 13 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_12_0 = B_12_0 + poseidon2_params.C_12_0;
-    pol ARK_12_1 = B_12_0 + poseidon2_params.C_12_1;
-    pol ARK_12_2 = B_12_0 + poseidon2_params.C_12_2;
-    pol ARK_12_3 = B_12_0 + poseidon2_params.C_12_3;
+    pol ARK_12_0 = B_11_0 + poseidon2_params.C_12_0;
+    pol ARK_12_1 = B_11_1 + poseidon2_params.C_12_1;
+    pol ARK_12_2 = B_11_2 + poseidon2_params.C_12_2;
+    pol ARK_12_3 = B_11_3 + poseidon2_params.C_12_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_12_0 = ARK_12_0 * ARK_12_0 * ARK_12_0 * ARK_12_0 * ARK_12_0;
@@ -309,10 +309,10 @@ namespace poseidon2(256);
 
     // Round 14 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_13_0 = B_13_0 + poseidon2_params.C_13_0;
-    pol ARK_13_1 = B_13_0 + poseidon2_params.C_13_1;
-    pol ARK_13_2 = B_13_0 + poseidon2_params.C_13_2;
-    pol ARK_13_3 = B_13_0 + poseidon2_params.C_13_3;
+    pol ARK_13_0 = B_12_0 + poseidon2_params.C_13_0;
+    pol ARK_13_1 = B_12_1 + poseidon2_params.C_13_1;
+    pol ARK_13_2 = B_12_2 + poseidon2_params.C_13_2;
+    pol ARK_13_3 = B_12_3 + poseidon2_params.C_13_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_13_0 = ARK_13_0 * ARK_13_0 * ARK_13_0 * ARK_13_0 * ARK_13_0;
@@ -328,10 +328,10 @@ namespace poseidon2(256);
 
     // Round 15 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_14_0 = B_14_0 + poseidon2_params.C_14_0;
-    pol ARK_14_1 = B_14_0 + poseidon2_params.C_14_1;
-    pol ARK_14_2 = B_14_0 + poseidon2_params.C_14_2;
-    pol ARK_14_3 = B_14_0 + poseidon2_params.C_14_3;
+    pol ARK_14_0 = B_13_0 + poseidon2_params.C_14_0;
+    pol ARK_14_1 = B_13_1 + poseidon2_params.C_14_1;
+    pol ARK_14_2 = B_13_2 + poseidon2_params.C_14_2;
+    pol ARK_14_3 = B_13_3 + poseidon2_params.C_14_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_14_0 = ARK_14_0 * ARK_14_0 * ARK_14_0 * ARK_14_0 * ARK_14_0;
@@ -347,10 +347,10 @@ namespace poseidon2(256);
 
     // Round 16 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_15_0 = B_15_0 + poseidon2_params.C_15_0;
-    pol ARK_15_1 = B_15_0 + poseidon2_params.C_15_1;
-    pol ARK_15_2 = B_15_0 + poseidon2_params.C_15_2;
-    pol ARK_15_3 = B_15_0 + poseidon2_params.C_15_3;
+    pol ARK_15_0 = B_14_0 + poseidon2_params.C_15_0;
+    pol ARK_15_1 = B_14_1 + poseidon2_params.C_15_1;
+    pol ARK_15_2 = B_14_2 + poseidon2_params.C_15_2;
+    pol ARK_15_3 = B_14_3 + poseidon2_params.C_15_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_15_0 = ARK_15_0 * ARK_15_0 * ARK_15_0 * ARK_15_0 * ARK_15_0;
@@ -366,10 +366,10 @@ namespace poseidon2(256);
 
     // Round 17 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_16_0 = B_16_0 + poseidon2_params.C_16_0;
-    pol ARK_16_1 = B_16_0 + poseidon2_params.C_16_1;
-    pol ARK_16_2 = B_16_0 + poseidon2_params.C_16_2;
-    pol ARK_16_3 = B_16_0 + poseidon2_params.C_16_3;
+    pol ARK_16_0 = B_15_0 + poseidon2_params.C_16_0;
+    pol ARK_16_1 = B_15_1 + poseidon2_params.C_16_1;
+    pol ARK_16_2 = B_15_2 + poseidon2_params.C_16_2;
+    pol ARK_16_3 = B_15_3 + poseidon2_params.C_16_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_16_0 = ARK_16_0 * ARK_16_0 * ARK_16_0 * ARK_16_0 * ARK_16_0;
@@ -385,10 +385,10 @@ namespace poseidon2(256);
 
     // Round 18 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_17_0 = B_17_0 + poseidon2_params.C_17_0;
-    pol ARK_17_1 = B_17_0 + poseidon2_params.C_17_1;
-    pol ARK_17_2 = B_17_0 + poseidon2_params.C_17_2;
-    pol ARK_17_3 = B_17_0 + poseidon2_params.C_17_3;
+    pol ARK_17_0 = B_16_0 + poseidon2_params.C_17_0;
+    pol ARK_17_1 = B_16_1 + poseidon2_params.C_17_1;
+    pol ARK_17_2 = B_16_2 + poseidon2_params.C_17_2;
+    pol ARK_17_3 = B_16_3 + poseidon2_params.C_17_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_17_0 = ARK_17_0 * ARK_17_0 * ARK_17_0 * ARK_17_0 * ARK_17_0;
@@ -404,10 +404,10 @@ namespace poseidon2(256);
 
     // Round 19 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_18_0 = B_18_0 + poseidon2_params.C_18_0;
-    pol ARK_18_1 = B_18_0 + poseidon2_params.C_18_1;
-    pol ARK_18_2 = B_18_0 + poseidon2_params.C_18_2;
-    pol ARK_18_3 = B_18_0 + poseidon2_params.C_18_3;
+    pol ARK_18_0 = B_17_0 + poseidon2_params.C_18_0;
+    pol ARK_18_1 = B_17_1 + poseidon2_params.C_18_1;
+    pol ARK_18_2 = B_17_2 + poseidon2_params.C_18_2;
+    pol ARK_18_3 = B_17_3 + poseidon2_params.C_18_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_18_0 = ARK_18_0 * ARK_18_0 * ARK_18_0 * ARK_18_0 * ARK_18_0;
@@ -423,10 +423,10 @@ namespace poseidon2(256);
 
     // Round 20 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_19_0 = B_19_0 + poseidon2_params.C_19_0;
-    pol ARK_19_1 = B_19_0 + poseidon2_params.C_19_1;
-    pol ARK_19_2 = B_19_0 + poseidon2_params.C_19_2;
-    pol ARK_19_3 = B_19_0 + poseidon2_params.C_19_3;
+    pol ARK_19_0 = B_18_0 + poseidon2_params.C_19_0;
+    pol ARK_19_1 = B_18_1 + poseidon2_params.C_19_1;
+    pol ARK_19_2 = B_18_2 + poseidon2_params.C_19_2;
+    pol ARK_19_3 = B_18_3 + poseidon2_params.C_19_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_19_0 = ARK_19_0 * ARK_19_0 * ARK_19_0 * ARK_19_0 * ARK_19_0;
@@ -442,10 +442,10 @@ namespace poseidon2(256);
 
     // Round 21 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_20_0 = B_20_0 + poseidon2_params.C_20_0;
-    pol ARK_20_1 = B_20_0 + poseidon2_params.C_20_1;
-    pol ARK_20_2 = B_20_0 + poseidon2_params.C_20_2;
-    pol ARK_20_3 = B_20_0 + poseidon2_params.C_20_3;
+    pol ARK_20_0 = B_19_0 + poseidon2_params.C_20_0;
+    pol ARK_20_1 = B_19_1 + poseidon2_params.C_20_1;
+    pol ARK_20_2 = B_19_2 + poseidon2_params.C_20_2;
+    pol ARK_20_3 = B_19_3 + poseidon2_params.C_20_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_20_0 = ARK_20_0 * ARK_20_0 * ARK_20_0 * ARK_20_0 * ARK_20_0;
@@ -461,10 +461,10 @@ namespace poseidon2(256);
 
     // Round 22 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_21_0 = B_21_0 + poseidon2_params.C_21_0;
-    pol ARK_21_1 = B_21_0 + poseidon2_params.C_21_1;
-    pol ARK_21_2 = B_21_0 + poseidon2_params.C_21_2;
-    pol ARK_21_3 = B_21_0 + poseidon2_params.C_21_3;
+    pol ARK_21_0 = B_20_0 + poseidon2_params.C_21_0;
+    pol ARK_21_1 = B_20_1 + poseidon2_params.C_21_1;
+    pol ARK_21_2 = B_20_2 + poseidon2_params.C_21_2;
+    pol ARK_21_3 = B_20_3 + poseidon2_params.C_21_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_21_0 = ARK_21_0 * ARK_21_0 * ARK_21_0 * ARK_21_0 * ARK_21_0;
@@ -480,10 +480,10 @@ namespace poseidon2(256);
 
     // Round 23 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_22_0 = B_22_0 + poseidon2_params.C_22_0;
-    pol ARK_22_1 = B_22_0 + poseidon2_params.C_22_1;
-    pol ARK_22_2 = B_22_0 + poseidon2_params.C_22_2;
-    pol ARK_22_3 = B_22_0 + poseidon2_params.C_22_3;
+    pol ARK_22_0 = B_21_0 + poseidon2_params.C_22_0;
+    pol ARK_22_1 = B_21_1 + poseidon2_params.C_22_1;
+    pol ARK_22_2 = B_21_2 + poseidon2_params.C_22_2;
+    pol ARK_22_3 = B_21_3 + poseidon2_params.C_22_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_22_0 = ARK_22_0 * ARK_22_0 * ARK_22_0 * ARK_22_0 * ARK_22_0;
@@ -499,10 +499,10 @@ namespace poseidon2(256);
 
     // Round 24 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_23_0 = B_23_0 + poseidon2_params.C_23_0;
-    pol ARK_23_1 = B_23_0 + poseidon2_params.C_23_1;
-    pol ARK_23_2 = B_23_0 + poseidon2_params.C_23_2;
-    pol ARK_23_3 = B_23_0 + poseidon2_params.C_23_3;
+    pol ARK_23_0 = B_22_0 + poseidon2_params.C_23_0;
+    pol ARK_23_1 = B_22_1 + poseidon2_params.C_23_1;
+    pol ARK_23_2 = B_22_2 + poseidon2_params.C_23_2;
+    pol ARK_23_3 = B_22_3 + poseidon2_params.C_23_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_23_0 = ARK_23_0 * ARK_23_0 * ARK_23_0 * ARK_23_0 * ARK_23_0;
@@ -518,10 +518,10 @@ namespace poseidon2(256);
 
     // Round 25 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_24_0 = B_24_0 + poseidon2_params.C_24_0;
-    pol ARK_24_1 = B_24_0 + poseidon2_params.C_24_1;
-    pol ARK_24_2 = B_24_0 + poseidon2_params.C_24_2;
-    pol ARK_24_3 = B_24_0 + poseidon2_params.C_24_3;
+    pol ARK_24_0 = B_23_0 + poseidon2_params.C_24_0;
+    pol ARK_24_1 = B_23_1 + poseidon2_params.C_24_1;
+    pol ARK_24_2 = B_23_2 + poseidon2_params.C_24_2;
+    pol ARK_24_3 = B_23_3 + poseidon2_params.C_24_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_24_0 = ARK_24_0 * ARK_24_0 * ARK_24_0 * ARK_24_0 * ARK_24_0;
@@ -537,10 +537,10 @@ namespace poseidon2(256);
 
     // Round 26 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_25_0 = B_25_0 + poseidon2_params.C_25_0;
-    pol ARK_25_1 = B_25_0 + poseidon2_params.C_25_1;
-    pol ARK_25_2 = B_25_0 + poseidon2_params.C_25_2;
-    pol ARK_25_3 = B_25_0 + poseidon2_params.C_25_3;
+    pol ARK_25_0 = B_24_0 + poseidon2_params.C_25_0;
+    pol ARK_25_1 = B_24_1 + poseidon2_params.C_25_1;
+    pol ARK_25_2 = B_24_2 + poseidon2_params.C_25_2;
+    pol ARK_25_3 = B_24_3 + poseidon2_params.C_25_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_25_0 = ARK_25_0 * ARK_25_0 * ARK_25_0 * ARK_25_0 * ARK_25_0;
@@ -556,10 +556,10 @@ namespace poseidon2(256);
 
     // Round 27 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_26_0 = B_26_0 + poseidon2_params.C_26_0;
-    pol ARK_26_1 = B_26_0 + poseidon2_params.C_26_1;
-    pol ARK_26_2 = B_26_0 + poseidon2_params.C_26_2;
-    pol ARK_26_3 = B_26_0 + poseidon2_params.C_26_3;
+    pol ARK_26_0 = B_25_0 + poseidon2_params.C_26_0;
+    pol ARK_26_1 = B_25_1 + poseidon2_params.C_26_1;
+    pol ARK_26_2 = B_25_2 + poseidon2_params.C_26_2;
+    pol ARK_26_3 = B_25_3 + poseidon2_params.C_26_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_26_0 = ARK_26_0 * ARK_26_0 * ARK_26_0 * ARK_26_0 * ARK_26_0;
@@ -575,10 +575,10 @@ namespace poseidon2(256);
 
     // Round 28 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_27_0 = B_27_0 + poseidon2_params.C_27_0;
-    pol ARK_27_1 = B_27_0 + poseidon2_params.C_27_1;
-    pol ARK_27_2 = B_27_0 + poseidon2_params.C_27_2;
-    pol ARK_27_3 = B_27_0 + poseidon2_params.C_27_3;
+    pol ARK_27_0 = B_26_0 + poseidon2_params.C_27_0;
+    pol ARK_27_1 = B_26_1 + poseidon2_params.C_27_1;
+    pol ARK_27_2 = B_26_2 + poseidon2_params.C_27_2;
+    pol ARK_27_3 = B_26_3 + poseidon2_params.C_27_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_27_0 = ARK_27_0 * ARK_27_0 * ARK_27_0 * ARK_27_0 * ARK_27_0;
@@ -594,10 +594,10 @@ namespace poseidon2(256);
 
     // Round 29 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_28_0 = B_28_0 + poseidon2_params.C_28_0;
-    pol ARK_28_1 = B_28_0 + poseidon2_params.C_28_1;
-    pol ARK_28_2 = B_28_0 + poseidon2_params.C_28_2;
-    pol ARK_28_3 = B_28_0 + poseidon2_params.C_28_3;
+    pol ARK_28_0 = B_27_0 + poseidon2_params.C_28_0;
+    pol ARK_28_1 = B_27_1 + poseidon2_params.C_28_1;
+    pol ARK_28_2 = B_27_2 + poseidon2_params.C_28_2;
+    pol ARK_28_3 = B_27_3 + poseidon2_params.C_28_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_28_0 = ARK_28_0 * ARK_28_0 * ARK_28_0 * ARK_28_0 * ARK_28_0;
@@ -613,10 +613,10 @@ namespace poseidon2(256);
 
     // Round 30 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_29_0 = B_29_0 + poseidon2_params.C_29_0;
-    pol ARK_29_1 = B_29_0 + poseidon2_params.C_29_1;
-    pol ARK_29_2 = B_29_0 + poseidon2_params.C_29_2;
-    pol ARK_29_3 = B_29_0 + poseidon2_params.C_29_3;
+    pol ARK_29_0 = B_28_0 + poseidon2_params.C_29_0;
+    pol ARK_29_1 = B_28_1 + poseidon2_params.C_29_1;
+    pol ARK_29_2 = B_28_2 + poseidon2_params.C_29_2;
+    pol ARK_29_3 = B_28_3 + poseidon2_params.C_29_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_29_0 = ARK_29_0 * ARK_29_0 * ARK_29_0 * ARK_29_0 * ARK_29_0;
@@ -632,10 +632,10 @@ namespace poseidon2(256);
 
     // Round 31 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_30_0 = B_30_0 + poseidon2_params.C_30_0;
-    pol ARK_30_1 = B_30_0 + poseidon2_params.C_30_1;
-    pol ARK_30_2 = B_30_0 + poseidon2_params.C_30_2;
-    pol ARK_30_3 = B_30_0 + poseidon2_params.C_30_3;
+    pol ARK_30_0 = B_29_0 + poseidon2_params.C_30_0;
+    pol ARK_30_1 = B_29_1 + poseidon2_params.C_30_1;
+    pol ARK_30_2 = B_29_2 + poseidon2_params.C_30_2;
+    pol ARK_30_3 = B_29_3 + poseidon2_params.C_30_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_30_0 = ARK_30_0 * ARK_30_0 * ARK_30_0 * ARK_30_0 * ARK_30_0;
@@ -651,10 +651,10 @@ namespace poseidon2(256);
 
     // Round 32 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_31_0 = B_31_0 + poseidon2_params.C_31_0;
-    pol ARK_31_1 = B_31_0 + poseidon2_params.C_31_1;
-    pol ARK_31_2 = B_31_0 + poseidon2_params.C_31_2;
-    pol ARK_31_3 = B_31_0 + poseidon2_params.C_31_3;
+    pol ARK_31_0 = B_30_0 + poseidon2_params.C_31_0;
+    pol ARK_31_1 = B_30_1 + poseidon2_params.C_31_1;
+    pol ARK_31_2 = B_30_2 + poseidon2_params.C_31_2;
+    pol ARK_31_3 = B_30_3 + poseidon2_params.C_31_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_31_0 = ARK_31_0 * ARK_31_0 * ARK_31_0 * ARK_31_0 * ARK_31_0;
@@ -670,10 +670,10 @@ namespace poseidon2(256);
 
     // Round 33 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_32_0 = B_32_0 + poseidon2_params.C_32_0;
-    pol ARK_32_1 = B_32_0 + poseidon2_params.C_32_1;
-    pol ARK_32_2 = B_32_0 + poseidon2_params.C_32_2;
-    pol ARK_32_3 = B_32_0 + poseidon2_params.C_32_3;
+    pol ARK_32_0 = B_31_0 + poseidon2_params.C_32_0;
+    pol ARK_32_1 = B_31_1 + poseidon2_params.C_32_1;
+    pol ARK_32_2 = B_31_2 + poseidon2_params.C_32_2;
+    pol ARK_32_3 = B_31_3 + poseidon2_params.C_32_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_32_0 = ARK_32_0 * ARK_32_0 * ARK_32_0 * ARK_32_0 * ARK_32_0;
@@ -689,10 +689,10 @@ namespace poseidon2(256);
 
     // Round 34 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_33_0 = B_33_0 + poseidon2_params.C_33_0;
-    pol ARK_33_1 = B_33_0 + poseidon2_params.C_33_1;
-    pol ARK_33_2 = B_33_0 + poseidon2_params.C_33_2;
-    pol ARK_33_3 = B_33_0 + poseidon2_params.C_33_3;
+    pol ARK_33_0 = B_32_0 + poseidon2_params.C_33_0;
+    pol ARK_33_1 = B_32_1 + poseidon2_params.C_33_1;
+    pol ARK_33_2 = B_32_2 + poseidon2_params.C_33_2;
+    pol ARK_33_3 = B_32_3 + poseidon2_params.C_33_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_33_0 = ARK_33_0 * ARK_33_0 * ARK_33_0 * ARK_33_0 * ARK_33_0;
@@ -708,10 +708,10 @@ namespace poseidon2(256);
 
     // Round 35 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_34_0 = B_34_0 + poseidon2_params.C_34_0;
-    pol ARK_34_1 = B_34_0 + poseidon2_params.C_34_1;
-    pol ARK_34_2 = B_34_0 + poseidon2_params.C_34_2;
-    pol ARK_34_3 = B_34_0 + poseidon2_params.C_34_3;
+    pol ARK_34_0 = B_33_0 + poseidon2_params.C_34_0;
+    pol ARK_34_1 = B_33_1 + poseidon2_params.C_34_1;
+    pol ARK_34_2 = B_33_2 + poseidon2_params.C_34_2;
+    pol ARK_34_3 = B_33_3 + poseidon2_params.C_34_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_34_0 = ARK_34_0 * ARK_34_0 * ARK_34_0 * ARK_34_0 * ARK_34_0;
@@ -727,10 +727,10 @@ namespace poseidon2(256);
 
     // Round 36 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_35_0 = B_35_0 + poseidon2_params.C_35_0;
-    pol ARK_35_1 = B_35_0 + poseidon2_params.C_35_1;
-    pol ARK_35_2 = B_35_0 + poseidon2_params.C_35_2;
-    pol ARK_35_3 = B_35_0 + poseidon2_params.C_35_3;
+    pol ARK_35_0 = B_34_0 + poseidon2_params.C_35_0;
+    pol ARK_35_1 = B_34_1 + poseidon2_params.C_35_1;
+    pol ARK_35_2 = B_34_2 + poseidon2_params.C_35_2;
+    pol ARK_35_3 = B_34_3 + poseidon2_params.C_35_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_35_0 = ARK_35_0 * ARK_35_0 * ARK_35_0 * ARK_35_0 * ARK_35_0;
@@ -746,10 +746,10 @@ namespace poseidon2(256);
 
     // Round 37 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_36_0 = B_36_0 + poseidon2_params.C_36_0;
-    pol ARK_36_1 = B_36_0 + poseidon2_params.C_36_1;
-    pol ARK_36_2 = B_36_0 + poseidon2_params.C_36_2;
-    pol ARK_36_3 = B_36_0 + poseidon2_params.C_36_3;
+    pol ARK_36_0 = B_35_0 + poseidon2_params.C_36_0;
+    pol ARK_36_1 = B_35_1 + poseidon2_params.C_36_1;
+    pol ARK_36_2 = B_35_2 + poseidon2_params.C_36_2;
+    pol ARK_36_3 = B_35_3 + poseidon2_params.C_36_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_36_0 = ARK_36_0 * ARK_36_0 * ARK_36_0 * ARK_36_0 * ARK_36_0;
@@ -765,10 +765,10 @@ namespace poseidon2(256);
 
     // Round 38 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_37_0 = B_37_0 + poseidon2_params.C_37_0;
-    pol ARK_37_1 = B_37_0 + poseidon2_params.C_37_1;
-    pol ARK_37_2 = B_37_0 + poseidon2_params.C_37_2;
-    pol ARK_37_3 = B_37_0 + poseidon2_params.C_37_3;
+    pol ARK_37_0 = B_36_0 + poseidon2_params.C_37_0;
+    pol ARK_37_1 = B_36_1 + poseidon2_params.C_37_1;
+    pol ARK_37_2 = B_36_2 + poseidon2_params.C_37_2;
+    pol ARK_37_3 = B_36_3 + poseidon2_params.C_37_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_37_0 = ARK_37_0 * ARK_37_0 * ARK_37_0 * ARK_37_0 * ARK_37_0;
@@ -784,10 +784,10 @@ namespace poseidon2(256);
 
     // Round 39 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_38_0 = B_38_0 + poseidon2_params.C_38_0;
-    pol ARK_38_1 = B_38_0 + poseidon2_params.C_38_1;
-    pol ARK_38_2 = B_38_0 + poseidon2_params.C_38_2;
-    pol ARK_38_3 = B_38_0 + poseidon2_params.C_38_3;
+    pol ARK_38_0 = B_37_0 + poseidon2_params.C_38_0;
+    pol ARK_38_1 = B_37_1 + poseidon2_params.C_38_1;
+    pol ARK_38_2 = B_37_2 + poseidon2_params.C_38_2;
+    pol ARK_38_3 = B_37_3 + poseidon2_params.C_38_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_38_0 = ARK_38_0 * ARK_38_0 * ARK_38_0 * ARK_38_0 * ARK_38_0;
@@ -803,10 +803,10 @@ namespace poseidon2(256);
 
     // Round 40 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_39_0 = B_39_0 + poseidon2_params.C_39_0;
-    pol ARK_39_1 = B_39_0 + poseidon2_params.C_39_1;
-    pol ARK_39_2 = B_39_0 + poseidon2_params.C_39_2;
-    pol ARK_39_3 = B_39_0 + poseidon2_params.C_39_3;
+    pol ARK_39_0 = B_38_0 + poseidon2_params.C_39_0;
+    pol ARK_39_1 = B_38_1 + poseidon2_params.C_39_1;
+    pol ARK_39_2 = B_38_2 + poseidon2_params.C_39_2;
+    pol ARK_39_3 = B_38_3 + poseidon2_params.C_39_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_39_0 = ARK_39_0 * ARK_39_0 * ARK_39_0 * ARK_39_0 * ARK_39_0;
@@ -822,10 +822,10 @@ namespace poseidon2(256);
 
     // Round 41 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_40_0 = B_40_0 + poseidon2_params.C_40_0;
-    pol ARK_40_1 = B_40_0 + poseidon2_params.C_40_1;
-    pol ARK_40_2 = B_40_0 + poseidon2_params.C_40_2;
-    pol ARK_40_3 = B_40_0 + poseidon2_params.C_40_3;
+    pol ARK_40_0 = B_39_0 + poseidon2_params.C_40_0;
+    pol ARK_40_1 = B_39_1 + poseidon2_params.C_40_1;
+    pol ARK_40_2 = B_39_2 + poseidon2_params.C_40_2;
+    pol ARK_40_3 = B_39_3 + poseidon2_params.C_40_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_40_0 = ARK_40_0 * ARK_40_0 * ARK_40_0 * ARK_40_0 * ARK_40_0;
@@ -841,10 +841,10 @@ namespace poseidon2(256);
 
     // Round 42 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_41_0 = B_41_0 + poseidon2_params.C_41_0;
-    pol ARK_41_1 = B_41_0 + poseidon2_params.C_41_1;
-    pol ARK_41_2 = B_41_0 + poseidon2_params.C_41_2;
-    pol ARK_41_3 = B_41_0 + poseidon2_params.C_41_3;
+    pol ARK_41_0 = B_40_0 + poseidon2_params.C_41_0;
+    pol ARK_41_1 = B_40_1 + poseidon2_params.C_41_1;
+    pol ARK_41_2 = B_40_2 + poseidon2_params.C_41_2;
+    pol ARK_41_3 = B_40_3 + poseidon2_params.C_41_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_41_0 = ARK_41_0 * ARK_41_0 * ARK_41_0 * ARK_41_0 * ARK_41_0;
@@ -860,10 +860,10 @@ namespace poseidon2(256);
 
     // Round 43 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_42_0 = B_42_0 + poseidon2_params.C_42_0;
-    pol ARK_42_1 = B_42_0 + poseidon2_params.C_42_1;
-    pol ARK_42_2 = B_42_0 + poseidon2_params.C_42_2;
-    pol ARK_42_3 = B_42_0 + poseidon2_params.C_42_3;
+    pol ARK_42_0 = B_41_0 + poseidon2_params.C_42_0;
+    pol ARK_42_1 = B_41_1 + poseidon2_params.C_42_1;
+    pol ARK_42_2 = B_41_2 + poseidon2_params.C_42_2;
+    pol ARK_42_3 = B_41_3 + poseidon2_params.C_42_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_42_0 = ARK_42_0 * ARK_42_0 * ARK_42_0 * ARK_42_0 * ARK_42_0;
@@ -879,10 +879,10 @@ namespace poseidon2(256);
 
     // Round 44 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_43_0 = B_43_0 + poseidon2_params.C_43_0;
-    pol ARK_43_1 = B_43_0 + poseidon2_params.C_43_1;
-    pol ARK_43_2 = B_43_0 + poseidon2_params.C_43_2;
-    pol ARK_43_3 = B_43_0 + poseidon2_params.C_43_3;
+    pol ARK_43_0 = B_42_0 + poseidon2_params.C_43_0;
+    pol ARK_43_1 = B_42_1 + poseidon2_params.C_43_1;
+    pol ARK_43_2 = B_42_2 + poseidon2_params.C_43_2;
+    pol ARK_43_3 = B_42_3 + poseidon2_params.C_43_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_43_0 = ARK_43_0 * ARK_43_0 * ARK_43_0 * ARK_43_0 * ARK_43_0;
@@ -898,10 +898,10 @@ namespace poseidon2(256);
 
     // Round 45 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_44_0 = B_44_0 + poseidon2_params.C_44_0;
-    pol ARK_44_1 = B_44_0 + poseidon2_params.C_44_1;
-    pol ARK_44_2 = B_44_0 + poseidon2_params.C_44_2;
-    pol ARK_44_3 = B_44_0 + poseidon2_params.C_44_3;
+    pol ARK_44_0 = B_43_0 + poseidon2_params.C_44_0;
+    pol ARK_44_1 = B_43_1 + poseidon2_params.C_44_1;
+    pol ARK_44_2 = B_43_2 + poseidon2_params.C_44_2;
+    pol ARK_44_3 = B_43_3 + poseidon2_params.C_44_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_44_0 = ARK_44_0 * ARK_44_0 * ARK_44_0 * ARK_44_0 * ARK_44_0;
@@ -917,10 +917,10 @@ namespace poseidon2(256);
 
     // Round 46 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_45_0 = B_45_0 + poseidon2_params.C_45_0;
-    pol ARK_45_1 = B_45_0 + poseidon2_params.C_45_1;
-    pol ARK_45_2 = B_45_0 + poseidon2_params.C_45_2;
-    pol ARK_45_3 = B_45_0 + poseidon2_params.C_45_3;
+    pol ARK_45_0 = B_44_0 + poseidon2_params.C_45_0;
+    pol ARK_45_1 = B_44_1 + poseidon2_params.C_45_1;
+    pol ARK_45_2 = B_44_2 + poseidon2_params.C_45_2;
+    pol ARK_45_3 = B_44_3 + poseidon2_params.C_45_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_45_0 = ARK_45_0 * ARK_45_0 * ARK_45_0 * ARK_45_0 * ARK_45_0;
@@ -936,10 +936,10 @@ namespace poseidon2(256);
 
     // Round 47 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_46_0 = B_46_0 + poseidon2_params.C_46_0;
-    pol ARK_46_1 = B_46_0 + poseidon2_params.C_46_1;
-    pol ARK_46_2 = B_46_0 + poseidon2_params.C_46_2;
-    pol ARK_46_3 = B_46_0 + poseidon2_params.C_46_3;
+    pol ARK_46_0 = B_45_0 + poseidon2_params.C_46_0;
+    pol ARK_46_1 = B_45_1 + poseidon2_params.C_46_1;
+    pol ARK_46_2 = B_45_2 + poseidon2_params.C_46_2;
+    pol ARK_46_3 = B_45_3 + poseidon2_params.C_46_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_46_0 = ARK_46_0 * ARK_46_0 * ARK_46_0 * ARK_46_0 * ARK_46_0;
@@ -955,10 +955,10 @@ namespace poseidon2(256);
 
     // Round 48 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_47_0 = B_47_0 + poseidon2_params.C_47_0;
-    pol ARK_47_1 = B_47_0 + poseidon2_params.C_47_1;
-    pol ARK_47_2 = B_47_0 + poseidon2_params.C_47_2;
-    pol ARK_47_3 = B_47_0 + poseidon2_params.C_47_3;
+    pol ARK_47_0 = B_46_0 + poseidon2_params.C_47_0;
+    pol ARK_47_1 = B_46_1 + poseidon2_params.C_47_1;
+    pol ARK_47_2 = B_46_2 + poseidon2_params.C_47_2;
+    pol ARK_47_3 = B_46_3 + poseidon2_params.C_47_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_47_0 = ARK_47_0 * ARK_47_0 * ARK_47_0 * ARK_47_0 * ARK_47_0;
@@ -974,10 +974,10 @@ namespace poseidon2(256);
 
     // Round 49 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_48_0 = B_48_0 + poseidon2_params.C_48_0;
-    pol ARK_48_1 = B_48_0 + poseidon2_params.C_48_1;
-    pol ARK_48_2 = B_48_0 + poseidon2_params.C_48_2;
-    pol ARK_48_3 = B_48_0 + poseidon2_params.C_48_3;
+    pol ARK_48_0 = B_47_0 + poseidon2_params.C_48_0;
+    pol ARK_48_1 = B_47_1 + poseidon2_params.C_48_1;
+    pol ARK_48_2 = B_47_2 + poseidon2_params.C_48_2;
+    pol ARK_48_3 = B_47_3 + poseidon2_params.C_48_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_48_0 = ARK_48_0 * ARK_48_0 * ARK_48_0 * ARK_48_0 * ARK_48_0;
@@ -993,10 +993,10 @@ namespace poseidon2(256);
 
     // Round 50 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_49_0 = B_49_0 + poseidon2_params.C_49_0;
-    pol ARK_49_1 = B_49_0 + poseidon2_params.C_49_1;
-    pol ARK_49_2 = B_49_0 + poseidon2_params.C_49_2;
-    pol ARK_49_3 = B_49_0 + poseidon2_params.C_49_3;
+    pol ARK_49_0 = B_48_0 + poseidon2_params.C_49_0;
+    pol ARK_49_1 = B_48_1 + poseidon2_params.C_49_1;
+    pol ARK_49_2 = B_48_2 + poseidon2_params.C_49_2;
+    pol ARK_49_3 = B_48_3 + poseidon2_params.C_49_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_49_0 = ARK_49_0 * ARK_49_0 * ARK_49_0 * ARK_49_0 * ARK_49_0;
@@ -1012,10 +1012,10 @@ namespace poseidon2(256);
 
     // Round 51 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_50_0 = B_50_0 + poseidon2_params.C_50_0;
-    pol ARK_50_1 = B_50_0 + poseidon2_params.C_50_1;
-    pol ARK_50_2 = B_50_0 + poseidon2_params.C_50_2;
-    pol ARK_50_3 = B_50_0 + poseidon2_params.C_50_3;
+    pol ARK_50_0 = B_49_0 + poseidon2_params.C_50_0;
+    pol ARK_50_1 = B_49_1 + poseidon2_params.C_50_1;
+    pol ARK_50_2 = B_49_2 + poseidon2_params.C_50_2;
+    pol ARK_50_3 = B_49_3 + poseidon2_params.C_50_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_50_0 = ARK_50_0 * ARK_50_0 * ARK_50_0 * ARK_50_0 * ARK_50_0;
@@ -1031,10 +1031,10 @@ namespace poseidon2(256);
 
     // Round 52 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_51_0 = B_51_0 + poseidon2_params.C_51_0;
-    pol ARK_51_1 = B_51_0 + poseidon2_params.C_51_1;
-    pol ARK_51_2 = B_51_0 + poseidon2_params.C_51_2;
-    pol ARK_51_3 = B_51_0 + poseidon2_params.C_51_3;
+    pol ARK_51_0 = B_50_0 + poseidon2_params.C_51_0;
+    pol ARK_51_1 = B_50_1 + poseidon2_params.C_51_1;
+    pol ARK_51_2 = B_50_2 + poseidon2_params.C_51_2;
+    pol ARK_51_3 = B_50_3 + poseidon2_params.C_51_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_51_0 = ARK_51_0 * ARK_51_0 * ARK_51_0 * ARK_51_0 * ARK_51_0;
@@ -1050,10 +1050,10 @@ namespace poseidon2(256);
 
     // Round 53 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_52_0 = B_52_0 + poseidon2_params.C_52_0;
-    pol ARK_52_1 = B_52_0 + poseidon2_params.C_52_1;
-    pol ARK_52_2 = B_52_0 + poseidon2_params.C_52_2;
-    pol ARK_52_3 = B_52_0 + poseidon2_params.C_52_3;
+    pol ARK_52_0 = B_51_0 + poseidon2_params.C_52_0;
+    pol ARK_52_1 = B_51_1 + poseidon2_params.C_52_1;
+    pol ARK_52_2 = B_51_2 + poseidon2_params.C_52_2;
+    pol ARK_52_3 = B_51_3 + poseidon2_params.C_52_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_52_0 = ARK_52_0 * ARK_52_0 * ARK_52_0 * ARK_52_0 * ARK_52_0;
@@ -1069,10 +1069,10 @@ namespace poseidon2(256);
 
     // Round 54 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_53_0 = B_53_0 + poseidon2_params.C_53_0;
-    pol ARK_53_1 = B_53_0 + poseidon2_params.C_53_1;
-    pol ARK_53_2 = B_53_0 + poseidon2_params.C_53_2;
-    pol ARK_53_3 = B_53_0 + poseidon2_params.C_53_3;
+    pol ARK_53_0 = B_52_0 + poseidon2_params.C_53_0;
+    pol ARK_53_1 = B_52_1 + poseidon2_params.C_53_1;
+    pol ARK_53_2 = B_52_2 + poseidon2_params.C_53_2;
+    pol ARK_53_3 = B_52_3 + poseidon2_params.C_53_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_53_0 = ARK_53_0 * ARK_53_0 * ARK_53_0 * ARK_53_0 * ARK_53_0;
@@ -1088,10 +1088,10 @@ namespace poseidon2(256);
 
     // Round 55 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_54_0 = B_54_0 + poseidon2_params.C_54_0;
-    pol ARK_54_1 = B_54_0 + poseidon2_params.C_54_1;
-    pol ARK_54_2 = B_54_0 + poseidon2_params.C_54_2;
-    pol ARK_54_3 = B_54_0 + poseidon2_params.C_54_3;
+    pol ARK_54_0 = B_53_0 + poseidon2_params.C_54_0;
+    pol ARK_54_1 = B_53_1 + poseidon2_params.C_54_1;
+    pol ARK_54_2 = B_53_2 + poseidon2_params.C_54_2;
+    pol ARK_54_3 = B_53_3 + poseidon2_params.C_54_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_54_0 = ARK_54_0 * ARK_54_0 * ARK_54_0 * ARK_54_0 * ARK_54_0;
@@ -1107,10 +1107,10 @@ namespace poseidon2(256);
 
     // Round 56 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_55_0 = B_55_0 + poseidon2_params.C_55_0;
-    pol ARK_55_1 = B_55_0 + poseidon2_params.C_55_1;
-    pol ARK_55_2 = B_55_0 + poseidon2_params.C_55_2;
-    pol ARK_55_3 = B_55_0 + poseidon2_params.C_55_3;
+    pol ARK_55_0 = B_54_0 + poseidon2_params.C_55_0;
+    pol ARK_55_1 = B_54_1 + poseidon2_params.C_55_1;
+    pol ARK_55_2 = B_54_2 + poseidon2_params.C_55_2;
+    pol ARK_55_3 = B_54_3 + poseidon2_params.C_55_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_55_0 = ARK_55_0 * ARK_55_0 * ARK_55_0 * ARK_55_0 * ARK_55_0;
@@ -1126,10 +1126,10 @@ namespace poseidon2(256);
 
     // Round 57 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_56_0 = B_56_0 + poseidon2_params.C_56_0;
-    pol ARK_56_1 = B_56_0 + poseidon2_params.C_56_1;
-    pol ARK_56_2 = B_56_0 + poseidon2_params.C_56_2;
-    pol ARK_56_3 = B_56_0 + poseidon2_params.C_56_3;
+    pol ARK_56_0 = B_55_0 + poseidon2_params.C_56_0;
+    pol ARK_56_1 = B_55_1 + poseidon2_params.C_56_1;
+    pol ARK_56_2 = B_55_2 + poseidon2_params.C_56_2;
+    pol ARK_56_3 = B_55_3 + poseidon2_params.C_56_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_56_0 = ARK_56_0 * ARK_56_0 * ARK_56_0 * ARK_56_0 * ARK_56_0;
@@ -1145,10 +1145,10 @@ namespace poseidon2(256);
 
     // Round 58 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_57_0 = B_57_0 + poseidon2_params.C_57_0;
-    pol ARK_57_1 = B_57_0 + poseidon2_params.C_57_1;
-    pol ARK_57_2 = B_57_0 + poseidon2_params.C_57_2;
-    pol ARK_57_3 = B_57_0 + poseidon2_params.C_57_3;
+    pol ARK_57_0 = B_56_0 + poseidon2_params.C_57_0;
+    pol ARK_57_1 = B_56_1 + poseidon2_params.C_57_1;
+    pol ARK_57_2 = B_56_2 + poseidon2_params.C_57_2;
+    pol ARK_57_3 = B_56_3 + poseidon2_params.C_57_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_57_0 = ARK_57_0 * ARK_57_0 * ARK_57_0 * ARK_57_0 * ARK_57_0;
@@ -1164,10 +1164,10 @@ namespace poseidon2(256);
 
     // Round 59 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_58_0 = B_58_0 + poseidon2_params.C_58_0;
-    pol ARK_58_1 = B_58_0 + poseidon2_params.C_58_1;
-    pol ARK_58_2 = B_58_0 + poseidon2_params.C_58_2;
-    pol ARK_58_3 = B_58_0 + poseidon2_params.C_58_3;
+    pol ARK_58_0 = B_57_0 + poseidon2_params.C_58_0;
+    pol ARK_58_1 = B_57_1 + poseidon2_params.C_58_1;
+    pol ARK_58_2 = B_57_2 + poseidon2_params.C_58_2;
+    pol ARK_58_3 = B_57_3 + poseidon2_params.C_58_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_58_0 = ARK_58_0 * ARK_58_0 * ARK_58_0 * ARK_58_0 * ARK_58_0;
@@ -1183,10 +1183,10 @@ namespace poseidon2(256);
 
     // Round 60 (Partial Round)
     // ARK (Add Round Constant)
-    pol ARK_59_0 = B_59_0 + poseidon2_params.C_59_0;
-    pol ARK_59_1 = B_59_0 + poseidon2_params.C_59_1;
-    pol ARK_59_2 = B_59_0 + poseidon2_params.C_59_2;
-    pol ARK_59_3 = B_59_0 + poseidon2_params.C_59_3;
+    pol ARK_59_0 = B_58_0 + poseidon2_params.C_59_0;
+    pol ARK_59_1 = B_58_1 + poseidon2_params.C_59_1;
+    pol ARK_59_2 = B_58_2 + poseidon2_params.C_59_2;
+    pol ARK_59_3 = B_58_3 + poseidon2_params.C_59_3;
 
     // S-BOX (In partial round only first input is exponentiated)
     pol A_59_0 = ARK_59_0 * ARK_59_0 * ARK_59_0 * ARK_59_0 * ARK_59_0;
@@ -1299,7 +1299,7 @@ namespace poseidon2(256);
     // PERMUTATION END
     /////////////////////////////////////////////////////
     // Check output against claimed output
-    // b_0 - T_63_6 = 0;
+    b_0 - T_63_6 = 0;
     // b_1 - T_63_5 = 0;
     // b_2 - T_63_7 = 0;
-    // b_2 - T_63_4 = 0;
+    // b_3 - T_63_4 = 0;
