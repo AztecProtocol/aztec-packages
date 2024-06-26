@@ -500,25 +500,16 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                     match output {
                         ForeignCallParam::Array(values) => {
                             if values.len() != *size {
-                                // foreign call returning flattened values into a nested type, so the sizes do not match
-                               let destination = self.memory.read_ref(*pointer_index);
-                               let return_type = value_type;
-                               let mut flatten_values_idx = 0; //index of values read from flatten_values
-                               self.write_slice_of_values_to_memory(destination, &output.fields(), &mut flatten_values_idx, return_type)?;
-                            } else {
+                                    return Err("Foreign call result array doesn't match expected size".to_string());
+                                }
                                 self.write_values_to_memory_slice(*pointer_index, values, value_types)?;
                             }
-                        }
                         _ => {
                             return Err("Function result size does not match brillig bytecode size".to_string());
                         }
                     }
                 } else {
-                    // foreign call returning flattened values into a nested type, so the sizes do not match
-                    let destination = self.memory.read_ref(*pointer_index);
-                    let return_type = value_type;
-                    let mut flatten_values_idx = 0; //index of values read from flatten_values
-                    self.write_slice_of_values_to_memory(destination, &output.fields(), &mut flatten_values_idx, return_type)?;
+                        unimplemented!("deflattening heap arrays from foreign calls");
             }
         }
             (
@@ -530,8 +521,8 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                         ForeignCallParam::Array(values) => {
                             // Set our size in the size address
                             self.memory.write(*size_index, values.len().into());
-                            self.write_values_to_memory_slice(*pointer_index, values, value_types)?;
 
+                            self.write_values_to_memory_slice(*pointer_index, values, value_types)?;
                         }
                         _ => {
                             return Err("Function result size does not match brillig bytecode size".to_string());
@@ -603,66 +594,6 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
             ));
         }
         Ok(())
-    }
-
-    /// Writes flattened values to memory, using the provided type
-    /// Function calls itself recursively in order to work with recursive types (nested arrays)
-    /// values_idx is the current index in the values vector and is incremented every time
-    /// a value is written to memory
-    /// The function returns the address of the next value to be written
-    fn write_slice_of_values_to_memory(
-        &mut self,
-        destination: MemoryAddress,
-        values: &Vec<F>,
-        values_idx: &mut usize,
-        value_type: &HeapValueType,
-    ) -> Result<MemoryAddress, String> {
-        let mut current_pointer = destination;
-        match value_type {
-            HeapValueType::Simple(bit_size) => {
-                self.write_value_to_memory(destination, &values[*values_idx], *bit_size)?;
-                *values_idx += 1;
-                Ok(MemoryAddress(destination.to_usize() + 1))
-            }
-            HeapValueType::Array { value_types, size } => {
-                for _ in 0..*size {
-                    for typ in value_types {
-                        match typ {
-                            HeapValueType::Simple(len) => {
-                                self.write_value_to_memory(
-                                    current_pointer,
-                                    &values[*values_idx],
-                                    *len,
-                                )?;
-                                *values_idx += 1;
-                                current_pointer = MemoryAddress(current_pointer.to_usize() + 1);
-                            }
-                            HeapValueType::Array { .. } => {
-                                let destination = self.memory.read_ref(current_pointer);
-                                let destination = self.memory.read_ref(destination);
-                                self.write_slice_of_values_to_memory(
-                                    destination,
-                                    values,
-                                    values_idx,
-                                    typ,
-                                )?;
-                                current_pointer = MemoryAddress(current_pointer.to_usize() + 1);
-                            }
-                            HeapValueType::Vector { .. } => {
-                                return Err(format!(
-                                    "Unsupported returned type in foreign calls {:?}",
-                                    typ
-                                ));
-                            }
-                        }
-                    }
-                }
-                Ok(current_pointer)
-            }
-            HeapValueType::Vector { .. } => {
-                Err(format!("Unsupported returned type in foreign calls {:?}", value_type))
-            }
-        }
     }
 
     /// Process a binary operation.
