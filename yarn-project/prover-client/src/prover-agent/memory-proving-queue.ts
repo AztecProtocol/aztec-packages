@@ -41,8 +41,11 @@ type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = {
 } & PromiseWithResolvers<ProvingRequestResult<T['type']>>;
 
 const MAX_RETRIES = 3;
-
-const defaultIdGenerator = () => randomBytes(4, /* never mocked to same value */true).toString('hex');
+const defaultIdGenerator = () =>
+  randomBytes(
+    4,
+    /* Randomness group used only when passing SEED for deterministic tests */ 'MemoryProvingQueue.id',
+  ).toString('hex');
 const defaultTimeSource = () => Date.now();
 
 /**
