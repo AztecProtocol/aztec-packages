@@ -1440,6 +1440,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
   return new CombinedConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
+    mapFieldFromNoir(combinedConstantData.vk_tree_root),
     mapGlobalVariablesFromNoir(combinedConstantData.global_variables),
   );
 }
@@ -1453,6 +1454,7 @@ export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedCons
   return {
     historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
+    vk_tree_root: mapFieldToNoir(combinedConstantData.vkTreeRoot),
     global_variables: mapGlobalVariablesToNoir(combinedConstantData.globalVariables),
   };
 }
@@ -2394,6 +2396,7 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
     historical_header: mapHeaderToNoir(inputs.header),
     chain_id: mapFieldToNoir(inputs.chainId),
     version: mapFieldToNoir(inputs.version),
+    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
   };
 }
 

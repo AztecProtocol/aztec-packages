@@ -1,6 +1,6 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, getMockVerificationKeys } from '@aztec/circuits.js';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -47,12 +47,7 @@ describe('prover/bb_prover/full-rollup', () => {
     );
 
     logger.info(`Starting new block`);
-    const provingTicket = await context.orchestrator.startNewBlock(
-      totalTxs,
-      context.globalVariables,
-      l1ToL2Messages,
-      getMockVerificationKeys(),
-    );
+    const provingTicket = await context.orchestrator.startNewBlock(totalTxs, context.globalVariables, l1ToL2Messages);
 
     logger.info(`Processing public functions`);
     const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
@@ -94,7 +89,6 @@ describe('prover/bb_prover/full-rollup', () => {
       numTransactions,
       context.globalVariables,
       l1ToL2Messages,
-      getMockVerificationKeys(),
     );
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);

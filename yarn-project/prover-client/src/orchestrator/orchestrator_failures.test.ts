@@ -1,5 +1,4 @@
 import { PROVING_STATUS, type ServerCircuitProver } from '@aztec/circuit-types';
-import { getMockVerificationKeys } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -73,13 +72,7 @@ describe('prover/orchestrator/failures', () => {
         makeEmptyProcessedTestTx(context.actualDb),
       ]);
 
-      const blockTicket = await orchestrator.startNewBlock(
-        txs.length,
-        context.globalVariables,
-        [],
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket = await orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
         await orchestrator.addNewTx(tx);

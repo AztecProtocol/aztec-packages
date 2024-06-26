@@ -1,5 +1,5 @@
 import { PROVING_STATUS } from '@aztec/circuit-types';
-import { Fr, getMockVerificationKeys } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
@@ -29,13 +29,7 @@ describe('prover/orchestrator/errors', () => {
         makeBloatedProcessedTx(context.actualDb, 4),
       ]);
 
-      const blockTicket = await context.orchestrator.startNewBlock(
-        txs.length,
-        context.globalVariables,
-        [],
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -76,13 +70,7 @@ describe('prover/orchestrator/errors', () => {
         makeEmptyProcessedTestTx(context.actualDb),
       ]);
 
-      const blockTicket = await context.orchestrator.startNewBlock(
-        txs.length,
-        context.globalVariables,
-        [],
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -96,13 +84,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding to a cancelled block', async () => {
-      await context.orchestrator.startNewBlock(
-        2,
-        context.globalVariables,
-        [],
-
-        getMockVerificationKeys(),
-      );
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       context.orchestrator.cancelBlock();
 
@@ -115,14 +97,7 @@ describe('prover/orchestrator/errors', () => {
       'fails to start a block with %i transactions',
       async (blockSize: number) => {
         await expect(
-          async () =>
-            await context.orchestrator.startNewBlock(
-              blockSize,
-              context.globalVariables,
-              [],
-
-              getMockVerificationKeys(),
-            ),
+          async () => await context.orchestrator.startNewBlock(blockSize, context.globalVariables, []),
         ).rejects.toThrow(`Length of txs for the block should be a power of two and at least two (got ${blockSize})`);
       },
     );
@@ -131,14 +106,7 @@ describe('prover/orchestrator/errors', () => {
       // Assemble a fake transaction
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
       await expect(
-        async () =>
-          await context.orchestrator.startNewBlock(
-            2,
-            context.globalVariables,
-            l1ToL2Messages,
-
-            getMockVerificationKeys(),
-          ),
+        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, l1ToL2Messages),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });

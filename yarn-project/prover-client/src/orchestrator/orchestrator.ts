@@ -43,7 +43,6 @@ import {
   RootParityInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
-  type VerificationKeys,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -53,6 +52,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { ProtocolCircuitVks, getVKTree } from '@aztec/noir-protocol-circuits-types';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -112,7 +112,6 @@ export class ProvingOrchestrator {
     numTxs: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
-    verificationKeys: VerificationKeys,
   ): Promise<ProvingTicket> {
     // Create initial header if not done so yet
     if (!this.initialHeader) {
@@ -174,7 +173,6 @@ export class ProvingOrchestrator {
       baseParityInputs.length,
       messageTreeSnapshot,
       newL1ToL2MessageTreeRootSiblingPath,
-      verificationKeys,
     );
 
     for (let i = 0; i < baseParityInputs.length; i++) {
@@ -273,6 +271,7 @@ export class ProvingOrchestrator {
             chainId: unprovenPaddingTx.data.constants.txContext.chainId,
             version: unprovenPaddingTx.data.constants.txContext.version,
             header: unprovenPaddingTx.data.constants.historicalHeader,
+            vkTreeRoot: Fr.fromBuffer(getVKTree().root),
           },
           signal,
         ),
@@ -395,7 +394,8 @@ export class ProvingOrchestrator {
   private async prepareTransaction(tx: ProcessedTx, provingState: ProvingState) {
     // Pass the private kernel tail vk here as the previous one.
     // If there are public functions then this key will be overwritten once the public tail has been proven
-    const previousKernelVerificationKey = provingState.privateKernelVerificationKeys.privateKernelCircuit;
+    // TODO(Alvaro) what about the private kernel empty? we should probably use that one if it's a padding tx
+    const previousKernelVerificationKey = ProtocolCircuitVks.PrivateKernelTailArtifact;
 
     const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
     if (!txInputs) {
@@ -415,7 +415,7 @@ export class ProvingOrchestrator {
       tx,
       inputs,
       treeSnapshots,
-      provingState.privateKernelVerificationKeys.privateKernelToPublicCircuit,
+      ProtocolCircuitVks.PrivateKernelTailToPublicArtifact,
     );
     const txIndex = provingState.addNewTx(txProvingState);
     const numPublicKernels = txProvingState.getNumPublicKernels();

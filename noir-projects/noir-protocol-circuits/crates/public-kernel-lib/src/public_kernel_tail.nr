@@ -66,10 +66,11 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
-        // verify the previous kernel proof
-        self.previous_kernel.verify();
-        self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-
+        if !dep::std::runtime::is_unconstrained() {
+            // verify the previous kernel proof
+            self.previous_kernel.verify();
+            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
         self.validate_inputs();
 
         self.validate_public_data_hints();

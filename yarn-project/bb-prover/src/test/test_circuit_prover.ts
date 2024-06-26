@@ -80,7 +80,13 @@ export class TestCircuitProver implements ServerCircuitProver {
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
       ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
-    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
+    const kernelInputs = new PrivateKernelEmptyInputs(
+      emptyNested,
+      inputs.header,
+      inputs.chainId,
+      inputs.version,
+      inputs.vkTreeRoot,
+    );
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
     const witness = await this.wasmSimulator.simulateCircuit(
       witnessMap,

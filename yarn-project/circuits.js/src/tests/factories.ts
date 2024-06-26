@@ -194,7 +194,12 @@ export function makeTxContext(seed: number = 1): TxContext {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGlobalVariables(seed + 5));
+  return new CombinedConstantData(
+    makeHeader(seed, undefined),
+    makeTxContext(seed + 4),
+    new Fr(seed + 1),
+    makeGlobalVariables(seed + 5),
+  );
 }
 
 /**
@@ -319,7 +324,12 @@ export function makeRollupValidationRequests(seed = 1) {
 }
 
 export function makeCombinedConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed), makeTxContext(seed + 0x100), makeGlobalVariables(seed + 0x200));
+  return new CombinedConstantData(
+    makeHeader(seed),
+    makeTxContext(seed + 0x100),
+    new Fr(seed + 0x200),
+    makeGlobalVariables(seed + 0x300),
+  );
 }
 
 /**

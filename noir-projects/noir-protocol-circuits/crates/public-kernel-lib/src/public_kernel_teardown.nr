@@ -105,9 +105,11 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     }
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
-        // verify the previous kernel proof
-        self.previous_kernel.verify();
-        self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        if !dep::std::runtime::is_unconstrained() {
+            // verify the previous kernel proof
+            self.previous_kernel.verify();
+            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

@@ -27,11 +27,13 @@ impl MergeRollupInputs {
         // we don't have a set of permitted kernel vks yet.
 
         // Verify the previous rollup proofs
-        self.previous_rollup_data[0].verify();
-        self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_rollup_data[0].verify();
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
-        self.previous_rollup_data[1].verify();
-        self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].verify();
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;

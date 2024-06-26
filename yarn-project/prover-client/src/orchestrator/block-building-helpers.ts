@@ -48,10 +48,6 @@ import { getVKTree } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-// Denotes fields that are not used now, but will be in the future
-const FUTURE_FR = new Fr(0n);
-const FUTURE_NUM = 0;
-
 // Denotes fields that should be deleted
 const DELETE_FR = new Fr(0n);
 
@@ -294,7 +290,7 @@ export async function getConstantRollupData(
   return ConstantRollupData.from({
     baseRollupVkHash: DELETE_FR,
     mergeRollupVkHash: DELETE_FR,
-    vkTreeRoot: FUTURE_FR,
+    vkTreeRoot: Fr.fromBuffer(getVKTree().root),
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,
   });
@@ -307,6 +303,10 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
 
 export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
   const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
+  const vkTree = getVKTree();
+  const leafIndex = vkTree.getIndex(vk.keyAsFields.hash.toBuffer());
+  console.log('Leaf index for kernel data', leafIndex, 'hash', vk.keyAsFields.hash.toString());
+
   return new KernelData(
     tx.data,
     recursiveProof,
@@ -314,9 +314,11 @@ export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): Kern
     // VK for the kernel circuit
     vk,
 
-    // MembershipWitness for a VK tree to be implemented in the future
-    FUTURE_NUM,
-    assertLength(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
+    leafIndex,
+    assertLength<Fr, typeof VK_TREE_HEIGHT>(
+      vkTree.getSiblingPath(leafIndex).map(buf => new Fr(buf)),
+      VK_TREE_HEIGHT,
+    ),
   );
 }
 

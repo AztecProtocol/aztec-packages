@@ -41,12 +41,14 @@ struct RootRollupInputs {
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
-        self.previous_rollup_data[0].verify();
-        self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-
-        self.previous_rollup_data[1].verify();
-        self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_rollup_data[0].verify();
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_rollup_data[1].verify();
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
         // verify the root parity
         self.l1_to_l2_roots.verify();
 

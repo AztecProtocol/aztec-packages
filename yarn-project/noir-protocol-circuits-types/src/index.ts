@@ -383,6 +383,12 @@ export function convertPrivateKernelEmptyInputsToWitnessMap(inputs: PrivateKerne
  */
 export function convertSimulatedBaseRollupInputsToWitnessMap(inputs: BaseRollupInputs): WitnessMap {
   const mapped = mapBaseRollupInputsToNoir(inputs);
+  console.log(
+    'Simulated base rollup inputs',
+    JSON.stringify({
+      inputs: mapped,
+    }),
+  );
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.BaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
