@@ -1,28 +1,6 @@
-<<<<<<< HEAD
 import { type CompleteAddress, type MerkleTreeId, type Note, type NoteStatus, type NullifierMembershipWitness, type PublicDataWitness, type PublicKey, type SiblingPath, type UnencryptedL2Log } from '@aztec/circuit-types';
 import { type Header, type KeyValidationRequest, type L1_TO_L2_MSG_TREE_HEIGHT, type PrivateCallStackItem, type PublicCallRequest } from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
-=======
-import {
-  type CompleteAddress,
-  type MerkleTreeId,
-  type Note,
-  type NoteStatus,
-  type NullifierMembershipWitness,
-  type PublicDataWitness,
-  type PublicKey,
-  type SiblingPath,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type Header,
-  type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type PrivateCallStackItem,
-  type PublicCallRequest,
-} from '@aztec/circuits.js';
-import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
->>>>>>> origin/master
+import { type NoteSelector, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';

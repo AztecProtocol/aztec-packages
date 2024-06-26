@@ -10,7 +10,7 @@ import path from "path";
 import { ClassConverter, type ClassConverterInput } from "../../../foundation/src/json-rpc/class_converter.js";
 import { convertFromJsonBuffer, convertToJsonBuffer } from "../../../foundation/src/json-rpc/convert.js";
 
-const SHOULD_USE_PROVER_CACHE = true; //!!process.env.PROVER_CACHE || !!process.env.PROVER_CACHE_DIR;
+const SHOULD_USE_PROVER_CACHE = !!process.env.PROVER_CACHE || !!process.env.PROVER_CACHE_DIR;
 const PROVER_CACHE_DIR = process.env.PROVER_CACHE_DIR || path.join(os.homedir(), '.aztec', 'proof-cache');
 
 export const PROVER_CLASS_CONVERTER_INPUT = {

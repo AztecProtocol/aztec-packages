@@ -34,7 +34,6 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
   return new JsonRpcServer(
     pxeService,
     {
-<<<<<<< HEAD
       fromString: {
         CompleteAddress,
         AztecAddress,
@@ -52,27 +51,9 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
         L2Block,
         TxEffect,
         LogId,
+        NoteSelector,
       },
       fromJSON: { SimulatedTx, Tx, TxReceipt, EncryptedNoteL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness }
-=======
-      CompleteAddress,
-      AztecAddress,
-      TxExecutionRequest,
-      ExtendedUnencryptedL2Log,
-      FunctionSelector,
-      TxHash,
-      EthAddress,
-      Point,
-      Fr,
-      GrumpkinScalar,
-      Note,
-      ExtendedNote,
-      AuthWitness,
-      L2Block,
-      TxEffect,
-      LogId,
-      NoteSelector,
->>>>>>> origin/master
     },
     ['start', 'stop'],
   );
