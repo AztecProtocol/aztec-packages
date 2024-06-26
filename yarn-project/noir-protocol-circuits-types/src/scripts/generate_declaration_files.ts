@@ -9,7 +9,7 @@ const circuit: NoirCompiledCircuit;
 export = circuit;
 `;
 
-const target = fileURLToPath(new URL('../target', import.meta.url).href);
+const target = fileURLToPath(new URL('../../artifacts', import.meta.url).href);
 const files = await readdir(target);
 for (const file of files) {
   const name = file.replace('.json', '');

@@ -26,6 +26,7 @@ end-to-end/src/web/main.js
 end-to-end/src/web/main.js.LICENSE.txt
 l1-artifacts/generated
 l1-contracts/generated
+noir-protocol-circuits-types/artifacts
 builder/target/
 builder/proofs/
 builder/Prover.toml
