@@ -7,9 +7,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## 0.44.0
-
 ### [Aztec.nr] Autogenerate Serialize methods for events
-
 ```diff
 #[aztec(event)]
 struct WithdrawalProcessed {
@@ -25,11 +23,10 @@ struct WithdrawalProcessed {
 ```
 
 ### [Aztec.nr] rename `encode_and_encrypt_with_keys` to `encode_and_encrypt_note_with_keys`
-
-````diff
+```diff
 contract XYZ {
 -   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys;
-+   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;    
 ....
 
 -    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
@@ -89,7 +86,7 @@ These changes were done because having the note hash exposed allowed us to not h
 +        (note_hash_for_nullify, nullifier)
 +    }
 + }
-````
+```
 
 ### [Aztec.nr] `note_getter` returns `BoundedVec`
 
@@ -646,7 +643,7 @@ This change was made to communicate that we do not constrain the value in circui
 Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
 This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
 It is not possible to call `simulate` on any call to get the return values!
-However, beware that it currently always returns a Field array of size 4 for private and public.
+However, beware that it currently always returns a Field array of size 4 for private and public.  
 This will change to become similar to the return values of the `unconstrained` functions with proper return types.
 
 ```diff
