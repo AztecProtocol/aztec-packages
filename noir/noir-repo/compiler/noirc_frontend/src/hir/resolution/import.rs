@@ -158,12 +158,7 @@ fn resolve_path_to_ns(
             let first_segment = import_path.first().expect("ice: could not fetch first segment");
             if current_mod.find_name(first_segment).is_none() {
                 // Resolve externally when first segment is unresolved
-                return resolve_external_dep(
-                    def_map,
-                    import_directive,
-                    def_maps,
-                    importing_crate,
-                );
+                return resolve_external_dep(def_map, import_directive, def_maps, importing_crate);
             }
 
             resolve_name_in_module(
@@ -175,14 +170,11 @@ fn resolve_path_to_ns(
             )
         }
 
-        crate::ast::PathKind::Dep => resolve_external_dep(
-            def_map,
-            import_directive,
-            def_maps,
-            importing_crate,
-        ),
+        crate::ast::PathKind::Dep => {
+            resolve_external_dep(def_map, import_directive, def_maps, importing_crate)
+        }
     }
-}   
+}
 
 fn resolve_path_from_crate_root(
     crate_id: CrateId,
