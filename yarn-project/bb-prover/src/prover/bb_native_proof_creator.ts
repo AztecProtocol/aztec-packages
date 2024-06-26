@@ -408,7 +408,7 @@ export class BBNativeProofCreator implements ProofCreator {
       const vkData = await extractVkData(directory);
       const proof = await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
 
-      this.log.debug(`Generated proof`, {
+      this.log.info(`Generated proof`, {
         eventName: 'circuit-proving',
         circuitName: 'app-circuit',
         duration: provingResult.duration,
@@ -465,7 +465,7 @@ export class BBNativeProofCreator implements ProofCreator {
     // const numPublicInputs =
     //   circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
-    this.log.debug(
+    this.log.info(
       `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
     const proof = new RecursiveProof<PROOF_LENGTH>(
