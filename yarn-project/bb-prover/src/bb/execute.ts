@@ -222,12 +222,12 @@ export async function executeBbClientIvcProof(
     };
 
     const result = await executeBB(pathToBB, 'client_ivc_prove_output_all_msgpack', args, logFunction);
-    const duration = timer.ms();
+    const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
-        duration,
+        durationMs,
         proofPath: `${outputPath}`,
         pkPath: undefined,
         vkPath: `${outputPath}`,
@@ -406,12 +406,12 @@ export async function generateTubeProof(
       log(`TubeCircuit (prove) BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
-    const duration = timer.ms();
+    const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
-        duration,
+        durationMs,
         // proofPath: join(outputPath, PROOF_FILENAME),
         proofPath: outputPath,
         pkPath: undefined,

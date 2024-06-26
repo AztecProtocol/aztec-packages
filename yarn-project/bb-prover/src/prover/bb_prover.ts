@@ -575,7 +575,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const tubeResultPath = path.join(os.homedir(), '.aztec', 'cache', hash);
     try {
       await fs.access(path.join(tubeResultPath, 'success.txt'));
-      return { status: BB_RESULT.SUCCESS, duration: 0, proofPath: tubeResultPath, vkPath: tubeResultPath };
+      return { status: BB_RESULT.SUCCESS, durationMs: 0, proofPath: tubeResultPath, vkPath: tubeResultPath };
     } catch {
       await fs.mkdir(tubeResultPath, { recursive: true });
 
@@ -647,7 +647,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
 
       logger.info(
-        `Generated proof for tubeCircuit in ${Math.ceil(provingResult.duration)} ms, size: ${
+        `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
           tubeProof.proof.length
         } fields`,
         // TODO: make this for tube

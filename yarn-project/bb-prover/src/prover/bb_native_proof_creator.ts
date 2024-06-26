@@ -101,7 +101,7 @@ export class BBNativeProofCreator implements ProofCreator {
     const proof = await ClientIvcProof.readFromOutputDirectory(directory);
 
     this.log.info(`Generated IVC proof`, {
-      duration: provingResult.duration,
+      duration: provingResult.durationMs,
       eventName: 'circuit-proving',
     });
 

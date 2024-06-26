@@ -4,6 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 const logger = createDebugLogger('aztec:bb-prover-base-rollup');
 
@@ -15,7 +16,7 @@ describe('prover/bb_prover/tube-rollup', () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
       // TODO: put proper path heree
       bbConfig.bbWorkingDirectory = '/mnt/user-data/mara/aztec-packages/barretenberg/cpp/build/bin/proofs';
-      prover = await BBNativeRollupProver.new(bbConfig);
+      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient);
       return prover;
     };
     context = await TestContext.new(logger, 1, buildProver);
