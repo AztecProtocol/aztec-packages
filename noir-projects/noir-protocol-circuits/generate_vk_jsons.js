@@ -98,11 +98,11 @@ async function main() {
     .filter((pathname) => pathname.endsWith(".json"))
     .map((pathname) => path.basename(pathname, ".json"));
 
-  await Promise.all(artifactNames.map(processArtifact));
+  // await Promise.all(artifactNames.map(processArtifact));
 
-  // for (const artifactName of artifactNames) {
-  //   await processArtifact(artifactName);
-  // }
+  for (const artifactName of artifactNames) {
+    await processArtifact(artifactName);
+  }
 }
 
 main().catch((err) => {
