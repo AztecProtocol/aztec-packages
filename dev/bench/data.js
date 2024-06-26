@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719420861746,
+  "lastUpdate": 1719422207716,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -55152,6 +55152,74 @@ window.BENCHMARK_DATA = {
             "value": 161754685,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161754685 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "242c9e6b092b233988f55a65767b5dc517e993e1",
+          "message": "feat: databus allows arbitrarily many reads per index",
+          "timestamp": "2024-06-26T16:40:22Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6524/commits/242c9e6b092b233988f55a65767b5dc517e993e1"
+        },
+        "date": 1719422204362,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15273.818707999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10601.571322000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4735.443867000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4299.959025000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 47575.617192000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 47575618000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14481.422711000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14481422000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4494101169,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4494101169 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199095202,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199095202 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3751415284,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3751415284 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164492933,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164492933 ns\nthreads: 1"
           }
         ]
       }
