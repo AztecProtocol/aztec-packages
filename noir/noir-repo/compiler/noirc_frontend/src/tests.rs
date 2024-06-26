@@ -14,7 +14,6 @@ use fm::FileId;
 use iter_extended::vecmap;
 use noirc_errors::Location;
 
-use crate::hir::comptime::InterpreterError;
 use crate::hir::def_collector::dc_crate::CompilationError;
 use crate::hir::def_collector::errors::{DefCollectorErrorKind, DuplicateType};
 use crate::hir::def_map::ModuleData;
