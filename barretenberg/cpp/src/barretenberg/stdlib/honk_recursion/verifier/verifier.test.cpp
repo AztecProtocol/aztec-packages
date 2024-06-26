@@ -397,7 +397,7 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
     if constexpr (std::same_as<TypeParam, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();
     } else {
-        GTEST_FAIL() << "Not built for this parameter";
+        GTEST_SKIP() << "Not built for this parameter";
     }
 };
 
