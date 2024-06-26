@@ -2649,6 +2649,8 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
                           { hint.success });
     external_call_counter++;
     pc++;
+    // Adjust the side_effect_counter to the the value at the end of the external call.
+    side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
 }
 
 void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)

@@ -247,7 +247,12 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       result.startGasLeft.l2Gas - result.endGasLeft.l2Gas,
     );
     this.avmCircuitHints.externalCalls.items.push(
-      new AvmExternalCallHint(/*success=*/ new Fr(result.reverted ? 0 : 1), result.returnValues, gasUsed),
+      new AvmExternalCallHint(
+        /*success=*/ new Fr(result.reverted ? 0 : 1),
+        result.returnValues,
+        gasUsed,
+        result.endSideEffectCounter,
+      ),
     );
   }
 
