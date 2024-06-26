@@ -19,7 +19,7 @@ import {
   makeCombinedConstantData,
   makePublicCallRequest,
 } from '@aztec/circuits.js/testing';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -203,8 +203,10 @@ export const randomContractArtifact = (): ContractArtifact => ({
   notes: {},
 });
 
-export const randomContractInstanceWithAddress = (opts: { contractClassId?: Fr } = {}): ContractInstanceWithAddress =>
-  SerializableContractInstance.random(opts).withAddress(AztecAddress.random());
+export const randomContractInstanceWithAddress = (
+  opts: { contractClassId?: Fr } = {},
+  address: AztecAddress = AztecAddress.random(),
+): ContractInstanceWithAddress => SerializableContractInstance.random(opts).withAddress(address);
 
 export const randomDeployedContract = () => {
   const artifact = randomContractArtifact();
@@ -218,7 +220,7 @@ export const randomExtendedNote = ({
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = Fr.random(),
+  noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
 };
