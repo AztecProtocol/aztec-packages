@@ -12,8 +12,9 @@ pub fn conditional_assign(predicate: bool, lhs: Field, rhs: Field) -> Field {
     if predicate { lhs } else { rhs }
 }
 
-pub fn arr_copy_slice<T, N, M>(src: [T; N], mut dst: [T; M], offset: u64) -> [T; M] {
-    for i in 0..dst.len() {
+pub fn arr_copy_slice<T, N, M>(src: [T; N], mut dst: [T; M], offset: u32) -> [T; M] {
+    let iterator_len = if N > M { M } else { N };
+    for i in 0..iterator_len {
         dst[i] = src[i + offset];
     }
     dst

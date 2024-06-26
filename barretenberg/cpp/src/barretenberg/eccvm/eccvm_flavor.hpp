@@ -661,13 +661,17 @@ class ECCVMFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
+            // IPA verification key requires one more point.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
+            // how many points they need
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
             this->circuit_size = proving_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key->num_public_inputs;
@@ -678,6 +682,14 @@ class ECCVMFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
+
+        MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       lagrange_first,
+                       lagrange_second,
+                       lagrange_last);
     };
 
     /**
@@ -899,10 +911,6 @@ class ECCVMFlavor {
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
-        uint32_t ipa_poly_degree;
-        std::vector<Commitment> ipa_l_comms;
-        std::vector<Commitment> ipa_r_comms;
-        FF ipa_a_0_eval;
         Commitment translation_hack_comm;
         FF translation_eval_op;
         FF translation_eval_px;
@@ -910,10 +918,11 @@ class ECCVMFlavor {
         FF translation_eval_z1;
         FF translation_eval_z2;
         FF hack_eval;
-        uint32_t translation_ipa_poly_degree;
-        std::vector<Commitment> translation_ipa_l_comms;
-        std::vector<Commitment> translation_ipa_r_comms;
-        FF translation_ipa_a_0_eval;
+        Commitment shplonk_q_comm;
+        uint32_t ipa_poly_degree;
+        std::vector<Commitment> ipa_l_comms;
+        std::vector<Commitment> ipa_r_comms;
+        FF ipa_a_0_eval;
 
         Transcript() = default;
 
@@ -1117,17 +1126,6 @@ class ECCVMFlavor {
             }
             zm_cq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
-            ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
-            for (size_t i = 0; i < log_poly_degree; ++i) {
-                ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-                ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-            }
-            ipa_a_0_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             translation_hack_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             translation_eval_op =
@@ -1143,17 +1141,20 @@ class ECCVMFlavor {
             hack_eval =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
-            translation_ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(
-                NativeTranscript::proof_data, num_frs_read);
+            shplonk_q_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
+            ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
+                                                                                           num_frs_read);
+
+            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
             for (size_t i = 0; i < log_poly_degree; ++i) {
-                translation_ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read));
-                translation_ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read));
             }
 
-            translation_ipa_a_0_eval =
+            ipa_a_0_eval =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
         }
 
@@ -1272,15 +1273,6 @@ class ECCVMFlavor {
             }
             NativeTranscript::template serialize_to_buffer(zm_cq_comm, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
-
-            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
-            for (size_t i = 0; i < log_poly_degree; ++i) {
-                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
-            }
-
-            NativeTranscript::template serialize_to_buffer(ipa_a_0_eval, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_hack_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
@@ -1289,16 +1281,16 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(hack_eval, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(translation_ipa_poly_degree, NativeTranscript::proof_data);
-            log_poly_degree = static_cast<size_t>(numeric::get_msb(translation_ipa_poly_degree));
+            NativeTranscript::template serialize_to_buffer(shplonk_q_comm, NativeTranscript::proof_data);
+
+            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
+            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
             for (size_t i = 0; i < log_poly_degree; ++i) {
-                NativeTranscript::template serialize_to_buffer(translation_ipa_l_comms[i],
-                                                               NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(translation_ipa_r_comms[i],
-                                                               NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
-            serialize_to_buffer(translation_ipa_a_0_eval, proof_data);
+            serialize_to_buffer(ipa_a_0_eval, proof_data);
 
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }

@@ -104,7 +104,7 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
   container_definitions = <<DEFINITIONS
 [
   {
-    "name": "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}",
+    "name": "${var.FULL_IMAGE}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
     "command": ["start", "--p2p-bootstrap"],
     "essential": true,
@@ -124,24 +124,16 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
         "value": "production"
       },
       {
-        "name": "P2P_UDP_LISTEN_PORT",
-        "value": "${var.BOOTNODE_LISTEN_PORT + count.index}"
+        "name": "P2P_UDP_LISTEN_ADDR",
+        "value": "0.0.0.0:${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
-        "name": "P2P_UDP_LISTEN_IP",
-        "value": "0.0.0.0"
+        "name": "P2P_UDP_ANNOUNCE_ADDR",
+        "value": "${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}:${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
         "value": "${local.bootnode_keys[count.index]}"
-      },
-      {
-        "name": "P2P_ANNOUNCE_UDP_HOSTNAME",
-        "value": "/ip4/${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}"
-      },
-      {
-        "name": "P2P_ANNOUNCE_PORT",
-        "value": "${var.BOOTNODE_LISTEN_PORT + count.index}"
       },
       {
         "name": "DEBUG",

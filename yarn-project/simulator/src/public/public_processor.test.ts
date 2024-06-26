@@ -45,6 +45,7 @@ import {
   WASMSimulator,
   computeFeePayerBalanceLeafSlot,
 } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -95,6 +96,7 @@ describe('public_processor', () => {
         Header.empty(),
         publicContractsDB,
         publicWorldStateDB,
+        new NoopTelemetryClient(),
       );
     });
 
@@ -219,6 +221,7 @@ describe('public_processor', () => {
         header,
         publicContractsDB,
         publicWorldStateDB,
+        new NoopTelemetryClient(),
       );
     });
 
@@ -230,6 +233,7 @@ describe('public_processor', () => {
 
     it('runs a tx with enqueued public calls', async function () {
       const tx = mockTxWithPartialState({
+        hasLogs: true,
         numberOfRevertiblePublicCallRequests: 2,
         publicTeardownCallRequest: PublicCallRequest.empty(),
       });
@@ -252,6 +256,10 @@ describe('public_processor', () => {
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+
+      // we keep the logs
+      expect(processed[0].encryptedLogs.getTotalLogCount()).toBe(6);
+      expect(processed[0].unencryptedLogs.getTotalLogCount()).toBe(2);
 
       expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
@@ -346,7 +354,7 @@ describe('public_processor', () => {
       expect(prover.addNewTx).toHaveBeenCalledTimes(0);
     });
 
-    it('rolls back app logic db updates on failed public execution, but persists setup/teardown', async function () {
+    it('rolls back app logic db updates on failed public execution, but persists setup', async function () {
       const baseContractAddressSeed = 0x200;
       const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
       const publicCallRequests: PublicCallRequest[] = [
@@ -360,6 +368,7 @@ describe('public_processor', () => {
       const teardown = publicCallRequests.pop()!; // Remove the last call request to test that the processor can handle this
 
       const tx = mockTxWithPartialState({
+        hasLogs: true,
         numberOfNonRevertiblePublicCallRequests: 1,
         numberOfRevertiblePublicCallRequests: 1,
         publicCallRequests,
@@ -469,8 +478,10 @@ describe('public_processor', () => {
       expect(txEffect.publicDataWrites[4]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
       );
-      expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
-      expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
+
+      // we keep the non-revertible logs
+      expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
+      expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
 
       expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
@@ -589,6 +600,7 @@ describe('public_processor', () => {
       const teardown = publicCallRequests.pop()!;
 
       const tx = mockTxWithPartialState({
+        hasLogs: true,
         numberOfNonRevertiblePublicCallRequests: 1,
         numberOfRevertiblePublicCallRequests: 1,
         publicCallRequests,
@@ -689,8 +701,10 @@ describe('public_processor', () => {
       expect(txEffect.publicDataWrites[1]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x102)),
       );
-      expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
-      expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
+
+      // we keep the non-revertible logs
+      expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
+      expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
 
       expect(processed[0].data.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
 
@@ -711,6 +725,7 @@ describe('public_processor', () => {
       const teardown = publicCallRequests.pop()!;
 
       const tx = mockTxWithPartialState({
+        hasLogs: true,
         numberOfNonRevertiblePublicCallRequests: 1,
         numberOfRevertiblePublicCallRequests: 1,
         publicCallRequests,
@@ -812,8 +827,10 @@ describe('public_processor', () => {
       expect(txEffect.publicDataWrites[1]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x102)),
       );
-      expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
-      expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
+
+      // we keep the non-revertible logs
+      expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
+      expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
 
       expect(processed[0].data.revertCode).toEqual(RevertCode.BOTH_REVERTED);
 

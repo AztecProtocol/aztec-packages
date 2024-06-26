@@ -7,13 +7,13 @@ use dep::types::{
 };
 
 struct NoteHashSettledReadHint {
-    read_request_index: u64,
+    read_request_index: u32,
     membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
     leaf_preimage: NoteHashLeafPreimage,
 }
 
 impl ReadValueHint for NoteHashSettledReadHint {
-    fn read_request_index(self) -> u64 {
+    fn read_request_index(self) -> u32 {
         self.read_request_index
     }
 }
@@ -27,7 +27,7 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
         self.leaf_preimage
     }
 
-    fn nada(read_request_len: u64) -> Self {
+    fn nada(read_request_len: u32) -> Self {
         NoteHashSettledReadHint {
             read_request_index: read_request_len,
             membership_witness: MembershipWitness::empty(),
@@ -48,7 +48,7 @@ mod tests {
     use dep::types::{
         address::AztecAddress, merkle_tree::MembershipWitness,
         abis::{note_hash::NoteHash, note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequest},
-        constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash,
+        constants::NOTE_HASH_TREE_HEIGHT, hash::compute_siloed_note_hash,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
 
@@ -56,7 +56,7 @@ mod tests {
 
     // Create 4 note hashes. 10 and 11 are settled. 12 and 13 are pending.
     global inner_note_hashes = [10, 11, 12, 13];
-    global note_hashes = inner_note_hashes.map(|n| silo_note_hash(contract_address, n));
+    global note_hashes = inner_note_hashes.map(|n| compute_siloed_note_hash(contract_address, n));
 
     // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
     global read_requests = [

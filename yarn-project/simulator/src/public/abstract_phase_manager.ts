@@ -67,37 +67,17 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
-import { lastSideEffectCounter } from './utils.js';
 
-export enum PublicKernelPhase {
-  SETUP = 'setup',
-  APP_LOGIC = 'app-logic',
-  TEARDOWN = 'teardown',
-  TAIL = 'tail',
-}
-
-export const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
-  [PublicKernelPhase.SETUP]: false,
-  [PublicKernelPhase.APP_LOGIC]: true,
-  [PublicKernelPhase.TEARDOWN]: true,
-  [PublicKernelPhase.TAIL]: false,
+export const PhaseIsRevertible: Record<PublicKernelType, boolean> = {
+  [PublicKernelType.NON_PUBLIC]: false,
+  [PublicKernelType.SETUP]: false,
+  [PublicKernelType.APP_LOGIC]: true,
+  [PublicKernelType.TEARDOWN]: true,
+  [PublicKernelType.TAIL]: false,
 };
 
-// REFACTOR: Unify both enums and move to types or circuit-types.
-export function publicKernelPhaseToKernelType(phase: PublicKernelPhase): PublicKernelType {
-  switch (phase) {
-    case PublicKernelPhase.SETUP:
-      return PublicKernelType.SETUP;
-    case PublicKernelPhase.APP_LOGIC:
-      return PublicKernelType.APP_LOGIC;
-    case PublicKernelPhase.TEARDOWN:
-      return PublicKernelType.TEARDOWN;
-    case PublicKernelPhase.TAIL:
-      return PublicKernelType.TAIL;
-  }
-}
-
 export type PublicProvingInformation = {
+  functionName: string; // informational only
   calldata: Fr[];
   bytecode: Buffer;
   inputs: PublicKernelCircuitPrivateInputs;
@@ -110,6 +90,7 @@ export function makeAvmProvingRequest(
 ): AvmProvingRequest {
   return {
     type: AVM_REQUEST,
+    functionName: info.functionName,
     bytecode: info.bytecode,
     calldata: info.calldata,
     avmHints: info.avmHints,
@@ -159,7 +140,7 @@ export abstract class AbstractPhaseManager {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
-    public phase: PublicKernelPhase,
+    public phase: PublicKernelType,
   ) {
     this.hintsBuilder = new HintsBuilder(db);
     this.log = createDebugLogger(`aztec:sequencer:${phase}`);
@@ -171,14 +152,15 @@ export abstract class AbstractPhaseManager {
    */
   abstract handle(tx: Tx, publicKernelPublicInputs: PublicKernelCircuitPublicInputs): Promise<PhaseResult>;
 
-  public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
+  public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelType, PublicCallRequest[]> {
     const data = tx.data.forPublic;
     if (!data) {
       return {
-        [PublicKernelPhase.SETUP]: [],
-        [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: [],
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: [],
+        [PublicKernelType.APP_LOGIC]: [],
+        [PublicKernelType.TEARDOWN]: [],
+        [PublicKernelType.TAIL]: [],
       };
     }
     const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
@@ -196,10 +178,11 @@ export abstract class AbstractPhaseManager {
 
     if (callRequestsStack.length === 0) {
       return {
-        [PublicKernelPhase.SETUP]: [],
-        [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: [],
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: [],
+        [PublicKernelType.APP_LOGIC]: [],
+        [PublicKernelType.TEARDOWN]: [],
+        [PublicKernelType.TAIL]: [],
       };
     }
 
@@ -212,25 +195,28 @@ export abstract class AbstractPhaseManager {
 
     if (firstRevertibleCallIndex === 0) {
       return {
-        [PublicKernelPhase.SETUP]: [],
-        [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
-        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: [],
+        [PublicKernelType.APP_LOGIC]: publicCallsStack,
+        [PublicKernelType.TEARDOWN]: teardownCallStack,
+        [PublicKernelType.TAIL]: [],
       };
     } else if (firstRevertibleCallIndex === -1) {
       // there's no app logic, split the functions between setup (many) and teardown (just one function call)
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack,
-        [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: publicCallsStack,
+        [PublicKernelType.APP_LOGIC]: [],
+        [PublicKernelType.TEARDOWN]: teardownCallStack,
+        [PublicKernelType.TAIL]: [],
       };
     } else {
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex),
-        [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
-        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
-        [PublicKernelPhase.TAIL]: [],
+        [PublicKernelType.NON_PUBLIC]: [],
+        [PublicKernelType.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex),
+        [PublicKernelType.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
+        [PublicKernelType.TEARDOWN]: teardownCallStack,
+        [PublicKernelType.TAIL]: [],
       };
     }
   }
@@ -278,19 +264,15 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-        const sideEffectCounter = lastSideEffectCounter(kernelPublicOutput) + 1;
-        const availableGas = this.getAvailableGas(tx, kernelPublicOutput);
-        const pendingNullifiers = this.getSiloedPendingNullifiers(kernelPublicOutput);
-
         const result = isExecutionRequest
           ? await this.publicExecutor.simulate(
               current,
               this.globalVariables,
-              availableGas,
+              /*availableGas=*/ this.getAvailableGas(tx, kernelPublicOutput),
               tx.data.constants.txContext,
-              pendingNullifiers,
+              /*pendingNullifiers=*/ this.getSiloedPendingNullifiers(kernelPublicOutput),
               transactionFee,
-              sideEffectCounter,
+              /*startSideEffectCounter=*/ AbstractPhaseManager.getMaxSideEffectCounter(kernelPublicOutput) + 1,
             )
           : current;
 
@@ -302,15 +284,17 @@ export abstract class AbstractPhaseManager {
         const functionSelector = result.execution.functionSelector.toString();
         if (result.reverted && !result.revertReason) {
           throw new Error(
-            `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector} reverted with no reason.`,
+            `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector}(${
+              result.functionName
+            }) reverted with no reason.`,
           );
         }
 
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
           this.log.debug(
-            `Simulation error on ${result.execution.contractAddress.toString()}:${functionSelector} with reason: ${
-              result.revertReason
-            }`,
+            `Simulation error on ${result.execution.contractAddress.toString()}:${functionSelector}(${
+              result.functionName
+            }) with reason: ${result.revertReason}`,
           );
           throw result.revertReason;
         }
@@ -322,7 +306,9 @@ export abstract class AbstractPhaseManager {
 
         // Simulate the public kernel circuit.
         this.log.debug(
-          `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
+          `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}(${
+            result.functionName
+          })`,
         );
         const callData = await this.getPublicCallData(result, isExecutionRequest);
         const [privateInputs, publicInputs] = await this.runKernelCircuit(kernelPublicOutput, callData);
@@ -330,6 +316,7 @@ export abstract class AbstractPhaseManager {
 
         // Capture the inputs for later proving in the AVM and kernel.
         const publicProvingInformation: PublicProvingInformation = {
+          functionName: result.functionName,
           calldata: result.calldata,
           bytecode: result.bytecode!,
           inputs: privateInputs,
@@ -342,7 +329,9 @@ export abstract class AbstractPhaseManager {
         // but the kernel carries the reverted flag forward. But if the simulator reverts, so should the kernel.
         if (result.reverted && kernelPublicOutput.revertCode.isOK()) {
           throw new Error(
-            `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}, but simulator did.`,
+            `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}(${
+              result.functionName
+            }), but simulator did.`,
           );
         }
 
@@ -350,9 +339,9 @@ export abstract class AbstractPhaseManager {
         // So safely return the revert reason and the kernel output (which has had its revertible side effects dropped)
         if (result.reverted) {
           this.log.debug(
-            `Reverting on ${result.execution.contractAddress.toString()}:${functionSelector} with reason: ${
-              result.revertReason
-            }`,
+            `Reverting on ${result.execution.contractAddress.toString()}:${functionSelector}(${
+              result.functionName
+            }) with reason: ${result.revertReason}`,
           );
           // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
           return {
@@ -407,11 +396,11 @@ export abstract class AbstractPhaseManager {
     // We take a deep copy (clone) of these inputs to be passed to the prover
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
     switch (this.phase) {
-      case PublicKernelPhase.SETUP:
+      case PublicKernelType.SETUP:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitSetup(inputs)];
-      case PublicKernelPhase.APP_LOGIC:
+      case PublicKernelType.APP_LOGIC:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitAppLogic(inputs)];
-      case PublicKernelPhase.TEARDOWN:
+      case PublicKernelType.TEARDOWN:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitTeardown(inputs)];
       default:
         throw new Error(`No public kernel circuit for inputs`);
@@ -506,6 +495,44 @@ export abstract class AbstractPhaseManager {
     }
 
     return await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
+  }
+
+  /**
+   * Looks at the side effects of a transaction and returns the highest counter
+   * @param tx - A transaction
+   * @returns The highest side effect counter in the transaction so far
+   */
+  static getMaxSideEffectCounter(inputs: PublicKernelCircuitPublicInputs): number {
+    const sideEffectCounters = [
+      ...inputs.endNonRevertibleData.newNoteHashes,
+      ...inputs.endNonRevertibleData.newNullifiers,
+      ...inputs.endNonRevertibleData.noteEncryptedLogsHashes,
+      ...inputs.endNonRevertibleData.encryptedLogsHashes,
+      ...inputs.endNonRevertibleData.unencryptedLogsHashes,
+      ...inputs.endNonRevertibleData.publicCallStack,
+      ...inputs.endNonRevertibleData.publicDataUpdateRequests,
+      ...inputs.end.newNoteHashes,
+      ...inputs.end.newNullifiers,
+      ...inputs.end.noteEncryptedLogsHashes,
+      ...inputs.end.encryptedLogsHashes,
+      ...inputs.end.unencryptedLogsHashes,
+      ...inputs.end.publicCallStack,
+      ...inputs.end.publicDataUpdateRequests,
+    ];
+
+    let max = 0;
+    for (const sideEffect of sideEffectCounters) {
+      if ('startSideEffectCounter' in sideEffect) {
+        // look at both start and end counters because for enqueued public calls start > 0 while end === 0
+        max = Math.max(max, sideEffect.startSideEffectCounter.toNumber(), sideEffect.endSideEffectCounter.toNumber());
+      } else if ('counter' in sideEffect) {
+        max = Math.max(max, sideEffect.counter);
+      } else {
+        throw new Error('Unknown side effect type');
+      }
+    }
+
+    return max;
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {

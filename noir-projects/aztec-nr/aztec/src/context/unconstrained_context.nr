@@ -2,7 +2,9 @@ use dep::protocol_types::address::AztecAddress;
 
 struct UnconstrainedContext {
     block_number: u32,
-    contract_address: AztecAddress,    
+    contract_address: AztecAddress,
+    version: Field,
+    chain_id: Field,
 }
 
 impl UnconstrainedContext {
@@ -13,20 +15,36 @@ impl UnconstrainedContext {
         // available.
         let block_number = block_number_oracle();
         let contract_address = contract_address_oracle();
-        Self { block_number, contract_address }
+        let chain_id = chain_id_oracle();
+        let version = version_oracle();
+        Self { block_number, contract_address, version, chain_id }
     }
 
     fn block_number(self) -> u32 {
         self.block_number
     }
 
-    fn contract_address(self) -> AztecAddress {
+    fn this_address(self) -> AztecAddress {
         self.contract_address
+    }
+
+    fn version(self) -> Field {
+        self.version
+    }
+
+    fn chain_id(self) -> Field {
+        self.chain_id
     }
 }
 
 #[oracle(getContractAddress)]
-fn contract_address_oracle() -> AztecAddress {}
+unconstrained fn contract_address_oracle() -> AztecAddress {}
 
 #[oracle(getBlockNumber)]
-fn block_number_oracle() -> u32 {}
+unconstrained fn block_number_oracle() -> u32 {}
+
+#[oracle(getChainId)]
+unconstrained fn chain_id_oracle() -> Field {}
+
+#[oracle(getVersion)]
+unconstrained fn version_oracle() -> Field {}

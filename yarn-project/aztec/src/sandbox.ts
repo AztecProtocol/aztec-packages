@@ -3,7 +3,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AztecAddress, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js';
+import { CANONICAL_AUTH_REGISTRY_ADDRESS, CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js';
 import {
   type DeployL1Contracts,
   type L1ContractAddresses,
@@ -30,19 +30,16 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
-import { KeyRegistryContract } from '@aztec/noir-contracts.js/KeyRegistry';
-import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import {
-  type HDAccount,
-  type PrivateKeyAccount,
-  createPublicClient,
-  getContract,
-  http as httpViemTransport,
-} from 'viem';
+import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -127,41 +124,14 @@ export async function deployContractsToL1(
   };
 
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts),
+    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
+      l2GasTokenAddress: GasTokenAddress,
+    }),
   );
-  await initL1GasPortal(l1Contracts, getCanonicalGasToken().address);
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
 
   return aztecNodeConfig.l1Contracts;
-}
-
-/**
- * Initializes the portal between L1 and L2 used to pay for gas.
- * @param l1Data - The deployed L1 data.
- */
-async function initL1GasPortal(
-  { walletClient, l1ContractAddresses }: DeployL1Contracts,
-  l2GasTokenAddress: AztecAddress,
-) {
-  const gasPortal = getContract({
-    address: l1ContractAddresses.gasPortalAddress.toString(),
-    abi: GasPortalAbi,
-    client: walletClient,
-  });
-
-  await gasPortal.write.initialize(
-    [
-      l1ContractAddresses.registryAddress.toString(),
-      l1ContractAddresses.gasTokenAddress.toString(),
-      l2GasTokenAddress.toString(),
-    ],
-    {} as any,
-  );
-
-  logger.info(
-    `Initialized Gas Portal at ${l1ContractAddresses.gasPortalAddress} to bridge between L1 ${l1ContractAddresses.gasTokenAddress} to L2 ${l2GasTokenAddress}`,
-  );
 }
 
 /**
@@ -226,6 +196,39 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
   logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
 }
 
+/**
+ * Deploys the auth registry on L2.
+ */
+async function deployCanonicalAuthRegistry(deployer: Wallet) {
+  const canonicalAuthRegistry = getCanonicalAuthRegistry();
+
+  // We check to see if there exists a contract at the canonical Auth Registry address with the same contract class id as we expect. This means that
+  // the auth registry has already been deployed to the correct address.
+  if (
+    (await deployer.getContractInstance(canonicalAuthRegistry.address))?.contractClassId.equals(
+      canonicalAuthRegistry.contractClass.id,
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id))
+  ) {
+    return;
+  }
+
+  const authRegistry = await AuthRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalAuthRegistry.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (
+    !authRegistry.address.equals(canonicalAuthRegistry.address) ||
+    !authRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_AUTH_REGISTRY_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Auth Registry address ${authRegistry.address} does not match expected address ${canonicalAuthRegistry.address}, or they both do not equal CANONICAL_AUTH_REGISTRY_ADDRESS`,
+    );
+  }
+
+  logger.info(`Deployed Auth Registry on L2 at ${canonicalAuthRegistry.address}`);
+}
+
 /** Sandbox settings. */
 export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
@@ -251,10 +254,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await deployContractsToL1(aztecNodeConfig, hdAccount);
   }
 
-  const node = await createAztecNode(aztecNodeConfig);
+  const node = await createAztecNode(new NoopTelemetryClient(), aztecNodeConfig);
   const pxe = await createAztecPXE(node);
 
   await deployCanonicalKeyRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+  );
+  await deployCanonicalAuthRegistry(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
   );
 
@@ -277,9 +283,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  * Create and start a new Aztec RPC HTTP Server
  * @param config - Optional Aztec node settings.
  */
-export async function createAztecNode(config: Partial<AztecNodeConfig> = {}) {
+export async function createAztecNode(telemetryClient: TelemetryClient, config: Partial<AztecNodeConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
   return node;
 }
 

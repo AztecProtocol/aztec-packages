@@ -27,6 +27,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -63,6 +64,8 @@ describe('sequencer', () => {
     lastBlockNumber = 0;
 
     publisher = mock<L1Publisher>();
+    publisher.isItMyTurnToSubmit.mockResolvedValue(true);
+
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeOperations>();
     proverClient = mock<ProverClient>();
@@ -112,7 +115,8 @@ describe('sequencer', () => {
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
-      new TxValidatorFactory(merkleTreeOps, contractSource),
+      new TxValidatorFactory(merkleTreeOps, contractSource, false),
+      new NoopTelemetryClient(),
     );
   });
 
@@ -139,6 +143,44 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
+    expect(proverClient.startNewBlock).toHaveBeenCalledWith(
+      2,
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
+  });
+
+  it('builds a block when it is their turn', async () => {
+    const tx = mockTxForRollup();
+    tx.data.constants.txContext.chainId = chainId;
+    const block = L2Block.random(lastBlockNumber + 1);
+    const proof = makeEmptyProof();
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
+    };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
+
+    p2p.getTxs.mockResolvedValueOnce([tx]);
+    proverClient.startNewBlock.mockResolvedValueOnce(ticket);
+    proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
+    publisher.processL2Block.mockResolvedValueOnce(true);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+    );
+
+    // Not your turn!
+    publisher.isItMyTurnToSubmit.mockClear().mockResolvedValue(false);
+    await sequencer.initialSync();
+    await sequencer.work();
+    expect(proverClient.startNewBlock).not.toHaveBeenCalled();
+
+    // Now it is!
+    publisher.isItMyTurnToSubmit.mockClear().mockResolvedValue(true);
+    await sequencer.work();
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       2,
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),

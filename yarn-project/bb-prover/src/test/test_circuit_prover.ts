@@ -3,7 +3,6 @@ import {
   type PublicInputsAndRecursiveProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
-  PublicKernelType,
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
@@ -58,7 +57,9 @@ import {
   convertSimulatedPublicTailOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
+import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
+import { ProverInstrumentation } from '../instrumentation.js';
 import { SimulatedPublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapPublicKernelToCircuitName } from '../stats.js';
 
@@ -82,11 +83,19 @@ const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields>
  */
 export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulator();
+  private instrumentation: ProverInstrumentation;
 
   constructor(
+    telemetry: TelemetryClient,
     private simulationProvider?: SimulationProvider,
     private logger = createDebugLogger('aztec:test-prover'),
-  ) {}
+  ) {
+    this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
+  }
+
+  get tracer() {
+    return this.instrumentation.tracer;
+  }
 
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
@@ -112,6 +121,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
+  @trackSpan('TestCircuitProver.getBaseParityProof')
   public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
     const timer = new Timer();
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
@@ -125,6 +135,8 @@ export class TestCircuitProver implements ServerCircuitProver {
       VERIFICATION_KEYS['BaseParityArtifact'],
       result,
     );
+
+    this.instrumentation.recordDuration('simulationDuration', 'base-parity', timer);
 
     emitCircuitSimulationStats(
       'base-parity',
@@ -142,6 +154,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
+  @trackSpan('TestCircuitProver.getRootParityProof')
   public async getRootParityProof(
     inputs: RootParityInputs,
   ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
@@ -159,6 +172,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result,
     );
 
+    this.instrumentation.recordDuration('simulationDuration', 'root-parity', timer);
     emitCircuitSimulationStats(
       'root-parity',
       timer.ms(),
@@ -175,6 +189,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  @trackSpan('TestCircuitProver.getBaseRollupProof')
   public async getBaseRollupProof(
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
@@ -186,6 +201,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
+    this.instrumentation.recordDuration('simulationDuration', 'base-rollup', timer);
     emitCircuitSimulationStats(
       'base-rollup',
       timer.ms(),
@@ -204,6 +220,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  @trackSpan('TestCircuitProver.getMergeRollupProof')
   public async getMergeRollupProof(
     input: MergeRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
@@ -215,6 +232,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
+    this.instrumentation.recordDuration('simulationDuration', 'merge-rollup', timer);
     emitCircuitSimulationStats(
       'merge-rollup',
       timer.ms(),
@@ -234,6 +252,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  @trackSpan('TestCircuitProver.getRootRollupProof')
   public async getRootRollupProof(
     input: RootRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
@@ -245,6 +264,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 
+    this.instrumentation.recordDuration('simulationDuration', 'root-rollup', timer);
     emitCircuitSimulationStats(
       'root-rollup',
       timer.ms(),
@@ -259,13 +279,14 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getPublicKernelProof')
   public async getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
   ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
     const timer = new Timer();
     const kernelOps = SimulatedPublicKernelArtifactMapping[kernelRequest.type];
     if (kernelOps === undefined) {
-      throw new Error(`Unable to prove for kernel type ${PublicKernelType[kernelRequest.type]}`);
+      throw new Error(`Unable to prove for kernel type ${kernelRequest.type}`);
     }
     const witnessMap = kernelOps.convertInputs(kernelRequest.inputs);
 
@@ -275,8 +296,10 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
 
     const result = kernelOps.convertOutputs(witness);
+    const circuitName = mapPublicKernelToCircuitName(kernelRequest.type);
+    this.instrumentation.recordDuration('simulationDuration', circuitName, timer);
     emitCircuitSimulationStats(
-      mapPublicKernelToCircuitName(kernelRequest.type),
+      circuitName,
       timer.ms(),
       kernelRequest.inputs.toBuffer().length,
       result.toBuffer().length,
@@ -290,6 +313,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getPublicTailProof')
   public async getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
@@ -302,6 +326,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
 
     const result = convertSimulatedPublicTailOutputFromWitnessMap(witness);
+    this.instrumentation.recordDuration('simulationDuration', 'public-kernel-tail', timer);
     emitCircuitSimulationStats(
       'public-kernel-tail',
       timer.ms(),

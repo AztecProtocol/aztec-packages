@@ -12,7 +12,7 @@
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -36,24 +36,26 @@ class UltraFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 43;
+    static constexpr size_t NUM_ALL_ENTITIES = 42;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 8;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
+    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
-                                 bb::UltraPermutationRelation<FF>,
-                                 bb::LookupRelation<FF>,
-                                 bb::DeltaRangeConstraintRelation<FF>,
-                                 bb::EllipticRelation<FF>,
-                                 bb::AuxiliaryRelation<FF>>;
+    // Note: made generic for use in MegaRecursive.
+    template <typename FF>
+    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+                                  bb::UltraPermutationRelation<FF>,
+                                  bb::LogDerivLookupRelation<FF>,
+                                  bb::DeltaRangeConstraintRelation<FF>,
+                                  bb::EllipticRelation<FF>,
+                                  bb::AuxiliaryRelation<FF>>;
+    using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
@@ -88,7 +90,6 @@ class UltraFlavor {
 
     static constexpr bool is_decider = true;
 
-  private:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -142,15 +143,18 @@ class UltraFlavor {
     template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              w_l,          // column 0
-                              w_r,          // column 1
-                              w_o,          // column 2
-                              w_4,          // column 3
-                              sorted_accum, // column 4
-                              z_perm,       // column 5
-                              z_lookup)     // column 6
+                              w_l,                // column 0
+                              w_r,                // column 1
+                              w_o,                // column 2
+                              w_4,                // column 3
+                              z_perm,             // column 4
+                              lookup_inverses,    // column 5
+                              lookup_read_counts, // column 6
+                              lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
+
+        MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
@@ -159,22 +163,20 @@ class UltraFlavor {
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift,      // column 0
-                              table_2_shift,      // column 1
-                              table_3_shift,      // column 2
-                              table_4_shift,      // column 3
-                              w_l_shift,          // column 4
-                              w_r_shift,          // column 5
-                              w_o_shift,          // column 6
-                              w_4_shift,          // column 7
-                              sorted_accum_shift, // column 8
-                              z_perm_shift,       // column 9
-                              z_lookup_shift)     // column 10
+                              table_1_shift, // column 0
+                              table_2_shift, // column 1
+                              table_3_shift, // column 2
+                              table_4_shift, // column 3
+                              w_l_shift,     // column 4
+                              w_r_shift,     // column 5
+                              w_o_shift,     // column 6
+                              w_4_shift,     // column 7
+                              z_perm_shift)  // column 10
 
         auto get_shifted()
         {
-            return RefArray{ table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
-                             w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
+            return RefArray{ table_1_shift, table_2_shift, table_3_shift, table_4_shift, w_l_shift,
+                             w_r_shift,     w_o_shift,     w_4_shift,     z_perm_shift };
         };
     };
 
@@ -187,92 +189,32 @@ class UltraFlavor {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType> class AllEntities {
+    template <typename DataType>
+    class AllEntities : public PrecomputedEntities<DataType>,
+                        public WitnessEntities<DataType>,
+                        public ShiftedEntities<DataType> {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              q_c,                // column 0
-                              q_l,                // column 1
-                              q_r,                // column 2
-                              q_o,                // column 3
-                              q_4,                // column 4
-                              q_m,                // column 5
-                              q_arith,            // column 6
-                              q_delta_range,      // column 7
-                              q_elliptic,         // column 8
-                              q_aux,              // column 9
-                              q_lookup,           // column 10
-                              sigma_1,            // column 11
-                              sigma_2,            // column 12
-                              sigma_3,            // column 13
-                              sigma_4,            // column 14
-                              id_1,               // column 15
-                              id_2,               // column 16
-                              id_3,               // column 17
-                              id_4,               // column 18
-                              table_1,            // column 19
-                              table_2,            // column 20
-                              table_3,            // column 21
-                              table_4,            // column 22
-                              lagrange_first,     // column 23
-                              lagrange_last,      // column 24
-                              w_l,                // column 25
-                              w_r,                // column 26
-                              w_o,                // column 27
-                              w_4,                // column 28
-                              sorted_accum,       // column 29
-                              z_perm,             // column 30
-                              z_lookup,           // column 31
-                              table_1_shift,      // column 32
-                              table_2_shift,      // column 33
-                              table_3_shift,      // column 34
-                              table_4_shift,      // column 35
-                              w_l_shift,          // column 36
-                              w_r_shift,          // column 37
-                              w_o_shift,          // column 38
-                              w_4_shift,          // column 39
-                              sorted_accum_shift, // column 40
-                              z_perm_shift,       // column 41
-                              z_lookup_shift)     // column 42
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
-        auto get_selectors()
-        {
-            return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_elliptic, q_aux, q_lookup };
-        }
-        auto get_sigmas() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        auto get_ids() { return RefArray{ id_1, id_2, id_3, id_4 }; };
-        auto get_tables() { return RefArray{ table_1, table_2, table_3, table_4 }; };
-        // Gemini-specific getters.
+        auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
+        auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
+        auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
+        auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };
+        auto get_tables() { return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4 }; };
         auto get_unshifted()
         {
-            return RefArray{ q_m,           q_c,   q_l,      q_r,     q_o,     q_4,          q_arith, q_delta_range,
-                             q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
-                             id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
-                             lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
-
-            };
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
-        auto get_precomputed()
-        {
-            return RefArray{ q_m,          q_c,   q_l,      q_r,     q_o,     q_4,     q_arith, q_delta_range,
-                             q_elliptic,   q_aux, q_lookup, sigma_1, sigma_2, sigma_3, sigma_4, id_1,
-                             id_2,         id_3,  id_4,     table_1, table_2, table_3, table_4, lagrange_first,
-                             lagrange_last
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
 
-            };
-        }
-
-        auto get_witness() { return RefArray{ w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup }; };
+        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return RefArray{ table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
+            return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4, this->w_l,
+                             this->w_r,     this->w_o,     this->w_4,     this->z_perm };
         };
-        auto get_shifted()
-        {
-            return RefArray{ table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
-                             w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
-        };
+        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
   public:
@@ -295,7 +237,8 @@ class UltraFlavor {
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
-        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+        { // Initialize all unshifted polynomials to the zero polynomial and initialize the
+          // shifted polys
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };
             }
@@ -340,57 +283,22 @@ class UltraFlavor {
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
-        std::array<Polynomial, 4> sorted_polynomials;
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
-        void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            // Compute sorted witness-table accumulator
-            compute_sorted_list_accumulator(eta, eta_two, eta_three);
-
-            // Finalize fourth wire polynomial by adding lookup memory records
-            add_plookup_memory_records_to_wire_4(eta, eta_two, eta_three);
-        }
-
         /**
-         * @brief Construct sorted list accumulator polynomial 's'.
+         * @brief Add RAM/ROM memory records to the fourth wire polynomial
          *
-         * @details Compute s = s_1 + η*s_2 + η²*s_3 + η³*s_4 (via Horner) where s_i are the
-         * sorted concatenated witness/table polynomials
-         *
-         * @param key proving key
-         * @param sorted_list_polynomials sorted concatenated witness/table polynomials
-         * @param eta random challenge
-         * @return Polynomial
-         */
-        void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            auto& sorted_list_accumulator = polynomials.sorted_accum;
-
-            // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
-            for (size_t i = 0; i < this->circuit_size; ++i) {
-                FF T0 = sorted_polynomials[3][i] * eta_three;
-                T0 += sorted_polynomials[2][i] * eta_two;
-                T0 += sorted_polynomials[1][i] * eta;
-                T0 += sorted_polynomials[0][i];
-                sorted_list_accumulator[i] = T0;
-            }
-        }
-
-        /**
-         * @brief Add plookup memory records to the fourth wire polynomial
-         *
-         * @details This operation must be performed after the first three wires have been committed to, hence the
-         * dependence on the `eta` challenge.
+         * @details This operation must be performed after the first three wires have been
+         * committed to, hence the dependence on the `eta` challenge.
          *
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
          */
-        void add_plookup_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
+        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
-            // The plookup memory record values are computed at the indicated indices as
+            // The memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-            // (See plookup_auxiliary_widget.hpp for details)
+            // (See the Auxiliary relation for details)
             auto wires = polynomials.get_wires();
 
             // Compute read record values
@@ -410,7 +318,21 @@ class UltraFlavor {
         }
 
         /**
-         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup polynomials
+         * @brief Compute the inverse polynomial used in the log derivative lookup argument
+         *
+         * @tparam Flavor
+         * @param beta
+         * @param gamma
+         */
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            // Compute inverses for conventional lookups
+            compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation<FF>>(
+                this->polynomials, relation_parameters, this->circuit_size);
+        }
+
+        /**
+         * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
          */
@@ -458,7 +380,8 @@ class UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
+        // up.
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
@@ -518,7 +441,10 @@ class UltraFlavor {
             this->lagrange_first = lagrange_first;
             this->lagrange_last = lagrange_last;
         }
+
+        // For serialising and deserialising data
         MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,
@@ -582,7 +508,8 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
+            // Storage is only needed after the first partial evaluation, hence polynomials of
+            // size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
             }
@@ -626,8 +553,9 @@ class UltraFlavor {
             w_o = "W_O";
             w_4 = "W_4";
             z_perm = "Z_PERM";
-            z_lookup = "Z_LOOKUP";
-            sorted_accum = "SORTED_ACCUM";
+            lookup_inverses = "LOOKUP_INVERSES";
+            lookup_read_counts = "LOOKUP_READ_COUNTS";
+            lookup_read_tags = "LOOKUP_READ_TAGS";
 
             q_c = "Q_C";
             q_l = "Q_L";
@@ -662,49 +590,53 @@ class UltraFlavor {
      * witness polynomials).
      *
      */
-    class VerifierCommitments : public AllEntities<Commitment> {
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
+                             const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
         {
-            q_m = verification_key->q_m;
-            q_c = verification_key->q_c;
-            q_l = verification_key->q_l;
-            q_r = verification_key->q_r;
-            q_o = verification_key->q_o;
-            q_4 = verification_key->q_4;
-            q_arith = verification_key->q_arith;
-            q_delta_range = verification_key->q_delta_range;
-            q_elliptic = verification_key->q_elliptic;
-            q_aux = verification_key->q_aux;
-            q_lookup = verification_key->q_lookup;
-            sigma_1 = verification_key->sigma_1;
-            sigma_2 = verification_key->sigma_2;
-            sigma_3 = verification_key->sigma_3;
-            sigma_4 = verification_key->sigma_4;
-            id_1 = verification_key->id_1;
-            id_2 = verification_key->id_2;
-            id_3 = verification_key->id_3;
-            id_4 = verification_key->id_4;
-            table_1 = verification_key->table_1;
-            table_2 = verification_key->table_2;
-            table_3 = verification_key->table_3;
-            table_4 = verification_key->table_4;
-            lagrange_first = verification_key->lagrange_first;
-            lagrange_last = verification_key->lagrange_last;
+            this->q_m = verification_key->q_m;
+            this->q_c = verification_key->q_c;
+            this->q_l = verification_key->q_l;
+            this->q_r = verification_key->q_r;
+            this->q_o = verification_key->q_o;
+            this->q_4 = verification_key->q_4;
+            this->q_arith = verification_key->q_arith;
+            this->q_delta_range = verification_key->q_delta_range;
+            this->q_elliptic = verification_key->q_elliptic;
+            this->q_aux = verification_key->q_aux;
+            this->q_lookup = verification_key->q_lookup;
+            this->sigma_1 = verification_key->sigma_1;
+            this->sigma_2 = verification_key->sigma_2;
+            this->sigma_3 = verification_key->sigma_3;
+            this->sigma_4 = verification_key->sigma_4;
+            this->id_1 = verification_key->id_1;
+            this->id_2 = verification_key->id_2;
+            this->id_3 = verification_key->id_3;
+            this->id_4 = verification_key->id_4;
+            this->table_1 = verification_key->table_1;
+            this->table_2 = verification_key->table_2;
+            this->table_3 = verification_key->table_3;
+            this->table_4 = verification_key->table_4;
+            this->lagrange_first = verification_key->lagrange_first;
+            this->lagrange_last = verification_key->lagrange_last;
 
             if (witness_commitments.has_value()) {
                 auto commitments = witness_commitments.value();
                 this->w_l = commitments.w_l;
                 this->w_r = commitments.w_r;
                 this->w_o = commitments.w_o;
-                this->sorted_accum = commitments.sorted_accum;
+                this->lookup_inverses = commitments.lookup_inverses;
+                this->lookup_read_counts = commitments.lookup_read_counts;
+                this->lookup_read_tags = commitments.lookup_read_tags;
                 this->w_4 = commitments.w_4;
                 this->z_perm = commitments.z_perm;
-                this->z_lookup = commitments.z_lookup;
             }
         }
     };
+    // Specialize for Ultra (general case used in UltraRecursive).
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     /**
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
@@ -720,10 +652,11 @@ class UltraFlavor {
         Commitment w_l_comm;
         Commitment w_r_comm;
         Commitment w_o_comm;
-        Commitment sorted_accum_comm;
+        Commitment lookup_read_counts_comm;
+        Commitment lookup_read_tags_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
-        Commitment z_lookup_comm;
+        Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
@@ -753,8 +686,9 @@ class UltraFlavor {
         };
 
         /**
-         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables that compose the
-         * structure. Must be called in order to access the structure of the proof.
+         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
+         * that compose the structure. Must be called in order to access the structure of the
+         * proof.
          *
          */
         void deserialize_full_transcript()
@@ -772,10 +706,11 @@ class UltraFlavor {
             w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
@@ -789,8 +724,9 @@ class UltraFlavor {
             kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
         /**
-         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called only if
-         * deserialize_full_transcript() was called and some transcript variable was modified.
+         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called
+         * only if deserialize_full_transcript() was called and some transcript variable was
+         * modified.
          *
          */
         void serialize_full_transcript()
@@ -807,10 +743,11 @@ class UltraFlavor {
             serialize_to_buffer(w_l_comm, proof_data);
             serialize_to_buffer(w_r_comm, proof_data);
             serialize_to_buffer(w_o_comm, proof_data);
-            serialize_to_buffer(sorted_accum_comm, proof_data);
+            serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            serialize_to_buffer(lookup_read_tags_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
-            serialize_to_buffer(z_lookup_comm, proof_data);
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
