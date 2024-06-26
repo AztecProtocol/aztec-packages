@@ -2,6 +2,7 @@ import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
 import { FullProverTest } from './e2e_prover_test.js';
+import { RandomnessSingleton } from '../../../foundation/src/crypto/random/randomness_singleton.js';
 
 const TIMEOUT = 1_800_000;
 
@@ -33,6 +34,7 @@ describe('full_prover', () => {
   it(
     'makes both public and private transfers',
     async () => {
+      RandomnessSingleton.getInstance().reseedIfDeterministic()
       logger.info(
         `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
       );
