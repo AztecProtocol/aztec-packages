@@ -24,7 +24,6 @@
 /yarn-project/simulator/src/public/side_effect_trace.test.ts @fcarreiro @dbanks12
 /yarn-project/simulator/src/public/side_effect_trace.ts @fcarreiro @dbanks12
 /yarn-project/simulator/src/public/side_effect_trace_interface.ts @fcarreiro @dbanks12
-/yarn-project/simulator/src/public/transitional_adaptors.ts @fcarreiro @dbanks12
 # on changes to the AVM transpiler
 /avm-transpiler/src @fcarreiro @dbanks12
 #####################################################
