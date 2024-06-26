@@ -1645,7 +1645,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
 
         main_trace.push_back(row);
 
-        debug("sload: side-effect cnt", side_effect_counter);
+        debug("sload side-effect cnt: ", side_effect_counter);
         side_effect_counter++;
         clk++;
 
@@ -1709,7 +1709,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
 
         main_trace.push_back(row);
 
-        debug("sstore: side-effect cnt", side_effect_counter);
+        debug("sstore side-effect cnt: ", side_effect_counter);
         side_effect_counter++;
         clk++;
         // All future reads are direct, increment the direct address
@@ -4331,6 +4331,8 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // we already prepended the extra row for shifted columns. Therefore, initialization
     // of side_effect_counter occurs occurs on this row.
     main_trace.at(1).kernel_side_effect_counter = initial_side_effect_counter;
+    // This index is required to retrieve the right side effect counter after an external call.
+    size_t external_call_cnt = 0;
 
     // External loop iterates over the kernel entries which are sorted by increasing clk.
     // Internal loop iterates to fill the gap in main trace between each kernel entries.
@@ -4355,7 +4357,15 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.kernel_l1_to_l2_msg_exists_write_offset = prev.kernel_l1_to_l2_msg_exists_write_offset;
             dest.kernel_sload_write_offset = prev.kernel_sload_write_offset;
             dest.kernel_sstore_write_offset = prev.kernel_sstore_write_offset;
-            dest.kernel_side_effect_counter = prev.kernel_side_effect_counter;
+
+            // Adjust side effect counter after an external call
+            if (prev.main_sel_op_external_call == 1) {
+                dest.kernel_side_effect_counter =
+                    execution_hints.externalcall_hints.at(external_call_cnt).end_side_effect_counter;
+                external_call_cnt++;
+            } else {
+                dest.kernel_side_effect_counter = prev.kernel_side_effect_counter;
+            }
         }
 
         Row& curr = main_trace.at(clk);
