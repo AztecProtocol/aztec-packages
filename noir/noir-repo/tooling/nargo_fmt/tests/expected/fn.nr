@@ -61,7 +61,3 @@ fn main(
 ) {}
 
 pub fn from_baz(x: [Field; crate::foo::MAGIC_NUMBER]) {}
-
-fn whitespace_before_generics<T>(foo: T) {}
-
-fn more_whitespace_before_generics<T>(foo: T) {}
