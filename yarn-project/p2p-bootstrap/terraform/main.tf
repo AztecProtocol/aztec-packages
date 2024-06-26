@@ -167,7 +167,7 @@ DEFINITIONS
 
 resource "aws_ecs_service" "p2p-bootstrap" {
   count                              = local.bootnode_count
-  name                               = "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}"
+  name                               = "${var.DEPLOY_TAG}-p2p-bootstrap-node-${count.index + 1}"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = 1
