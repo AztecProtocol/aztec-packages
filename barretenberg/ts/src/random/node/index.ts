@@ -14,11 +14,9 @@ export class RandomnessSingleton {
 
   private counter = 0;
 
-  private constructor(
-    private readonly seed?: number,
-  ) {
+  private constructor(private readonly seed?: number) {
     if (seed !== undefined) {
-      this.counter = 1;  //seed;
+      this.counter = 1; //seed;
     }
   }
 
