@@ -1,16 +1,12 @@
-import {
-  type ProvingJob,
-  type ProvingJobSource,
-  type ProvingRequest,
-  type ProvingRequestResult,
-  ProvingRequestType,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types';
+import { type ProvingJob, type ProvingJobSource, type ProvingRequest, type ProvingRequestResult, ProvingRequestType, type ServerCircuitProver } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
+
+
 import { ProvingError } from './proving-error.js';
+
 
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
@@ -103,13 +99,17 @@ export class ProverAgent {
       }
     } catch (err) {
       if (this.isRunning()) {
+        // Prefer err.stack as it will give context to the error
         this.log.error(
-          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${err}`,
+          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${(err as any).stack || err}`,
         );
         await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       } else {
+        // Prefer err.stack as it will give context to the error
         this.log.debug(
-          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${err}`,
+          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${
+            (err as any).stack || err
+          }`,
         );
       }
     }

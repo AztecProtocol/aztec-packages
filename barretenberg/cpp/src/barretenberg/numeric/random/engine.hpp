@@ -46,7 +46,7 @@ class RNG {
     }
 };
 
-// NOTE: THis is ONLY for debug purposes.
+// NOTE: This is ONLY for debug purposes.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1034) reconsider this design
 void set_use_deterministic_randomness();
 RNG& get_debug_randomness(bool reset = false, std::uint_fast64_t seed = 12345);

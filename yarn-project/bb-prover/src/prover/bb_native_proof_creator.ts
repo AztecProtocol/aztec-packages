@@ -372,7 +372,7 @@ export class BBNativeProofCreator implements ProofCreator {
       return { proof, verificationKey: vkData.keyAsFields };
     };
     return await withProverCache(
-      'bb_native_proof_creator.createProof',
+      'BBNativeProofCreator.createProof',
       [compressedBincodedWitness, bytecode],
       operation,
     );

@@ -21,7 +21,7 @@ export class RandomnessSingleton {
   ) {
     if (seed !== undefined) {
       this.log.verbose(`Using pseudo-randomness with seed: ${seed}`);
-      this.counter = seed;
+      this.counter = 1;
     } else {
       this.log.verbose('Using true randomness');
     }
@@ -49,7 +49,7 @@ export class RandomnessSingleton {
    * Only makes sense with seed defined, otherwise a no-op.
    */
   public determinismRewind() {
-    this.counter = 0;
+    this.counter = 1;
   }
   public getBytes(length: number): Buffer {
     if (this.seed === undefined) {
@@ -65,7 +65,7 @@ export class RandomnessSingleton {
       // a mask to get the last 8 bits of the shifted counter.
       result[i] = (this.counter >> (i * 8)) & 0xff;
     }
-    this.counter++;
+    this.counter = 1;
     return result;
   }
 }

@@ -1133,7 +1133,7 @@ template <typename Builder> class FieldBase {
                                              Instruction& instruction)
         {
 
-            // THis is strange
+            // This is strange
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, witness_t(builder, instruction.arguments.element)));
 

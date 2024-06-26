@@ -18,7 +18,7 @@ export class RandomnessSingleton {
     private readonly seed?: number,
   ) {
     if (seed !== undefined) {
-      this.counter = seed;
+      this.counter = 1;  //seed;
     }
   }
 
@@ -53,7 +53,8 @@ export class RandomnessSingleton {
       // a mask to get the last 8 bits of the shifted counter.
       result[i] = (this.counter >> (i * 8)) & 0xff;
     }
-    this.counter++;
+    // this.counter++;
+    this.counter = 1;
     return result;
   }
 }
