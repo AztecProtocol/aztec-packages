@@ -185,13 +185,13 @@ resource "aws_ecs_service" "p2p-bootstrap" {
 
   service_registries {
     registry_arn   = aws_service_discovery_service.p2p-bootstrap[count.index].arn
-    container_name = "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}"
+    container_name = "${var.DEPLOY_TAG}-p2p-bootstrap-node-${count.index + 1}"
     container_port = 80
   }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.p2p-bootstrap-target-group-udp[count.index].id
-    container_name   = "${var.DEPLOY_TAG}-p2p-bootstrap-${count.index + 1}"
+    container_name   = "${var.DEPLOY_TAG}-p2p-bootstrap-node-${count.index + 1}"
     container_port   = var.BOOTNODE_LISTEN_PORT + count.index
   }
 
