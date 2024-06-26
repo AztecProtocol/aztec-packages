@@ -60,7 +60,8 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<PCS>;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
@@ -109,17 +110,20 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
-    // unrolled protocol.
-    auto pairing_points = ZeroMorph::verify(circuit_size,
-                                            commitments.get_unshifted_without_concatenated(),
-                                            commitments.get_to_be_shifted(),
-                                            claimed_evaluations.get_unshifted_without_concatenated(),
-                                            claimed_evaluations.get_shifted(),
-                                            multivariate_challenge,
-                                            transcript,
-                                            commitments.get_concatenation_groups(),
-                                            claimed_evaluations.get_concatenated_constraints());
+    // Execute ZeroMorph rounds followed by the univariate PCS. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a
+    // complete description ofthe unrolled protocol.
+
+    auto opening_claim = ZeroMorph::verify(circuit_size,
+                                           commitments.get_unshifted_without_concatenated(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted_without_concatenated(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           Commitment::one(builder),
+                                           transcript,
+                                           commitments.get_concatenation_groups(),
+                                           claimed_evaluations.get_concatenated_constraints());
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     return pairing_points;
 }
@@ -159,6 +163,6 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
-template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+// template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 } // namespace bb

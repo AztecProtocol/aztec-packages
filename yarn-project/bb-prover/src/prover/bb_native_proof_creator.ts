@@ -43,6 +43,7 @@ import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import { encode } from "@msgpack/msgpack";
+import { join } from 'path';
 
 import {
   BB_RESULT,
@@ -222,7 +223,7 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(errorMessage);
     }
 
-    this.log.info(`Successfully verified ${circuitType} proof in ${result.duration} ms`);
+    this.log.info(`Successfully verified ${circuitType} proof in ${Math.ceil(result.durationMs)} ms`);
   }
 
   private async verifyProofFromKey(
@@ -356,7 +357,7 @@ export class BBNativeProofCreator implements ProofCreator {
   }> {
     const compressedBincodedWitness = serializeWitness(partialWitness);
 
-    const inputsWitnessFile = `${directory}/witness.gz`;
+    const inputsWitnessFile = join(directory, 'witness.gz');
 
     await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
 
@@ -382,7 +383,8 @@ export class BBNativeProofCreator implements ProofCreator {
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
-    this.log.info(`Proving ${circuitType} circuit...`);
+    const dbgCircuitName = appCircuitName ? `(${appCircuitName})` : '';
+    this.log.info(`Proving ${circuitType}${dbgCircuitName} circuit...`);
 
     const timer = new Timer();
 
@@ -396,13 +398,11 @@ export class BBNativeProofCreator implements ProofCreator {
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+      this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
     }
 
-    this.log.info(
-      `Generated ${circuitType === 'App' ? appCircuitName : circuitType} circuit proof in ${timer.ms()} ms`,
-    );
+    this.log.info(`Generated ${circuitType}${dbgCircuitName} circuit proof in ${Math.ceil(timer.ms())} ms`);
 
     if (circuitType === 'App') {
       const vkData = await extractVkData(directory);
@@ -411,7 +411,7 @@ export class BBNativeProofCreator implements ProofCreator {
       this.log.info(`Generated proof`, {
         eventName: 'circuit-proving',
         circuitName: 'app-circuit',
-        duration: provingResult.duration,
+        duration: provingResult.durationMs,
         inputSize: compressedBincodedWitness.length,
         proofSize: proof.binaryProof.buffer.length,
         appCircuitName,
@@ -432,7 +432,7 @@ export class BBNativeProofCreator implements ProofCreator {
 
     this.log.debug(`Generated proof`, {
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-      duration: provingResult.duration,
+      duration: provingResult.durationMs,
       eventName: 'circuit-proving',
       inputSize: compressedBincodedWitness.length,
       proofSize: proof.binaryProof.buffer.length,

@@ -13,7 +13,7 @@ contract TokenBlacklist {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -173,13 +173,13 @@ contract TokenBlacklist {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
+        let note = notes.get_unchecked(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
         // Add the token note to user's balances set
         let caller = context.msg_sender();
-        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, caller, to));
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, to));
     }
 
     #[aztec(private)]
@@ -195,7 +195,7 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, from, from));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -215,8 +215,8 @@ contract TokenBlacklist {
         }
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt(&mut context, from, from));
-        storage.balances.add(to, amount).emit(encode_and_encrypt(&mut context, from, to));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context, from, to));
     }
 
     #[aztec(private)]
@@ -230,7 +230,7 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, from, from));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

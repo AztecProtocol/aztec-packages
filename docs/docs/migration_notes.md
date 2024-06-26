@@ -8,6 +8,153 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] changes to `NoteInterface`
+
+`compute_nullifier` function was renamed to `compute_note_hash_and_nullifier` and now the function has to return not only the nullifier but also the note hash used to compute the nullifier.
+The same change was done to `compute_nullifier_without_context` function.
+These changes were done because having the note hash exposed allowed us to not having to re-compute it again in `destroy_note` function of Aztec.nr which led to significant decrease in gate counts (see the [optimization PR](https://github.com/AztecProtocol/aztec-packages/pull/7103) for more details).
+
+```diff
+- impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
+-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+-        let secret = context.request_nsk_app(self.npk_m_hash);
+-        poseidon2_hash([
+-            note_hash_for_nullify,
+-            secret,
+-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-        ])
+-    }
+-
+-    fn compute_nullifier_without_context(self) -> Field {
+-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+-        let secret = get_nsk_app(self.npk_m_hash);
+-        poseidon2_hash([
+-            note_hash_for_nullify,
+-            secret,
+-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-        ])
+-    }
+- }
++ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
++    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
++        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
++        let secret = context.request_nsk_app(self.npk_m_hash);
++        let nullifier = poseidon2_hash([
++            note_hash_for_nullify,
++            secret,
++            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++        ]);
++        (note_hash_for_nullify, nullifier)
++    }
++
++    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
++        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
++        let secret = get_nsk_app(self.npk_m_hash);
++        let nullifier = poseidon2_hash([
++            note_hash_for_nullify,
++            secret,
++            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++        ]);
++        (note_hash_for_nullify, nullifier)
++    }
++ }
+```
+
+### [Aztec.nr] `note_getter` returns `BoundedVec`
+
+The `get_notes` and `view_notes` function no longer return an array of options (i.e. `[Option<Note>, N_NOTES]`) but instead a `BoundedVec<Note, N_NOTES>`. This better conveys the useful property the old array had of having all notes collapsed at the beginning of the array, which allows for powerful optimizations and gate count reduction when setting the `options.limit` value.
+
+A `BoundedVec` has a `max_len()`, which equals the number of elements it can hold, and a `len()`, which equals the number of elements it currently holds. Since `len()` is typically not knwon at compile time, iterating over a `BoundedVec` looks slightly different than iterating over an array of options:
+
+```diff
+- let option_notes = get_notes(options);
+- for i in 0..option_notes.len() {
+-     if option_notes[i].is_some() {
+-         let note = option_notes[i].unwrap_unchecked();
+-     }
+- }
++ let notes = get_notes(options);
++ for i in 0..notes.max_len() {
++     if i < notes.len() {
++         let note = notes.get_unchecked(i);
++     }
++ }
+```
+
+To further reduce gate count, you can iterate over `options.limit` instead of `max_len()`, since `options.limit` is guaranteed to be larger or equal to `len()`, and smaller or equal to `max_len()`:
+
+```diff
+- for i in 0..notes.max_len() {
++ for i in 0..options.limit {
+```
+
+### [Aztec.nr] static private authwit
+
+The private authwit validation is now making a static call to the account contract instead of passing over control flow. This is to ensure that it cannot be used for re-entry.
+
+To make this change however, we cannot allow emitting a nullifier from the account contract, since that would break the static call. Instead, we will be changing the `spend_private_authwit` to a `verify_private_authwit` and in the `auth` library emit the nullifier. This means that the "calling" contract will now be emitting the nullifier, and not the account. For example, for a token contract, the nullifier is now emitted by the token contract. However, as this is done inside the `auth` library, the token contract doesn't need to change much.
+
+The biggest difference is related to "cancelling" an authwit. Since it is no longer in the account contract, you cannot just emit a nullifier from it anymore. Instead it must rely on the token contract providing functionality for cancelling.
+
+There are also a few general changes to how authwits are generated, namely to more easily support the data required for a validity lookup now. Previously we could lookup the `message_hash` directly at the account contract, now we instead need to use the `inner_hash` and the contract of the consumer to figure out if it have already been emitted.
+
+A minor extension have been made to the authwit creations to make it easier to sign a specific a hash with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been amde internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
+
+```diff
+const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), entrypointPackedArgs.hash]);
+-const outerHash = computeOuterAuthWitHash(
+-    this.dappEntrypointAddress,
+-    new Fr(this.chainId),
+-    new Fr(this.version),
+-    innerHash,
+-);
++const outerHash = computeAuthWitMessageHash(
++    { consumer: this.dappEntrypointAddress, innerHash },
++    { chainId: new Fr(this.chainId), version: new Fr(this.version) },
++);
+```
+
+If the wallet is used to compute the authwit, it will populate the chain id and version instead of requiring it to be provided by tha actor.
+
+```diff
+const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead')]);
+-const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), chainId, version, innerHash);
+-const witness = await wallets[0].createAuthWit(outerHash);
++ const witness = await wallets[0].createAuthWit({ comsumer: accounts[1].address, inner_hash });
+```
+
+## 0.43.0
+
+### [Aztec.nr] break `token.transfer()` into `transfer` and `transferFrom`
+
+Earlier we had just one function - `transfer()` which used authwits to handle the case where a contract/user wants to transfer funds on behalf of another user.
+To reduce circuit sizes and proof times, we are breaking up `transfer` and introducing a dedicated `transferFrom()` function like in the ERC20 standard.
+
+### [Aztec.nr] `options.limit` has to be constant
+
+The `limit` parameter in `NoteGetterOptions` and `NoteViewerOptions` is now required to be a compile-time constant. This allows performing loops over this value, which leads to reduced circuit gate counts when setting a `limit` value.
+
+### [Aztec.nr] canonical public authwit registry
+
+The public authwits are moved into a shared registry (auth registry) to make it easier for sequencers to approve for their non-revertible (setup phase) whitelist. Previously, it was possible to DOS a sequencer by having a very expensive authwit validation that fails at the end, now the whitelist simply need the registry.
+
+Notable, this means that consuming a public authwit will no longer emit a nullifier in the account contract but instead update STORAGE in the public domain. This means that there is a larger difference between private and public again. However, it also means that if contracts need to approve, and use the approval in the same tx, it is transient and don't need to go to DA (saving 96 bytes).
+
+For the typescript wallets this is handled so the APIs don't change, but account contracts should get rid of their current setup with `approved_actions`.
+
+```diff
+- let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
++ let actions = AccountActions::init(&mut context, is_valid_impl);
+```
+
+For contracts we have added a `set_authorized` function in the auth library that can be used to set values in the registry.
+
+```diff
+- storage.approved_action.at(message_hash).write(true);
++ set_authorized(&mut context, message_hash, true);
+```
+
 ### [Aztec.nr] emit encrypted logs
 
 Emitting or broadcasting encrypted notes are no longer done as part of the note creation, but must explicitly be either emitted or discarded instead.
@@ -798,9 +945,9 @@ After:
 
 ```rust
 #[aztec(private)]
-fn spend_private_authwit(inner_hash: Field) -> Field {
+fn verify_private_authwit(inner_hash: Field) -> Field {
     let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-    actions.spend_private_authwit(inner_hash)
+    actions.verify_private_authwit(inner_hash)
 }
 
 #[aztec(public)]

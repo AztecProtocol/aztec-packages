@@ -610,15 +610,25 @@ void gateCount(const std::string& bytecodePath, bool honk_recursion)
     size_t i = 0;
     for (auto constraint_system : constraint_systems) {
         acir_proofs::AcirComposer acir_composer(0, verbose_logging);
-        acir_composer.create_circuit(constraint_system);
+        acir_composer.create_circuit(constraint_system, {}, true);
         auto circuit_size = acir_composer.get_total_circuit_size();
 
         // Build individual circuit report
+        std::string gates_per_opcode_str;
+        for (size_t j = 0; j < constraint_system.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(constraint_system.gates_per_opcode[j]);
+            if (j != constraint_system.gates_per_opcode.size() - 1) {
+                gates_per_opcode_str += ",";
+            }
+        }
+
         auto result_string = format("{\n        \"acir_opcodes\": ",
                                     constraint_system.num_acir_opcodes,
                                     ",\n        \"circuit_size\": ",
                                     circuit_size,
-                                    "\n  }");
+                                    ",\n        \"gates_per_opcode\": [",
+                                    gates_per_opcode_str,
+                                    "]\n  }");
 
         // Attach a comma if we still circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
@@ -947,17 +957,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     typename Flavor::VerificationKey vk(prover.instance->proving_key);
-    info("vk size: ",
-         vk.circuit_size,
-         ", num public inputs: ",
-         vk.num_public_inputs,
-         ", pub input offset: ",
-         vk.pub_inputs_offset,
-         ", hash: ",
-         vk.hash());
-    // for (auto comm : vk.get_all()) {
-    //     info("comm: ", comm);
-    // }
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {
@@ -1214,7 +1213,6 @@ void prove_honk_output_all(const std::string& bytecodePath,
                            const std::string& witnessPath,
                            const std::string& outputPath)
 {
-    // info("at prove_honk_output_all");
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
@@ -1223,73 +1221,11 @@ void prove_honk_output_all(const std::string& bytecodePath,
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
         honk_recursion = true;
     }
+
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    // info("after get_constraint_system");
     auto witness = get_witness(witnessPath);
-    // info("after get_witness");
+
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-    // info("after create_circuit");
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    // CircuitChecker circuit_checker;
-    // info("check result: ", circuit_checker.check<Builder>(builder));
-    // Construct Honk proof
-    Prover prover{ builder };
-    auto proof = prover.construct_proof();
-    // info("after construct_proof");
-
-    // We have been given a directory, we will write the proof and verification key
-    // into the directory in both 'binary' and 'fields' formats
-    std::string vkOutputPath = outputPath + "/vk";
-    std::string proofPath = outputPath + "/proof";
-    std::string vkFieldsOutputPath = outputPath + "/vk_fields.json";
-    std::string proofFieldsPath = outputPath + "/proof_fields.json";
-
-    VerificationKey vk(
-        prover.instance->proving_key); // uses a partial form of the proving key which only has precomputed entities
-
-    // Write the 'binary' proof
-    write_file(proofPath, to_buffer</*include_size=*/true>(proof));
-    info("binary proof written to: ", proofPath);
-
-    // Write the proof as fields
-    std::string proofJson = to_json(proof);
-    write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    // info("proof as fields written to: ", proofFieldsPath);
-
-    // Write the vk as binary
-    auto serialized_vk = to_buffer(vk);
-    write_file(vkOutputPath, serialized_vk);
-    // info("vk written to: ", vkOutputPath);
-
-    // Write the vk as fields
-    std::vector<bb::fr> vk_data = vk.to_field_elements();
-    auto vk_json = honk_vk_to_json(vk_data);
-    write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    // info("vk as fields written to: ", vkFieldsOutputPath);
-}
-
-/**
- * @brief Creates a Honk proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format
- *
- * Communication:
- * - Filesystem: The proof is written to the path specified by outputPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param witnessPath Path to the file containing the serialized witness
- * @param outputPath Directory into which we write the proof and verification key data
- */
-template <IsUltraFlavor Flavor> void prove_honk_output_all_fake(const std::string& outputPath)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    Builder builder;
-    // Create mock circuit
-    MockCircuits::construct_arithmetic_circuit(builder, 10, /*random=*/false, /*has_pub_input=*/false);
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
@@ -1308,28 +1244,26 @@ template <IsUltraFlavor Flavor> void prove_honk_output_all_fake(const std::strin
 
     VerificationKey vk(
         prover.instance->proving_key); // uses a partial form of the proving key which only has precomputed entities
-    info("fake honk vk circuit size: ", vk.circuit_size);
-    info("fake honk vk num public inputs: ", vk.num_public_inputs);
 
     // Write the 'binary' proof
     write_file(proofPath, to_buffer</*include_size=*/true>(proof));
-    vinfo("fake honk binary proof written to: ", proofPath);
+    vinfo("binary proof written to: ", proofPath);
 
     // Write the proof as fields
     std::string proofJson = to_json(proof);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    vinfo("fake honk proof as fields written to: ", proofFieldsPath);
+    vinfo("proof as fields written to: ", proofFieldsPath);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(vk);
     write_file(vkOutputPath, serialized_vk);
-    vinfo("fake honk vk written to: ", vkOutputPath);
+    vinfo("vk written to: ", vkOutputPath);
 
     // Write the vk as fields
     std::vector<bb::fr> vk_data = vk.to_field_elements();
     auto vk_json = honk_vk_to_json(vk_data);
     write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    vinfo("fake honk vk as fields written to: ", vkFieldsOutputPath);
+    vinfo("vk as fields written to: ", vkFieldsOutputPath);
 }
 
 bool flag_present(std::vector<std::string>& args, const std::string& flag)
@@ -1404,9 +1338,6 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<UltraFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "prove_ultra_honk_output_all_fake") {
-            std::string output_path = get_option(args, "-o", "./proofs");
-            prove_honk_output_all_fake<UltraFlavor>(output_path);
         } else if (command == "prove_mega_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path);

@@ -194,10 +194,9 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
   const storageFieldsUnionType = entries.map(([name]) => `'${name}'`).join(' | ');
   const layout = entries
     .map(
-      ([name, { slot, typ }]) =>
+      ([name, { slot }]) =>
         `${name}: {
       slot: new Fr(${slot.toBigInt()}n),
-      typ: "${typ}",
     }`,
     )
     .join(',\n');
@@ -239,58 +238,59 @@ function generateNotesGetter(input: ContractArtifact) {
   `;
 }
 
-// This is of type AbiType
+// events is of type AbiType
 function generateEvents(events: any[] | undefined) {
   if (events === undefined) {
     return { events: '', eventDefs: '' };
   }
 
-  const eventsStrings = events.map(event => {
-    const eventName = event.path.split('::')[1];
+  const eventsMetadata = events.map(event => {
+    const eventName = event.path.split('::').at(-1);
 
     const eventDefProps = event.fields.map((field: any) => `${field.name}: Fr`);
-    const eventDefs = `
+    const eventDef = `
       export type ${eventName} = {
         ${eventDefProps.join('\n')}
       }
     `;
 
     const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
-    const eventsType = `${eventName}: {decode: (payload: L1EventPayload | undefined) => ${eventName} | undefined }`;
+    const eventType = `${eventName}: {decode: (payload: L1EventPayload | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
 
-    // Get the last item in path
-    const eventDecode = `${event.path.split('::').at(-1)}: {
-        decode: this.decodeEvent(${event.fields.length}, '${eventName}(${event.fields
+    const eventImpl = `${eventName}: {
+        decode: this.decodeEvent(${event.fields.length}, EventSelector.fromSignature('${eventName}(${event.fields
       .map(() => 'Field')
-      .join(',')})', [${fieldNames}])
+      .join(',')})'), [${fieldNames}]),
+      eventSelector: EventSelector.fromSignature('${eventName}(${event.fields.map(() => 'Field').join(',')})'),
+      fieldNames: [${fieldNames}],
       }`;
 
     return {
-      eventDefs,
-      eventsType,
-      eventDecode,
+      eventDef,
+      eventType,
+      eventImpl,
     };
   });
 
   return {
-    eventDefs: eventsStrings.map(({ eventDefs }) => eventDefs).join('\n'),
+    eventDefs: eventsMetadata.map(({ eventDef }) => eventDef).join('\n'),
     events: `
     // Partial application is chosen is to avoid the duplication of so much codegen.
-  private static decodeEvent<T>(fieldsLength: number, functionSignature: string, fields: string[]): (payload: L1EventPayload | undefined) => T | undefined {
+  private static decodeEvent<T>(fieldsLength: number, eventSelector: EventSelector, fields: string[]): (payload: L1EventPayload | undefined) => T | undefined {
     return (payload: L1EventPayload | undefined): T | undefined => {
       if (payload === undefined) {
         return undefined;
       }
       if (
-        !FunctionSelector.fromSignature(functionSignature).equals(
-          FunctionSelector.fromField(payload.eventTypeId),
+        !eventSelector.equals(
+          EventSelector.fromField(payload.eventTypeId),
         )
       ) {
         return undefined;
       }
       if (payload.event.items.length !== fieldsLength) {
         throw new Error(
-          'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+          'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
         );
       }
 
@@ -304,9 +304,9 @@ function generateEvents(events: any[] | undefined) {
     };
   }
 
-  public static get events(): { ${eventsStrings.map(({ eventsType }) => eventsType).join(', ')} } {
+  public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
     return {
-      ${eventsStrings.map(({ eventDecode }) => eventDecode).join(',\n')}
+      ${eventsMetadata.map(({ eventImpl }) => eventImpl).join(',\n')}
     };
   }
   `,
@@ -351,6 +351,7 @@ import {
   EthAddressLike,
   FieldLike,
   Fr,
+  EventSelector,
   FunctionSelector,
   FunctionSelectorLike,
   L1EventPayload,

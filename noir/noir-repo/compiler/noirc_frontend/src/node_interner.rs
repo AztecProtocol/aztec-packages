@@ -20,6 +20,7 @@ use crate::hir::def_map::{LocalModuleId, ModuleId};
 
 use crate::ast::{BinaryOpKind, FunctionDefinition, ItemVisibility};
 use crate::hir::resolution::errors::ResolverError;
+use crate::hir_def::expr::HirIdent;
 use crate::hir_def::stmt::HirLetStatement;
 use crate::hir_def::traits::TraitImpl;
 use crate::hir_def::traits::{Trait, TraitConstraint};
@@ -622,6 +623,15 @@ impl NodeInterner {
         f(&mut value);
     }
 
+    pub fn update_struct_attributes(
+        &mut self,
+        type_id: StructId,
+        f: impl FnOnce(&mut StructAttributes),
+    ) {
+        let value = self.struct_attributes.get_mut(&type_id).unwrap();
+        f(value);
+    }
+
     pub fn update_trait(&mut self, trait_id: TraitId, f: impl FnOnce(&mut Trait)) {
         let value = self.traits.get_mut(&trait_id).unwrap();
         f(value);
@@ -822,6 +832,21 @@ impl NodeInterner {
     /// Returns the module this function was defined within
     pub fn function_module(&self, func: FuncId) -> ModuleId {
         self.function_modules[&func]
+    }
+
+    /// Returns the [`FuncId`] corresponding to the function referred to by `expr_id`
+    pub fn lookup_function_from_expr(&self, expr: &ExprId) -> Option<FuncId> {
+        if let HirExpression::Ident(HirIdent { id, .. }, _) = self.expression(expr) {
+            if let Some(DefinitionKind::Function(func_id)) =
+                self.try_definition(id).map(|def| &def.kind)
+            {
+                Some(*func_id)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     /// Returns the interned HIR function corresponding to `func_id`

@@ -43,7 +43,7 @@ export class PublicExecutor {
     const address = execution.contractAddress;
     const selector = execution.functionSelector;
     const startGas = availableGas;
-    const fnName = await this.contractsDb.getDebugFunctionName(address, selector);
+    const fnName = (await this.contractsDb.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
 
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();
@@ -70,6 +70,7 @@ export class PublicExecutor {
     const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
     const simulator = new AvmSimulator(avmContext);
     const avmResult = await simulator.execute();
+    const bytecode = simulator.getBytecode();
 
     // Commit the journals state to the DBs since this is a top-level execution.
     // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
@@ -77,11 +78,14 @@ export class PublicExecutor {
     await avmContext.persistableState.publicStorage.commitToDB();
 
     PublicExecutor.log.verbose(
-      `[AVM] ${fnName} returned, reverted: ${avmResult.reverted}, reason: ${avmResult.revertReason}.`,
+      `[AVM] ${fnName} returned, reverted: ${avmResult.reverted}${
+        avmResult.reverted ? ', reason: ' + avmResult.revertReason : ''
+      }.`,
       {
         eventName: 'avm-simulation',
-        appCircuitName: fnName ?? 'unknown',
+        appCircuitName: fnName,
         duration: timer.ms(),
+        bytecodeSize: bytecode!.length,
       } satisfies AvmSimulationStats,
     );
 
@@ -91,7 +95,8 @@ export class PublicExecutor {
       execution,
       startGas,
       avmContext,
-      simulator.getBytecode(),
+      bytecode,
+      fnName,
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): is this really needed?

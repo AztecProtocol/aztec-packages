@@ -35,7 +35,15 @@
     "rootDir": "./src",
     "transform": {
       "^.+\\.tsx?$": [
-        "@swc/jest"
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            }
+          }
+        }
       ]
     },
     "extensionsToTreatAsEsm": [
@@ -57,6 +65,7 @@
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",
+    "@aztec/telemetry-client": "workspace:^",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "commander": "^9.0.0",
