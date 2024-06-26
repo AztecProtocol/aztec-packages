@@ -1,6 +1,5 @@
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
-import { randomInt } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
@@ -49,10 +48,7 @@ export class PublicExecutor {
   ): Promise<PublicExecutionResult> {
     const address = executionRequest.contractAddress;
     const selector = executionRequest.functionSelector;
-    // this will be passed to the prover
-    let fnName = (await this.contractsDb.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
-    // add an identifier to the function name
-    fnName = `[${randomInt(1000000000)}] ${fnName}`;
+    const fnName = (await this.contractsDb.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
 
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();
