@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719414756585,
+  "lastUpdate": 1719416193380,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -54668,6 +54668,78 @@ window.BENCHMARK_DATA = {
             "value": 161573522,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161573522 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "89a99af4ff2ea79c276ff379a3cdd1b8cae18d15",
+          "message": "fix(avm): fix unencryptedlog c++ deser (#7194)\n\nNote that I'm removing eventselector from the deserialization, because\nEsau has a PR open where he's removing it on the TS side.\n\nNote also that the constraints/witgen for this opcode are still broken.",
+          "timestamp": "2024-06-26T16:26:25+01:00",
+          "tree_id": "87924362558447f1c2a0a78e75a78c14545a30fb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/89a99af4ff2ea79c276ff379a3cdd1b8cae18d15"
+        },
+        "date": 1719416189437,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14073.423102999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9650.479424 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4803.557355999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4465.732741 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42860.022771,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42860023000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14559.062032000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14559062000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4130644049,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4130644049 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195950992,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195950992 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3419604815,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3419604815 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161133572,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161133572 ns\nthreads: 1"
           }
         ]
       }
