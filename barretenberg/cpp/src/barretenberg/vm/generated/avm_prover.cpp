@@ -988,7 +988,8 @@ void AvmProver::execute_relation_check_rounds()
  * */
 void AvmProver::execute_zeromorph_rounds()
 {
-    ZeroMorph::prove(prover_polynomials.get_unshifted(),
+    ZeroMorph::prove(key->circuit_size,
+                     prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),
                      sumcheck_output.claimed_evaluations.get_shifted(),
