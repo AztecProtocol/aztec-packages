@@ -77,7 +77,8 @@ template <typename HashingPolicy> class NullifierMemoryTree : public MemoryTree<
     const std::vector<bb::fr>& get_hashes() { return hashes_; }
     const WrappedNullifierLeaf<HashingPolicy> get_leaf(size_t index)
     {
-        return (index < leaves_.size()) ? leaves_[index] : WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf::zero());
+        return (index < leaves_.size()) ? leaves_[index]
+                                        : WrappedNullifierLeaf<HashingPolicy>(indexed_nullifier_leaf::zero());
     }
     const std::vector<WrappedNullifierLeaf<HashingPolicy>>& get_leaves() { return leaves_; }
 
@@ -111,13 +112,13 @@ NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t ini
 
     // Insert the initial leaves
     for (size_t i = 0; i < initial_size; i++) {
-        auto initial_leaf =
-            WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
+        auto initial_leaf = WrappedNullifierLeaf<HashingPolicy>(
+            indexed_nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
         leaves_.push_back(initial_leaf);
     }
 
     leaves_[initial_size - 1] = WrappedNullifierLeaf<HashingPolicy>(
-        nullifier_leaf{ .value = leaves_[initial_size - 1].unwrap().value, .nextIndex = 0, .nextValue = 0 });
+        indexed_nullifier_leaf{ .value = leaves_[initial_size - 1].unwrap().value, .nextIndex = 0, .nextValue = 0 });
 
     for (size_t i = 0; i < initial_size; ++i) {
         update_element(i, leaves_[i].hash());
@@ -142,10 +143,10 @@ template <typename HashingPolicy> fr_hash_path NullifierMemoryTree<HashingPolicy
     bool is_already_present;
     std::tie(current, is_already_present) = find_closest_leaf(leaves_, value);
 
-    nullifier_leaf current_leaf = leaves_[current].unwrap();
-    nullifier_leaf new_leaf = { .value = value,
-                                .nextIndex = current_leaf.nextIndex,
-                                .nextValue = current_leaf.nextValue };
+    indexed_nullifier_leaf current_leaf = leaves_[current].unwrap();
+    indexed_nullifier_leaf new_leaf = { .value = value,
+                                        .nextIndex = current_leaf.nextIndex,
+                                        .nextValue = current_leaf.nextValue };
 
     if (!is_already_present) {
         // Update the current leaf to point it to the new leaf

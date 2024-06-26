@@ -3,6 +3,7 @@
 #include "../node_store//tree_meta.hpp"
 #include "../types.hpp"
 #include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include <functional>
 #include <iostream>
 #include <memory>

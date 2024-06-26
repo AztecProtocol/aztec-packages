@@ -21,7 +21,10 @@ void print_tree(const size_t depth, std::vector<fr> hashes, std::string const& m
     }
 }
 
-bool check_hash_path(const fr& root, const fr_hash_path& path, const nullifier_leaf& leaf_value, const size_t idx)
+bool check_hash_path(const fr& root,
+                     const fr_hash_path& path,
+                     const indexed_nullifier_leaf& leaf_value,
+                     const size_t idx)
 {
     auto current = WrappedLeaf(leaf_value).hash();
     size_t depth_ = path.size();
@@ -50,7 +53,7 @@ TEST(crypto_nullifier_tree, test_nullifier_memory)
      *  nextIdx   0       0       0       0        0       0       0       0
      *  nextVal   0       0       0       0        0       0       0       0
      */
-    nullifier_leaf zero_leaf = { 0, 0, 0 };
+    indexed_nullifier_leaf zero_leaf = { 0, 0, 0 };
     EXPECT_EQ(tree.get_leaves().size(), 1);
     EXPECT_EQ(tree.get_leaves()[0].unwrap(), zero_leaf);
 
@@ -344,7 +347,7 @@ TEST(crypto_nullifier_tree, test_nullifier_tree)
     constexpr size_t depth = 8;
     NullifierMemoryTree<HashPolicy> tree(depth);
 
-    nullifier_leaf zero_leaf = { 0, 0, 0 };
+    indexed_nullifier_leaf zero_leaf = { 0, 0, 0 };
     EXPECT_EQ(tree.get_leaves().size(), 1);
     EXPECT_EQ(tree.get_leaves()[0].hash(), WrappedLeaf(zero_leaf).hash());
 

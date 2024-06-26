@@ -5,8 +5,6 @@
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/leaves_cache.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_store.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/world_state/service/message.hpp"

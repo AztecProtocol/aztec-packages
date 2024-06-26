@@ -9,10 +9,8 @@
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_leaves_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "leaves_cache.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -23,8 +21,9 @@ using namespace bb::crypto::merkle_tree;
 
 using HashPolicy = Poseidon2HashPolicy;
 
-using Store = CachedTreeStore<LMDBStore, indexed_leaf>;
+using Store = CachedTreeStore<LMDBStore, nullifier_leaf_value>;
 using TreeType = IndexedTree<Store, HashPolicy>;
+using IndexedLeafType = indexed_leaf<nullifier_leaf_value>;
 
 using CompletionCallback = TreeType::add_completion_callback;
 
@@ -90,11 +89,11 @@ fr_hash_path get_hash_path(TreeType& tree, index_t index, bool includeUncommitte
     return h;
 }
 
-indexed_leaf get_leaf(TreeType& tree, index_t index, bool includeUncommitted = true)
+IndexedLeafType get_leaf(TreeType& tree, index_t index, bool includeUncommitted = true)
 {
-    indexed_leaf l;
+    IndexedLeafType l;
     Signal signal(1);
-    auto completion = [&](const indexed_leaf& leaf) -> void {
+    auto completion = [&](const IndexedLeafType& leaf) -> void {
         l = leaf;
         signal.signal_level(0);
     };
@@ -126,7 +125,7 @@ void add_value(TreeType& tree, const fr& value)
     signal.wait_for_level(0);
 }
 
-void add_values(TreeType& tree, const std::vector<fr>& values)
+void add_values(TreeType& tree, const std::vector<nullifier_leaf_value>& values)
 {
     Signal signal(1);
     auto completion = [&](const std::vector<fr_hash_path>&, fr&, index_t) -> void { signal.signal_level(0); };
@@ -303,11 +302,11 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
     check_hash_path(tree2, 512, memdb.get_hash_path(512));
 
     for (uint32_t i = 0; i < num_batches; i++) {
-        std::vector<fr> batch;
+        std::vector<nullifier_leaf_value> batch;
         std::vector<fr_hash_path> memory_tree_hash_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
-            fr_hash_path path = memdb.update_element(batch[j]);
+            fr_hash_path path = memdb.update_element(batch[j].value);
             memory_tree_hash_paths.push_back(path);
         }
         std::vector<fr_hash_path> tree1_hash_paths;
@@ -345,12 +344,12 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
     }
 }
 
-fr hash_leaf(const indexed_leaf& leaf)
+fr hash_leaf(const IndexedLeafType& leaf)
 {
     return HashPolicy::hash(leaf.get_hash_inputs());
 }
 
-bool verify_hash_path(TreeType& tree, const indexed_leaf& leaf_value, const uint32_t idx)
+bool verify_hash_path(TreeType& tree, const IndexedLeafType& leaf_value, const uint32_t idx)
 {
     fr root = get_root(tree, true);
     fr_hash_path path = get_hash_path(tree, idx, true);
@@ -364,6 +363,11 @@ bool verify_hash_path(TreeType& tree, const indexed_leaf& leaf_value, const uint
         index >>= 1;
     }
     return current == root;
+}
+
+IndexedLeafType create_indexed_nullifier_leaf(const fr& value, index_t nextIndex, const fr& nextValue)
+{
+    return IndexedLeafType(nullifier_leaf_value(value), nextIndex, nextValue);
 }
 
 TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
@@ -385,7 +389,7 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      *  nextIdx   0       0       0       0        0       0       0       0
      *  nextVal   0       0       0       0        0       0       0       0
      */
-    indexed_leaf zero_leaf = { 0, 0, 0 };
+    IndexedLeafType zero_leaf(nullifier_leaf_value(0), 0, 0);
     check_size(tree, 1);
     EXPECT_EQ(get_leaf(tree, 0), zero_leaf);
 
@@ -400,8 +404,8 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, 30);
     check_size(tree, 2);
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 1, 30 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 0, 0 }));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf(create_indexed_nullifier_leaf(0, 1, 30)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf(create_indexed_nullifier_leaf(30, 0, 0)));
 
     /**
      * Add new value 10:
@@ -414,9 +418,9 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, 10);
     check_size(tree, 3);
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 2, 10 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 0, 0 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf({ 10, 1, 30 }));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf(create_indexed_nullifier_leaf(0, 2, 10)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf(create_indexed_nullifier_leaf(30, 0, 0)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf(create_indexed_nullifier_leaf(10, 1, 30)));
 
     /**
      * Add new value 20:
@@ -429,10 +433,10 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, 20);
     check_size(tree, 4);
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 2, 10 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 0, 0 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf({ 10, 3, 20 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 3)), hash_leaf({ 20, 1, 30 }));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf(create_indexed_nullifier_leaf(0, 2, 10)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf(create_indexed_nullifier_leaf(30, 0, 0)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf(create_indexed_nullifier_leaf(10, 3, 20)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 3)), hash_leaf(create_indexed_nullifier_leaf(20, 1, 30)));
 
     // Adding the same value must not affect anything
     // tree.update_element(20);
@@ -453,11 +457,11 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, 50);
     check_size(tree, 5);
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf({ 0, 2, 10 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf({ 30, 4, 50 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf({ 10, 3, 20 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 3)), hash_leaf({ 20, 1, 30 }));
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 4)), hash_leaf({ 50, 0, 0 }));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf(create_indexed_nullifier_leaf(0, 2, 10)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 1)), hash_leaf(create_indexed_nullifier_leaf(30, 4, 50)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 2)), hash_leaf(create_indexed_nullifier_leaf(10, 3, 20)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 3)), hash_leaf(create_indexed_nullifier_leaf(20, 1, 30)));
+    EXPECT_EQ(hash_leaf(get_leaf(tree, 4)), hash_leaf(create_indexed_nullifier_leaf(50, 0, 0)));
 
     // Manually compute the node values
     auto e000 = hash_leaf(get_leaf(tree, 0));
@@ -516,7 +520,7 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_tree)
     Store store(name, depth, db);
     auto tree = TreeType(store, workers, 1);
 
-    indexed_leaf zero_leaf = { 0, 0, 0 };
+    IndexedLeafType zero_leaf = create_indexed_nullifier_leaf(0, 0, 0);
     check_size(tree, 1);
     EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf(zero_leaf));
 
@@ -540,8 +544,8 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_tree)
     fr new_member = fr::random_element();
     std::vector<uint256_t> differences;
     for (uint32_t i = 0; i < uint32_t(21); i++) {
-        uint256_t diff_hi = abs_diff(uint256_t(new_member), uint256_t(get_leaf(tree, i).value));
-        uint256_t diff_lo = abs_diff(uint256_t(new_member), uint256_t(get_leaf(tree, i).value));
+        uint256_t diff_hi = abs_diff(uint256_t(new_member), uint256_t(get_leaf(tree, i).value.get_fr_value()));
+        uint256_t diff_lo = abs_diff(uint256_t(new_member), uint256_t(get_leaf(tree, i).value.get_fr_value()));
         differences.push_back(diff_hi + diff_lo);
     }
     auto it = std::min_element(differences.begin(), differences.end());

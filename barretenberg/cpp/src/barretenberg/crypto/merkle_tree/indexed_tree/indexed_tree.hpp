@@ -69,8 +69,10 @@ class Signal {
     */
 template <typename Store, typename HashingPolicy> class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
   public:
+    using LeafValueType = typename Store::LeafType;
+    using IndexedLeafValueType = typename Store::IndexedLeafValueType;
     using add_completion_callback = std::function<void(std::vector<fr_hash_path>&, fr&, index_t)>;
-    using leaf_callback = std::function<void(indexed_leaf& leaf)>;
+    using leaf_callback = std::function<void(IndexedLeafValueType& leaf)>;
 
     IndexedTree(Store& store, ThreadPool& workers, index_t initial_size);
     IndexedTree(IndexedTree const& other) = delete;
@@ -82,7 +84,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
      * @param value The value to be added or updated
      * @returns The 'previous' hash paths of all updated values
      */
-    void add_or_update_value(const fr& value, const add_completion_callback& completion);
+    void add_or_update_value(const LeafValueType& value, const add_completion_callback& completion);
 
     /**
      * @brief Adds or updates the given set of values in the tree (updates not currently supported)
@@ -90,7 +92,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
      * @param no_multithreading Performs single threaded insertion, just used whilst prototyping and benchmarking
      * @returns The 'previous' hash paths of all updated values
      */
-    void add_or_update_values(const std::vector<fr>& values, const add_completion_callback& completion);
+    void add_or_update_values(const std::vector<LeafValueType>& values, const add_completion_callback& completion);
 
     void get_leaf(const index_t& index, bool includeUncommitted, const leaf_callback& completion);
 
@@ -103,20 +105,19 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
 
     struct leaf_insertion {
         index_t low_leaf_index;
-        indexed_leaf low_leaf;
+        IndexedLeafValueType low_leaf;
     };
 
-    // fr update_leaf_and_hash_to_root(const index_t& index, const indexed_leaf& leaf);
     void update_leaf_and_hash_to_root(const index_t& index,
-                                      const indexed_leaf& leaf,
+                                      const IndexedLeafValueType& leaf,
                                       Signal& leader,
                                       Signal& follower,
                                       fr_hash_path& previous_hash_path,
                                       ReadTransaction& tx);
 
-    using insertion_generation_callback =
-        std::function<void(std::shared_ptr<std::vector<leaf_insertion>>, std::shared_ptr<std::vector<indexed_leaf>>)>;
-    void generate_insertions(std::shared_ptr<std::vector<std::pair<fr, size_t>>> values_to_be_sorted,
+    using insertion_generation_callback = std::function<void(std::shared_ptr<std::vector<leaf_insertion>>,
+                                                             std::shared_ptr<std::vector<IndexedLeafValueType>>)>;
+    void generate_insertions(const std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>>& values_to_be_sorted,
                              const insertion_generation_callback& completion);
 
     using insertion_completion_callback = std::function<void(std::shared_ptr<std::vector<fr_hash_path>> paths)>;
@@ -124,7 +125,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
                             const insertion_completion_callback& completion);
 
     using hash_generation_callback = std::function<void(std::shared_ptr<std::vector<fr>> hashes)>;
-    void generate_hashes_for_appending(std::shared_ptr<std::vector<indexed_leaf>> leaves_to_hash,
+    void generate_hashes_for_appending(std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash,
                                        const hash_generation_callback& completion);
 
     using AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero;
@@ -134,7 +135,6 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
     using AppendOnlyTree<Store, HashingPolicy>::add_value;
     using AppendOnlyTree<Store, HashingPolicy>::add_values;
 
-  private:
     using AppendOnlyTree<Store, HashingPolicy>::store_;
     using AppendOnlyTree<Store, HashingPolicy>::zero_hashes_;
     using AppendOnlyTree<Store, HashingPolicy>::depth_;
@@ -150,7 +150,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
     zero_hashes_.resize(depth_ + 1);
 
     // Create the zero hashes for the tree
-    // indexed_leaf zero_leaf{ 0, 0, 0 };
+    // Indexed_LeafType zero_leaf{ 0, 0, 0 };
     auto current = fr::zero();
     for (uint32_t i = depth_; i > 0; --i) {
         zero_hashes_[i] = current;
@@ -171,14 +171,15 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
         return;
     }
 
-    std::vector<indexed_leaf> appended_leaves;
+    std::vector<IndexedLeafValueType> appended_leaves;
     std::vector<bb::fr> appended_hashes;
     // Inserts the initial set of leaves as a chain in incrementing value order
     for (uint32_t i = 0; i < initial_size; ++i) {
         // Insert the zero leaf to the `leaves` and also to the tree at index 0.
         bool last = i == (initial_size - 1);
-        indexed_leaf initial_leaf =
-            indexed_leaf{ .value = i, .nextIndex = last ? 0 : i + 1, .nextValue = last ? 0 : i + 1 };
+        IndexedLeafValueType initial_leaf = IndexedLeafValueType::empty();
+        initial_leaf.nextIndex = last ? 0 : i + 1;
+        initial_leaf.nextValue = last ? 0 : i + 1;
         appended_leaves.push_back(initial_leaf);
         appended_hashes.push_back(HashingPolicy::hash(initial_leaf.get_hash_inputs()));
         store_.set_at_index(i, initial_leaf, true);
@@ -197,25 +198,29 @@ void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
                                                  const leaf_callback& completion)
 {
     auto job = [=]() {
-        ReadTransactionPtr tx = store_.createReadTransaction();
-        indexed_leaf leaf = store_.get_leaf(index, *tx, includeUncommitted);
+        IndexedLeafValueType leaf;
+        {
+            ReadTransactionPtr tx = store_.createReadTransaction();
+            leaf = store_.get_leaf(index, *tx, includeUncommitted);
+        }
         completion(leaf);
     };
     workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::add_or_update_value(const fr& value, const add_completion_callback& completion)
+void IndexedTree<Store, HashingPolicy>::add_or_update_value(const LeafValueType& value,
+                                                            const add_completion_callback& completion)
 {
-    add_or_update_values(std::vector<fr>{ value }, completion);
+    add_or_update_values(std::vector<LeafValueType>{ value }, completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<fr>& values,
+void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
                                                              const add_completion_callback& completion)
 {
-    std::shared_ptr<std::vector<std::pair<fr, size_t>>> values_to_be_sorted =
-        std::make_shared<std::vector<std::pair<fr, size_t>>>(values.size());
+    std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> values_to_be_sorted =
+        std::make_shared<std::vector<std::pair<LeafValueType, size_t>>>(values.size());
     for (size_t i = 0; i < values.size(); ++i) {
         (*values_to_be_sorted)[i] = std::make_pair(values[i], i);
     }
@@ -234,14 +239,14 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<f
         completion(*results->paths, root, size);
     };
 
-    hash_generation_callback hash_completion = [=](std::shared_ptr<std::vector<fr>> hashes_to_append) {
+    hash_generation_callback hash_completion = [=](const std::shared_ptr<std::vector<fr>>& hashes_to_append) {
         results->hashes_to_append = hashes_to_append;
         if (results->count.fetch_sub(1) == 1) {
             AppendOnlyTree<Store, HashingPolicy>::add_values(*hashes_to_append, final_completion);
         }
     };
 
-    insertion_completion_callback insertion_completion = [=](std::shared_ptr<std::vector<fr_hash_path>> paths) {
+    insertion_completion_callback insertion_completion = [=](const std::shared_ptr<std::vector<fr_hash_path>>& paths) {
         results->paths = paths;
         if (results->count.fetch_sub(1) == 1) {
             AppendOnlyTree<Store, HashingPolicy>::add_values(*results->hashes_to_append, final_completion);
@@ -250,7 +255,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<f
 
     insertion_generation_callback insertion_generation_completed =
         [=](std::shared_ptr<std::vector<leaf_insertion>> insertions,
-            std::shared_ptr<std::vector<indexed_leaf>> leaves_to_append) {
+            std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_append) {
             workers_.enqueue([=]() { generate_hashes_for_appending(leaves_to_append, hash_completion); });
             perform_insertions(insertions, insertion_completion);
         };
@@ -289,10 +294,10 @@ void IndexedTree<Store, HashingPolicy>::perform_insertions(std::shared_ptr<std::
 
 template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
-    std::shared_ptr<std::vector<indexed_leaf>> leaves_to_hash, const hash_generation_callback& completion)
+    std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash, const hash_generation_callback& completion)
 {
     std::shared_ptr<std::vector<fr>> hashed = std::make_shared<std::vector<fr>>(leaves_to_hash->size());
-    std::vector<indexed_leaf>& leaves = *leaves_to_hash;
+    std::vector<IndexedLeafValueType>& leaves = *leaves_to_hash;
     for (uint32_t i = 0; i < leaves.size(); ++i) {
         (*hashed)[i] = HashingPolicy::hash(leaves[i].get_hash_inputs());
     }
@@ -301,45 +306,44 @@ void IndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
 
 template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::generate_insertions(
-    std::shared_ptr<std::vector<std::pair<fr, size_t>>> values_to_be_sorted,
+    const std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>>& values_to_be_sorted,
     const insertion_generation_callback& on_completion)
 {
     // The first thing we do is sort the values into descending order but maintain knowledge of their orignal order
     struct {
-        bool operator()(const std::pair<fr, size_t>& a, const std::pair<fr, size_t>& b) const
+        bool operator()(std::pair<LeafValueType, size_t>& a, std::pair<LeafValueType, size_t>& b) const
         {
-            return uint256_t(a.first) > uint256_t(b.first);
+            return uint256_t(a.first.get_fr_value()) > uint256_t(b.first.get_fr_value());
         }
     } comp;
     std::sort(values_to_be_sorted->begin(), values_to_be_sorted->end(), comp);
 
-    std::vector<std::pair<fr, size_t>>& values = *values_to_be_sorted;
+    std::vector<std::pair<LeafValueType, size_t>>& values = *values_to_be_sorted;
 
     // Now that we have the sorted values we need to identify the leaves that need updating.
     // This is performed sequentially and is stored in this 'leaf_insertion' struct
     std::shared_ptr<std::vector<leaf_insertion>> insertions =
         std::make_shared<std::vector<leaf_insertion>>(values.size());
-    std::shared_ptr<std::vector<indexed_leaf>> leaves_to_append =
-        std::make_shared<std::vector<indexed_leaf>>(values.size());
+    std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_append =
+        std::make_shared<std::vector<IndexedLeafValueType>>(values.size());
     index_t old_size = 0;
     {
         ReadTransactionPtr tx = store_.createReadTransaction();
         bb::fr old_root = fr::zero();
         store_.get_meta(old_size, old_root, *tx, true);
         for (size_t i = 0; i < values.size(); ++i) {
-            fr value = values[i].first;
+            fr value = values[i].first.get_fr_value();
             size_t index_into_appended_leaves = values[i].second;
-            index_t index_of_new_leaf = index_t(index_into_appended_leaves) + old_size;
+            index_t index_of_new_leaf = static_cast<index_t>(index_into_appended_leaves) + old_size;
 
             // This gives us the leaf that need updating
             index_t current = 0;
             bool is_already_present = false;
             std::tie(is_already_present, current) = store_.find_low_value(values[i].first, true, *tx);
-            indexed_leaf current_leaf = store_.get_leaf(current, *tx, true);
+            IndexedLeafValueType current_leaf = store_.get_leaf(current, *tx, true);
 
-            indexed_leaf new_leaf = indexed_leaf{ .value = value,
-                                                  .nextIndex = current_leaf.nextIndex,
-                                                  .nextValue = current_leaf.nextValue };
+            IndexedLeafValueType new_leaf =
+                IndexedLeafValueType(values[i].first, current_leaf.nextIndex, current_leaf.nextValue);
 
             // We only handle new values being added. We don't yet handle values being updated
             if (!is_already_present) {
@@ -348,6 +352,7 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
                 current_leaf.nextValue = value;
                 store_.set_at_index(current, current_leaf, false);
                 store_.set_at_index(index_of_new_leaf, new_leaf, true);
+            } else {
             }
 
             (*leaves_to_append)[index_into_appended_leaves] = new_leaf;
@@ -355,9 +360,8 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
             // Capture the index and value of the updated 'low' leaf as well as the new leaf to be appended
             leaf_insertion& insertion = (*insertions)[i];
             insertion.low_leaf_index = current;
-            insertion.low_leaf = indexed_leaf{ .value = current_leaf.value,
-                                               .nextIndex = current_leaf.nextIndex,
-                                               .nextValue = current_leaf.nextValue };
+            insertion.low_leaf =
+                IndexedLeafValueType(current_leaf.value, current_leaf.nextIndex, current_leaf.nextValue);
         }
     }
     on_completion(insertions, leaves_to_append);
@@ -365,7 +369,7 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
 
 template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index_t& leaf_index,
-                                                                     const indexed_leaf& leaf,
+                                                                     const IndexedLeafValueType& leaf,
                                                                      Signal& leader,
                                                                      Signal& follower,
                                                                      fr_hash_path& previous_hash_path,

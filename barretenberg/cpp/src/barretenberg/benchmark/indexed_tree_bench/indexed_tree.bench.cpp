@@ -11,7 +11,7 @@
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
 
-using StoreType = CachedTreeStore<LMDBStore, indexed_leaf>;
+using StoreType = CachedTreeStore<LMDBStore, nullifier_leaf>;
 
 using Poseidon2 = IndexedTree<StoreType, Poseidon2HashPolicy>;
 using Pedersen = IndexedTree<StoreType, PedersenHashPolicy>;

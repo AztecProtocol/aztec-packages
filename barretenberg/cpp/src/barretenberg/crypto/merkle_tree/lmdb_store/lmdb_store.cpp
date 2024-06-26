@@ -28,7 +28,6 @@ int Invalid(const MDB_val*, const MDB_val*)
 
 int IntegerKeyCmp(const MDB_val* a, const MDB_val* b)
 {
-    // std::cout << "A size " << a->mv_size << " B size " << b->mv_size << std::endl;
     if (a->mv_size != b->mv_size) {
         return SizeCmp(a, b);
     }
