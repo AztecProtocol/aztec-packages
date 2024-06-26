@@ -66,6 +66,7 @@ export default {
       buffer: require.resolve('buffer/'),
       util: require.resolve('util/'),
       stream: require.resolve('stream-browserify'),
+      assert: require.resolve('assert/'),
     },
   },
 };

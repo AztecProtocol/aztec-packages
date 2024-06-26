@@ -26,6 +26,7 @@ import {
   type VerificationKeyData,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+import { getVKTree } from '@aztec/noir-protocol-circuits-types';
 
 /**
  * Used to communicate to the prover which type of circuit to prove
@@ -210,6 +211,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
+  emptyKernelOutput.constants.vkTreeRoot = Fr.fromBuffer(getVKTree().root);
   const emptyProof = makeEmptyProof();
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
