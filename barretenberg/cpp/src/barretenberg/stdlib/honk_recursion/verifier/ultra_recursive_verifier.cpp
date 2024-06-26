@@ -53,17 +53,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    // info("circuit size ", circuit_size, " vs for key ", key->circuit_size);
-    const auto public_input_size = transcript->template receive_from_prover<FF>("public_input_size");
-    // info("public input size", public_input_size, " vs for key ", key->num_public_inputs);
-    const auto pub_inputs_offset = transcript->template receive_from_prover<FF>("pub_inputs_offset");
-    // info("pub inputs offset", pub_inputs_offset, " vs for key ", key->pub_inputs_offset);
+    FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
+    transcript->template receive_from_prover<FF>("public_input_size");
+    transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
-    // For debugging purposes only
-    ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
-    ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
-    ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
+    // // For debugging purposes only
+    // ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
+    // ASSERT(static_cast<uint32_t>(public_input_size.get_value()) == key->num_public_inputs);
+    // ASSERT(static_cast<uint32_t>(pub_inputs_offset.get_value()) == key->pub_inputs_offset);
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
@@ -123,10 +120,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.return_data_inverses =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_inverses);
     }
-
     const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, key->circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, key->circuit_size);
+        public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -153,20 +149,22 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    // Execute ZeroMorph multilinear PCS evaluation verifier
-    if (sumcheck_verified.has_value()) {
-        // info("Sumcheck verified ", sumcheck_verified.value());
-    } else {
-        // info("Sumcheck verified no value we're confused");
+    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("recursive sumcheck failed");
+        // return {};
+    } else if (sumcheck_verified.has_value()) {
+        info("recursive sumcheck passed");
     }
-    // info("Honk verify_proof:before Zeromorph verify");
-
-    auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
+    // Execute ZeroMorph multilinear PCS evaluation verifier
+    info("ultra rec verifier N: ", key->circuit_size);
+    auto verifier_accumulator = ZeroMorph::verify(circuit_size,
+                                                  commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),
                                                   claimed_evaluations.get_unshifted(),
                                                   claimed_evaluations.get_shifted(),
                                                   multivariate_challenge,
                                                   transcript);
+    // std::array<typename Flavor::GroupElement, 2> verifier_accumulator = {};
     return verifier_accumulator;
 }
 

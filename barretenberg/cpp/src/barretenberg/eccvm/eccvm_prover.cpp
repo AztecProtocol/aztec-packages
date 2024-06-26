@@ -110,7 +110,8 @@ void ECCVMProver::execute_relation_check_rounds()
  * */
 void ECCVMProver::execute_zeromorph_rounds()
 {
-    ZeroMorph::prove(key->polynomials.get_unshifted(),
+    ZeroMorph::prove(key->circuit_size,
+                     key->polynomials.get_unshifted(),
                      key->polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),
                      sumcheck_output.claimed_evaluations.get_shifted(),
