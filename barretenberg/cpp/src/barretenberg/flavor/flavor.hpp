@@ -204,15 +204,15 @@ class VerificationKey_ : public PrecomputedCommitments {
     std::vector<FF> to_field_elements()
     {
         std::vector<FF> elements;
-        // std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
-        // elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
-        // // do the same for the rest of the fields
-        // std::vector<FF> num_public_inputs_elements =
-        //     bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
-        // elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
-        // std::vector<FF> pub_inputs_offset_elements =
-        //     bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
-        // elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
+        std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
+        elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
+        // do the same for the rest of the fields
+        std::vector<FF> num_public_inputs_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
+        elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
+        std::vector<FF> pub_inputs_offset_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
+        elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
 
         for (Commitment& comm : this->get_all()) {
             std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
