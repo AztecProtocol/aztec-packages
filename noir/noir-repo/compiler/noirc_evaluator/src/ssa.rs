@@ -17,7 +17,8 @@ use acvm::{
             Program as AcirProgram, PublicInputs,
         },
         native_types::Witness,
-    }, FieldElement
+    },
+    FieldElement,
 };
 
 use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVariables};
