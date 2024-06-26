@@ -4,6 +4,7 @@ use dep::aztec::{
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
 };
+use dep::std::field::bn254::decompose;
 use dep::std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul, fixed_base_scalar_mul};
 
 trait OwnedNote {
@@ -69,6 +70,8 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
 
 
     fn compute_note_content_hash(self) -> Field {
+        let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
+        let (random_lo, random_hi) = decompose(self.randomness);
         multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
@@ -76,12 +79,12 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
                 hi: 0
             },
             EmbeddedCurveScalar {
-                lo: self.npk_m_hash,
-                hi: 0
+                lo: npk_lo,
+                hi: npk_hi
             },
             EmbeddedCurveScalar {
-                lo: self.randomness,
-                hi: 0
+                lo: random_lo,
+                hi: random_hi,
             }]
         )[0]
     }
@@ -112,35 +115,37 @@ impl OwnedNote for TokenNote {
 
 impl PrivatelyRefundable for TokenNote {
     fn generate_refund_points(fee_payer: AztecAddress, sponsored_user: AztecAddress, funded_amount: Field) -> [EmbeddedCurvePoint; 2] {
+        let (fee_payer_nonce_lo, fee_payer_nonce_hi) = decompose(unsafe_rand());
+        let (fee_payer_lo, fee_payer_hi) = decompose(fee_payer.to_field());
 
-
-        let fee_payer_nonce = unsafe_rand();
         let fee_payer_point = multi_scalar_mul(
             [G1, G1],
             [EmbeddedCurveScalar {
-                lo: fee_payer.to_field(),
-                hi: 0
+                lo: fee_payer_lo,
+                hi: fee_payer_hi
             },
             EmbeddedCurveScalar {
-                lo: fee_payer_nonce,
-                hi: 0
+                lo: fee_payer_nonce_lo,
+                hi: fee_payer_nonce_hi
             }]
         );
 
-        let sponsored_user_nonce = unsafe_rand();
+        let (sponsored_user_nonce_lo, sponsored_user_nonce_hi) = decompose(unsafe_rand());
+        let (sponsored_user_lo, sponsored_user_hi) = decompose(sponsored_user.to_field());
+        let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
         let sponsored_user_point = multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
-                lo: sponsored_user.to_field(),
-                hi: 0
+                lo: sponsored_user_lo,
+                hi: sponsored_user_hi
             },
             EmbeddedCurveScalar {
-                lo: funded_amount,
-                hi: 0
+                lo: funded_amount_lo,
+                hi: funded_amount_hi
             },
             EmbeddedCurveScalar {
-                lo: sponsored_user_nonce,
-                hi: 0
+                lo: sponsored_user_nonce_lo,
+                hi: sponsored_user_nonce_hi
             }]
         );
 
@@ -157,11 +162,12 @@ impl PrivatelyRefundable for TokenNote {
 
     fn complete_refund(fee_payer_point: EmbeddedCurvePoint, sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> [Field; 2] {
 
+        let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
         let fee_point_raw = multi_scalar_mul(
             [G1],
             [EmbeddedCurveScalar {
-                lo: transaction_fee,
-                hi: 0
+                lo: transaction_fee_lo,
+                hi: transaction_fee_hi,
             }]
         );
         let fee_point = EmbeddedCurvePoint {
