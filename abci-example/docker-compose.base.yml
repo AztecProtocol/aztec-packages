@@ -1,0 +1,57 @@
+# We set the limit according to average upload bandwidth for a region.
+# Regions are considered to have differing packet loss.
+# Latency doesn't make a huge amount of sense as it's relative to two peers, rather than region specific.
+# However it suffices for us to build a p2p network with various differing parameters.
+
+services:
+  node_base:
+    image: "aztecprotocol/abci"
+    user: "1000:1000"
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - NET_ADMIN
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'lsof -iTCP:26658 -sTCP:LISTEN &> /dev/null && lsof -iTCP:26656 -sTCP:LISTEN &> /dev/null'",
+        ]
+      interval: 1s
+      retries: 5
+
+  node_base_eu:
+    extends:
+      service: node_base
+    labels:
+      com.docker-tc.enabled: "1"
+      com.docker-tc.delay: "10ms"
+      com.docker-tc.loss: "0.1%"
+    # com.docker-tc.limit: "20mbit"
+
+  node_base_na:
+    extends:
+      service: node_base
+    labels:
+      com.docker-tc.enabled: "1"
+      com.docker-tc.delay: "100ms"
+      # com.docker-tc.loss: "0.5%"
+      com.docker-tc.limit: "20mbit"
+
+  node_base_sa:
+    extends:
+      service: node_base
+    labels:
+      com.docker-tc.enabled: "1"
+      com.docker-tc.delay: "50ms"
+      # com.docker-tc.loss: "1.5%"
+      # com.docker-tc.limit: "5mbit"
+
+  node_base_as:
+    extends:
+      service: node_base
+    labels:
+      com.docker-tc.enabled: "1"
+      com.docker-tc.delay: "200ms"
+      # com.docker-tc.loss: "1%"
+      com.docker-tc.limit: "30mbit"

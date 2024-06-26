@@ -1,0 +1,45 @@
+services:
+  docker-tc:
+    image: lukaszlach/docker-tc
+    container_name: docker-tc
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/docker-tc:/var/docker-tc
+    environment:
+      - HTTP_BIND=127.0.0.1
+      - HTTP_PORT=4080
+
+  {{/*- $regionRanges := dict "eu" (seq 0 3) "as" (seq 4 6) "na" (seq 7 8) */}}
+  {{/*- $regionRanges := dict "eu" (seq 0 0) "sa" (seq 1 1) */}}
+  {{/*- range $region, $indices := $regionRanges */}}
+  {{/* range $i := $indices */}}
+  {{ range $i := seq 0 (sub .Env.NUM_NODES 1) }}
+  node{{ $i }}:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node{{ $i }}
+    ports:
+      - "{{ add 26657 $i }}:26657"
+    environment:
+      - ID={{ $i }}
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/{{ math.Rem $i 4 | add 1 }}/node{{ $i }}:/cometbft:Z
+      - /mnt/{{ math.Rem $i 4 | add 1 }}/node{{ $i }}_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.{{ add $i 2 }}
+  {{ end }}
+
+networks:
+  localnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.167.0.0/16

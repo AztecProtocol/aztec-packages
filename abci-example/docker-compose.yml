@@ -1,0 +1,2331 @@
+services:
+  docker-tc:
+    image: lukaszlach/docker-tc
+    container_name: docker-tc
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/docker-tc:/var/docker-tc
+    environment:
+      - HTTP_BIND=127.0.0.1
+      - HTTP_PORT=4080
+
+  
+  
+  
+  
+  
+  node0:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node0
+    ports:
+      - "26657:26657"
+    environment:
+      - ID=0
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node0:/cometbft:Z
+      - /mnt/1/node0_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.2
+  
+  node1:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node1
+    ports:
+      - "26658:26657"
+    environment:
+      - ID=1
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node1:/cometbft:Z
+      - /mnt/2/node1_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.3
+  
+  node2:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node2
+    ports:
+      - "26659:26657"
+    environment:
+      - ID=2
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node2:/cometbft:Z
+      - /mnt/3/node2_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.4
+  
+  node3:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node3
+    ports:
+      - "26660:26657"
+    environment:
+      - ID=3
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node3:/cometbft:Z
+      - /mnt/4/node3_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.5
+  
+  node4:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node4
+    ports:
+      - "26661:26657"
+    environment:
+      - ID=4
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node4:/cometbft:Z
+      - /mnt/1/node4_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.6
+  
+  node5:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node5
+    ports:
+      - "26662:26657"
+    environment:
+      - ID=5
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node5:/cometbft:Z
+      - /mnt/2/node5_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.7
+  
+  node6:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node6
+    ports:
+      - "26663:26657"
+    environment:
+      - ID=6
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node6:/cometbft:Z
+      - /mnt/3/node6_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.8
+  
+  node7:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node7
+    ports:
+      - "26664:26657"
+    environment:
+      - ID=7
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node7:/cometbft:Z
+      - /mnt/4/node7_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.9
+  
+  node8:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node8
+    ports:
+      - "26665:26657"
+    environment:
+      - ID=8
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node8:/cometbft:Z
+      - /mnt/1/node8_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.10
+  
+  node9:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node9
+    ports:
+      - "26666:26657"
+    environment:
+      - ID=9
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node9:/cometbft:Z
+      - /mnt/2/node9_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.11
+  
+  node10:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node10
+    ports:
+      - "26667:26657"
+    environment:
+      - ID=10
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node10:/cometbft:Z
+      - /mnt/3/node10_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.12
+  
+  node11:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node11
+    ports:
+      - "26668:26657"
+    environment:
+      - ID=11
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node11:/cometbft:Z
+      - /mnt/4/node11_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.13
+  
+  node12:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node12
+    ports:
+      - "26669:26657"
+    environment:
+      - ID=12
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node12:/cometbft:Z
+      - /mnt/1/node12_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.14
+  
+  node13:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node13
+    ports:
+      - "26670:26657"
+    environment:
+      - ID=13
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node13:/cometbft:Z
+      - /mnt/2/node13_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.15
+  
+  node14:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node14
+    ports:
+      - "26671:26657"
+    environment:
+      - ID=14
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node14:/cometbft:Z
+      - /mnt/3/node14_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.16
+  
+  node15:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node15
+    ports:
+      - "26672:26657"
+    environment:
+      - ID=15
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node15:/cometbft:Z
+      - /mnt/4/node15_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.17
+  
+  node16:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node16
+    ports:
+      - "26673:26657"
+    environment:
+      - ID=16
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node16:/cometbft:Z
+      - /mnt/1/node16_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.18
+  
+  node17:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node17
+    ports:
+      - "26674:26657"
+    environment:
+      - ID=17
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node17:/cometbft:Z
+      - /mnt/2/node17_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.19
+  
+  node18:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node18
+    ports:
+      - "26675:26657"
+    environment:
+      - ID=18
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node18:/cometbft:Z
+      - /mnt/3/node18_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.20
+  
+  node19:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node19
+    ports:
+      - "26676:26657"
+    environment:
+      - ID=19
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node19:/cometbft:Z
+      - /mnt/4/node19_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.21
+  
+  node20:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node20
+    ports:
+      - "26677:26657"
+    environment:
+      - ID=20
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node20:/cometbft:Z
+      - /mnt/1/node20_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.22
+  
+  node21:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node21
+    ports:
+      - "26678:26657"
+    environment:
+      - ID=21
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node21:/cometbft:Z
+      - /mnt/2/node21_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.23
+  
+  node22:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node22
+    ports:
+      - "26679:26657"
+    environment:
+      - ID=22
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node22:/cometbft:Z
+      - /mnt/3/node22_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.24
+  
+  node23:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node23
+    ports:
+      - "26680:26657"
+    environment:
+      - ID=23
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node23:/cometbft:Z
+      - /mnt/4/node23_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.25
+  
+  node24:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node24
+    ports:
+      - "26681:26657"
+    environment:
+      - ID=24
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node24:/cometbft:Z
+      - /mnt/1/node24_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.26
+  
+  node25:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node25
+    ports:
+      - "26682:26657"
+    environment:
+      - ID=25
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node25:/cometbft:Z
+      - /mnt/2/node25_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.27
+  
+  node26:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node26
+    ports:
+      - "26683:26657"
+    environment:
+      - ID=26
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node26:/cometbft:Z
+      - /mnt/3/node26_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.28
+  
+  node27:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node27
+    ports:
+      - "26684:26657"
+    environment:
+      - ID=27
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node27:/cometbft:Z
+      - /mnt/4/node27_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.29
+  
+  node28:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node28
+    ports:
+      - "26685:26657"
+    environment:
+      - ID=28
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node28:/cometbft:Z
+      - /mnt/1/node28_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.30
+  
+  node29:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node29
+    ports:
+      - "26686:26657"
+    environment:
+      - ID=29
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node29:/cometbft:Z
+      - /mnt/2/node29_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.31
+  
+  node30:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node30
+    ports:
+      - "26687:26657"
+    environment:
+      - ID=30
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node30:/cometbft:Z
+      - /mnt/3/node30_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.32
+  
+  node31:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node31
+    ports:
+      - "26688:26657"
+    environment:
+      - ID=31
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node31:/cometbft:Z
+      - /mnt/4/node31_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.33
+  
+  node32:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node32
+    ports:
+      - "26689:26657"
+    environment:
+      - ID=32
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node32:/cometbft:Z
+      - /mnt/1/node32_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.34
+  
+  node33:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node33
+    ports:
+      - "26690:26657"
+    environment:
+      - ID=33
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node33:/cometbft:Z
+      - /mnt/2/node33_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.35
+  
+  node34:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node34
+    ports:
+      - "26691:26657"
+    environment:
+      - ID=34
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node34:/cometbft:Z
+      - /mnt/3/node34_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.36
+  
+  node35:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node35
+    ports:
+      - "26692:26657"
+    environment:
+      - ID=35
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node35:/cometbft:Z
+      - /mnt/4/node35_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.37
+  
+  node36:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node36
+    ports:
+      - "26693:26657"
+    environment:
+      - ID=36
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node36:/cometbft:Z
+      - /mnt/1/node36_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.38
+  
+  node37:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node37
+    ports:
+      - "26694:26657"
+    environment:
+      - ID=37
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node37:/cometbft:Z
+      - /mnt/2/node37_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.39
+  
+  node38:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node38
+    ports:
+      - "26695:26657"
+    environment:
+      - ID=38
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node38:/cometbft:Z
+      - /mnt/3/node38_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.40
+  
+  node39:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node39
+    ports:
+      - "26696:26657"
+    environment:
+      - ID=39
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node39:/cometbft:Z
+      - /mnt/4/node39_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.41
+  
+  node40:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node40
+    ports:
+      - "26697:26657"
+    environment:
+      - ID=40
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node40:/cometbft:Z
+      - /mnt/1/node40_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.42
+  
+  node41:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node41
+    ports:
+      - "26698:26657"
+    environment:
+      - ID=41
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node41:/cometbft:Z
+      - /mnt/2/node41_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.43
+  
+  node42:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node42
+    ports:
+      - "26699:26657"
+    environment:
+      - ID=42
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node42:/cometbft:Z
+      - /mnt/3/node42_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.44
+  
+  node43:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node43
+    ports:
+      - "26700:26657"
+    environment:
+      - ID=43
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node43:/cometbft:Z
+      - /mnt/4/node43_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.45
+  
+  node44:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node44
+    ports:
+      - "26701:26657"
+    environment:
+      - ID=44
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node44:/cometbft:Z
+      - /mnt/1/node44_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.46
+  
+  node45:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node45
+    ports:
+      - "26702:26657"
+    environment:
+      - ID=45
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node45:/cometbft:Z
+      - /mnt/2/node45_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.47
+  
+  node46:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node46
+    ports:
+      - "26703:26657"
+    environment:
+      - ID=46
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node46:/cometbft:Z
+      - /mnt/3/node46_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.48
+  
+  node47:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node47
+    ports:
+      - "26704:26657"
+    environment:
+      - ID=47
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node47:/cometbft:Z
+      - /mnt/4/node47_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.49
+  
+  node48:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node48
+    ports:
+      - "26705:26657"
+    environment:
+      - ID=48
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node48:/cometbft:Z
+      - /mnt/1/node48_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.50
+  
+  node49:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node49
+    ports:
+      - "26706:26657"
+    environment:
+      - ID=49
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node49:/cometbft:Z
+      - /mnt/2/node49_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.51
+  
+  node50:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node50
+    ports:
+      - "26707:26657"
+    environment:
+      - ID=50
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node50:/cometbft:Z
+      - /mnt/3/node50_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.52
+  
+  node51:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node51
+    ports:
+      - "26708:26657"
+    environment:
+      - ID=51
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node51:/cometbft:Z
+      - /mnt/4/node51_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.53
+  
+  node52:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node52
+    ports:
+      - "26709:26657"
+    environment:
+      - ID=52
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node52:/cometbft:Z
+      - /mnt/1/node52_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.54
+  
+  node53:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node53
+    ports:
+      - "26710:26657"
+    environment:
+      - ID=53
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node53:/cometbft:Z
+      - /mnt/2/node53_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.55
+  
+  node54:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node54
+    ports:
+      - "26711:26657"
+    environment:
+      - ID=54
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node54:/cometbft:Z
+      - /mnt/3/node54_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.56
+  
+  node55:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node55
+    ports:
+      - "26712:26657"
+    environment:
+      - ID=55
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node55:/cometbft:Z
+      - /mnt/4/node55_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.57
+  
+  node56:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node56
+    ports:
+      - "26713:26657"
+    environment:
+      - ID=56
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node56:/cometbft:Z
+      - /mnt/1/node56_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.58
+  
+  node57:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node57
+    ports:
+      - "26714:26657"
+    environment:
+      - ID=57
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node57:/cometbft:Z
+      - /mnt/2/node57_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.59
+  
+  node58:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node58
+    ports:
+      - "26715:26657"
+    environment:
+      - ID=58
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node58:/cometbft:Z
+      - /mnt/3/node58_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.60
+  
+  node59:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node59
+    ports:
+      - "26716:26657"
+    environment:
+      - ID=59
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node59:/cometbft:Z
+      - /mnt/4/node59_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.61
+  
+  node60:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node60
+    ports:
+      - "26717:26657"
+    environment:
+      - ID=60
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node60:/cometbft:Z
+      - /mnt/1/node60_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.62
+  
+  node61:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node61
+    ports:
+      - "26718:26657"
+    environment:
+      - ID=61
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node61:/cometbft:Z
+      - /mnt/2/node61_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.63
+  
+  node62:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node62
+    ports:
+      - "26719:26657"
+    environment:
+      - ID=62
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node62:/cometbft:Z
+      - /mnt/3/node62_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.64
+  
+  node63:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node63
+    ports:
+      - "26720:26657"
+    environment:
+      - ID=63
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node63:/cometbft:Z
+      - /mnt/4/node63_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.65
+  
+  node64:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node64
+    ports:
+      - "26721:26657"
+    environment:
+      - ID=64
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node64:/cometbft:Z
+      - /mnt/1/node64_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.66
+  
+  node65:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node65
+    ports:
+      - "26722:26657"
+    environment:
+      - ID=65
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node65:/cometbft:Z
+      - /mnt/2/node65_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.67
+  
+  node66:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node66
+    ports:
+      - "26723:26657"
+    environment:
+      - ID=66
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node66:/cometbft:Z
+      - /mnt/3/node66_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.68
+  
+  node67:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node67
+    ports:
+      - "26724:26657"
+    environment:
+      - ID=67
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node67:/cometbft:Z
+      - /mnt/4/node67_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.69
+  
+  node68:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node68
+    ports:
+      - "26725:26657"
+    environment:
+      - ID=68
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node68:/cometbft:Z
+      - /mnt/1/node68_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.70
+  
+  node69:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node69
+    ports:
+      - "26726:26657"
+    environment:
+      - ID=69
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node69:/cometbft:Z
+      - /mnt/2/node69_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.71
+  
+  node70:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node70
+    ports:
+      - "26727:26657"
+    environment:
+      - ID=70
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node70:/cometbft:Z
+      - /mnt/3/node70_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.72
+  
+  node71:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node71
+    ports:
+      - "26728:26657"
+    environment:
+      - ID=71
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node71:/cometbft:Z
+      - /mnt/4/node71_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.73
+  
+  node72:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node72
+    ports:
+      - "26729:26657"
+    environment:
+      - ID=72
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node72:/cometbft:Z
+      - /mnt/1/node72_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.74
+  
+  node73:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node73
+    ports:
+      - "26730:26657"
+    environment:
+      - ID=73
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node73:/cometbft:Z
+      - /mnt/2/node73_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.75
+  
+  node74:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node74
+    ports:
+      - "26731:26657"
+    environment:
+      - ID=74
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node74:/cometbft:Z
+      - /mnt/3/node74_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.76
+  
+  node75:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node75
+    ports:
+      - "26732:26657"
+    environment:
+      - ID=75
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node75:/cometbft:Z
+      - /mnt/4/node75_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.77
+  
+  node76:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node76
+    ports:
+      - "26733:26657"
+    environment:
+      - ID=76
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node76:/cometbft:Z
+      - /mnt/1/node76_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.78
+  
+  node77:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node77
+    ports:
+      - "26734:26657"
+    environment:
+      - ID=77
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node77:/cometbft:Z
+      - /mnt/2/node77_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.79
+  
+  node78:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node78
+    ports:
+      - "26735:26657"
+    environment:
+      - ID=78
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node78:/cometbft:Z
+      - /mnt/3/node78_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.80
+  
+  node79:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node79
+    ports:
+      - "26736:26657"
+    environment:
+      - ID=79
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node79:/cometbft:Z
+      - /mnt/4/node79_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.81
+  
+  node80:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node80
+    ports:
+      - "26737:26657"
+    environment:
+      - ID=80
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node80:/cometbft:Z
+      - /mnt/1/node80_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.82
+  
+  node81:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node81
+    ports:
+      - "26738:26657"
+    environment:
+      - ID=81
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node81:/cometbft:Z
+      - /mnt/2/node81_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.83
+  
+  node82:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node82
+    ports:
+      - "26739:26657"
+    environment:
+      - ID=82
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node82:/cometbft:Z
+      - /mnt/3/node82_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.84
+  
+  node83:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node83
+    ports:
+      - "26740:26657"
+    environment:
+      - ID=83
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node83:/cometbft:Z
+      - /mnt/4/node83_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.85
+  
+  node84:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node84
+    ports:
+      - "26741:26657"
+    environment:
+      - ID=84
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node84:/cometbft:Z
+      - /mnt/1/node84_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.86
+  
+  node85:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node85
+    ports:
+      - "26742:26657"
+    environment:
+      - ID=85
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node85:/cometbft:Z
+      - /mnt/2/node85_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.87
+  
+  node86:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node86
+    ports:
+      - "26743:26657"
+    environment:
+      - ID=86
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node86:/cometbft:Z
+      - /mnt/3/node86_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.88
+  
+  node87:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node87
+    ports:
+      - "26744:26657"
+    environment:
+      - ID=87
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node87:/cometbft:Z
+      - /mnt/4/node87_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.89
+  
+  node88:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node88
+    ports:
+      - "26745:26657"
+    environment:
+      - ID=88
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node88:/cometbft:Z
+      - /mnt/1/node88_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.90
+  
+  node89:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node89
+    ports:
+      - "26746:26657"
+    environment:
+      - ID=89
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node89:/cometbft:Z
+      - /mnt/2/node89_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.91
+  
+  node90:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node90
+    ports:
+      - "26747:26657"
+    environment:
+      - ID=90
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node90:/cometbft:Z
+      - /mnt/3/node90_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.92
+  
+  node91:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node91
+    ports:
+      - "26748:26657"
+    environment:
+      - ID=91
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node91:/cometbft:Z
+      - /mnt/4/node91_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.93
+  
+  node92:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node92
+    ports:
+      - "26749:26657"
+    environment:
+      - ID=92
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node92:/cometbft:Z
+      - /mnt/1/node92_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.94
+  
+  node93:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node93
+    ports:
+      - "26750:26657"
+    environment:
+      - ID=93
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node93:/cometbft:Z
+      - /mnt/2/node93_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.95
+  
+  node94:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node94
+    ports:
+      - "26751:26657"
+    environment:
+      - ID=94
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node94:/cometbft:Z
+      - /mnt/3/node94_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.96
+  
+  node95:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node95
+    ports:
+      - "26752:26657"
+    environment:
+      - ID=95
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node95:/cometbft:Z
+      - /mnt/4/node95_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.97
+  
+  node96:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node96
+    ports:
+      - "26753:26657"
+    environment:
+      - ID=96
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node96:/cometbft:Z
+      - /mnt/1/node96_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.98
+  
+  node97:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node97
+    ports:
+      - "26754:26657"
+    environment:
+      - ID=97
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node97:/cometbft:Z
+      - /mnt/2/node97_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.99
+  
+  node98:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node98
+    ports:
+      - "26755:26657"
+    environment:
+      - ID=98
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node98:/cometbft:Z
+      - /mnt/3/node98_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.100
+  
+  node99:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node99
+    ports:
+      - "26756:26657"
+    environment:
+      - ID=99
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node99:/cometbft:Z
+      - /mnt/4/node99_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.101
+  
+  node100:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node100
+    ports:
+      - "26757:26657"
+    environment:
+      - ID=100
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node100:/cometbft:Z
+      - /mnt/1/node100_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.102
+  
+  node101:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node101
+    ports:
+      - "26758:26657"
+    environment:
+      - ID=101
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node101:/cometbft:Z
+      - /mnt/2/node101_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.103
+  
+  node102:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node102
+    ports:
+      - "26759:26657"
+    environment:
+      - ID=102
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node102:/cometbft:Z
+      - /mnt/3/node102_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.104
+  
+  node103:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node103
+    ports:
+      - "26760:26657"
+    environment:
+      - ID=103
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node103:/cometbft:Z
+      - /mnt/4/node103_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.105
+  
+  node104:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node104
+    ports:
+      - "26761:26657"
+    environment:
+      - ID=104
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node104:/cometbft:Z
+      - /mnt/1/node104_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.106
+  
+  node105:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node105
+    ports:
+      - "26762:26657"
+    environment:
+      - ID=105
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node105:/cometbft:Z
+      - /mnt/2/node105_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.107
+  
+  node106:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node106
+    ports:
+      - "26763:26657"
+    environment:
+      - ID=106
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node106:/cometbft:Z
+      - /mnt/3/node106_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.108
+  
+  node107:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node107
+    ports:
+      - "26764:26657"
+    environment:
+      - ID=107
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node107:/cometbft:Z
+      - /mnt/4/node107_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.109
+  
+  node108:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node108
+    ports:
+      - "26765:26657"
+    environment:
+      - ID=108
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node108:/cometbft:Z
+      - /mnt/1/node108_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.110
+  
+  node109:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node109
+    ports:
+      - "26766:26657"
+    environment:
+      - ID=109
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node109:/cometbft:Z
+      - /mnt/2/node109_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.111
+  
+  node110:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node110
+    ports:
+      - "26767:26657"
+    environment:
+      - ID=110
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node110:/cometbft:Z
+      - /mnt/3/node110_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.112
+  
+  node111:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node111
+    ports:
+      - "26768:26657"
+    environment:
+      - ID=111
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node111:/cometbft:Z
+      - /mnt/4/node111_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.113
+  
+  node112:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node112
+    ports:
+      - "26769:26657"
+    environment:
+      - ID=112
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node112:/cometbft:Z
+      - /mnt/1/node112_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.114
+  
+  node113:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node113
+    ports:
+      - "26770:26657"
+    environment:
+      - ID=113
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node113:/cometbft:Z
+      - /mnt/2/node113_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.115
+  
+  node114:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node114
+    ports:
+      - "26771:26657"
+    environment:
+      - ID=114
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node114:/cometbft:Z
+      - /mnt/3/node114_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.116
+  
+  node115:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node115
+    ports:
+      - "26772:26657"
+    environment:
+      - ID=115
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node115:/cometbft:Z
+      - /mnt/4/node115_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.117
+  
+  node116:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node116
+    ports:
+      - "26773:26657"
+    environment:
+      - ID=116
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node116:/cometbft:Z
+      - /mnt/1/node116_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.118
+  
+  node117:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node117
+    ports:
+      - "26774:26657"
+    environment:
+      - ID=117
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node117:/cometbft:Z
+      - /mnt/2/node117_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.119
+  
+  node118:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node118
+    ports:
+      - "26775:26657"
+    environment:
+      - ID=118
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node118:/cometbft:Z
+      - /mnt/3/node118_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.120
+  
+  node119:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node119
+    ports:
+      - "26776:26657"
+    environment:
+      - ID=119
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node119:/cometbft:Z
+      - /mnt/4/node119_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.121
+  
+  node120:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node120
+    ports:
+      - "26777:26657"
+    environment:
+      - ID=120
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node120:/cometbft:Z
+      - /mnt/1/node120_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.122
+  
+  node121:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node121
+    ports:
+      - "26778:26657"
+    environment:
+      - ID=121
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node121:/cometbft:Z
+      - /mnt/2/node121_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.123
+  
+  node122:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node122
+    ports:
+      - "26779:26657"
+    environment:
+      - ID=122
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node122:/cometbft:Z
+      - /mnt/3/node122_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.124
+  
+  node123:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node123
+    ports:
+      - "26780:26657"
+    environment:
+      - ID=123
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node123:/cometbft:Z
+      - /mnt/4/node123_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.125
+  
+  node124:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node124
+    ports:
+      - "26781:26657"
+    environment:
+      - ID=124
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/1/node124:/cometbft:Z
+      - /mnt/1/node124_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.126
+  
+  node125:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node125
+    ports:
+      - "26782:26657"
+    environment:
+      - ID=125
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/2/node125:/cometbft:Z
+      - /mnt/2/node125_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.127
+  
+  node126:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node126
+    ports:
+      - "26783:26657"
+    environment:
+      - ID=126
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/3/node126:/cometbft:Z
+      - /mnt/3/node126_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.128
+  
+  node127:
+    extends:
+      file: docker-compose.base.yml
+      service: node_base_eu
+    container_name: node127
+    ports:
+      - "26784:26657"
+    environment:
+      - ID=127
+      - LOG=${LOG:-cometbft.log}
+    volumes:
+      - /mnt/4/node127:/cometbft:Z
+      - /mnt/4/node127_app:/usr/src/data:Z
+      # - $HOME/github/cometbft/build/cometbft:/usr/src/cometbft/cometbft:Z
+    networks:
+      localnet:
+        ipv4_address: 192.167.10.129
+  
+
+networks:
+  localnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.167.0.0/16
