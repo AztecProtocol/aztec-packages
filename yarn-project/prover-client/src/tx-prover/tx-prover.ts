@@ -33,7 +33,12 @@ export class TxProver implements ProverClient {
     initialHeader?: Header,
   ) {
     this.queue = new MemoryProvingQueue(config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue, initialHeader);
+    this.orchestrator = new ProvingOrchestrator(
+      worldStateSynchronizer.getLatest(),
+      this.queue,
+      telemetry,
+      initialHeader,
+    );
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig>): Promise<void> {

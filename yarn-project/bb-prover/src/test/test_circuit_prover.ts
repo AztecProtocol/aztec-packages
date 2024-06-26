@@ -51,7 +51,7 @@ import {
   convertSimulatedPublicTailOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { ProverInstrumentation } from '../instrumentation.js';
 import { SimulatedPublicKernelArtifactMapping } from '../mappings/mappings.js';
@@ -71,6 +71,10 @@ export class TestCircuitProver implements ServerCircuitProver {
     private logger = createDebugLogger('aztec:test-prover'),
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
+  }
+
+  get tracer() {
+    return this.instrumentation.tracer;
   }
 
   public async getEmptyPrivateKernelProof(
@@ -106,6 +110,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
+  @trackSpan('TestCircuitProver.getBaseParityProof')
   public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
     const timer = new Timer();
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
@@ -141,6 +146,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
+  @trackSpan('TestCircuitProver.getRootParityProof')
   public async getRootParityProof(
     inputs: RootParityInputs,
   ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
@@ -178,6 +184,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  @trackSpan('TestCircuitProver.getBaseRollupProof')
   public async getBaseRollupProof(
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
@@ -211,6 +218,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  @trackSpan('TestCircuitProver.getMergeRollupProof')
   public async getMergeRollupProof(
     input: MergeRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
@@ -245,6 +253,7 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
+  @trackSpan('TestCircuitProver.getRootRollupProof')
   public async getRootRollupProof(
     input: RootRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
@@ -274,6 +283,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getPublicKernelProof')
   public async getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
   ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
@@ -307,6 +317,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getPublicTailProof')
   public async getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
