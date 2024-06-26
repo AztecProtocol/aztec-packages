@@ -129,6 +129,9 @@ template <typename Builder> class field_t {
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
 
+    // WORKTODO: issue to delete this function which is insecure in its use in Zeromorph verifier.
+    field_t pow(size_t exponent) const;
+
     field_t operator+=(const field_t& other)
     {
         *this = *this + other;

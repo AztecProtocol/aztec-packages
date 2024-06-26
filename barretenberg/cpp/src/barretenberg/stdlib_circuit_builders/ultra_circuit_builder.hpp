@@ -426,8 +426,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         // checking id_2         : 1029
         // checking id_3         : 1029
         // checking id_4         : 1029
-        constexpr size_t index_of_interest = /* 1029; */ 2765;
-        if (this->num_gates == index_of_interest + 1) {
+        constexpr size_t index_of_interest = /* 1029; */ 5412;
+        if (this->blocks.arithmetic.size() == index_of_interest + 1) {
             info("index_of_interest");
         }
 #if NDEBUG
