@@ -177,9 +177,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
     for (uint32_t i = 0; i < initial_size; ++i) {
         // Insert the zero leaf to the `leaves` and also to the tree at index 0.
         bool last = i == (initial_size - 1);
-        IndexedLeafValueType initial_leaf = IndexedLeafValueType::empty();
-        initial_leaf.nextIndex = last ? 0 : i + 1;
-        initial_leaf.nextValue = last ? 0 : i + 1;
+        IndexedLeafValueType initial_leaf = IndexedLeafValueType(LeafValueType(i), last ? 0 : i + 1, last ? 0 : i + 1);
         appended_leaves.push_back(initial_leaf);
         appended_hashes.push_back(HashingPolicy::hash(initial_leaf.get_hash_inputs()));
         store_.set_at_index(i, initial_leaf, true);

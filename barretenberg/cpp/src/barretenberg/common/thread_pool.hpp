@@ -4,6 +4,7 @@
 #include <functional>
 #include <mutex>
 #include <queue>
+#include <thread>
 #include <vector>
 namespace bb {
 class ThreadPool {

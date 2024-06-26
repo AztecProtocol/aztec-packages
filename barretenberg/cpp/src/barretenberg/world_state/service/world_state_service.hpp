@@ -2,9 +2,12 @@
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree//lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/world_state/service/message.hpp"
@@ -15,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace bb::world_state {
 using namespace bb::messaging;
@@ -22,17 +26,22 @@ using namespace bb::crypto::merkle_tree;
 using HashPolicy = PedersenHashPolicy;
 
 struct TreeWithStore {
-    typedef CachedNodeStore<LMDBStore> Store;
-    std::unique_ptr<IndexedTree<Store, LeavesCache, HashPolicy>> tree;
+    typedef CachedTreeStore<LMDBStore, nullifier_leaf_value> Store;
+    std::unique_ptr<LMDBStore> lmdbStore;
+    std::unique_ptr<IndexedTree<Store, HashPolicy>> tree;
     std::unique_ptr<Store> store;
 
-    TreeWithStore(std::unique_ptr<IndexedTree<Store, LeavesCache, HashPolicy>> t, std::unique_ptr<Store> s)
-        : tree(std::move(t))
+    TreeWithStore(std::unique_ptr<LMDBStore> l,
+                  std::unique_ptr<IndexedTree<Store, HashPolicy>> t,
+                  std::unique_ptr<Store> s)
+        : lmdbStore(std::move(l))
+        , tree(std::move(t))
         , store(std::move(s))
     {}
 
     TreeWithStore(TreeWithStore&& other) noexcept
-        : tree(std::move(other.tree))
+        : lmdbStore(std::move(other.lmdbStore))
+        , tree(std::move(other.tree))
         , store(std::move(other.store))
     {}
 
@@ -47,15 +56,19 @@ template <typename OutputStream> class WorldStateService {
     OutputStream& outputStream;
     std::unordered_map<std::string, std::unique_ptr<TreeWithStore>> trees;
     ThreadPool workers;
+    LMDBEnvironment lmdbEnvironment;
 
   public:
-    WorldStateService(OutputStream& out, size_t numThreads)
+    WorldStateService(OutputStream& out, uint32_t numThreads)
         : outputStream(out)
         , workers(numThreads)
+        , lmdbEnvironment(randomTempDirectory(), 1024, 50, numThreads)
     {}
     bool startTree(msgpack::object& obj);
     bool getTreeInfo(msgpack::object& obj);
     bool insertLeaves(msgpack::object& obj);
+
+  private:
 };
 
 template <typename OutputStream> bool WorldStateService<OutputStream>::startTree(msgpack::object& obj)
@@ -67,16 +80,15 @@ template <typename OutputStream> bool WorldStateService<OutputStream>::startTree
 
     auto it = trees.find(startTreeRequest.value.name);
     if (it == trees.end()) {
-        auto store = std::make_unique<CachedStore>(startTreeRequest.value.depth);
+        auto lmdbStore =
+            std::make_unique<LMDBStore>(lmdbEnvironment, startTreeRequest.value.name, false, false, IntegerKeyCmp);
+        auto store = std::make_unique<TreeWithStore::Store>(
+            startTreeRequest.value.name, startTreeRequest.value.depth, *lmdbStore);
 
-        auto tree =
-            std::make_unique<IndexedTree<CachedStore, LeavesCache, HashPolicy>>(*store,
-                                                                                startTreeRequest.value.depth,
-                                                                                workers,
-                                                                                startTreeRequest.value.preFilledSize,
-                                                                                startTreeRequest.value.name);
+        auto tree = std::make_unique<IndexedTree<TreeWithStore::Store, HashPolicy>>(
+            *store, workers, startTreeRequest.value.preFilledSize);
 
-        auto treeWithStore = std::make_unique<TreeWithStore>(std::move(tree), std::move(store));
+        auto treeWithStore = std::make_unique<TreeWithStore>(std::move(lmdbStore), std::move(tree), std::move(store));
         trees[startTreeRequest.value.name] = std::move(treeWithStore);
 
     } else {
@@ -111,8 +123,8 @@ template <typename OutputStream> bool WorldStateService<OutputStream>::getTreeIn
         treeInfoResponse.message = "";
         treeInfoResponse.success = true;
         treeInfoResponse.depth = static_cast<uint32_t>(it->second->tree->depth());
-        treeInfoResponse.root = it->second->tree->root();
-        treeInfoResponse.size = static_cast<uint64_t>(it->second->tree->size());
+        // treeInfoResponse.root = it->second->tree->root();
+        // treeInfoResponse.size = static_cast<uint64_t>(it->second->tree->size());
     }
 
     MsgHeader header(treeInfoRequest.header.messageId);
@@ -155,7 +167,11 @@ template <typename OutputStream> bool WorldStateService<OutputStream>::insertLea
                 WorldStateMsgTypes::INSERT_LEAVES_RESPONSE, header, response);
             outputStream.sendPackedObject(insertLeavesResponse);
         };
-        it->second->tree->add_or_update_values(insertLeavesRequest.value.leaves, completion);
+        std::vector<nullifier_leaf_value> leaves(insertLeavesRequest.value.leaves.size());
+        for (auto& v : insertLeavesRequest.value.leaves) {
+            leaves.emplace_back(v);
+        }
+        it->second->tree->add_or_update_values(leaves, completion);
     }
 
     return true;

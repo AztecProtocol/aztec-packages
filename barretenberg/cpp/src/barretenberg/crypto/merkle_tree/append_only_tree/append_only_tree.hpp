@@ -53,6 +53,8 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     void commit(const commit_callback& on_completion);
     void rollback(const rollback_callback& on_completion);
 
+    uint32_t depth() const { return depth_; }
+
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;
