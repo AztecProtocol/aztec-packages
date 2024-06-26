@@ -20,6 +20,20 @@ struct WithdrawalProcessed {
 -        [self.who.to_field(), self.amount as Field]
 -    }
 }
+```
+
+### [Aztec.nr] rename `encode_and_encrypt_with_keys` to `encode_and_encrypt_note_with_keys`
+```diff
+contract XYZ {
+-   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys;
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;    
+....
+
+-    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
++    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
+
+}
+
 
 ### [Aztec.nr] changes to `NoteInterface`
 
