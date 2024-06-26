@@ -6,7 +6,20 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.44.0
+### [Aztec.nr] Autogenerate Serialize methods for events
+```diff
+#[aztec(event)]
+struct WithdrawalProcessed {
+    who: AztecAddress,
+    amount: u64,
+}
+
+-impl Serialize<2> for WithdrawalProcessed {
+-    fn serialize(self: Self) -> [Field; 2] {
+-        [self.who.to_field(), self.amount as Field]
+-    }
+}
 
 ### [Aztec.nr] changes to `NoteInterface`
 
