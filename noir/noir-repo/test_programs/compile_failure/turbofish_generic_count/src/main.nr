@@ -18,5 +18,5 @@ fn foo<T>(bar: Bar<T>) {
 fn main(x: Field, y: pub Field) {
     let bar1: Bar<Field> = Bar { one: x, two: y, other: 0 };
 
-    assert(bar1.zeroed::<Field>() == 0);
+    assert(bar1.zeroed::<u32, Field>() == 0);
 }
