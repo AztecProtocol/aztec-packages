@@ -12,13 +12,13 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  * Authenticaion witness helper library
  *
  * Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties 
- * (eg protocols or other users) to execute an action on their behalf.
+ * (e.g. protocols or other users) to execute an action on their behalf.
  * 
  * This library provides helper functions to manage such witnesses.
  * The authentication witness, is some "witness" (data) that authenticates a `message_hash`.
- * The simples example of an authentication witness, is a signature. The signature is the "evidence",
- * that the signer have seen the message, agrees with it, and have allowed it.
- * It does not strictly need to be a signature. It could be any kind of "proof" that the message is allowed.
+ * The simplest example of an authentication witness, is a signature. The signature is the "evidence",
+ * that the signer has seen the message, agrees with it, and has allowed it.
+ * It does not need to be a signature. It could be any kind of "proof" that the message is allowed.
  * Another proof could be knowing some kind of secret, or having some kind of "token" that allows the message.
  *
  * The `message_hash` is a hash of the following structure:
@@ -28,11 +28,11 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  * - version: the version of the chain that the message is being consumed on,
  * - inner_hash: the hash of the "inner" message that is being consumed, this is the "actual" message or action.
  *
- * While the `inner_hash` could be anything, such as showing your signed a specific message, it will often be 
+ * While the `inner_hash` could be anything, such as showing you signed a specific message, it will often be 
  * a hash of the "action" to approve, along with who made the call. As part of this library, we provide a few 
- * helper functions to deal with "what" these messages are.
+ * helper functions to deal with such messages.
  *
- * For example, we provide helper functions that is used for checking that the message is encoding the current call.
+ * For example, we provide helper function that is used for checking that the message is an encoding of the current call.
  * This can be used to let some contract "allow" another contract to act on its behalf, as long as it can 
  * show that it is acting on behalf of the contract.
  *
@@ -49,14 +49,14 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  *
  *
  * The authentication mechanism works differently in public and private contexts. In private, we recall that everything
- * is executed at the user device, so we can use `oracles` to "ask" the user (not contract) for information. In public
+ * is executed on the user's device, so we can use `oracles` to "ask" the user (not contract) for information. In public
  * we cannot do this, since it is executed by the sequencer (someone else). Therefore we can instead use a "registry"
  * to store the messages that we have approved.
  * 
  * A simple example would be a "token" that is being "pulled" from one account into another. We will first outline 
  * how this would look in private, and then in public later. 
  *
- * Say that a user `Alice` want to deposit some tokens into a defi protocol (say a DEX). 
+ * Say that a user `Alice` wants to deposit some tokens into a DeFi protocol (say a DEX). 
  * `Alice` would make a `deposit` transaction, that she is executing using her account contract. 
  * The account would call the `DeFi` contract to execute `deposit`, which would try to pull funds from the `Token` 
  * contract. Since the `DeFi` contract is trying to pull funds from an account that is not its own, it needs to 
@@ -64,7 +64,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  * 
  * This is where the authentication witness comes in! The `Token` contract computes a `message_hash` from the 
  * `transfer` call, and then asks `Alice Account` contract to verify that the `DeFi` contract is allowed to 
- * exeucte that call.
+ * execute that call.
  * 
  * `Alice Account` contract can then ask `Alice` if she wants to allow the `DeFi` contract to pull funds from her 
  * account. If she does, she will sign the `message_hash` and return the signature to the `Alice Account` which
@@ -117,12 +117,12 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  *   |                  |                  |                      |
  *
  *  
- * If we instead were in public, we cannot do the same flow. Instead we would use a authentication registry to store 
+ * If we instead were in public, we cannot do the same flow. Instead we would use an authentication registry to store 
  * the messages that we have approved. 
  * 
  * To approve a message, `Alice Account` can make a `set_authorized` call to the registry, to set a `message_hash`
  * as authorized. This is essentially a mapping from `message_hash` to `true` for `Alice Contract`. Every account
- * have its own map in the registry, so `Alice` cannot approve a message for `Bob`.
+ * has its own map in the registry, so `Alice` cannot approve a message for `Bob`.
  *
  * The `Token` contract can then try to "spend" the approval by calling `consume` on the registry. If the message
  * was approved, the value is updated to `false`, and we return the success flag. For more information on the
@@ -182,7 +182,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  * Q:   Would it not be cheaper to use a nullifier instead of updating state in public?
  * A:   At a quick glance, a public state update + nullifier is 96 bytes, but two state updates are 128, so it would be 
  *      cheaper to use a nullifier, if this is the way it would always be done. However, if both the approval and the 
- *      consumption is done in the same transaction, then we will be able to squash the updates, and now it is cheaper.
+ *      consumption is done in the same transaction, then we will be able to squash the updates (only final tx state diff is posted to DA), and now it is cheaper.
  * 
  * Q:   Why is the chain id and the version part of the message hash?
  * A:   The chain id and the version is part of the message hash to ensure that the message is only valid on a specific
@@ -274,7 +274,7 @@ pub fn assert_inner_hash_valid_authwit_public(context: &mut PublicContext, on_be
  * Compute the `message_hash` from a function call to be used by an authentication witness 
  * 
  * Useful for when you need a non-account contract to approve during execution. For example if you need a contract
- * to make a call to nested contract, e.g., contract A want to exit token T to L1 using bridge B, so it need to allow
+ * to make a call to nested contract, e.g., contract A wants to exit token T to L1 using bridge B, so it needs to allow
  * B to transfer T on its behalf.
  * 
  * @param caller The address of the contract that is calling the function, in the example above, this would be B
