@@ -801,9 +801,9 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
          vk.pub_inputs_offset,
          ", hash: ",
          vk.hash());
-    // for (auto comm : vk.get_all()) {
-    //     info("comm: ", comm);
-    // }
+    for (auto comm : vk.get_all()) {
+        info("comm: ", comm);
+    }
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {
@@ -888,9 +888,9 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
          vk.pub_inputs_offset,
          ", hash: ",
          vk.hash());
-    // for (auto comm : vk.get_all()) {
-    //     info("comm: ", comm);
-    // }
+    for (auto comm : vk.get_all()) {
+        info("comm: ", comm);
+    }
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);
