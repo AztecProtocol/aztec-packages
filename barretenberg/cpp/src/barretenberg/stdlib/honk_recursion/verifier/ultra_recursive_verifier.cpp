@@ -39,9 +39,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     const StdlibProof<Builder>& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
-    using PCS = typename Flavor::PCS;
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
+    // using PCS = typename Flavor::PCS;
+    // using Curve = typename Flavor::Curve;
+    // using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -142,20 +142,29 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
+    if constexpr (!IsSimulator<Builder>) {
+        info("Prior to Sumcheck: ");
+        builder->blocks.summarize();
+    }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
-    auto opening_claim = ZeroMorph::verify(circuit_size,
-                                           commitments.get_unshifted(),
-                                           commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted(),
-                                           claimed_evaluations.get_shifted(),
-                                           multivariate_challenge,
-                                           Commitment::one(builder),
-                                           transcript);
-    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    if constexpr (!IsSimulator<Builder>) {
+        info("Prior to ZM: ");
+        builder->blocks.summarize();
+    }
+    // // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
+    // auto opening_claim = ZeroMorph::verify(circuit_size,
+    //                                        commitments.get_unshifted(),
+    //                                        commitments.get_to_be_shifted(),
+    //                                        claimed_evaluations.get_unshifted(),
+    //                                        claimed_evaluations.get_shifted(),
+    //                                        multivariate_challenge,
+    //                                        Commitment::one(builder),
+    //                                        transcript);
+    // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
+    std::array<typename Flavor::GroupElement, 2> pairing_points;
     return pairing_points;
 }
 
@@ -163,6 +172,6 @@ template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBui
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+// template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+// template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 } // namespace bb::stdlib::recursion::honk

@@ -233,10 +233,8 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
 
-    info("before recursive verify_proof: ",
-         builder.num_gates,
-         " and arithmetic gates: ",
-         builder.blocks.arithmetic.q_m().size());
+    // info("before recursive verify_proof: ");
+    // builder.blocks.summarize();
 
     RecursiveVerifier verifier(&builder, vkey);
     std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
@@ -275,6 +273,9 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     std::copy(result.proof_witness_indices.begin(),
               result.proof_witness_indices.begin() + HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE,
               resulting_output_aggregation_object.begin());
+
+    info("PRE FINALIZE");
+    builder.blocks.summarize();
 
     return resulting_output_aggregation_object;
 }

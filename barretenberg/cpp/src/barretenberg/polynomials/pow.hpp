@@ -69,9 +69,14 @@ template <typename FF> struct PowPolynomial {
      */
     template <typename Bool> FF univariate_eval(const FF& challenge, const Bool& dummy_round) const
     {
+        // WORKTODO: The real problem here is that we need to have MAX_LOG betas in every case so we really dont need a
+        // conditional. The fact that we dont have MAX betas is only wokring because we dont add gates for hashing in
+        // ultra.
         FF beta_or_dummy;
         if (!dummy_round.get_value()) {
             beta_or_dummy = betas[current_element_idx];
+        } else {
+            beta_or_dummy = FF::from_witness(challenge.get_context(), 1);
         }
         FF beta_val = FF::conditional_assign(dummy_round, FF::from_witness(challenge.get_context(), 1), beta_or_dummy);
         return (FF(1) + (challenge * (beta_val - FF(1))));
