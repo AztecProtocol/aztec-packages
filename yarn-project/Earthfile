@@ -74,7 +74,9 @@ bb-cli:
         aztec.js/dest/main.js \
         end-to-end \
         **/src \
-        **/artifacts
+        noir-contracts.js/artifacts \
+        accounts/artifacts \
+        protocol-contracts/artifacts
 
     # yarn symlinks the binary to node_modules/.bin
     ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
@@ -125,7 +127,9 @@ txe:
         ../barretenberg/ts/src \
         ../barretenberg/ts/dest/node-cjs \
         ../barretenberg/ts/dest/browser \
-        **/artifacts
+        noir-contracts.js/artifacts \
+        accounts/artifacts \
+        protocol-contracts/artifacts
     SAVE ARTIFACT /usr/src /usr/src
 
 aztec-prod:
@@ -141,7 +145,9 @@ aztec-prod:
         aztec.js/dest/main.js \
         end-to-end \
         **/src \
-        **/artifacts
+        noir-contracts.js/artifacts \
+        accounts/artifacts \
+        protocol-contracts/artifacts
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -173,7 +179,9 @@ aztec-faucet-build:
         aztec.js/dest/main.js \
         end-to-end \
         **/src \
-        **/artifacts
+        noir-contracts.js/artifacts \
+        accounts/artifacts \
+        protocol-contracts/artifacts
     SAVE ARTIFACT /usr/src /usr/src
 
 aztec-faucet:
@@ -194,7 +202,9 @@ end-to-end-prod:
         ../barretenberg/ts/src \
         ../barretenberg/ts/dest/node-cjs \
         ../barretenberg/ts/dest/browser \
-        **/artifacts
+        noir-contracts.js/artifacts \
+        accounts/artifacts \
+        protocol-contracts/artifacts
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     SAVE ARTIFACT /usr/src /usr/src
 
