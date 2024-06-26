@@ -410,7 +410,7 @@ export abstract class AbstractPhaseManager {
 
   protected getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
     // In deterministic runs, make sure that we make the same fake data each time.
-    RandomnessSingleton.getInstance().reseedIfDeterministic();
+    RandomnessSingleton.getInstance().reseedIfDeterministic('default');
     // The proof and verification key are not used in simulation
     const vk = VerificationKeyData.makeFake();
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);

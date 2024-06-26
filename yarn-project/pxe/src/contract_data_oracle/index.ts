@@ -13,6 +13,7 @@ import { type ContractClass, type ContractInstance } from '@aztec/types/contract
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
+import { RandomnessSingleton } from '../../../foundation/src/crypto/random/randomness_singleton.js';
 
 /**
  * ContractDataOracle serves as a data manager and retriever for Aztec.nr contracts.
@@ -141,7 +142,9 @@ export class ContractDataOracle {
    * @returns A Promise that resolves to the MembershipWitness instance.
    */
   public async getVkMembershipWitness() {
-    // TODO
+    // TODO make this real and not random data
+    // In deterministic runs, make sure that we make the same fake data each time.
+    RandomnessSingleton.getInstance().reseedIfDeterministic('default');
     return await Promise.resolve(MembershipWitness.random(VK_TREE_HEIGHT));
   }
 

@@ -160,9 +160,11 @@ function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T
 /**
  * To ensure a field is uniformly random, it's important to reduce a 512 bit value.
  * If you reduced a 256 bit number, there would a be a high skew in the lower range of the field.
+ *
+ * Pass a randomnessGroup for better behavior in deterministic mode (needed for e.g. test proof caching).
  */
-function random<T extends BaseField>(f: DerivedField<T>): T {
-  return fromBufferReduce(randomBytes(64), f);
+function random<T extends BaseField>(f: DerivedField<T>, randomnessGroup?: string): T {
+  return fromBufferReduce(randomBytes(64, randomnessGroup), f);
 }
 
 /**
@@ -209,6 +211,15 @@ export class Fr extends BaseField {
 
   static random() {
     return random(Fr);
+  }
+
+  /**
+   * Like Fr.random(), but with controlled randomness in deterministic mode
+   * @param randomnessGroup For determnistic (SEED=x) mode only, segregates RNG counters.
+   * @returns
+   */
+  static randomId(randomnessGroup: string) {
+    return random(Fr, randomnessGroup);
   }
 
   static zero() {

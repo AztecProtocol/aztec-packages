@@ -48,8 +48,12 @@ export class RandomnessSingleton {
     return this.seed !== undefined;
   }
 
-  public reseedIfDeterministic(): void {
-    this.rngStates = new Map();
+  public reseedIfDeterministic(group?: string): void {
+    if (!group) {
+      this.rngStates = new Map();
+    } else {
+      this.rngStates.delete(group);
+    }
   }
 
   public getBytes(length: number, randomnessGroup: string = 'default'): Buffer {

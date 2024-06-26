@@ -1,25 +1,10 @@
-import {
-  type CompleteAddress,
-  type MerkleTreeId,
-  type Note,
-  type NoteStatus,
-  type NullifierMembershipWitness,
-  type PublicDataWitness,
-  type PublicKey,
-  type SiblingPath,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type Header,
-  type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type PrivateCallStackItem,
-  type PublicCallRequest,
-} from '@aztec/circuits.js';
+import { type CompleteAddress, type MerkleTreeId, type Note, type NoteStatus, type NullifierMembershipWitness, type PublicDataWitness, type PublicKey, type SiblingPath, type UnencryptedL2Log } from '@aztec/circuit-types';
+import { type Header, type KeyValidationRequest, type L1_TO_L2_MSG_TREE_HEIGHT, type PrivateCallStackItem, type PublicCallRequest } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
+
 
 /**
  * Information about a note needed during execution.
@@ -60,6 +45,7 @@ class OracleMethodNotAvailableError extends Error {
   }
 }
 
+const USE_ORACLE_DETERMINISM = !!process.env.SEED;
 /**
  * Oracle with typed parameters and typed return values.
  * Methods that require read and/or write will have to be implemented based on the context (public, private, or view)
@@ -67,7 +53,7 @@ class OracleMethodNotAvailableError extends Error {
  */
 export abstract class TypedOracle {
   getRandomField(): Fr {
-    return Fr.random();
+    return USE_ORACLE_DETERMINISM ? Fr.ONE : Fr.random();
   }
 
   packArgumentsArray(_args: Fr[]): Promise<Fr> {
