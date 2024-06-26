@@ -12,7 +12,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 #[aztec(event)]
 struct WithdrawalProcessed {
     who: Field,
-    amount: u64,
+    amount: Field,
 }
 
 -impl Serialize<2> for WithdrawalProcessed {
