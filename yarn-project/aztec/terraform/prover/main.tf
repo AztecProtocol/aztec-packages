@@ -11,6 +11,11 @@ terraform {
   }
 }
 
+# Define provider and region
+provider "aws" {
+  region = "eu-west-2"
+}
+
 data "terraform_remote_state" "setup_iac" {
   backend = "s3"
   config = {
