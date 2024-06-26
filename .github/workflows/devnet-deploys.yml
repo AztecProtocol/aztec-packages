@@ -56,7 +56,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
 
-      - name: Deploy Bootstrap Nodes
+      - name: Deploy P2P Bootstrap Nodes
         working-directory: ./yarn-project/p2p-bootstrap/terraform
         run: |
           terraform init -input=false -backend-config="key=devnet/p2p-bootstrap"

@@ -10,6 +10,7 @@ import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
@@ -141,8 +142,8 @@ describe('prover/orchestrator/lifecycle', () => {
     }, 60000);
 
     it('cancels proving requests', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver();
-      const orchestrator = new ProvingOrchestrator(context.actualDb, prover);
+      const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
+      const orchestrator = new ProvingOrchestrator(context.actualDb, prover, new NoopTelemetryClient());
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];

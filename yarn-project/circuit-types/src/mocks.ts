@@ -19,7 +19,7 @@ import {
   makeCombinedConstantData,
   makePublicCallRequest,
 } from '@aztec/circuits.js/testing';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -107,24 +107,50 @@ export const mockTx = (
 
     if (hasLogs) {
       let i = 1; // 0 used in first nullifier
-      encryptedLogs.functionLogs.forEach((log, j) => {
-        // ts complains if we dont check .forPublic here, even though it is defined ^
-        if (data.forPublic) {
-          data.forPublic.end.encryptedLogsHashes[j] = new LogHash(
-            Fr.fromBuffer(log.hash()),
-            i++,
-            new Fr(log.toBuffer().length),
-          );
-        }
+      let nonRevertibleIndex = 0;
+      let revertibleIndex = 0;
+      let functionCount = 0;
+      encryptedLogs.functionLogs.forEach(functionLog => {
+        functionLog.logs.forEach(log => {
+          // ts complains if we dont check .forPublic here, even though it is defined ^
+          if (data.forPublic) {
+            const hash = new LogHash(
+              Fr.fromBuffer(log.getSiloedHash()),
+              i++,
+              // +4 for encoding the length of the buffer
+              new Fr(log.length + 4),
+            );
+            // make the first log non-revertible
+            if (functionCount === 0) {
+              data.forPublic.endNonRevertibleData.encryptedLogsHashes[nonRevertibleIndex++] = hash;
+            } else {
+              data.forPublic.end.encryptedLogsHashes[revertibleIndex++] = hash;
+            }
+          }
+        });
+        functionCount++;
       });
-      unencryptedLogs.functionLogs.forEach((log, j) => {
-        if (data.forPublic) {
-          data.forPublic.end.unencryptedLogsHashes[j] = new LogHash(
-            Fr.fromBuffer(log.hash()),
-            i++,
-            new Fr(log.toBuffer().length),
-          );
-        }
+      nonRevertibleIndex = 0;
+      revertibleIndex = 0;
+      functionCount = 0;
+      unencryptedLogs.functionLogs.forEach(functionLog => {
+        functionLog.logs.forEach(log => {
+          if (data.forPublic) {
+            const hash = new LogHash(
+              Fr.fromBuffer(log.getSiloedHash()),
+              i++,
+              // +4 for encoding the length of the buffer
+              new Fr(log.length + 4),
+            );
+            // make the first log non-revertible
+            if (functionCount === 0) {
+              data.forPublic.endNonRevertibleData.unencryptedLogsHashes[nonRevertibleIndex++] = hash;
+            } else {
+              data.forPublic.end.unencryptedLogsHashes[revertibleIndex++] = hash;
+            }
+          }
+        });
+        functionCount++;
       });
     }
   } else {
@@ -177,8 +203,10 @@ export const randomContractArtifact = (): ContractArtifact => ({
   notes: {},
 });
 
-export const randomContractInstanceWithAddress = (opts: { contractClassId?: Fr } = {}): ContractInstanceWithAddress =>
-  SerializableContractInstance.random(opts).withAddress(AztecAddress.random());
+export const randomContractInstanceWithAddress = (
+  opts: { contractClassId?: Fr } = {},
+  address: AztecAddress = AztecAddress.random(),
+): ContractInstanceWithAddress => SerializableContractInstance.random(opts).withAddress(address);
 
 export const randomDeployedContract = () => {
   const artifact = randomContractArtifact();
@@ -192,7 +220,7 @@ export const randomExtendedNote = ({
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = Fr.random(),
+  noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
 };

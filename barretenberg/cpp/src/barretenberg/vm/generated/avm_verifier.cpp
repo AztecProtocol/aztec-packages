@@ -52,7 +52,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     // using PCS = Flavor::PCS;
-    // using ZeroMorph = ZeroMorphVerifier_<PCS>;
+    // using Curve = Flavor::Curve;
+    // using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using CommitmentLabels = Flavor::CommitmentLabels;
 
@@ -452,8 +453,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.main_sel_rng_16);
     commitments.main_sel_rng_8 = transcript->template receive_from_prover<Commitment>(commitment_labels.main_sel_rng_8);
     commitments.main_space_id = transcript->template receive_from_prover<Commitment>(commitment_labels.main_space_id);
-    commitments.main_table_pow_2 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.main_table_pow_2);
     commitments.main_tag_err = transcript->template receive_from_prover<Commitment>(commitment_labels.main_tag_err);
     commitments.main_w_in_tag = transcript->template receive_from_prover<Commitment>(commitment_labels.main_w_in_tag);
     commitments.mem_addr = transcript->template receive_from_prover<Commitment>(commitment_labels.mem_addr);
@@ -510,6 +509,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.poseidon2_output);
     commitments.poseidon2_sel_poseidon_perm =
         transcript->template receive_from_prover<Commitment>(commitment_labels.poseidon2_sel_poseidon_perm);
+    commitments.powers_power_of_2 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.powers_power_of_2);
     commitments.sha256_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.sha256_clk);
     commitments.sha256_input = transcript->template receive_from_prover<Commitment>(commitment_labels.sha256_input);
     commitments.sha256_output = transcript->template receive_from_prover<Commitment>(commitment_labels.sha256_output);
@@ -739,13 +740,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
     // NOTE: temporarily disabled - facing integration issues
-    // auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+    // auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
     //                                         commitments.get_to_be_shifted(),
     //                                         claimed_evaluations.get_unshifted(),
     //                                         claimed_evaluations.get_shifted(),
     //                                         multivariate_challenge,
+    //                                         pcs_verification_key->get_g1_identity(),
     //                                         transcript);
 
+    // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
     // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     // return sumcheck_verified.value() && verified;
     return sumcheck_verified.value();
