@@ -1,6 +1,6 @@
 #! /bin/bash
 set -euo pipefail
-mkdir -p ./src/artifacts
+mkdir -p ./artifacts
 
 contracts=(schnorr_account_contract-SchnorrAccount ecdsa_account_contract-EcdsaAccount schnorr_single_key_account_contract-SchnorrSingleKeyAccount)
 
@@ -12,6 +12,6 @@ EOF
 );
 
 for contract in "${contracts[@]}"; do
-  cp "../../noir-projects/noir-contracts/target/$contract.json" ./src/artifacts/${contract#*-}.json
-  echo "$decl" > ./src/artifacts/${contract#*-}.d.json.ts
+  cp "../../noir-projects/noir-contracts/target/$contract.json" ./artifacts/${contract#*-}.json
+  echo "$decl" > ./artifacts/${contract#*-}.d.json.ts
 done

@@ -1,6 +1,6 @@
 #! /bin/bash
 set -euo pipefail
-mkdir -p ./src/artifacts
+mkdir -p ./artifacts
 
 contracts=(
   contract_class_registerer_contract-ContractClassRegisterer
@@ -20,6 +20,6 @@ EOF
 );
 
 for contract in "${contracts[@]}"; do
-  cp "../../noir-projects/noir-contracts/target/$contract.json" ./src/artifacts/${contract#*-}.json
-  echo "$decl" > ./src/artifacts/${contract#*-}.d.json.ts
+  cp "../../noir-projects/noir-contracts/target/$contract.json" ./artifacts/${contract#*-}.json
+  echo "$decl" > ./artifacts/${contract#*-}.d.json.ts
 done

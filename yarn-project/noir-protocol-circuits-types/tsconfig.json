@@ -29,5 +29,5 @@
       "path": "../merkle-tree"
     }
   ],
-  "include": ["src", "src/target/*.d.json.ts"],
+  "include": ["src", "src/target/*.d.json.ts"]
 }
