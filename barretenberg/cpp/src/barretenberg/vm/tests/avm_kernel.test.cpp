@@ -12,7 +12,6 @@ using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmKernelTests : public ::testing::Test {
-
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
@@ -1023,12 +1022,12 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
     // We write the note hash into memory
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, direct_offset, AvmMemoryTag::FF);
-        trace_builder.op_emit_unencrypted_log(/*indirect=*/false, direct_offset);
+        trace_builder.op_emit_unencrypted_log(/*indirect=*/false, direct_offset, /*log_size_offset=*/0);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, direct_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, direct_offset, indirect_offset, AvmMemoryTag::U32);
-        trace_builder.op_emit_unencrypted_log(/*indirect=*/true, indirect_offset);
+        trace_builder.op_emit_unencrypted_log(/*indirect=*/true, indirect_offset, /*log_size_offset=*/0);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -1084,7 +1083,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
             /*ib=*/slot,
             /*mem_addr_b=*/0,
             /*ind_b=*/false,
-            /*r_in_tag=*/AvmMemoryTag::FF,
+            /*r_in_tag=*/AvmMemoryTag::U0, // Kernel Sload is writing to memory
             /*side_effect_counter=*/0,
             /*rwa=*/1,
             /*no_b=*/true);
@@ -1126,7 +1125,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
             /*ib=*/slot,
             /*mem_addr_b=*/0,
             /*ind_b*/ false,
-            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*r_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0,
             /*rwa=*/0,
             /*no_b=*/true);

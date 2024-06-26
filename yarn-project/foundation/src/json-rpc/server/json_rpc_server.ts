@@ -24,7 +24,7 @@ export class JsonRpcServer {
     private classMap: ClassConverterInput,
     /** List of methods to disallow from calling remotely */
     public readonly disallowedMethods: string[] = [],
-    private log = createDebugLogger('aztec:foundation:json-rpc:server'),
+    private log = createDebugLogger('json-rpc:server'),
   ) {
     this.proxy = new JsonProxy(handler, classMap);
   }
@@ -225,7 +225,7 @@ export type ServerList = {
  */
 export function createNamespacedJsonRpcServer(
   servers: ServerList,
-  log = createDebugLogger('aztec:foundation:json-rpc:multi-server'),
+  log = createDebugLogger('json-rpc:multi-server'),
 ): JsonRpcServer {
   const handler = {} as any;
   const disallowedMethods: string[] = [];

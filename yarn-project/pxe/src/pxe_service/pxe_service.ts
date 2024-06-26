@@ -1,7 +1,11 @@
 import { type AuthWitness, type AztecNode, EncryptedNoteTxL2Logs, EncryptedTxL2Logs, type EventMetadata, ExtendedNote, type FunctionCall, type GetUnencryptedLogsResponse, type IncomingNotesFilter, L1EventPayload, type L2Block, type LogFilter, MerkleTreeId, type OutgoingNotesFilter, type PXE, type PXEInfo, type ProofCreator, SimulatedTx, SimulationError, TaggedLog, Tx, type TxEffect, type TxExecutionRequest, type TxHash, type TxReceipt, UnencryptedTxL2Logs, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, type CompleteAddress, type PartialAddress, computeContractClassId, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+<<<<<<< HEAD
 import { type ContractArtifact, type DecodedReturn, EventSelector, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+=======
+import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+>>>>>>> origin/master
 import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -817,7 +821,7 @@ export class PXEService implements PXE {
         if (visibleEvent.payload === undefined) {
           return undefined;
         }
-        if (!EventSelector.fromField(visibleEvent.payload.eventTypeId).equals(eventMetadata.eventSelector)) {
+        if (!visibleEvent.payload.eventTypeId.equals(eventMetadata.eventSelector)) {
           return undefined;
         }
         if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {

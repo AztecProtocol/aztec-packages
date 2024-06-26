@@ -25,9 +25,9 @@ export class RandomnessSingleton {
     private readonly log = createDebugLogger('aztec:randomness_singleton'),
   ) {
     if (seed !== undefined) {
-      this.log.verbose(`Using pseudo-randomness with seed: ${seed}`);
+      this.log.debug(`Using pseudo-randomness with seed: ${seed}`);
     } else {
-      this.log.verbose('Using true randomness');
+      this.log.debug('Using true randomness');
     }
   }
 
@@ -57,7 +57,6 @@ export class RandomnessSingleton {
   }
 
   public getBytes(length: number, randomnessGroup: string = 'default'): Buffer {
-    console.error(new Error().stack)
     if (this.seed === undefined) {
       // Note: It would be more natural to just have the contents of randomBytes(...) function from
       // yarn-project/foundation/src/crypto/random/index.ts here but that would result in a larger

@@ -7,7 +7,6 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -312,7 +311,6 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.main_sel_rng_16 = commitment_key->commit(key->main_sel_rng_16);
     witness_commitments.main_sel_rng_8 = commitment_key->commit(key->main_sel_rng_8);
     witness_commitments.main_space_id = commitment_key->commit(key->main_space_id);
-    witness_commitments.main_table_pow_2 = commitment_key->commit(key->main_table_pow_2);
     witness_commitments.main_tag_err = commitment_key->commit(key->main_tag_err);
     witness_commitments.main_w_in_tag = commitment_key->commit(key->main_w_in_tag);
     witness_commitments.mem_addr = commitment_key->commit(key->mem_addr);
@@ -354,6 +352,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.poseidon2_input = commitment_key->commit(key->poseidon2_input);
     witness_commitments.poseidon2_output = commitment_key->commit(key->poseidon2_output);
     witness_commitments.poseidon2_sel_poseidon_perm = commitment_key->commit(key->poseidon2_sel_poseidon_perm);
+    witness_commitments.powers_power_of_2 = commitment_key->commit(key->powers_power_of_2);
     witness_commitments.sha256_clk = commitment_key->commit(key->sha256_clk);
     witness_commitments.sha256_input = commitment_key->commit(key->sha256_input);
     witness_commitments.sha256_output = commitment_key->commit(key->sha256_output);
@@ -694,7 +693,6 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.main_sel_rng_16, witness_commitments.main_sel_rng_16);
     transcript->send_to_verifier(commitment_labels.main_sel_rng_8, witness_commitments.main_sel_rng_8);
     transcript->send_to_verifier(commitment_labels.main_space_id, witness_commitments.main_space_id);
-    transcript->send_to_verifier(commitment_labels.main_table_pow_2, witness_commitments.main_table_pow_2);
     transcript->send_to_verifier(commitment_labels.main_tag_err, witness_commitments.main_tag_err);
     transcript->send_to_verifier(commitment_labels.main_w_in_tag, witness_commitments.main_w_in_tag);
     transcript->send_to_verifier(commitment_labels.mem_addr, witness_commitments.mem_addr);
@@ -741,6 +739,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.poseidon2_output, witness_commitments.poseidon2_output);
     transcript->send_to_verifier(commitment_labels.poseidon2_sel_poseidon_perm,
                                  witness_commitments.poseidon2_sel_poseidon_perm);
+    transcript->send_to_verifier(commitment_labels.powers_power_of_2, witness_commitments.powers_power_of_2);
     transcript->send_to_verifier(commitment_labels.sha256_clk, witness_commitments.sha256_clk);
     transcript->send_to_verifier(commitment_labels.sha256_input, witness_commitments.sha256_input);
     transcript->send_to_verifier(commitment_labels.sha256_output, witness_commitments.sha256_output);
@@ -964,9 +963,6 @@ void AvmProver::execute_relation_check_rounds()
  * */
 void AvmProver::execute_pcs_rounds()
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-
     auto prover_opening_claim = ZeroMorph::prove(prover_polynomials.get_unshifted(),
                                                  prover_polynomials.get_to_be_shifted(),
                                                  sumcheck_output.claimed_evaluations.get_unshifted(),
@@ -974,8 +970,7 @@ void AvmProver::execute_pcs_rounds()
                                                  sumcheck_output.challenge,
                                                  commitment_key,
                                                  transcript);
-    PCS::compute_opening_proof(
-        commitment_key, prover_opening_claim.opening_pair, prover_opening_claim.polynomial, transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof AvmProver::export_proof()
