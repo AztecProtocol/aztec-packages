@@ -3,8 +3,6 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
-import { randomInt } from 'crypto';
-
 import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -260,8 +258,6 @@ export class AvmPersistableStateManager {
         nestedEnvironment.address,
         nestedEnvironment.temporaryFunctionSelector,
       )) ?? `${nestedEnvironment.address}:${nestedEnvironment.temporaryFunctionSelector}`;
-    // add an identifier to the function name
-    functionName = `[${randomInt(1000000000)}] ${functionName}`;
     createDebugLogger('aztec:simulator:external_calls').verbose(`[AVM] Calling nested function ${functionName}`);
     this.trace.traceNestedCall(
       nestedState.trace,
