@@ -67,6 +67,7 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { RandomnessSingleton } from '../../../foundation/src/crypto/random/randomness_singleton.js';
 
 export const PhaseIsRevertible: Record<PublicKernelType, boolean> = {
   [PublicKernelType.NON_PUBLIC]: false,
@@ -408,6 +409,8 @@ export abstract class AbstractPhaseManager {
   }
 
   protected getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
+    // In deterministic runs, make sure that we make the same fake data each time.
+    RandomnessSingleton.getInstance().reseedIfDeterministic();
     // The proof and verification key are not used in simulation
     const vk = VerificationKeyData.makeFake();
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
