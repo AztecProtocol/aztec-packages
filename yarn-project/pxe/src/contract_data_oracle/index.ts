@@ -13,7 +13,7 @@ import { type ContractClass, type ContractInstance } from '@aztec/types/contract
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
-import { RandomnessSingleton } from '../../../foundation/src/crypto/random/randomness_singleton.js';
+import { RandomnessSingleton } from '@aztec/foundation/crypto';
 
 /**
  * ContractDataOracle serves as a data manager and retriever for Aztec.nr contracts.

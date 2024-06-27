@@ -2,7 +2,7 @@ import nodeCrypto from 'crypto';
 import isNode from 'detect-node';
 
 
-
+export { RandomnessSingleton } from './randomness_singleton.js';
 import { RandomnessSingleton } from './randomness_singleton.js';
 
 
