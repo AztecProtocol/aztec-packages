@@ -185,7 +185,7 @@ contract RollupTest is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
 
     assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
 

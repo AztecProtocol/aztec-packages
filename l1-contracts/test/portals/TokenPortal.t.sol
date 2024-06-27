@@ -194,7 +194,7 @@ contract TokenPortalTest is Test {
     bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    outbox.insert(_l2BlockNumber, treeRoot, treeHeight, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }

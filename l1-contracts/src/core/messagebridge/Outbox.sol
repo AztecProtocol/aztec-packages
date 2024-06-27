@@ -23,7 +23,6 @@ contract Outbox is IOutbox {
     // This is the outhash specified by header.globalvariables.outHash of any given block.
     bytes32 root;
     uint256 minHeight;
-    uint256 maxHeight;
     mapping(uint256 => bool) nullified;
   }
 
@@ -42,9 +41,8 @@ contract Outbox is IOutbox {
    * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
    * @param _minHeight - The min height of the merkle tree that the root corresponds to
-   * @param _maxHeight - The max height of the merkle tree that the root corresponds to
    */
-  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight, uint256 _maxHeight)
+  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight)
     external
     override(IOutbox)
   {
@@ -62,9 +60,8 @@ contract Outbox is IOutbox {
 
     roots[_l2BlockNumber].root = _root;
     roots[_l2BlockNumber].minHeight = _minHeight;
-    roots[_l2BlockNumber].maxHeight = _maxHeight;
 
-    emit RootAdded(_l2BlockNumber, _root, _minHeight, _maxHeight);
+    emit RootAdded(_l2BlockNumber, _root, _minHeight);
   }
 
   /**
@@ -103,18 +100,14 @@ contract Outbox is IOutbox {
     if (rootData.nullified[_leafIndex]) {
       revert Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex);
     }
+    // TODO(#7218): We will eventually move back to a balanced tree and constrain the path length
+    // to be equal to height - for now we just check the min
 
     // Min height = height of rollup layers
     // The smallest num of messages will require a subtree of height 1
     uint256 minHeight = rootData.minHeight;
     if (minHeight > _path.length) {
       revert Errors.Outbox__InvalidPathLength(minHeight, _path.length);
-    }
-
-    // Max height = max height of rollup layers + max possible subtree height
-    uint256 maxHeight = rootData.maxHeight;
-    if (maxHeight < _path.length) {
-      revert Errors.Outbox__InvalidPathLength(maxHeight, _path.length);
     }
 
     bytes32 messageHash = _message.sha256ToField();

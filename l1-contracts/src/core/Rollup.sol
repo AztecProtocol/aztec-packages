@@ -150,19 +150,12 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    // Both rollup tx trees and each tx's L2 to L1 messages are variable height.
-    // TODO: Is the below necessary? Is it fine to not supply any height?
+    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
     // Min size = smallest path of the rollup tree + 1
-    // Max size = largest path of the rollup tree + log2(max_messages)
-    (uint256 min, uint256 max) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
     uint256 l2ToL1TreeMinHeight = min + 1;
-    uint256 l2ToL1TreeMaxHeight =
-      max + MerkleLib.calculateTreeHeightFromSize(Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX);
     OUTBOX.insert(
-      header.globalVariables.blockNumber,
-      header.contentCommitment.outHash,
-      l2ToL1TreeMinHeight,
-      l2ToL1TreeMaxHeight
+      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
     );
 
     // pay the coinbase 1 gas token if it is not empty and header.totalFees is not zero
