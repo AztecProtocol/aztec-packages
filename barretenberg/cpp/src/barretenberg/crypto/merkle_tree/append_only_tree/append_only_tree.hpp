@@ -102,14 +102,17 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
                                                          const meta_data_callback& on_completion)
 {
     auto job = [=]() {
+        std::cout << "started meta job";
         index_t size = 0;
         bb::fr root = fr::zero();
         {
             ReadTransactionPtr tx = store_.createReadTransaction();
             store_.get_meta(size, root, *tx, includeUncommitted);
         }
+        std::cout << "notifying of completion";
         on_completion(name_, depth_, size, root);
     };
+    std::cout << "putting job on the queue";
     workers_.enqueue(job);
 }
 

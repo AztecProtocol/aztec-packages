@@ -1,5 +1,5 @@
 {
-  "name": "world_state_napi",
+  "name": "@aztec/world_state_napi",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
