@@ -66,7 +66,6 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: ExecutionResult,
-    isPrivate: boolean,
   ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
@@ -180,7 +179,6 @@ export class KernelProver {
     const hints = buildPrivateKernelTailHints(output.publicInputs);
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, hints);
-
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     // LONDONTODO this will instead become part of our stack of programs
     // LONDONTODO createProofTail won't be called in the future - this is redundantly proving
@@ -188,12 +186,9 @@ export class KernelProver {
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
-    // LONDONTODO: isPrivate flag was introduced in PXE interface to allow this `if`
-    if (isPrivate) {
-      const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-      // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
-      tailOutput.clientIvcProof = ivcProof;
-    }
+    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+    // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
+    tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }
 

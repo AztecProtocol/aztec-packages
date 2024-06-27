@@ -143,6 +143,7 @@ import {
   makeRecursiveProof,
   packBytecode,
   TUBE_PROOF_LENGTH,
+  ClientIvcProof,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -678,7 +679,7 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
+  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), ClientIvcProof.empty(), makePublicCallData(seed + 0x1000));
 }
 
 export function makeCombineHints(seed = 1): CombineHints {
@@ -732,7 +733,7 @@ export function makePublicKernelInputsWithTweak(
   const kernelCircuitPublicInputs = makePublicKernelCircuitPublicInputs(seed, false);
   const previousKernel = makePublicKernelData(seed, kernelCircuitPublicInputs);
   const publicCall = makePublicCallData(seed + 0x1000);
-  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);
+  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, ClientIvcProof.empty(), publicCall);
   if (tweak) {
     tweak(publicKernelInputs);
   }

@@ -30,7 +30,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
-  type TubeInputs,
+  TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
@@ -215,6 +215,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       kernelOps.artifact,
       kernelRequest.inputs.previousKernel.vk,
     );
+
+    console.log(`PUBLIC KERNEL: tubeInput.clientIVCData.isEmpty(): ${kernelRequest.inputs.clientIvcProof.isEmpty()}`);
+    if (!kernelRequest.inputs.clientIvcProof.isEmpty()) {
+      const { tubeVK, tubeProof } = await this.createTubeProof(new TubeInputs(kernelRequest.inputs.clientIvcProof));
+      kernelRequest.inputs.previousKernel.vk = tubeVK;
+      kernelRequest.inputs.previousKernel.proof = tubeProof;
+    }
 
     await this.verifyWithKey(
       kernelRequest.inputs.previousKernel.vk,

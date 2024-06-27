@@ -497,10 +497,9 @@ export class PXEService implements PXE {
   }
 
   // LONDONTODO(Client): The simulate call actually does proving.
-  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, isPrivate: boolean): Promise<Tx> {
+  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.jobQueue.put(async () => {
-      console.log(`exec request is private? ${isPrivate}`);
-      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined, isPrivate);
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
       }
@@ -749,7 +748,6 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: ProofCreator,
     msgSender?: AztecAddress,
-    isPrivate?: boolean,
   ): Promise<SimulatedTx> {
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest, msgSender);
@@ -758,7 +756,7 @@ export class PXEService implements PXE {
     // LONDONTODO(Client): the mocked-ness of call to prove below depends on the proofCreator in this constructor
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
-    const { proof, clientIvcProof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult, isPrivate!);
+    const { proof, clientIvcProof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);

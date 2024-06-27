@@ -209,7 +209,6 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     request: T,
     signal?: AbortSignal,
   ): Promise<ProvingRequestResult<T['type']>> {
-    console.log('enqueue', new Error().stack)
     if (!this.runningPromise.isRunning()) {
       return Promise.reject(new Error('Proving queue is not running.'));
     }

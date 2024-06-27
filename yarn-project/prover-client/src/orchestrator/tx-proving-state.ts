@@ -61,6 +61,7 @@ export class TxProvingState {
       if (previousKernelProof) {
         kernelRequest.inputs.previousKernel.proof = previousKernelProof;
         kernelRequest.inputs.previousKernel.vk = privateKernelVk;
+        kernelRequest.inputs.previousKernel.clientIvcProof = processedTx.clientIvcProof;
       }
       const vmRequest = provingRequest.type === AVM_REQUEST ? provingRequest : undefined;
       const publicFunction: PublicFunction = {

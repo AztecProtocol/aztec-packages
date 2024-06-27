@@ -7,6 +7,7 @@ import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
+import { ClientIvcProof } from '../client_ivc_proof.js';
 
 // TODO: bad name
 export class KernelData {
@@ -36,7 +37,7 @@ export class KernelData {
   static empty(): KernelData {
     return new this(
       KernelCircuitPublicInputs.empty(),
-      makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
+      makeEmptyRecursiveProof(393),
       VerificationKeyData.makeFake(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),

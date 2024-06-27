@@ -7,6 +7,7 @@ import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { PublicKernelCircuitPublicInputs } from './public_kernel_circuit_public_inputs.js';
+import { ClientIvcProof } from '../client_ivc_proof.js';
 
 /**
  * Data of the previous public kernel iteration in the chain of kernels.
@@ -33,6 +34,8 @@ export class PublicKernelData {
      * Sibling path of the previous kernel's vk in a tree of vks.
      */
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
+    // LONDONTODO better model
+    public clientIvcProof: ClientIvcProof = ClientIvcProof.empty(),
   ) {}
 
   static fromBuffer(buffer: Buffer | BufferReader): PublicKernelData {
@@ -43,6 +46,7 @@ export class PublicKernelData {
       reader.readObject(VerificationKeyData),
       reader.readNumber(),
       reader.readArray(VK_TREE_HEIGHT, Fr),
+      reader.readObject(ClientIvcProof),
     );
   }
 
@@ -53,6 +57,7 @@ export class PublicKernelData {
       VerificationKeyData.makeFake(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
+      ClientIvcProof.empty()
     );
   }
 
@@ -61,6 +66,6 @@ export class PublicKernelData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
+    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath, this.clientIvcProof);
   }
 }
