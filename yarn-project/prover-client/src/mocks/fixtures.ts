@@ -100,6 +100,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   seed *= MAX_NEW_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
   const tx = mockTx(seed);
   const kernelOutput = KernelCircuitPublicInputs.empty();
+  kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
   kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
