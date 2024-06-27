@@ -44,7 +44,7 @@ import {
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { getVKTree } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -263,22 +263,14 @@ export function getPreviousRollupDataFromPublicInputs(
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
-  const vkTree = getVKTree();
-  const leafIndex = vkTree.getIndex(vk.hash.toBuffer());
+  const leafIndex = getVKIndex(vk);
 
   return new PreviousRollupData(
     rollupOutput,
     rollupProof,
     vk,
     leafIndex,
-    new MembershipWitness(
-      VK_TREE_HEIGHT,
-      BigInt(leafIndex),
-      assertLength<Fr, typeof VK_TREE_HEIGHT>(
-        vkTree.getSiblingPath(leafIndex).map(buf => new Fr(buf)),
-        VK_TREE_HEIGHT,
-      ),
-    ),
+    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
   );
 }
 
@@ -289,7 +281,7 @@ export async function getConstantRollupData(
   return ConstantRollupData.from({
     baseRollupVkHash: DELETE_FR,
     mergeRollupVkHash: DELETE_FR,
-    vkTreeRoot: Fr.fromBuffer(getVKTree().root),
+    vkTreeRoot: getVKTreeRoot(),
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,
   });
@@ -302,8 +294,7 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
 
 export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
   const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
-  const vkTree = getVKTree();
-  const leafIndex = vkTree.getIndex(vk.keyAsFields.hash.toBuffer());
+  const leafIndex = getVKIndex(vk);
 
   return new KernelData(
     tx.data,
@@ -313,10 +304,7 @@ export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): Kern
     vk,
 
     leafIndex,
-    assertLength<Fr, typeof VK_TREE_HEIGHT>(
-      vkTree.getSiblingPath(leafIndex).map(buf => new Fr(buf)),
-      VK_TREE_HEIGHT,
-    ),
+    getVKSiblingPath(leafIndex),
   );
 }
 

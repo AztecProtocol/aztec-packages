@@ -140,3 +140,33 @@ export function getVKTree() {
   }
   return vkTree;
 }
+
+export function getVKTreeRoot() {
+  return Fr.fromBuffer(getVKTree().root);
+}
+
+export function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | Fr) {
+  let hash;
+  if (vk instanceof VerificationKeyData) {
+    hash = vk.keyAsFields.hash;
+  } else if (vk instanceof VerificationKeyAsFields) {
+    hash = vk.hash;
+  } else {
+    hash = vk;
+  }
+
+  const index = getVKTree().getIndex(hash.toBuffer());
+  if (index < 0) {
+    throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
+  }
+  return index;
+}
+
+export function getVKSiblingPath(vkIndex: number) {
+  return assertLength<Fr, typeof VK_TREE_HEIGHT>(
+    getVKTree()
+      .getSiblingPath(vkIndex)
+      .map(buf => new Fr(buf)),
+    VK_TREE_HEIGHT,
+  );
+}

@@ -1,7 +1,7 @@
 import { type AztecNode } from '@aztec/circuit-types';
 import {
   type AztecAddress,
-  Fr,
+  type Fr,
   type FunctionSelector,
   type GrumpkinPrivateKey,
   MembershipWitness,
@@ -13,9 +13,9 @@ import {
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
-import { getVKTree } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -51,18 +51,8 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
-    const vkTree = getVKTree();
-    const leafIndex = vkTree.getIndex(vk.hash.toBuffer());
-    return Promise.resolve(
-      new MembershipWitness(
-        VK_TREE_HEIGHT,
-        BigInt(leafIndex),
-        assertLength<Fr, typeof VK_TREE_HEIGHT>(
-          vkTree.getSiblingPath(leafIndex).map(buf => new Fr(buf)),
-          VK_TREE_HEIGHT,
-        ),
-      ),
-    );
+    const leafIndex = getVKIndex(vk);
+    return Promise.resolve(new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)));
   }
 
   async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {

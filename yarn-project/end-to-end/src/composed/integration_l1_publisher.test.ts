@@ -37,7 +37,7 @@ import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
-import { getVKTree } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -169,7 +169,7 @@ describe('L1Publisher integration', () => {
       prevHeader,
       new Fr(chainId),
       new Fr(config.version),
-      Fr.fromBuffer(getVKTree().root),
+      getVKTreeRoot(),
     );
     return tx;
   };

@@ -27,7 +27,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { getVKTree } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -129,7 +129,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
 
 export const makeEmptyProcessedTx = async (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
   const header = await builderDb.buildInitialHeader();
-  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, Fr.fromBuffer(getVKTree().root));
+  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
 };
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs

@@ -47,19 +47,18 @@ import {
   PublicKernelData,
   ReadRequest,
   RevertCode,
-  VK_TREE_HEIGHT,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { assertLength } from '@aztec/foundation/serialize';
 import {
   type ProtocolArtifact,
   ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
-  getVKTree,
+  getVKIndex,
+  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import {
   type PublicExecution,
@@ -451,19 +450,9 @@ export abstract class AbstractPhaseManager {
     const vk = ProtocolCircuitVks[previousCircuit];
     const vkIndex = ProtocolCircuitVkIndexes[previousCircuit];
 
-    const vkTree = getVKTree();
-    const leafIndex = vkTree.getIndex(vk.keyAsFields.hash.toBuffer());
+    const leafIndex = getVKIndex(vk);
 
-    return new PublicKernelData(
-      previousOutput,
-      proof,
-      vk,
-      vkIndex,
-      assertLength<Fr, typeof VK_TREE_HEIGHT>(
-        vkTree.getSiblingPath(leafIndex).map(buf => new Fr(buf)),
-        VK_TREE_HEIGHT,
-      ),
-    );
+    return new PublicKernelData(previousOutput, proof, vk, vkIndex, getVKSiblingPath(leafIndex));
   }
 
   protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {

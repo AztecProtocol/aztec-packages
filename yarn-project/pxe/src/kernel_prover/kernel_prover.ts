@@ -29,7 +29,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { getVKTree } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
 import {
@@ -117,7 +117,7 @@ export class KernelProver {
 
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
-          Fr.fromBuffer(getVKTree().root),
+          getVKTreeRoot(),
           privateCallData,
           hints,
         );

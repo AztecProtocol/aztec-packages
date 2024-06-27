@@ -54,7 +54,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { ProtocolCircuitVks, getVKTree } from '@aztec/noir-protocol-circuits-types';
+import { ProtocolCircuitVks, getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -261,7 +261,7 @@ export class ProvingOrchestrator {
       this.initialHeader ?? (await this.db.buildInitialHeader()),
       this.provingState.globalVariables.chainId,
       this.provingState.globalVariables.version,
-      Fr.fromBuffer(getVKTree().root),
+      getVKTreeRoot(),
     );
     const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
     for (let i = 0; i < paddingTxCount; i++) {
@@ -309,7 +309,7 @@ export class ProvingOrchestrator {
               chainId: unprovenPaddingTx.data.constants.txContext.chainId,
               version: unprovenPaddingTx.data.constants.txContext.version,
               header: unprovenPaddingTx.data.constants.historicalHeader,
-              vkTreeRoot: Fr.fromBuffer(getVKTree().root),
+              vkTreeRoot: getVKTreeRoot(),
             },
             signal,
           ),
@@ -338,6 +338,9 @@ export class ProvingOrchestrator {
     for (let i = 0; i < txInputs.length; i++) {
       txInputs[i].inputs.kernelData.vk = paddingTx.verificationKey;
       txInputs[i].inputs.kernelData.proof = paddingTx.recursiveProof;
+
+      txInputs[i].inputs.kernelData.vkIndex = getVKIndex(paddingTx.verificationKey);
+      txInputs[i].inputs.kernelData.vkPath = getVKSiblingPath(txInputs[i].inputs.kernelData.vkIndex);
       this.enqueueFirstProof(txInputs[i].inputs, txInputs[i].snapshot, paddingTx, provingState);
     }
   }
@@ -440,7 +443,6 @@ export class ProvingOrchestrator {
   private async prepareTransaction(tx: ProcessedTx, provingState: ProvingState) {
     // Pass the private kernel tail vk here as the previous one.
     // If there are public functions then this key will be overwritten once the public tail has been proven
-    // TODO(Alvaro) what about the private kernel empty? we should probably use that one if it's a padding tx
     const previousKernelVerificationKey = ProtocolCircuitVks.PrivateKernelTailArtifact;
 
     const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
@@ -970,6 +972,11 @@ export class ProvingOrchestrator {
           // Take the final public tail proof and verification key and pass them to the base rollup
           txProvingState.baseRollupInputs.kernelData.proof = result.proof;
           txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
+          txProvingState.baseRollupInputs.kernelData.vkIndex = getVKIndex(result.verificationKey);
+          txProvingState.baseRollupInputs.kernelData.vkPath = getVKSiblingPath(
+            txProvingState.baseRollupInputs.kernelData.vkIndex,
+          );
+
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
           return;
         }
