@@ -17,7 +17,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { type PublicExecutionRequest, type PublicExecutionResult } from '../public/execution.js';
 
 export class PublicExecutionResultBuilder {
-  private _execution: PublicExecutionRequest;
+  private _executionRequest: PublicExecutionRequest;
   private _nestedExecutions: PublicExecutionResult[] = [];
   private _contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
   private _contractStorageReads: ContractStorageRead[] = [];
@@ -25,8 +25,8 @@ export class PublicExecutionResultBuilder {
   private _reverted = false;
   private _revertReason: SimulationError | undefined = undefined;
 
-  constructor(execution: PublicExecutionRequest) {
-    this._execution = execution;
+  constructor(executionRequest: PublicExecutionRequest) {
+    this._executionRequest = executionRequest;
   }
 
   static fromPublicCallRequest({
@@ -120,7 +120,7 @@ export class PublicExecutionResultBuilder {
 
   build(overrides: Partial<PublicExecutionResult> = {}): PublicExecutionResult {
     return {
-      executionRequest: this._execution,
+      executionRequest: this._executionRequest,
       nestedExecutions: this._nestedExecutions,
       noteHashReadRequests: [],
       nullifierReadRequests: [],

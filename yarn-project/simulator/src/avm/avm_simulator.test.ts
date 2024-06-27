@@ -345,7 +345,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
   describe('Side effects, world state, nested calls', () => {
     const address = new Fr(1);
-    // TODO(dbanks12): should be able to make address and storage address different
     const storageAddress = new Fr(2);
     const sender = new Fr(42);
     const leafIndex = new Fr(7);

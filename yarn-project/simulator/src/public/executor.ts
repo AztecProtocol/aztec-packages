@@ -130,7 +130,7 @@ export class PublicExecutor {
 }
 
 /**
- * Convert a PublicExecution(Environment) object to an AvmExecutionEnvironment
+ * Convert a PublicExecutionRequest object to an AvmExecutionEnvironment
  *
  * @param executionRequest
  * @param globalVariables
