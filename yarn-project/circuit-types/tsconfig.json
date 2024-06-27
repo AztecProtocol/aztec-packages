@@ -16,6 +16,9 @@
       "path": "../foundation"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../types"
     }
   ],
