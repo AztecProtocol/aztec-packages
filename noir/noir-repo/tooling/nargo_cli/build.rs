@@ -119,7 +119,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_name,
             &test_dir,
             r#"
-                nargo.arg("execute").arg("--force");
+                nargo.arg("execute").arg("--force").arg("--use-elaborator");
             
                 nargo.assert().success();"#,
         );
@@ -131,7 +131,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
                 &format!("legacy_{test_name}"),
                 &test_dir,
                 r#"
-                nargo.arg("execute").arg("--force").arg("--use-legacy");
+                nargo.arg("execute").arg("--force");
             
                 nargo.assert().success();"#,
             );
@@ -144,7 +144,7 @@ fn generate_execution_success_tests(test_file: &mut File, test_data_dir: &Path) 
                 &format!("{test_name}_brillig"),
                 &test_dir,
                 r#"
-                nargo.arg("execute").arg("--force").arg("--force-brillig");
+                nargo.arg("execute").arg("--force").arg("--force-brillig").arg("--use-elaborator");
             
                 nargo.assert().success();"#,
             );
@@ -164,7 +164,7 @@ fn generate_execution_failure_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_name,
             &test_dir,
             r#"
-                nargo.arg("execute").arg("--force");
+                nargo.arg("execute").arg("--force").arg("--use-elaborator");
             
                 nargo.assert().failure().stderr(predicate::str::contains("The application panicked (crashed).").not());"#,
         );
@@ -175,7 +175,7 @@ fn generate_execution_failure_tests(test_file: &mut File, test_data_dir: &Path) 
             &format!("legacy_{test_name}"),
             &test_dir,
             r#"
-                nargo.arg("execute").arg("--force").arg("--use-legacy");
+                nargo.arg("execute").arg("--force");
             
                 nargo.assert().failure().stderr(predicate::str::contains("The application panicked (crashed).").not());"#,
         );
@@ -194,7 +194,7 @@ fn generate_noir_test_success_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_name,
             &test_dir,
             r#"
-        nargo.arg("test");
+        nargo.arg("test").arg("--use-elaborator");
         
         nargo.assert().success();"#,
         );
@@ -205,7 +205,7 @@ fn generate_noir_test_success_tests(test_file: &mut File, test_data_dir: &Path) 
             &format!("legacy_{test_name}"),
             &test_dir,
             r#"
-        nargo.arg("test").arg("--use-legacy");
+        nargo.arg("test");
         
         nargo.assert().success();"#,
         );
@@ -223,7 +223,7 @@ fn generate_noir_test_failure_tests(test_file: &mut File, test_data_dir: &Path) 
             &test_name,
             &test_dir,
             r#"
-        nargo.arg("test");
+        nargo.arg("test").arg("--use-elaborator");
         
         nargo.assert().failure();"#,
         );
@@ -234,7 +234,7 @@ fn generate_noir_test_failure_tests(test_file: &mut File, test_data_dir: &Path) 
             &format!("legacy_{test_name}"),
             &test_dir,
             r#"
-        nargo.arg("test").arg("--use-legacy");
+        nargo.arg("test");
         
         nargo.assert().failure();"#,
         );
@@ -269,7 +269,7 @@ fn generate_compile_success_empty_tests(test_file: &mut File, test_data_dir: &Pa
             &test_dir,
             &format!(
                 r#"
-                nargo.arg("info").arg("--json").arg("--force");
+                nargo.arg("info").arg("--json").arg("--force").arg("--use-elaborator");
                 
                 {assert_zero_opcodes}"#,
             ),
@@ -283,7 +283,7 @@ fn generate_compile_success_empty_tests(test_file: &mut File, test_data_dir: &Pa
                 &test_dir,
                 &format!(
                     r#"
-                nargo.arg("info").arg("--json").arg("--force").arg("--use-legacy");
+                nargo.arg("info").arg("--json").arg("--force");
                 
                 {assert_zero_opcodes}"#,
                 ),
@@ -304,7 +304,7 @@ fn generate_compile_success_contract_tests(test_file: &mut File, test_data_dir: 
             &test_name,
             &test_dir,
             r#"
-        nargo.arg("compile").arg("--force");
+        nargo.arg("compile").arg("--force").arg("--use-elaborator");
         
         nargo.assert().success();"#,
         );
@@ -315,7 +315,7 @@ fn generate_compile_success_contract_tests(test_file: &mut File, test_data_dir: 
             &format!("legacy_{test_name}"),
             &test_dir,
             r#"
-        nargo.arg("compile").arg("--force").arg("--use-legacy");
+        nargo.arg("compile").arg("--force");
         
         nargo.assert().success();"#,
         );
@@ -333,7 +333,7 @@ fn generate_compile_failure_tests(test_file: &mut File, test_data_dir: &Path) {
             test_type,
             &test_name,
             &test_dir,
-            r#"nargo.arg("compile").arg("--force");
+            r#"nargo.arg("compile").arg("--force").arg("--use-elaborator");
         
         nargo.assert().failure().stderr(predicate::str::contains("The application panicked (crashed).").not());"#,
         );
@@ -345,7 +345,7 @@ fn generate_compile_failure_tests(test_file: &mut File, test_data_dir: &Path) {
                 &format!("legacy_{test_name}"),
                 &test_dir,
                 r#"
-            nargo.arg("compile").arg("--force").arg("--use-legacy");
+            nargo.arg("compile").arg("--force");
             
             nargo.assert().failure().stderr(predicate::str::contains("The application panicked (crashed).").not());"#,
             );
