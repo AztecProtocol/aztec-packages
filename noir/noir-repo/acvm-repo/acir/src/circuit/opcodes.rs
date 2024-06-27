@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 mod black_box_function_call;
 mod memory_operation;
 
-pub use black_box_function_call::{BlackBoxFuncCall, FunctionInput};
+pub use black_box_function_call::{BlackBoxFuncCall, ConstantInput, FunctionInput, WitnessInput};
 pub use memory_operation::{BlockId, MemOp};
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ impl BlockType {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Opcode<F> {
+pub enum Opcode<F: AcirField> {
     /// An `AssertZero` opcode adds the constraint that `P(w) = 0`, where
     /// `w=(w_1,..w_n)` is a tuple of `n` witnesses, and `P` is a multi-variate
     /// polynomial of total degree at most `2`.
@@ -67,7 +67,7 @@ pub enum Opcode<F> {
     ///
     /// Aztec's Barretenberg uses BN254 as the main curve and Grumpkin as the
     /// embedded curve.
-    BlackBoxFuncCall(BlackBoxFuncCall),
+    BlackBoxFuncCall(BlackBoxFuncCall<F>),
 
     /// This opcode is a specialization of a Brillig opcode. Instead of having
     /// some generic assembly code like Brillig, a directive has a hardcoded

@@ -10,7 +10,7 @@ use crate::{
 use acvm::acir::{
     circuit::{
         brillig::{BrilligInputs, BrilligOutputs},
-        opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
+        opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode, WitnessInput},
         AssertionPayload, OpcodeLocation,
     },
     native_types::Witness,
@@ -169,7 +169,7 @@ impl GeneratedAcir {
     pub(crate) fn call_black_box(
         &mut self,
         func_name: BlackBoxFunc,
-        inputs: &[Vec<FunctionInput>],
+        inputs: &[Vec<FunctionInput<FieldElement>>],
         constant_inputs: Vec<FieldElement>,
         constant_outputs: Vec<FieldElement>,
         output_count: usize,
@@ -579,7 +579,7 @@ impl GeneratedAcir {
         };
 
         let constraint = AcirOpcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-            input: FunctionInput { witness, num_bits },
+            input: FunctionInput::Witness(WitnessInput { witness, num_bits }),
         });
         self.push_opcode(constraint);
 

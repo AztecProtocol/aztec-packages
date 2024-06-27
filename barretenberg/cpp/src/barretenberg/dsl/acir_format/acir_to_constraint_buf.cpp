@@ -189,6 +189,40 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
     }
 }
 
+std::tuple<uint32_t, uint32_t> get_witness_from_function_input(Program::FunctionInput input)
+{
+    auto input_witness = std::get<Program::FunctionInput::Witness>(input.value);
+    return std::tuple<uint32_t, uint32_t>(input_witness.value.witness.value, input_witness.value.num_bits);
+}
+
+WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
+{
+    WitnessConstant result = std::visit(
+        [&](auto&& e) {
+            using T = std::decay_t<decltype(2)>;
+            if constexpr (std::is_same_v<T, Program::FunctionInput::Witness>) {
+                return WitnessConstant{
+                    .index = e.value.witness,
+                    .is_constant = false,
+                    .value = bb::fr::zero(),
+                };
+            } else if constexpr (std::is_same_v<T, Program::FunctionInput::Constant>) {
+                return WitnessConstant{
+                    .index = 0,
+                    .is_constant = true,
+                    .value = e.value.constant,
+                };
+            }
+            return WitnessConstant<bb::fr>{
+                .index = 0,
+                .value = bb::fr::zero(),
+                .is_constant = true,
+            };
+        },
+        input.value);
+    return result;
+}
+
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
                                bool honk_recursion,
@@ -198,27 +232,32 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AND>) {
+                auto lhs_input = get_witness_from_function_input(arg.lhs);
+                auto rhs_input = get_witness_from_function_input(arg.rhs);
                 af.logic_constraints.push_back(LogicConstraint{
-                    .a = arg.lhs.witness.value,
-                    .b = arg.rhs.witness.value,
+                    .a = std::get<0>(lhs_input),
+                    .b = std::get<0>(rhs_input),
                     .result = arg.output.value,
-                    .num_bits = arg.lhs.num_bits,
+                    .num_bits = std::get<1>(lhs_input),
                     .is_xor_gate = false,
                 });
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::XOR>) {
+                auto lhs_input = get_witness_from_function_input(arg.lhs);
+                auto rhs_input = get_witness_from_function_input(arg.rhs);
                 af.logic_constraints.push_back(LogicConstraint{
-                    .a = arg.lhs.witness.value,
-                    .b = arg.rhs.witness.value,
+                    .a = std::get<0>(lhs_input),
+                    .b = std::get<0>(rhs_input),
                     .result = arg.output.value,
-                    .num_bits = arg.lhs.num_bits,
+                    .num_bits = std::get<1>(lhs_input),
                     .is_xor_gate = true,
                 });
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RANGE>) {
+                auto witness_input = get_witness_from_function_input(arg.input);
                 af.range_constraints.push_back(RangeConstraint{
-                    .witness = arg.input.witness.value,
-                    .num_bits = arg.input.num_bits,
+                    .witness = std::get<0>(witness_input),
+                    .num_bits = std::get<1>(witness_input),
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
 
@@ -226,23 +265,26 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
+                                      auto input_witness = std::get<Program::FunctionInput::Witness>(e.value);
                                       return AES128Input{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
+                                          .witness = input_witness.value.witness.value,
+                                          .num_bits = input_witness.value.num_bits,
                                       };
                                   }),
                     .iv = map(arg.iv,
                               [](auto& e) {
+                                  auto input_witness = get_witness_from_function_input(e);
                                   return AES128Input{
-                                      .witness = e.witness.value,
-                                      .num_bits = e.num_bits,
+                                      .witness = std::get<0>(input_witness),
+                                      .num_bits = std::get<1>(input_witness),
                                   };
                               }),
                     .key = map(arg.key,
                                [](auto& e) {
+                                   auto input_witness = get_witness_from_function_input(e);
                                    return AES128Input{
-                                       .witness = e.witness.value,
-                                       .num_bits = e.num_bits,
+                                       .witness = std::get<0>(input_witness),
+                                       .num_bits = std::get<1>(input_witness),
                                    };
                                }),
                     .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
@@ -253,9 +295,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.sha256_constraints.push_back(Sha256Constraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
+                                      auto input_witness = get_witness_from_function_input(e);
                                       return Sha256Input{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
+                                          .witness = std::get<0>(input_witness),
+                                          .num_bits = std::get<1>(input_witness),
                                       };
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
@@ -266,16 +309,18 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.sha256_compression.push_back(Sha256Compression{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
+                                      auto input_witness = get_witness_from_function_input(e);
                                       return Sha256Input{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
+                                          .witness = std::get<0>(input_witness),
+                                          .num_bits = std::get<1>(input_witness),
                                       };
                                   }),
                     .hash_values = map(arg.hash_values,
                                        [](auto& e) {
+                                           auto input_witness = get_witness_from_function_input(e);
                                            return Sha256Input{
-                                               .witness = e.witness.value,
-                                               .num_bits = e.num_bits,
+                                               .witness = std::get<0>(input_witness),
+                                               .num_bits = std::get<1>(input_witness),
                                            };
                                        }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
@@ -285,9 +330,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.blake2s_constraints.push_back(Blake2sConstraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
+                                      auto input_witness = get_witness_from_function_input(e);
                                       return Blake2sInput{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
+                                          .witness = std::get<0>(input_witness),
+                                          .num_bits = std::get<1>(input_witness),
                                       };
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
@@ -297,26 +343,42 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.blake3_constraints.push_back(Blake3Constraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
+                                      auto input_witness = get_witness_from_function_input(e);
                                       return Blake3Input{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
+                                          .witness = std::get<0>(input_witness),
+                                          .num_bits = std::get<1>(input_witness),
                                       };
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SchnorrVerify>) {
+                auto input_pkey_x = get_witness_from_function_input(arg.public_key_x);
+                auto input_pkey_y = get_witness_from_function_input(arg.public_key_y);
                 af.schnorr_constraints.push_back(SchnorrConstraint{
-                    .message = map(arg.message, [](auto& e) { return e.witness.value; }),
-                    .public_key_x = arg.public_key_x.witness.value,
-                    .public_key_y = arg.public_key_y.witness.value,
+                    .message = map(arg.message,
+                                   [](auto& e) {
+                                       auto input_witness = get_witness_from_function_input(e);
+                                       return std::get<0>(input_witness);
+                                   }),
+                    .public_key_x = std::get<0>(input_pkey_x),
+                    .public_key_y = std::get<0>(input_pkey_y),
                     .result = arg.output.value,
-                    .signature = map(arg.signature, [](auto& e) { return e.witness.value; }),
+                    .signature = map(arg.signature,
+                                     [](auto& e) {
+                                         auto input_witness = get_witness_from_function_input(e);
+                                         return std::get<0>(input_witness);
+                                     }),
                 });
                 af.original_opcode_indices.schnorr_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenCommitment>) {
+
                 af.pedersen_constraints.push_back(PedersenConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .scalars = map(arg.inputs,
+                                   [](auto& e) {
+                                       auto input_witness = get_witness_from_function_input(e);
+                                       return std::get<0>(input_witness);
+                                   }),
                     .hash_index = arg.domain_separator,
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
@@ -324,92 +386,175 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.pedersen_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenHash>) {
                 af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .scalars = map(arg.inputs,
+                                   [](auto& e) {
+                                       auto input_witness = get_witness_from_function_input(e);
+                                       return std::get<0>(input_witness);
+                                   }),
                     .hash_index = arg.domain_separator,
                     .result = arg.output.value,
                 });
                 af.original_opcode_indices.pedersen_hash_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
-                    .hashed_message = map(arg.hashed_message, [](auto& e) { return e.witness.value; }),
-                    .signature = map(arg.signature, [](auto& e) { return e.witness.value; }),
-                    .pub_x_indices = map(arg.public_key_x, [](auto& e) { return e.witness.value; }),
-                    .pub_y_indices = map(arg.public_key_y, [](auto& e) { return e.witness.value; }),
+                    .hashed_message = map(arg.hashed_message,
+                                          [](auto& e) {
+                                              auto input_witness = get_witness_from_function_input(e);
+                                              return std::get<0>(input_witness);
+                                          }),
+                    .signature = map(arg.signature,
+                                     [](auto& e) {
+                                         auto input_witness = get_witness_from_function_input(e);
+                                         return std::get<0>(input_witness);
+                                     }),
+                    .pub_x_indices = map(arg.public_key_x,
+                                         [](auto& e) {
+                                             auto input_witness = get_witness_from_function_input(e);
+                                             return std::get<0>(input_witness);
+                                         }),
+                    .pub_y_indices = map(arg.public_key_y,
+                                         [](auto& e) {
+                                             auto input_witness = get_witness_from_function_input(e);
+                                             return std::get<0>(input_witness);
+                                         }),
                     .result = arg.output.value,
                 });
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
-                    .hashed_message = map(arg.hashed_message, [](auto& e) { return e.witness.value; }),
-                    .pub_x_indices = map(arg.public_key_x, [](auto& e) { return e.witness.value; }),
-                    .pub_y_indices = map(arg.public_key_y, [](auto& e) { return e.witness.value; }),
+                    .hashed_message = map(arg.hashed_message,
+                                          [](auto& e) {
+                                              auto input_witness = get_witness_from_function_input(e);
+                                              return std::get<0>(input_witness);
+                                          }),
+                    .pub_x_indices = map(arg.public_key_x,
+                                         [](auto& e) {
+                                             auto input_witness = get_witness_from_function_input(e);
+                                             return std::get<0>(input_witness);
+                                         }),
+                    .pub_y_indices = map(arg.public_key_y,
+                                         [](auto& e) {
+                                             auto input_witness = get_witness_from_function_input(e);
+                                             return std::get<0>(input_witness);
+                                         }),
                     .result = arg.output.value,
-                    .signature = map(arg.signature, [](auto& e) { return e.witness.value; }),
+                    .signature = map(arg.signature,
+                                     [](auto& e) {
+                                         auto input_witness = get_witness_from_function_input(e);
+                                         return std::get<0>(input_witness);
+                                     }),
                 });
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
-                    .points = map(arg.points, [](auto& e) { return e.witness.value; }),
-                    .scalars = map(arg.scalars, [](auto& e) { return e.witness.value; }),
+                    .points = map(arg.points, [](auto& e) { return parse_input(e); }),
+                    .scalars = map(arg.scalars,
+                                   [](auto& e) {
+                                       auto input_witness = get_witness_from_function_input(e);
+                                       return std::get<0>(input_witness);
+                                   }),
                     .out_point_x = arg.outputs[0].value,
                     .out_point_y = arg.outputs[1].value,
                     .out_point_is_infinite = arg.outputs[2].value,
                 });
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
+                auto input_1_x = get_witness_from_function_input(arg.input1[0]);
+                auto input_1_y = get_witness_from_function_input(arg.input1[1]);
+                auto input_1_infinite = get_witness_from_function_input(arg.input1[2]);
+                auto input_2_x = get_witness_from_function_input(arg.input2[0]);
+                auto input_2_y = get_witness_from_function_input(arg.input2[1]);
+                auto input_2_infinite = get_witness_from_function_input(arg.input2[2]);
+
                 af.ec_add_constraints.push_back(EcAdd{
-                    .input1_x = arg.input1[0].witness.value,
-                    .input1_y = arg.input1[1].witness.value,
-                    .input1_infinite = arg.input1[2].witness.value,
-                    .input2_x = arg.input2[0].witness.value,
-                    .input2_y = arg.input2[1].witness.value,
-                    .input2_infinite = arg.input2[2].witness.value,
+                    .input1_x = std::get<0>(input_1_x),
+                    .input1_y = std::get<0>(input_1_y),
+                    .input1_infinite = std::get<0>(input_1_infinite),
+                    .input2_x = std::get<0>(input_2_x),
+                    .input2_y = std::get<0>(input_2_y),
+                    .input2_infinite = std::get<0>(input_2_infinite),
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
                     .result_infinite = arg.outputs[2].value,
                 });
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
+                auto input_var_message_size = get_witness_from_function_input(arg.var_message_size);
                 af.keccak_constraints.push_back(KeccakConstraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
+                                      auto input_witness = get_witness_from_function_input(e);
                                       return HashInput{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
+                                          .witness = std::get<0>(input_witness),
+                                          .num_bits = std::get<1>(input_witness),
                                       };
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
-                    .var_message_size = arg.var_message_size.witness.value,
+                    .var_message_size = std::get<0>(input_var_message_size),
                 });
                 af.original_opcode_indices.keccak_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
-                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .state = map(arg.inputs,
+                                 [](auto& e) {
+                                     auto input_witness = get_witness_from_function_input(e);
+                                     return std::get<0>(input_witness);
+                                 }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
                 if (honk_recursion) { // if we're using the honk recursive verifier
                     auto c = HonkRecursionConstraint{
-                        .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
-                        .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
-                        .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
+                        .key = map(arg.verification_key,
+                                   [](auto& e) {
+                                       auto input_witness = get_witness_from_function_input(e);
+                                       return std::get<0>(input_witness);
+                                   }),
+                        .proof = map(arg.proof,
+                                     [](auto& e) {
+                                         auto input_witness = get_witness_from_function_input(e);
+                                         return std::get<0>(input_witness);
+                                     }),
+                        .public_inputs = map(arg.public_inputs,
+                                             [](auto& e) {
+                                                 auto input_witness = get_witness_from_function_input(e);
+                                                 return std::get<0>(input_witness);
+                                             }),
                     };
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                 } else {
+                    auto input_key = get_witness_from_function_input(arg.key_hash);
+
                     auto c = RecursionConstraint{
-                        .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
-                        .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
-                        .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
-                        .key_hash = arg.key_hash.witness.value,
+                        .key = map(arg.verification_key,
+                                   [](auto& e) {
+                                       auto input_witness = get_witness_from_function_input(e);
+                                       return std::get<0>(input_witness);
+                                   }),
+                        .proof = map(arg.proof,
+                                     [](auto& e) {
+                                         auto input_witness = get_witness_from_function_input(e);
+                                         return std::get<0>(input_witness);
+                                     }),
+                        .public_inputs = map(arg.public_inputs,
+                                             [](auto& e) {
+                                                 auto input_witness = get_witness_from_function_input(e);
+                                                 return std::get<0>(input_witness);
+                                             }),
+                        .key_hash = std::get<0>(input_key),
                     };
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
                 }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
-                    .inputs = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      auto input_witness = get_witness_from_function_input(e);
+                                      return std::get<0>(input_witness);
+                                  }),
                     .modulus = map(arg.modulus, [](auto& e) -> uint32_t { return e; }),
                     .result = arg.output,
                 });
@@ -454,7 +599,11 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.bigint_operations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Poseidon2Permutation>) {
                 af.poseidon2_constraints.push_back(Poseidon2Constraint{
-                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .state = map(arg.inputs,
+                                 [](auto& e) {
+                                     auto input_witness = get_witness_from_function_input(e);
+                                     return std::get<0>(input_witness);
+                                 }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .len = arg.len,
                 });
@@ -484,7 +633,8 @@ BlockConstraint handle_memory_init(Program::Opcode::MemoryInit const& mem_init)
         });
     }
 
-    // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal array.
+    // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal
+    // array.
     if (std::holds_alternative<Program::BlockType::CallData>(mem_init.block_type.value)) {
         block.type = BlockType::CallData;
     } else if (std::holds_alternative<Program::BlockType::ReturnData>(mem_init.block_type.value)) {

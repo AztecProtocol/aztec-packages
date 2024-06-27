@@ -5,9 +5,10 @@ use std::collections::HashMap;
 use acir::{
     brillig::ForeignCallResult,
     circuit::{
-        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, ErrorSelector,
-        ExpressionOrMemory, Opcode, OpcodeLocation, RawAssertionPayload, ResolvedAssertionPayload,
-        STRING_ERROR_SELECTOR,
+        brillig::BrilligBytecode,
+        opcodes::{BlockId, FunctionInput},
+        AssertionPayload, ErrorSelector, ExpressionOrMemory, Opcode, OpcodeLocation,
+        RawAssertionPayload, ResolvedAssertionPayload, STRING_ERROR_SELECTOR,
     },
     native_types::{Expression, Witness, WitnessMap},
     AcirField, BlackBoxFunc,
@@ -150,7 +151,7 @@ impl<F> From<BlackBoxResolutionError> for OpcodeResolutionError<F> {
     }
 }
 
-pub struct ACVM<'a, F, B: BlackBoxFunctionSolver<F>> {
+pub struct ACVM<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> {
     status: ACVMStatus<F>,
 
     backend: &'a B,
@@ -626,6 +627,16 @@ pub fn witness_to_value<F>(
     match initial_witness.get(&witness) {
         Some(value) => Ok(value),
         None => Err(OpcodeNotSolvable::MissingAssignment(witness.0).into()),
+    }
+}
+
+pub fn input_to_value<F: AcirField>(
+    initial_witness: &WitnessMap<F>,
+    input: FunctionInput<F>,
+) -> Result<F, OpcodeResolutionError<F>> {
+    match input {
+        FunctionInput::Witness(witness) => Ok(*witness_to_value(initial_witness, witness.witness)?),
+        FunctionInput::Constant(value) => Ok(value.constant),
     }
 }
 
