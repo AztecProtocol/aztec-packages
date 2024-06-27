@@ -261,6 +261,7 @@ export class ProvingOrchestrator {
       this.initialHeader ?? (await this.db.buildInitialHeader()),
       this.provingState.globalVariables.chainId,
       this.provingState.globalVariables.version,
+      Fr.fromBuffer(getVKTree().root),
     );
     const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
     for (let i = 0; i < paddingTxCount; i++) {

@@ -67,7 +67,6 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@jest/globals": "^29.5.0",
