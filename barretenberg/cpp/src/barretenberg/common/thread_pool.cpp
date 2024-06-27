@@ -14,6 +14,7 @@ ThreadPool::ThreadPool(size_t num_threads)
 
 ThreadPool::~ThreadPool()
 {
+    std::cout << "Destroying thread pool\n";
     {
         std::unique_lock<std::mutex> lock(tasks_mutex);
         stop = true;
@@ -52,6 +53,7 @@ void ThreadPool::worker_loop(size_t /*unused*/)
         std::function<void()> task;
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
+            std::cout << "worker waiting\n";
             condition.wait(lock, [this] { return !tasks.empty() || stop; });
 
             if (tasks.empty() && stop) {
@@ -59,11 +61,14 @@ void ThreadPool::worker_loop(size_t /*unused*/)
             }
 
             task = tasks.front();
+            std::cout << "task popped\n";
             tasks.pop();
             tasks_running++;
         }
+        std::cout << "worker processing task\n";
         // info("worker ", worker_num, " processing a task!");
         task();
+        std::cout << "worker finished task\n";
         // info("task done");
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
