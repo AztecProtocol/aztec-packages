@@ -181,7 +181,7 @@ describe('abi/encoder', () => {
         {
           name: 'isOwner',
           type: {
-            sign: 'value',
+            sign: 'signed',
             width: 5,
             kind: 'integer',
           },
