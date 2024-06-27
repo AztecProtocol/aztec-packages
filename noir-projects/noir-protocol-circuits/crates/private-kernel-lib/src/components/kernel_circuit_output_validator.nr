@@ -1,6 +1,10 @@
 mod kernel_circuit_output_hints;
+mod validate_value_transformation;
 
-use crate::components::kernel_circuit_output_validator::kernel_circuit_output_hints::{generate_kernel_circuit_output_hints, Hints};
+use crate::components::kernel_circuit_output_validator::{
+    kernel_circuit_output_hints::{generate_kernel_circuit_output_hints, Hints},
+    validate_value_transformation::{validate_transformed_values, validate_value_transformation}
+};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
@@ -10,30 +14,8 @@ use dep::types::{
     compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
     silo_note_hash, silo_nullifier, silo_unencrypted_log_hash
 },
-    traits::{Empty, is_empty}, utils::arrays::assert_sorted_transformed_value_array
+    traits::is_empty, utils::arrays::assert_sorted_transformed_value_array
 };
-
-fn validate_transformed_value_array<T, S, N, Env>(
-    original_array: [T; N],
-    transformed_value_array: [S; N],
-    is_transformed: fn[Env](T, S) -> bool
-) {
-    for i in 0..N {
-        assert(is_transformed(original_array[i], transformed_value_array[i]), "invalid transformed value");
-    }
-}
-
-fn validate_siloed_value_array<T, S, N, Env>(
-    original_array: [T; N],
-    transformed_value_array: [S; N],
-    silo_value: fn[Env](T) -> S
-) where S: Empty + Eq {
-    validate_transformed_value_array(
-        original_array,
-        transformed_value_array,
-        |original: T, transformed: S| transformed == silo_value(original)
-    );
-}
 
 struct KernelCircuitOutputValidator {
     output: KernelCircuitPublicInputs,
@@ -89,7 +71,7 @@ impl KernelCircuitOutputValidator {
         );
 
         // new_nullifiers
-        validate_siloed_value_array(
+        validate_transformed_values(
             self.previous_kernel.end.new_nullifiers,
             hints.siloed_nullifiers,
             silo_nullifier
@@ -104,7 +86,7 @@ impl KernelCircuitOutputValidator {
 
         // new_l2_to_l1_msgs
         let tx_context = self.previous_kernel.constants.tx_context;
-        validate_siloed_value_array(
+        validate_transformed_values(
             self.previous_kernel.end.new_l2_to_l1_msgs,
             hints.siloed_l2_to_l1_msgs,
             |msg| silo_l2_to_l1_message(msg, tx_context.version, tx_context.chain_id)
@@ -120,7 +102,7 @@ impl KernelCircuitOutputValidator {
 
     fn validate_accumulated_values(self, hints: Hints) {
         // note_encrypted_log_hashes
-        validate_transformed_value_array(
+        validate_value_transformation(
             self.previous_kernel.end.note_encrypted_logs_hashes,
             hints.note_encrypted_log_hashes,
             |nlh: NoteLogHash, lh: LogHash| (nlh.value == lh.value) & (nlh.length == lh.length)
@@ -137,7 +119,7 @@ impl KernelCircuitOutputValidator {
         assert_eq(hash, self.output.end.note_encrypted_logs_hash, "mismatch note_encrypted_logs_hash");
 
         // encrypted_log_hashes
-        validate_transformed_value_array(
+        validate_value_transformation(
             self.previous_kernel.end.encrypted_logs_hashes,
             hints.siloed_encrypted_log_hashes,
             |slh: ScopedEncryptedLogHash, lh: LogHash| (lh.value == silo_encrypted_log_hash(slh)) & (lh.length == slh.log_hash.length)
@@ -154,7 +136,7 @@ impl KernelCircuitOutputValidator {
         assert_eq(hash, self.output.end.encrypted_logs_hash, "mismatch encrypted_logs_hash");
 
         // unencrypted_log_hashes
-        validate_transformed_value_array(
+        validate_value_transformation(
             self.previous_kernel.end.unencrypted_logs_hashes,
             hints.siloed_unencrypted_log_hashes,
             |slh: ScopedLogHash, lh: LogHash| (lh.value == silo_unencrypted_log_hash(slh)) & (lh.length == slh.log_hash.length)

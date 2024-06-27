@@ -1,13 +1,12 @@
 use crate::components::{
     previous_kernel_validator::PreviousKernelValidator,
     tail_to_public_output_composer::TailToPublicOutputComposer,
-    tail_to_public_output_validator::{TailToPublicOutputValidator, PrivateKernelTailToPublicHints}
+    tail_to_public_output_validator::TailToPublicOutputValidator
 };
 use dep::types::{abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs}};
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
-    hints: PrivateKernelTailToPublicHints,
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -27,9 +26,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         }
 
         // Validate output.
-        if !dep::std::runtime::is_unconstrained() {
-            TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs, self.hints).validate();
-        }
+        TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
 
         output
     }
@@ -37,30 +34,15 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
-    use crate::components::tail_to_public_output_validator::PrivateKernelTailToPublicHints;
-    use dep::reset_kernel_lib::{
-        tests::{
-        note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers, squash_transient_logs}
-    },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
-    };
-    use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, DA_BYTES_PER_FIELD,
-        DA_GAS_PER_BYTE, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, GENERATOR_INDEX__TSK_M
-    };
+    use dep::types::constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__TSK_M};
     use dep::types::{
         abis::{
-        call_request::CallRequest, side_effect::Ordered,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
+        log_hash::{LogHash, NoteLogHash}
     },
         address::AztecAddress, hash::{silo_note_hash, silo_nullifier},
-        tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::is_empty_array, grumpkin_point::GrumpkinPoint
+        tests::fixture_builder::FixtureBuilder, utils::{arrays::array_eq}, grumpkin_point::GrumpkinPoint
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -112,64 +94,7 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.new_note_hashes.storage,
-                |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
-            );
-            let sorted_new_note_hashes = sorted.sorted_array;
-            let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.new_nullifiers.storage,
-                |a: ScopedNullifier, b: ScopedNullifier| a.counter() < b.counter()
-            );
-            let sorted_new_nullifiers = sorted.sorted_array;
-            let sorted_new_nullifiers_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.note_encrypted_logs_hashes.storage,
-                |a: NoteLogHash, b: NoteLogHash| a.counter < b.counter
-            );
-            let sorted_note_encrypted_log_hashes = sorted.sorted_array;
-            let sorted_note_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.encrypted_logs_hashes.storage,
-                |a: ScopedEncryptedLogHash, b: ScopedEncryptedLogHash| a.counter() < b.counter()
-            );
-            let sorted_encrypted_log_hashes = sorted.sorted_array;
-            let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.unencrypted_logs_hashes.storage,
-                |a: ScopedLogHash, b: ScopedLogHash| a.counter() < b.counter()
-            );
-            let sorted_unencrypted_log_hashes = sorted.sorted_array;
-            let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.public_call_requests.storage,
-                |a: CallRequest, b: CallRequest| a.counter() > b.counter()
-            );
-            let sorted_call_requests = sorted.sorted_array;
-            let sorted_call_requests_indexes = sorted.sorted_index_hints;
-
-            let hints = PrivateKernelTailToPublicHints {
-                sorted_new_note_hashes,
-                sorted_new_note_hashes_indexes,
-                sorted_new_nullifiers,
-                sorted_new_nullifiers_indexes,
-                sorted_note_encrypted_log_hashes,
-                sorted_note_encrypted_log_hashes_indexes,
-                sorted_encrypted_log_hashes,
-                sorted_encrypted_log_hashes_indexes,
-                sorted_unencrypted_log_hashes,
-                sorted_unencrypted_log_hashes_indexes,
-                sorted_call_requests,
-                sorted_call_requests_indexes
-            };
-
-            let kernel = PrivateKernelTailToPublicCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), hints };
+            let kernel = PrivateKernelTailToPublicCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data() };
             kernel.execute()
         }
 

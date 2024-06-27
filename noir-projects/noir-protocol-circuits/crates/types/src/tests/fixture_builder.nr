@@ -355,7 +355,7 @@ impl FixtureBuilder {
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             public_data_update_requests: self.public_data_update_requests.storage,
-            public_call_stack: self.public_call_requests.storage,
+            public_call_stack: self.public_call_requests.storage.map(|cr: CallRequest| cr.expose_to_public()),
             gas_used: self.gas_used
         }
     }
