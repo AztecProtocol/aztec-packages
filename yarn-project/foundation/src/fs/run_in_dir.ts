@@ -9,8 +9,7 @@ export async function runInDirectory<T>(
   _cleanup: boolean = true,
 ): Promise<T> {
   // Create random directory to be used for temp files
-  const workingDirectory = workingDirBase;
-  // const workingDirectory = await fs.mkdtemp(path.join(workingDirBase, 'tmp-'));
+  const workingDirectory = await fs.mkdtemp(path.join(workingDirBase, 'tmp-'));
 
   await fs.access(workingDirectory);
 
