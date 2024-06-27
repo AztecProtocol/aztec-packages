@@ -1,4 +1,4 @@
-use dep::protocol_types::{hash::pedersen_hash, traits::{FromField, ToField}};
+use dep::protocol_types::{hash::{pedersen_hash, poseidon2_hash}, traits::{FromField, ToField}};
 
 use crate::context::{PrivateContext, PublicContext};
 use crate::state_vars::{
@@ -60,7 +60,7 @@ impl<T, INITIAL_DELAY, Context> SharedMutable<T, INITIAL_DELAY, Context> {
         // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
         // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
         let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
-        pedersen_hash(concatenated, 0)
+        poseidon2_hash(concatenated)
     }
 
     // Since we can't rely on the native storage allocation scheme, we hash the storage slot to get a unique location in
