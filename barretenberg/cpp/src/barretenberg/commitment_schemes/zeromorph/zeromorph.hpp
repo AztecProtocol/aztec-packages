@@ -494,22 +494,22 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
         // Contribution from C_q_k, k = 0,...,log_N-1
         for (size_t k = 0; k < CONST_PROOF_SIZE_LOG_N; ++k) {
+            // Utilize dummy rounds in order to make verifier circuit independent of proof size
+            bool is_dummy_round = k >= log_N;
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
             FF scalar = y_challenge.pow(k);
-            // WORKTODO: ensure size_t exponent doesnt wrap. Think this is ok in terms of constraints since pow operates
-            // on 32 bits regardless?
-            size_t x_exponent = (deg_k + 1) < N ? N - deg_k - 1 : 0;
+            size_t x_exponent = is_dummy_round ? 0 : N - deg_k - 1;
             scalar *= x_challenge.pow(x_exponent);
             scalar *= FF(-1);
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
                 FF zero = FF::from_witness(builder, 0);
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, k >= log_N);
-                // WORKTODO: is it kosher to reassign like this?
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, is_dummy_round);
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): is it kosher to reassign like this?
                 scalar = FF::conditional_assign(dummy_round, zero, scalar);
             } else {
-                if (k >= log_N) {
+                if (is_dummy_round) {
                     scalar = 0;
                 }
             }
@@ -581,7 +581,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         std::vector<Commitment> commitments;
 
         // Phi_n(x) = (x^N - 1) / (x - 1)
-        // WORKTODO: this should be a witness... oh it is but it's disconnected
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): pow may not add proper constraints
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
@@ -631,9 +631,11 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto x_pow_2k = x_challenge;                 // x^{2^k}
         auto x_pow_2kp1 = x_challenge * x_challenge; // x^{2^{k + 1}}
         for (size_t k = 0; k < CONST_PROOF_SIZE_LOG_N; ++k) {
+            // Utilize dummy rounds in order to make verifier circuit independent of proof size
+            bool is_dummy_round = k >= log_N;
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
-                stdlib::bool_t dummy_scalar = stdlib::witness_t(builder, k >= log_N);
+                stdlib::bool_t dummy_scalar = stdlib::witness_t(builder, is_dummy_round);
                 auto phi_term_1 = phi_numerator / (x_pow_2kp1 - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
                 auto phi_term_2 = phi_numerator / (x_pow_2k - 1);   // \Phi_{n-k}(x^{2^k})
 
@@ -650,7 +652,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 x_pow_2k = FF::conditional_assign(dummy_scalar, x_pow_2k, x_pow_2kp1);
                 x_pow_2kp1 = FF::conditional_assign(dummy_scalar, x_pow_2kp1, x_pow_2kp1 * x_pow_2kp1);
             } else {
-                if (k >= log_N) {
+                if (is_dummy_round) {
                     scalars.emplace_back(0);
                     commitments.emplace_back(C_q_k[k]);
                 } else {
