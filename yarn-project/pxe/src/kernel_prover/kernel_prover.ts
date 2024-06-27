@@ -193,7 +193,7 @@ export class KernelProver {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
       tailOutput.clientIvcProof = ivcProof;
-    }
+    } 
     return tailOutput;
   }
 

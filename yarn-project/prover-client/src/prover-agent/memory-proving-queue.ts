@@ -297,9 +297,6 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     tubeInput: TubeInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
-    // if (tubeInput.clientIVCData.isEmpty()) {
-    //   throw new Error("tube inputs can't be empty!");
-    // }
     return this.enqueue(
       {
         type: ProvingRequestType.BASE_ROLLUP,

@@ -228,7 +228,6 @@ export class BaseRollupInputs {
 
 export class TubeInputs {
   constructor(
-    /** Data of the 2 kernels that preceded this base rollup circuit. */
     public clientIVCData: ClientIvcProof,
   ) {}
 

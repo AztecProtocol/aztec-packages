@@ -278,14 +278,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BaseRollupArtifact',
       baseRollupInput.kernelData.vk,
     );
-    // logger.debug(`kernel Data proof after ensureValidProof: ${baseRollupInput.kernelData.proof}`);
 
-    // if (tubeInput.clientIVCData.isEmpty()) {
-    //   throw new Error("Trying to create getBaseRollupProof but TubeInputs client IVC is empty");
-    // }
-    const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
-    baseRollupInput.kernelData.vk = tubeVK;
-    baseRollupInput.kernelData.proof = tubeProof;
+    console.log(`!tubeInput.clientIVCData.isEmpty(): ${!tubeInput.clientIVCData.isEmpty()}`);
+    if (!tubeInput.clientIVCData.isEmpty()) {
+      const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
+      baseRollupInput.kernelData.vk = tubeVK;
+      baseRollupInput.kernelData.proof = tubeProof;
+    }
     const { circuitOutput, proof } = await this.createRecursiveProof(
       baseRollupInput, // BaseRollupInputs
       'BaseRollupArtifact',

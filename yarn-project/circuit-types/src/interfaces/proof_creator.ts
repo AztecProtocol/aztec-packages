@@ -29,9 +29,10 @@ export type KernelProofOutput<PublicInputsType> = {
    * The zk-SNARK proof for the kernel execution.
    */
   // LONDONTODO(ClientIVCProofSize)
-  // LONDONTODO: this is no longer used with client ivc proofs
+  // LONDONTODO: this is no longer used for private kernel stack
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-
+  
+  // LONDONTODO: this is not used for public kernel stack
   clientIvcProof?: ClientIvcProof;
 
   verificationKey: VerificationKeyAsFields;

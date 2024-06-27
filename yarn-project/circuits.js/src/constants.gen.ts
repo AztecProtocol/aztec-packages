@@ -166,7 +166,7 @@ export const NUM_MSGS_PER_BASE_PARITY = 4;
 export const NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
 export const RECURSIVE_PROOF_LENGTH = 393;
 export const NESTED_RECURSIVE_PROOF_LENGTH = 393;
-export const CLIENT_IVC_PROOF_LENGTH = 3278;
+export const CLIENT_IVC_PROOF_LENGTH = 3618;
 export const TUBE_PROOF_LENGTH = 393;
 export const VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
 export enum GeneratorIndex {

@@ -18,7 +18,7 @@ export class KernelData {
     /**
      * Proof of the ClientIVC recursive verifier.
      */
-    public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
+    public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>, // Length could differ for public vs private.
     /**
      * Verification key of the previous kernel.
      */
