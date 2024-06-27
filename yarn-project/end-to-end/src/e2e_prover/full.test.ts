@@ -59,19 +59,19 @@ describe('full_prover', () => {
         0,
       );
 
-      const cachedPrivateTxPath = '../../../e2e_private.tx';
-      const privateTxBuffer = fs.existsSync(cachedPrivateTxPath) ? fs.readFileSync(cachedPrivateTxPath) : undefined;
-      const privateTx = await privateInteraction.prove({ isPrivate: true, cachedTxBuffer: privateTxBuffer });
-      fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
-      const cachedPublicTxPath = '../../../e2e_public.tx';
-      const publicTxBuffer = fs.existsSync(cachedPublicTxPath) ? fs.readFileSync(cachedPublicTxPath) : undefined;
-      const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
-      fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
-      
+      // const cachedPrivateTxPath = '../../../e2e_private.tx';
+      // const privateTxBuffer = fs.existsSync(cachedPrivateTxPath) ? fs.readFileSync(cachedPrivateTxPath) : undefined;
+      // const privateTx = await privateInteraction.prove({ isPrivate: true, cachedTxBuffer: privateTxBuffer });
+      // fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
+      // const cachedPublicTxPath = '../../../e2e_public.tx';
+      // const publicTxBuffer = fs.existsSync(cachedPublicTxPath) ? fs.readFileSync(cachedPublicTxPath) : undefined;
+      // const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
+      // fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
+
       // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       // logger.info(`Verifying private kernel tail proof`);
       // await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
-      
+
       // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       // logger.info(`Verifying kernel tail to public proof`);
       // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();

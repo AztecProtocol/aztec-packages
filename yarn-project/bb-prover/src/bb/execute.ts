@@ -67,7 +67,7 @@ export function executeBB(
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
-    // console.log(`Executing BB with: ${command} ${args.join(' ')}`);
+    console.log(`Executing BB with: ${command} ${args.join(' ')}`);
     // console.log(new Error('bb calling').stack)
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,

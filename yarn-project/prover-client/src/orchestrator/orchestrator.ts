@@ -538,7 +538,9 @@ export class ProvingOrchestrator {
     };
 
     // let the callstack unwind before adding the job to the queue
-    setImmediate(safeJob);
+    // setImmediate(safeJob);
+    console.log('safeJob', new Error().stack)
+    safeJob().catch(() => {}); // LONDONTODO better stack traces
   }
 
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
@@ -889,6 +891,7 @@ export class ProvingOrchestrator {
           }
         },
       );
+      console.log("enqueueVM  ", new Error().stack)
       this.deferredProving(provingState, doAvmProving, proofAndVk => {
         logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
         this.checkAndEnqueuePublicKernel(provingState, txIndex, functionIndex, proofAndVk.proof);

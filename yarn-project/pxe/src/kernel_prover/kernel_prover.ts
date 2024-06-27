@@ -185,7 +185,7 @@ export class KernelProver {
     // LONDONTODO this will instead become part of our stack of programs
     // LONDONTODO createProofTail won't be called in the future - this is redundantly proving
     const tailOutput = await this.proofCreator.createProofTail(privateInputs);
-    acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
+    acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
     // LONDONTODO: isPrivate flag was introduced in PXE interface to allow this `if`
@@ -193,7 +193,7 @@ export class KernelProver {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
       tailOutput.clientIvcProof = ivcProof;
-    } 
+    }
     return tailOutput;
   }
 
