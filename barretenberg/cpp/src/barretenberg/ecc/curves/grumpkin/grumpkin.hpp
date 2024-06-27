@@ -43,7 +43,6 @@ using g1 = bb::group<bb::fr, bb::fq, G1Params>;
 namespace bb::curve {
 class Grumpkin {
   public:
-    using NativeCurve = Grumpkin; // WORKTODO: remove?
     using ScalarField = bb::fq;
     using BaseField = bb::fr;
     using Group = typename grumpkin::g1;

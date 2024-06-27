@@ -1,4 +1,3 @@
-// #include "barretenberg/commitment_schemes/zeromorph/zeromorph.test.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
@@ -15,14 +14,7 @@
 
 using namespace bb;
 
-template <class PCS> class ZeroMorphRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {
-  public:
-};
-
-using Builder = UltraCircuitBuilder;
-// using Builder = CircuitSimulatorBN254;
-// using PCSTypes = ::testing::Types<KZG<stdlib::bn254<Builder>>, IPA<stdlib::grumpkin<Builder>>>;
-// TYPED_TEST_SUITE(ZeroMorphRecursionTest, PCSTypes);
+template <class PCS> class ZeroMorphRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
 
 numeric::RNG& engine = numeric::get_debug_randomness();
 
@@ -38,7 +30,6 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     using NativeCurve = typename Curve::NativeCurve;
     using Commitment = typename Curve::AffineElement;
     using NativeCommitment = typename Curve::AffineElementNative;
-    // using PCS = KZG<Curve>;
     using NativeCurve = typename Curve::NativeCurve;
     using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
     using CommitmentKey = typename NativePCS::CK;
@@ -48,7 +39,6 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     using Polynomial = bb::Polynomial<NativeFr>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    // using VerifierCommitmentKey = VerifierCommitmentKey<NativeCurve>;
 
     constexpr size_t N = 2;
     constexpr size_t NUM_UNSHIFTED = 1;
@@ -75,7 +65,6 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
         g_polynomials.emplace_back(f_polynomials[i]);
         h_polynomials.emplace_back(g_polynomials[i].shifted());
         w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
-        // ASSERT_EQ(w_evaluations[i], g_polynomials[i].evaluate_mle(u_challenge, /* shift = */ true));
     }
 
     // Compute commitments [f_i]
@@ -95,7 +84,6 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Execute Prover protocol
-    // LONDONTODO: these tests need to be updated
     ZeroMorphProver::prove(N,
                            RefVector(f_polynomials),
                            RefVector(g_polynomials),
@@ -150,8 +138,4 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
                                                                     {},
                                                                     {});
     EXPECT_TRUE(CircuitChecker::check(builder));
-
-    // auto verifier_commitment_key = std::make_shared<VerifierCommitmentKey>();
-    // bool verified = verifier_commitment_key->pairing_check(result[0].get_value(), result[1].get_value());
-    // EXPECT_TRUE(verified);
 }

@@ -160,84 +160,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             block_idx++;
         }
         EXPECT_FALSE(broke);
-
-        // const auto get_polys = [](const size_t inner_size) { // Create an arbitrary inner circuit
-        //     auto inner_circuit = create_inner_circuit(inner_size);
-
-        //     // Generate a proof over the inner circuit
-        //     auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        //     InnerProver inner_prover(instance);
-        //     info("test circuit size: ", instance->proving_key.circuit_size);
-        //     auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
-        //     auto inner_proof = inner_prover.construct_proof();
-
-        //     // Create a recursive verification circuit for the proof of the inner circuit
-        //     OuterBuilder outer_circuit;
-        //     RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        //     [[maybe_unused]] auto pairing_points = verifier.verify_proof(inner_proof);
-
-        //     auto outer_instance = std::make_shared<OuterProverInstance>(outer_circuit);
-        //     return std::move(outer_instance->proving_key.polynomials);
-        // };
-
-        // bool broke(false);
-        // const auto check_eq = [&broke](const auto& p1, const auto& p2) {
-        //     for (size_t idx = 0; idx < p1.size(); idx++) {
-        //         if (p1[idx] != p2[idx]) {
-        //             broke = true;
-        //             info("discrepancy at index: ", idx);
-        //             break;
-        //         }
-        //     }
-        // };
-
-        // const auto polys_10 = get_polys(10);
-        // const auto polys_11 = get_polys(11);
-        // std::vector<std::string> precomputed{ "q_c",      "q_l",     "q_r",           "q_o",        "q_4",
-        //                                       "q_m",      "q_arith", "q_delta_range", "q_elliptic", "q_aux",
-        //                                       "q_lookup", "sigma_1", "sigma_2",       "sigma_3",    "sigma_4",
-        //                                       "id_1",     "id_2",    "id_3",          "id_4",       "table_1",
-        //                                       "table_2",  "table_3", "table_4" };
-        // for (auto [label, q_10, q_11] : zip_view(polys_10.get_labels(), polys_10.get_all(), polys_11.get_all())) {
-        //     if (std::find(precomputed.begin(), precomputed.end(), label) != precomputed.end()) {
-        //         info("checking ", label);
-        //         check_eq(q_10, q_11);
-        //     }
-        // }
-
-        // EXPECT_FALSE(broke);
-
-        // // // // // // // // // // // // // // // // // // // // // // //
-
-        // EXPECT_EQ(vk_10->hash(), vk_11->hash());
-
-        // const auto get_vk = [](const size_t inner_size) { // Create an arbitrary inner circuit
-        //     auto inner_circuit = create_inner_circuit(inner_size);
-
-        //     // Generate a proof over the inner circuit
-        //     auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        //     InnerProver inner_prover(instance);
-        //     auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
-        //     auto inner_proof = inner_prover.construct_proof();
-
-        //     // Create a recursive verification circuit for the proof of the inner circuit
-        //     OuterBuilder outer_circuit;
-        //     RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        //     [[maybe_unused]] auto pairing_points = verifier.verify_proof(inner_proof);
-
-        //     auto outer_instance = std::make_shared<OuterProverInstance>(outer_circuit);
-        //     // OuterProver prover(instance);
-        //     auto outer_verification_key =
-        //         std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
-        //     return outer_verification_key;
-        // };
-        // const auto vk_10 = get_vk(10);
-        // const auto vk_11 = get_vk(11);
-        // for (auto [label, q_10, q_11] : zip_view(vk_10->get_labels(), vk_10->get_all(), vk_11->get_all())) {
-        //     info(label);
-        //     EXPECT_EQ(q_10, q_11);
-        // }
-        // EXPECT_EQ(vk_10->hash(), vk_11->hash());
     }
 
     /**
@@ -363,11 +285,6 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
-};
-
-HEAVY_TYPED_TEST(RecursiveVerifierTest, Zeromorph)
-{
-    TestFixture::test_recursive_verification();
 };
 
 } // namespace bb::stdlib::recursion::honk

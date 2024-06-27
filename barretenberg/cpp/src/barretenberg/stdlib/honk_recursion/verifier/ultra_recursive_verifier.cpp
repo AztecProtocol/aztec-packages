@@ -154,7 +154,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
                                            transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
-    // std::array<typename Flavor::GroupElement, 2> pairing_points;
     return pairing_points;
 }
 
