@@ -2,7 +2,7 @@ use std::io::Write;
 use std::{collections::BTreeMap, path::PathBuf};
 
 use fm::FileManager;
-use noirc_driver::{check_crate, file_manager_with_stdlib, CompileOptions};
+use noirc_driver::{check_crate, compile_no_check, file_manager_with_stdlib, CompileOptions};
 use noirc_frontend::hir::FunctionNameMatch;
 
 use nargo::{
@@ -46,15 +46,46 @@ fn run_stdlib_tests() {
     let test_report: Vec<(String, TestStatus)> = test_functions
         .into_iter()
         .map(|(test_name, test_function)| {
-            let status = run_test(
-                &bn254_blackbox_solver::Bn254BlackBoxSolver,
-                &mut context,
-                &test_function,
-                false,
-                None,
-                &CompileOptions::default(),
-            );
 
+            let status = if test_function_has_no_arguments {
+                run_test(
+                    &bn254_blackbox_solver::Bn254BlackBoxSolver,
+                    &mut context,
+                    &test_function,
+                    false,
+                    None,
+                    &CompileOptions::default(),
+                )
+            } else {
+                use noir_fuzzer::FuzzedExecutor;
+                use proptest::test_runner::TestRunner;
+
+                let compiled_program = compile_no_check(
+                    &mut context,
+                    &CompileOptions::default(),
+                    test_function.get_id(),
+                    None,
+                    false,
+                );
+                match compiled_program {
+                    Ok(compiled_program) => {
+                        let runner = TestRunner::default();
+
+                        let fuzzer = FuzzedExecutor::new(compiled_program.into(), runner);
+
+                        let result = fuzzer.fuzz();
+                        if result.success {
+                            TestStatus::Pass
+                        } else {
+                            TestStatus::Fail {
+                                message: result.reason.unwrap_or_default(),
+                                error_diagnostic: None,
+                            }
+                        }
+                    }
+                    Err(err) => TestStatus::CompileError(err.into()),
+                }
+            };
             (test_name, status)
         })
         .collect();
