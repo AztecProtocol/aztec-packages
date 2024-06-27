@@ -54,6 +54,7 @@ TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
             write(buf, VALUES[0]);
             LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
             transaction->put_node(0, 0, buf);
+            transaction->commit();
         }
 
         {
@@ -75,6 +76,7 @@ TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
             write(value, VALUES[1]);
             LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
             transaction->put_value(key, value);
+            transaction->commit();
         }
 
         {
@@ -100,6 +102,7 @@ TEST_F(LMDBStoreTest, reading_an_empty_key_reports_correctly)
             write(buf, VALUES[0]);
             LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
             transaction->put_node(0, 0, buf);
+            transaction->commit();
         }
 
         {
@@ -120,6 +123,7 @@ TEST_F(LMDBStoreTest, reading_an_empty_key_reports_correctly)
             write(value, VALUES[1]);
             LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
             transaction->put_value(key, value);
+            transaction->commit();
         }
         {
             LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
@@ -145,6 +149,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
                 write(buf, VALUES[i]);
                 transaction->put_node(10, i, buf);
             }
+            transaction->commit();
         }
 
         {
@@ -172,6 +177,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
                 std::vector<uint8_t> buf;
                 write(buf, VALUES[i + 128]);
                 transaction->put_value(key, buf);
+                transaction->commit();
             }
         }
 
@@ -233,6 +239,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
         transaction->put_value_by_integer(higher64, value);
         transaction->put_value_by_integer(lower256, value);
         transaction->put_value_by_integer(higher256, value);
+        transaction->commit();
     }
 
     {
@@ -315,6 +322,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_at_random_keys)
             keys.push_back(key);
             transaction->put_node(0, key, buf);
         }
+        transaction->commit();
     }
 
     {
@@ -344,6 +352,7 @@ TEST_F(LMDBStoreTest, can_recreate_the_store_and_use_again)
             keys.push_back(key);
             transaction->put_node(0, key, buf);
         }
+        transaction->commit();
     }
 
     {
@@ -394,6 +403,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
         std::vector<uint8_t> buf;
         write(buf, VALUES[0]);
         transaction->put_node(0, key, buf);
+        transaction->commit();
     }
 
     {
@@ -413,6 +423,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
             std::vector<uint8_t> buf;
             write(buf, VALUES[0] + 1);
             transaction->put_node(0, key, buf);
+            transaction->commit();
         }
         // now wait for all threads to exit having seen the new value
         for (size_t i = 0; i < num_threads; i++) {
@@ -462,6 +473,7 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
         write_values.template operator()<LeafIndexKeyType>(*transaction, 1);
         write_values.template operator()<MetaKeyType>(*transaction, 2);
         write_values.template operator()<FrKeyType>(*transaction, 3);
+        transaction->commit();
     }
 
     {

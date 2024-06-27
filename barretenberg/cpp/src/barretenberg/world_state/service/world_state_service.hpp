@@ -26,7 +26,7 @@ using namespace bb::crypto::merkle_tree;
 using HashPolicy = PedersenHashPolicy;
 
 struct TreeWithStore {
-    typedef CachedTreeStore<LMDBStore, nullifier_leaf_value> Store;
+    typedef CachedTreeStore<LMDBStore, NullifierLeafValue> Store;
     std::unique_ptr<LMDBStore> lmdbStore;
     std::unique_ptr<IndexedTree<Store, HashPolicy>> tree;
     std::unique_ptr<Store> store;
@@ -167,7 +167,7 @@ template <typename OutputStream> bool WorldStateService<OutputStream>::insertLea
                 WorldStateMsgTypes::INSERT_LEAVES_RESPONSE, header, response);
             outputStream.sendPackedObject(insertLeavesResponse);
         };
-        std::vector<nullifier_leaf_value> leaves(insertLeavesRequest.value.leaves.size());
+        std::vector<NullifierLeafValue> leaves(insertLeavesRequest.value.leaves.size());
         for (auto& v : insertLeavesRequest.value.leaves) {
             leaves.emplace_back(v);
         }

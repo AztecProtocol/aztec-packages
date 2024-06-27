@@ -74,7 +74,6 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     void rollback();
 
     ReadTransactionPtr createReadTransaction() const { return dataStore.createReadTransaction(); }
-    WriteTransactionPtr createWriteTransaction() const { return dataStore.createWriteTransaction(); }
 
   private:
     std::string name;
@@ -90,6 +89,8 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     bool readPersistedMeta(TreeMeta& m, ReadTransaction& tx) const;
 
     void persistMeta(TreeMeta& m, WriteTransaction& tx);
+
+    WriteTransactionPtr createWriteTransaction() const { return dataStore.createWriteTransaction(); }
 };
 
 template <typename PersistedStore, typename LeafValueType>
@@ -262,6 +263,7 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
             tx->put_value_by_integer(key, value);
         }
         persistMeta(meta, *tx);
+        tx->commit();
     }
     rollback();
 }
@@ -317,6 +319,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
     meta.depth = depth;
     WriteTransactionPtr tx = createWriteTransaction();
     persistMeta(meta, *tx);
+    tx->commit();
 }
 
 } // namespace bb::crypto::merkle_tree

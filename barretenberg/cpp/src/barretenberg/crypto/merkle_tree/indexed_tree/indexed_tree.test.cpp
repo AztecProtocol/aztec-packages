@@ -125,7 +125,7 @@ void add_value(TreeType& tree, const fr& value)
     signal.wait_for_level(0);
 }
 
-void add_values(TreeType& tree, const std::vector<nullifier_leaf_value>& values)
+void add_values(TreeType& tree, const std::vector<NullifierLeafValue>& values)
 {
     Signal signal(1);
     auto completion = [&](const std::vector<fr_hash_path>&, fr&, index_t) -> void { signal.signal_level(0); };
@@ -302,7 +302,7 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
     check_hash_path(tree2, 512, memdb.get_hash_path(512));
 
     for (uint32_t i = 0; i < num_batches; i++) {
-        std::vector<nullifier_leaf_value> batch;
+        std::vector<NullifierLeafValue> batch;
         std::vector<fr_hash_path> memory_tree_hash_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
@@ -367,7 +367,7 @@ bool verify_hash_path(TreeType& tree, const IndexedLeafType& leaf_value, const u
 
 IndexedLeafType create_indexed_nullifier_leaf(const fr& value, index_t nextIndex, const fr& nextValue)
 {
-    return IndexedLeafType(nullifier_leaf_value(value), nextIndex, nextValue);
+    return IndexedLeafType(NullifierLeafValue(value), nextIndex, nextValue);
 }
 
 TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
@@ -389,7 +389,7 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      *  nextIdx   0       0       0       0        0       0       0       0
      *  nextVal   0       0       0       0        0       0       0       0
      */
-    IndexedLeafType zero_leaf(nullifier_leaf_value(0), 0, 0);
+    IndexedLeafType zero_leaf(NullifierLeafValue(0), 0, 0);
     check_size(tree, 1);
     EXPECT_EQ(get_leaf(tree, 0), zero_leaf);
 
