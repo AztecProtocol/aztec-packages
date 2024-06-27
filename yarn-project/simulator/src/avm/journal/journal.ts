@@ -197,9 +197,9 @@ export class AvmPersistableStateManager {
    * @param event - log event selector
    * @param log - log contents
    */
-  public writeUnencryptedLog(contractAddress: Fr, event: Fr, log: Fr[]) {
-    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event ${event} with ${log.length} fields.`);
-    this.trace.traceUnencryptedLog(contractAddress, event, log);
+  public writeUnencryptedLog(contractAddress: Fr, log: Fr[]) {
+    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
+    this.trace.traceUnencryptedLog(contractAddress, log);
   }
 
   /**
@@ -258,6 +258,7 @@ export class AvmPersistableStateManager {
         nestedEnvironment.address,
         nestedEnvironment.temporaryFunctionSelector,
       )) ?? `${nestedEnvironment.address}:${nestedEnvironment.temporaryFunctionSelector}`;
+    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
     this.trace.traceNestedCall(
       nestedState.trace,
       nestedEnvironment,
