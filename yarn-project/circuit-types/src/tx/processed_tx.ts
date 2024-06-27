@@ -26,7 +26,6 @@ import {
   type VerificationKeyData,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { getVKTree } from '@aztec/noir-protocol-circuits-types';
 
 import { type CircuitName } from '../stats/stats.js';
 
