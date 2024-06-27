@@ -1,6 +1,7 @@
-cd ~/aztec-packages/noir/noir-repo
+# Run from within barretenberg/acir_tests
+cd ../../noir/noir-repo
 noirup -p .
 cd test_programs && ./rebuild.sh
 
-cd ~/aztec-packages/barretenberg/acir_tests
+cd ../../../barretenberg/acir_tests
 rm -rf acir_tests

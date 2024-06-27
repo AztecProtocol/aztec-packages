@@ -100,7 +100,6 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     key_fields.reserve(input.key.size());
     for (const auto& idx : input.key) {
         auto field = field_ct::from_witness_index(&builder, idx);
-        info("key idx = ", idx, " with value: ", field.get_value());
         key_fields.emplace_back(field);
     }
 
