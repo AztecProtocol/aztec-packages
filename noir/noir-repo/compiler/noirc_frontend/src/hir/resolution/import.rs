@@ -131,12 +131,7 @@ fn resolve_path_to_ns(
     match import_directive.path.kind {
         crate::ast::PathKind::Crate => {
             // Resolve from the root of the crate
-            resolve_path_from_crate_root(
-                crate_id,
-                importing_crate,
-                import_path,
-                def_maps,
-                    )
+            resolve_path_from_crate_root(crate_id, importing_crate, import_path, def_maps)
         }
         crate::ast::PathKind::Plain => {
             // There is a possibility that the import path is empty
@@ -148,7 +143,7 @@ fn resolve_path_to_ns(
                     import_path,
                     import_directive.module_id,
                     def_maps,
-                            );
+                );
             }
 
             let current_mod_id = ModuleId { krate: crate_id, local_id: import_directive.module_id };
@@ -156,12 +151,7 @@ fn resolve_path_to_ns(
             let first_segment = import_path.first().expect("ice: could not fetch first segment");
             if current_mod.find_name(first_segment).is_none() {
                 // Resolve externally when first segment is unresolved
-                return resolve_external_dep(
-                    def_map,
-                    import_directive,
-                    def_maps,
-                                importing_crate,
-                );
+                return resolve_external_dep(def_map, import_directive, def_maps, importing_crate);
             }
 
             resolve_name_in_module(
@@ -170,15 +160,12 @@ fn resolve_path_to_ns(
                 import_path,
                 import_directive.module_id,
                 def_maps,
-                    )
+            )
         }
 
-        crate::ast::PathKind::Dep => resolve_external_dep(
-            def_map,
-            import_directive,
-            def_maps,
-                importing_crate,
-        ),
+        crate::ast::PathKind::Dep => {
+            resolve_external_dep(def_map, import_directive, def_maps, importing_crate)
+        }
     }
 }
 
