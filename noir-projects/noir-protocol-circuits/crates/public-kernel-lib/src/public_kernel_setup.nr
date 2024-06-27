@@ -39,8 +39,13 @@ impl PublicKernelSetupCircuitPrivateInputs {
     }
 
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
-        // verify the previous kernel proof
-        self.previous_kernel.verify();
+        // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
+        dep::std::verify_proof(
+            self.kernel_data.vk.key.as_slice(),
+            self.kernel_data.proof.fields.as_slice(),
+            &[],
+            self.kernel_data.vk.hash
+        );
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
