@@ -83,17 +83,25 @@ else
     done
 fi
 
+# Store the failed processes
+failed_pids=()
 # Check the exit status of each background job.
 for pid in "${pids[@]}"; do
     if ! wait $pid; then  # Wait for the process to complete, check if it failed
-        echo "Rebuild failed for directory: ${dirs_map[$pid]}"  # Print failed directory
         exit_status=$?  # Capture the failed exit status
+        failed_pids+=($pid)
     fi
 done
 
+echo ""
+
 # Exit with a failure status if any job failed.
 if [ ! -z "$exit_status" ]; then
-    echo "Rebuild failed!"
+    echo "Rebuild failed for directories:"
+    # Print the failed directories after waiting for each process to complete
+    for pid in "${failed_pids[@]}"; do
+        echo "${dirs_map[$pid]}"
+    done
     exit $exit_status
 fi
 echo "Rebuild Succeeded!"
