@@ -5,6 +5,7 @@ use crate::state_vars::{
     storage::Storage,
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
 };
+use dep::std::unsafe::zeroed;
 
 mod test;
 
@@ -156,7 +157,7 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> {
 }
 
 impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
-    pub fn get_current_value_in_private(self) -> T where T: FromField + ToField {
+    pub fn get_current_value_in_private(self) -> T where T: FromField + ToField + Eq {
         // When reading the current value in private we construct a historical state proof for the public value.
         // However, since this value might change, we must constrain the maximum transaction block number as this proof
         // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
@@ -183,7 +184,7 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
     fn historical_read_from_public_storage(
         self,
         context: PrivateContext
-    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField + ToField {
+    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField + ToField + Eq {
         // We could simply produce historical inclusion proofs for both the ScheduledValueChange and 
         // ScheduledDelayChange, but that'd require one full sibling path per storage slot (since due to kernel siloing
         // the storage is not contiguous), and in the best case in which T is a single field that' be 4 slots.
@@ -196,9 +197,20 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), context.this_address());
-        assert_eq(
-            hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
-        );
+        if hash != 0 {
+            assert_eq(
+                hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
+            );
+        } else {
+            // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
+            // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
+            assert_eq(
+                value_change_hint, ScheduledValueChange::deserialize(zeroed()), "Non-zero value change for zero hash"
+            );
+            assert_eq(
+                delay_change_hint, ScheduledDelayChange::deserialize(zeroed()), "Non-zero delay change for zero hash"
+            );
+        }
 
         let historical_block_number = header.global_variables.block_number as u32;
 

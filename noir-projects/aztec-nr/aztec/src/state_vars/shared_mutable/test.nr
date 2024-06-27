@@ -165,6 +165,17 @@ fn test_get_current_delay_in_public_after_scheduled_change() {
 }
 
 #[test]
+fn test_get_current_value_in_private_initial() {
+    let mut env = setup();
+
+    let historical_block_number = env.block_number();
+    let state_var = in_private(&mut env, historical_block_number);
+
+    assert_eq(state_var.get_current_value_in_private(), zeroed());
+    assert_eq(state_var.context.max_block_number.unwrap(), historical_block_number + TEST_INITIAL_DELAY);
+}
+
+#[test]
 fn test_get_current_value_in_private_before_change() {
     let mut env = setup();
 
@@ -283,4 +294,30 @@ fn test_get_current_value_in_private_bad_delay_hints() {
     let _ = OracleMock::mock("storageRead").with_params((private_state_var.get_delay_change_storage_slot(), 1)).returns(mocked.serialize()).times(1);
 
     let _ = private_state_var.get_current_value_in_private();
+}
+
+#[test(should_fail_with="Non-zero value change for zero hash")]
+fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
+    let mut env = setup();
+
+    let historical_block_number = env.block_number();
+    let state_var = in_private(&mut env, historical_block_number);
+
+    let mocked: ScheduledValueChange<Field> = ScheduledValueChange::new(0, new_value, 0);
+    let _ = OracleMock::mock("storageRead").with_params((state_var.get_value_change_storage_slot(), 3)).returns(mocked.serialize()).times(1);
+
+    let _ = state_var.get_current_value_in_private();
+}
+
+#[test(should_fail_with="Non-zero delay change for zero hash")]
+fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
+    let mut env = setup();
+
+    let historical_block_number = env.block_number();
+    let state_var = in_private(&mut env, historical_block_number);
+
+    let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::none(), Option::some(new_delay), 0);
+    let _ = OracleMock::mock("storageRead").with_params((state_var.get_delay_change_storage_slot(), 1)).returns(mocked.serialize()).times(1);
+
+    let _ = state_var.get_current_value_in_private();
 }
