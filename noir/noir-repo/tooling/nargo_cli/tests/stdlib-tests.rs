@@ -46,6 +46,12 @@ fn run_stdlib_tests() {
     let test_report: Vec<(String, TestStatus)> = test_functions
         .into_iter()
         .map(|(test_name, test_function)| {
+            let test_function_has_no_arguments = context
+                .def_interner
+                .function_meta(&test_function.get_id())
+                .function_signature()
+                .0
+                .is_empty();
 
             let status = if test_function_has_no_arguments {
                 run_test(
