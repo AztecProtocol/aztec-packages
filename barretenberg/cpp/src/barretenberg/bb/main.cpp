@@ -741,7 +741,7 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
 #endif
 
 /**
- * @brief WORKTODO
+ * @brief Create a Honk a prover from program bytecode and an optional witness
  *
  * @tparam Flavor
  * @param bytecodePath

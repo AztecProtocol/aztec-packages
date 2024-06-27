@@ -5,7 +5,6 @@
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
-#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
@@ -358,7 +357,6 @@ template <typename Curve> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
-        // WORKTODO: is this initialization right?
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
@@ -396,11 +394,10 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
         std::vector<Polynomial> quotients = compute_multilinear_quotients(f_polynomial, u_challenge);
         // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
-        std::vector<Commitment> q_k_commitments(log_N);
         for (size_t idx = 0; idx < log_N; ++idx) {
-            q_k_commitments[idx] = commitment_key->commit(quotients[idx]);
+            Commitment q_k_commitment = commitment_key->commit(quotients[idx]);
             std::string label = "ZM:C_q_" + std::to_string(idx);
-            transcript->send_to_verifier(label, q_k_commitments[idx]);
+            transcript->send_to_verifier(label, q_k_commitment);
         }
 
         for (size_t idx = log_N; idx < CONST_PROOF_SIZE_LOG_N; ++idx) {
@@ -472,21 +469,16 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                        const FF log_circuit_size,
                                        const FF circuit_size)
     {
-        size_t N;
+        size_t N{ 0 };
+        size_t log_N{ 0 };
         if constexpr (Curve::is_stdlib_type) {
             N = static_cast<uint32_t>(circuit_size.get_value());
-        } else {
-            N = static_cast<uint32_t>(circuit_size);
-        }
-        // info("circuit size when computing C_zeta_x: ", N);
-
-        size_t log_N;
-        if constexpr (Curve::is_stdlib_type) {
             log_N = static_cast<uint32_t>(log_circuit_size.get_value());
         } else {
+            N = static_cast<uint32_t>(circuit_size);
             log_N = static_cast<uint32_t>(log_circuit_size);
         }
-        // info("log circuit size when computing C_zeta_x: ", log_N);
+
         // Instantiate containers for input to batch mul
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
@@ -512,10 +504,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
             scalar *= FF(-1);
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
-                // stdlib::witness_t zero_witness(builder, builder->add_variable(0));
                 FF zero = FF::from_witness(builder, 0);
-                // WORKTODO: this causes Simulator to complain. Is it needed? Whats up?
-                // zero.fix_witness();
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, k >= log_N);
                 // WORKTODO: is it kosher to reassign like this?
                 scalar = FF::conditional_assign(dummy_round, zero, scalar);
@@ -578,19 +567,16 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                     const FF circuit_size,
                                     const std::vector<RefVector<Commitment>>& concatenation_groups_commitments = {})
     {
-        size_t N;
+        size_t N{ 0 };
+        size_t log_N{ 0 };
         if constexpr (Curve::is_stdlib_type) {
             N = static_cast<uint32_t>(circuit_size.get_value());
-        } else {
-            N = static_cast<uint32_t>(circuit_size);
-        }
-        size_t log_N;
-        if constexpr (Curve::is_stdlib_type) {
             log_N = static_cast<uint32_t>(log_circuit_size.get_value());
         } else {
+            N = static_cast<uint32_t>(circuit_size);
             log_N = static_cast<uint32_t>(log_circuit_size);
         }
-        // info("in C_Z_x N: ", N, " and log_N: ", log_N);
+
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
 
@@ -657,8 +643,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 scalar *= -FF(1);
 
                 FF zero = FF::from_witness(builder, 0);
-                // WORKTODO: this causes Simulator to complain. Is it needed? Whats up?
-                // zero.fix_witness();
                 scalar = FF::conditional_assign(dummy_scalar, zero, scalar);
                 scalars.emplace_back(scalar);
                 commitments.emplace_back(C_q_k[k]);
@@ -689,11 +673,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            // info("number of gates: ", commitments[0].get_context()->num_gates);
-            // for (size_t idx = 0; idx < commitments.size(); ++idx) {
-            //     info(commitments[idx].get_value());
-            //     info(commitments[idx].get_value().on_curve());
-            // }
             // If Ultra and using biggroup, handle edge cases in batch_mul
             if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
                 return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
@@ -728,27 +707,23 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param transcript
      * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
      */
-    static OpeningClaim<Curve> verify(
-        FF circuit_size,
-        [[maybe_unused]] RefSpan<Commitment> unshifted_commitments,
-        [[maybe_unused]] RefSpan<Commitment> to_be_shifted_commitments,
-        RefSpan<FF> unshifted_evaluations,
-        RefSpan<FF> shifted_evaluations,
-        [[maybe_unused]] std::span<FF> multivariate_challenge,
-        [[maybe_unused]] const Commitment& g1_identity,
-        auto& transcript,
-        [[maybe_unused]] const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-        RefSpan<FF> concatenated_evaluations = {})
+    static OpeningClaim<Curve> verify(FF circuit_size,
+                                      RefSpan<Commitment> unshifted_commitments,
+                                      RefSpan<Commitment> to_be_shifted_commitments,
+                                      RefSpan<FF> unshifted_evaluations,
+                                      RefSpan<FF> shifted_evaluations,
+                                      std::span<FF> multivariate_challenge,
+                                      const Commitment& g1_identity,
+                                      auto& transcript,
+                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+                                      RefSpan<FF> concatenated_evaluations = {})
     {
-        // info("ZM VERIFIER");
         FF log_N;
         if constexpr (Curve::is_stdlib_type) {
             log_N = FF(static_cast<int>(numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()))));
         } else {
             log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
         }
-        // info("circuit size: ", circuit_size);
-        // info("log_N: ", log_N);
         FF rho = transcript->template get_challenge<FF>("rho");
 
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
@@ -784,20 +759,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
 
         // Compute commitment C_{\zeta_x}
-        if constexpr (Curve::is_stdlib_type) {
-            // info("before compute_C_zeta_x: ",
-            //      z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
-
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N, circuit_size);
-        if constexpr (Curve::is_stdlib_type) {
-            // info("after compute_C_zeta_x: ",
-            //      z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
 
         // Compute commitment C_{Z_x}
         Commitment C_Z_x = compute_C_Z_x(g1_identity,
@@ -811,11 +773,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                          log_N,
                                          circuit_size,
                                          concatenation_group_commitments);
-        if constexpr (Curve::is_stdlib_type) {
-            // info(z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
 
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
