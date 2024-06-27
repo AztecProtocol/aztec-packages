@@ -1113,15 +1113,14 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
                                                                                          num_frs_read);
-            const size_t MAX_LOG_CIRCUIT_SIZE = 28; // TODO(CONSTANT_PROOF_SIZE)
-            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 sumcheck_univariates.emplace_back(NativeTranscript::template deserialize_from_buffer<
                                                   bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     NativeTranscript::proof_data, num_frs_read));
             }
             sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
                 NativeTranscript::proof_data, num_frs_read);
-            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 zm_cq_comms.push_back(
                     NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
@@ -1265,12 +1264,11 @@ class ECCVMFlavor {
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
-            const size_t MAX_LOG_CIRCUIT_SIZE = 28; // TODO(CONSTANT_PROOF_SIZE)
-            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(sumcheck_univariates[i], NativeTranscript::proof_data);
             }
             NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
-            for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(zm_cq_comms[i], NativeTranscript::proof_data);
             }
             NativeTranscript::template serialize_to_buffer(zm_cq_comm, NativeTranscript::proof_data);

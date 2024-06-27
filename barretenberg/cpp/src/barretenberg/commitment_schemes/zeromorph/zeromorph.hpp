@@ -403,9 +403,7 @@ template <typename Curve> class ZeroMorphProver_ {
             transcript->send_to_verifier(label, q_k_commitments[idx]);
         }
 
-        constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        // TODO(CONSTANT_PROOF_SIZE): Send some BS q_ks (We dont have Flavor tho.. ick)
-        for (size_t idx = log_N; idx < MAX_LOG_CIRCUIT_SIZE; ++idx) {
+        for (size_t idx = log_N; idx < CONST_PROOF_SIZE_LOG_N; ++idx) {
             auto buffer_element = Commitment::one();
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, buffer_element);
@@ -503,9 +501,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         commitments.emplace_back(C_q);
 
         // Contribution from C_q_k, k = 0,...,log_N-1
-        constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
-
-        for (size_t k = 0; k < MAX_LOG_CIRCUIT_SIZE; ++k) {
+        for (size_t k = 0; k < CONST_PROOF_SIZE_LOG_N; ++k) {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
             FF scalar = y_challenge.pow(k);
@@ -648,8 +644,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))
         auto x_pow_2k = x_challenge;                 // x^{2^k}
         auto x_pow_2kp1 = x_challenge * x_challenge; // x^{2^{k + 1}}
-        constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        for (size_t k = 0; k < MAX_LOG_CIRCUIT_SIZE; ++k) {
+        for (size_t k = 0; k < CONST_PROOF_SIZE_LOG_N; ++k) {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
                 stdlib::bool_t dummy_scalar = stdlib::witness_t(builder, k >= log_N);
@@ -774,9 +769,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
         // Receive commitments [q_k]
         std::vector<Commitment> C_q_k;
-        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        C_q_k.reserve(MAX_LOG_CIRCUIT_SIZE);
-        for (size_t i = 0; i < MAX_LOG_CIRCUIT_SIZE; ++i) {
+        C_q_k.reserve(CONST_PROOF_SIZE_LOG_N);
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
         }
 

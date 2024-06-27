@@ -68,6 +68,7 @@
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"

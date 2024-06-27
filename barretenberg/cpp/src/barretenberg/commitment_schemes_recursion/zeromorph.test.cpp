@@ -122,9 +122,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
     auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
 
-    const size_t MAX_LOG_CIRCUIT_SIZE = 28;
-    std::vector<Fr> u_challenge_in_circuit(MAX_LOG_CIRCUIT_SIZE);
-    std::fill_n(u_challenge_in_circuit.begin(), MAX_LOG_CIRCUIT_SIZE, Fr::from_witness(&builder, 0));
+    std::vector<Fr> u_challenge_in_circuit(CONST_PROOF_SIZE_LOG_N);
+    std::fill_n(u_challenge_in_circuit.begin(), CONST_PROOF_SIZE_LOG_N, Fr::from_witness(&builder, 0));
     u_challenge_in_circuit[0] = Fr::from_witness(&builder, u_challenge[0]);
 
     [[maybe_unused]] auto opening_claim = ZeroMorphVerifier::verify(Fr::from_witness(&builder, N),
