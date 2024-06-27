@@ -75,6 +75,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
+    // WORKTODO: circuit size nonsense
     auto multivariate_to_univariate_opening_claim =
         ZeroMorph::verify(static_cast<int>(static_cast<uint256_t>(circuit_size.get_value())),
                           commitments.get_unshifted(),
@@ -88,8 +89,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
-    // Construct the vector of commitments (needs to be vector for the batch_mul) and array of evaluations to be
-    // batched
+    // Construct the vector of commitments (needs to be vector for the batch_mul) and array of evaluations to be batched
     std::vector<Commitment> transcript_commitments = { commitments.transcript_op, commitments.transcript_Px,
                                                        commitments.transcript_Py, commitments.transcript_z1,
                                                        commitments.transcript_z2, hack_commitment };

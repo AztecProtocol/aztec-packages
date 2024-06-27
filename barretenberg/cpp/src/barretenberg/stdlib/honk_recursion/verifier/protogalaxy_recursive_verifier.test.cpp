@@ -367,7 +367,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                    MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                   UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+                                   UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                   UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                   MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

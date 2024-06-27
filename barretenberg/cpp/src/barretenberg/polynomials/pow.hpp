@@ -105,6 +105,7 @@ template <typename FF> struct PowPolynomial {
     template <typename Builder> void partially_evaluate(const FF& challenge, const stdlib::bool_t<Builder>& dummy)
     {
         FF current_univariate_eval = univariate_eval(challenge, dummy);
+        // If dummy round, make no update to the partial_evaluation_result
         partial_evaluation_result = FF::conditional_assign(
             dummy, partial_evaluation_result, partial_evaluation_result * current_univariate_eval);
         current_element_idx++;
