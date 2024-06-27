@@ -1,5 +1,4 @@
 #include "barretenberg/bb/file_io.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -360,8 +359,6 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         // Construct a bberg circuit from the acir representation
         auto circuit =
             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
-        if (!bb::CircuitChecker::check(circuit)) {
-        }
         ivc.accumulate(circuit);
     }
 
@@ -956,7 +953,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
-    typename Flavor::VerificationKey vk(prover.instance->proving_key);
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {
@@ -1051,44 +1047,6 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     } else {
         write_file(outputPath, serialized_vk);
         vinfo("vk written to: ", outputPath);
-    }
-}
-
-/**
- * @brief Writes a Honk verification key for a fixed mock ACIR circuit to a file
- *
- * Communication:
- * - stdout: The verification key is written to stdout as a byte array
- * - Filesystem: The verification key is written to the path specified by outputPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param outputPath Path to write the verification key to
- */
-template <IsUltraFlavor Flavor> void write_vk_honk_fake(const std::string& outputPath)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    // Create some mock circuit that's some size
-    Builder builder;
-    MockCircuits::construct_arithmetic_circuit(builder, 10, /*random=*/false, /*has_pub_input=*/false);
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    ProverInstance prover_inst(builder);
-    VerificationKey vk(
-        prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
-
-    info("fake honk vk circuit size: ", vk.circuit_size);
-    auto serialized_vk = to_buffer(vk);
-    if (outputPath == "-") {
-        writeRawBytesToStdout(serialized_vk);
-        vinfo("fake honk vk written to stdout");
-    } else {
-        write_file(outputPath, serialized_vk);
-        vinfo("fake honk vk written to: ", outputPath);
     }
 }
 

@@ -346,9 +346,6 @@ class UltraFlavor {
                                                                               this->circuit_size,
                                                                               this->pub_inputs_offset);
             relation_parameters.public_input_delta = public_input_delta;
-            auto lookup_grand_product_delta = compute_lookup_grand_product_delta(
-                relation_parameters.beta, relation_parameters.gamma, this->circuit_size);
-            relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
             compute_grand_products<UltraFlavor>(this->polynomials, relation_parameters);
