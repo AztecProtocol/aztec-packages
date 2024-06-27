@@ -23,7 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 import {
   PublicExecutor,
   type PublicStateDB,
