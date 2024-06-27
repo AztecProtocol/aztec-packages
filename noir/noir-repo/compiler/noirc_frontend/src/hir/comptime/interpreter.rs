@@ -34,9 +34,6 @@ use super::value::{unwrap_rc, Value};
 mod builtin;
 mod unquote;
 
-mod builtin;
-mod unquote;
-
 #[allow(unused)]
 pub struct Interpreter<'interner> {
     /// To expand macros the Interpreter may mutate hir nodes within the NodeInterner

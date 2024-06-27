@@ -29,6 +29,7 @@ pub enum BorrowedToken<'input> {
     Quote(&'input Tokens),
     QuotedType(QuotedTypeId),
     Less,
+    LessEqual,
     /// >
     Greater,
     /// >=
