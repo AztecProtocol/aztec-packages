@@ -26,7 +26,9 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         }
 
         // Validate output.
-        TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+        if !dep::std::runtime::is_unconstrained() {
+            TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+        }
 
         output
     }
@@ -141,21 +143,21 @@ mod tests {
     }
 
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
-    unconstrained fn non_empty_private_call_stack_should_fail() {
+    fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.add_private_call_request(1, false);
         builder.failed();
     }
 
     #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
-    unconstrained fn no_public_calls_should_fail() {
+    fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
         builder.failed();
     }
 
     #[test]
-    unconstrained fn can_run_with_only_teardown() {
+    fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
         builder.previous_kernel.push_public_teardown_call_request(1, false);
@@ -164,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn split_nullifiers_into_non_revertible() {
+    fn split_nullifiers_into_non_revertible() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
         builder.previous_kernel.append_new_nullifiers(2);
@@ -199,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn split_note_hashes_into_non_revertible() {
+    fn split_note_hashes_into_non_revertible() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
         // expect 2 non-revertible note hashes
@@ -263,7 +265,7 @@ mod tests {
     }
 
     #[test(should_fail_with="Non empty note hash read requests")]
-    unconstrained fn non_empty_note_hash_read_requests() {
+    fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_new_note_hashes(3);
         let _void = builder.previous_kernel.add_read_request_for_pending_note_hash(1);
@@ -271,7 +273,7 @@ mod tests {
     }
 
     #[test(should_fail_with="Non empty nullifier read requests")]
-    unconstrained fn non_empty_nullifier_read_requests() {
+    fn non_empty_nullifier_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_new_nullifiers(3);
         let _void = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
@@ -279,14 +281,14 @@ mod tests {
     }
 
     #[test(should_fail_with="Non empty key validation requests")]
-    unconstrained fn non_empty_key_validations() {
+    fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         let _void = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27, GENERATOR_INDEX__TSK_M);
         builder.failed();
     }
 
     #[test]
-    unconstrained fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
+    fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
@@ -307,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn propagate_fee_payer() {
+    fn propagate_fee_payer() {
         // Check that we carry forward if the fee payer is already set
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         let fee_payer = AztecAddress::from_field(123);
