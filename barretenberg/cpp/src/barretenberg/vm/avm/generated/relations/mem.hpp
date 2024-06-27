@@ -30,6 +30,10 @@ template <typename FF> struct MemRow {
     FF mem_sel_op_c{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
+    FF mem_sel_op_gadget_a{};
+    FF mem_sel_op_gadget_b{};
+    FF mem_sel_op_gadget_c{};
+    FF mem_sel_op_gadget_d{};
     FF mem_sel_op_slice{};
     FF mem_sel_resolve_ind_addr_a{};
     FF mem_sel_resolve_ind_addr_b{};
@@ -142,14 +146,15 @@ template <typename FF_> class memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = (new_term.mem_sel_mem -
-                        ((((((((new_term.mem_sel_op_a + new_term.mem_sel_op_b) + new_term.mem_sel_op_c) +
-                              new_term.mem_sel_op_d) +
-                             new_term.mem_sel_resolve_ind_addr_a) +
-                            new_term.mem_sel_resolve_ind_addr_b) +
-                           new_term.mem_sel_resolve_ind_addr_c) +
-                          new_term.mem_sel_resolve_ind_addr_d) +
-                         new_term.mem_sel_op_slice));
+            auto tmp = (new_term.mem_sel_mem - (((((((((new_term.mem_sel_op_a + new_term.mem_sel_op_gadget_a) +
+                                                       (new_term.mem_sel_op_b + new_term.mem_sel_op_gadget_b)) +
+                                                      (new_term.mem_sel_op_c + new_term.mem_sel_op_gadget_c)) +
+                                                     (new_term.mem_sel_op_d + new_term.mem_sel_op_gadget_d)) +
+                                                    new_term.mem_sel_resolve_ind_addr_a) +
+                                                   new_term.mem_sel_resolve_ind_addr_b) +
+                                                  new_term.mem_sel_resolve_ind_addr_c) +
+                                                 new_term.mem_sel_resolve_ind_addr_d) +
+                                                new_term.mem_sel_op_slice));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
@@ -186,18 +191,21 @@ template <typename FF_> class memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (new_term.mem_tsp -
-                        ((new_term.mem_clk * FF(12)) +
-                         (new_term.mem_sel_mem *
-                          ((((new_term.mem_sel_resolve_ind_addr_b + new_term.mem_sel_op_b) +
-                             ((new_term.mem_sel_resolve_ind_addr_c + new_term.mem_sel_op_c) * FF(2))) +
-                            ((new_term.mem_sel_resolve_ind_addr_d + new_term.mem_sel_op_d) * FF(3))) +
-                           (((-(((new_term.mem_sel_resolve_ind_addr_a + new_term.mem_sel_resolve_ind_addr_b) +
-                                 new_term.mem_sel_resolve_ind_addr_c) +
-                                new_term.mem_sel_resolve_ind_addr_d) +
-                              FF(1)) +
-                             new_term.mem_rw) *
-                            FF(4))))));
+            auto tmp =
+                (new_term.mem_tsp -
+                 ((new_term.mem_clk * FF(12)) +
+                  (new_term.mem_sel_mem *
+                   ((((new_term.mem_sel_resolve_ind_addr_b + (new_term.mem_sel_op_b + new_term.mem_sel_op_gadget_b)) +
+                      ((new_term.mem_sel_resolve_ind_addr_c + (new_term.mem_sel_op_c + new_term.mem_sel_op_gadget_c)) *
+                       FF(2))) +
+                     ((new_term.mem_sel_resolve_ind_addr_d + (new_term.mem_sel_op_d + new_term.mem_sel_op_gadget_d)) *
+                      FF(3))) +
+                    (((-(((new_term.mem_sel_resolve_ind_addr_a + new_term.mem_sel_resolve_ind_addr_b) +
+                          new_term.mem_sel_resolve_ind_addr_c) +
+                         new_term.mem_sel_resolve_ind_addr_d) +
+                       FF(1)) +
+                      new_term.mem_rw) *
+                     FF(4))))));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }

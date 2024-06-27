@@ -83,6 +83,10 @@
 #include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_slice.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_a.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_b.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_c.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_slice_mem.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_lo.hpp"
@@ -95,10 +99,10 @@ template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::
 // The entities that will be used in the flavor.
 // clang-format off
 #define PRECOMPUTED_ENTITIES main_clk, main_sel_first
-#define WIRE_ENTITIES kernel_kernel_inputs, kernel_kernel_value_out, kernel_kernel_side_effect_out, kernel_kernel_metadata_out, main_calldata, main_returndata, alu_a_hi, alu_a_lo, alu_b_hi, alu_b_lo, alu_borrow, alu_cf, alu_clk, alu_cmp_rng_ctr, alu_div_u16_r0, alu_div_u16_r1, alu_div_u16_r2, alu_div_u16_r3, alu_div_u16_r4, alu_div_u16_r5, alu_div_u16_r6, alu_div_u16_r7, alu_divisor_hi, alu_divisor_lo, alu_ff_tag, alu_ia, alu_ib, alu_ic, alu_in_tag, alu_op_add, alu_op_cast, alu_op_cast_prev, alu_op_div, alu_op_div_a_lt_b, alu_op_div_std, alu_op_eq, alu_op_eq_diff_inv, alu_op_lt, alu_op_lte, alu_op_mul, alu_op_not, alu_op_shl, alu_op_shr, alu_op_sub, alu_p_a_borrow, alu_p_b_borrow, alu_p_sub_a_hi, alu_p_sub_a_lo, alu_p_sub_b_hi, alu_p_sub_b_lo, alu_partial_prod_hi, alu_partial_prod_lo, alu_quotient_hi, alu_quotient_lo, alu_remainder, alu_res_hi, alu_res_lo, alu_sel_alu, alu_sel_cmp, alu_sel_div_rng_chk, alu_sel_rng_chk, alu_sel_rng_chk_lookup, alu_sel_shift_which, alu_shift_lt_bit_len, alu_t_sub_s_bits, alu_two_pow_s, alu_two_pow_t_sub_s, alu_u128_tag, alu_u16_r0, alu_u16_r1, alu_u16_r10, alu_u16_r11, alu_u16_r12, alu_u16_r13, alu_u16_r14, alu_u16_r2, alu_u16_r3, alu_u16_r4, alu_u16_r5, alu_u16_r6, alu_u16_r7, alu_u16_r8, alu_u16_r9, alu_u16_tag, alu_u32_tag, alu_u64_tag, alu_u8_r0, alu_u8_r1, alu_u8_tag, binary_acc_ia, binary_acc_ib, binary_acc_ic, binary_clk, binary_ia_bytes, binary_ib_bytes, binary_ic_bytes, binary_in_tag, binary_mem_tag_ctr, binary_mem_tag_ctr_inv, binary_op_id, binary_sel_bin, binary_start, byte_lookup_sel_bin, byte_lookup_table_byte_lengths, byte_lookup_table_in_tags, byte_lookup_table_input_a, byte_lookup_table_input_b, byte_lookup_table_op_id, byte_lookup_table_output, conversion_clk, conversion_input, conversion_num_limbs, conversion_radix, conversion_sel_to_radix_le, gas_da_gas_fixed_table, gas_l2_gas_fixed_table, gas_sel_gas_cost, keccakf1600_clk, keccakf1600_input, keccakf1600_output, keccakf1600_sel_keccakf1600, kernel_emit_l2_to_l1_msg_write_offset, kernel_emit_note_hash_write_offset, kernel_emit_nullifier_write_offset, kernel_emit_unencrypted_log_write_offset, kernel_kernel_in_offset, kernel_kernel_out_offset, kernel_l1_to_l2_msg_exists_write_offset, kernel_note_hash_exist_write_offset, kernel_nullifier_exists_write_offset, kernel_nullifier_non_exists_write_offset, kernel_q_public_input_kernel_add_to_table, kernel_q_public_input_kernel_out_add_to_table, kernel_side_effect_counter, kernel_sload_write_offset, kernel_sstore_write_offset, main_abs_da_rem_gas_hi, main_abs_da_rem_gas_lo, main_abs_l2_rem_gas_hi, main_abs_l2_rem_gas_lo, main_alu_in_tag, main_bin_op_id, main_call_ptr, main_da_gas_op_cost, main_da_gas_remaining, main_da_out_of_gas, main_ia, main_ib, main_ic, main_id, main_id_zero, main_ind_addr_a, main_ind_addr_b, main_ind_addr_c, main_ind_addr_d, main_internal_return_ptr, main_inv, main_l2_gas_op_cost, main_l2_gas_remaining, main_l2_out_of_gas, main_mem_addr_a, main_mem_addr_b, main_mem_addr_c, main_mem_addr_d, main_op_err, main_opcode_val, main_pc, main_r_in_tag, main_rwa, main_rwb, main_rwc, main_rwd, main_sel_alu, main_sel_bin, main_sel_calldata, main_sel_gas_accounting_active, main_sel_last, main_sel_mem_op_a, main_sel_mem_op_activate_gas, main_sel_mem_op_b, main_sel_mem_op_c, main_sel_mem_op_d, main_sel_mov_ia_to_ic, main_sel_mov_ib_to_ic, main_sel_op_add, main_sel_op_address, main_sel_op_and, main_sel_op_block_number, main_sel_op_calldata_copy, main_sel_op_cast, main_sel_op_chain_id, main_sel_op_cmov, main_sel_op_coinbase, main_sel_op_dagasleft, main_sel_op_div, main_sel_op_emit_l2_to_l1_msg, main_sel_op_emit_note_hash, main_sel_op_emit_nullifier, main_sel_op_emit_unencrypted_log, main_sel_op_eq, main_sel_op_external_call, main_sel_op_external_return, main_sel_op_fdiv, main_sel_op_fee_per_da_gas, main_sel_op_fee_per_l2_gas, main_sel_op_function_selector, main_sel_op_get_contract_instance, main_sel_op_halt, main_sel_op_internal_call, main_sel_op_internal_return, main_sel_op_jump, main_sel_op_jumpi, main_sel_op_keccak, main_sel_op_l1_to_l2_msg_exists, main_sel_op_l2gasleft, main_sel_op_lt, main_sel_op_lte, main_sel_op_mov, main_sel_op_mul, main_sel_op_not, main_sel_op_note_hash_exists, main_sel_op_nullifier_exists, main_sel_op_or, main_sel_op_pedersen, main_sel_op_poseidon2, main_sel_op_radix_le, main_sel_op_sender, main_sel_op_sha256, main_sel_op_shl, main_sel_op_shr, main_sel_op_sload, main_sel_op_sstore, main_sel_op_storage_address, main_sel_op_sub, main_sel_op_timestamp, main_sel_op_transaction_fee, main_sel_op_version, main_sel_op_xor, main_sel_q_kernel_lookup, main_sel_q_kernel_output_lookup, main_sel_resolve_ind_addr_a, main_sel_resolve_ind_addr_b, main_sel_resolve_ind_addr_c, main_sel_resolve_ind_addr_d, main_sel_returndata, main_sel_rng_16, main_sel_rng_8, main_sel_slice_gadget, main_space_id, main_tag_err, main_w_in_tag, mem_addr, mem_clk, mem_diff_hi, mem_diff_lo, mem_diff_mid, mem_glob_addr, mem_last, mem_lastAccess, mem_one_min_inv, mem_r_in_tag, mem_rw, mem_sel_mem, mem_sel_mov_ia_to_ic, mem_sel_mov_ib_to_ic, mem_sel_op_a, mem_sel_op_b, mem_sel_op_c, mem_sel_op_cmov, mem_sel_op_d, mem_sel_op_slice, mem_sel_resolve_ind_addr_a, mem_sel_resolve_ind_addr_b, mem_sel_resolve_ind_addr_c, mem_sel_resolve_ind_addr_d, mem_sel_rng_chk, mem_skip_check_tag, mem_space_id, mem_tag, mem_tag_err, mem_tsp, mem_val, mem_w_in_tag, pedersen_clk, pedersen_input, pedersen_output, pedersen_sel_pedersen, poseidon2_clk, poseidon2_input, poseidon2_output, poseidon2_sel_poseidon_perm, powers_power_of_2, sha256_clk, sha256_input, sha256_output, sha256_sel_sha256_compression, sha256_state, slice_addr, slice_clk, slice_cnt, slice_col_offset, slice_one_min_inv, slice_sel_cd_cpy, slice_sel_mem_active, slice_sel_return, slice_sel_start, slice_space_id, slice_val, lookup_byte_lengths_counts, lookup_byte_operations_counts, lookup_cd_value_counts, lookup_ret_value_counts, lookup_opcode_gas_counts, range_check_l2_gas_hi_counts, range_check_l2_gas_lo_counts, range_check_da_gas_hi_counts, range_check_da_gas_lo_counts, kernel_output_lookup_counts, lookup_into_kernel_counts, incl_main_tag_err_counts, incl_mem_tag_err_counts, lookup_mem_rng_chk_lo_counts, lookup_mem_rng_chk_mid_counts, lookup_mem_rng_chk_hi_counts, lookup_pow_2_0_counts, lookup_pow_2_1_counts, lookup_u8_0_counts, lookup_u8_1_counts, lookup_u16_0_counts, lookup_u16_1_counts, lookup_u16_2_counts, lookup_u16_3_counts, lookup_u16_4_counts, lookup_u16_5_counts, lookup_u16_6_counts, lookup_u16_7_counts, lookup_u16_8_counts, lookup_u16_9_counts, lookup_u16_10_counts, lookup_u16_11_counts, lookup_u16_12_counts, lookup_u16_13_counts, lookup_u16_14_counts, lookup_div_u16_0_counts, lookup_div_u16_1_counts, lookup_div_u16_2_counts, lookup_div_u16_3_counts, lookup_div_u16_4_counts, lookup_div_u16_5_counts, lookup_div_u16_6_counts, lookup_div_u16_7_counts
-#define DERIVED_WITNESS_ENTITIES perm_slice_mem, perm_main_alu, perm_main_bin, perm_main_conv, perm_main_pos2_perm, perm_main_pedersen, perm_main_slice, perm_main_mem_a, perm_main_mem_b, perm_main_mem_c, perm_main_mem_d, perm_main_mem_ind_addr_a, perm_main_mem_ind_addr_b, perm_main_mem_ind_addr_c, perm_main_mem_ind_addr_d, lookup_byte_lengths, lookup_byte_operations, lookup_cd_value, lookup_ret_value, lookup_opcode_gas, range_check_l2_gas_hi, range_check_l2_gas_lo, range_check_da_gas_hi, range_check_da_gas_lo, kernel_output_lookup, lookup_into_kernel, incl_main_tag_err, incl_mem_tag_err, lookup_mem_rng_chk_lo, lookup_mem_rng_chk_mid, lookup_mem_rng_chk_hi, lookup_pow_2_0, lookup_pow_2_1, lookup_u8_0, lookup_u8_1, lookup_u16_0, lookup_u16_1, lookup_u16_2, lookup_u16_3, lookup_u16_4, lookup_u16_5, lookup_u16_6, lookup_u16_7, lookup_u16_8, lookup_u16_9, lookup_u16_10, lookup_u16_11, lookup_u16_12, lookup_u16_13, lookup_u16_14, lookup_div_u16_0, lookup_div_u16_1, lookup_div_u16_2, lookup_div_u16_3, lookup_div_u16_4, lookup_div_u16_5, lookup_div_u16_6, lookup_div_u16_7
-#define SHIFTED_ENTITIES alu_a_hi_shift, alu_a_lo_shift, alu_b_hi_shift, alu_b_lo_shift, alu_cmp_rng_ctr_shift, alu_div_u16_r0_shift, alu_div_u16_r1_shift, alu_div_u16_r2_shift, alu_div_u16_r3_shift, alu_div_u16_r4_shift, alu_div_u16_r5_shift, alu_div_u16_r6_shift, alu_div_u16_r7_shift, alu_op_add_shift, alu_op_cast_prev_shift, alu_op_cast_shift, alu_op_div_shift, alu_op_mul_shift, alu_op_shl_shift, alu_op_shr_shift, alu_op_sub_shift, alu_p_sub_a_hi_shift, alu_p_sub_a_lo_shift, alu_p_sub_b_hi_shift, alu_p_sub_b_lo_shift, alu_sel_alu_shift, alu_sel_cmp_shift, alu_sel_div_rng_chk_shift, alu_sel_rng_chk_lookup_shift, alu_sel_rng_chk_shift, alu_u16_r0_shift, alu_u16_r1_shift, alu_u16_r2_shift, alu_u16_r3_shift, alu_u16_r4_shift, alu_u16_r5_shift, alu_u16_r6_shift, alu_u8_r0_shift, alu_u8_r1_shift, binary_acc_ia_shift, binary_acc_ib_shift, binary_acc_ic_shift, binary_mem_tag_ctr_shift, binary_op_id_shift, kernel_emit_l2_to_l1_msg_write_offset_shift, kernel_emit_note_hash_write_offset_shift, kernel_emit_nullifier_write_offset_shift, kernel_emit_unencrypted_log_write_offset_shift, kernel_l1_to_l2_msg_exists_write_offset_shift, kernel_note_hash_exist_write_offset_shift, kernel_nullifier_exists_write_offset_shift, kernel_nullifier_non_exists_write_offset_shift, kernel_side_effect_counter_shift, kernel_sload_write_offset_shift, kernel_sstore_write_offset_shift, main_da_gas_remaining_shift, main_internal_return_ptr_shift, main_l2_gas_remaining_shift, main_pc_shift, mem_glob_addr_shift, mem_rw_shift, mem_sel_mem_shift, mem_tag_shift, mem_tsp_shift, mem_val_shift, slice_addr_shift, slice_clk_shift, slice_cnt_shift, slice_col_offset_shift, slice_sel_cd_cpy_shift, slice_sel_mem_active_shift, slice_sel_return_shift, slice_sel_start_shift, slice_space_id_shift
-#define TO_BE_SHIFTED(e) e.alu_a_hi, e.alu_a_lo, e.alu_b_hi, e.alu_b_lo, e.alu_cmp_rng_ctr, e.alu_div_u16_r0, e.alu_div_u16_r1, e.alu_div_u16_r2, e.alu_div_u16_r3, e.alu_div_u16_r4, e.alu_div_u16_r5, e.alu_div_u16_r6, e.alu_div_u16_r7, e.alu_op_add, e.alu_op_cast_prev, e.alu_op_cast, e.alu_op_div, e.alu_op_mul, e.alu_op_shl, e.alu_op_shr, e.alu_op_sub, e.alu_p_sub_a_hi, e.alu_p_sub_a_lo, e.alu_p_sub_b_hi, e.alu_p_sub_b_lo, e.alu_sel_alu, e.alu_sel_cmp, e.alu_sel_div_rng_chk, e.alu_sel_rng_chk_lookup, e.alu_sel_rng_chk, e.alu_u16_r0, e.alu_u16_r1, e.alu_u16_r2, e.alu_u16_r3, e.alu_u16_r4, e.alu_u16_r5, e.alu_u16_r6, e.alu_u8_r0, e.alu_u8_r1, e.binary_acc_ia, e.binary_acc_ib, e.binary_acc_ic, e.binary_mem_tag_ctr, e.binary_op_id, e.kernel_emit_l2_to_l1_msg_write_offset, e.kernel_emit_note_hash_write_offset, e.kernel_emit_nullifier_write_offset, e.kernel_emit_unencrypted_log_write_offset, e.kernel_l1_to_l2_msg_exists_write_offset, e.kernel_note_hash_exist_write_offset, e.kernel_nullifier_exists_write_offset, e.kernel_nullifier_non_exists_write_offset, e.kernel_side_effect_counter, e.kernel_sload_write_offset, e.kernel_sstore_write_offset, e.main_da_gas_remaining, e.main_internal_return_ptr, e.main_l2_gas_remaining, e.main_pc, e.mem_glob_addr, e.mem_rw, e.mem_sel_mem, e.mem_tag, e.mem_tsp, e.mem_val, e.slice_addr, e.slice_clk, e.slice_cnt, e.slice_col_offset, e.slice_sel_cd_cpy, e.slice_sel_mem_active, e.slice_sel_return, e.slice_sel_start, e.slice_space_id
+#define WIRE_ENTITIES kernel_kernel_inputs, kernel_kernel_value_out, kernel_kernel_side_effect_out, kernel_kernel_metadata_out, main_calldata, main_returndata, alu_a_hi, alu_a_lo, alu_b_hi, alu_b_lo, alu_borrow, alu_cf, alu_clk, alu_cmp_rng_ctr, alu_div_u16_r0, alu_div_u16_r1, alu_div_u16_r2, alu_div_u16_r3, alu_div_u16_r4, alu_div_u16_r5, alu_div_u16_r6, alu_div_u16_r7, alu_divisor_hi, alu_divisor_lo, alu_ff_tag, alu_ia, alu_ib, alu_ic, alu_in_tag, alu_op_add, alu_op_cast, alu_op_cast_prev, alu_op_div, alu_op_div_a_lt_b, alu_op_div_std, alu_op_eq, alu_op_eq_diff_inv, alu_op_lt, alu_op_lte, alu_op_mul, alu_op_not, alu_op_shl, alu_op_shr, alu_op_sub, alu_p_a_borrow, alu_p_b_borrow, alu_p_sub_a_hi, alu_p_sub_a_lo, alu_p_sub_b_hi, alu_p_sub_b_lo, alu_partial_prod_hi, alu_partial_prod_lo, alu_quotient_hi, alu_quotient_lo, alu_remainder, alu_res_hi, alu_res_lo, alu_sel_alu, alu_sel_cmp, alu_sel_div_rng_chk, alu_sel_rng_chk, alu_sel_rng_chk_lookup, alu_sel_shift_which, alu_shift_lt_bit_len, alu_t_sub_s_bits, alu_two_pow_s, alu_two_pow_t_sub_s, alu_u128_tag, alu_u16_r0, alu_u16_r1, alu_u16_r10, alu_u16_r11, alu_u16_r12, alu_u16_r13, alu_u16_r14, alu_u16_r2, alu_u16_r3, alu_u16_r4, alu_u16_r5, alu_u16_r6, alu_u16_r7, alu_u16_r8, alu_u16_r9, alu_u16_tag, alu_u32_tag, alu_u64_tag, alu_u8_r0, alu_u8_r1, alu_u8_tag, binary_acc_ia, binary_acc_ib, binary_acc_ic, binary_clk, binary_ia_bytes, binary_ib_bytes, binary_ic_bytes, binary_in_tag, binary_mem_tag_ctr, binary_mem_tag_ctr_inv, binary_op_id, binary_sel_bin, binary_start, byte_lookup_sel_bin, byte_lookup_table_byte_lengths, byte_lookup_table_in_tags, byte_lookup_table_input_a, byte_lookup_table_input_b, byte_lookup_table_op_id, byte_lookup_table_output, conversion_clk, conversion_input, conversion_num_limbs, conversion_radix, conversion_sel_to_radix_le, gas_da_gas_fixed_table, gas_l2_gas_fixed_table, gas_sel_gas_cost, keccakf1600_clk, keccakf1600_input, keccakf1600_output, keccakf1600_sel_keccakf1600, kernel_emit_l2_to_l1_msg_write_offset, kernel_emit_note_hash_write_offset, kernel_emit_nullifier_write_offset, kernel_emit_unencrypted_log_write_offset, kernel_kernel_in_offset, kernel_kernel_out_offset, kernel_l1_to_l2_msg_exists_write_offset, kernel_note_hash_exist_write_offset, kernel_nullifier_exists_write_offset, kernel_nullifier_non_exists_write_offset, kernel_q_public_input_kernel_add_to_table, kernel_q_public_input_kernel_out_add_to_table, kernel_side_effect_counter, kernel_sload_write_offset, kernel_sstore_write_offset, main_abs_da_rem_gas_hi, main_abs_da_rem_gas_lo, main_abs_l2_rem_gas_hi, main_abs_l2_rem_gas_lo, main_alu_in_tag, main_bin_op_id, main_call_ptr, main_da_gas_op_cost, main_da_gas_remaining, main_da_out_of_gas, main_ia, main_ib, main_ic, main_id, main_id_zero, main_ind_addr_a, main_ind_addr_b, main_ind_addr_c, main_ind_addr_d, main_internal_return_ptr, main_inv, main_l2_gas_op_cost, main_l2_gas_remaining, main_l2_out_of_gas, main_mem_addr_a, main_mem_addr_b, main_mem_addr_c, main_mem_addr_d, main_op_err, main_opcode_val, main_pc, main_r_in_tag, main_rwa, main_rwb, main_rwc, main_rwd, main_sel_alu, main_sel_bin, main_sel_calldata, main_sel_gas_accounting_active, main_sel_last, main_sel_mem_op_a, main_sel_mem_op_activate_gas, main_sel_mem_op_b, main_sel_mem_op_c, main_sel_mem_op_d, main_sel_mov_ia_to_ic, main_sel_mov_ib_to_ic, main_sel_op_add, main_sel_op_address, main_sel_op_and, main_sel_op_block_number, main_sel_op_calldata_copy, main_sel_op_cast, main_sel_op_chain_id, main_sel_op_cmov, main_sel_op_coinbase, main_sel_op_dagasleft, main_sel_op_div, main_sel_op_emit_l2_to_l1_msg, main_sel_op_emit_note_hash, main_sel_op_emit_nullifier, main_sel_op_emit_unencrypted_log, main_sel_op_eq, main_sel_op_external_call, main_sel_op_external_return, main_sel_op_fdiv, main_sel_op_fee_per_da_gas, main_sel_op_fee_per_l2_gas, main_sel_op_function_selector, main_sel_op_get_contract_instance, main_sel_op_halt, main_sel_op_internal_call, main_sel_op_internal_return, main_sel_op_jump, main_sel_op_jumpi, main_sel_op_keccak, main_sel_op_l1_to_l2_msg_exists, main_sel_op_l2gasleft, main_sel_op_lt, main_sel_op_lte, main_sel_op_mov, main_sel_op_mul, main_sel_op_not, main_sel_op_note_hash_exists, main_sel_op_nullifier_exists, main_sel_op_or, main_sel_op_pedersen, main_sel_op_poseidon2, main_sel_op_radix_le, main_sel_op_sender, main_sel_op_sha256, main_sel_op_shl, main_sel_op_shr, main_sel_op_sload, main_sel_op_sstore, main_sel_op_storage_address, main_sel_op_sub, main_sel_op_timestamp, main_sel_op_transaction_fee, main_sel_op_version, main_sel_op_xor, main_sel_q_kernel_lookup, main_sel_q_kernel_output_lookup, main_sel_resolve_ind_addr_a, main_sel_resolve_ind_addr_b, main_sel_resolve_ind_addr_c, main_sel_resolve_ind_addr_d, main_sel_returndata, main_sel_rng_16, main_sel_rng_8, main_sel_slice_gadget, main_space_id, main_tag_err, main_w_in_tag, mem_addr, mem_clk, mem_diff_hi, mem_diff_lo, mem_diff_mid, mem_glob_addr, mem_last, mem_lastAccess, mem_one_min_inv, mem_r_in_tag, mem_rw, mem_sel_mem, mem_sel_mov_ia_to_ic, mem_sel_mov_ib_to_ic, mem_sel_op_a, mem_sel_op_b, mem_sel_op_c, mem_sel_op_cmov, mem_sel_op_d, mem_sel_op_gadget_a, mem_sel_op_gadget_b, mem_sel_op_gadget_c, mem_sel_op_gadget_d, mem_sel_op_slice, mem_sel_resolve_ind_addr_a, mem_sel_resolve_ind_addr_b, mem_sel_resolve_ind_addr_c, mem_sel_resolve_ind_addr_d, mem_sel_rng_chk, mem_skip_check_tag, mem_space_id, mem_tag, mem_tag_err, mem_tsp, mem_val, mem_w_in_tag, pedersen_clk, pedersen_input, pedersen_output, pedersen_sel_pedersen, poseidon2_B_10_0, poseidon2_B_10_1, poseidon2_B_10_2, poseidon2_B_10_3, poseidon2_B_11_0, poseidon2_B_11_1, poseidon2_B_11_2, poseidon2_B_11_3, poseidon2_B_12_0, poseidon2_B_12_1, poseidon2_B_12_2, poseidon2_B_12_3, poseidon2_B_13_0, poseidon2_B_13_1, poseidon2_B_13_2, poseidon2_B_13_3, poseidon2_B_14_0, poseidon2_B_14_1, poseidon2_B_14_2, poseidon2_B_14_3, poseidon2_B_15_0, poseidon2_B_15_1, poseidon2_B_15_2, poseidon2_B_15_3, poseidon2_B_16_0, poseidon2_B_16_1, poseidon2_B_16_2, poseidon2_B_16_3, poseidon2_B_17_0, poseidon2_B_17_1, poseidon2_B_17_2, poseidon2_B_17_3, poseidon2_B_18_0, poseidon2_B_18_1, poseidon2_B_18_2, poseidon2_B_18_3, poseidon2_B_19_0, poseidon2_B_19_1, poseidon2_B_19_2, poseidon2_B_19_3, poseidon2_B_20_0, poseidon2_B_20_1, poseidon2_B_20_2, poseidon2_B_20_3, poseidon2_B_21_0, poseidon2_B_21_1, poseidon2_B_21_2, poseidon2_B_21_3, poseidon2_B_22_0, poseidon2_B_22_1, poseidon2_B_22_2, poseidon2_B_22_3, poseidon2_B_23_0, poseidon2_B_23_1, poseidon2_B_23_2, poseidon2_B_23_3, poseidon2_B_24_0, poseidon2_B_24_1, poseidon2_B_24_2, poseidon2_B_24_3, poseidon2_B_25_0, poseidon2_B_25_1, poseidon2_B_25_2, poseidon2_B_25_3, poseidon2_B_26_0, poseidon2_B_26_1, poseidon2_B_26_2, poseidon2_B_26_3, poseidon2_B_27_0, poseidon2_B_27_1, poseidon2_B_27_2, poseidon2_B_27_3, poseidon2_B_28_0, poseidon2_B_28_1, poseidon2_B_28_2, poseidon2_B_28_3, poseidon2_B_29_0, poseidon2_B_29_1, poseidon2_B_29_2, poseidon2_B_29_3, poseidon2_B_30_0, poseidon2_B_30_1, poseidon2_B_30_2, poseidon2_B_30_3, poseidon2_B_31_0, poseidon2_B_31_1, poseidon2_B_31_2, poseidon2_B_31_3, poseidon2_B_32_0, poseidon2_B_32_1, poseidon2_B_32_2, poseidon2_B_32_3, poseidon2_B_33_0, poseidon2_B_33_1, poseidon2_B_33_2, poseidon2_B_33_3, poseidon2_B_34_0, poseidon2_B_34_1, poseidon2_B_34_2, poseidon2_B_34_3, poseidon2_B_35_0, poseidon2_B_35_1, poseidon2_B_35_2, poseidon2_B_35_3, poseidon2_B_36_0, poseidon2_B_36_1, poseidon2_B_36_2, poseidon2_B_36_3, poseidon2_B_37_0, poseidon2_B_37_1, poseidon2_B_37_2, poseidon2_B_37_3, poseidon2_B_38_0, poseidon2_B_38_1, poseidon2_B_38_2, poseidon2_B_38_3, poseidon2_B_39_0, poseidon2_B_39_1, poseidon2_B_39_2, poseidon2_B_39_3, poseidon2_B_40_0, poseidon2_B_40_1, poseidon2_B_40_2, poseidon2_B_40_3, poseidon2_B_41_0, poseidon2_B_41_1, poseidon2_B_41_2, poseidon2_B_41_3, poseidon2_B_42_0, poseidon2_B_42_1, poseidon2_B_42_2, poseidon2_B_42_3, poseidon2_B_43_0, poseidon2_B_43_1, poseidon2_B_43_2, poseidon2_B_43_3, poseidon2_B_44_0, poseidon2_B_44_1, poseidon2_B_44_2, poseidon2_B_44_3, poseidon2_B_45_0, poseidon2_B_45_1, poseidon2_B_45_2, poseidon2_B_45_3, poseidon2_B_46_0, poseidon2_B_46_1, poseidon2_B_46_2, poseidon2_B_46_3, poseidon2_B_47_0, poseidon2_B_47_1, poseidon2_B_47_2, poseidon2_B_47_3, poseidon2_B_48_0, poseidon2_B_48_1, poseidon2_B_48_2, poseidon2_B_48_3, poseidon2_B_49_0, poseidon2_B_49_1, poseidon2_B_49_2, poseidon2_B_49_3, poseidon2_B_4_0, poseidon2_B_4_1, poseidon2_B_4_2, poseidon2_B_4_3, poseidon2_B_50_0, poseidon2_B_50_1, poseidon2_B_50_2, poseidon2_B_50_3, poseidon2_B_51_0, poseidon2_B_51_1, poseidon2_B_51_2, poseidon2_B_51_3, poseidon2_B_52_0, poseidon2_B_52_1, poseidon2_B_52_2, poseidon2_B_52_3, poseidon2_B_53_0, poseidon2_B_53_1, poseidon2_B_53_2, poseidon2_B_53_3, poseidon2_B_54_0, poseidon2_B_54_1, poseidon2_B_54_2, poseidon2_B_54_3, poseidon2_B_55_0, poseidon2_B_55_1, poseidon2_B_55_2, poseidon2_B_55_3, poseidon2_B_56_0, poseidon2_B_56_1, poseidon2_B_56_2, poseidon2_B_56_3, poseidon2_B_57_0, poseidon2_B_57_1, poseidon2_B_57_2, poseidon2_B_57_3, poseidon2_B_58_0, poseidon2_B_58_1, poseidon2_B_58_2, poseidon2_B_58_3, poseidon2_B_59_0, poseidon2_B_59_1, poseidon2_B_59_2, poseidon2_B_59_3, poseidon2_B_5_0, poseidon2_B_5_1, poseidon2_B_5_2, poseidon2_B_5_3, poseidon2_B_6_0, poseidon2_B_6_1, poseidon2_B_6_2, poseidon2_B_6_3, poseidon2_B_7_0, poseidon2_B_7_1, poseidon2_B_7_2, poseidon2_B_7_3, poseidon2_B_8_0, poseidon2_B_8_1, poseidon2_B_8_2, poseidon2_B_8_3, poseidon2_B_9_0, poseidon2_B_9_1, poseidon2_B_9_2, poseidon2_B_9_3, poseidon2_EXT_LAYER_4, poseidon2_EXT_LAYER_5, poseidon2_EXT_LAYER_6, poseidon2_EXT_LAYER_7, poseidon2_T_0_4, poseidon2_T_0_5, poseidon2_T_0_6, poseidon2_T_0_7, poseidon2_T_1_4, poseidon2_T_1_5, poseidon2_T_1_6, poseidon2_T_1_7, poseidon2_T_2_4, poseidon2_T_2_5, poseidon2_T_2_6, poseidon2_T_2_7, poseidon2_T_3_4, poseidon2_T_3_5, poseidon2_T_3_6, poseidon2_T_3_7, poseidon2_T_60_4, poseidon2_T_60_5, poseidon2_T_60_6, poseidon2_T_60_7, poseidon2_T_61_4, poseidon2_T_61_5, poseidon2_T_61_6, poseidon2_T_61_7, poseidon2_T_62_4, poseidon2_T_62_5, poseidon2_T_62_6, poseidon2_T_62_7, poseidon2_T_63_4, poseidon2_T_63_5, poseidon2_T_63_6, poseidon2_T_63_7, poseidon2_a_0, poseidon2_a_1, poseidon2_a_2, poseidon2_a_3, poseidon2_b_0, poseidon2_b_1, poseidon2_b_2, poseidon2_b_3, poseidon2_clk, poseidon2_in_tag, poseidon2_input_addr, poseidon2_mem_addr_a, poseidon2_mem_addr_b, poseidon2_mem_addr_c, poseidon2_mem_addr_d, poseidon2_mem_op, poseidon2_output_addr, poseidon2_read_line, poseidon2_sel_poseidon_perm, poseidon2_write_line, powers_power_of_2, sha256_clk, sha256_input, sha256_output, sha256_sel_sha256_compression, sha256_state, slice_addr, slice_clk, slice_cnt, slice_col_offset, slice_one_min_inv, slice_sel_cd_cpy, slice_sel_mem_active, slice_sel_return, slice_sel_start, slice_space_id, slice_val, lookup_byte_lengths_counts, lookup_byte_operations_counts, lookup_cd_value_counts, lookup_ret_value_counts, lookup_opcode_gas_counts, range_check_l2_gas_hi_counts, range_check_l2_gas_lo_counts, range_check_da_gas_hi_counts, range_check_da_gas_lo_counts, kernel_output_lookup_counts, lookup_into_kernel_counts, incl_main_tag_err_counts, incl_mem_tag_err_counts, lookup_mem_rng_chk_lo_counts, lookup_mem_rng_chk_mid_counts, lookup_mem_rng_chk_hi_counts, lookup_pow_2_0_counts, lookup_pow_2_1_counts, lookup_u8_0_counts, lookup_u8_1_counts, lookup_u16_0_counts, lookup_u16_1_counts, lookup_u16_2_counts, lookup_u16_3_counts, lookup_u16_4_counts, lookup_u16_5_counts, lookup_u16_6_counts, lookup_u16_7_counts, lookup_u16_8_counts, lookup_u16_9_counts, lookup_u16_10_counts, lookup_u16_11_counts, lookup_u16_12_counts, lookup_u16_13_counts, lookup_u16_14_counts, lookup_div_u16_0_counts, lookup_div_u16_1_counts, lookup_div_u16_2_counts, lookup_div_u16_3_counts, lookup_div_u16_4_counts, lookup_div_u16_5_counts, lookup_div_u16_6_counts, lookup_div_u16_7_counts
+#define DERIVED_WITNESS_ENTITIES perm_pos_mem_a, perm_pos_mem_b, perm_pos_mem_c, perm_pos_mem_d, perm_slice_mem, perm_main_alu, perm_main_bin, perm_main_conv, perm_main_pos2_perm, perm_main_pedersen, perm_main_slice, perm_main_mem_a, perm_main_mem_b, perm_main_mem_c, perm_main_mem_d, perm_main_mem_ind_addr_a, perm_main_mem_ind_addr_b, perm_main_mem_ind_addr_c, perm_main_mem_ind_addr_d, lookup_byte_lengths, lookup_byte_operations, lookup_cd_value, lookup_ret_value, lookup_opcode_gas, range_check_l2_gas_hi, range_check_l2_gas_lo, range_check_da_gas_hi, range_check_da_gas_lo, kernel_output_lookup, lookup_into_kernel, incl_main_tag_err, incl_mem_tag_err, lookup_mem_rng_chk_lo, lookup_mem_rng_chk_mid, lookup_mem_rng_chk_hi, lookup_pow_2_0, lookup_pow_2_1, lookup_u8_0, lookup_u8_1, lookup_u16_0, lookup_u16_1, lookup_u16_2, lookup_u16_3, lookup_u16_4, lookup_u16_5, lookup_u16_6, lookup_u16_7, lookup_u16_8, lookup_u16_9, lookup_u16_10, lookup_u16_11, lookup_u16_12, lookup_u16_13, lookup_u16_14, lookup_div_u16_0, lookup_div_u16_1, lookup_div_u16_2, lookup_div_u16_3, lookup_div_u16_4, lookup_div_u16_5, lookup_div_u16_6, lookup_div_u16_7
+#define SHIFTED_ENTITIES alu_a_hi_shift, alu_a_lo_shift, alu_b_hi_shift, alu_b_lo_shift, alu_cmp_rng_ctr_shift, alu_div_u16_r0_shift, alu_div_u16_r1_shift, alu_div_u16_r2_shift, alu_div_u16_r3_shift, alu_div_u16_r4_shift, alu_div_u16_r5_shift, alu_div_u16_r6_shift, alu_div_u16_r7_shift, alu_op_add_shift, alu_op_cast_prev_shift, alu_op_cast_shift, alu_op_div_shift, alu_op_mul_shift, alu_op_shl_shift, alu_op_shr_shift, alu_op_sub_shift, alu_p_sub_a_hi_shift, alu_p_sub_a_lo_shift, alu_p_sub_b_hi_shift, alu_p_sub_b_lo_shift, alu_sel_alu_shift, alu_sel_cmp_shift, alu_sel_div_rng_chk_shift, alu_sel_rng_chk_lookup_shift, alu_sel_rng_chk_shift, alu_u16_r0_shift, alu_u16_r1_shift, alu_u16_r2_shift, alu_u16_r3_shift, alu_u16_r4_shift, alu_u16_r5_shift, alu_u16_r6_shift, alu_u8_r0_shift, alu_u8_r1_shift, binary_acc_ia_shift, binary_acc_ib_shift, binary_acc_ic_shift, binary_mem_tag_ctr_shift, binary_op_id_shift, kernel_emit_l2_to_l1_msg_write_offset_shift, kernel_emit_note_hash_write_offset_shift, kernel_emit_nullifier_write_offset_shift, kernel_emit_unencrypted_log_write_offset_shift, kernel_l1_to_l2_msg_exists_write_offset_shift, kernel_note_hash_exist_write_offset_shift, kernel_nullifier_exists_write_offset_shift, kernel_nullifier_non_exists_write_offset_shift, kernel_side_effect_counter_shift, kernel_sload_write_offset_shift, kernel_sstore_write_offset_shift, main_da_gas_remaining_shift, main_internal_return_ptr_shift, main_l2_gas_remaining_shift, main_pc_shift, mem_glob_addr_shift, mem_rw_shift, mem_sel_mem_shift, mem_tag_shift, mem_tsp_shift, mem_val_shift, poseidon2_a_0_shift, poseidon2_a_1_shift, poseidon2_a_2_shift, poseidon2_a_3_shift, poseidon2_sel_poseidon_perm_shift, poseidon2_write_line_shift, slice_addr_shift, slice_clk_shift, slice_cnt_shift, slice_col_offset_shift, slice_sel_cd_cpy_shift, slice_sel_mem_active_shift, slice_sel_return_shift, slice_sel_start_shift, slice_space_id_shift
+#define TO_BE_SHIFTED(e) e.alu_a_hi, e.alu_a_lo, e.alu_b_hi, e.alu_b_lo, e.alu_cmp_rng_ctr, e.alu_div_u16_r0, e.alu_div_u16_r1, e.alu_div_u16_r2, e.alu_div_u16_r3, e.alu_div_u16_r4, e.alu_div_u16_r5, e.alu_div_u16_r6, e.alu_div_u16_r7, e.alu_op_add, e.alu_op_cast_prev, e.alu_op_cast, e.alu_op_div, e.alu_op_mul, e.alu_op_shl, e.alu_op_shr, e.alu_op_sub, e.alu_p_sub_a_hi, e.alu_p_sub_a_lo, e.alu_p_sub_b_hi, e.alu_p_sub_b_lo, e.alu_sel_alu, e.alu_sel_cmp, e.alu_sel_div_rng_chk, e.alu_sel_rng_chk_lookup, e.alu_sel_rng_chk, e.alu_u16_r0, e.alu_u16_r1, e.alu_u16_r2, e.alu_u16_r3, e.alu_u16_r4, e.alu_u16_r5, e.alu_u16_r6, e.alu_u8_r0, e.alu_u8_r1, e.binary_acc_ia, e.binary_acc_ib, e.binary_acc_ic, e.binary_mem_tag_ctr, e.binary_op_id, e.kernel_emit_l2_to_l1_msg_write_offset, e.kernel_emit_note_hash_write_offset, e.kernel_emit_nullifier_write_offset, e.kernel_emit_unencrypted_log_write_offset, e.kernel_l1_to_l2_msg_exists_write_offset, e.kernel_note_hash_exist_write_offset, e.kernel_nullifier_exists_write_offset, e.kernel_nullifier_non_exists_write_offset, e.kernel_side_effect_counter, e.kernel_sload_write_offset, e.kernel_sstore_write_offset, e.main_da_gas_remaining, e.main_internal_return_ptr, e.main_l2_gas_remaining, e.main_pc, e.mem_glob_addr, e.mem_rw, e.mem_sel_mem, e.mem_tag, e.mem_tsp, e.mem_val, e.poseidon2_a_0, e.poseidon2_a_1, e.poseidon2_a_2, e.poseidon2_a_3, e.poseidon2_sel_poseidon_perm, e.poseidon2_write_line, e.slice_addr, e.slice_clk, e.slice_cnt, e.slice_col_offset, e.slice_sel_cd_cpy, e.slice_sel_mem_active, e.slice_sel_return, e.slice_sel_start, e.slice_space_id
 #define ALL_ENTITIES PRECOMPUTED_ENTITIES, WIRE_ENTITIES, DERIVED_WITNESS_ENTITIES, SHIFTED_ENTITIES
 // clang-format on
 
@@ -121,35 +125,11 @@ class AvmFlavor {
     using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 409;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 693;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 485;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 385;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 452;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 384;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 451;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 391;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 458;
->>>>>>> 91347fba1 (feat(avm): poseidon2 constraints)
->>>>>>> dfd3ca77d (feat(avm): poseidon2 constraints)
->>>>>>> 804a62263 (feat(avm): poseidon2 constraints)
+    static constexpr size_t NUM_ALL_ENTITIES = 775;
 
     using MainRelations = std::tuple<
         // Relations
@@ -169,6 +149,10 @@ class AvmFlavor {
 
     using LookupRelations = std::tuple<
         // Lookups
+        perm_pos_mem_a_relation<FF>,
+        perm_pos_mem_b_relation<FF>,
+        perm_pos_mem_c_relation<FF>,
+        perm_pos_mem_d_relation<FF>,
         perm_slice_mem_relation<FF>,
         perm_main_alu_relation<FF>,
         perm_main_bin_relation<FF>,
@@ -261,1116 +245,12 @@ class AvmFlavor {
 
     template <typename DataType> class WireEntities {
       public:
-<<<<<<< HEAD
         DEFINE_FLAVOR_MEMBERS(DataType, WIRE_ENTITIES)
-=======
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              kernel_kernel_inputs,
-                              kernel_kernel_value_out,
-                              kernel_kernel_side_effect_out,
-                              kernel_kernel_metadata_out,
-                              main_calldata,
-                              alu_a_hi,
-                              alu_a_lo,
-                              alu_b_hi,
-                              alu_b_lo,
-                              alu_borrow,
-                              alu_cf,
-                              alu_clk,
-                              alu_cmp_rng_ctr,
-                              alu_div_u16_r0,
-                              alu_div_u16_r1,
-                              alu_div_u16_r2,
-                              alu_div_u16_r3,
-                              alu_div_u16_r4,
-                              alu_div_u16_r5,
-                              alu_div_u16_r6,
-                              alu_div_u16_r7,
-                              alu_divisor_hi,
-                              alu_divisor_lo,
-                              alu_ff_tag,
-                              alu_ia,
-                              alu_ib,
-                              alu_ic,
-                              alu_in_tag,
-                              alu_op_add,
-                              alu_op_cast,
-                              alu_op_cast_prev,
-                              alu_op_div,
-                              alu_op_div_a_lt_b,
-                              alu_op_div_std,
-                              alu_op_eq,
-                              alu_op_eq_diff_inv,
-                              alu_op_lt,
-                              alu_op_lte,
-                              alu_op_mul,
-                              alu_op_not,
-                              alu_op_shl,
-                              alu_op_shr,
-                              alu_op_sub,
-                              alu_p_a_borrow,
-                              alu_p_b_borrow,
-                              alu_p_sub_a_hi,
-                              alu_p_sub_a_lo,
-                              alu_p_sub_b_hi,
-                              alu_p_sub_b_lo,
-                              alu_partial_prod_hi,
-                              alu_partial_prod_lo,
-                              alu_quotient_hi,
-                              alu_quotient_lo,
-                              alu_remainder,
-                              alu_res_hi,
-                              alu_res_lo,
-                              alu_sel_alu,
-                              alu_sel_cmp,
-                              alu_sel_div_rng_chk,
-                              alu_sel_rng_chk,
-                              alu_sel_rng_chk_lookup,
-                              alu_sel_shift_which,
-                              alu_shift_lt_bit_len,
-                              alu_t_sub_s_bits,
-                              alu_two_pow_s,
-                              alu_two_pow_t_sub_s,
-                              alu_u128_tag,
-                              alu_u16_r0,
-                              alu_u16_r1,
-                              alu_u16_r10,
-                              alu_u16_r11,
-                              alu_u16_r12,
-                              alu_u16_r13,
-                              alu_u16_r14,
-                              alu_u16_r2,
-                              alu_u16_r3,
-                              alu_u16_r4,
-                              alu_u16_r5,
-                              alu_u16_r6,
-                              alu_u16_r7,
-                              alu_u16_r8,
-                              alu_u16_r9,
-                              alu_u16_tag,
-                              alu_u32_tag,
-                              alu_u64_tag,
-                              alu_u8_r0,
-                              alu_u8_r1,
-                              alu_u8_tag,
-                              binary_acc_ia,
-                              binary_acc_ib,
-                              binary_acc_ic,
-                              binary_clk,
-                              binary_ia_bytes,
-                              binary_ib_bytes,
-                              binary_ic_bytes,
-                              binary_in_tag,
-                              binary_mem_tag_ctr,
-                              binary_mem_tag_ctr_inv,
-                              binary_op_id,
-                              binary_sel_bin,
-                              binary_start,
-                              byte_lookup_sel_bin,
-                              byte_lookup_table_byte_lengths,
-                              byte_lookup_table_in_tags,
-                              byte_lookup_table_input_a,
-                              byte_lookup_table_input_b,
-                              byte_lookup_table_op_id,
-                              byte_lookup_table_output,
-                              conversion_clk,
-                              conversion_input,
-                              conversion_num_limbs,
-                              conversion_radix,
-                              conversion_sel_to_radix_le,
-                              gas_da_gas_fixed_table,
-                              gas_l2_gas_fixed_table,
-                              gas_sel_gas_cost,
-                              keccakf1600_clk,
-                              keccakf1600_input,
-                              keccakf1600_output,
-                              keccakf1600_sel_keccakf1600,
-                              kernel_emit_l2_to_l1_msg_write_offset,
-                              kernel_emit_note_hash_write_offset,
-                              kernel_emit_nullifier_write_offset,
-                              kernel_emit_unencrypted_log_write_offset,
-                              kernel_kernel_in_offset,
-                              kernel_kernel_out_offset,
-                              kernel_l1_to_l2_msg_exists_write_offset,
-                              kernel_note_hash_exist_write_offset,
-                              kernel_nullifier_exists_write_offset,
-                              kernel_nullifier_non_exists_write_offset,
-                              kernel_q_public_input_kernel_add_to_table,
-                              kernel_q_public_input_kernel_out_add_to_table,
-                              kernel_side_effect_counter,
-                              kernel_sload_write_offset,
-                              kernel_sstore_write_offset,
-                              main_abs_da_rem_gas_hi,
-                              main_abs_da_rem_gas_lo,
-                              main_abs_l2_rem_gas_hi,
-                              main_abs_l2_rem_gas_lo,
-                              main_alu_in_tag,
-                              main_bin_op_id,
-                              main_call_ptr,
-                              main_da_gas_op_cost,
-                              main_da_gas_remaining,
-                              main_da_out_of_gas,
-                              main_ia,
-                              main_ib,
-                              main_ic,
-                              main_id,
-                              main_id_zero,
-                              main_ind_addr_a,
-                              main_ind_addr_b,
-                              main_ind_addr_c,
-                              main_ind_addr_d,
-                              main_internal_return_ptr,
-                              main_inv,
-                              main_l2_gas_op_cost,
-                              main_l2_gas_remaining,
-                              main_l2_out_of_gas,
-                              main_mem_addr_a,
-                              main_mem_addr_b,
-                              main_mem_addr_c,
-                              main_mem_addr_d,
-                              main_op_err,
-                              main_opcode_val,
-                              main_pc,
-                              main_r_in_tag,
-                              main_rwa,
-                              main_rwb,
-                              main_rwc,
-                              main_rwd,
-                              main_sel_alu,
-                              main_sel_bin,
-                              main_sel_gas_accounting_active,
-                              main_sel_last,
-                              main_sel_mem_op_a,
-                              main_sel_mem_op_activate_gas,
-                              main_sel_mem_op_b,
-                              main_sel_mem_op_c,
-                              main_sel_mem_op_d,
-                              main_sel_mov_ia_to_ic,
-                              main_sel_mov_ib_to_ic,
-                              main_sel_op_add,
-                              main_sel_op_address,
-                              main_sel_op_and,
-                              main_sel_op_block_number,
-                              main_sel_op_cast,
-                              main_sel_op_chain_id,
-                              main_sel_op_cmov,
-                              main_sel_op_coinbase,
-                              main_sel_op_dagasleft,
-                              main_sel_op_div,
-                              main_sel_op_emit_l2_to_l1_msg,
-                              main_sel_op_emit_note_hash,
-                              main_sel_op_emit_nullifier,
-                              main_sel_op_emit_unencrypted_log,
-                              main_sel_op_eq,
-                              main_sel_op_external_call,
-                              main_sel_op_fdiv,
-                              main_sel_op_fee_per_da_gas,
-                              main_sel_op_fee_per_l2_gas,
-                              main_sel_op_function_selector,
-                              main_sel_op_get_contract_instance,
-                              main_sel_op_halt,
-                              main_sel_op_internal_call,
-                              main_sel_op_internal_return,
-                              main_sel_op_jump,
-                              main_sel_op_jumpi,
-                              main_sel_op_keccak,
-                              main_sel_op_l1_to_l2_msg_exists,
-                              main_sel_op_l2gasleft,
-                              main_sel_op_lt,
-                              main_sel_op_lte,
-                              main_sel_op_mov,
-                              main_sel_op_mul,
-                              main_sel_op_not,
-                              main_sel_op_note_hash_exists,
-                              main_sel_op_nullifier_exists,
-                              main_sel_op_or,
-                              main_sel_op_pedersen,
-                              main_sel_op_poseidon2,
-                              main_sel_op_radix_le,
-                              main_sel_op_sender,
-                              main_sel_op_sha256,
-                              main_sel_op_shl,
-                              main_sel_op_shr,
-                              main_sel_op_sload,
-                              main_sel_op_sstore,
-                              main_sel_op_storage_address,
-                              main_sel_op_sub,
-                              main_sel_op_timestamp,
-                              main_sel_op_transaction_fee,
-                              main_sel_op_version,
-                              main_sel_op_xor,
-                              main_sel_q_kernel_lookup,
-                              main_sel_q_kernel_output_lookup,
-                              main_sel_resolve_ind_addr_a,
-                              main_sel_resolve_ind_addr_b,
-                              main_sel_resolve_ind_addr_c,
-                              main_sel_resolve_ind_addr_d,
-                              main_sel_rng_16,
-                              main_sel_rng_8,
-                              main_space_id,
-                              main_tag_err,
-                              main_w_in_tag,
-                              mem_addr,
-                              mem_clk,
-                              mem_diff_hi,
-                              mem_diff_lo,
-                              mem_diff_mid,
-                              mem_glob_addr,
-                              mem_last,
-                              mem_lastAccess,
-                              mem_one_min_inv,
-                              mem_r_in_tag,
-                              mem_rw,
-                              mem_sel_mem,
-                              mem_sel_mov_ia_to_ic,
-                              mem_sel_mov_ib_to_ic,
-                              mem_sel_op_a,
-                              mem_sel_op_b,
-                              mem_sel_op_c,
-                              mem_sel_op_cmov,
-                              mem_sel_op_d,
-                              mem_sel_resolve_ind_addr_a,
-                              mem_sel_resolve_ind_addr_b,
-                              mem_sel_resolve_ind_addr_c,
-                              mem_sel_resolve_ind_addr_d,
-                              mem_sel_rng_chk,
-                              mem_skip_check_tag,
-                              mem_space_id,
-                              mem_tag,
-                              mem_tag_err,
-                              mem_tsp,
-                              mem_val,
-                              mem_w_in_tag,
-                              pedersen_clk,
-                              pedersen_input,
-                              pedersen_output,
-                              pedersen_sel_pedersen,
-                              poseidon2_a_0,
-                              poseidon2_a_1,
-                              poseidon2_a_2,
-                              poseidon2_a_3,
-                              poseidon2_b_0,
-                              poseidon2_b_1,
-                              poseidon2_b_2,
-                              poseidon2_b_3,
-                              poseidon2_clk,
-                              poseidon2_input,
-                              poseidon2_output,
-                              poseidon2_sel_poseidon_perm,
-                              powers_power_of_2,
-                              sha256_clk,
-                              sha256_input,
-                              sha256_output,
-                              sha256_sel_sha256_compression,
-                              sha256_state,
-                              lookup_byte_lengths_counts,
-                              lookup_byte_operations_counts,
-                              lookup_opcode_gas_counts,
-                              range_check_l2_gas_hi_counts,
-                              range_check_l2_gas_lo_counts,
-                              range_check_da_gas_hi_counts,
-                              range_check_da_gas_lo_counts,
-                              kernel_output_lookup_counts,
-                              lookup_into_kernel_counts,
-                              incl_main_tag_err_counts,
-                              incl_mem_tag_err_counts,
-                              lookup_mem_rng_chk_lo_counts,
-                              lookup_mem_rng_chk_mid_counts,
-                              lookup_mem_rng_chk_hi_counts,
-                              lookup_pow_2_0_counts,
-                              lookup_pow_2_1_counts,
-                              lookup_u8_0_counts,
-                              lookup_u8_1_counts,
-                              lookup_u16_0_counts,
-                              lookup_u16_1_counts,
-                              lookup_u16_2_counts,
-                              lookup_u16_3_counts,
-                              lookup_u16_4_counts,
-                              lookup_u16_5_counts,
-                              lookup_u16_6_counts,
-                              lookup_u16_7_counts,
-                              lookup_u16_8_counts,
-                              lookup_u16_9_counts,
-                              lookup_u16_10_counts,
-                              lookup_u16_11_counts,
-                              lookup_u16_12_counts,
-                              lookup_u16_13_counts,
-                              lookup_u16_14_counts,
-                              lookup_div_u16_0_counts,
-                              lookup_div_u16_1_counts,
-                              lookup_div_u16_2_counts,
-                              lookup_div_u16_3_counts,
-                              lookup_div_u16_4_counts,
-                              lookup_div_u16_5_counts,
-                              lookup_div_u16_6_counts,
-                              lookup_div_u16_7_counts)
-<<<<<<< HEAD
-=======
-
-        RefVector<DataType> get_wires()
-        {
-            return { kernel_kernel_inputs,
-                     kernel_kernel_value_out,
-                     kernel_kernel_side_effect_out,
-                     kernel_kernel_metadata_out,
-                     main_calldata,
-                     alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_borrow,
-                     alu_cf,
-                     alu_clk,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_divisor_hi,
-                     alu_divisor_lo,
-                     alu_ff_tag,
-                     alu_ia,
-                     alu_ib,
-                     alu_ic,
-                     alu_in_tag,
-                     alu_op_add,
-                     alu_op_cast,
-                     alu_op_cast_prev,
-                     alu_op_div,
-                     alu_op_div_a_lt_b,
-                     alu_op_div_std,
-                     alu_op_eq,
-                     alu_op_eq_diff_inv,
-                     alu_op_lt,
-                     alu_op_lte,
-                     alu_op_mul,
-                     alu_op_not,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_a_borrow,
-                     alu_p_b_borrow,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_partial_prod_hi,
-                     alu_partial_prod_lo,
-                     alu_quotient_hi,
-                     alu_quotient_lo,
-                     alu_remainder,
-                     alu_res_hi,
-                     alu_res_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_shift_which,
-                     alu_shift_lt_bit_len,
-                     alu_t_sub_s_bits,
-                     alu_two_pow_s,
-                     alu_two_pow_t_sub_s,
-                     alu_u128_tag,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r10,
-                     alu_u16_r11,
-                     alu_u16_r12,
-                     alu_u16_r13,
-                     alu_u16_r14,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u16_r7,
-                     alu_u16_r8,
-                     alu_u16_r9,
-                     alu_u16_tag,
-                     alu_u32_tag,
-                     alu_u64_tag,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     alu_u8_tag,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_clk,
-                     binary_ia_bytes,
-                     binary_ib_bytes,
-                     binary_ic_bytes,
-                     binary_in_tag,
-                     binary_mem_tag_ctr,
-                     binary_mem_tag_ctr_inv,
-                     binary_op_id,
-                     binary_sel_bin,
-                     binary_start,
-                     byte_lookup_sel_bin,
-                     byte_lookup_table_byte_lengths,
-                     byte_lookup_table_in_tags,
-                     byte_lookup_table_input_a,
-                     byte_lookup_table_input_b,
-                     byte_lookup_table_op_id,
-                     byte_lookup_table_output,
-                     conversion_clk,
-                     conversion_input,
-                     conversion_num_limbs,
-                     conversion_radix,
-                     conversion_sel_to_radix_le,
-                     gas_da_gas_fixed_table,
-                     gas_l2_gas_fixed_table,
-                     gas_sel_gas_cost,
-                     keccakf1600_clk,
-                     keccakf1600_input,
-                     keccakf1600_output,
-                     keccakf1600_sel_keccakf1600,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_kernel_in_offset,
-                     kernel_kernel_out_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_q_public_input_kernel_add_to_table,
-                     kernel_q_public_input_kernel_out_add_to_table,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_abs_da_rem_gas_hi,
-                     main_abs_da_rem_gas_lo,
-                     main_abs_l2_rem_gas_hi,
-                     main_abs_l2_rem_gas_lo,
-                     main_alu_in_tag,
-                     main_bin_op_id,
-                     main_call_ptr,
-                     main_da_gas_op_cost,
-                     main_da_gas_remaining,
-                     main_da_out_of_gas,
-                     main_ia,
-                     main_ib,
-                     main_ic,
-                     main_id,
-                     main_id_zero,
-                     main_ind_addr_a,
-                     main_ind_addr_b,
-                     main_ind_addr_c,
-                     main_ind_addr_d,
-                     main_internal_return_ptr,
-                     main_inv,
-                     main_l2_gas_op_cost,
-                     main_l2_gas_remaining,
-                     main_l2_out_of_gas,
-                     main_mem_addr_a,
-                     main_mem_addr_b,
-                     main_mem_addr_c,
-                     main_mem_addr_d,
-                     main_op_err,
-                     main_opcode_val,
-                     main_pc,
-                     main_r_in_tag,
-                     main_rwa,
-                     main_rwb,
-                     main_rwc,
-                     main_rwd,
-                     main_sel_alu,
-                     main_sel_bin,
-                     main_sel_gas_accounting_active,
-                     main_sel_last,
-                     main_sel_mem_op_a,
-                     main_sel_mem_op_activate_gas,
-                     main_sel_mem_op_b,
-                     main_sel_mem_op_c,
-                     main_sel_mem_op_d,
-                     main_sel_mov_ia_to_ic,
-                     main_sel_mov_ib_to_ic,
-                     main_sel_op_add,
-                     main_sel_op_address,
-                     main_sel_op_and,
-                     main_sel_op_block_number,
-                     main_sel_op_cast,
-                     main_sel_op_chain_id,
-                     main_sel_op_cmov,
-                     main_sel_op_coinbase,
-                     main_sel_op_dagasleft,
-                     main_sel_op_div,
-                     main_sel_op_emit_l2_to_l1_msg,
-                     main_sel_op_emit_note_hash,
-                     main_sel_op_emit_nullifier,
-                     main_sel_op_emit_unencrypted_log,
-                     main_sel_op_eq,
-                     main_sel_op_external_call,
-                     main_sel_op_fdiv,
-                     main_sel_op_fee_per_da_gas,
-                     main_sel_op_fee_per_l2_gas,
-                     main_sel_op_function_selector,
-                     main_sel_op_get_contract_instance,
-                     main_sel_op_halt,
-                     main_sel_op_internal_call,
-                     main_sel_op_internal_return,
-                     main_sel_op_jump,
-                     main_sel_op_jumpi,
-                     main_sel_op_keccak,
-                     main_sel_op_l1_to_l2_msg_exists,
-                     main_sel_op_l2gasleft,
-                     main_sel_op_lt,
-                     main_sel_op_lte,
-                     main_sel_op_mov,
-                     main_sel_op_mul,
-                     main_sel_op_not,
-                     main_sel_op_note_hash_exists,
-                     main_sel_op_nullifier_exists,
-                     main_sel_op_or,
-                     main_sel_op_pedersen,
-                     main_sel_op_poseidon2,
-                     main_sel_op_radix_le,
-                     main_sel_op_sender,
-                     main_sel_op_sha256,
-                     main_sel_op_shl,
-                     main_sel_op_shr,
-                     main_sel_op_sload,
-                     main_sel_op_sstore,
-                     main_sel_op_storage_address,
-                     main_sel_op_sub,
-                     main_sel_op_timestamp,
-                     main_sel_op_transaction_fee,
-                     main_sel_op_version,
-                     main_sel_op_xor,
-                     main_sel_q_kernel_lookup,
-                     main_sel_q_kernel_output_lookup,
-                     main_sel_resolve_ind_addr_a,
-                     main_sel_resolve_ind_addr_b,
-                     main_sel_resolve_ind_addr_c,
-                     main_sel_resolve_ind_addr_d,
-                     main_sel_rng_16,
-                     main_sel_rng_8,
-                     main_space_id,
-                     main_tag_err,
-                     main_w_in_tag,
-                     mem_addr,
-                     mem_clk,
-                     mem_diff_hi,
-                     mem_diff_lo,
-                     mem_diff_mid,
-                     mem_glob_addr,
-                     mem_last,
-                     mem_lastAccess,
-                     mem_one_min_inv,
-                     mem_r_in_tag,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_sel_mov_ia_to_ic,
-                     mem_sel_mov_ib_to_ic,
-                     mem_sel_op_a,
-                     mem_sel_op_b,
-                     mem_sel_op_c,
-                     mem_sel_op_cmov,
-                     mem_sel_op_d,
-                     mem_sel_resolve_ind_addr_a,
-                     mem_sel_resolve_ind_addr_b,
-                     mem_sel_resolve_ind_addr_c,
-                     mem_sel_resolve_ind_addr_d,
-                     mem_sel_rng_chk,
-                     mem_skip_check_tag,
-                     mem_space_id,
-                     mem_tag,
-                     mem_tag_err,
-                     mem_tsp,
-                     mem_val,
-                     mem_w_in_tag,
-                     pedersen_clk,
-                     pedersen_input,
-                     pedersen_output,
-                     pedersen_sel_pedersen,
-                     poseidon2_a_0,
-                     poseidon2_a_1,
-                     poseidon2_a_2,
-                     poseidon2_a_3,
-                     poseidon2_b_0,
-                     poseidon2_b_1,
-                     poseidon2_b_2,
-                     poseidon2_b_3,
-                     poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
-                     poseidon2_sel_poseidon_perm,
-                     powers_power_of_2,
-                     sha256_clk,
-                     sha256_input,
-                     sha256_output,
-                     sha256_sel_sha256_compression,
-                     sha256_state,
-                     perm_main_alu,
-                     perm_main_bin,
-                     perm_main_conv,
-                     perm_main_pos2_perm,
-                     perm_main_pedersen,
-                     perm_main_mem_a,
-                     perm_main_mem_b,
-                     perm_main_mem_c,
-                     perm_main_mem_d,
-                     perm_main_mem_ind_addr_a,
-                     perm_main_mem_ind_addr_b,
-                     perm_main_mem_ind_addr_c,
-                     perm_main_mem_ind_addr_d,
-                     lookup_byte_lengths,
-                     lookup_byte_operations,
-                     lookup_opcode_gas,
-                     range_check_l2_gas_hi,
-                     range_check_l2_gas_lo,
-                     range_check_da_gas_hi,
-                     range_check_da_gas_lo,
-                     kernel_output_lookup,
-                     lookup_into_kernel,
-                     incl_main_tag_err,
-                     incl_mem_tag_err,
-                     lookup_mem_rng_chk_lo,
-                     lookup_mem_rng_chk_mid,
-                     lookup_mem_rng_chk_hi,
-                     lookup_pow_2_0,
-                     lookup_pow_2_1,
-                     lookup_u8_0,
-                     lookup_u8_1,
-                     lookup_u16_0,
-                     lookup_u16_1,
-                     lookup_u16_2,
-                     lookup_u16_3,
-                     lookup_u16_4,
-                     lookup_u16_5,
-                     lookup_u16_6,
-                     lookup_u16_7,
-                     lookup_u16_8,
-                     lookup_u16_9,
-                     lookup_u16_10,
-                     lookup_u16_11,
-                     lookup_u16_12,
-                     lookup_u16_13,
-                     lookup_u16_14,
-                     lookup_div_u16_0,
-                     lookup_div_u16_1,
-                     lookup_div_u16_2,
-                     lookup_div_u16_3,
-                     lookup_div_u16_4,
-                     lookup_div_u16_5,
-                     lookup_div_u16_6,
-                     lookup_div_u16_7,
-                     lookup_byte_lengths_counts,
-                     lookup_byte_operations_counts,
-                     lookup_opcode_gas_counts,
-                     range_check_l2_gas_hi_counts,
-                     range_check_l2_gas_lo_counts,
-                     range_check_da_gas_hi_counts,
-                     range_check_da_gas_lo_counts,
-                     kernel_output_lookup_counts,
-                     lookup_into_kernel_counts,
-                     incl_main_tag_err_counts,
-                     incl_mem_tag_err_counts,
-                     lookup_mem_rng_chk_lo_counts,
-                     lookup_mem_rng_chk_mid_counts,
-                     lookup_mem_rng_chk_hi_counts,
-                     lookup_pow_2_0_counts,
-                     lookup_pow_2_1_counts,
-                     lookup_u8_0_counts,
-                     lookup_u8_1_counts,
-                     lookup_u16_0_counts,
-                     lookup_u16_1_counts,
-                     lookup_u16_2_counts,
-                     lookup_u16_3_counts,
-                     lookup_u16_4_counts,
-                     lookup_u16_5_counts,
-                     lookup_u16_6_counts,
-                     lookup_u16_7_counts,
-                     lookup_u16_8_counts,
-                     lookup_u16_9_counts,
-                     lookup_u16_10_counts,
-                     lookup_u16_11_counts,
-                     lookup_u16_12_counts,
-                     lookup_u16_13_counts,
-                     lookup_u16_14_counts,
-                     lookup_div_u16_0_counts,
-                     lookup_div_u16_1_counts,
-                     lookup_div_u16_2_counts,
-                     lookup_div_u16_3_counts,
-                     lookup_div_u16_4_counts,
-                     lookup_div_u16_5_counts,
-                     lookup_div_u16_6_counts,
-                     lookup_div_u16_7_counts };
-        };
->>>>>>> e28ed4281 (feat(avm): poseidon2 constraints)
->>>>>>> 804a62263 (feat(avm): poseidon2 constraints)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
-<<<<<<< HEAD
         DEFINE_FLAVOR_MEMBERS(DataType, DERIVED_WITNESS_ENTITIES)
-=======
-        DEFINE_FLAVOR_MEMBERS(DataType,
-<<<<<<< HEAD
-=======
-                              main_clk,
-                              main_sel_first,
-                              kernel_kernel_inputs,
-                              kernel_kernel_value_out,
-                              kernel_kernel_side_effect_out,
-                              kernel_kernel_metadata_out,
-                              main_calldata,
-                              alu_a_hi,
-                              alu_a_lo,
-                              alu_b_hi,
-                              alu_b_lo,
-                              alu_borrow,
-                              alu_cf,
-                              alu_clk,
-                              alu_cmp_rng_ctr,
-                              alu_div_u16_r0,
-                              alu_div_u16_r1,
-                              alu_div_u16_r2,
-                              alu_div_u16_r3,
-                              alu_div_u16_r4,
-                              alu_div_u16_r5,
-                              alu_div_u16_r6,
-                              alu_div_u16_r7,
-                              alu_divisor_hi,
-                              alu_divisor_lo,
-                              alu_ff_tag,
-                              alu_ia,
-                              alu_ib,
-                              alu_ic,
-                              alu_in_tag,
-                              alu_op_add,
-                              alu_op_cast,
-                              alu_op_cast_prev,
-                              alu_op_div,
-                              alu_op_div_a_lt_b,
-                              alu_op_div_std,
-                              alu_op_eq,
-                              alu_op_eq_diff_inv,
-                              alu_op_lt,
-                              alu_op_lte,
-                              alu_op_mul,
-                              alu_op_not,
-                              alu_op_shl,
-                              alu_op_shr,
-                              alu_op_sub,
-                              alu_p_a_borrow,
-                              alu_p_b_borrow,
-                              alu_p_sub_a_hi,
-                              alu_p_sub_a_lo,
-                              alu_p_sub_b_hi,
-                              alu_p_sub_b_lo,
-                              alu_partial_prod_hi,
-                              alu_partial_prod_lo,
-                              alu_quotient_hi,
-                              alu_quotient_lo,
-                              alu_remainder,
-                              alu_res_hi,
-                              alu_res_lo,
-                              alu_sel_alu,
-                              alu_sel_cmp,
-                              alu_sel_div_rng_chk,
-                              alu_sel_rng_chk,
-                              alu_sel_rng_chk_lookup,
-                              alu_sel_shift_which,
-                              alu_shift_lt_bit_len,
-                              alu_t_sub_s_bits,
-                              alu_two_pow_s,
-                              alu_two_pow_t_sub_s,
-                              alu_u128_tag,
-                              alu_u16_r0,
-                              alu_u16_r1,
-                              alu_u16_r10,
-                              alu_u16_r11,
-                              alu_u16_r12,
-                              alu_u16_r13,
-                              alu_u16_r14,
-                              alu_u16_r2,
-                              alu_u16_r3,
-                              alu_u16_r4,
-                              alu_u16_r5,
-                              alu_u16_r6,
-                              alu_u16_r7,
-                              alu_u16_r8,
-                              alu_u16_r9,
-                              alu_u16_tag,
-                              alu_u32_tag,
-                              alu_u64_tag,
-                              alu_u8_r0,
-                              alu_u8_r1,
-                              alu_u8_tag,
-                              binary_acc_ia,
-                              binary_acc_ib,
-                              binary_acc_ic,
-                              binary_clk,
-                              binary_ia_bytes,
-                              binary_ib_bytes,
-                              binary_ic_bytes,
-                              binary_in_tag,
-                              binary_mem_tag_ctr,
-                              binary_mem_tag_ctr_inv,
-                              binary_op_id,
-                              binary_sel_bin,
-                              binary_start,
-                              byte_lookup_sel_bin,
-                              byte_lookup_table_byte_lengths,
-                              byte_lookup_table_in_tags,
-                              byte_lookup_table_input_a,
-                              byte_lookup_table_input_b,
-                              byte_lookup_table_op_id,
-                              byte_lookup_table_output,
-                              conversion_clk,
-                              conversion_input,
-                              conversion_num_limbs,
-                              conversion_radix,
-                              conversion_sel_to_radix_le,
-                              gas_da_gas_fixed_table,
-                              gas_l2_gas_fixed_table,
-                              gas_sel_gas_cost,
-                              keccakf1600_clk,
-                              keccakf1600_input,
-                              keccakf1600_output,
-                              keccakf1600_sel_keccakf1600,
-                              kernel_emit_l2_to_l1_msg_write_offset,
-                              kernel_emit_note_hash_write_offset,
-                              kernel_emit_nullifier_write_offset,
-                              kernel_emit_unencrypted_log_write_offset,
-                              kernel_kernel_in_offset,
-                              kernel_kernel_out_offset,
-                              kernel_l1_to_l2_msg_exists_write_offset,
-                              kernel_note_hash_exist_write_offset,
-                              kernel_nullifier_exists_write_offset,
-                              kernel_nullifier_non_exists_write_offset,
-                              kernel_q_public_input_kernel_add_to_table,
-                              kernel_q_public_input_kernel_out_add_to_table,
-                              kernel_side_effect_counter,
-                              kernel_sload_write_offset,
-                              kernel_sstore_write_offset,
-                              main_abs_da_rem_gas_hi,
-                              main_abs_da_rem_gas_lo,
-                              main_abs_l2_rem_gas_hi,
-                              main_abs_l2_rem_gas_lo,
-                              main_alu_in_tag,
-                              main_bin_op_id,
-                              main_call_ptr,
-                              main_da_gas_op_cost,
-                              main_da_gas_remaining,
-                              main_da_out_of_gas,
-                              main_ia,
-                              main_ib,
-                              main_ic,
-                              main_id,
-                              main_id_zero,
-                              main_ind_addr_a,
-                              main_ind_addr_b,
-                              main_ind_addr_c,
-                              main_ind_addr_d,
-                              main_internal_return_ptr,
-                              main_inv,
-                              main_l2_gas_op_cost,
-                              main_l2_gas_remaining,
-                              main_l2_out_of_gas,
-                              main_mem_addr_a,
-                              main_mem_addr_b,
-                              main_mem_addr_c,
-                              main_mem_addr_d,
-                              main_op_err,
-                              main_opcode_val,
-                              main_pc,
-                              main_r_in_tag,
-                              main_rwa,
-                              main_rwb,
-                              main_rwc,
-                              main_rwd,
-                              main_sel_alu,
-                              main_sel_bin,
-                              main_sel_gas_accounting_active,
-                              main_sel_last,
-                              main_sel_mem_op_a,
-                              main_sel_mem_op_activate_gas,
-                              main_sel_mem_op_b,
-                              main_sel_mem_op_c,
-                              main_sel_mem_op_d,
-                              main_sel_mov_ia_to_ic,
-                              main_sel_mov_ib_to_ic,
-                              main_sel_op_add,
-                              main_sel_op_address,
-                              main_sel_op_and,
-                              main_sel_op_block_number,
-                              main_sel_op_cast,
-                              main_sel_op_chain_id,
-                              main_sel_op_cmov,
-                              main_sel_op_coinbase,
-                              main_sel_op_dagasleft,
-                              main_sel_op_div,
-                              main_sel_op_emit_l2_to_l1_msg,
-                              main_sel_op_emit_note_hash,
-                              main_sel_op_emit_nullifier,
-                              main_sel_op_emit_unencrypted_log,
-                              main_sel_op_eq,
-                              main_sel_op_external_call,
-                              main_sel_op_fdiv,
-                              main_sel_op_fee_per_da_gas,
-                              main_sel_op_fee_per_l2_gas,
-                              main_sel_op_function_selector,
-                              main_sel_op_get_contract_instance,
-                              main_sel_op_halt,
-                              main_sel_op_internal_call,
-                              main_sel_op_internal_return,
-                              main_sel_op_jump,
-                              main_sel_op_jumpi,
-                              main_sel_op_keccak,
-                              main_sel_op_l1_to_l2_msg_exists,
-                              main_sel_op_l2gasleft,
-                              main_sel_op_lt,
-                              main_sel_op_lte,
-                              main_sel_op_mov,
-                              main_sel_op_mul,
-                              main_sel_op_not,
-                              main_sel_op_note_hash_exists,
-                              main_sel_op_nullifier_exists,
-                              main_sel_op_or,
-                              main_sel_op_pedersen,
-                              main_sel_op_poseidon2,
-                              main_sel_op_radix_le,
-                              main_sel_op_sender,
-                              main_sel_op_sha256,
-                              main_sel_op_shl,
-                              main_sel_op_shr,
-                              main_sel_op_sload,
-                              main_sel_op_sstore,
-                              main_sel_op_storage_address,
-                              main_sel_op_sub,
-                              main_sel_op_timestamp,
-                              main_sel_op_transaction_fee,
-                              main_sel_op_version,
-                              main_sel_op_xor,
-                              main_sel_q_kernel_lookup,
-                              main_sel_q_kernel_output_lookup,
-                              main_sel_resolve_ind_addr_a,
-                              main_sel_resolve_ind_addr_b,
-                              main_sel_resolve_ind_addr_c,
-                              main_sel_resolve_ind_addr_d,
-                              main_sel_rng_16,
-                              main_sel_rng_8,
-                              main_space_id,
-                              main_tag_err,
-                              main_w_in_tag,
-                              mem_addr,
-                              mem_clk,
-                              mem_diff_hi,
-                              mem_diff_lo,
-                              mem_diff_mid,
-                              mem_glob_addr,
-                              mem_last,
-                              mem_lastAccess,
-                              mem_one_min_inv,
-                              mem_r_in_tag,
-                              mem_rw,
-                              mem_sel_mem,
-                              mem_sel_mov_ia_to_ic,
-                              mem_sel_mov_ib_to_ic,
-                              mem_sel_op_a,
-                              mem_sel_op_b,
-                              mem_sel_op_c,
-                              mem_sel_op_cmov,
-                              mem_sel_op_d,
-                              mem_sel_resolve_ind_addr_a,
-                              mem_sel_resolve_ind_addr_b,
-                              mem_sel_resolve_ind_addr_c,
-                              mem_sel_resolve_ind_addr_d,
-                              mem_sel_rng_chk,
-                              mem_skip_check_tag,
-                              mem_space_id,
-                              mem_tag,
-                              mem_tag_err,
-                              mem_tsp,
-                              mem_val,
-                              mem_w_in_tag,
-                              pedersen_clk,
-                              pedersen_input,
-                              pedersen_output,
-                              pedersen_sel_pedersen,
-                              poseidon2_a_0,
-                              poseidon2_a_1,
-                              poseidon2_a_2,
-                              poseidon2_a_3,
-                              poseidon2_b_0,
-                              poseidon2_b_1,
-                              poseidon2_b_2,
-                              poseidon2_b_3,
-                              poseidon2_clk,
-                              poseidon2_input,
-                              poseidon2_output,
-                              poseidon2_sel_poseidon_perm,
-                              powers_power_of_2,
-                              sha256_clk,
-                              sha256_input,
-                              sha256_output,
-                              sha256_sel_sha256_compression,
-                              sha256_state,
->>>>>>> e28ed4281 (feat(avm): poseidon2 constraints)
-                              perm_main_alu,
-                              perm_main_bin,
-                              perm_main_conv,
-                              perm_main_pos2_perm,
-                              perm_main_pedersen,
-                              perm_main_mem_a,
-                              perm_main_mem_b,
-                              perm_main_mem_c,
-                              perm_main_mem_d,
-                              perm_main_mem_ind_addr_a,
-                              perm_main_mem_ind_addr_b,
-                              perm_main_mem_ind_addr_c,
-                              perm_main_mem_ind_addr_d,
-                              lookup_byte_lengths,
-                              lookup_byte_operations,
-                              lookup_opcode_gas,
-                              range_check_l2_gas_hi,
-                              range_check_l2_gas_lo,
-                              range_check_da_gas_hi,
-                              range_check_da_gas_lo,
-                              kernel_output_lookup,
-                              lookup_into_kernel,
-                              incl_main_tag_err,
-                              incl_mem_tag_err,
-                              lookup_mem_rng_chk_lo,
-                              lookup_mem_rng_chk_mid,
-                              lookup_mem_rng_chk_hi,
-                              lookup_pow_2_0,
-                              lookup_pow_2_1,
-                              lookup_u8_0,
-                              lookup_u8_1,
-                              lookup_u16_0,
-                              lookup_u16_1,
-                              lookup_u16_2,
-                              lookup_u16_3,
-                              lookup_u16_4,
-                              lookup_u16_5,
-                              lookup_u16_6,
-                              lookup_u16_7,
-                              lookup_u16_8,
-                              lookup_u16_9,
-                              lookup_u16_10,
-                              lookup_u16_11,
-                              lookup_u16_12,
-                              lookup_u16_13,
-                              lookup_u16_14,
-                              lookup_div_u16_0,
-                              lookup_div_u16_1,
-                              lookup_div_u16_2,
-                              lookup_div_u16_3,
-                              lookup_div_u16_4,
-                              lookup_div_u16_5,
-                              lookup_div_u16_6,
-                              lookup_div_u16_7)
->>>>>>> 804a62263 (feat(avm): poseidon2 constraints)
     };
 
     template <typename DataType> class ShiftedEntities {
@@ -1401,1009 +281,11 @@ class AvmFlavor {
 
         auto get_unshifted()
         {
-<<<<<<< HEAD
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         }
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-=======
-            return { main_clk,
-                     main_sel_first,
-                     kernel_kernel_inputs,
-                     kernel_kernel_value_out,
-                     kernel_kernel_side_effect_out,
-                     kernel_kernel_metadata_out,
-                     main_calldata,
-                     alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_borrow,
-                     alu_cf,
-                     alu_clk,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_divisor_hi,
-                     alu_divisor_lo,
-                     alu_ff_tag,
-                     alu_ia,
-                     alu_ib,
-                     alu_ic,
-                     alu_in_tag,
-                     alu_op_add,
-                     alu_op_cast,
-                     alu_op_cast_prev,
-                     alu_op_div,
-                     alu_op_div_a_lt_b,
-                     alu_op_div_std,
-                     alu_op_eq,
-                     alu_op_eq_diff_inv,
-                     alu_op_lt,
-                     alu_op_lte,
-                     alu_op_mul,
-                     alu_op_not,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_a_borrow,
-                     alu_p_b_borrow,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_partial_prod_hi,
-                     alu_partial_prod_lo,
-                     alu_quotient_hi,
-                     alu_quotient_lo,
-                     alu_remainder,
-                     alu_res_hi,
-                     alu_res_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_shift_which,
-                     alu_shift_lt_bit_len,
-                     alu_t_sub_s_bits,
-                     alu_two_pow_s,
-                     alu_two_pow_t_sub_s,
-                     alu_u128_tag,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r10,
-                     alu_u16_r11,
-                     alu_u16_r12,
-                     alu_u16_r13,
-                     alu_u16_r14,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u16_r7,
-                     alu_u16_r8,
-                     alu_u16_r9,
-                     alu_u16_tag,
-                     alu_u32_tag,
-                     alu_u64_tag,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     alu_u8_tag,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_clk,
-                     binary_ia_bytes,
-                     binary_ib_bytes,
-                     binary_ic_bytes,
-                     binary_in_tag,
-                     binary_mem_tag_ctr,
-                     binary_mem_tag_ctr_inv,
-                     binary_op_id,
-                     binary_sel_bin,
-                     binary_start,
-                     byte_lookup_sel_bin,
-                     byte_lookup_table_byte_lengths,
-                     byte_lookup_table_in_tags,
-                     byte_lookup_table_input_a,
-                     byte_lookup_table_input_b,
-                     byte_lookup_table_op_id,
-                     byte_lookup_table_output,
-                     conversion_clk,
-                     conversion_input,
-                     conversion_num_limbs,
-                     conversion_radix,
-                     conversion_sel_to_radix_le,
-                     gas_da_gas_fixed_table,
-                     gas_l2_gas_fixed_table,
-                     gas_sel_gas_cost,
-                     keccakf1600_clk,
-                     keccakf1600_input,
-                     keccakf1600_output,
-                     keccakf1600_sel_keccakf1600,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_kernel_in_offset,
-                     kernel_kernel_out_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_q_public_input_kernel_add_to_table,
-                     kernel_q_public_input_kernel_out_add_to_table,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_abs_da_rem_gas_hi,
-                     main_abs_da_rem_gas_lo,
-                     main_abs_l2_rem_gas_hi,
-                     main_abs_l2_rem_gas_lo,
-                     main_alu_in_tag,
-                     main_bin_op_id,
-                     main_call_ptr,
-                     main_da_gas_op_cost,
-                     main_da_gas_remaining,
-                     main_da_out_of_gas,
-                     main_ia,
-                     main_ib,
-                     main_ic,
-                     main_id,
-                     main_id_zero,
-                     main_ind_addr_a,
-                     main_ind_addr_b,
-                     main_ind_addr_c,
-                     main_ind_addr_d,
-                     main_internal_return_ptr,
-                     main_inv,
-                     main_l2_gas_op_cost,
-                     main_l2_gas_remaining,
-                     main_l2_out_of_gas,
-                     main_mem_addr_a,
-                     main_mem_addr_b,
-                     main_mem_addr_c,
-                     main_mem_addr_d,
-                     main_op_err,
-                     main_opcode_val,
-                     main_pc,
-                     main_r_in_tag,
-                     main_rwa,
-                     main_rwb,
-                     main_rwc,
-                     main_rwd,
-                     main_sel_alu,
-                     main_sel_bin,
-                     main_sel_gas_accounting_active,
-                     main_sel_last,
-                     main_sel_mem_op_a,
-                     main_sel_mem_op_activate_gas,
-                     main_sel_mem_op_b,
-                     main_sel_mem_op_c,
-                     main_sel_mem_op_d,
-                     main_sel_mov_ia_to_ic,
-                     main_sel_mov_ib_to_ic,
-                     main_sel_op_add,
-                     main_sel_op_address,
-                     main_sel_op_and,
-                     main_sel_op_block_number,
-                     main_sel_op_cast,
-                     main_sel_op_chain_id,
-                     main_sel_op_cmov,
-                     main_sel_op_coinbase,
-                     main_sel_op_dagasleft,
-                     main_sel_op_div,
-                     main_sel_op_emit_l2_to_l1_msg,
-                     main_sel_op_emit_note_hash,
-                     main_sel_op_emit_nullifier,
-                     main_sel_op_emit_unencrypted_log,
-                     main_sel_op_eq,
-                     main_sel_op_external_call,
-                     main_sel_op_fdiv,
-                     main_sel_op_fee_per_da_gas,
-                     main_sel_op_fee_per_l2_gas,
-                     main_sel_op_function_selector,
-                     main_sel_op_get_contract_instance,
-                     main_sel_op_halt,
-                     main_sel_op_internal_call,
-                     main_sel_op_internal_return,
-                     main_sel_op_jump,
-                     main_sel_op_jumpi,
-                     main_sel_op_keccak,
-                     main_sel_op_l1_to_l2_msg_exists,
-                     main_sel_op_l2gasleft,
-                     main_sel_op_lt,
-                     main_sel_op_lte,
-                     main_sel_op_mov,
-                     main_sel_op_mul,
-                     main_sel_op_not,
-                     main_sel_op_note_hash_exists,
-                     main_sel_op_nullifier_exists,
-                     main_sel_op_or,
-                     main_sel_op_pedersen,
-                     main_sel_op_poseidon2,
-                     main_sel_op_radix_le,
-                     main_sel_op_sender,
-                     main_sel_op_sha256,
-                     main_sel_op_shl,
-                     main_sel_op_shr,
-                     main_sel_op_sload,
-                     main_sel_op_sstore,
-                     main_sel_op_storage_address,
-                     main_sel_op_sub,
-                     main_sel_op_timestamp,
-                     main_sel_op_transaction_fee,
-                     main_sel_op_version,
-                     main_sel_op_xor,
-                     main_sel_q_kernel_lookup,
-                     main_sel_q_kernel_output_lookup,
-                     main_sel_resolve_ind_addr_a,
-                     main_sel_resolve_ind_addr_b,
-                     main_sel_resolve_ind_addr_c,
-                     main_sel_resolve_ind_addr_d,
-                     main_sel_rng_16,
-                     main_sel_rng_8,
-                     main_space_id,
-                     main_tag_err,
-                     main_w_in_tag,
-                     mem_addr,
-                     mem_clk,
-                     mem_diff_hi,
-                     mem_diff_lo,
-                     mem_diff_mid,
-                     mem_glob_addr,
-                     mem_last,
-                     mem_lastAccess,
-                     mem_one_min_inv,
-                     mem_r_in_tag,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_sel_mov_ia_to_ic,
-                     mem_sel_mov_ib_to_ic,
-                     mem_sel_op_a,
-                     mem_sel_op_b,
-                     mem_sel_op_c,
-                     mem_sel_op_cmov,
-                     mem_sel_op_d,
-                     mem_sel_resolve_ind_addr_a,
-                     mem_sel_resolve_ind_addr_b,
-                     mem_sel_resolve_ind_addr_c,
-                     mem_sel_resolve_ind_addr_d,
-                     mem_sel_rng_chk,
-                     mem_skip_check_tag,
-                     mem_space_id,
-                     mem_tag,
-                     mem_tag_err,
-                     mem_tsp,
-                     mem_val,
-                     mem_w_in_tag,
-                     pedersen_clk,
-                     pedersen_input,
-                     pedersen_output,
-                     pedersen_sel_pedersen,
-                     poseidon2_a_0,
-                     poseidon2_a_1,
-                     poseidon2_a_2,
-                     poseidon2_a_3,
-                     poseidon2_b_0,
-                     poseidon2_b_1,
-                     poseidon2_b_2,
-                     poseidon2_b_3,
-                     poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
-                     poseidon2_sel_poseidon_perm,
-                     powers_power_of_2,
-                     sha256_clk,
-                     sha256_input,
-                     sha256_output,
-                     sha256_sel_sha256_compression,
-                     sha256_state,
-                     perm_main_alu,
-                     perm_main_bin,
-                     perm_main_conv,
-                     perm_main_pos2_perm,
-                     perm_main_pedersen,
-                     perm_main_mem_a,
-                     perm_main_mem_b,
-                     perm_main_mem_c,
-                     perm_main_mem_d,
-                     perm_main_mem_ind_addr_a,
-                     perm_main_mem_ind_addr_b,
-                     perm_main_mem_ind_addr_c,
-                     perm_main_mem_ind_addr_d,
-                     lookup_byte_lengths,
-                     lookup_byte_operations,
-                     lookup_opcode_gas,
-                     range_check_l2_gas_hi,
-                     range_check_l2_gas_lo,
-                     range_check_da_gas_hi,
-                     range_check_da_gas_lo,
-                     kernel_output_lookup,
-                     lookup_into_kernel,
-                     incl_main_tag_err,
-                     incl_mem_tag_err,
-                     lookup_mem_rng_chk_lo,
-                     lookup_mem_rng_chk_mid,
-                     lookup_mem_rng_chk_hi,
-                     lookup_pow_2_0,
-                     lookup_pow_2_1,
-                     lookup_u8_0,
-                     lookup_u8_1,
-                     lookup_u16_0,
-                     lookup_u16_1,
-                     lookup_u16_2,
-                     lookup_u16_3,
-                     lookup_u16_4,
-                     lookup_u16_5,
-                     lookup_u16_6,
-                     lookup_u16_7,
-                     lookup_u16_8,
-                     lookup_u16_9,
-                     lookup_u16_10,
-                     lookup_u16_11,
-                     lookup_u16_12,
-                     lookup_u16_13,
-                     lookup_u16_14,
-                     lookup_div_u16_0,
-                     lookup_div_u16_1,
-                     lookup_div_u16_2,
-                     lookup_div_u16_3,
-                     lookup_div_u16_4,
-                     lookup_div_u16_5,
-                     lookup_div_u16_6,
-                     lookup_div_u16_7,
-                     lookup_byte_lengths_counts,
-                     lookup_byte_operations_counts,
-                     lookup_opcode_gas_counts,
-                     range_check_l2_gas_hi_counts,
-                     range_check_l2_gas_lo_counts,
-                     range_check_da_gas_hi_counts,
-                     range_check_da_gas_lo_counts,
-                     kernel_output_lookup_counts,
-                     lookup_into_kernel_counts,
-                     incl_main_tag_err_counts,
-                     incl_mem_tag_err_counts,
-                     lookup_mem_rng_chk_lo_counts,
-                     lookup_mem_rng_chk_mid_counts,
-                     lookup_mem_rng_chk_hi_counts,
-                     lookup_pow_2_0_counts,
-                     lookup_pow_2_1_counts,
-                     lookup_u8_0_counts,
-                     lookup_u8_1_counts,
-                     lookup_u16_0_counts,
-                     lookup_u16_1_counts,
-                     lookup_u16_2_counts,
-                     lookup_u16_3_counts,
-                     lookup_u16_4_counts,
-                     lookup_u16_5_counts,
-                     lookup_u16_6_counts,
-                     lookup_u16_7_counts,
-                     lookup_u16_8_counts,
-                     lookup_u16_9_counts,
-                     lookup_u16_10_counts,
-                     lookup_u16_11_counts,
-                     lookup_u16_12_counts,
-                     lookup_u16_13_counts,
-                     lookup_u16_14_counts,
-                     lookup_div_u16_0_counts,
-                     lookup_div_u16_1_counts,
-                     lookup_div_u16_2_counts,
-                     lookup_div_u16_3_counts,
-                     lookup_div_u16_4_counts,
-                     lookup_div_u16_5_counts,
-                     lookup_div_u16_6_counts,
-                     lookup_div_u16_7_counts,
-                     alu_a_hi_shift,
-                     alu_a_lo_shift,
-                     alu_b_hi_shift,
-                     alu_b_lo_shift,
-                     alu_cmp_rng_ctr_shift,
-                     alu_div_u16_r0_shift,
-                     alu_div_u16_r1_shift,
-                     alu_div_u16_r2_shift,
-                     alu_div_u16_r3_shift,
-                     alu_div_u16_r4_shift,
-                     alu_div_u16_r5_shift,
-                     alu_div_u16_r6_shift,
-                     alu_div_u16_r7_shift,
-                     alu_op_add_shift,
-                     alu_op_cast_prev_shift,
-                     alu_op_cast_shift,
-                     alu_op_div_shift,
-                     alu_op_mul_shift,
-                     alu_op_shl_shift,
-                     alu_op_shr_shift,
-                     alu_op_sub_shift,
-                     alu_p_sub_a_hi_shift,
-                     alu_p_sub_a_lo_shift,
-                     alu_p_sub_b_hi_shift,
-                     alu_p_sub_b_lo_shift,
-                     alu_sel_alu_shift,
-                     alu_sel_cmp_shift,
-                     alu_sel_div_rng_chk_shift,
-                     alu_sel_rng_chk_lookup_shift,
-                     alu_sel_rng_chk_shift,
-                     alu_u16_r0_shift,
-                     alu_u16_r1_shift,
-                     alu_u16_r2_shift,
-                     alu_u16_r3_shift,
-                     alu_u16_r4_shift,
-                     alu_u16_r5_shift,
-                     alu_u16_r6_shift,
-                     alu_u8_r0_shift,
-                     alu_u8_r1_shift,
-                     binary_acc_ia_shift,
-                     binary_acc_ib_shift,
-                     binary_acc_ic_shift,
-                     binary_mem_tag_ctr_shift,
-                     binary_op_id_shift,
-                     kernel_emit_l2_to_l1_msg_write_offset_shift,
-                     kernel_emit_note_hash_write_offset_shift,
-                     kernel_emit_nullifier_write_offset_shift,
-                     kernel_emit_unencrypted_log_write_offset_shift,
-                     kernel_l1_to_l2_msg_exists_write_offset_shift,
-                     kernel_note_hash_exist_write_offset_shift,
-                     kernel_nullifier_exists_write_offset_shift,
-                     kernel_nullifier_non_exists_write_offset_shift,
-                     kernel_side_effect_counter_shift,
-                     kernel_sload_write_offset_shift,
-                     kernel_sstore_write_offset_shift,
-                     main_da_gas_remaining_shift,
-                     main_internal_return_ptr_shift,
-                     main_l2_gas_remaining_shift,
-                     main_pc_shift,
-                     mem_glob_addr_shift,
-                     mem_rw_shift,
-                     mem_sel_mem_shift,
-                     mem_tag_shift,
-                     mem_tsp_shift,
-                     mem_val_shift };
-        };
-        RefVector<DataType> get_unshifted()
-        {
-            return { main_clk,
-                     main_sel_first,
-                     kernel_kernel_inputs,
-                     kernel_kernel_value_out,
-                     kernel_kernel_side_effect_out,
-                     kernel_kernel_metadata_out,
-                     main_calldata,
-                     alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_borrow,
-                     alu_cf,
-                     alu_clk,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_divisor_hi,
-                     alu_divisor_lo,
-                     alu_ff_tag,
-                     alu_ia,
-                     alu_ib,
-                     alu_ic,
-                     alu_in_tag,
-                     alu_op_add,
-                     alu_op_cast,
-                     alu_op_cast_prev,
-                     alu_op_div,
-                     alu_op_div_a_lt_b,
-                     alu_op_div_std,
-                     alu_op_eq,
-                     alu_op_eq_diff_inv,
-                     alu_op_lt,
-                     alu_op_lte,
-                     alu_op_mul,
-                     alu_op_not,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_a_borrow,
-                     alu_p_b_borrow,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_partial_prod_hi,
-                     alu_partial_prod_lo,
-                     alu_quotient_hi,
-                     alu_quotient_lo,
-                     alu_remainder,
-                     alu_res_hi,
-                     alu_res_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_shift_which,
-                     alu_shift_lt_bit_len,
-                     alu_t_sub_s_bits,
-                     alu_two_pow_s,
-                     alu_two_pow_t_sub_s,
-                     alu_u128_tag,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r10,
-                     alu_u16_r11,
-                     alu_u16_r12,
-                     alu_u16_r13,
-                     alu_u16_r14,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u16_r7,
-                     alu_u16_r8,
-                     alu_u16_r9,
-                     alu_u16_tag,
-                     alu_u32_tag,
-                     alu_u64_tag,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     alu_u8_tag,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_clk,
-                     binary_ia_bytes,
-                     binary_ib_bytes,
-                     binary_ic_bytes,
-                     binary_in_tag,
-                     binary_mem_tag_ctr,
-                     binary_mem_tag_ctr_inv,
-                     binary_op_id,
-                     binary_sel_bin,
-                     binary_start,
-                     byte_lookup_sel_bin,
-                     byte_lookup_table_byte_lengths,
-                     byte_lookup_table_in_tags,
-                     byte_lookup_table_input_a,
-                     byte_lookup_table_input_b,
-                     byte_lookup_table_op_id,
-                     byte_lookup_table_output,
-                     conversion_clk,
-                     conversion_input,
-                     conversion_num_limbs,
-                     conversion_radix,
-                     conversion_sel_to_radix_le,
-                     gas_da_gas_fixed_table,
-                     gas_l2_gas_fixed_table,
-                     gas_sel_gas_cost,
-                     keccakf1600_clk,
-                     keccakf1600_input,
-                     keccakf1600_output,
-                     keccakf1600_sel_keccakf1600,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_kernel_in_offset,
-                     kernel_kernel_out_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_q_public_input_kernel_add_to_table,
-                     kernel_q_public_input_kernel_out_add_to_table,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_abs_da_rem_gas_hi,
-                     main_abs_da_rem_gas_lo,
-                     main_abs_l2_rem_gas_hi,
-                     main_abs_l2_rem_gas_lo,
-                     main_alu_in_tag,
-                     main_bin_op_id,
-                     main_call_ptr,
-                     main_da_gas_op_cost,
-                     main_da_gas_remaining,
-                     main_da_out_of_gas,
-                     main_ia,
-                     main_ib,
-                     main_ic,
-                     main_id,
-                     main_id_zero,
-                     main_ind_addr_a,
-                     main_ind_addr_b,
-                     main_ind_addr_c,
-                     main_ind_addr_d,
-                     main_internal_return_ptr,
-                     main_inv,
-                     main_l2_gas_op_cost,
-                     main_l2_gas_remaining,
-                     main_l2_out_of_gas,
-                     main_mem_addr_a,
-                     main_mem_addr_b,
-                     main_mem_addr_c,
-                     main_mem_addr_d,
-                     main_op_err,
-                     main_opcode_val,
-                     main_pc,
-                     main_r_in_tag,
-                     main_rwa,
-                     main_rwb,
-                     main_rwc,
-                     main_rwd,
-                     main_sel_alu,
-                     main_sel_bin,
-                     main_sel_gas_accounting_active,
-                     main_sel_last,
-                     main_sel_mem_op_a,
-                     main_sel_mem_op_activate_gas,
-                     main_sel_mem_op_b,
-                     main_sel_mem_op_c,
-                     main_sel_mem_op_d,
-                     main_sel_mov_ia_to_ic,
-                     main_sel_mov_ib_to_ic,
-                     main_sel_op_add,
-                     main_sel_op_address,
-                     main_sel_op_and,
-                     main_sel_op_block_number,
-                     main_sel_op_cast,
-                     main_sel_op_chain_id,
-                     main_sel_op_cmov,
-                     main_sel_op_coinbase,
-                     main_sel_op_dagasleft,
-                     main_sel_op_div,
-                     main_sel_op_emit_l2_to_l1_msg,
-                     main_sel_op_emit_note_hash,
-                     main_sel_op_emit_nullifier,
-                     main_sel_op_emit_unencrypted_log,
-                     main_sel_op_eq,
-                     main_sel_op_external_call,
-                     main_sel_op_fdiv,
-                     main_sel_op_fee_per_da_gas,
-                     main_sel_op_fee_per_l2_gas,
-                     main_sel_op_function_selector,
-                     main_sel_op_get_contract_instance,
-                     main_sel_op_halt,
-                     main_sel_op_internal_call,
-                     main_sel_op_internal_return,
-                     main_sel_op_jump,
-                     main_sel_op_jumpi,
-                     main_sel_op_keccak,
-                     main_sel_op_l1_to_l2_msg_exists,
-                     main_sel_op_l2gasleft,
-                     main_sel_op_lt,
-                     main_sel_op_lte,
-                     main_sel_op_mov,
-                     main_sel_op_mul,
-                     main_sel_op_not,
-                     main_sel_op_note_hash_exists,
-                     main_sel_op_nullifier_exists,
-                     main_sel_op_or,
-                     main_sel_op_pedersen,
-                     main_sel_op_poseidon2,
-                     main_sel_op_radix_le,
-                     main_sel_op_sender,
-                     main_sel_op_sha256,
-                     main_sel_op_shl,
-                     main_sel_op_shr,
-                     main_sel_op_sload,
-                     main_sel_op_sstore,
-                     main_sel_op_storage_address,
-                     main_sel_op_sub,
-                     main_sel_op_timestamp,
-                     main_sel_op_transaction_fee,
-                     main_sel_op_version,
-                     main_sel_op_xor,
-                     main_sel_q_kernel_lookup,
-                     main_sel_q_kernel_output_lookup,
-                     main_sel_resolve_ind_addr_a,
-                     main_sel_resolve_ind_addr_b,
-                     main_sel_resolve_ind_addr_c,
-                     main_sel_resolve_ind_addr_d,
-                     main_sel_rng_16,
-                     main_sel_rng_8,
-                     main_space_id,
-                     main_tag_err,
-                     main_w_in_tag,
-                     mem_addr,
-                     mem_clk,
-                     mem_diff_hi,
-                     mem_diff_lo,
-                     mem_diff_mid,
-                     mem_glob_addr,
-                     mem_last,
-                     mem_lastAccess,
-                     mem_one_min_inv,
-                     mem_r_in_tag,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_sel_mov_ia_to_ic,
-                     mem_sel_mov_ib_to_ic,
-                     mem_sel_op_a,
-                     mem_sel_op_b,
-                     mem_sel_op_c,
-                     mem_sel_op_cmov,
-                     mem_sel_op_d,
-                     mem_sel_resolve_ind_addr_a,
-                     mem_sel_resolve_ind_addr_b,
-                     mem_sel_resolve_ind_addr_c,
-                     mem_sel_resolve_ind_addr_d,
-                     mem_sel_rng_chk,
-                     mem_skip_check_tag,
-                     mem_space_id,
-                     mem_tag,
-                     mem_tag_err,
-                     mem_tsp,
-                     mem_val,
-                     mem_w_in_tag,
-                     pedersen_clk,
-                     pedersen_input,
-                     pedersen_output,
-                     pedersen_sel_pedersen,
-                     poseidon2_a_0,
-                     poseidon2_a_1,
-                     poseidon2_a_2,
-                     poseidon2_a_3,
-                     poseidon2_b_0,
-                     poseidon2_b_1,
-                     poseidon2_b_2,
-                     poseidon2_b_3,
-                     poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
-                     poseidon2_sel_poseidon_perm,
-                     powers_power_of_2,
-                     sha256_clk,
-                     sha256_input,
-                     sha256_output,
-                     sha256_sel_sha256_compression,
-                     sha256_state,
-                     perm_main_alu,
-                     perm_main_bin,
-                     perm_main_conv,
-                     perm_main_pos2_perm,
-                     perm_main_pedersen,
-                     perm_main_mem_a,
-                     perm_main_mem_b,
-                     perm_main_mem_c,
-                     perm_main_mem_d,
-                     perm_main_mem_ind_addr_a,
-                     perm_main_mem_ind_addr_b,
-                     perm_main_mem_ind_addr_c,
-                     perm_main_mem_ind_addr_d,
-                     lookup_byte_lengths,
-                     lookup_byte_operations,
-                     lookup_opcode_gas,
-                     range_check_l2_gas_hi,
-                     range_check_l2_gas_lo,
-                     range_check_da_gas_hi,
-                     range_check_da_gas_lo,
-                     kernel_output_lookup,
-                     lookup_into_kernel,
-                     incl_main_tag_err,
-                     incl_mem_tag_err,
-                     lookup_mem_rng_chk_lo,
-                     lookup_mem_rng_chk_mid,
-                     lookup_mem_rng_chk_hi,
-                     lookup_pow_2_0,
-                     lookup_pow_2_1,
-                     lookup_u8_0,
-                     lookup_u8_1,
-                     lookup_u16_0,
-                     lookup_u16_1,
-                     lookup_u16_2,
-                     lookup_u16_3,
-                     lookup_u16_4,
-                     lookup_u16_5,
-                     lookup_u16_6,
-                     lookup_u16_7,
-                     lookup_u16_8,
-                     lookup_u16_9,
-                     lookup_u16_10,
-                     lookup_u16_11,
-                     lookup_u16_12,
-                     lookup_u16_13,
-                     lookup_u16_14,
-                     lookup_div_u16_0,
-                     lookup_div_u16_1,
-                     lookup_div_u16_2,
-                     lookup_div_u16_3,
-                     lookup_div_u16_4,
-                     lookup_div_u16_5,
-                     lookup_div_u16_6,
-                     lookup_div_u16_7,
-                     lookup_byte_lengths_counts,
-                     lookup_byte_operations_counts,
-                     lookup_opcode_gas_counts,
-                     range_check_l2_gas_hi_counts,
-                     range_check_l2_gas_lo_counts,
-                     range_check_da_gas_hi_counts,
-                     range_check_da_gas_lo_counts,
-                     kernel_output_lookup_counts,
-                     lookup_into_kernel_counts,
-                     incl_main_tag_err_counts,
-                     incl_mem_tag_err_counts,
-                     lookup_mem_rng_chk_lo_counts,
-                     lookup_mem_rng_chk_mid_counts,
-                     lookup_mem_rng_chk_hi_counts,
-                     lookup_pow_2_0_counts,
-                     lookup_pow_2_1_counts,
-                     lookup_u8_0_counts,
-                     lookup_u8_1_counts,
-                     lookup_u16_0_counts,
-                     lookup_u16_1_counts,
-                     lookup_u16_2_counts,
-                     lookup_u16_3_counts,
-                     lookup_u16_4_counts,
-                     lookup_u16_5_counts,
-                     lookup_u16_6_counts,
-                     lookup_u16_7_counts,
-                     lookup_u16_8_counts,
-                     lookup_u16_9_counts,
-                     lookup_u16_10_counts,
-                     lookup_u16_11_counts,
-                     lookup_u16_12_counts,
-                     lookup_u16_13_counts,
-                     lookup_u16_14_counts,
-                     lookup_div_u16_0_counts,
-                     lookup_div_u16_1_counts,
-                     lookup_div_u16_2_counts,
-                     lookup_div_u16_3_counts,
-                     lookup_div_u16_4_counts,
-                     lookup_div_u16_5_counts,
-                     lookup_div_u16_6_counts,
-                     lookup_div_u16_7_counts };
-        };
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return { alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_op_add,
-                     alu_op_cast_prev,
-                     alu_op_cast,
-                     alu_op_div,
-                     alu_op_mul,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_rng_chk,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_mem_tag_ctr,
-                     binary_op_id,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_da_gas_remaining,
-                     main_internal_return_ptr,
-                     main_l2_gas_remaining,
-                     main_pc,
-                     mem_glob_addr,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_tag,
-                     mem_tsp,
-                     mem_val };
-        };
-        RefVector<DataType> get_shifted()
-        {
-            return { alu_a_hi_shift,
-                     alu_a_lo_shift,
-                     alu_b_hi_shift,
-                     alu_b_lo_shift,
-                     alu_cmp_rng_ctr_shift,
-                     alu_div_u16_r0_shift,
-                     alu_div_u16_r1_shift,
-                     alu_div_u16_r2_shift,
-                     alu_div_u16_r3_shift,
-                     alu_div_u16_r4_shift,
-                     alu_div_u16_r5_shift,
-                     alu_div_u16_r6_shift,
-                     alu_div_u16_r7_shift,
-                     alu_op_add_shift,
-                     alu_op_cast_prev_shift,
-                     alu_op_cast_shift,
-                     alu_op_div_shift,
-                     alu_op_mul_shift,
-                     alu_op_shl_shift,
-                     alu_op_shr_shift,
-                     alu_op_sub_shift,
-                     alu_p_sub_a_hi_shift,
-                     alu_p_sub_a_lo_shift,
-                     alu_p_sub_b_hi_shift,
-                     alu_p_sub_b_lo_shift,
-                     alu_sel_alu_shift,
-                     alu_sel_cmp_shift,
-                     alu_sel_div_rng_chk_shift,
-                     alu_sel_rng_chk_lookup_shift,
-                     alu_sel_rng_chk_shift,
-                     alu_u16_r0_shift,
-                     alu_u16_r1_shift,
-                     alu_u16_r2_shift,
-                     alu_u16_r3_shift,
-                     alu_u16_r4_shift,
-                     alu_u16_r5_shift,
-                     alu_u16_r6_shift,
-                     alu_u8_r0_shift,
-                     alu_u8_r1_shift,
-                     binary_acc_ia_shift,
-                     binary_acc_ib_shift,
-                     binary_acc_ic_shift,
-                     binary_mem_tag_ctr_shift,
-                     binary_op_id_shift,
-                     kernel_emit_l2_to_l1_msg_write_offset_shift,
-                     kernel_emit_note_hash_write_offset_shift,
-                     kernel_emit_nullifier_write_offset_shift,
-                     kernel_emit_unencrypted_log_write_offset_shift,
-                     kernel_l1_to_l2_msg_exists_write_offset_shift,
-                     kernel_note_hash_exist_write_offset_shift,
-                     kernel_nullifier_exists_write_offset_shift,
-                     kernel_nullifier_non_exists_write_offset_shift,
-                     kernel_side_effect_counter_shift,
-                     kernel_sload_write_offset_shift,
-                     kernel_sstore_write_offset_shift,
-                     main_da_gas_remaining_shift,
-                     main_internal_return_ptr_shift,
-                     main_l2_gas_remaining_shift,
-                     main_pc_shift,
-                     mem_glob_addr_shift,
-                     mem_rw_shift,
-                     mem_sel_mem_shift,
-                     mem_tag_shift,
-                     mem_tsp_shift,
-                     mem_val_shift };
-        };
->>>>>>> e28ed4281 (feat(avm): poseidon2 constraints)
     };
 
   public:
@@ -2431,7 +313,7 @@ class AvmFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, ALL_ENTITIES)
 
-        AllConstRefValues(const RefArray<FF const, 485>& il)
+        AllConstRefValues(const RefArray<FF const, 775>& il)
             : main_clk(il[0])
             , main_sel_first(il[1])
             , kernel_kernel_inputs(il[2])
@@ -2704,219 +586,509 @@ class AvmFlavor {
             , mem_sel_op_c(il[269])
             , mem_sel_op_cmov(il[270])
             , mem_sel_op_d(il[271])
-            , mem_sel_op_slice(il[272])
-            , mem_sel_resolve_ind_addr_a(il[273])
-            , mem_sel_resolve_ind_addr_b(il[274])
-            , mem_sel_resolve_ind_addr_c(il[275])
-            , mem_sel_resolve_ind_addr_d(il[276])
-            , mem_sel_rng_chk(il[277])
-            , mem_skip_check_tag(il[278])
-            , mem_space_id(il[279])
-            , mem_tag(il[280])
-            , mem_tag_err(il[281])
-            , mem_tsp(il[282])
-            , mem_val(il[283])
-            , mem_w_in_tag(il[284])
-            , pedersen_clk(il[285])
-            , pedersen_input(il[286])
-            , pedersen_output(il[287])
-            , pedersen_sel_pedersen(il[288])
-            , poseidon2_clk(il[289])
-            , poseidon2_input(il[290])
-            , poseidon2_output(il[291])
-            , poseidon2_sel_poseidon_perm(il[292])
-            , powers_power_of_2(il[293])
-            , sha256_clk(il[294])
-            , sha256_input(il[295])
-            , sha256_output(il[296])
-            , sha256_sel_sha256_compression(il[297])
-            , sha256_state(il[298])
-            , slice_addr(il[299])
-            , slice_clk(il[300])
-            , slice_cnt(il[301])
-            , slice_col_offset(il[302])
-            , slice_one_min_inv(il[303])
-            , slice_sel_cd_cpy(il[304])
-            , slice_sel_mem_active(il[305])
-            , slice_sel_return(il[306])
-            , slice_sel_start(il[307])
-            , slice_space_id(il[308])
-            , slice_val(il[309])
-            , lookup_byte_lengths_counts(il[310])
-            , lookup_byte_operations_counts(il[311])
-            , lookup_cd_value_counts(il[312])
-            , lookup_ret_value_counts(il[313])
-            , lookup_opcode_gas_counts(il[314])
-            , range_check_l2_gas_hi_counts(il[315])
-            , range_check_l2_gas_lo_counts(il[316])
-            , range_check_da_gas_hi_counts(il[317])
-            , range_check_da_gas_lo_counts(il[318])
-            , kernel_output_lookup_counts(il[319])
-            , lookup_into_kernel_counts(il[320])
-            , incl_main_tag_err_counts(il[321])
-            , incl_mem_tag_err_counts(il[322])
-            , lookup_mem_rng_chk_lo_counts(il[323])
-            , lookup_mem_rng_chk_mid_counts(il[324])
-            , lookup_mem_rng_chk_hi_counts(il[325])
-            , lookup_pow_2_0_counts(il[326])
-            , lookup_pow_2_1_counts(il[327])
-            , lookup_u8_0_counts(il[328])
-            , lookup_u8_1_counts(il[329])
-            , lookup_u16_0_counts(il[330])
-            , lookup_u16_1_counts(il[331])
-            , lookup_u16_2_counts(il[332])
-            , lookup_u16_3_counts(il[333])
-            , lookup_u16_4_counts(il[334])
-            , lookup_u16_5_counts(il[335])
-            , lookup_u16_6_counts(il[336])
-            , lookup_u16_7_counts(il[337])
-            , lookup_u16_8_counts(il[338])
-            , lookup_u16_9_counts(il[339])
-            , lookup_u16_10_counts(il[340])
-            , lookup_u16_11_counts(il[341])
-            , lookup_u16_12_counts(il[342])
-            , lookup_u16_13_counts(il[343])
-            , lookup_u16_14_counts(il[344])
-            , lookup_div_u16_0_counts(il[345])
-            , lookup_div_u16_1_counts(il[346])
-            , lookup_div_u16_2_counts(il[347])
-            , lookup_div_u16_3_counts(il[348])
-            , lookup_div_u16_4_counts(il[349])
-            , lookup_div_u16_5_counts(il[350])
-            , lookup_div_u16_6_counts(il[351])
-            , lookup_div_u16_7_counts(il[352])
-            , perm_slice_mem(il[353])
-            , perm_main_alu(il[354])
-            , perm_main_bin(il[355])
-            , perm_main_conv(il[356])
-            , perm_main_pos2_perm(il[357])
-            , perm_main_pedersen(il[358])
-            , perm_main_slice(il[359])
-            , perm_main_mem_a(il[360])
-            , perm_main_mem_b(il[361])
-            , perm_main_mem_c(il[362])
-            , perm_main_mem_d(il[363])
-            , perm_main_mem_ind_addr_a(il[364])
-            , perm_main_mem_ind_addr_b(il[365])
-            , perm_main_mem_ind_addr_c(il[366])
-            , perm_main_mem_ind_addr_d(il[367])
-            , lookup_byte_lengths(il[368])
-            , lookup_byte_operations(il[369])
-            , lookup_cd_value(il[370])
-            , lookup_ret_value(il[371])
-            , lookup_opcode_gas(il[372])
-            , range_check_l2_gas_hi(il[373])
-            , range_check_l2_gas_lo(il[374])
-            , range_check_da_gas_hi(il[375])
-            , range_check_da_gas_lo(il[376])
-            , kernel_output_lookup(il[377])
-            , lookup_into_kernel(il[378])
-            , incl_main_tag_err(il[379])
-            , incl_mem_tag_err(il[380])
-            , lookup_mem_rng_chk_lo(il[381])
-            , lookup_mem_rng_chk_mid(il[382])
-            , lookup_mem_rng_chk_hi(il[383])
-            , lookup_pow_2_0(il[384])
-            , lookup_pow_2_1(il[385])
-            , lookup_u8_0(il[386])
-            , lookup_u8_1(il[387])
-            , lookup_u16_0(il[388])
-            , lookup_u16_1(il[389])
-            , lookup_u16_2(il[390])
-            , lookup_u16_3(il[391])
-            , lookup_u16_4(il[392])
-            , lookup_u16_5(il[393])
-            , lookup_u16_6(il[394])
-            , lookup_u16_7(il[395])
-            , lookup_u16_8(il[396])
-            , lookup_u16_9(il[397])
-            , lookup_u16_10(il[398])
-            , lookup_u16_11(il[399])
-            , lookup_u16_12(il[400])
-            , lookup_u16_13(il[401])
-            , lookup_u16_14(il[402])
-            , lookup_div_u16_0(il[403])
-            , lookup_div_u16_1(il[404])
-            , lookup_div_u16_2(il[405])
-            , lookup_div_u16_3(il[406])
-            , lookup_div_u16_4(il[407])
-            , lookup_div_u16_5(il[408])
-            , lookup_div_u16_6(il[409])
-            , lookup_div_u16_7(il[410])
-            , alu_a_hi_shift(il[411])
-            , alu_a_lo_shift(il[412])
-            , alu_b_hi_shift(il[413])
-            , alu_b_lo_shift(il[414])
-            , alu_cmp_rng_ctr_shift(il[415])
-            , alu_div_u16_r0_shift(il[416])
-            , alu_div_u16_r1_shift(il[417])
-            , alu_div_u16_r2_shift(il[418])
-            , alu_div_u16_r3_shift(il[419])
-            , alu_div_u16_r4_shift(il[420])
-            , alu_div_u16_r5_shift(il[421])
-            , alu_div_u16_r6_shift(il[422])
-            , alu_div_u16_r7_shift(il[423])
-            , alu_op_add_shift(il[424])
-            , alu_op_cast_prev_shift(il[425])
-            , alu_op_cast_shift(il[426])
-            , alu_op_div_shift(il[427])
-            , alu_op_mul_shift(il[428])
-            , alu_op_shl_shift(il[429])
-            , alu_op_shr_shift(il[430])
-            , alu_op_sub_shift(il[431])
-            , alu_p_sub_a_hi_shift(il[432])
-            , alu_p_sub_a_lo_shift(il[433])
-            , alu_p_sub_b_hi_shift(il[434])
-            , alu_p_sub_b_lo_shift(il[435])
-            , alu_sel_alu_shift(il[436])
-            , alu_sel_cmp_shift(il[437])
-            , alu_sel_div_rng_chk_shift(il[438])
-            , alu_sel_rng_chk_lookup_shift(il[439])
-            , alu_sel_rng_chk_shift(il[440])
-            , alu_u16_r0_shift(il[441])
-            , alu_u16_r1_shift(il[442])
-            , alu_u16_r2_shift(il[443])
-            , alu_u16_r3_shift(il[444])
-            , alu_u16_r4_shift(il[445])
-            , alu_u16_r5_shift(il[446])
-            , alu_u16_r6_shift(il[447])
-            , alu_u8_r0_shift(il[448])
-            , alu_u8_r1_shift(il[449])
-            , binary_acc_ia_shift(il[450])
-            , binary_acc_ib_shift(il[451])
-            , binary_acc_ic_shift(il[452])
-            , binary_mem_tag_ctr_shift(il[453])
-            , binary_op_id_shift(il[454])
-            , kernel_emit_l2_to_l1_msg_write_offset_shift(il[455])
-            , kernel_emit_note_hash_write_offset_shift(il[456])
-            , kernel_emit_nullifier_write_offset_shift(il[457])
-            , kernel_emit_unencrypted_log_write_offset_shift(il[458])
-            , kernel_l1_to_l2_msg_exists_write_offset_shift(il[459])
-            , kernel_note_hash_exist_write_offset_shift(il[460])
-            , kernel_nullifier_exists_write_offset_shift(il[461])
-            , kernel_nullifier_non_exists_write_offset_shift(il[462])
-            , kernel_side_effect_counter_shift(il[463])
-            , kernel_sload_write_offset_shift(il[464])
-            , kernel_sstore_write_offset_shift(il[465])
-            , main_da_gas_remaining_shift(il[466])
-            , main_internal_return_ptr_shift(il[467])
-            , main_l2_gas_remaining_shift(il[468])
-            , main_pc_shift(il[469])
-            , mem_glob_addr_shift(il[470])
-            , mem_rw_shift(il[471])
-            , mem_sel_mem_shift(il[472])
-            , mem_tag_shift(il[473])
-            , mem_tsp_shift(il[474])
-            , mem_val_shift(il[475])
-            , slice_addr_shift(il[476])
-            , slice_clk_shift(il[477])
-            , slice_cnt_shift(il[478])
-            , slice_col_offset_shift(il[479])
-            , slice_sel_cd_cpy_shift(il[480])
-            , slice_sel_mem_active_shift(il[481])
-            , slice_sel_return_shift(il[482])
-            , slice_sel_start_shift(il[483])
-            , slice_space_id_shift(il[484])
+            , mem_sel_op_gadget_a(il[272])
+            , mem_sel_op_gadget_b(il[273])
+            , mem_sel_op_gadget_c(il[274])
+            , mem_sel_op_gadget_d(il[275])
+            , mem_sel_op_slice(il[276])
+            , mem_sel_resolve_ind_addr_a(il[277])
+            , mem_sel_resolve_ind_addr_b(il[278])
+            , mem_sel_resolve_ind_addr_c(il[279])
+            , mem_sel_resolve_ind_addr_d(il[280])
+            , mem_sel_rng_chk(il[281])
+            , mem_skip_check_tag(il[282])
+            , mem_space_id(il[283])
+            , mem_tag(il[284])
+            , mem_tag_err(il[285])
+            , mem_tsp(il[286])
+            , mem_val(il[287])
+            , mem_w_in_tag(il[288])
+            , pedersen_clk(il[289])
+            , pedersen_input(il[290])
+            , pedersen_output(il[291])
+            , pedersen_sel_pedersen(il[292])
+            , poseidon2_B_10_0(il[293])
+            , poseidon2_B_10_1(il[294])
+            , poseidon2_B_10_2(il[295])
+            , poseidon2_B_10_3(il[296])
+            , poseidon2_B_11_0(il[297])
+            , poseidon2_B_11_1(il[298])
+            , poseidon2_B_11_2(il[299])
+            , poseidon2_B_11_3(il[300])
+            , poseidon2_B_12_0(il[301])
+            , poseidon2_B_12_1(il[302])
+            , poseidon2_B_12_2(il[303])
+            , poseidon2_B_12_3(il[304])
+            , poseidon2_B_13_0(il[305])
+            , poseidon2_B_13_1(il[306])
+            , poseidon2_B_13_2(il[307])
+            , poseidon2_B_13_3(il[308])
+            , poseidon2_B_14_0(il[309])
+            , poseidon2_B_14_1(il[310])
+            , poseidon2_B_14_2(il[311])
+            , poseidon2_B_14_3(il[312])
+            , poseidon2_B_15_0(il[313])
+            , poseidon2_B_15_1(il[314])
+            , poseidon2_B_15_2(il[315])
+            , poseidon2_B_15_3(il[316])
+            , poseidon2_B_16_0(il[317])
+            , poseidon2_B_16_1(il[318])
+            , poseidon2_B_16_2(il[319])
+            , poseidon2_B_16_3(il[320])
+            , poseidon2_B_17_0(il[321])
+            , poseidon2_B_17_1(il[322])
+            , poseidon2_B_17_2(il[323])
+            , poseidon2_B_17_3(il[324])
+            , poseidon2_B_18_0(il[325])
+            , poseidon2_B_18_1(il[326])
+            , poseidon2_B_18_2(il[327])
+            , poseidon2_B_18_3(il[328])
+            , poseidon2_B_19_0(il[329])
+            , poseidon2_B_19_1(il[330])
+            , poseidon2_B_19_2(il[331])
+            , poseidon2_B_19_3(il[332])
+            , poseidon2_B_20_0(il[333])
+            , poseidon2_B_20_1(il[334])
+            , poseidon2_B_20_2(il[335])
+            , poseidon2_B_20_3(il[336])
+            , poseidon2_B_21_0(il[337])
+            , poseidon2_B_21_1(il[338])
+            , poseidon2_B_21_2(il[339])
+            , poseidon2_B_21_3(il[340])
+            , poseidon2_B_22_0(il[341])
+            , poseidon2_B_22_1(il[342])
+            , poseidon2_B_22_2(il[343])
+            , poseidon2_B_22_3(il[344])
+            , poseidon2_B_23_0(il[345])
+            , poseidon2_B_23_1(il[346])
+            , poseidon2_B_23_2(il[347])
+            , poseidon2_B_23_3(il[348])
+            , poseidon2_B_24_0(il[349])
+            , poseidon2_B_24_1(il[350])
+            , poseidon2_B_24_2(il[351])
+            , poseidon2_B_24_3(il[352])
+            , poseidon2_B_25_0(il[353])
+            , poseidon2_B_25_1(il[354])
+            , poseidon2_B_25_2(il[355])
+            , poseidon2_B_25_3(il[356])
+            , poseidon2_B_26_0(il[357])
+            , poseidon2_B_26_1(il[358])
+            , poseidon2_B_26_2(il[359])
+            , poseidon2_B_26_3(il[360])
+            , poseidon2_B_27_0(il[361])
+            , poseidon2_B_27_1(il[362])
+            , poseidon2_B_27_2(il[363])
+            , poseidon2_B_27_3(il[364])
+            , poseidon2_B_28_0(il[365])
+            , poseidon2_B_28_1(il[366])
+            , poseidon2_B_28_2(il[367])
+            , poseidon2_B_28_3(il[368])
+            , poseidon2_B_29_0(il[369])
+            , poseidon2_B_29_1(il[370])
+            , poseidon2_B_29_2(il[371])
+            , poseidon2_B_29_3(il[372])
+            , poseidon2_B_30_0(il[373])
+            , poseidon2_B_30_1(il[374])
+            , poseidon2_B_30_2(il[375])
+            , poseidon2_B_30_3(il[376])
+            , poseidon2_B_31_0(il[377])
+            , poseidon2_B_31_1(il[378])
+            , poseidon2_B_31_2(il[379])
+            , poseidon2_B_31_3(il[380])
+            , poseidon2_B_32_0(il[381])
+            , poseidon2_B_32_1(il[382])
+            , poseidon2_B_32_2(il[383])
+            , poseidon2_B_32_3(il[384])
+            , poseidon2_B_33_0(il[385])
+            , poseidon2_B_33_1(il[386])
+            , poseidon2_B_33_2(il[387])
+            , poseidon2_B_33_3(il[388])
+            , poseidon2_B_34_0(il[389])
+            , poseidon2_B_34_1(il[390])
+            , poseidon2_B_34_2(il[391])
+            , poseidon2_B_34_3(il[392])
+            , poseidon2_B_35_0(il[393])
+            , poseidon2_B_35_1(il[394])
+            , poseidon2_B_35_2(il[395])
+            , poseidon2_B_35_3(il[396])
+            , poseidon2_B_36_0(il[397])
+            , poseidon2_B_36_1(il[398])
+            , poseidon2_B_36_2(il[399])
+            , poseidon2_B_36_3(il[400])
+            , poseidon2_B_37_0(il[401])
+            , poseidon2_B_37_1(il[402])
+            , poseidon2_B_37_2(il[403])
+            , poseidon2_B_37_3(il[404])
+            , poseidon2_B_38_0(il[405])
+            , poseidon2_B_38_1(il[406])
+            , poseidon2_B_38_2(il[407])
+            , poseidon2_B_38_3(il[408])
+            , poseidon2_B_39_0(il[409])
+            , poseidon2_B_39_1(il[410])
+            , poseidon2_B_39_2(il[411])
+            , poseidon2_B_39_3(il[412])
+            , poseidon2_B_40_0(il[413])
+            , poseidon2_B_40_1(il[414])
+            , poseidon2_B_40_2(il[415])
+            , poseidon2_B_40_3(il[416])
+            , poseidon2_B_41_0(il[417])
+            , poseidon2_B_41_1(il[418])
+            , poseidon2_B_41_2(il[419])
+            , poseidon2_B_41_3(il[420])
+            , poseidon2_B_42_0(il[421])
+            , poseidon2_B_42_1(il[422])
+            , poseidon2_B_42_2(il[423])
+            , poseidon2_B_42_3(il[424])
+            , poseidon2_B_43_0(il[425])
+            , poseidon2_B_43_1(il[426])
+            , poseidon2_B_43_2(il[427])
+            , poseidon2_B_43_3(il[428])
+            , poseidon2_B_44_0(il[429])
+            , poseidon2_B_44_1(il[430])
+            , poseidon2_B_44_2(il[431])
+            , poseidon2_B_44_3(il[432])
+            , poseidon2_B_45_0(il[433])
+            , poseidon2_B_45_1(il[434])
+            , poseidon2_B_45_2(il[435])
+            , poseidon2_B_45_3(il[436])
+            , poseidon2_B_46_0(il[437])
+            , poseidon2_B_46_1(il[438])
+            , poseidon2_B_46_2(il[439])
+            , poseidon2_B_46_3(il[440])
+            , poseidon2_B_47_0(il[441])
+            , poseidon2_B_47_1(il[442])
+            , poseidon2_B_47_2(il[443])
+            , poseidon2_B_47_3(il[444])
+            , poseidon2_B_48_0(il[445])
+            , poseidon2_B_48_1(il[446])
+            , poseidon2_B_48_2(il[447])
+            , poseidon2_B_48_3(il[448])
+            , poseidon2_B_49_0(il[449])
+            , poseidon2_B_49_1(il[450])
+            , poseidon2_B_49_2(il[451])
+            , poseidon2_B_49_3(il[452])
+            , poseidon2_B_4_0(il[453])
+            , poseidon2_B_4_1(il[454])
+            , poseidon2_B_4_2(il[455])
+            , poseidon2_B_4_3(il[456])
+            , poseidon2_B_50_0(il[457])
+            , poseidon2_B_50_1(il[458])
+            , poseidon2_B_50_2(il[459])
+            , poseidon2_B_50_3(il[460])
+            , poseidon2_B_51_0(il[461])
+            , poseidon2_B_51_1(il[462])
+            , poseidon2_B_51_2(il[463])
+            , poseidon2_B_51_3(il[464])
+            , poseidon2_B_52_0(il[465])
+            , poseidon2_B_52_1(il[466])
+            , poseidon2_B_52_2(il[467])
+            , poseidon2_B_52_3(il[468])
+            , poseidon2_B_53_0(il[469])
+            , poseidon2_B_53_1(il[470])
+            , poseidon2_B_53_2(il[471])
+            , poseidon2_B_53_3(il[472])
+            , poseidon2_B_54_0(il[473])
+            , poseidon2_B_54_1(il[474])
+            , poseidon2_B_54_2(il[475])
+            , poseidon2_B_54_3(il[476])
+            , poseidon2_B_55_0(il[477])
+            , poseidon2_B_55_1(il[478])
+            , poseidon2_B_55_2(il[479])
+            , poseidon2_B_55_3(il[480])
+            , poseidon2_B_56_0(il[481])
+            , poseidon2_B_56_1(il[482])
+            , poseidon2_B_56_2(il[483])
+            , poseidon2_B_56_3(il[484])
+            , poseidon2_B_57_0(il[485])
+            , poseidon2_B_57_1(il[486])
+            , poseidon2_B_57_2(il[487])
+            , poseidon2_B_57_3(il[488])
+            , poseidon2_B_58_0(il[489])
+            , poseidon2_B_58_1(il[490])
+            , poseidon2_B_58_2(il[491])
+            , poseidon2_B_58_3(il[492])
+            , poseidon2_B_59_0(il[493])
+            , poseidon2_B_59_1(il[494])
+            , poseidon2_B_59_2(il[495])
+            , poseidon2_B_59_3(il[496])
+            , poseidon2_B_5_0(il[497])
+            , poseidon2_B_5_1(il[498])
+            , poseidon2_B_5_2(il[499])
+            , poseidon2_B_5_3(il[500])
+            , poseidon2_B_6_0(il[501])
+            , poseidon2_B_6_1(il[502])
+            , poseidon2_B_6_2(il[503])
+            , poseidon2_B_6_3(il[504])
+            , poseidon2_B_7_0(il[505])
+            , poseidon2_B_7_1(il[506])
+            , poseidon2_B_7_2(il[507])
+            , poseidon2_B_7_3(il[508])
+            , poseidon2_B_8_0(il[509])
+            , poseidon2_B_8_1(il[510])
+            , poseidon2_B_8_2(il[511])
+            , poseidon2_B_8_3(il[512])
+            , poseidon2_B_9_0(il[513])
+            , poseidon2_B_9_1(il[514])
+            , poseidon2_B_9_2(il[515])
+            , poseidon2_B_9_3(il[516])
+            , poseidon2_EXT_LAYER_4(il[517])
+            , poseidon2_EXT_LAYER_5(il[518])
+            , poseidon2_EXT_LAYER_6(il[519])
+            , poseidon2_EXT_LAYER_7(il[520])
+            , poseidon2_T_0_4(il[521])
+            , poseidon2_T_0_5(il[522])
+            , poseidon2_T_0_6(il[523])
+            , poseidon2_T_0_7(il[524])
+            , poseidon2_T_1_4(il[525])
+            , poseidon2_T_1_5(il[526])
+            , poseidon2_T_1_6(il[527])
+            , poseidon2_T_1_7(il[528])
+            , poseidon2_T_2_4(il[529])
+            , poseidon2_T_2_5(il[530])
+            , poseidon2_T_2_6(il[531])
+            , poseidon2_T_2_7(il[532])
+            , poseidon2_T_3_4(il[533])
+            , poseidon2_T_3_5(il[534])
+            , poseidon2_T_3_6(il[535])
+            , poseidon2_T_3_7(il[536])
+            , poseidon2_T_60_4(il[537])
+            , poseidon2_T_60_5(il[538])
+            , poseidon2_T_60_6(il[539])
+            , poseidon2_T_60_7(il[540])
+            , poseidon2_T_61_4(il[541])
+            , poseidon2_T_61_5(il[542])
+            , poseidon2_T_61_6(il[543])
+            , poseidon2_T_61_7(il[544])
+            , poseidon2_T_62_4(il[545])
+            , poseidon2_T_62_5(il[546])
+            , poseidon2_T_62_6(il[547])
+            , poseidon2_T_62_7(il[548])
+            , poseidon2_T_63_4(il[549])
+            , poseidon2_T_63_5(il[550])
+            , poseidon2_T_63_6(il[551])
+            , poseidon2_T_63_7(il[552])
+            , poseidon2_a_0(il[553])
+            , poseidon2_a_1(il[554])
+            , poseidon2_a_2(il[555])
+            , poseidon2_a_3(il[556])
+            , poseidon2_b_0(il[557])
+            , poseidon2_b_1(il[558])
+            , poseidon2_b_2(il[559])
+            , poseidon2_b_3(il[560])
+            , poseidon2_clk(il[561])
+            , poseidon2_in_tag(il[562])
+            , poseidon2_input_addr(il[563])
+            , poseidon2_mem_addr_a(il[564])
+            , poseidon2_mem_addr_b(il[565])
+            , poseidon2_mem_addr_c(il[566])
+            , poseidon2_mem_addr_d(il[567])
+            , poseidon2_mem_op(il[568])
+            , poseidon2_output_addr(il[569])
+            , poseidon2_read_line(il[570])
+            , poseidon2_sel_poseidon_perm(il[571])
+            , poseidon2_write_line(il[572])
+            , powers_power_of_2(il[573])
+            , sha256_clk(il[574])
+            , sha256_input(il[575])
+            , sha256_output(il[576])
+            , sha256_sel_sha256_compression(il[577])
+            , sha256_state(il[578])
+            , slice_addr(il[579])
+            , slice_clk(il[580])
+            , slice_cnt(il[581])
+            , slice_col_offset(il[582])
+            , slice_one_min_inv(il[583])
+            , slice_sel_cd_cpy(il[584])
+            , slice_sel_mem_active(il[585])
+            , slice_sel_return(il[586])
+            , slice_sel_start(il[587])
+            , slice_space_id(il[588])
+            , slice_val(il[589])
+            , lookup_byte_lengths_counts(il[590])
+            , lookup_byte_operations_counts(il[591])
+            , lookup_cd_value_counts(il[592])
+            , lookup_ret_value_counts(il[593])
+            , lookup_opcode_gas_counts(il[594])
+            , range_check_l2_gas_hi_counts(il[595])
+            , range_check_l2_gas_lo_counts(il[596])
+            , range_check_da_gas_hi_counts(il[597])
+            , range_check_da_gas_lo_counts(il[598])
+            , kernel_output_lookup_counts(il[599])
+            , lookup_into_kernel_counts(il[600])
+            , incl_main_tag_err_counts(il[601])
+            , incl_mem_tag_err_counts(il[602])
+            , lookup_mem_rng_chk_lo_counts(il[603])
+            , lookup_mem_rng_chk_mid_counts(il[604])
+            , lookup_mem_rng_chk_hi_counts(il[605])
+            , lookup_pow_2_0_counts(il[606])
+            , lookup_pow_2_1_counts(il[607])
+            , lookup_u8_0_counts(il[608])
+            , lookup_u8_1_counts(il[609])
+            , lookup_u16_0_counts(il[610])
+            , lookup_u16_1_counts(il[611])
+            , lookup_u16_2_counts(il[612])
+            , lookup_u16_3_counts(il[613])
+            , lookup_u16_4_counts(il[614])
+            , lookup_u16_5_counts(il[615])
+            , lookup_u16_6_counts(il[616])
+            , lookup_u16_7_counts(il[617])
+            , lookup_u16_8_counts(il[618])
+            , lookup_u16_9_counts(il[619])
+            , lookup_u16_10_counts(il[620])
+            , lookup_u16_11_counts(il[621])
+            , lookup_u16_12_counts(il[622])
+            , lookup_u16_13_counts(il[623])
+            , lookup_u16_14_counts(il[624])
+            , lookup_div_u16_0_counts(il[625])
+            , lookup_div_u16_1_counts(il[626])
+            , lookup_div_u16_2_counts(il[627])
+            , lookup_div_u16_3_counts(il[628])
+            , lookup_div_u16_4_counts(il[629])
+            , lookup_div_u16_5_counts(il[630])
+            , lookup_div_u16_6_counts(il[631])
+            , lookup_div_u16_7_counts(il[632])
+            , perm_pos_mem_a(il[633])
+            , perm_pos_mem_b(il[634])
+            , perm_pos_mem_c(il[635])
+            , perm_pos_mem_d(il[636])
+            , perm_slice_mem(il[637])
+            , perm_main_alu(il[638])
+            , perm_main_bin(il[639])
+            , perm_main_conv(il[640])
+            , perm_main_pos2_perm(il[641])
+            , perm_main_pedersen(il[642])
+            , perm_main_slice(il[643])
+            , perm_main_mem_a(il[644])
+            , perm_main_mem_b(il[645])
+            , perm_main_mem_c(il[646])
+            , perm_main_mem_d(il[647])
+            , perm_main_mem_ind_addr_a(il[648])
+            , perm_main_mem_ind_addr_b(il[649])
+            , perm_main_mem_ind_addr_c(il[650])
+            , perm_main_mem_ind_addr_d(il[651])
+            , lookup_byte_lengths(il[652])
+            , lookup_byte_operations(il[653])
+            , lookup_cd_value(il[654])
+            , lookup_ret_value(il[655])
+            , lookup_opcode_gas(il[656])
+            , range_check_l2_gas_hi(il[657])
+            , range_check_l2_gas_lo(il[658])
+            , range_check_da_gas_hi(il[659])
+            , range_check_da_gas_lo(il[660])
+            , kernel_output_lookup(il[661])
+            , lookup_into_kernel(il[662])
+            , incl_main_tag_err(il[663])
+            , incl_mem_tag_err(il[664])
+            , lookup_mem_rng_chk_lo(il[665])
+            , lookup_mem_rng_chk_mid(il[666])
+            , lookup_mem_rng_chk_hi(il[667])
+            , lookup_pow_2_0(il[668])
+            , lookup_pow_2_1(il[669])
+            , lookup_u8_0(il[670])
+            , lookup_u8_1(il[671])
+            , lookup_u16_0(il[672])
+            , lookup_u16_1(il[673])
+            , lookup_u16_2(il[674])
+            , lookup_u16_3(il[675])
+            , lookup_u16_4(il[676])
+            , lookup_u16_5(il[677])
+            , lookup_u16_6(il[678])
+            , lookup_u16_7(il[679])
+            , lookup_u16_8(il[680])
+            , lookup_u16_9(il[681])
+            , lookup_u16_10(il[682])
+            , lookup_u16_11(il[683])
+            , lookup_u16_12(il[684])
+            , lookup_u16_13(il[685])
+            , lookup_u16_14(il[686])
+            , lookup_div_u16_0(il[687])
+            , lookup_div_u16_1(il[688])
+            , lookup_div_u16_2(il[689])
+            , lookup_div_u16_3(il[690])
+            , lookup_div_u16_4(il[691])
+            , lookup_div_u16_5(il[692])
+            , lookup_div_u16_6(il[693])
+            , lookup_div_u16_7(il[694])
+            , alu_a_hi_shift(il[695])
+            , alu_a_lo_shift(il[696])
+            , alu_b_hi_shift(il[697])
+            , alu_b_lo_shift(il[698])
+            , alu_cmp_rng_ctr_shift(il[699])
+            , alu_div_u16_r0_shift(il[700])
+            , alu_div_u16_r1_shift(il[701])
+            , alu_div_u16_r2_shift(il[702])
+            , alu_div_u16_r3_shift(il[703])
+            , alu_div_u16_r4_shift(il[704])
+            , alu_div_u16_r5_shift(il[705])
+            , alu_div_u16_r6_shift(il[706])
+            , alu_div_u16_r7_shift(il[707])
+            , alu_op_add_shift(il[708])
+            , alu_op_cast_prev_shift(il[709])
+            , alu_op_cast_shift(il[710])
+            , alu_op_div_shift(il[711])
+            , alu_op_mul_shift(il[712])
+            , alu_op_shl_shift(il[713])
+            , alu_op_shr_shift(il[714])
+            , alu_op_sub_shift(il[715])
+            , alu_p_sub_a_hi_shift(il[716])
+            , alu_p_sub_a_lo_shift(il[717])
+            , alu_p_sub_b_hi_shift(il[718])
+            , alu_p_sub_b_lo_shift(il[719])
+            , alu_sel_alu_shift(il[720])
+            , alu_sel_cmp_shift(il[721])
+            , alu_sel_div_rng_chk_shift(il[722])
+            , alu_sel_rng_chk_lookup_shift(il[723])
+            , alu_sel_rng_chk_shift(il[724])
+            , alu_u16_r0_shift(il[725])
+            , alu_u16_r1_shift(il[726])
+            , alu_u16_r2_shift(il[727])
+            , alu_u16_r3_shift(il[728])
+            , alu_u16_r4_shift(il[729])
+            , alu_u16_r5_shift(il[730])
+            , alu_u16_r6_shift(il[731])
+            , alu_u8_r0_shift(il[732])
+            , alu_u8_r1_shift(il[733])
+            , binary_acc_ia_shift(il[734])
+            , binary_acc_ib_shift(il[735])
+            , binary_acc_ic_shift(il[736])
+            , binary_mem_tag_ctr_shift(il[737])
+            , binary_op_id_shift(il[738])
+            , kernel_emit_l2_to_l1_msg_write_offset_shift(il[739])
+            , kernel_emit_note_hash_write_offset_shift(il[740])
+            , kernel_emit_nullifier_write_offset_shift(il[741])
+            , kernel_emit_unencrypted_log_write_offset_shift(il[742])
+            , kernel_l1_to_l2_msg_exists_write_offset_shift(il[743])
+            , kernel_note_hash_exist_write_offset_shift(il[744])
+            , kernel_nullifier_exists_write_offset_shift(il[745])
+            , kernel_nullifier_non_exists_write_offset_shift(il[746])
+            , kernel_side_effect_counter_shift(il[747])
+            , kernel_sload_write_offset_shift(il[748])
+            , kernel_sstore_write_offset_shift(il[749])
+            , main_da_gas_remaining_shift(il[750])
+            , main_internal_return_ptr_shift(il[751])
+            , main_l2_gas_remaining_shift(il[752])
+            , main_pc_shift(il[753])
+            , mem_glob_addr_shift(il[754])
+            , mem_rw_shift(il[755])
+            , mem_sel_mem_shift(il[756])
+            , mem_tag_shift(il[757])
+            , mem_tsp_shift(il[758])
+            , mem_val_shift(il[759])
+            , poseidon2_a_0_shift(il[760])
+            , poseidon2_a_1_shift(il[761])
+            , poseidon2_a_2_shift(il[762])
+            , poseidon2_a_3_shift(il[763])
+            , poseidon2_sel_poseidon_perm_shift(il[764])
+            , poseidon2_write_line_shift(il[765])
+            , slice_addr_shift(il[766])
+            , slice_clk_shift(il[767])
+            , slice_cnt_shift(il[768])
+            , slice_col_offset_shift(il[769])
+            , slice_sel_cd_cpy_shift(il[770])
+            , slice_sel_mem_active_shift(il[771])
+            , slice_sel_return_shift(il[772])
+            , slice_sel_start_shift(il[773])
+            , slice_space_id_shift(il[774])
         {}
     };
 
@@ -3224,6 +1396,10 @@ class AvmFlavor {
                                                mem_sel_op_c[row_idx],
                                                mem_sel_op_cmov[row_idx],
                                                mem_sel_op_d[row_idx],
+                                               mem_sel_op_gadget_a[row_idx],
+                                               mem_sel_op_gadget_b[row_idx],
+                                               mem_sel_op_gadget_c[row_idx],
+                                               mem_sel_op_gadget_d[row_idx],
                                                mem_sel_op_slice[row_idx],
                                                mem_sel_resolve_ind_addr_a[row_idx],
                                                mem_sel_resolve_ind_addr_b[row_idx],
@@ -3241,10 +1417,286 @@ class AvmFlavor {
                                                pedersen_input[row_idx],
                                                pedersen_output[row_idx],
                                                pedersen_sel_pedersen[row_idx],
+                                               poseidon2_B_10_0[row_idx],
+                                               poseidon2_B_10_1[row_idx],
+                                               poseidon2_B_10_2[row_idx],
+                                               poseidon2_B_10_3[row_idx],
+                                               poseidon2_B_11_0[row_idx],
+                                               poseidon2_B_11_1[row_idx],
+                                               poseidon2_B_11_2[row_idx],
+                                               poseidon2_B_11_3[row_idx],
+                                               poseidon2_B_12_0[row_idx],
+                                               poseidon2_B_12_1[row_idx],
+                                               poseidon2_B_12_2[row_idx],
+                                               poseidon2_B_12_3[row_idx],
+                                               poseidon2_B_13_0[row_idx],
+                                               poseidon2_B_13_1[row_idx],
+                                               poseidon2_B_13_2[row_idx],
+                                               poseidon2_B_13_3[row_idx],
+                                               poseidon2_B_14_0[row_idx],
+                                               poseidon2_B_14_1[row_idx],
+                                               poseidon2_B_14_2[row_idx],
+                                               poseidon2_B_14_3[row_idx],
+                                               poseidon2_B_15_0[row_idx],
+                                               poseidon2_B_15_1[row_idx],
+                                               poseidon2_B_15_2[row_idx],
+                                               poseidon2_B_15_3[row_idx],
+                                               poseidon2_B_16_0[row_idx],
+                                               poseidon2_B_16_1[row_idx],
+                                               poseidon2_B_16_2[row_idx],
+                                               poseidon2_B_16_3[row_idx],
+                                               poseidon2_B_17_0[row_idx],
+                                               poseidon2_B_17_1[row_idx],
+                                               poseidon2_B_17_2[row_idx],
+                                               poseidon2_B_17_3[row_idx],
+                                               poseidon2_B_18_0[row_idx],
+                                               poseidon2_B_18_1[row_idx],
+                                               poseidon2_B_18_2[row_idx],
+                                               poseidon2_B_18_3[row_idx],
+                                               poseidon2_B_19_0[row_idx],
+                                               poseidon2_B_19_1[row_idx],
+                                               poseidon2_B_19_2[row_idx],
+                                               poseidon2_B_19_3[row_idx],
+                                               poseidon2_B_20_0[row_idx],
+                                               poseidon2_B_20_1[row_idx],
+                                               poseidon2_B_20_2[row_idx],
+                                               poseidon2_B_20_3[row_idx],
+                                               poseidon2_B_21_0[row_idx],
+                                               poseidon2_B_21_1[row_idx],
+                                               poseidon2_B_21_2[row_idx],
+                                               poseidon2_B_21_3[row_idx],
+                                               poseidon2_B_22_0[row_idx],
+                                               poseidon2_B_22_1[row_idx],
+                                               poseidon2_B_22_2[row_idx],
+                                               poseidon2_B_22_3[row_idx],
+                                               poseidon2_B_23_0[row_idx],
+                                               poseidon2_B_23_1[row_idx],
+                                               poseidon2_B_23_2[row_idx],
+                                               poseidon2_B_23_3[row_idx],
+                                               poseidon2_B_24_0[row_idx],
+                                               poseidon2_B_24_1[row_idx],
+                                               poseidon2_B_24_2[row_idx],
+                                               poseidon2_B_24_3[row_idx],
+                                               poseidon2_B_25_0[row_idx],
+                                               poseidon2_B_25_1[row_idx],
+                                               poseidon2_B_25_2[row_idx],
+                                               poseidon2_B_25_3[row_idx],
+                                               poseidon2_B_26_0[row_idx],
+                                               poseidon2_B_26_1[row_idx],
+                                               poseidon2_B_26_2[row_idx],
+                                               poseidon2_B_26_3[row_idx],
+                                               poseidon2_B_27_0[row_idx],
+                                               poseidon2_B_27_1[row_idx],
+                                               poseidon2_B_27_2[row_idx],
+                                               poseidon2_B_27_3[row_idx],
+                                               poseidon2_B_28_0[row_idx],
+                                               poseidon2_B_28_1[row_idx],
+                                               poseidon2_B_28_2[row_idx],
+                                               poseidon2_B_28_3[row_idx],
+                                               poseidon2_B_29_0[row_idx],
+                                               poseidon2_B_29_1[row_idx],
+                                               poseidon2_B_29_2[row_idx],
+                                               poseidon2_B_29_3[row_idx],
+                                               poseidon2_B_30_0[row_idx],
+                                               poseidon2_B_30_1[row_idx],
+                                               poseidon2_B_30_2[row_idx],
+                                               poseidon2_B_30_3[row_idx],
+                                               poseidon2_B_31_0[row_idx],
+                                               poseidon2_B_31_1[row_idx],
+                                               poseidon2_B_31_2[row_idx],
+                                               poseidon2_B_31_3[row_idx],
+                                               poseidon2_B_32_0[row_idx],
+                                               poseidon2_B_32_1[row_idx],
+                                               poseidon2_B_32_2[row_idx],
+                                               poseidon2_B_32_3[row_idx],
+                                               poseidon2_B_33_0[row_idx],
+                                               poseidon2_B_33_1[row_idx],
+                                               poseidon2_B_33_2[row_idx],
+                                               poseidon2_B_33_3[row_idx],
+                                               poseidon2_B_34_0[row_idx],
+                                               poseidon2_B_34_1[row_idx],
+                                               poseidon2_B_34_2[row_idx],
+                                               poseidon2_B_34_3[row_idx],
+                                               poseidon2_B_35_0[row_idx],
+                                               poseidon2_B_35_1[row_idx],
+                                               poseidon2_B_35_2[row_idx],
+                                               poseidon2_B_35_3[row_idx],
+                                               poseidon2_B_36_0[row_idx],
+                                               poseidon2_B_36_1[row_idx],
+                                               poseidon2_B_36_2[row_idx],
+                                               poseidon2_B_36_3[row_idx],
+                                               poseidon2_B_37_0[row_idx],
+                                               poseidon2_B_37_1[row_idx],
+                                               poseidon2_B_37_2[row_idx],
+                                               poseidon2_B_37_3[row_idx],
+                                               poseidon2_B_38_0[row_idx],
+                                               poseidon2_B_38_1[row_idx],
+                                               poseidon2_B_38_2[row_idx],
+                                               poseidon2_B_38_3[row_idx],
+                                               poseidon2_B_39_0[row_idx],
+                                               poseidon2_B_39_1[row_idx],
+                                               poseidon2_B_39_2[row_idx],
+                                               poseidon2_B_39_3[row_idx],
+                                               poseidon2_B_40_0[row_idx],
+                                               poseidon2_B_40_1[row_idx],
+                                               poseidon2_B_40_2[row_idx],
+                                               poseidon2_B_40_3[row_idx],
+                                               poseidon2_B_41_0[row_idx],
+                                               poseidon2_B_41_1[row_idx],
+                                               poseidon2_B_41_2[row_idx],
+                                               poseidon2_B_41_3[row_idx],
+                                               poseidon2_B_42_0[row_idx],
+                                               poseidon2_B_42_1[row_idx],
+                                               poseidon2_B_42_2[row_idx],
+                                               poseidon2_B_42_3[row_idx],
+                                               poseidon2_B_43_0[row_idx],
+                                               poseidon2_B_43_1[row_idx],
+                                               poseidon2_B_43_2[row_idx],
+                                               poseidon2_B_43_3[row_idx],
+                                               poseidon2_B_44_0[row_idx],
+                                               poseidon2_B_44_1[row_idx],
+                                               poseidon2_B_44_2[row_idx],
+                                               poseidon2_B_44_3[row_idx],
+                                               poseidon2_B_45_0[row_idx],
+                                               poseidon2_B_45_1[row_idx],
+                                               poseidon2_B_45_2[row_idx],
+                                               poseidon2_B_45_3[row_idx],
+                                               poseidon2_B_46_0[row_idx],
+                                               poseidon2_B_46_1[row_idx],
+                                               poseidon2_B_46_2[row_idx],
+                                               poseidon2_B_46_3[row_idx],
+                                               poseidon2_B_47_0[row_idx],
+                                               poseidon2_B_47_1[row_idx],
+                                               poseidon2_B_47_2[row_idx],
+                                               poseidon2_B_47_3[row_idx],
+                                               poseidon2_B_48_0[row_idx],
+                                               poseidon2_B_48_1[row_idx],
+                                               poseidon2_B_48_2[row_idx],
+                                               poseidon2_B_48_3[row_idx],
+                                               poseidon2_B_49_0[row_idx],
+                                               poseidon2_B_49_1[row_idx],
+                                               poseidon2_B_49_2[row_idx],
+                                               poseidon2_B_49_3[row_idx],
+                                               poseidon2_B_4_0[row_idx],
+                                               poseidon2_B_4_1[row_idx],
+                                               poseidon2_B_4_2[row_idx],
+                                               poseidon2_B_4_3[row_idx],
+                                               poseidon2_B_50_0[row_idx],
+                                               poseidon2_B_50_1[row_idx],
+                                               poseidon2_B_50_2[row_idx],
+                                               poseidon2_B_50_3[row_idx],
+                                               poseidon2_B_51_0[row_idx],
+                                               poseidon2_B_51_1[row_idx],
+                                               poseidon2_B_51_2[row_idx],
+                                               poseidon2_B_51_3[row_idx],
+                                               poseidon2_B_52_0[row_idx],
+                                               poseidon2_B_52_1[row_idx],
+                                               poseidon2_B_52_2[row_idx],
+                                               poseidon2_B_52_3[row_idx],
+                                               poseidon2_B_53_0[row_idx],
+                                               poseidon2_B_53_1[row_idx],
+                                               poseidon2_B_53_2[row_idx],
+                                               poseidon2_B_53_3[row_idx],
+                                               poseidon2_B_54_0[row_idx],
+                                               poseidon2_B_54_1[row_idx],
+                                               poseidon2_B_54_2[row_idx],
+                                               poseidon2_B_54_3[row_idx],
+                                               poseidon2_B_55_0[row_idx],
+                                               poseidon2_B_55_1[row_idx],
+                                               poseidon2_B_55_2[row_idx],
+                                               poseidon2_B_55_3[row_idx],
+                                               poseidon2_B_56_0[row_idx],
+                                               poseidon2_B_56_1[row_idx],
+                                               poseidon2_B_56_2[row_idx],
+                                               poseidon2_B_56_3[row_idx],
+                                               poseidon2_B_57_0[row_idx],
+                                               poseidon2_B_57_1[row_idx],
+                                               poseidon2_B_57_2[row_idx],
+                                               poseidon2_B_57_3[row_idx],
+                                               poseidon2_B_58_0[row_idx],
+                                               poseidon2_B_58_1[row_idx],
+                                               poseidon2_B_58_2[row_idx],
+                                               poseidon2_B_58_3[row_idx],
+                                               poseidon2_B_59_0[row_idx],
+                                               poseidon2_B_59_1[row_idx],
+                                               poseidon2_B_59_2[row_idx],
+                                               poseidon2_B_59_3[row_idx],
+                                               poseidon2_B_5_0[row_idx],
+                                               poseidon2_B_5_1[row_idx],
+                                               poseidon2_B_5_2[row_idx],
+                                               poseidon2_B_5_3[row_idx],
+                                               poseidon2_B_6_0[row_idx],
+                                               poseidon2_B_6_1[row_idx],
+                                               poseidon2_B_6_2[row_idx],
+                                               poseidon2_B_6_3[row_idx],
+                                               poseidon2_B_7_0[row_idx],
+                                               poseidon2_B_7_1[row_idx],
+                                               poseidon2_B_7_2[row_idx],
+                                               poseidon2_B_7_3[row_idx],
+                                               poseidon2_B_8_0[row_idx],
+                                               poseidon2_B_8_1[row_idx],
+                                               poseidon2_B_8_2[row_idx],
+                                               poseidon2_B_8_3[row_idx],
+                                               poseidon2_B_9_0[row_idx],
+                                               poseidon2_B_9_1[row_idx],
+                                               poseidon2_B_9_2[row_idx],
+                                               poseidon2_B_9_3[row_idx],
+                                               poseidon2_EXT_LAYER_4[row_idx],
+                                               poseidon2_EXT_LAYER_5[row_idx],
+                                               poseidon2_EXT_LAYER_6[row_idx],
+                                               poseidon2_EXT_LAYER_7[row_idx],
+                                               poseidon2_T_0_4[row_idx],
+                                               poseidon2_T_0_5[row_idx],
+                                               poseidon2_T_0_6[row_idx],
+                                               poseidon2_T_0_7[row_idx],
+                                               poseidon2_T_1_4[row_idx],
+                                               poseidon2_T_1_5[row_idx],
+                                               poseidon2_T_1_6[row_idx],
+                                               poseidon2_T_1_7[row_idx],
+                                               poseidon2_T_2_4[row_idx],
+                                               poseidon2_T_2_5[row_idx],
+                                               poseidon2_T_2_6[row_idx],
+                                               poseidon2_T_2_7[row_idx],
+                                               poseidon2_T_3_4[row_idx],
+                                               poseidon2_T_3_5[row_idx],
+                                               poseidon2_T_3_6[row_idx],
+                                               poseidon2_T_3_7[row_idx],
+                                               poseidon2_T_60_4[row_idx],
+                                               poseidon2_T_60_5[row_idx],
+                                               poseidon2_T_60_6[row_idx],
+                                               poseidon2_T_60_7[row_idx],
+                                               poseidon2_T_61_4[row_idx],
+                                               poseidon2_T_61_5[row_idx],
+                                               poseidon2_T_61_6[row_idx],
+                                               poseidon2_T_61_7[row_idx],
+                                               poseidon2_T_62_4[row_idx],
+                                               poseidon2_T_62_5[row_idx],
+                                               poseidon2_T_62_6[row_idx],
+                                               poseidon2_T_62_7[row_idx],
+                                               poseidon2_T_63_4[row_idx],
+                                               poseidon2_T_63_5[row_idx],
+                                               poseidon2_T_63_6[row_idx],
+                                               poseidon2_T_63_7[row_idx],
+                                               poseidon2_a_0[row_idx],
+                                               poseidon2_a_1[row_idx],
+                                               poseidon2_a_2[row_idx],
+                                               poseidon2_a_3[row_idx],
+                                               poseidon2_b_0[row_idx],
+                                               poseidon2_b_1[row_idx],
+                                               poseidon2_b_2[row_idx],
+                                               poseidon2_b_3[row_idx],
                                                poseidon2_clk[row_idx],
-                                               poseidon2_input[row_idx],
-                                               poseidon2_output[row_idx],
+                                               poseidon2_in_tag[row_idx],
+                                               poseidon2_input_addr[row_idx],
+                                               poseidon2_mem_addr_a[row_idx],
+                                               poseidon2_mem_addr_b[row_idx],
+                                               poseidon2_mem_addr_c[row_idx],
+                                               poseidon2_mem_addr_d[row_idx],
+                                               poseidon2_mem_op[row_idx],
+                                               poseidon2_output_addr[row_idx],
+                                               poseidon2_read_line[row_idx],
                                                poseidon2_sel_poseidon_perm[row_idx],
+                                               poseidon2_write_line[row_idx],
                                                powers_power_of_2[row_idx],
                                                sha256_clk[row_idx],
                                                sha256_input[row_idx],
@@ -3305,6 +1757,10 @@ class AvmFlavor {
                                                lookup_div_u16_5_counts[row_idx],
                                                lookup_div_u16_6_counts[row_idx],
                                                lookup_div_u16_7_counts[row_idx],
+                                               perm_pos_mem_a[row_idx],
+                                               perm_pos_mem_b[row_idx],
+                                               perm_pos_mem_c[row_idx],
+                                               perm_pos_mem_d[row_idx],
                                                perm_slice_mem[row_idx],
                                                perm_main_alu[row_idx],
                                                perm_main_bin[row_idx],
@@ -3428,6 +1884,12 @@ class AvmFlavor {
                                                mem_tag_shift[row_idx],
                                                mem_tsp_shift[row_idx],
                                                mem_val_shift[row_idx],
+                                               poseidon2_a_0_shift[row_idx],
+                                               poseidon2_a_1_shift[row_idx],
+                                               poseidon2_a_2_shift[row_idx],
+                                               poseidon2_a_3_shift[row_idx],
+                                               poseidon2_sel_poseidon_perm_shift[row_idx],
+                                               poseidon2_write_line_shift[row_idx],
                                                slice_addr_shift[row_idx],
                                                slice_clk_shift[row_idx],
                                                slice_cnt_shift[row_idx],
@@ -3756,6 +2218,10 @@ class AvmFlavor {
             Base::mem_sel_op_c = "MEM_SEL_OP_C";
             Base::mem_sel_op_cmov = "MEM_SEL_OP_CMOV";
             Base::mem_sel_op_d = "MEM_SEL_OP_D";
+            Base::mem_sel_op_gadget_a = "MEM_SEL_OP_GADGET_A";
+            Base::mem_sel_op_gadget_b = "MEM_SEL_OP_GADGET_B";
+            Base::mem_sel_op_gadget_c = "MEM_SEL_OP_GADGET_C";
+            Base::mem_sel_op_gadget_d = "MEM_SEL_OP_GADGET_D";
             Base::mem_sel_op_slice = "MEM_SEL_OP_SLICE";
             Base::mem_sel_resolve_ind_addr_a = "MEM_SEL_RESOLVE_IND_ADDR_A";
             Base::mem_sel_resolve_ind_addr_b = "MEM_SEL_RESOLVE_IND_ADDR_B";
@@ -3773,6 +2239,266 @@ class AvmFlavor {
             Base::pedersen_input = "PEDERSEN_INPUT";
             Base::pedersen_output = "PEDERSEN_OUTPUT";
             Base::pedersen_sel_pedersen = "PEDERSEN_SEL_PEDERSEN";
+            Base::poseidon2_B_10_0 = "POSEIDON2_B_10_0";
+            Base::poseidon2_B_10_1 = "POSEIDON2_B_10_1";
+            Base::poseidon2_B_10_2 = "POSEIDON2_B_10_2";
+            Base::poseidon2_B_10_3 = "POSEIDON2_B_10_3";
+            Base::poseidon2_B_11_0 = "POSEIDON2_B_11_0";
+            Base::poseidon2_B_11_1 = "POSEIDON2_B_11_1";
+            Base::poseidon2_B_11_2 = "POSEIDON2_B_11_2";
+            Base::poseidon2_B_11_3 = "POSEIDON2_B_11_3";
+            Base::poseidon2_B_12_0 = "POSEIDON2_B_12_0";
+            Base::poseidon2_B_12_1 = "POSEIDON2_B_12_1";
+            Base::poseidon2_B_12_2 = "POSEIDON2_B_12_2";
+            Base::poseidon2_B_12_3 = "POSEIDON2_B_12_3";
+            Base::poseidon2_B_13_0 = "POSEIDON2_B_13_0";
+            Base::poseidon2_B_13_1 = "POSEIDON2_B_13_1";
+            Base::poseidon2_B_13_2 = "POSEIDON2_B_13_2";
+            Base::poseidon2_B_13_3 = "POSEIDON2_B_13_3";
+            Base::poseidon2_B_14_0 = "POSEIDON2_B_14_0";
+            Base::poseidon2_B_14_1 = "POSEIDON2_B_14_1";
+            Base::poseidon2_B_14_2 = "POSEIDON2_B_14_2";
+            Base::poseidon2_B_14_3 = "POSEIDON2_B_14_3";
+            Base::poseidon2_B_15_0 = "POSEIDON2_B_15_0";
+            Base::poseidon2_B_15_1 = "POSEIDON2_B_15_1";
+            Base::poseidon2_B_15_2 = "POSEIDON2_B_15_2";
+            Base::poseidon2_B_15_3 = "POSEIDON2_B_15_3";
+            Base::poseidon2_B_16_0 = "POSEIDON2_B_16_0";
+            Base::poseidon2_B_16_1 = "POSEIDON2_B_16_1";
+            Base::poseidon2_B_16_2 = "POSEIDON2_B_16_2";
+            Base::poseidon2_B_16_3 = "POSEIDON2_B_16_3";
+            Base::poseidon2_B_17_0 = "POSEIDON2_B_17_0";
+            Base::poseidon2_B_17_1 = "POSEIDON2_B_17_1";
+            Base::poseidon2_B_17_2 = "POSEIDON2_B_17_2";
+            Base::poseidon2_B_17_3 = "POSEIDON2_B_17_3";
+            Base::poseidon2_B_18_0 = "POSEIDON2_B_18_0";
+            Base::poseidon2_B_18_1 = "POSEIDON2_B_18_1";
+            Base::poseidon2_B_18_2 = "POSEIDON2_B_18_2";
+            Base::poseidon2_B_18_3 = "POSEIDON2_B_18_3";
+            Base::poseidon2_B_19_0 = "POSEIDON2_B_19_0";
+            Base::poseidon2_B_19_1 = "POSEIDON2_B_19_1";
+            Base::poseidon2_B_19_2 = "POSEIDON2_B_19_2";
+            Base::poseidon2_B_19_3 = "POSEIDON2_B_19_3";
+            Base::poseidon2_B_20_0 = "POSEIDON2_B_20_0";
+            Base::poseidon2_B_20_1 = "POSEIDON2_B_20_1";
+            Base::poseidon2_B_20_2 = "POSEIDON2_B_20_2";
+            Base::poseidon2_B_20_3 = "POSEIDON2_B_20_3";
+            Base::poseidon2_B_21_0 = "POSEIDON2_B_21_0";
+            Base::poseidon2_B_21_1 = "POSEIDON2_B_21_1";
+            Base::poseidon2_B_21_2 = "POSEIDON2_B_21_2";
+            Base::poseidon2_B_21_3 = "POSEIDON2_B_21_3";
+            Base::poseidon2_B_22_0 = "POSEIDON2_B_22_0";
+            Base::poseidon2_B_22_1 = "POSEIDON2_B_22_1";
+            Base::poseidon2_B_22_2 = "POSEIDON2_B_22_2";
+            Base::poseidon2_B_22_3 = "POSEIDON2_B_22_3";
+            Base::poseidon2_B_23_0 = "POSEIDON2_B_23_0";
+            Base::poseidon2_B_23_1 = "POSEIDON2_B_23_1";
+            Base::poseidon2_B_23_2 = "POSEIDON2_B_23_2";
+            Base::poseidon2_B_23_3 = "POSEIDON2_B_23_3";
+            Base::poseidon2_B_24_0 = "POSEIDON2_B_24_0";
+            Base::poseidon2_B_24_1 = "POSEIDON2_B_24_1";
+            Base::poseidon2_B_24_2 = "POSEIDON2_B_24_2";
+            Base::poseidon2_B_24_3 = "POSEIDON2_B_24_3";
+            Base::poseidon2_B_25_0 = "POSEIDON2_B_25_0";
+            Base::poseidon2_B_25_1 = "POSEIDON2_B_25_1";
+            Base::poseidon2_B_25_2 = "POSEIDON2_B_25_2";
+            Base::poseidon2_B_25_3 = "POSEIDON2_B_25_3";
+            Base::poseidon2_B_26_0 = "POSEIDON2_B_26_0";
+            Base::poseidon2_B_26_1 = "POSEIDON2_B_26_1";
+            Base::poseidon2_B_26_2 = "POSEIDON2_B_26_2";
+            Base::poseidon2_B_26_3 = "POSEIDON2_B_26_3";
+            Base::poseidon2_B_27_0 = "POSEIDON2_B_27_0";
+            Base::poseidon2_B_27_1 = "POSEIDON2_B_27_1";
+            Base::poseidon2_B_27_2 = "POSEIDON2_B_27_2";
+            Base::poseidon2_B_27_3 = "POSEIDON2_B_27_3";
+            Base::poseidon2_B_28_0 = "POSEIDON2_B_28_0";
+            Base::poseidon2_B_28_1 = "POSEIDON2_B_28_1";
+            Base::poseidon2_B_28_2 = "POSEIDON2_B_28_2";
+            Base::poseidon2_B_28_3 = "POSEIDON2_B_28_3";
+            Base::poseidon2_B_29_0 = "POSEIDON2_B_29_0";
+            Base::poseidon2_B_29_1 = "POSEIDON2_B_29_1";
+            Base::poseidon2_B_29_2 = "POSEIDON2_B_29_2";
+            Base::poseidon2_B_29_3 = "POSEIDON2_B_29_3";
+            Base::poseidon2_B_30_0 = "POSEIDON2_B_30_0";
+            Base::poseidon2_B_30_1 = "POSEIDON2_B_30_1";
+            Base::poseidon2_B_30_2 = "POSEIDON2_B_30_2";
+            Base::poseidon2_B_30_3 = "POSEIDON2_B_30_3";
+            Base::poseidon2_B_31_0 = "POSEIDON2_B_31_0";
+            Base::poseidon2_B_31_1 = "POSEIDON2_B_31_1";
+            Base::poseidon2_B_31_2 = "POSEIDON2_B_31_2";
+            Base::poseidon2_B_31_3 = "POSEIDON2_B_31_3";
+            Base::poseidon2_B_32_0 = "POSEIDON2_B_32_0";
+            Base::poseidon2_B_32_1 = "POSEIDON2_B_32_1";
+            Base::poseidon2_B_32_2 = "POSEIDON2_B_32_2";
+            Base::poseidon2_B_32_3 = "POSEIDON2_B_32_3";
+            Base::poseidon2_B_33_0 = "POSEIDON2_B_33_0";
+            Base::poseidon2_B_33_1 = "POSEIDON2_B_33_1";
+            Base::poseidon2_B_33_2 = "POSEIDON2_B_33_2";
+            Base::poseidon2_B_33_3 = "POSEIDON2_B_33_3";
+            Base::poseidon2_B_34_0 = "POSEIDON2_B_34_0";
+            Base::poseidon2_B_34_1 = "POSEIDON2_B_34_1";
+            Base::poseidon2_B_34_2 = "POSEIDON2_B_34_2";
+            Base::poseidon2_B_34_3 = "POSEIDON2_B_34_3";
+            Base::poseidon2_B_35_0 = "POSEIDON2_B_35_0";
+            Base::poseidon2_B_35_1 = "POSEIDON2_B_35_1";
+            Base::poseidon2_B_35_2 = "POSEIDON2_B_35_2";
+            Base::poseidon2_B_35_3 = "POSEIDON2_B_35_3";
+            Base::poseidon2_B_36_0 = "POSEIDON2_B_36_0";
+            Base::poseidon2_B_36_1 = "POSEIDON2_B_36_1";
+            Base::poseidon2_B_36_2 = "POSEIDON2_B_36_2";
+            Base::poseidon2_B_36_3 = "POSEIDON2_B_36_3";
+            Base::poseidon2_B_37_0 = "POSEIDON2_B_37_0";
+            Base::poseidon2_B_37_1 = "POSEIDON2_B_37_1";
+            Base::poseidon2_B_37_2 = "POSEIDON2_B_37_2";
+            Base::poseidon2_B_37_3 = "POSEIDON2_B_37_3";
+            Base::poseidon2_B_38_0 = "POSEIDON2_B_38_0";
+            Base::poseidon2_B_38_1 = "POSEIDON2_B_38_1";
+            Base::poseidon2_B_38_2 = "POSEIDON2_B_38_2";
+            Base::poseidon2_B_38_3 = "POSEIDON2_B_38_3";
+            Base::poseidon2_B_39_0 = "POSEIDON2_B_39_0";
+            Base::poseidon2_B_39_1 = "POSEIDON2_B_39_1";
+            Base::poseidon2_B_39_2 = "POSEIDON2_B_39_2";
+            Base::poseidon2_B_39_3 = "POSEIDON2_B_39_3";
+            Base::poseidon2_B_40_0 = "POSEIDON2_B_40_0";
+            Base::poseidon2_B_40_1 = "POSEIDON2_B_40_1";
+            Base::poseidon2_B_40_2 = "POSEIDON2_B_40_2";
+            Base::poseidon2_B_40_3 = "POSEIDON2_B_40_3";
+            Base::poseidon2_B_41_0 = "POSEIDON2_B_41_0";
+            Base::poseidon2_B_41_1 = "POSEIDON2_B_41_1";
+            Base::poseidon2_B_41_2 = "POSEIDON2_B_41_2";
+            Base::poseidon2_B_41_3 = "POSEIDON2_B_41_3";
+            Base::poseidon2_B_42_0 = "POSEIDON2_B_42_0";
+            Base::poseidon2_B_42_1 = "POSEIDON2_B_42_1";
+            Base::poseidon2_B_42_2 = "POSEIDON2_B_42_2";
+            Base::poseidon2_B_42_3 = "POSEIDON2_B_42_3";
+            Base::poseidon2_B_43_0 = "POSEIDON2_B_43_0";
+            Base::poseidon2_B_43_1 = "POSEIDON2_B_43_1";
+            Base::poseidon2_B_43_2 = "POSEIDON2_B_43_2";
+            Base::poseidon2_B_43_3 = "POSEIDON2_B_43_3";
+            Base::poseidon2_B_44_0 = "POSEIDON2_B_44_0";
+            Base::poseidon2_B_44_1 = "POSEIDON2_B_44_1";
+            Base::poseidon2_B_44_2 = "POSEIDON2_B_44_2";
+            Base::poseidon2_B_44_3 = "POSEIDON2_B_44_3";
+            Base::poseidon2_B_45_0 = "POSEIDON2_B_45_0";
+            Base::poseidon2_B_45_1 = "POSEIDON2_B_45_1";
+            Base::poseidon2_B_45_2 = "POSEIDON2_B_45_2";
+            Base::poseidon2_B_45_3 = "POSEIDON2_B_45_3";
+            Base::poseidon2_B_46_0 = "POSEIDON2_B_46_0";
+            Base::poseidon2_B_46_1 = "POSEIDON2_B_46_1";
+            Base::poseidon2_B_46_2 = "POSEIDON2_B_46_2";
+            Base::poseidon2_B_46_3 = "POSEIDON2_B_46_3";
+            Base::poseidon2_B_47_0 = "POSEIDON2_B_47_0";
+            Base::poseidon2_B_47_1 = "POSEIDON2_B_47_1";
+            Base::poseidon2_B_47_2 = "POSEIDON2_B_47_2";
+            Base::poseidon2_B_47_3 = "POSEIDON2_B_47_3";
+            Base::poseidon2_B_48_0 = "POSEIDON2_B_48_0";
+            Base::poseidon2_B_48_1 = "POSEIDON2_B_48_1";
+            Base::poseidon2_B_48_2 = "POSEIDON2_B_48_2";
+            Base::poseidon2_B_48_3 = "POSEIDON2_B_48_3";
+            Base::poseidon2_B_49_0 = "POSEIDON2_B_49_0";
+            Base::poseidon2_B_49_1 = "POSEIDON2_B_49_1";
+            Base::poseidon2_B_49_2 = "POSEIDON2_B_49_2";
+            Base::poseidon2_B_49_3 = "POSEIDON2_B_49_3";
+            Base::poseidon2_B_4_0 = "POSEIDON2_B_4_0";
+            Base::poseidon2_B_4_1 = "POSEIDON2_B_4_1";
+            Base::poseidon2_B_4_2 = "POSEIDON2_B_4_2";
+            Base::poseidon2_B_4_3 = "POSEIDON2_B_4_3";
+            Base::poseidon2_B_50_0 = "POSEIDON2_B_50_0";
+            Base::poseidon2_B_50_1 = "POSEIDON2_B_50_1";
+            Base::poseidon2_B_50_2 = "POSEIDON2_B_50_2";
+            Base::poseidon2_B_50_3 = "POSEIDON2_B_50_3";
+            Base::poseidon2_B_51_0 = "POSEIDON2_B_51_0";
+            Base::poseidon2_B_51_1 = "POSEIDON2_B_51_1";
+            Base::poseidon2_B_51_2 = "POSEIDON2_B_51_2";
+            Base::poseidon2_B_51_3 = "POSEIDON2_B_51_3";
+            Base::poseidon2_B_52_0 = "POSEIDON2_B_52_0";
+            Base::poseidon2_B_52_1 = "POSEIDON2_B_52_1";
+            Base::poseidon2_B_52_2 = "POSEIDON2_B_52_2";
+            Base::poseidon2_B_52_3 = "POSEIDON2_B_52_3";
+            Base::poseidon2_B_53_0 = "POSEIDON2_B_53_0";
+            Base::poseidon2_B_53_1 = "POSEIDON2_B_53_1";
+            Base::poseidon2_B_53_2 = "POSEIDON2_B_53_2";
+            Base::poseidon2_B_53_3 = "POSEIDON2_B_53_3";
+            Base::poseidon2_B_54_0 = "POSEIDON2_B_54_0";
+            Base::poseidon2_B_54_1 = "POSEIDON2_B_54_1";
+            Base::poseidon2_B_54_2 = "POSEIDON2_B_54_2";
+            Base::poseidon2_B_54_3 = "POSEIDON2_B_54_3";
+            Base::poseidon2_B_55_0 = "POSEIDON2_B_55_0";
+            Base::poseidon2_B_55_1 = "POSEIDON2_B_55_1";
+            Base::poseidon2_B_55_2 = "POSEIDON2_B_55_2";
+            Base::poseidon2_B_55_3 = "POSEIDON2_B_55_3";
+            Base::poseidon2_B_56_0 = "POSEIDON2_B_56_0";
+            Base::poseidon2_B_56_1 = "POSEIDON2_B_56_1";
+            Base::poseidon2_B_56_2 = "POSEIDON2_B_56_2";
+            Base::poseidon2_B_56_3 = "POSEIDON2_B_56_3";
+            Base::poseidon2_B_57_0 = "POSEIDON2_B_57_0";
+            Base::poseidon2_B_57_1 = "POSEIDON2_B_57_1";
+            Base::poseidon2_B_57_2 = "POSEIDON2_B_57_2";
+            Base::poseidon2_B_57_3 = "POSEIDON2_B_57_3";
+            Base::poseidon2_B_58_0 = "POSEIDON2_B_58_0";
+            Base::poseidon2_B_58_1 = "POSEIDON2_B_58_1";
+            Base::poseidon2_B_58_2 = "POSEIDON2_B_58_2";
+            Base::poseidon2_B_58_3 = "POSEIDON2_B_58_3";
+            Base::poseidon2_B_59_0 = "POSEIDON2_B_59_0";
+            Base::poseidon2_B_59_1 = "POSEIDON2_B_59_1";
+            Base::poseidon2_B_59_2 = "POSEIDON2_B_59_2";
+            Base::poseidon2_B_59_3 = "POSEIDON2_B_59_3";
+            Base::poseidon2_B_5_0 = "POSEIDON2_B_5_0";
+            Base::poseidon2_B_5_1 = "POSEIDON2_B_5_1";
+            Base::poseidon2_B_5_2 = "POSEIDON2_B_5_2";
+            Base::poseidon2_B_5_3 = "POSEIDON2_B_5_3";
+            Base::poseidon2_B_6_0 = "POSEIDON2_B_6_0";
+            Base::poseidon2_B_6_1 = "POSEIDON2_B_6_1";
+            Base::poseidon2_B_6_2 = "POSEIDON2_B_6_2";
+            Base::poseidon2_B_6_3 = "POSEIDON2_B_6_3";
+            Base::poseidon2_B_7_0 = "POSEIDON2_B_7_0";
+            Base::poseidon2_B_7_1 = "POSEIDON2_B_7_1";
+            Base::poseidon2_B_7_2 = "POSEIDON2_B_7_2";
+            Base::poseidon2_B_7_3 = "POSEIDON2_B_7_3";
+            Base::poseidon2_B_8_0 = "POSEIDON2_B_8_0";
+            Base::poseidon2_B_8_1 = "POSEIDON2_B_8_1";
+            Base::poseidon2_B_8_2 = "POSEIDON2_B_8_2";
+            Base::poseidon2_B_8_3 = "POSEIDON2_B_8_3";
+            Base::poseidon2_B_9_0 = "POSEIDON2_B_9_0";
+            Base::poseidon2_B_9_1 = "POSEIDON2_B_9_1";
+            Base::poseidon2_B_9_2 = "POSEIDON2_B_9_2";
+            Base::poseidon2_B_9_3 = "POSEIDON2_B_9_3";
+            Base::poseidon2_EXT_LAYER_4 = "POSEIDON2_EXT_LAYER_4";
+            Base::poseidon2_EXT_LAYER_5 = "POSEIDON2_EXT_LAYER_5";
+            Base::poseidon2_EXT_LAYER_6 = "POSEIDON2_EXT_LAYER_6";
+            Base::poseidon2_EXT_LAYER_7 = "POSEIDON2_EXT_LAYER_7";
+            Base::poseidon2_T_0_4 = "POSEIDON2_T_0_4";
+            Base::poseidon2_T_0_5 = "POSEIDON2_T_0_5";
+            Base::poseidon2_T_0_6 = "POSEIDON2_T_0_6";
+            Base::poseidon2_T_0_7 = "POSEIDON2_T_0_7";
+            Base::poseidon2_T_1_4 = "POSEIDON2_T_1_4";
+            Base::poseidon2_T_1_5 = "POSEIDON2_T_1_5";
+            Base::poseidon2_T_1_6 = "POSEIDON2_T_1_6";
+            Base::poseidon2_T_1_7 = "POSEIDON2_T_1_7";
+            Base::poseidon2_T_2_4 = "POSEIDON2_T_2_4";
+            Base::poseidon2_T_2_5 = "POSEIDON2_T_2_5";
+            Base::poseidon2_T_2_6 = "POSEIDON2_T_2_6";
+            Base::poseidon2_T_2_7 = "POSEIDON2_T_2_7";
+            Base::poseidon2_T_3_4 = "POSEIDON2_T_3_4";
+            Base::poseidon2_T_3_5 = "POSEIDON2_T_3_5";
+            Base::poseidon2_T_3_6 = "POSEIDON2_T_3_6";
+            Base::poseidon2_T_3_7 = "POSEIDON2_T_3_7";
+            Base::poseidon2_T_60_4 = "POSEIDON2_T_60_4";
+            Base::poseidon2_T_60_5 = "POSEIDON2_T_60_5";
+            Base::poseidon2_T_60_6 = "POSEIDON2_T_60_6";
+            Base::poseidon2_T_60_7 = "POSEIDON2_T_60_7";
+            Base::poseidon2_T_61_4 = "POSEIDON2_T_61_4";
+            Base::poseidon2_T_61_5 = "POSEIDON2_T_61_5";
+            Base::poseidon2_T_61_6 = "POSEIDON2_T_61_6";
+            Base::poseidon2_T_61_7 = "POSEIDON2_T_61_7";
+            Base::poseidon2_T_62_4 = "POSEIDON2_T_62_4";
+            Base::poseidon2_T_62_5 = "POSEIDON2_T_62_5";
+            Base::poseidon2_T_62_6 = "POSEIDON2_T_62_6";
+            Base::poseidon2_T_62_7 = "POSEIDON2_T_62_7";
+            Base::poseidon2_T_63_4 = "POSEIDON2_T_63_4";
+            Base::poseidon2_T_63_5 = "POSEIDON2_T_63_5";
+            Base::poseidon2_T_63_6 = "POSEIDON2_T_63_6";
+            Base::poseidon2_T_63_7 = "POSEIDON2_T_63_7";
             Base::poseidon2_a_0 = "POSEIDON2_A_0";
             Base::poseidon2_a_1 = "POSEIDON2_A_1";
             Base::poseidon2_a_2 = "POSEIDON2_A_2";
@@ -3782,9 +2508,17 @@ class AvmFlavor {
             Base::poseidon2_b_2 = "POSEIDON2_B_2";
             Base::poseidon2_b_3 = "POSEIDON2_B_3";
             Base::poseidon2_clk = "POSEIDON2_CLK";
-            Base::poseidon2_input = "POSEIDON2_INPUT";
-            Base::poseidon2_output = "POSEIDON2_OUTPUT";
+            Base::poseidon2_in_tag = "POSEIDON2_IN_TAG";
+            Base::poseidon2_input_addr = "POSEIDON2_INPUT_ADDR";
+            Base::poseidon2_mem_addr_a = "POSEIDON2_MEM_ADDR_A";
+            Base::poseidon2_mem_addr_b = "POSEIDON2_MEM_ADDR_B";
+            Base::poseidon2_mem_addr_c = "POSEIDON2_MEM_ADDR_C";
+            Base::poseidon2_mem_addr_d = "POSEIDON2_MEM_ADDR_D";
+            Base::poseidon2_mem_op = "POSEIDON2_MEM_OP";
+            Base::poseidon2_output_addr = "POSEIDON2_OUTPUT_ADDR";
+            Base::poseidon2_read_line = "POSEIDON2_READ_LINE";
             Base::poseidon2_sel_poseidon_perm = "POSEIDON2_SEL_POSEIDON_PERM";
+            Base::poseidon2_write_line = "POSEIDON2_WRITE_LINE";
             Base::powers_power_of_2 = "POWERS_POWER_OF_2";
             Base::sha256_clk = "SHA256_CLK";
             Base::sha256_input = "SHA256_INPUT";
@@ -3802,6 +2536,10 @@ class AvmFlavor {
             Base::slice_sel_start = "SLICE_SEL_START";
             Base::slice_space_id = "SLICE_SPACE_ID";
             Base::slice_val = "SLICE_VAL";
+            Base::perm_pos_mem_a = "PERM_POS_MEM_A";
+            Base::perm_pos_mem_b = "PERM_POS_MEM_B";
+            Base::perm_pos_mem_c = "PERM_POS_MEM_C";
+            Base::perm_pos_mem_d = "PERM_POS_MEM_D";
             Base::perm_slice_mem = "PERM_SLICE_MEM";
             Base::perm_main_alu = "PERM_MAIN_ALU";
             Base::perm_main_bin = "PERM_MAIN_BIN";
@@ -3922,403 +2660,7 @@ class AvmFlavor {
       public:
         uint32_t circuit_size;
 
-<<<<<<< HEAD
         std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
-=======
-        Commitment kernel_kernel_inputs;
-        Commitment kernel_kernel_value_out;
-        Commitment kernel_kernel_side_effect_out;
-        Commitment kernel_kernel_metadata_out;
-        Commitment main_calldata;
-        Commitment alu_a_hi;
-        Commitment alu_a_lo;
-        Commitment alu_b_hi;
-        Commitment alu_b_lo;
-        Commitment alu_borrow;
-        Commitment alu_cf;
-        Commitment alu_clk;
-        Commitment alu_cmp_rng_ctr;
-        Commitment alu_div_u16_r0;
-        Commitment alu_div_u16_r1;
-        Commitment alu_div_u16_r2;
-        Commitment alu_div_u16_r3;
-        Commitment alu_div_u16_r4;
-        Commitment alu_div_u16_r5;
-        Commitment alu_div_u16_r6;
-        Commitment alu_div_u16_r7;
-        Commitment alu_divisor_hi;
-        Commitment alu_divisor_lo;
-        Commitment alu_ff_tag;
-        Commitment alu_ia;
-        Commitment alu_ib;
-        Commitment alu_ic;
-        Commitment alu_in_tag;
-        Commitment alu_op_add;
-        Commitment alu_op_cast;
-        Commitment alu_op_cast_prev;
-        Commitment alu_op_div;
-        Commitment alu_op_div_a_lt_b;
-        Commitment alu_op_div_std;
-        Commitment alu_op_eq;
-        Commitment alu_op_eq_diff_inv;
-        Commitment alu_op_lt;
-        Commitment alu_op_lte;
-        Commitment alu_op_mul;
-        Commitment alu_op_not;
-        Commitment alu_op_shl;
-        Commitment alu_op_shr;
-        Commitment alu_op_sub;
-        Commitment alu_p_a_borrow;
-        Commitment alu_p_b_borrow;
-        Commitment alu_p_sub_a_hi;
-        Commitment alu_p_sub_a_lo;
-        Commitment alu_p_sub_b_hi;
-        Commitment alu_p_sub_b_lo;
-        Commitment alu_partial_prod_hi;
-        Commitment alu_partial_prod_lo;
-        Commitment alu_quotient_hi;
-        Commitment alu_quotient_lo;
-        Commitment alu_remainder;
-        Commitment alu_res_hi;
-        Commitment alu_res_lo;
-        Commitment alu_sel_alu;
-        Commitment alu_sel_cmp;
-        Commitment alu_sel_div_rng_chk;
-        Commitment alu_sel_rng_chk;
-        Commitment alu_sel_rng_chk_lookup;
-        Commitment alu_sel_shift_which;
-        Commitment alu_shift_lt_bit_len;
-        Commitment alu_t_sub_s_bits;
-        Commitment alu_two_pow_s;
-        Commitment alu_two_pow_t_sub_s;
-        Commitment alu_u128_tag;
-        Commitment alu_u16_r0;
-        Commitment alu_u16_r1;
-        Commitment alu_u16_r10;
-        Commitment alu_u16_r11;
-        Commitment alu_u16_r12;
-        Commitment alu_u16_r13;
-        Commitment alu_u16_r14;
-        Commitment alu_u16_r2;
-        Commitment alu_u16_r3;
-        Commitment alu_u16_r4;
-        Commitment alu_u16_r5;
-        Commitment alu_u16_r6;
-        Commitment alu_u16_r7;
-        Commitment alu_u16_r8;
-        Commitment alu_u16_r9;
-        Commitment alu_u16_tag;
-        Commitment alu_u32_tag;
-        Commitment alu_u64_tag;
-        Commitment alu_u8_r0;
-        Commitment alu_u8_r1;
-        Commitment alu_u8_tag;
-        Commitment binary_acc_ia;
-        Commitment binary_acc_ib;
-        Commitment binary_acc_ic;
-        Commitment binary_clk;
-        Commitment binary_ia_bytes;
-        Commitment binary_ib_bytes;
-        Commitment binary_ic_bytes;
-        Commitment binary_in_tag;
-        Commitment binary_mem_tag_ctr;
-        Commitment binary_mem_tag_ctr_inv;
-        Commitment binary_op_id;
-        Commitment binary_sel_bin;
-        Commitment binary_start;
-        Commitment byte_lookup_sel_bin;
-        Commitment byte_lookup_table_byte_lengths;
-        Commitment byte_lookup_table_in_tags;
-        Commitment byte_lookup_table_input_a;
-        Commitment byte_lookup_table_input_b;
-        Commitment byte_lookup_table_op_id;
-        Commitment byte_lookup_table_output;
-        Commitment conversion_clk;
-        Commitment conversion_input;
-        Commitment conversion_num_limbs;
-        Commitment conversion_radix;
-        Commitment conversion_sel_to_radix_le;
-        Commitment gas_da_gas_fixed_table;
-        Commitment gas_l2_gas_fixed_table;
-        Commitment gas_sel_gas_cost;
-        Commitment keccakf1600_clk;
-        Commitment keccakf1600_input;
-        Commitment keccakf1600_output;
-        Commitment keccakf1600_sel_keccakf1600;
-        Commitment kernel_emit_l2_to_l1_msg_write_offset;
-        Commitment kernel_emit_note_hash_write_offset;
-        Commitment kernel_emit_nullifier_write_offset;
-        Commitment kernel_emit_unencrypted_log_write_offset;
-        Commitment kernel_kernel_in_offset;
-        Commitment kernel_kernel_out_offset;
-        Commitment kernel_l1_to_l2_msg_exists_write_offset;
-        Commitment kernel_note_hash_exist_write_offset;
-        Commitment kernel_nullifier_exists_write_offset;
-        Commitment kernel_nullifier_non_exists_write_offset;
-        Commitment kernel_q_public_input_kernel_add_to_table;
-        Commitment kernel_q_public_input_kernel_out_add_to_table;
-        Commitment kernel_side_effect_counter;
-        Commitment kernel_sload_write_offset;
-        Commitment kernel_sstore_write_offset;
-        Commitment main_abs_da_rem_gas_hi;
-        Commitment main_abs_da_rem_gas_lo;
-        Commitment main_abs_l2_rem_gas_hi;
-        Commitment main_abs_l2_rem_gas_lo;
-        Commitment main_alu_in_tag;
-        Commitment main_bin_op_id;
-        Commitment main_call_ptr;
-        Commitment main_da_gas_op_cost;
-        Commitment main_da_gas_remaining;
-        Commitment main_da_out_of_gas;
-        Commitment main_ia;
-        Commitment main_ib;
-        Commitment main_ic;
-        Commitment main_id;
-        Commitment main_id_zero;
-        Commitment main_ind_addr_a;
-        Commitment main_ind_addr_b;
-        Commitment main_ind_addr_c;
-        Commitment main_ind_addr_d;
-        Commitment main_internal_return_ptr;
-        Commitment main_inv;
-        Commitment main_l2_gas_op_cost;
-        Commitment main_l2_gas_remaining;
-        Commitment main_l2_out_of_gas;
-        Commitment main_mem_addr_a;
-        Commitment main_mem_addr_b;
-        Commitment main_mem_addr_c;
-        Commitment main_mem_addr_d;
-        Commitment main_op_err;
-        Commitment main_opcode_val;
-        Commitment main_pc;
-        Commitment main_r_in_tag;
-        Commitment main_rwa;
-        Commitment main_rwb;
-        Commitment main_rwc;
-        Commitment main_rwd;
-        Commitment main_sel_alu;
-        Commitment main_sel_bin;
-        Commitment main_sel_gas_accounting_active;
-        Commitment main_sel_last;
-        Commitment main_sel_mem_op_a;
-        Commitment main_sel_mem_op_activate_gas;
-        Commitment main_sel_mem_op_b;
-        Commitment main_sel_mem_op_c;
-        Commitment main_sel_mem_op_d;
-        Commitment main_sel_mov_ia_to_ic;
-        Commitment main_sel_mov_ib_to_ic;
-        Commitment main_sel_op_add;
-        Commitment main_sel_op_address;
-        Commitment main_sel_op_and;
-        Commitment main_sel_op_block_number;
-        Commitment main_sel_op_cast;
-        Commitment main_sel_op_chain_id;
-        Commitment main_sel_op_cmov;
-        Commitment main_sel_op_coinbase;
-        Commitment main_sel_op_dagasleft;
-        Commitment main_sel_op_div;
-        Commitment main_sel_op_emit_l2_to_l1_msg;
-        Commitment main_sel_op_emit_note_hash;
-        Commitment main_sel_op_emit_nullifier;
-        Commitment main_sel_op_emit_unencrypted_log;
-        Commitment main_sel_op_eq;
-        Commitment main_sel_op_external_call;
-        Commitment main_sel_op_fdiv;
-        Commitment main_sel_op_fee_per_da_gas;
-        Commitment main_sel_op_fee_per_l2_gas;
-        Commitment main_sel_op_function_selector;
-        Commitment main_sel_op_get_contract_instance;
-        Commitment main_sel_op_halt;
-        Commitment main_sel_op_internal_call;
-        Commitment main_sel_op_internal_return;
-        Commitment main_sel_op_jump;
-        Commitment main_sel_op_jumpi;
-        Commitment main_sel_op_keccak;
-        Commitment main_sel_op_l1_to_l2_msg_exists;
-        Commitment main_sel_op_l2gasleft;
-        Commitment main_sel_op_lt;
-        Commitment main_sel_op_lte;
-        Commitment main_sel_op_mov;
-        Commitment main_sel_op_mul;
-        Commitment main_sel_op_not;
-        Commitment main_sel_op_note_hash_exists;
-        Commitment main_sel_op_nullifier_exists;
-        Commitment main_sel_op_or;
-        Commitment main_sel_op_pedersen;
-        Commitment main_sel_op_poseidon2;
-        Commitment main_sel_op_radix_le;
-        Commitment main_sel_op_sender;
-        Commitment main_sel_op_sha256;
-        Commitment main_sel_op_shl;
-        Commitment main_sel_op_shr;
-        Commitment main_sel_op_sload;
-        Commitment main_sel_op_sstore;
-        Commitment main_sel_op_storage_address;
-        Commitment main_sel_op_sub;
-        Commitment main_sel_op_timestamp;
-        Commitment main_sel_op_transaction_fee;
-        Commitment main_sel_op_version;
-        Commitment main_sel_op_xor;
-        Commitment main_sel_q_kernel_lookup;
-        Commitment main_sel_q_kernel_output_lookup;
-        Commitment main_sel_resolve_ind_addr_a;
-        Commitment main_sel_resolve_ind_addr_b;
-        Commitment main_sel_resolve_ind_addr_c;
-        Commitment main_sel_resolve_ind_addr_d;
-        Commitment main_sel_rng_16;
-        Commitment main_sel_rng_8;
-        Commitment main_space_id;
-        Commitment main_tag_err;
-        Commitment main_w_in_tag;
-        Commitment mem_addr;
-        Commitment mem_clk;
-        Commitment mem_diff_hi;
-        Commitment mem_diff_lo;
-        Commitment mem_diff_mid;
-        Commitment mem_glob_addr;
-        Commitment mem_last;
-        Commitment mem_lastAccess;
-        Commitment mem_one_min_inv;
-        Commitment mem_r_in_tag;
-        Commitment mem_rw;
-        Commitment mem_sel_mem;
-        Commitment mem_sel_mov_ia_to_ic;
-        Commitment mem_sel_mov_ib_to_ic;
-        Commitment mem_sel_op_a;
-        Commitment mem_sel_op_b;
-        Commitment mem_sel_op_c;
-        Commitment mem_sel_op_cmov;
-        Commitment mem_sel_op_d;
-        Commitment mem_sel_resolve_ind_addr_a;
-        Commitment mem_sel_resolve_ind_addr_b;
-        Commitment mem_sel_resolve_ind_addr_c;
-        Commitment mem_sel_resolve_ind_addr_d;
-        Commitment mem_sel_rng_chk;
-        Commitment mem_skip_check_tag;
-        Commitment mem_space_id;
-        Commitment mem_tag;
-        Commitment mem_tag_err;
-        Commitment mem_tsp;
-        Commitment mem_val;
-        Commitment mem_w_in_tag;
-        Commitment pedersen_clk;
-        Commitment pedersen_input;
-        Commitment pedersen_output;
-        Commitment pedersen_sel_pedersen;
-        Commitment poseidon2_a_0;
-        Commitment poseidon2_a_1;
-        Commitment poseidon2_a_2;
-        Commitment poseidon2_a_3;
-        Commitment poseidon2_b_0;
-        Commitment poseidon2_b_1;
-        Commitment poseidon2_b_2;
-        Commitment poseidon2_b_3;
-        Commitment poseidon2_clk;
-        Commitment poseidon2_input;
-        Commitment poseidon2_output;
-        Commitment poseidon2_sel_poseidon_perm;
-        Commitment powers_power_of_2;
-        Commitment sha256_clk;
-        Commitment sha256_input;
-        Commitment sha256_output;
-        Commitment sha256_sel_sha256_compression;
-        Commitment sha256_state;
-        Commitment perm_main_alu;
-        Commitment perm_main_bin;
-        Commitment perm_main_conv;
-        Commitment perm_main_pos2_perm;
-        Commitment perm_main_pedersen;
-        Commitment perm_main_mem_a;
-        Commitment perm_main_mem_b;
-        Commitment perm_main_mem_c;
-        Commitment perm_main_mem_d;
-        Commitment perm_main_mem_ind_addr_a;
-        Commitment perm_main_mem_ind_addr_b;
-        Commitment perm_main_mem_ind_addr_c;
-        Commitment perm_main_mem_ind_addr_d;
-        Commitment lookup_byte_lengths;
-        Commitment lookup_byte_operations;
-        Commitment lookup_opcode_gas;
-        Commitment range_check_l2_gas_hi;
-        Commitment range_check_l2_gas_lo;
-        Commitment range_check_da_gas_hi;
-        Commitment range_check_da_gas_lo;
-        Commitment kernel_output_lookup;
-        Commitment lookup_into_kernel;
-        Commitment incl_main_tag_err;
-        Commitment incl_mem_tag_err;
-        Commitment lookup_mem_rng_chk_lo;
-        Commitment lookup_mem_rng_chk_mid;
-        Commitment lookup_mem_rng_chk_hi;
-        Commitment lookup_pow_2_0;
-        Commitment lookup_pow_2_1;
-        Commitment lookup_u8_0;
-        Commitment lookup_u8_1;
-        Commitment lookup_u16_0;
-        Commitment lookup_u16_1;
-        Commitment lookup_u16_2;
-        Commitment lookup_u16_3;
-        Commitment lookup_u16_4;
-        Commitment lookup_u16_5;
-        Commitment lookup_u16_6;
-        Commitment lookup_u16_7;
-        Commitment lookup_u16_8;
-        Commitment lookup_u16_9;
-        Commitment lookup_u16_10;
-        Commitment lookup_u16_11;
-        Commitment lookup_u16_12;
-        Commitment lookup_u16_13;
-        Commitment lookup_u16_14;
-        Commitment lookup_div_u16_0;
-        Commitment lookup_div_u16_1;
-        Commitment lookup_div_u16_2;
-        Commitment lookup_div_u16_3;
-        Commitment lookup_div_u16_4;
-        Commitment lookup_div_u16_5;
-        Commitment lookup_div_u16_6;
-        Commitment lookup_div_u16_7;
-        Commitment lookup_byte_lengths_counts;
-        Commitment lookup_byte_operations_counts;
-        Commitment lookup_opcode_gas_counts;
-        Commitment range_check_l2_gas_hi_counts;
-        Commitment range_check_l2_gas_lo_counts;
-        Commitment range_check_da_gas_hi_counts;
-        Commitment range_check_da_gas_lo_counts;
-        Commitment kernel_output_lookup_counts;
-        Commitment lookup_into_kernel_counts;
-        Commitment incl_main_tag_err_counts;
-        Commitment incl_mem_tag_err_counts;
-        Commitment lookup_mem_rng_chk_lo_counts;
-        Commitment lookup_mem_rng_chk_mid_counts;
-        Commitment lookup_mem_rng_chk_hi_counts;
-        Commitment lookup_pow_2_0_counts;
-        Commitment lookup_pow_2_1_counts;
-        Commitment lookup_u8_0_counts;
-        Commitment lookup_u8_1_counts;
-        Commitment lookup_u16_0_counts;
-        Commitment lookup_u16_1_counts;
-        Commitment lookup_u16_2_counts;
-        Commitment lookup_u16_3_counts;
-        Commitment lookup_u16_4_counts;
-        Commitment lookup_u16_5_counts;
-        Commitment lookup_u16_6_counts;
-        Commitment lookup_u16_7_counts;
-        Commitment lookup_u16_8_counts;
-        Commitment lookup_u16_9_counts;
-        Commitment lookup_u16_10_counts;
-        Commitment lookup_u16_11_counts;
-        Commitment lookup_u16_12_counts;
-        Commitment lookup_u16_13_counts;
-        Commitment lookup_u16_14_counts;
-        Commitment lookup_div_u16_0_counts;
-        Commitment lookup_div_u16_1_counts;
-        Commitment lookup_div_u16_2_counts;
-        Commitment lookup_div_u16_3_counts;
-        Commitment lookup_div_u16_4_counts;
-        Commitment lookup_div_u16_5_counts;
-        Commitment lookup_div_u16_6_counts;
-        Commitment lookup_div_u16_7_counts;
->>>>>>> 520b7216c (feat(avm): poseidon2 constraints)
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -4338,418 +2680,9 @@ class AvmFlavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-<<<<<<< HEAD
             for (auto& commitment : commitments) {
                 commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             }
-=======
-            kernel_kernel_inputs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_value_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_side_effect_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_metadata_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_calldata = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_a_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_b_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_borrow = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_cf = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_cmp_rng_ctr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_divisor_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_divisor_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ff_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_cast_prev = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_div_a_lt_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_div_std = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_eq_diff_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_not = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_a_borrow = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_b_borrow = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_a_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_b_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_partial_prod_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_partial_prod_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_quotient_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_quotient_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_remainder = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_res_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_res_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_cmp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_div_rng_chk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_rng_chk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_rng_chk_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_shift_which = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_shift_lt_bit_len = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_t_sub_s_bits = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_two_pow_s = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_two_pow_t_sub_s = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u128_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r10 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r11 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r9 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u32_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u64_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u8_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u8_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u8_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_acc_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_acc_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_acc_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_ia_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_ib_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_ic_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_mem_tag_ctr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_mem_tag_ctr_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_start = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_in_tags = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_input_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_input_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_num_limbs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_radix = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_sel_to_radix_le = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            gas_sel_gas_cost = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_sel_keccakf1600 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_l2_to_l1_msg_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_note_hash_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_nullifier_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_unencrypted_log_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_in_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_out_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_l1_to_l2_msg_exists_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_note_hash_exist_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_nullifier_exists_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_nullifier_non_exists_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_q_public_input_kernel_add_to_table =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_q_public_input_kernel_out_add_to_table =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_side_effect_counter = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_sload_write_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_sstore_write_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_da_rem_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_da_rem_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_l2_rem_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_l2_rem_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_alu_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_bin_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_call_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_da_gas_op_cost = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_da_gas_remaining = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_da_out_of_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_id_zero = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_internal_return_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_l2_gas_op_cost = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_l2_gas_remaining = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_l2_out_of_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_op_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_opcode_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_pc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwa = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwb = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_gas_accounting_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_activate_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mov_ia_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mov_ib_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_and = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_block_number = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_chain_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_coinbase = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_dagasleft = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_l2_to_l1_msg = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_note_hash = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_nullifier = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_unencrypted_log =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_external_call = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_function_selector = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_get_contract_instance =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_halt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_internal_call = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_internal_return = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_jump = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_jumpi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_keccak = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_l1_to_l2_msg_exists = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_l2gasleft = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_mov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_not = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_note_hash_exists = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_nullifier_exists = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_or = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_poseidon2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_radix_le = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sender = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sha256 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sload = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sstore = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_storage_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_timestamp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_transaction_fee = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_version = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_q_kernel_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_q_kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_rng_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_diff_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_diff_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_diff_mid = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_glob_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_lastAccess = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_one_min_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_rw = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_mem = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_mov_ia_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_mov_ib_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_rng_chk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_skip_check_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_tsp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_sel_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_a_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_a_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_a_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_a_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_b_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_b_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_b_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_b_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_sel_poseidon_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            powers_power_of_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_sel_sha256_compression = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_state = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_pos2_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_opcode_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_into_kernel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_mid = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_9 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_10 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_11 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_opcode_gas_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_output_lookup_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_into_kernel_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_mid_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_2_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_3_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_4_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_5_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_6_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_7_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_8_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_9_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_10_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_11_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_12_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_13_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_14_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_2_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_3_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_4_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_5_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_6_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_7_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-
->>>>>>> 520b7216c (feat(avm): poseidon2 constraints)
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(Transcript::proof_data,
@@ -4772,406 +2705,9 @@ class AvmFlavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
-<<<<<<< HEAD
             for (const auto& commitment : commitments) {
                 serialize_to_buffer(commitment, Transcript::proof_data);
             }
-=======
-            serialize_to_buffer<Commitment>(kernel_kernel_inputs, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_value_out, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_side_effect_out, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_metadata_out, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_calldata, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_a_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_a_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_b_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_b_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_borrow, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_cf, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_cmp_rng_ctr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_divisor_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_divisor_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ff_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ia, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ib, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_add, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_cast, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_cast_prev, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_div, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_div_a_lt_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_div_std, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_eq, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_eq_diff_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_lt, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_lte, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_mul, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_not, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_shl, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_shr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_sub, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_a_borrow, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_b_borrow, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_a_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_a_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_b_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_b_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_partial_prod_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_partial_prod_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_quotient_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_quotient_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_remainder, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_res_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_res_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_alu, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_cmp, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_div_rng_chk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_rng_chk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_rng_chk_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_shift_which, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_shift_lt_bit_len, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_t_sub_s_bits, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_two_pow_s, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_two_pow_t_sub_s, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u128_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r10, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r11, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r12, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r13, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r14, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r9, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u32_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u64_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u8_r0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u8_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u8_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_acc_ia, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_acc_ib, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_acc_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_ia_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_ib_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_ic_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_mem_tag_ctr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_mem_tag_ctr_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_op_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_start, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_byte_lengths, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_in_tags, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_input_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_input_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_op_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_num_limbs, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_radix, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_sel_to_radix_le, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(gas_da_gas_fixed_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(gas_l2_gas_fixed_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(gas_sel_gas_cost, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_sel_keccakf1600, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_note_hash_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_nullifier_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_unencrypted_log_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_in_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_out_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_l1_to_l2_msg_exists_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_note_hash_exist_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_nullifier_exists_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_nullifier_non_exists_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_q_public_input_kernel_add_to_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_q_public_input_kernel_out_add_to_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_side_effect_counter, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_sload_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_sstore_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_da_rem_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_da_rem_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_l2_rem_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_l2_rem_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_alu_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_bin_op_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_call_ptr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_da_gas_op_cost, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_da_gas_remaining, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_da_out_of_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ia, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ib, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_id_zero, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_internal_return_ptr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_l2_gas_op_cost, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_l2_gas_remaining, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_l2_out_of_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_op_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_opcode_val, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_pc, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_r_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwa, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwb, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwc, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwd, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_alu, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_gas_accounting_active, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_last, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_activate_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mov_ia_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mov_ib_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_add, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_address, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_and, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_block_number, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_cast, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_chain_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_cmov, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_coinbase, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_dagasleft, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_div, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_l2_to_l1_msg, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_note_hash, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_nullifier, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_unencrypted_log, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_eq, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_external_call, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_fdiv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_fee_per_da_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_fee_per_l2_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_function_selector, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_get_contract_instance, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_halt, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_internal_call, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_internal_return, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_jump, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_jumpi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_keccak, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_l1_to_l2_msg_exists, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_l2gasleft, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_lt, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_lte, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_mov, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_mul, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_not, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_note_hash_exists, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_nullifier_exists, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_or, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_poseidon2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_radix_le, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sender, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sha256, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_shl, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_shr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sload, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sstore, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_storage_address, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sub, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_timestamp, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_transaction_fee, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_version, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_xor, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_q_kernel_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_q_kernel_output_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_rng_16, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_rng_8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_space_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_w_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_addr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_diff_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_diff_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_diff_mid, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_glob_addr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_last, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_lastAccess, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_one_min_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_r_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_rw, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_mem, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_mov_ia_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_mov_ib_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_cmov, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_rng_chk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_skip_check_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_space_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_tsp, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_val, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_w_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_sel_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_a_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_a_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_a_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_a_3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_b_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_b_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_b_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_b_3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_sel_poseidon_perm, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(powers_power_of_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_sel_sha256_compression, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_state, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_pos2_perm, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_lengths, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_opcode_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_output_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_into_kernel, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_main_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_mid, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_9, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_10, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_11, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_12, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_13, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_14, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_opcode_gas_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_hi_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_lo_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_hi_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_lo_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_output_lookup_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_into_kernel_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_mid_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_2_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_3_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_4_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_5_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_6_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_7_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_8_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_9_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_10_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_11_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_12_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_13_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_14_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_2_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_3_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_4_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_5_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_6_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_7_counts, Transcript::proof_data);
-
->>>>>>> 520b7216c (feat(avm): poseidon2 constraints)
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
             }
