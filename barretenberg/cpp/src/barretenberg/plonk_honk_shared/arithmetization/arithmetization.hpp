@@ -359,7 +359,7 @@ template <typename FF_> class UltraHonkArith {
             755000,  // arithmetic;
             140000,  // delta_range;
             600000,  // elliptic;
-            1000000, // aux;
+            1400000, // aux;
             460000,  // lookup;
             1 << 7,  // busread;
             15000,   // poseidon_external;
