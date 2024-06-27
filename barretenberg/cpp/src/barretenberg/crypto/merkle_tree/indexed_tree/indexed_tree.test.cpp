@@ -21,11 +21,11 @@ using namespace bb::crypto::merkle_tree;
 
 using HashPolicy = Poseidon2HashPolicy;
 
-using Store = CachedTreeStore<LMDBStore, nullifier_leaf_value>;
+using Store = CachedTreeStore<LMDBStore, NullifierLeafValue>;
 using TreeType = IndexedTree<Store, HashPolicy>;
-using IndexedLeafType = indexed_leaf<nullifier_leaf_value>;
+using IndexedLeafType = IndexedLeaf<NullifierLeafValue>;
 
-using CompletionCallback = TreeType::add_completion_callback;
+using CompletionCallback = TreeType::AddCompletionCallback;
 
 class PersistedIndexedTreeTest : public testing::Test {
   protected:

@@ -6,18 +6,18 @@
 
 namespace bb::crypto::merkle_tree {
 
-struct nullifier_leaf_value {
+struct NullifierLeafValue {
     fr value;
 
     MSGPACK_FIELDS(value)
 
-    nullifier_leaf_value() = default;
-    nullifier_leaf_value(const fr& v)
+    NullifierLeafValue() = default;
+    NullifierLeafValue(const fr& v)
         : value(v)
     {}
-    nullifier_leaf_value(const nullifier_leaf_value& other) = default;
-    nullifier_leaf_value(nullifier_leaf_value&& other) = default;
-    nullifier_leaf_value& operator=(const nullifier_leaf_value& other)
+    NullifierLeafValue(const NullifierLeafValue& other) = default;
+    NullifierLeafValue(NullifierLeafValue&& other) = default;
+    NullifierLeafValue& operator=(const NullifierLeafValue& other)
     {
         if (this != &other) {
             value = other.value;
@@ -25,18 +25,18 @@ struct nullifier_leaf_value {
         return *this;
     }
 
-    nullifier_leaf_value& operator=(nullifier_leaf_value&& other)
+    NullifierLeafValue& operator=(NullifierLeafValue&& other) noexcept
     {
         if (this != &other) {
             value = other.value;
         }
         return *this;
     }
-    ~nullifier_leaf_value() = default;
+    ~NullifierLeafValue() = default;
 
-    bool operator==(nullifier_leaf_value const& other) const { return value == other.value; }
+    bool operator==(NullifierLeafValue const& other) const { return value == other.value; }
 
-    friend std::ostream& operator<<(std::ostream& os, const nullifier_leaf_value& v)
+    friend std::ostream& operator<<(std::ostream& os, const NullifierLeafValue& v)
     {
         os << "value = " << v.value;
         return os;
@@ -44,34 +44,34 @@ struct nullifier_leaf_value {
 
     fr get_fr_value() const { return value; }
 
-    static nullifier_leaf_value empty() { return { 0 }; }
+    static NullifierLeafValue empty() { return { 0 }; }
 };
 
-template <typename LeafType> struct indexed_leaf {
+template <typename LeafType> struct IndexedLeaf {
     LeafType value;
     index_t nextIndex;
     fr nextValue;
 
     MSGPACK_FIELDS(value, nextIndex, nextValue)
 
-    indexed_leaf() = default;
+    IndexedLeaf() = default;
 
-    indexed_leaf(const LeafType& val, index_t nextIdx, fr nextVal)
+    IndexedLeaf(const LeafType& val, index_t nextIdx, fr nextVal)
         : value(val)
         , nextIndex(nextIdx)
         , nextValue(nextVal)
     {}
 
-    indexed_leaf<LeafType>(const indexed_leaf<LeafType>& other) = default;
-    indexed_leaf<LeafType>(indexed_leaf<LeafType>&& other) noexcept = default;
-    ~indexed_leaf<LeafType>() = default;
+    IndexedLeaf<LeafType>(const IndexedLeaf<LeafType>& other) = default;
+    IndexedLeaf<LeafType>(IndexedLeaf<LeafType>&& other) noexcept = default;
+    ~IndexedLeaf<LeafType>() = default;
 
-    bool operator==(indexed_leaf<LeafType> const& other) const
+    bool operator==(IndexedLeaf<LeafType> const& other) const
     {
         return value == other.value && nextValue == other.nextValue && nextIndex == other.nextIndex;
     }
 
-    indexed_leaf<LeafType>& operator=(indexed_leaf<LeafType> const& other)
+    IndexedLeaf<LeafType>& operator=(IndexedLeaf<LeafType> const& other)
     {
         if (this != &other) {
             value = other.value;
@@ -81,7 +81,7 @@ template <typename LeafType> struct indexed_leaf {
         return *this;
     }
 
-    indexed_leaf<LeafType>& operator=(indexed_leaf<LeafType>&& other) noexcept
+    IndexedLeaf<LeafType>& operator=(IndexedLeaf<LeafType>&& other) noexcept
     {
         if (this != &other) {
             value = other.value;
@@ -91,7 +91,7 @@ template <typename LeafType> struct indexed_leaf {
         return *this;
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const indexed_leaf<LeafType>& leaf)
+    friend std::ostream& operator<<(std::ostream& os, const IndexedLeaf<LeafType>& leaf)
     {
         os << leaf.value << "\nnextIdx = " << leaf.nextIndex << "\nnextVal = " << leaf.nextValue;
         return os;
@@ -99,7 +99,7 @@ template <typename LeafType> struct indexed_leaf {
 
     std::vector<fr> get_hash_inputs() const { return std::vector<fr>({ value.value, nextIndex, nextValue }); }
 
-    static indexed_leaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
+    static IndexedLeaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
 };
 
 } // namespace bb::crypto::merkle_tree

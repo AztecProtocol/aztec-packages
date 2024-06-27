@@ -20,11 +20,11 @@ using namespace bb;
  */
 template <typename Store, typename HashingPolicy> class AppendOnlyTree {
   public:
-    using append_completion_callback = std::function<void(bb::fr, index_t)>;
-    using meta_data_callback = std::function<void(const std::string&, uint32_t, const index_t&, const bb::fr&)>;
-    using hash_path_callback = std::function<void(const fr_hash_path&)>;
-    using commit_callback = std::function<void()>;
-    using rollback_callback = std::function<void()>;
+    using AppendCompletionCallback = std::function<void(bb::fr, index_t)>;
+    using MetaDataCallback = std::function<void(const std::string&, uint32_t, const index_t&, const bb::fr&)>;
+    using HashPathCallback = std::function<void(const fr_hash_path&)>;
+    using CommitCallback = std::function<void()>;
+    using RollbackCallback = std::function<void()>;
 
     AppendOnlyTree(Store& store, ThreadPool& workers);
     AppendOnlyTree(AppendOnlyTree const& other) = delete;
@@ -36,22 +36,22 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     /**
      * @brief Adds a single value to the end of the tree
      */
-    virtual void add_value(const fr& value, const append_completion_callback& on_completion);
+    virtual void add_value(const fr& value, const AppendCompletionCallback& on_completion);
 
     /**
      * @brief Adds the given set of values to the end of the tree
      */
-    virtual void add_values(const std::vector<fr>& values, const append_completion_callback& on_completion);
+    virtual void add_values(const std::vector<fr>& values, const AppendCompletionCallback& on_completion);
 
     /**
      * @brief Returns the hash path from the leaf at the given index to the root
      */
-    void get_hash_path(const index_t& index, const hash_path_callback& on_completion, bool includeUncommitted) const;
+    void get_hash_path(const index_t& index, const HashPathCallback& on_completion, bool includeUncommitted) const;
 
-    void get_meta_data(bool includeUncommitted, const meta_data_callback& on_completion);
+    void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion);
 
-    void commit(const commit_callback& on_completion);
-    void rollback(const rollback_callback& on_completion);
+    void commit(const CommitCallback& on_completion);
+    void rollback(const RollbackCallback& on_completion);
 
     uint32_t depth() const { return depth_; }
 
@@ -101,8 +101,7 @@ AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& w
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted,
-                                                         const meta_data_callback& on_completion)
+void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion)
 {
     auto job = [=]() {
         index_t size = 0;
@@ -118,7 +117,7 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
 
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::get_hash_path(const index_t& index,
-                                                         const hash_path_callback& on_completion,
+                                                         const HashPathCallback& on_completion,
                                                          bool includeUncommitted) const
 {
     auto job = [=]() {
@@ -143,14 +142,14 @@ void AppendOnlyTree<Store, HashingPolicy>::get_hash_path(const index_t& index,
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::add_value(const fr& value, const append_completion_callback& on_completion)
+void AppendOnlyTree<Store, HashingPolicy>::add_value(const fr& value, const AppendCompletionCallback& on_completion)
 {
     add_values(std::vector<fr>{ value }, on_completion);
 }
 
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& values,
-                                                      const append_completion_callback& on_completion)
+                                                      const AppendCompletionCallback& on_completion)
 {
     uint32_t start_level = depth_;
     std::shared_ptr<std::vector<fr>> hashes = std::make_shared<std::vector<fr>>(values);
@@ -160,12 +159,12 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& val
         index_t new_size = 0;
         {
             typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
-            index_t start_size;
+            index_t start_size = 0;
             bb::fr root;
             store_.get_meta(start_size, root, *tx, true);
             index_t index = start_size;
             uint32_t level = start_level;
-            uint32_t number_to_insert = static_cast<uint32_t>(values.size());
+            auto number_to_insert = static_cast<uint32_t>(values.size());
             std::vector<fr>& hashes_local = *hashes;
             // Add the values at the leaf nodes of the tree
             for (uint32_t i = 0; i < number_to_insert; ++i) {
@@ -243,7 +242,7 @@ std::pair<bool, fr> AppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t lev
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::commit(const commit_callback& on_completion)
+void AppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
 {
     auto job = [=]() {
         store_.commit();
@@ -253,7 +252,7 @@ void AppendOnlyTree<Store, HashingPolicy>::commit(const commit_callback& on_comp
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::rollback(const rollback_callback& on_completion)
+void AppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
     auto job = [=]() {
         store_.rollback();

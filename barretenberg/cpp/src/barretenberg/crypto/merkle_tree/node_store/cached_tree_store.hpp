@@ -19,7 +19,7 @@ namespace bb::crypto::merkle_tree {
 template <typename PersistedStore, typename LeafValueType> class CachedTreeStore {
   public:
     using LeafType = LeafValueType;
-    using IndexedLeafValueType = indexed_leaf<LeafValueType>;
+    using IndexedLeafValueType = IndexedLeaf<LeafValueType>;
     using ReadTransaction = typename PersistedStore::ReadTransaction;
     using WriteTransaction = typename PersistedStore::WriteTransaction;
     using ReadTransactionPtr = std::unique_ptr<ReadTransaction>;
@@ -101,14 +101,14 @@ std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_lo
     std::vector<uint8_t> data;
     FrKeyType key(new_value.get_fr_value());
     tx.get_value_or_previous(key, data);
-    index_t db_index = from_buffer<index_t>(data, 0);
+    auto db_index = from_buffer<index_t>(data, 0);
     uint256_t retrieved_value = key;
     if (!includeUncommitted || retrieved_value == new_value_as_number || indices_.empty()) {
         return std::make_pair(new_value_as_number == retrieved_value, db_index);
     }
 
     // At this stage, we have been asked to include uncommitted and the value was not exactly found in the db
-    std::map<uint256_t, index_t>::const_iterator it = indices_.lower_bound(new_value_as_number);
+    auto it = indices_.lower_bound(new_value_as_number);
     if (it == indices_.end()) {
         // there is no element >= the requested value.
         // decrement the iterator to get the value preceeding the requested value

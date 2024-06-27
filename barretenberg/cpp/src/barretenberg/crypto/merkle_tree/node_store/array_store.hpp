@@ -26,8 +26,8 @@ class MockPersistedStore {
   public:
     using ReadTransaction = MockTransaction;
     using WriteTransaction = MockTransaction;
-    MockTransaction::Ptr createWriteTransaction() const { return std::make_unique<MockTransaction>(); }
-    MockTransaction::Ptr createReadTransaction() { return std::make_unique<MockTransaction>(); }
+    static MockTransaction::Ptr createWriteTransaction() { return std::make_unique<MockTransaction>(); }
+    static MockTransaction::Ptr createReadTransaction() { return std::make_unique<MockTransaction>(); }
 };
 
 /**

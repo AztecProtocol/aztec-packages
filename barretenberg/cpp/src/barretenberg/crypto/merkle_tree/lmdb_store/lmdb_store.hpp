@@ -46,7 +46,7 @@ template <typename... TArgs> bool call_lmdb_func(int (*f)(TArgs...), TArgs... ar
     if (error != 0 && error != MDB_NOTFOUND) {
         std::stringstream ss;
         ss << "ERROR: " << mdb_strerror(error) << std::endl;
-        std::cout << ss.str();
+        std::cerr << ss.str();
     }
     return error == 0;
 }
@@ -59,6 +59,10 @@ template <typename... TArgs> void call_lmdb_func(void (*f)(TArgs...), TArgs... a
 class LMDBEnvironment {
   public:
     LMDBEnvironment(const std::string& directory, uint64_t mapSizeMB, uint32_t maxNumDBs, uint32_t maxNumReaders);
+    LMDBEnvironment(const LMDBEnvironment& other) = delete;
+    LMDBEnvironment(LMDBEnvironment&& other) = delete;
+    LMDBEnvironment& operator=(const LMDBEnvironment& other) = delete;
+    LMDBEnvironment& operator=(LMDBEnvironment&& other) = delete;
 
     ~LMDBEnvironment() { call_lmdb_func(mdb_env_close, _mdbEnv); }
 
@@ -85,9 +89,12 @@ class LMDBTransaction {
     {
         MDB_txn* p = nullptr;
         if (!call_lmdb_func(mdb_txn_begin, _environment.underlying(), p, readOnly ? MDB_RDONLY : 0U, &_transaction)) {
-            // throw here
         }
     }
+    LMDBTransaction(const LMDBTransaction& other) = delete;
+    LMDBTransaction(LMDBTransaction&& other) = delete;
+    LMDBTransaction& operator=(const LMDBTransaction& other) = delete;
+    LMDBTransaction& operator=(LMDBTransaction&& other) = delete;
 
     virtual ~LMDBTransaction() = default;
 
@@ -125,6 +132,11 @@ class LMDBDatabase {
         }
     }
 
+    LMDBDatabase(const LMDBDatabase& other) = delete;
+    LMDBDatabase(LMDBDatabase&& other) = delete;
+    LMDBDatabase& operator=(const LMDBDatabase& other) = delete;
+    LMDBDatabase& operator=(LMDBDatabase&& other) = delete;
+
     ~LMDBDatabase() { call_lmdb_func(mdb_dbi_close, _environment.underlying(), _dbi); }
 
     const MDB_dbi& underlying() const { return _dbi; }
@@ -142,6 +154,10 @@ class LMDBReadTransaction : public LMDBTransaction {
         : LMDBTransaction(env, true)
         , _database(database)
     {}
+    LMDBReadTransaction(const LMDBReadTransaction& other) = delete;
+    LMDBReadTransaction(LMDBReadTransaction&& other) = delete;
+    LMDBReadTransaction& operator=(const LMDBReadTransaction& other) = delete;
+    LMDBReadTransaction& operator=(LMDBReadTransaction&& other) = delete;
 
     ~LMDBReadTransaction() override { abort(); }
 
@@ -181,7 +197,7 @@ template <typename T> bool LMDBReadTransaction::get_value_by_integer(T& key, std
 template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, std::vector<uint8_t>& data) const
 {
     T keyCopy = key;
-    MDB_cursor* cursor;
+    MDB_cursor* cursor = nullptr;
     call_lmdb_func(mdb_cursor_open, underlying(), _database.underlying(), &cursor);
 
     MDB_val dbKey;
@@ -261,7 +277,10 @@ class LMDBWriteTransaction : public LMDBTransaction {
         : LMDBTransaction(env)
         , _database(database)
     {}
-
+    LMDBWriteTransaction(const LMDBWriteTransaction& other) = delete;
+    LMDBWriteTransaction(LMDBWriteTransaction&& other) = delete;
+    LMDBWriteTransaction& operator=(const LMDBWriteTransaction& other) = delete;
+    LMDBWriteTransaction& operator=(LMDBWriteTransaction&& other) = delete;
     ~LMDBWriteTransaction() override { commit(); }
 
     void put_node(uint32_t level, index_t index, std::vector<uint8_t>& data);
@@ -303,6 +322,10 @@ class LMDBDatabaseCreationTransaction : public LMDBTransaction {
     LMDBDatabaseCreationTransaction(LMDBEnvironment& env)
         : LMDBTransaction(env)
     {}
+    LMDBDatabaseCreationTransaction(const LMDBDatabaseCreationTransaction& other) = delete;
+    LMDBDatabaseCreationTransaction(LMDBDatabaseCreationTransaction&& other) = delete;
+    LMDBDatabaseCreationTransaction& operator=(const LMDBDatabaseCreationTransaction& other) = delete;
+    LMDBDatabaseCreationTransaction& operator=(LMDBDatabaseCreationTransaction&& other) = delete;
 
     ~LMDBDatabaseCreationTransaction() override { commit(); }
 
@@ -324,6 +347,10 @@ class LMDBStore {
         , _name(std::move(name))
         , _database(_environment, LMDBDatabaseCreationTransaction(_environment), _name, integerKeys, reverseKeys, cmp)
     {}
+    LMDBStore(const LMDBStore& other) = delete;
+    LMDBStore(LMDBStore&& other) = delete;
+    LMDBStore& operator=(const LMDBStore& other) = delete;
+    LMDBStore& operator=(LMDBStore&& other) = delete;
     ~LMDBStore() = default;
 
     LMDBWriteTransaction::Ptr createWriteTransaction() const

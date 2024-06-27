@@ -61,12 +61,14 @@ class Signal {
 
   private:
     std::atomic<uint32_t> signal_;
-}; /**
-    * @brief Implements a parallelised batch insertion indexed tree
-    * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
-    * hashing policy
-    *
-    */
+};
+
+/**
+ * @brief Implements a parallelised batch insertion indexed tree
+ * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
+ * hashing policy
+ *
+ */
 template <typename Store, typename HashingPolicy> class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
   public:
     using LeafValueType = typename Store::LeafType;
@@ -78,6 +80,8 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
     IndexedTree(IndexedTree const& other) = delete;
     IndexedTree(IndexedTree&& other) = delete;
     ~IndexedTree() = default;
+    IndexedTree& operator=(const IndexedTree& other) = delete;
+    IndexedTree& operator=(IndexedTree&& other) = delete;
 
     /**
      * @brief Adds or updates a single values in the tree (updates not currently supported)
