@@ -791,22 +791,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
         // Challenges x, z
         auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
-        // info("x_challenge ", x_challenge);
-        // Compute commitment C_{\zeta_x}
-        if constexpr (Curve::is_stdlib_type) {
-            // info("before compute_C_zeta_x: ",
-            //      z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
 
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N, circuit_size);
-        if constexpr (Curve::is_stdlib_type) {
-            // info("after compute_C_zeta_x: ",
-            //      z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
 
         // Compute commitment C_{Z_x}
         Commitment C_Z_x = compute_C_Z_x(g1_identity,

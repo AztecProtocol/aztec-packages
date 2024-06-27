@@ -1,4 +1,4 @@
-CLIglobal ARGS_LENGTH: u32 = 16;
+global ARGS_LENGTH: u32 = 16;
 
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
