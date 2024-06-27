@@ -1,5 +1,6 @@
 import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -34,6 +35,7 @@ describe('prover/orchestrator/public-functions', () => {
           numberOfRevertiblePublicCallRequests,
         });
         tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
+        tx.data.constants.vkTreeRoot = getVKTreeRoot();
 
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 

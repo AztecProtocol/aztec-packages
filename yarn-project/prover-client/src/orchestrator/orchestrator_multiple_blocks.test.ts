@@ -1,5 +1,6 @@
 import { PROVING_STATUS } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
 import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
@@ -25,6 +26,7 @@ describe('prover/orchestrator/multi-block', () => {
       for (let i = 0; i < numBlocks; i++) {
         const tx = await makeBloatedProcessedTx(context.actualDb, i + 1);
         tx.data.constants.historicalHeader = header;
+        tx.data.constants.vkTreeRoot = getVKTreeRoot();
 
         const blockNum = i + 1000;
 

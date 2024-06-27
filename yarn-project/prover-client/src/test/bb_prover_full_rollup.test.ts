@@ -4,6 +4,7 @@ import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -38,6 +39,7 @@ describe('prover/bb_prover/full-rollup', () => {
         numberOfRevertiblePublicCallRequests: 0,
       });
       tx.data.constants.historicalHeader = initialHeader;
+      tx.data.constants.vkTreeRoot = getVKTreeRoot();
       return tx;
     });
 
