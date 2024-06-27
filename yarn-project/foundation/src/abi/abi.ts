@@ -89,6 +89,8 @@ export interface BasicType<T extends string> {
  */
 export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
 
+type Sign = 'unsigned' | 'signed';
+
 /**
  * An integer type.
  */
@@ -96,7 +98,7 @@ export interface IntegerType extends BasicType<'integer'> {
   /**
    * The sign of the integer.
    */
-  sign: string;
+  sign: Sign;
   /**
    * The width of the integer in bits.
    */
