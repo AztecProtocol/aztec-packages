@@ -552,12 +552,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
       this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs / 1000);
-      this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
+      this.instrumentation.recordSize('proofSize', circuitName, proof!.binaryProof.buffer.length);
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
       logger.info(
         `Generated proof for ${circuitType} in ${Math.ceil(provingResult.durationMs)} ms, size: ${
-          proof.proof.length
+          proof!.proof.length
         } fields`,
         {
           circuitName,
