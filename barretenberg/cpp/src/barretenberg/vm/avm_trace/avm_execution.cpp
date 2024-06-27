@@ -251,7 +251,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     return public_inputs;
 }
 
-bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
+bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof, std::vector<FF> const& calldata)
 {
     auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
     AvmVerifier verifier(verification_key);
@@ -268,7 +268,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     std::copy(proof.begin() + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, proof.end(), std::back_inserter(raw_proof));
 
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs);
+    std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs, calldata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
 }
 
@@ -309,7 +309,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     uint32_t start_side_effect_counter =
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
                                    : 0;
-    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter);
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -436,8 +436,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
                                            std::get<uint32_t>(inst.operands.at(1)),
                                            std::get<uint32_t>(inst.operands.at(2)),
-                                           std::get<uint32_t>(inst.operands.at(3)),
-                                           calldata);
+                                           std::get<uint32_t>(inst.operands.at(3)));
             break;
         // Machine State - Gas
         case OpCode::L2GASLEFT:

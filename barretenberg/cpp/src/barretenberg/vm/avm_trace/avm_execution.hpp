@@ -38,7 +38,7 @@ class Execution {
         std::vector<FF> const& calldata = {},
         std::vector<FF> const& public_inputs_vec = getDefaultPublicInputs(),
         ExecutionHints const& execution_hints = {});
-    static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
+    static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof, std::vector<FF> const& calldata);
 };
 
 } // namespace bb::avm_trace
