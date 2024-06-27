@@ -34,9 +34,9 @@ pub fn assert_txs_filled_from_left(
             right_txs <= left_txs, "The rollup should be filled greedily from L to R, but received a L txs < R txs"
         );
     } else {
-    assert(
+        assert(
             right.rollup_type == 0, "The rollup should be filled greedily from L to R, but received a L base and R merge"
-    );
+        );
     }
 }
 

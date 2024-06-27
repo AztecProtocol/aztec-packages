@@ -120,9 +120,9 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
   }
 
   /**
-   * Returns a sibling path for the element at the given index.
+   * Returns the node at the given level and index
    * @param level - The level of the element (root is at level 0).
-   * @param value - The index of the element.
+   * @param index - The index of the element.
    * @returns Leaf or node value, or undefined.
    */
   public getNode(level: number, index: bigint): Buffer | undefined {
@@ -178,8 +178,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
   /**
    * Calculates root while adding leaves and nodes to the cache.
    * @param leaves - The leaves to append.
-   * @param treeData - The bytes corresponding to remaining tree structure.
-   * @returns Resulting root of the subtree, the remaining tree data, the remaining leaves to add.
+   * @returns Resulting root of the tree.
    */
   private batchInsert(_leaves: T[]): Buffer {
     // If we have an even number of leaves, hash them all in pairs

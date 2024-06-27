@@ -142,8 +142,6 @@ mod tests {
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 16;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 5;
         outputs = inputs.merge_rollup_circuit();
-        // Should have one subtree of size 4
-        // Little endian => read right to left
         assert_eq(outputs.num_txs, 21);
     }
 

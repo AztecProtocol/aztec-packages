@@ -48,10 +48,14 @@ export class Body {
 
   /**
    * Computes the transactions effects hash for the L2 block
-   * This hash is also computed in the `AvailabilityOracle` and the `Circuit`.
+   * This hash is also computed in the `AvailabilityOracle`.
    * @returns The txs effects hash.
    */
   getTxsEffectsHash() {
+    // Adapted from proving-state.ts -> findMergeLevel and unbalanced_tree.ts
+    // Calculates the tree upwards layer by layer until we reach the root
+    // The L1 calculation instead computes the tree from right to left (slightly cheaper gas)
+    // TODO: A more thorough investigation of which method is cheaper, then use that method everywhere
     const computeRoot = (leaves: Buffer[]): Buffer => {
       const depth = Math.ceil(Math.log2(leaves.length));
       let [layerWidth, nodeToShift] =
