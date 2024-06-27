@@ -28,10 +28,7 @@ pub enum BorrowedToken<'input> {
     BlockComment(&'input str, Option<DocStyle>),
     Quote(&'input Tokens),
     QuotedType(QuotedTypeId),
-    /// <
     Less,
-    /// <=
-    LessEqual,
     /// >
     Greater,
     /// >=

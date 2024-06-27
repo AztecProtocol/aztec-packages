@@ -5,8 +5,8 @@ import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
-import { type AvmContractCallResults } from '../avm_message_call_result.js';
 import { type HostStorage } from './host_storage.js';
 import { NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
@@ -25,10 +25,11 @@ export class AvmPersistableStateManager {
 
   constructor(
     /** Reference to node storage */
-    private hostStorage: HostStorage,
+    private readonly hostStorage: HostStorage,
     /** Side effect trace */
-    private trace: PublicSideEffectTraceInterface,
+    private readonly trace: PublicSideEffectTraceInterface,
     /** Public storage, including cached writes */
+    // TODO(5818): make private once no longer accessed in executor
     public readonly publicStorage: PublicStorage,
     /** Nullifier set, including cached/recently-emitted nullifiers */
     private readonly nullifiers: NullifierManager,
@@ -197,9 +198,9 @@ export class AvmPersistableStateManager {
    * @param event - log event selector
    * @param log - log contents
    */
-  public writeUnencryptedLog(contractAddress: Fr, event: Fr, log: Fr[]) {
-    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event ${event} with ${log.length} fields.`);
-    this.trace.traceUnencryptedLog(contractAddress, event, log);
+  public writeUnencryptedLog(contractAddress: Fr, log: Fr[]) {
+    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
+    this.trace.traceUnencryptedLog(contractAddress, log);
   }
 
   /**
@@ -243,21 +244,23 @@ export class AvmPersistableStateManager {
    */
   public async processNestedCall(
     nestedState: AvmPersistableStateManager,
-    success: boolean,
     nestedEnvironment: AvmExecutionEnvironment,
     startGasLeft: Gas,
     endGasLeft: Gas,
     bytecode: Buffer,
-    avmCallResults: AvmContractCallResults,
+    avmCallResults: AvmContractCallResult,
   ) {
-    if (success) {
+    if (!avmCallResults.reverted) {
       this.acceptNestedCallState(nestedState);
     }
     const functionName =
       (await nestedState.hostStorage.contractsDb.getDebugFunctionName(
         nestedEnvironment.address,
-        nestedEnvironment.temporaryFunctionSelector,
-      )) ?? `${nestedEnvironment.address}:${nestedEnvironment.temporaryFunctionSelector}`;
+        nestedEnvironment.functionSelector,
+      )) ?? `${nestedEnvironment.address}:${nestedEnvironment.functionSelector}`;
+
+    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
+
     this.trace.traceNestedCall(
       nestedState.trace,
       nestedEnvironment,

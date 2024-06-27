@@ -419,6 +419,7 @@ impl<'context> Elaborator<'context> {
         self.trait_bounds.clear();
         self.type_variables.clear();
         self.interner.update_fn(id, hir_func);
+        self.in_contract = was_in_contract;
         self.current_function = old_function;
         self.current_item = old_item;
     }
@@ -719,6 +720,7 @@ impl<'context> Elaborator<'context> {
         };
 
         self.interner.push_fn_meta(meta, func_id);
+        self.in_contract = was_in_contract;
         self.current_function = None;
         self.scopes.end_function();
         self.current_item = None;
@@ -1287,6 +1289,38 @@ impl<'context> Elaborator<'context> {
         Ok(())
     }
 
+    fn run_comptime_attributes_on_struct(
+        &mut self,
+        attributes: Vec<SecondaryAttribute>,
+        struct_id: StructId,
+        span: Span,
+    ) {
+        for attribute in attributes {
+            if let SecondaryAttribute::Custom(name) = attribute {
+                match self.lookup_global(Path::from_single(name, span)) {
+                    Ok(id) => {
+                        let definition = self.interner.definition(id);
+                        if let DefinitionKind::Function(function) = &definition.kind {
+                            let function = *function;
+                            let mut interpreter =
+                                Interpreter::new(self.interner, &mut self.comptime_scopes);
+
+                            let location = Location::new(span, self.file);
+                            let arguments = vec![(Value::TypeDefinition(struct_id), location)];
+                            let result = interpreter.call_function(function, arguments, location);
+                            if let Err(error) = result {
+                                self.errors.push(error.into_compilation_error_pair());
+                            }
+                        } else {
+                            self.push_err(ResolverError::NonFunctionInAnnotation { span });
+                        }
+                    }
+                    Err(_) => self.push_err(ResolverError::UnknownAnnotation { span }),
+                }
+            }
+        }
+    }
+
     pub fn resolve_struct_fields(
         &mut self,
         unresolved: NoirStruct,
@@ -1447,10 +1481,61 @@ impl<'context> Elaborator<'context> {
 
         for (local_module, id, func) in &mut function_set.functions {
             self.local_module = *local_module;
+            let was_in_contract = self.in_contract;
+            self.in_contract = self.module_id().module(self.def_maps).is_contract;
             self.recover_generics(|this| {
                 this.define_function_meta(func, *id, false);
             });
+            self.in_contract = was_in_contract;
         }
+    }
+
+    /// Filters out comptime items from non-comptime items.
+    /// Returns a pair of (comptime items, non-comptime items)
+    fn filter_comptime_items(mut items: CollectedItems) -> (CollectedItems, CollectedItems) {
+        let mut function_sets = Vec::with_capacity(items.functions.len());
+        let mut comptime_function_sets = Vec::new();
+
+        for function_set in items.functions {
+            let mut functions = Vec::with_capacity(function_set.functions.len());
+            let mut comptime_functions = Vec::new();
+
+            for function in function_set.functions {
+                if function.2.def.is_comptime {
+                    comptime_functions.push(function);
+                } else {
+                    functions.push(function);
+                }
+            }
+
+            let file_id = function_set.file_id;
+            let self_type = function_set.self_type;
+            let trait_id = function_set.trait_id;
+
+            if !comptime_functions.is_empty() {
+                comptime_function_sets.push(UnresolvedFunctions {
+                    functions: comptime_functions,
+                    file_id,
+                    trait_id,
+                    self_type: self_type.clone(),
+                });
+            }
+
+            function_sets.push(UnresolvedFunctions { functions, file_id, trait_id, self_type });
+        }
+
+        let comptime = CollectedItems {
+            functions: comptime_function_sets,
+            types: BTreeMap::new(),
+            type_aliases: BTreeMap::new(),
+            traits: BTreeMap::new(),
+            trait_impls: Vec::new(),
+            globals: Vec::new(),
+            impls: std::collections::HashMap::new(),
+        };
+
+        items.functions = function_sets;
+        (comptime, items)
     }
 
     /// Filters out comptime items from non-comptime items.

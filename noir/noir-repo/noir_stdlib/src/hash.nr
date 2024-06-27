@@ -87,6 +87,9 @@ pub fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u3
 #[foreign(pedersen_commitment)]
 fn __pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> [Field; 2] {}
 
+#[foreign(pedersen_commitment)]
+fn __pedersen_commitment_with_separator<N>(input: [Field; N], separator: u32) -> [Field; 2] {}
+
 pub fn hash_to_field(inputs: [Field]) -> Field {
     let mut sum = 0;
 
