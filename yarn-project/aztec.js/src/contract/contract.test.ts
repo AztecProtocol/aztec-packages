@@ -102,7 +102,7 @@ describe('Contract Class', () => {
         returnTypes: [
           {
             kind: 'integer',
-            sign: '',
+            sign: 'unsigned',
             width: 32,
           },
         ],
