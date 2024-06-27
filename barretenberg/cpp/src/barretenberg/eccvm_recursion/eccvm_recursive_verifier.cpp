@@ -31,7 +31,11 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const BF circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1040): Extract circuit size as BF (field_t) then
+    // convert to FF (bigfield fq) since this is what's expected by ZM. See issue for more details.
+    const BF circuit_size_bf = transcript->template receive_from_prover<BF>("circuit_size");
+    const FF circuit_size{ static_cast<int>(static_cast<uint256_t>(circuit_size_bf.get_value())) };
+
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1017): This is a hack to ensure zero commitments
@@ -76,15 +80,14 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // WORKTODO: circuit size nonsense
-    auto multivariate_to_univariate_opening_claim =
-        ZeroMorph::verify(static_cast<int>(static_cast<uint256_t>(circuit_size.get_value())),
-                          commitments.get_unshifted(),
-                          commitments.get_to_be_shifted(),
-                          claimed_evaluations.get_unshifted(),
-                          claimed_evaluations.get_shifted(),
-                          multivariate_challenge,
-                          key->pcs_verification_key->get_g1_identity(),
-                          transcript);
+    auto multivariate_to_univariate_opening_claim = ZeroMorph::verify(circuit_size,
+                                                                      commitments.get_unshifted(),
+                                                                      commitments.get_to_be_shifted(),
+                                                                      claimed_evaluations.get_unshifted(),
+                                                                      claimed_evaluations.get_shifted(),
+                                                                      multivariate_challenge,
+                                                                      key->pcs_verification_key->get_g1_identity(),
+                                                                      transcript);
     auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
 
     FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
