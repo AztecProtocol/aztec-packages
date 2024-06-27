@@ -7,7 +7,6 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -964,9 +963,6 @@ void AvmProver::execute_relation_check_rounds()
  * */
 void AvmProver::execute_pcs_rounds()
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-
     auto prover_opening_claim = ZeroMorph::prove(prover_polynomials.get_unshifted(),
                                                  prover_polynomials.get_to_be_shifted(),
                                                  sumcheck_output.claimed_evaluations.get_unshifted(),
@@ -974,8 +970,7 @@ void AvmProver::execute_pcs_rounds()
                                                  sumcheck_output.challenge,
                                                  commitment_key,
                                                  transcript);
-    PCS::compute_opening_proof(
-        commitment_key, prover_opening_claim.opening_pair, prover_opening_claim.polynomial, transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof AvmProver::export_proof()
