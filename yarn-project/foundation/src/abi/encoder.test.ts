@@ -1,7 +1,7 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
-import { ABIParameterVisibility, type FunctionAbi, FunctionType } from './abi.js';
+import { type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {

@@ -1,4 +1,4 @@
-import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
