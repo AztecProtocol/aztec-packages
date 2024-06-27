@@ -1,4 +1,5 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
@@ -16,12 +17,16 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <tuple>
 #include <variant>
 #include <vector>
 
 using namespace bb;
+
+// Set in BB's main.cpp.
+std::filesystem::path avm_dump_trace_path;
 
 namespace bb::avm_trace {
 
@@ -56,12 +61,17 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     }
 
     auto instructions = Deserialization::parse(bytecode);
-    std::vector<FF> returndata{};
+    vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
+
+    std::vector<FF> returndata;
     auto trace = gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    if (!avm_dump_trace_path.empty()) {
+        info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
+        dump_trace_as_csv(trace, avm_dump_trace_path);
+    }
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    info("Checking circuit");
     circuit_builder.check_circuit();
 
     auto composer = AvmComposer();
@@ -106,7 +116,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
  */
 VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_inputs_vec)
 {
-    VmPublicInputs public_inputs = {};
+    VmPublicInputs public_inputs;
 
     // Case where we pass in empty public inputs - this will be used in tests where they are not required
     if (public_inputs_vec.empty()) {
@@ -201,8 +211,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
         // slot, value, side effect
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset + 1];
-        // TODO(md): serialize side effect in ts
-        // ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
+        ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
     // For EMITNOTEHASH
     for (size_t i = 0; i < MAX_NEW_NOTE_HASHES_PER_CALL; i++) {
@@ -293,10 +302,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                       ExecutionHints const& execution_hints)
 
 {
+    vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    AvmTraceBuilder trace_builder(public_inputs, execution_hints);
+    uint32_t start_side_effect_counter =
+        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
+                                   : 0;
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -304,6 +317,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     uint32_t pc = 0;
     while ((pc = trace_builder.getPc()) < instructions.size()) {
         auto inst = instructions.at(pc);
+        debug("[@" + std::to_string(pc) + "] " + inst.to_string());
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
         // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
@@ -419,11 +433,11 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Execution Environment - Calldata
         case OpCode::CALLDATACOPY:
-            trace_builder.calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
-                                        std::get<uint32_t>(inst.operands.at(1)),
-                                        std::get<uint32_t>(inst.operands.at(2)),
-                                        std::get<uint32_t>(inst.operands.at(3)),
-                                        calldata);
+            trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
+                                           std::get<uint32_t>(inst.operands.at(1)),
+                                           std::get<uint32_t>(inst.operands.at(2)),
+                                           std::get<uint32_t>(inst.operands.at(3)),
+                                           calldata);
             break;
         // Machine State - Gas
         case OpCode::L2GASLEFT:
@@ -472,31 +486,42 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::NOTEHASHEXISTS:
-            trace_builder.op_note_hash_exists(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                              std::get<uint32_t>(inst.operands.at(1)),
                                               // TODO: leaf offset exists
                                               // std::get<uint32_t>(inst.operands.at(2))
                                               std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNOTEHASH:
-            trace_builder.op_emit_note_hash(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::NULLIFIEREXISTS:
-            trace_builder.op_nullifier_exists(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                              std::get<uint32_t>(inst.operands.at(1)),
                                               // std::get<uint32_t>(inst.operands.at(2))
                                               /**TODO: Address offset for siloing */
                                               std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNULLIFIER:
-            trace_builder.op_emit_nullifier(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SLOAD:
-            trace_builder.op_sload(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
+                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint32_t>(inst.operands.at(2)),
+                                   std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::SSTORE:
-            trace_builder.op_sstore(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::L1TOL2MSGEXISTS:
-            trace_builder.op_l1_to_l2_msg_exists(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                  // TODO: leaf offset exists
                                                  // std::get<uint32_t>(inst.operands.at(2))
                                                  std::get<uint32_t>(inst.operands.at(3)));
@@ -507,26 +532,29 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                                    std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::EMITUNENCRYPTEDLOG:
-            trace_builder.op_emit_unencrypted_log(std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
+                                                  std::get<uint32_t>(inst.operands.at(1)),
+                                                  std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::SENDL2TOL1MSG:
-            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
                                                std::get<uint32_t>(inst.operands.at(2)));
             break;
             // Machine State - Internal Control Flow
         case OpCode::JUMP:
-            trace_builder.jump(std::get<uint32_t>(inst.operands.at(0)));
+            trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
             break;
         case OpCode::JUMPI:
-            trace_builder.jumpi(std::get<uint8_t>(inst.operands.at(0)),
-                                std::get<uint32_t>(inst.operands.at(1)),
-                                std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
+                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::INTERNALCALL:
-            trace_builder.internal_call(std::get<uint32_t>(inst.operands.at(0)));
+            trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
             break;
         case OpCode::INTERNALRETURN:
-            trace_builder.internal_return();
+            trace_builder.op_internal_return();
             break;
             // Machine State - Memory
         case OpCode::SET: {
@@ -571,7 +599,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Control Flow - Contract Calls
         case OpCode::RETURN: {
-            auto ret = trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)),
+            auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint32_t>(inst.operands.at(1)),
                                                std::get<uint32_t>(inst.operands.at(2)));
             returndata.insert(returndata.end(), ret.begin(), ret.end());
@@ -581,7 +609,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::DEBUGLOG:
             // We want a noop, but we need to execute something that both advances the PC,
             // and adds a valid row to the trace.
-            trace_builder.jump(pc + 1);
+            trace_builder.op_jump(pc + 1);
             break;
         case OpCode::CALL:
             trace_builder.op_call(std::get<uint8_t>(inst.operands.at(0)),
@@ -639,6 +667,23 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(2)),
                                            std::get<uint32_t>(inst.operands.at(3)),
                                            std::get<uint32_t>(inst.operands.at(4)));
+            break;
+        case OpCode::ECADD:
+            trace_builder.op_ec_add(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)),
+                                    std::get<uint32_t>(inst.operands.at(4)),
+                                    std::get<uint32_t>(inst.operands.at(5)),
+                                    std::get<uint32_t>(inst.operands.at(6)),
+                                    std::get<uint32_t>(inst.operands.at(7)));
+            break;
+        case OpCode::MSM:
+            trace_builder.op_variable_msm(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint32_t>(inst.operands.at(1)),
+                                          std::get<uint32_t>(inst.operands.at(2)),
+                                          std::get<uint32_t>(inst.operands.at(3)),
+                                          std::get<uint32_t>(inst.operands.at(4)));
             break;
         case OpCode::REVERT:
             trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),

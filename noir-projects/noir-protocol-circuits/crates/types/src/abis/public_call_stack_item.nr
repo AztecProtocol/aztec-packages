@@ -20,7 +20,7 @@ impl Hash for PublicCallStackItem {
             self
         };
 
-        dep::std::hash::pedersen_hash_with_separator([
+        std::hash::pedersen_hash_with_separator([
             item.contract_address.to_field(),
             item.function_data.hash(),
             item.public_inputs.hash(),
@@ -30,6 +30,7 @@ impl Hash for PublicCallStackItem {
 
 impl PublicCallStackItem {
     fn as_execution_request(self) -> Self {
+        // WARNING: if updating, see comment in public_call_stack_item.ts's `PublicCallStackItem.hash()`
         let public_inputs = self.public_inputs;
         let mut request_public_inputs = PublicCircuitPublicInputs::empty();
         request_public_inputs.call_context = public_inputs.call_context;
@@ -69,7 +70,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x1f0e71146c5d4a5bdcf517f0063cda7767e51fcb9cebc877feb348a77a7a6b4a;
+        let test_data_call_stack_item_request_hash = 0x2751111aa213d9d21279da53531bf90c2da272cf3f959e2a2a1dfceb487bf102;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
@@ -87,7 +88,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x079a2b28b4853de9169d7dc40ac41c6d80b465d82c60195ede91504013f8b11b;
+        let test_data_call_stack_item_hash = 0x1860d00d9602966e398c6d585216baba2ffa8c5eddda5faee041136665d8482a;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }

@@ -12,7 +12,7 @@ use dep::types::{
     traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::find_index
 };
 
-unconstrained fn match_log_to_note<N>(note_log: NoteLogHash, accumulated_note_hashes: [ScopedNoteHash; N]) -> u64 {
+unconstrained fn match_log_to_note<N>(note_log: NoteLogHash, accumulated_note_hashes: [ScopedNoteHash; N]) -> u32 {
     find_index(
         accumulated_note_hashes,
         |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
@@ -42,7 +42,7 @@ fn validate_incrementing_counters_within_range<T, N>(
     counter_start: u32,
     counter_end: u32,
     items: [T; N],
-    num_items: u64
+    num_items: u32
 ) where T: Ordered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
@@ -63,7 +63,7 @@ fn validate_incrementing_counter_ranges_within_range<T, N>(
     counter_start: u32,
     counter_end: u32,
     items: [T; N],
-    num_items: u64
+    num_items: u32
 ) where T: RangeOrdered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
@@ -85,9 +85,9 @@ fn validate_incrementing_counter_ranges_within_range<T, N>(
 
 fn validate_clean_split_ranges<T, N>(
     min_revertible_side_effect_counter: u32,
-    first_revertible_item_index: u64,
+    first_revertible_item_index: u32,
     items: [T; N],
-    num_items: u64
+    num_items: u32
 ) where T: RangeOrdered {
     if first_revertible_item_index != 0 {
         let last_non_revertible_item_index = first_revertible_item_index - 1;
@@ -125,7 +125,7 @@ impl PrivateCallDataValidator {
         self.validate_note_logs(accumulated_note_hashes);
     }
 
-    pub fn validate_as_first_call(self, first_revertible_private_call_request_index: u64) {
+    pub fn validate_as_first_call(self, first_revertible_private_call_request_index: u32) {
         let public_inputs = self.data.call_stack_item.public_inputs;
         let call_context = public_inputs.call_context;
         assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
@@ -207,8 +207,8 @@ impl PrivateCallDataValidator {
         let private_call_vk_hash = stdlib_recursion_verification_key_compress_native_vk(self.data.vk);
 
         assert(!contract_address.is_zero(), "contract address cannot be zero");
-        // std::println(f"contract_address={contract_address}");
-        // std::println(f"private_call_vk_hash={private_call_vk_hash}");
+        // println(f"contract_address={contract_address}");
+        // println(f"private_call_vk_hash={private_call_vk_hash}");
 
         // Recompute the contract class id
         let computed_private_functions_root = private_functions_root_from_siblings(
@@ -217,24 +217,24 @@ impl PrivateCallDataValidator {
             self.data.function_leaf_membership_witness.leaf_index,
             self.data.function_leaf_membership_witness.sibling_path
         );
-        // std::println(f"computed_private_functions_root={computed_private_functions_root}");
+        // println(f"computed_private_functions_root={computed_private_functions_root}");
 
         let computed_contract_class_id = ContractClassId::compute(
             self.data.contract_class_artifact_hash,
             computed_private_functions_root,
             self.data.contract_class_public_bytecode_commitment
         );
-        // std::println(f"computed_contract_class_id={computed_contract_class_id}");
+        // println(f"computed_contract_class_id={computed_contract_class_id}");
 
         // Recompute contract address using the preimage which includes the class_id
         let computed_partial_address = PartialAddress::compute_from_salted_initialization_hash(
             computed_contract_class_id,
             self.data.salted_initialization_hash
         );
-        // std::println(f"computed_partial_address={computed_partial_address}");
+        // println(f"computed_partial_address={computed_partial_address}");
 
         let computed_address = AztecAddress::compute(self.data.public_keys_hash, computed_partial_address);
-        // std::println(f"computed_address={computed_address}");
+        // println(f"computed_address={computed_address}");
 
         assert(
             computed_address.eq(contract_address), "computed contract address does not match expected one"

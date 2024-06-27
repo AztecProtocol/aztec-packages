@@ -545,7 +545,9 @@ fn comptime_expr<'a, S>(statement: S) -> impl NoirParser<ExpressionKind> + 'a
 where
     S: NoirParser<StatementKind> + 'a,
 {
-    keyword(Keyword::Comptime).ignore_then(block(statement)).map(ExpressionKind::Comptime)
+    keyword(Keyword::Comptime)
+        .ignore_then(spanned(block(statement)))
+        .map(|(block, span)| ExpressionKind::Comptime(block, span))
 }
 
 fn declaration<'a, P>(expr_parser: P) -> impl NoirParser<StatementKind> + 'a
@@ -1631,7 +1633,7 @@ mod test {
             "use foo::{bar, hello}",
             "use foo::{bar as bar2, hello}",
             "use foo::{bar as bar2, hello::{foo}, nested::{foo, bar}}",
-            "use dep::{std::println, bar::baz}",
+            "use std::{println, bar::baz}",
         ];
 
         let invalid_use_statements = [

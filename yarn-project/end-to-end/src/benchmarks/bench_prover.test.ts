@@ -18,6 +18,9 @@ jest.setTimeout(1_800_000);
 
 const txTimeoutSec = 3600;
 
+// This makes AVM proving throw if there's a failure.
+process.env.AVM_PROVING_STRICT = '1';
+
 describe('benchmarks/proving', () => {
   let ctx: EndToEndContext;
 
@@ -161,7 +164,7 @@ describe('benchmarks/proving', () => {
 
     const fnCalls = [
       (await getTokenContract(0)).methods.transfer_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
-      (await getTokenContract(1)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(1)).methods.transfer(recipient.address, 1000),
       // (await getTestContractOnPXE(2)).methods.emit_unencrypted(43),
       // (await getTestContractOnPXE(3)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
     ];

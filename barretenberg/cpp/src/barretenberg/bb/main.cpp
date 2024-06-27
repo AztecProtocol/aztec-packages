@@ -1,13 +1,15 @@
 #include "barretenberg/bb/file_io.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
+#ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#endif
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
@@ -15,6 +17,7 @@
 #include "log.hpp"
 #include <barretenberg/common/benchmark.hpp>
 #include <barretenberg/common/container.hpp>
+#include <barretenberg/common/log.hpp>
 #include <barretenberg/common/timer.hpp>
 #include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
@@ -34,7 +37,6 @@ std::string getHomeDir()
 }
 
 std::string CRS_PATH = getHomeDir() + "/.bb-crs";
-bool verbose = false;
 
 const std::filesystem::path current_path = std::filesystem::current_path();
 const auto current_dir = current_path.filename().string();
@@ -68,7 +70,7 @@ void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
 acir_proofs::AcirComposer verifier_init()
 {
-    acir_proofs::AcirComposer acir_composer(0, verbose);
+    acir_proofs::AcirComposer acir_composer(0, verbose_logging);
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     return acir_composer;
@@ -98,9 +100,9 @@ std::vector<acir_format::AcirFormat> get_constraint_systems(std::string const& b
     return acir_format::program_buf_to_acir_format(bytecode, honk_recursion);
 }
 
-std::string proof_to_json(std::vector<bb::fr>& proof)
+std::string to_json(std::vector<bb::fr>& data)
 {
-    return format("[", join(map(proof, [](auto fr) { return format("\"", fr, "\""); })), "]");
+    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
 std::string vk_to_json(std::vector<bb::fr>& data)
@@ -134,7 +136,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     auto witness = get_witness(witnessPath);
 
-    acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system, witness);
 
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
@@ -269,6 +271,134 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 }
 
 /**
+ * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
+ *
+ * @param bytecodePath Path to the serialised circuit
+ * @param witnessPath Path to witness data
+ * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
+ * going to be specified when bb main is called, i.e. as the working directory in typescript).
+ */
+void client_ivc_prove_output_all(const std::string& bytecodePath,
+                                 const std::string& witnessPath,
+                                 const std::string& outputPath)
+{
+    using Flavor = MegaFlavor; // This is the only option
+    using Builder = Flavor::CircuitBuilder;
+    using ECCVMVK = ECCVMFlavor::VerificationKey;
+    using TranslatorVK = TranslatorFlavor::VerificationKey;
+
+    init_bn254_crs(1 << 18);
+    init_grumpkin_crs(1 << 14);
+
+    ClientIVC ivc;
+    ivc.structured_flag = true;
+
+    auto program_stack = acir_format::get_acir_program_stack(
+        bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
+                                           // assumes that folding is never done with ultrahonk.
+
+    // Accumulate the entire program stack into the IVC
+    while (!program_stack.empty()) {
+        auto stack_item = program_stack.back();
+
+        // Construct a bberg circuit from the acir representation
+        auto circuit = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+
+        ivc.accumulate(circuit);
+
+        program_stack.pop_back();
+    }
+
+    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
+    // directory is passed by bb.js)
+    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
+    std::string accPath = outputPath + "/pg_acc";
+    std::string proofPath = outputPath + "/client_ivc_proof";
+    std::string translatorVkPath = outputPath + "/translator_vk";
+    std::string eccVkPath = outputPath + "/ecc_vk";
+
+    auto proof = ivc.prove();
+    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
+
+    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
+
+    vinfo("write proof and vk data to files..");
+    write_file(proofPath, to_buffer(proof));
+    write_file(vkPath, to_buffer(ivc.instance_vk)); // maybe dereference
+    write_file(accPath, to_buffer(ivc.verifier_accumulator));
+    write_file(translatorVkPath, to_buffer(translator_vk));
+    write_file(eccVkPath, to_buffer(eccvm_vk));
+}
+
+/**
+ * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
+ *
+ * @param outputPath the working directory from which the proof and verification data are read
+ */
+void prove_tube(const std::string& outputPath)
+{
+    using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
+    using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
+    using InstanceFlavor = MegaFlavor;
+    using ECCVMVk = ECCVMFlavor::VerificationKey;
+    using TranslatorVk = TranslatorFlavor::VerificationKey;
+    using FoldVerifierInput = ClientIVC::FoldVerifierInput;
+    using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
+    using VerifierInput = ClientIVC::VerifierInput;
+    using Builder = UltraCircuitBuilder;
+    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
+
+    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
+    std::string accPath = outputPath + "/pg_acc";
+    std::string proofPath = outputPath + "/client_ivc_proof";
+    std::string translatorVkPath = outputPath + "/translator_vk";
+    std::string eccVkPath = outputPath + "/ecc_vk";
+
+    // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
+    init_bn254_crs(1 << 25);
+    init_grumpkin_crs(1 << 18);
+
+    // Read the proof  and verification data from given files
+    auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
+    std::shared_ptr<InstanceFlavor::VerificationKey> instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
+        from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
+    std::shared_ptr<NativeInstance> verifier_accumulator =
+        std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
+    std::shared_ptr<TranslatorVk> translator_vk =
+        std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
+    std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
+    // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
+    // IPA. The + 1 is to satisfy IPA verification key requirements.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
+    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
+
+    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
+    GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
+    VerifierInput input{ fold_verifier_input, goblin_verifier_input };
+    auto builder = std::make_shared<Builder>();
+    ClientIVC verifier{ builder, input };
+
+    verifier.verify(proof);
+    info("num gates: ", builder->get_num_gates());
+    info("generating proof");
+    using Prover = UltraProver_<UltraFlavor>;
+
+    Prover tube_prover{ *builder };
+    auto tube_proof = tube_prover.construct_proof();
+
+    std::string tubeProofPath = outputPath + "/proof";
+    write_file(tubeProofPath, to_buffer<true>(tube_proof));
+
+    std::string tubeVkPath = outputPath + "/vk";
+    auto tube_verification_key =
+        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
+    write_file(tubeVkPath, to_buffer(tube_verification_key));
+}
+
+/**
  * @brief Creates a proof for an ACIR circuit
  *
  * Communication:
@@ -285,7 +415,7 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     auto witness = get_witness(witnessPath);
 
-    acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
@@ -315,16 +445,26 @@ void gateCount(const std::string& bytecodePath, bool honk_recursion)
     auto constraint_systems = get_constraint_systems(bytecodePath, honk_recursion);
     size_t i = 0;
     for (auto constraint_system : constraint_systems) {
-        acir_proofs::AcirComposer acir_composer(0, verbose);
-        acir_composer.create_circuit(constraint_system);
+        acir_proofs::AcirComposer acir_composer(0, verbose_logging);
+        acir_composer.create_circuit(constraint_system, {}, true);
         auto circuit_size = acir_composer.get_total_circuit_size();
 
         // Build individual circuit report
+        std::string gates_per_opcode_str;
+        for (size_t j = 0; j < constraint_system.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(constraint_system.gates_per_opcode[j]);
+            if (j != constraint_system.gates_per_opcode.size() - 1) {
+                gates_per_opcode_str += ",";
+            }
+        }
+
         auto result_string = format("{\n        \"acir_opcodes\": ",
                                     constraint_system.num_acir_opcodes,
                                     ",\n        \"circuit_size\": ",
                                     circuit_size,
-                                    "\n  }");
+                                    ",\n        \"gates_per_opcode\": [",
+                                    gates_per_opcode_str,
+                                    "]\n  }");
 
         // Attach a comma if we still circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
@@ -382,7 +522,7 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
 void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
-    acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
@@ -400,7 +540,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
-    acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
@@ -449,13 +589,13 @@ void contract(const std::string& output_path, const std::string& vk_path)
  *
  * Why is this needed?
  *
- * The proof computed by the non-recursive proof system is a byte array. This is fine since the proof will be verified
- * either natively or in a Solidity verifier. For the recursive proof system, the proof is verified in a circuit where
- * it is cheaper to work with field elements than byte arrays. This method converts the proof into a list of field
- * elements which can be used in the recursive proof system.
+ * The proof computed by the non-recursive proof system is a byte array. This is fine since the proof will be
+ * verified either natively or in a Solidity verifier. For the recursive proof system, the proof is verified in a
+ * circuit where it is cheaper to work with field elements than byte arrays. This method converts the proof into a
+ * list of field elements which can be used in the recursive proof system.
  *
- * This is an optimization which unfortunately leaks through the API. The repercussions of this are that users need to
- * convert proofs which are byte arrays to proofs which are lists of field elements, using the below method.
+ * This is an optimization which unfortunately leaks through the API. The repercussions of this are that users need
+ * to convert proofs which are byte arrays to proofs which are lists of field elements, using the below method.
  *
  * Ideally, we find out what is the cost to convert this in the circuit and if it is not too expensive, we pass the
  * byte array directly to the circuit and convert it there. This also applies to the `vkAsFields` method.
@@ -474,7 +614,7 @@ void proof_as_fields(const std::string& proof_path, std::string const& vk_path, 
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     auto data = acir_composer.serialize_proof_into_fields(read_file(proof_path), vk_data.num_public_inputs);
-    auto json = proof_to_json(data);
+    auto json = to_json(data);
 
     if (output_path == "-") {
         writeStringToStdout(json);
@@ -534,12 +674,20 @@ void avm_prove(const std::filesystem::path& bytecode_path,
                const std::filesystem::path& hints_path,
                const std::filesystem::path& output_path)
 {
-    // Get Bytecode
-    std::vector<uint8_t> const bytecode =
-        bytecode_path.extension() == ".gz" ? gunzip(bytecode_path) : read_file(bytecode_path);
+    std::vector<uint8_t> const bytecode = read_file(bytecode_path);
     std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
     std::vector<fr> const public_inputs_vec = many_from_buffer<fr>(read_file(public_inputs_path));
     auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
+
+    vinfo("bytecode size: ", bytecode.size());
+    vinfo("calldata size: ", calldata.size());
+    vinfo("public_inputs size: ", public_inputs_vec.size());
+    vinfo("hints.storage_value_hints size: ", avm_hints.storage_value_hints.size());
+    vinfo("hints.note_hash_exists_hints size: ", avm_hints.note_hash_exists_hints.size());
+    vinfo("hints.nullifier_exists_hints size: ", avm_hints.nullifier_exists_hints.size());
+    vinfo("hints.l1_to_l2_message_exists_hints size: ", avm_hints.l1_to_l2_message_exists_hints.size());
+    vinfo("hints.externalcall_hints size: ", avm_hints.externalcall_hints.size());
+    vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
 
     // Hardcoded circuit size for now, with enough to support 16-bit range checks
     init_bn254_crs(1 << 17);
@@ -547,6 +695,8 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     // Prove execution and return vk
     auto const [verification_key, proof] =
         avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints);
+    vinfo("------- PROVING DONE -------");
+
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
     std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
     std::vector<fr> vk_as_fields = { verification_key.circuit_size, verification_key.num_public_inputs };
@@ -602,14 +752,22 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    auto witness = get_witness(witnessPath);
+    acir_format::WitnessVector witness = {};
+    if (!witnessPath.empty()) {
+        witness = get_witness(witnessPath);
+    }
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
-
+    // info("q_m");
+    // uint64_t circuit_hash = builder.hash_circuit().data[0];
+    // info("hashing circuit: ", circuit_hash);
+    // std::ofstream file("../../../q_m-" + std::to_string(circuit_hash));
+    // file << builder.blocks.arithmetic.q_m();
+    // file.close();
     // Construct Honk proof
     Prover prover{ builder };
     return prover;
@@ -669,10 +827,20 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-
-    Verifier verifier{ verification_key };
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+    // info("vk size: ",
+    //      vk->circuit_size,
+    //      ", num public inputs: ",
+    //      vk->num_public_inputs,
+    //      ", pub input offset: ",
+    //      vk->pub_inputs_offset,
+    //      ", hash: ",
+    //      vk.hash());
+    // for (auto comm : vk->get_all()) {
+    //     info("comm: ", comm);
+    // }
+    Verifier verifier{ vk };
 
     bool verified = verifier.verify_proof(proof);
 
@@ -690,18 +858,27 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-template <IsUltraFlavor Flavor>
-void write_vk_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
+template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Prover = UltraProver_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
-    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
+    Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
     ProverInstance& prover_inst = *prover.instance;
     VerificationKey vk(
         prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
-
+    info("vk size: ",
+         vk.circuit_size,
+         ", num public inputs: ",
+         vk.num_public_inputs,
+         ", pub input offset: ",
+         vk.pub_inputs_offset,
+         ", hash: ",
+         vk.hash());
+    // for (auto comm : vk.get_all()) {
+    //     info("comm: ", comm);
+    // }
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);
@@ -709,44 +886,6 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& witnessPa
     } else {
         write_file(outputPath, serialized_vk);
         vinfo("vk written to: ", outputPath);
-    }
-}
-
-/**
- * @brief Writes a Honk verification key for a fixed mock ACIR circuit to a file
- *
- * Communication:
- * - stdout: The verification key is written to stdout as a byte array
- * - Filesystem: The verification key is written to the path specified by outputPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param outputPath Path to write the verification key to
- */
-template <IsUltraFlavor Flavor> void write_vk_honk_fake(const std::string& outputPath)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    // Create some mock circuit that's some size
-    Builder builder;
-    MockCircuits::construct_arithmetic_circuit(builder, 10, /*random=*/false, /*has_pub_input=*/false);
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    ProverInstance prover_inst(builder);
-    VerificationKey vk(
-        prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
-
-    info("fake honk vk circuit size: ", vk.circuit_size);
-    auto serialized_vk = to_buffer(vk);
-    if (outputPath == "-") {
-        writeRawBytesToStdout(serialized_vk);
-        vinfo("fake honk vk written to stdout");
-    } else {
-        write_file(outputPath, serialized_vk);
-        vinfo("fake honk vk written to: ", outputPath);
     }
 }
 
@@ -764,7 +903,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk_fake(const std::string& outpu
 void proof_as_fields_honk(const std::string& proof_path, const std::string& output_path)
 {
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    auto json = proof_to_json(proof);
+    auto json = to_json(proof);
 
     if (output_path == "-") {
         writeStringToStdout(json);
@@ -819,7 +958,7 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     auto witness = get_witness(witnessPath);
 
-    acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
@@ -840,9 +979,9 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
 
     // Write the proof as fields
     auto proofAsFields = acir_composer.serialize_proof_into_fields(proof, vk->as_data().num_public_inputs);
-    std::string proofJson = proof_to_json(proofAsFields);
+    std::string proofJson = to_json(proofAsFields);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    vinfo("proof as fields written to: ", proofFieldsPath);
+    info("proof as fields written to: ", proofFieldsPath);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(*vk);
@@ -871,7 +1010,6 @@ void prove_honk_output_all(const std::string& bytecodePath,
                            const std::string& witnessPath,
                            const std::string& outputPath)
 {
-    info("at prove_honk_output_all");
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
@@ -880,73 +1018,11 @@ void prove_honk_output_all(const std::string& bytecodePath,
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
         honk_recursion = true;
     }
+
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    info("after get_constraint_system");
     auto witness = get_witness(witnessPath);
-    info("after get_witness");
+
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-    info("after create_circuit");
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    CircuitChecker circuit_checker;
-    info("check result: ", circuit_checker.check<Builder>(builder));
-    // Construct Honk proof
-    Prover prover{ builder };
-    auto proof = prover.construct_proof();
-    info("after construct_proof");
-
-    // We have been given a directory, we will write the proof and verification key
-    // into the directory in both 'binary' and 'fields' formats
-    std::string vkOutputPath = outputPath + "/vk";
-    std::string proofPath = outputPath + "/proof";
-    std::string vkFieldsOutputPath = outputPath + "/vk_fields.json";
-    std::string proofFieldsPath = outputPath + "/proof_fields.json";
-
-    VerificationKey vk(
-        prover.instance->proving_key); // uses a partial form of the proving key which only has precomputed entities
-
-    // Write the 'binary' proof
-    write_file(proofPath, to_buffer</*include_size=*/true>(proof));
-    info("binary proof written to: ", proofPath);
-
-    // Write the proof as fields
-    std::string proofJson = proof_to_json(proof);
-    write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    info("proof as fields written to: ", proofFieldsPath);
-
-    // Write the vk as binary
-    auto serialized_vk = to_buffer(vk);
-    write_file(vkOutputPath, serialized_vk);
-    info("vk written to: ", vkOutputPath);
-
-    // Write the vk as fields
-    std::vector<bb::fr> vk_data = vk.to_field_elements();
-    auto vk_json = honk_vk_to_json(vk_data);
-    write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    info("vk as fields written to: ", vkFieldsOutputPath);
-}
-
-/**
- * @brief Creates a Honk proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format
- *
- * Communication:
- * - Filesystem: The proof is written to the path specified by outputPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param witnessPath Path to the file containing the serialized witness
- * @param outputPath Directory into which we write the proof and verification key data
- */
-template <IsUltraFlavor Flavor> void prove_honk_output_all_fake(const std::string& outputPath)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    Builder builder;
-    // Create mock circuit
-    MockCircuits::construct_arithmetic_circuit(builder, 10, /*random=*/false, /*has_pub_input=*/false);
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
@@ -965,28 +1041,26 @@ template <IsUltraFlavor Flavor> void prove_honk_output_all_fake(const std::strin
 
     VerificationKey vk(
         prover.instance->proving_key); // uses a partial form of the proving key which only has precomputed entities
-    info("fake honk vk circuit size: ", vk.circuit_size);
-    info("fake honk vk num public inputs: ", vk.num_public_inputs);
 
     // Write the 'binary' proof
     write_file(proofPath, to_buffer</*include_size=*/true>(proof));
-    vinfo("fake honk binary proof written to: ", proofPath);
+    vinfo("binary proof written to: ", proofPath);
 
     // Write the proof as fields
-    std::string proofJson = proof_to_json(proof);
+    std::string proofJson = to_json(proof);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    vinfo("fake honk proof as fields written to: ", proofFieldsPath);
+    vinfo("proof as fields written to: ", proofFieldsPath);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(vk);
     write_file(vkOutputPath, serialized_vk);
-    vinfo("fake honk vk written to: ", vkOutputPath);
+    vinfo("vk written to: ", vkOutputPath);
 
     // Write the vk as fields
     std::vector<bb::fr> vk_data = vk.to_field_elements();
     auto vk_json = honk_vk_to_json(vk_data);
     write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    vinfo("fake honk vk as fields written to: ", vkFieldsOutputPath);
+    vinfo("vk as fields written to: ", vkFieldsOutputPath);
 }
 
 bool flag_present(std::vector<std::string>& args, const std::string& flag)
@@ -1004,7 +1078,8 @@ int main(int argc, char* argv[])
 {
     try {
         std::vector<std::string> args(argv + 1, argv + argc);
-        verbose = flag_present(args, "-v") || flag_present(args, "--verbose");
+        debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
+        verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
         if (args.empty()) {
             std::cerr << "No command provided.\n";
             return 1;
@@ -1053,12 +1128,20 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<UltraFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "prove_ultra_honk_output_all_fake") {
-            std::string output_path = get_option(args, "-o", "./proofs");
-            prove_honk_output_all_fake<UltraFlavor>(output_path);
         } else if (command == "prove_mega_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path);
+        } else if (command == "client_ivc_prove_output_all") {
+            std::string output_path = get_option(args, "-o", "./proofs");
+            client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
+        } else if (command == "prove_tube") {
+            std::string output_path = get_option(args, "-o", "./proofs");
+            prove_tube(output_path);
+        } else if (command == "verify_tube") {
+            std::string output_path = get_option(args, "-o", "./proofs");
+            auto tube_proof_path = output_path + "/proof";
+            auto tube_vk_path = output_path + "/vk";
+            return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
             gateCount(bytecode_path, honk_recursion);
         } else if (command == "verify") {
@@ -1087,6 +1170,8 @@ int main(int argc, char* argv[])
             std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
             // This outputs both files: proof and vk, under the given directory.
             std::filesystem::path output_path = get_option(args, "-o", "./proofs");
+            extern std::filesystem::path avm_dump_trace_path;
+            avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
             avm_prove(avm_bytecode_path, avm_calldata_path, avm_public_inputs_path, avm_hints_path, output_path);
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
@@ -1098,10 +1183,7 @@ int main(int argc, char* argv[])
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "write_vk_ultra_honk_fake") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk_fake<UltraFlavor>(output_path);
+            write_vk_honk<UltraFlavor>(bytecode_path, output_path);
         } else if (command == "prove_mega_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
@@ -1109,7 +1191,7 @@ int main(int argc, char* argv[])
             return verify_honk<MegaFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_mega_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
+            write_vk_honk<MegaFlavor>(bytecode_path, output_path);
         } else if (command == "proof_as_fields_honk") {
             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
             proof_as_fields_honk(proof_path, output_path);

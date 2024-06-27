@@ -1,5 +1,7 @@
 import { Note, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/foundation/abi';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
@@ -14,9 +16,18 @@ export class OutgoingNoteDao {
     /** The specific storage location of the note on the contract. */
     public storageSlot: Fr,
     /** The note type identifier for the contract. */
-    public noteTypeId: Fr,
+    public noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. */
     public txHash: TxHash,
+    /** The nonce of the note. */
+    public nonce: Fr,
+    /**
+     * Inner note hash of the note. This is customizable by the app circuit.
+     * We can use this value to compute siloedNoteHash and uniqueSiloedNoteHash.
+     */
+    public innerNoteHash: Fr,
+    /** The location of the relevant note in the note hash tree. */
+    public index: bigint,
     /** The public key with which the note was encrypted. */
     public ovpkM: PublicKey,
   ) {}
@@ -28,6 +39,9 @@ export class OutgoingNoteDao {
       this.storageSlot,
       this.noteTypeId,
       this.txHash.buffer,
+      this.nonce,
+      this.innerNoteHash,
+      this.index,
       this.ovpkM,
     ]);
   }
@@ -37,11 +51,24 @@ export class OutgoingNoteDao {
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
-    const noteTypeId = Fr.fromBuffer(reader);
+    const noteTypeId = reader.readObject(NoteSelector);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
+    const nonce = Fr.fromBuffer(reader);
+    const innerNoteHash = Fr.fromBuffer(reader);
+    const index = toBigIntBE(reader.readBytes(32));
     const publicKey = Point.fromBuffer(reader);
 
-    return new OutgoingNoteDao(note, contractAddress, storageSlot, noteTypeId, txHash, publicKey);
+    return new OutgoingNoteDao(
+      note,
+      contractAddress,
+      storageSlot,
+      noteTypeId,
+      txHash,
+      nonce,
+      innerNoteHash,
+      index,
+      publicKey,
+    );
   }
 
   toString() {

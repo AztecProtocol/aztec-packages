@@ -3,6 +3,7 @@ import {
   type FailedTx,
   NestedProcessReturnValues,
   type ProcessedTx,
+  PublicKernelType,
   type PublicProvingRequest,
   type SimulationError,
   Tx,
@@ -29,14 +30,11 @@ import {
   computeFeePayerBalanceLeafSlot,
   computeFeePayerBalanceStorageSlot,
 } from '@aztec/simulator';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import {
-  type AbstractPhaseManager,
-  PublicKernelPhase,
-  publicKernelPhaseToKernelType,
-} from './abstract_phase_manager.js';
+import { type AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
@@ -50,6 +48,7 @@ export class PublicProcessorFactory {
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private simulator: SimulationProvider,
+    private telemetryClient: TelemetryClient,
   ) {}
 
   /**
@@ -77,6 +76,7 @@ export class PublicProcessorFactory {
       historicalHeader,
       publicContractsDB,
       worldStatePublicDB,
+      this.telemetryClient,
     );
   }
 }
@@ -86,6 +86,7 @@ export class PublicProcessorFactory {
  * any public function calls in them. Txs with private calls only are unaffected.
  */
 export class PublicProcessor {
+  public readonly tracer: Tracer;
   constructor(
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
@@ -94,9 +95,11 @@ export class PublicProcessor {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-
+    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
-  ) {}
+  ) {
+    this.tracer = telemetryClient.getTracer('PublicProcessor');
+  }
 
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
@@ -211,6 +214,9 @@ export class PublicProcessor {
     return finalPublicDataUpdateRequests;
   }
 
+  @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     let returnValues: NestedProcessReturnValues[] = [];
     const publicProvingRequests: PublicProvingRequest[] = [];
@@ -231,8 +237,8 @@ export class PublicProcessor {
     const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
       const output = await phase.handle(tx, publicKernelPublicInput);
-      gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
-      if (phase.phase === PublicKernelPhase.APP_LOGIC) {
+      gasUsed[phase.phase] = output.gasUsed;
+      if (phase.phase === PublicKernelType.APP_LOGIC) {
         returnValues = output.returnValues;
       }
       publicProvingRequests.push(...output.publicProvingRequests);

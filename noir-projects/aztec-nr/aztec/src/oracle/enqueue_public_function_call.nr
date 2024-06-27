@@ -19,7 +19,7 @@ use dep::protocol_types::{
 };
 
 #[oracle(enqueuePublicFunctionCall)]
-fn enqueue_public_function_call_oracle(
+unconstrained fn enqueue_public_function_call_oracle(
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,
     _args_hash: Field,
@@ -47,7 +47,7 @@ unconstrained pub fn enqueue_public_function_call_internal(
 }
 
 #[oracle(setPublicTeardownFunctionCall)]
-fn set_public_teardown_function_call_oracle(
+unconstrained fn set_public_teardown_function_call_oracle(
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,
     _args_hash: Field,
@@ -79,6 +79,7 @@ pub fn parse_public_call_stack_item_from_oracle(fields: [Field; ENQUEUE_PUBLIC_F
 
     // Note: Not using PublicCirclePublicInputs::deserialize here, because everything below args_hash is 0 and
     // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
+    // WARNING: if updating, see comment in public_call_stack_item.ts's PublicCallStackItem.hash()
     let item = PublicCallStackItem {
         contract_address: AztecAddress::from_field(reader.read()),
         function_data: FunctionData { selector: FunctionSelector::from_field(reader.read()), is_private: false },

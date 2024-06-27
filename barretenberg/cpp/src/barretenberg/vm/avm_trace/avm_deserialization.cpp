@@ -67,12 +67,25 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     { OpCode::GETCONTRACTINSTANCE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // TODO: ordering inline with spec
-    { OpCode::EMITNOTEHASH, getter_format },  // TODO: new format for these
-    { OpCode::EMITNULLIFIER, getter_format }, // TODO: new format for these
-    { OpCode::EMITUNENCRYPTEDLOG, getter_format },
+    { OpCode::EMITNOTEHASH,
+      {
+          OperandType::INDIRECT,
+          OperandType::UINT32,
+      } }, // TODO: new format for these
+    { OpCode::EMITNULLIFIER,
+      {
+          OperandType::INDIRECT,
+          OperandType::UINT32,
+      } }, // TODO: new format for these
+    { OpCode::EMITUNENCRYPTEDLOG,
+      {
+          OperandType::INDIRECT,
+          OperandType::UINT32,
+          OperandType::UINT32,
+      } },
     { OpCode::SENDL2TOL1MSG, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SLOAD, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SSTORE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SLOAD, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SSTORE, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     /*TODO: leafIndexOffset is not constrained*/
     { OpCode::NOTEHASHEXISTS,
       { OperandType::INDIRECT,
@@ -148,6 +161,18 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::SHA256, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::PEDERSEN,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    // TEMP ECADD without relative memory
+    { OpCode::ECADD,
+      { OperandType::INDIRECT,
+        OperandType::UINT32,     // lhs.x
+        OperandType::UINT32,     // lhs.y
+        OperandType::UINT32,     // lhs.is_infinite
+        OperandType::UINT32,     // rhs.x
+        OperandType::UINT32,     // rhs.y
+        OperandType::UINT32,     // rhs.is_infinite
+        OperandType::UINT32 } }, // dst_offset
+    { OpCode::MSM,
+      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Gadget - Conversion
     { OpCode::TORADIXLE,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
@@ -179,6 +204,8 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
     size_t pos = 0;
     const auto length = bytecode.size();
 
+    debug("------- PARSING BYTECODE -------");
+    debug("Parsing bytecode of length: " + std::to_string(length));
     while (pos < length) {
         const uint8_t opcode_byte = bytecode.at(pos);
 
@@ -242,12 +269,12 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         }
 
         std::vector<Operand> operands;
-
         for (OperandType const& opType : inst_format) {
             // No underflow as while condition guarantees pos <= length (after pos++)
             if (length - pos < OPERAND_TYPE_SIZE.at(opType)) {
-                throw_or_abort("Operand is missing at position " + std::to_string(pos) +
-                               " for opcode: " + to_hex(opcode));
+                throw_or_abort("Operand is missing at position " + std::to_string(pos) + " for opcode " +
+                               to_hex(opcode) + " not enough bytes for operand type " +
+                               std::to_string(static_cast<int>(opType)));
             }
 
             switch (opType) {
@@ -259,7 +286,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 uint8_t tag_u8 = bytecode.at(pos);
                 if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
-                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_hex(opcode));
+                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
                 }
                 operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
                 break;
@@ -298,7 +325,9 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
             }
             pos += OPERAND_TYPE_SIZE.at(opType);
         }
-        instructions.emplace_back(opcode, operands);
+        auto instruction = Instruction(opcode, operands);
+        debug(instruction.to_string());
+        instructions.emplace_back(std::move(instruction));
     }
     return instructions;
 };

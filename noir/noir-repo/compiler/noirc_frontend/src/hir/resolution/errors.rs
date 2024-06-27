@@ -2,7 +2,7 @@ pub use noirc_errors::Span;
 use noirc_errors::{CustomDiagnostic as Diagnostic, FileDiagnostic};
 use thiserror::Error;
 
-use crate::{ast::Ident, parser::ParserError, Type};
+use crate::{ast::Ident, hir::comptime::InterpreterError, parser::ParserError, Type};
 
 use super::import::PathResolutionError;
 
@@ -40,8 +40,6 @@ pub enum ResolverError {
     UnnecessaryPub { ident: Ident, position: PubPosition },
     #[error("Required 'pub', main function must return public value")]
     NecessaryPub { ident: Ident },
-    #[error("'distinct' keyword can only be used with main method")]
-    DistinctNotAllowed { ident: Ident },
     #[error("Missing expression for declared constant")]
     MissingRhsExpr { name: String, span: Span },
     #[error("Expression invalid in an array length context")]
@@ -52,8 +50,6 @@ pub enum ResolverError {
     NoSuchNumericTypeVariable { path: crate::ast::Path },
     #[error("Closures cannot capture mutable variables")]
     CapturedMutableVariable { span: Span },
-    #[error("Test functions are not allowed to have any parameters")]
-    TestFunctionHasParameters { span: Span },
     #[error("Only struct types can be used in constructor expressions")]
     NonStructUsedInConstructor { typ: Type, span: Span },
     #[error("Only struct types can have generics")]
@@ -80,6 +76,12 @@ pub enum ResolverError {
     AbiAttributeOutsideContract { span: Span },
     #[error("Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library")]
     LowLevelFunctionOutsideOfStdlib { ident: Ident },
+    #[error(
+        "Usage of the `#[oracle]` function attribute is only valid on unconstrained functions"
+    )]
+    OracleMarkedAsConstrained { ident: Ident },
+    #[error("Oracle functions cannot be called directly from constrained functions")]
+    UnconstrainedOracleReturnToConstrained { span: Span },
     #[error("Dependency cycle found, '{item}' recursively depends on itself: {cycle} ")]
     DependencyCycle { span: Span, item: String, cycle: String },
     #[error("break/continue are only allowed in unconstrained functions")]
@@ -94,6 +96,8 @@ pub enum ResolverError {
     NoPredicatesAttributeOnUnconstrained { ident: Ident },
     #[error("#[fold] attribute is only allowed on constrained functions")]
     FoldAttributeOnUnconstrained { ident: Ident },
+    #[error("Invalid array length construction")]
+    ArrayLengthInterpreter { error: InterpreterError },
 }
 
 impl ResolverError {
@@ -212,18 +216,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 diag.add_note("The `pub` keyword is mandatory for the entry-point function return type because the verifier cannot retrieve private witness and thus the function will not be able to return a 'priv' value".to_owned());
                 diag
             }
-            ResolverError::DistinctNotAllowed { ident } => {
-                let name = &ident.0.contents;
-
-                let mut diag = Diagnostic::simple_error(
-                    format!("Invalid `distinct` keyword on return type of function {name}"),
-                    "Invalid distinct on return type".to_string(),
-                    ident.0.span(),
-                );
-
-                diag.add_note("The `distinct` keyword is only valid when used on the main function of a program, as its only purpose is to ensure that all witness indices that occur in the abi are unique".to_owned());
-                diag
-            }
             ResolverError::MissingRhsExpr { name, span } => Diagnostic::simple_error(
                 format!(
                     "no expression specifying the value stored by the constant variable {name}"
@@ -249,11 +241,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
             ResolverError::CapturedMutableVariable { span } => Diagnostic::simple_error(
                 "Closures cannot capture mutable variables".into(),
                 "Mutable variable".into(),
-                *span,
-            ),
-            ResolverError::TestFunctionHasParameters { span } => Diagnostic::simple_error(
-                "Test functions cannot have any parameters".into(),
-                "Try removing the parameters or moving the test into a wrapper function".into(),
                 *span,
             ),
             ResolverError::NonStructUsedInConstructor { typ, span } => Diagnostic::simple_error(
@@ -325,6 +312,16 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 "Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library".into(),
                 ident.span(),
             ),
+            ResolverError::OracleMarkedAsConstrained { ident } => Diagnostic::simple_error(
+                error.to_string(),
+                "Oracle functions must have the `unconstrained` keyword applied".into(),
+                ident.span(),
+            ),
+            ResolverError::UnconstrainedOracleReturnToConstrained { span } => Diagnostic::simple_error(
+                error.to_string(),
+                "This oracle call must be wrapped in a call to another unconstrained function before being returned to a constrained runtime".into(),
+                *span,
+            ),
             ResolverError::DependencyCycle { span, item, cycle } => {
                 Diagnostic::simple_error(
                     "Dependency cycle found".into(),
@@ -386,6 +383,7 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 diag.add_note("The `#[fold]` attribute specifies whether a constrained function should be treated as a separate circuit rather than inlined into the program entry point".to_owned());
                 diag
             }
+            ResolverError::ArrayLengthInterpreter { error } => Diagnostic::from(error),
         }
     }
 }

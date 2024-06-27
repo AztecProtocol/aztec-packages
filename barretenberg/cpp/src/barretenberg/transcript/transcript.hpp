@@ -331,9 +331,9 @@ template <typename TranscriptParams> class BaseTranscript {
         auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
 
 #ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("received: ", label, ": ", element);
-        }
+        // if constexpr (Loggable<T>) {
+        info("received: ", label, ": ", element);
+        // }
 #endif
         return element;
     }

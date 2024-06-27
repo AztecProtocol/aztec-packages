@@ -1,6 +1,6 @@
 ---
 title: "Private token contract"
-sidebar_position: 1
+sidebar_position: 4
 ---
 
 In this tutorial we will go through writing an L2 native token contract
@@ -133,9 +133,9 @@ This specifies the interface of the `Token` contract. Don't worry if you get som
 
 Before we through the interface and implement each function, let's review the functions to get a sense of what the contract does.
 
-### Constructor interface
+### Initializer interface
 
-There is a `constructor` function that will be executed once, when the contract is deployed, similar to the constructor function in Solidity. This is marked private, so the function logic will not be transparent. To execute public function logic in the constructor, this function will call `_initialize` (marked internal, more detail below).
+There is one `initilizer` function in this contract, and it will be selected and executed once when the contract is deployed, similar to a constructor in Solidity. This is marked private, so the function logic will not be transparent. To execute public function logic in the constructor, this function will call `_initialize` (marked internal, more detail below).
 
 ### Public functions
 

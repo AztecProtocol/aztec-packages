@@ -37,6 +37,9 @@
       "path": "../p2p"
     },
     {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../prover-client"
     },
     {
@@ -46,13 +49,13 @@
       "path": "../simulator"
     },
     {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../types"
     },
     {
       "path": "../world-state"
-    },
-    {
-      "path": "../protocol-contracts"
     }
   ],
   "include": ["src"]

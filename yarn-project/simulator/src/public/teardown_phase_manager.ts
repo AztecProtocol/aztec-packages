@@ -11,7 +11,7 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { AbstractPhaseManager, PublicKernelPhase, makeAvmProvingRequest } from './abstract_phase_manager.js';
+import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
 import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -27,7 +27,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    phase: PublicKernelPhase = PublicKernelPhase.TEARDOWN,
+    phase: PublicKernelType = PublicKernelType.TEARDOWN,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
@@ -44,6 +44,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       );
     if (revertReason) {
       await this.publicStateDB.rollbackToCheckpoint();
+      tx.filterRevertedLogs(kernelOutput);
     } else {
       // TODO(#6464): Should we allow emitting contracts in the public teardown phase?
       // if so, we should insert them here

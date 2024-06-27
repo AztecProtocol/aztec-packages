@@ -1,17 +1,17 @@
 use crate::{merkle_tree::{MerkleTree, calculate_empty_tree_root}, traits::Empty};
 
 pub fn compute_zero_hashes<N>(mut hashes: [Field; N]) -> [Field; N] {
-    hashes[0] = dep::std::hash::pedersen_hash([0, 0]);
+    hashes[0] = std::hash::pedersen_hash([0, 0]);
 
     for i in 1..N {
-        hashes[i] = dep::std::hash::pedersen_hash([hashes[i-1], hashes[i-1]]);
+        hashes[i] = std::hash::pedersen_hash([hashes[i-1], hashes[i-1]]);
     }
 
     hashes
 }
 
 impl<N> MerkleTree<N> {
-    fn update_leaf<K>(&mut self, index: u64, value: Field, _tree_height: [Field; K]) {
+    fn update_leaf<K>(&mut self, index: u32, value: Field, _tree_height: [Field; K]) {
         self.leaves[index] = value;
 
         let mut sibling_index = MerkleTree::sibling_index(index);
@@ -21,11 +21,11 @@ impl<N> MerkleTree<N> {
             (self.leaves[sibling_index], value)
         };
 
-        let mut current_width: u64 = N / 2;
-        let mut layer_offset: u64 = 0;
-        let mut node_index: u64 = index / 2 + layer_offset;
+        let mut current_width: u32 = N / 2;
+        let mut layer_offset: u32 = 0;
+        let mut node_index: u32 = index / 2 + layer_offset;
         for _ in 0..K {
-            self.nodes[node_index] = dep::std::hash::pedersen_hash([left_node, right_node]);
+            self.nodes[node_index] = std::hash::pedersen_hash([left_node, right_node]);
             sibling_index = MerkleTree::sibling_index(node_index);
             let nodes = if node_index % 2 == 0 {
                 (self.nodes[node_index], self.nodes[sibling_index])
@@ -43,7 +43,7 @@ impl<N> MerkleTree<N> {
         }
     }
 
-    pub fn sibling_index(index: u64) -> u64 {
+    pub fn sibling_index(index: u32) -> u32 {
         if index % 2 == 0 { index + 1 } else { index - 1 }
     }
 }
@@ -51,11 +51,11 @@ impl<N> MerkleTree<N> {
 #[test]
 fn test_merkle_tree_update_leaf() {
     let mut tree = MerkleTree::new([1, 2]);
-    assert_eq(tree.get_root(), dep::std::hash::pedersen_hash([1, 2]));
+    assert_eq(tree.get_root(), std::hash::pedersen_hash([1, 2]));
     tree.update_leaf(1, 0, [0; 1]);
-    assert_eq(tree.get_root(), dep::std::hash::pedersen_hash([1, 0]));
+    assert_eq(tree.get_root(), std::hash::pedersen_hash([1, 0]));
     tree.update_leaf(0, 0, [0; 1]);
-    assert_eq(tree.get_root(), dep::std::hash::pedersen_hash([0, 0]));
+    assert_eq(tree.get_root(), std::hash::pedersen_hash([0, 0]));
 }
 
 #[test]
@@ -105,16 +105,16 @@ impl<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> NonEmptyMerkl
         let zero_hashes = compute_zero_hashes(_tree_height);
 
         let mut left_supertree_branch = [0; SUPERTREE_HEIGHT];
-        left_supertree_branch[0] = dep::std::hash::pedersen_hash([subtree.get_root(), zero_hashes[SUBTREE_HEIGHT-1]]);
+        left_supertree_branch[0] = std::hash::pedersen_hash([subtree.get_root(), zero_hashes[SUBTREE_HEIGHT-1]]);
         for i in 1..left_supertree_branch.len() {
             // TODO(md): far right of this yuck
-            left_supertree_branch[i] = dep::std::hash::pedersen_hash([left_supertree_branch[i-1], zero_hashes[(SUBTREE_HEIGHT as u64 -1) + i as u64]]);
+            left_supertree_branch[i] = std::hash::pedersen_hash([left_supertree_branch[i-1], zero_hashes[(SUBTREE_HEIGHT as u64 -1) + i as u64]]);
         }
 
         NonEmptyMerkleTree { subtree, zero_hashes, left_supertree_branch, _phantom_subtree_height: _subtree_height }
     }
 
-    pub fn get_sibling_path(self, leaf_index: u64) -> [Field; TREE_HEIGHT] {
+    pub fn get_sibling_path(self, leaf_index: u32) -> [Field; TREE_HEIGHT] {
         let mut path = [0; TREE_HEIGHT];
         let mut current_index = leaf_index;
         let mut subtree_width = SUBTREE_ITEMS;
@@ -127,7 +127,7 @@ impl<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> NonEmptyMerkl
             0
         };
 
-        let mut subtree_offset: u64 = 0;
+        let mut subtree_offset: u32 = 0;
 
         for i in 1..TREE_HEIGHT {
             current_index = current_index / 2;
@@ -149,14 +149,14 @@ impl<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> NonEmptyMerkl
         path
     }
 
-    pub fn update_leaf(&mut self, index: u64, value: Field) {
+    pub fn update_leaf(&mut self, index: u32, value: Field) {
         assert(index < SUBTREE_ITEMS, "index must be less than the number of leaves in the subtree");
 
         self.subtree.update_leaf(index, value, [0; SUBTREE_HEIGHT]);
 
-        self.left_supertree_branch[0] = dep::std::hash::pedersen_hash([self.subtree.get_root(), self.zero_hashes[SUBTREE_HEIGHT-1]]);
+        self.left_supertree_branch[0] = std::hash::pedersen_hash([self.subtree.get_root(), self.zero_hashes[SUBTREE_HEIGHT-1]]);
         for i in 1..self.left_supertree_branch.len() {
-            self.left_supertree_branch[i] = dep::std::hash::pedersen_hash([self.left_supertree_branch[i-1], self.zero_hashes[SUBTREE_HEIGHT-1+i]]);
+            self.left_supertree_branch[i] = std::hash::pedersen_hash([self.left_supertree_branch[i-1], self.zero_hashes[SUBTREE_HEIGHT-1+i]]);
         }
     }
 
@@ -177,7 +177,7 @@ fn test_merkle_tree_empty_subtree() {
     assert_eq(tree.zero_hashes.len(), 2);
     let path = tree.get_sibling_path(3);
     assert_eq(path[0], 0);
-    assert_eq(path[1], dep::std::hash::pedersen_hash([0, 0]));
+    assert_eq(path[1], std::hash::pedersen_hash([0, 0]));
     assert_eq(tree.get_root(), calculate_empty_tree_root(2));
 }
 
@@ -200,7 +200,7 @@ fn test_merkle_tree_non_empty_subtree() {
     assert_eq(tree.zero_hashes.len(), 2);
     let path = tree.get_sibling_path(3);
     assert_eq(path[0], 0);
-    assert_eq(path[1], dep::std::hash::pedersen_hash([1, 1]));
+    assert_eq(path[1], std::hash::pedersen_hash([1, 1]));
 }
 
 #[test]

@@ -5,7 +5,10 @@
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -31,17 +34,18 @@ template <class FF> inline std::vector<FF> powers_of_challenge(const FF challeng
 /**
  * @brief Prover for ZeroMorph multilinear PCS
  *
- * @tparam PCS - The univariate PCS used inside ZeroMorph as a building block
+ * @tparam Curve - The curve used for arithmetising ZeroMorph
  */
-template <typename PCS> class ZeroMorphProver_ {
-    using Curve = typename PCS::Curve;
+template <typename Curve> class ZeroMorphProver_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<FF>;
+    using OpeningClaim = ProverOpeningClaim<Curve>;
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
-    // (Then, eventually, set it based on the real SRS). For now we set it to be large but more or less arbitrary.
-    static const size_t N_max = 1 << 23;
+    // (Then, eventually, set it based on the real SRS). For now we set it to be larger then the Client IVC recursive
+    // verifier circuit.
+    static const size_t N_max = 1 << 25;
 
   public:
     /**
@@ -64,12 +68,10 @@ template <typename PCS> class ZeroMorphProver_ {
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<const FF> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial& polynomial,
+                                                                 std::span<const FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
-        // The size of the multilinear challenge must equal the log of the polynomial size
-        ASSERT(log_N == u_challenge.size());
-
         // Define the vector of quotients q_k, k = 0, ..., log_N-1
         std::vector<Polynomial> quotients;
         for (size_t k = 0; k < log_N; ++k) {
@@ -309,8 +311,8 @@ template <typename PCS> class ZeroMorphProver_ {
     }
 
     /**
-     * @brief Prove a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i
+     * @brief  * @brief Returns a univariate opening claim equivalent to a set of multilinear evaluation claims for
+     * unshifted polynomials f_i and to-be-shifted polynomials g_i to be subsequently proved with a univariate PCS
      *
      * @param f_polynomials Unshifted polynomials
      * @param g_polynomials To-be-shifted polynomials (of which the shifts h_i were evaluated by sumcheck)
@@ -318,24 +320,27 @@ template <typename PCS> class ZeroMorphProver_ {
      * @param multilinear_challenge Multilinear challenge point u
      * @param commitment_key
      * @param transcript
+     *
+     * @todo https://github.com/AztecProtocol/barretenberg/issues/1030: document concatenation trick
      */
-    static void prove(RefSpan<Polynomial> f_polynomials,
-                      RefSpan<Polynomial> g_polynomials,
-                      RefSpan<FF> f_evaluations,
-                      RefSpan<FF> g_shift_evaluations,
-                      std::span<FF> multilinear_challenge,
-                      const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                      const std::shared_ptr<NativeTranscript>& transcript,
-                      RefSpan<Polynomial> concatenated_polynomials = {},
-                      RefSpan<FF> concatenated_evaluations = {},
-                      const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
+    static OpeningClaim prove(FF circuit_size,
+                              RefSpan<Polynomial> f_polynomials,
+                              RefSpan<Polynomial> g_polynomials,
+                              RefSpan<FF> f_evaluations,
+                              RefSpan<FF> g_shift_evaluations,
+                              std::span<FF> multilinear_challenge,
+                              const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                              const std::shared_ptr<NativeTranscript>& transcript,
+                              RefSpan<Polynomial> concatenated_polynomials = {},
+                              RefSpan<FF> concatenated_evaluations = {},
+                              const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         const FF rho = transcript->template get_challenge<FF>("rho");
 
         // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
         std::span<const FF> u_challenge = multilinear_challenge;
-        size_t log_N = u_challenge.size();
+        size_t log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
         size_t N = 1 << log_N;
 
         // Compute batching of unshifted polynomials f_i and to-be-shifted polynomials g_i:
@@ -353,6 +358,7 @@ template <typename PCS> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
+        // WORKTODO: is this initialization right?
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
@@ -388,17 +394,16 @@ template <typename PCS> class ZeroMorphProver_ {
         f_polynomial += concatenated_batched;
 
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-        auto quotients = compute_multilinear_quotients(f_polynomial, u_challenge);
-
+        std::vector<Polynomial> quotients = compute_multilinear_quotients(f_polynomial, u_challenge);
         // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
-        std::vector<Commitment> q_k_commitments;
-        constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        q_k_commitments.reserve(log_N);
+        std::vector<Commitment> q_k_commitments(log_N);
         for (size_t idx = 0; idx < log_N; ++idx) {
             q_k_commitments[idx] = commitment_key->commit(quotients[idx]);
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, q_k_commitments[idx]);
         }
+
+        constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
         // TODO(CONSTANT_PROOF_SIZE): Send some BS q_ks (We dont have Flavor tho.. ick)
         for (size_t idx = log_N; idx < MAX_LOG_CIRCUIT_SIZE; ++idx) {
             auto buffer_element = Commitment::one();
@@ -434,22 +439,20 @@ template <typename PCS> class ZeroMorphProver_ {
 
         // Compute batched degree-check and ZM-identity quotient polynomial pi
         auto pi_polynomial = compute_batched_evaluation_and_degree_check_polynomial(zeta_x, Z_x, z_challenge);
-        // Compute opening proof for x_challenge using the underlying univariate PCS
-        PCS::compute_opening_proof(
-            commitment_key, { .challenge = x_challenge, .evaluation = FF(0) }, pi_polynomial, transcript);
+
+        // Returns the claim used to generate an opening proof for the univariate polynomial at x_challenge
+        return { pi_polynomial, { .challenge = x_challenge, .evaluation = FF(0) } };
     }
 };
 
 /**
  * @brief Verifier for ZeroMorph multilinear PCS
  *
- * @tparam Curve
+ * @tparam Curve - The Curve used to arithmetise ZeroMorph
  */
-template <typename PCS> class ZeroMorphVerifier_ {
-    using Curve = typename PCS::Curve;
+template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using VerifierAccumulator = typename PCS::VerifierAccumulator;
 
   public:
     /**
@@ -464,11 +467,28 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param x_challenge
      * @return Commitment
      */
-    static Commitment compute_C_zeta_x(
-        Commitment C_q, std::vector<Commitment>& C_q_k, FF y_challenge, FF x_challenge, const size_t log_N)
+    static Commitment compute_C_zeta_x(const Commitment& C_q,
+                                       std::vector<Commitment>& C_q_k,
+                                       FF y_challenge,
+                                       FF x_challenge,
+                                       const FF log_circuit_size,
+                                       const FF circuit_size)
     {
-        const size_t N = 1 << log_N;
+        size_t N;
+        if constexpr (Curve::is_stdlib_type) {
+            N = static_cast<uint32_t>(circuit_size.get_value());
+        } else {
+            N = static_cast<uint32_t>(circuit_size);
+        }
+        // info("circuit size when computing C_zeta_x: ", N);
 
+        size_t log_N;
+        if constexpr (Curve::is_stdlib_type) {
+            log_N = static_cast<uint32_t>(log_circuit_size.get_value());
+        } else {
+            log_N = static_cast<uint32_t>(log_circuit_size);
+        }
+        // info("log circuit size when computing C_zeta_x: ", log_N);
         // Instantiate containers for input to batch mul
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
@@ -482,18 +502,31 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
         commitments.emplace_back(C_q);
 
-        // Contribution from C_q_k, k = 0,...,log_N
+        // Contribution from C_q_k, k = 0,...,log_N-1
         constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
+
         for (size_t k = 0; k < MAX_LOG_CIRCUIT_SIZE; ++k) {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
-            FF scalar;
-            if (k < log_N) {
-                scalar = y_challenge.pow(k);
-                scalar *= x_challenge.pow(N - deg_k - 1);
-                scalar *= FF(-1);
+            FF scalar = y_challenge.pow(k);
+            // WORKTODO: ensure size_t exponent doesnt wrap. Think this is ok in terms of constraints since pow operates
+            // on 32 bits regardless?
+            size_t x_exponent = (deg_k + 1) < N ? N - deg_k - 1 : 0;
+            scalar *= x_challenge.pow(x_exponent);
+            scalar *= FF(-1);
+            if constexpr (Curve::is_stdlib_type) {
+                auto builder = x_challenge.get_context();
+                // stdlib::witness_t zero_witness(builder, builder->add_variable(0));
+                FF zero = FF::from_witness(builder, 0);
+                // WORKTODO: this causes Simulator to complain. Is it needed? Whats up?
+                // zero.fix_witness();
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, k >= log_N);
+                // WORKTODO: is it kosher to reassign like this?
+                scalar = FF::conditional_assign(dummy_round, zero, scalar);
             } else {
-                scalar = 0;
+                if (k >= log_N) {
+                    scalar = 0;
+                }
             }
             scalars.emplace_back(scalar);
             commitments.emplace_back(C_q_k[k]);
@@ -501,8 +534,12 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Compute batch mul to get the result
         if constexpr (Curve::is_stdlib_type) {
-            info("executing batch mul");
-            return Commitment::batch_mul(commitments, scalars);
+            // If Ultra and using biggroup, handle edge cases in batch_mul
+            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+                return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            } else {
+                return Commitment::batch_mul(commitments, scalars);
+            }
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -522,7 +559,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
      *
      * @note The concatenation term arises from an implementation detail in the Translator and is not part of the
      * conventional ZM protocol
-     * @param first_g1 first element in the SRS
+     * @param g1_identity first element in the SRS
      * @param f_commitments Commitments to unshifted polynomials [f_i]
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
@@ -533,7 +570,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param concatenation_groups_commitments
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(Commitment first_g1,
+    static Commitment compute_C_Z_x(const Commitment& g1_identity,
                                     RefSpan<Commitment> f_commitments,
                                     RefSpan<Commitment> g_commitments,
                                     std::span<Commitment> C_q_k,
@@ -541,22 +578,35 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                     FF batched_evaluation,
                                     FF x_challenge,
                                     std::span<FF> u_challenge,
-                                    const size_t log_N,
+                                    const FF log_circuit_size,
+                                    const FF circuit_size,
                                     const std::vector<RefVector<Commitment>>& concatenation_groups_commitments = {})
     {
-        size_t N = 1 << log_N;
-
+        size_t N;
+        if constexpr (Curve::is_stdlib_type) {
+            N = static_cast<uint32_t>(circuit_size.get_value());
+        } else {
+            N = static_cast<uint32_t>(circuit_size);
+        }
+        size_t log_N;
+        if constexpr (Curve::is_stdlib_type) {
+            log_N = static_cast<uint32_t>(log_circuit_size.get_value());
+        } else {
+            log_N = static_cast<uint32_t>(log_circuit_size);
+        }
+        // info("in C_Z_x N: ", N, " and log_N: ", log_N);
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
 
         // Phi_n(x) = (x^N - 1) / (x - 1)
+        // WORKTODO: this should be a witness... oh it is but it's disconnected
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
         // Add contribution: -v * x * \Phi_n(x) * [1]_1
         scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
 
-        commitments.emplace_back(first_g1);
+        commitments.emplace_back(g1_identity);
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
         auto rho_pow = FF(1);
@@ -600,29 +650,61 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto x_pow_2kp1 = x_challenge * x_challenge; // x^{2^{k + 1}}
         constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
         for (size_t k = 0; k < MAX_LOG_CIRCUIT_SIZE; ++k) {
-            if (k >= log_N) {
-                scalars.emplace_back(0);
-                commitments.emplace_back(C_q_k[k]);
-            } else {
+            if constexpr (Curve::is_stdlib_type) {
+                auto builder = x_challenge.get_context();
+                stdlib::bool_t dummy_scalar = stdlib::witness_t(builder, k >= log_N);
                 auto phi_term_1 = phi_numerator / (x_pow_2kp1 - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
                 auto phi_term_2 = phi_numerator / (x_pow_2k - 1);   // \Phi_{n-k}(x^{2^k})
 
                 auto scalar = x_pow_2k * phi_term_1;
                 scalar -= u_challenge[k] * phi_term_2;
                 scalar *= x_challenge;
-                scalar *= FF(-1);
+                scalar *= -FF(1);
 
+                FF zero = FF::from_witness(builder, 0);
+                // WORKTODO: this causes Simulator to complain. Is it needed? Whats up?
+                // zero.fix_witness();
+                scalar = FF::conditional_assign(dummy_scalar, zero, scalar);
                 scalars.emplace_back(scalar);
                 commitments.emplace_back(C_q_k[k]);
 
-                // Update powers of challenge x
-                x_pow_2k = x_pow_2kp1;
-                x_pow_2kp1 *= x_pow_2kp1;
+                x_pow_2k = FF::conditional_assign(dummy_scalar, x_pow_2k, x_pow_2kp1);
+                x_pow_2kp1 = FF::conditional_assign(dummy_scalar, x_pow_2kp1, x_pow_2kp1 * x_pow_2kp1);
+            } else {
+                if (k >= log_N) {
+                    scalars.emplace_back(0);
+                    commitments.emplace_back(C_q_k[k]);
+                } else {
+                    auto phi_term_1 = phi_numerator / (x_pow_2kp1 - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
+                    auto phi_term_2 = phi_numerator / (x_pow_2k - 1);   // \Phi_{n-k}(x^{2^k})
+
+                    auto scalar = x_pow_2k * phi_term_1;
+                    scalar -= u_challenge[k] * phi_term_2;
+                    scalar *= x_challenge;
+                    scalar *= FF(-1);
+
+                    scalars.emplace_back(scalar);
+                    commitments.emplace_back(C_q_k[k]);
+
+                    // Update powers of challenge x
+                    x_pow_2k = x_pow_2kp1;
+                    x_pow_2kp1 *= x_pow_2kp1;
+                }
             }
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            return Commitment::batch_mul(commitments, scalars);
+            // info("number of gates: ", commitments[0].get_context()->num_gates);
+            // for (size_t idx = 0; idx < commitments.size(); ++idx) {
+            //     info(commitments[idx].get_value());
+            //     info(commitments[idx].get_value().on_curve());
+            // }
+            // If Ultra and using biggroup, handle edge cases in batch_mul
+            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+                return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            } else {
+                return Commitment::batch_mul(commitments, scalars);
+            }
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -642,32 +724,36 @@ template <typename PCS> class ZeroMorphVerifier_ {
     }
 
     /**
-     * @brief Compute the univariate opening claim used in the last step of Zeromorph to verify the univariate PCS
-     * evaluation.
+     * @brief Return the univariate opening claim used to verify, in a subsequent PCS, a set of multilinear evaluation
+     * claims for unshifted polynomials f_i and to-be-shifted polynomials g_i
      *
-     * @param unshifted_commitments
-     * @param to_be_shifted_commitments
-     * @param unshifted_evaluations
-     * @param shifted_evaluations
-     * @param multivariate_challenge
-     * @param first_g1
+     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
+     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
+     * @param multivariate_challenge Challenge point u
      * @param transcript
-     * @param concatenation_group_commitments
-     * @param concatenated_evaluations
-     * @return OpeningClaim<Curve>
+     * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
      */
-    static OpeningClaim<Curve> compute_univariate_evaluation_opening_claim(
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> to_be_shifted_commitments,
+    static OpeningClaim<Curve> verify(
+        FF circuit_size,
+        [[maybe_unused]] RefSpan<Commitment> unshifted_commitments,
+        [[maybe_unused]] RefSpan<Commitment> to_be_shifted_commitments,
         RefSpan<FF> unshifted_evaluations,
         RefSpan<FF> shifted_evaluations,
-        std::span<FF> multivariate_challenge,
-        Commitment first_g1,
+        [[maybe_unused]] std::span<FF> multivariate_challenge,
+        [[maybe_unused]] const Commitment& g1_identity,
         auto& transcript,
-        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        [[maybe_unused]] const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<FF> concatenated_evaluations = {})
     {
-        size_t log_N = multivariate_challenge.size();
+        // info("ZM VERIFIER");
+        FF log_N;
+        if constexpr (Curve::is_stdlib_type) {
+            log_N = FF(static_cast<int>(numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()))));
+        } else {
+            log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+        }
+        // info("circuit size: ", circuit_size);
+        // info("log_N: ", log_N);
         FF rho = transcript->template get_challenge<FF>("rho");
 
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
@@ -704,10 +790,11 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto [x_challenge, z_challenge] = transcript->template get_challenges<FF>("ZM:x", "ZM:z");
 
         // Compute commitment C_{\zeta_x}
-        auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N);
+
+        auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge, log_N, circuit_size);
 
         // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(first_g1,
+        Commitment C_Z_x = compute_C_Z_x(g1_identity,
                                          unshifted_commitments,
                                          to_be_shifted_commitments,
                                          C_q_k,
@@ -716,98 +803,32 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                          x_challenge,
                                          multivariate_challenge,
                                          log_N,
+                                         circuit_size,
                                          concatenation_group_commitments);
+        if constexpr (Curve::is_stdlib_type) {
+            // info(z_challenge.get_context()->num_gates,
+            //      " and arithmetic gates ",
+            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
+        }
 
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
         if constexpr (Curve::is_stdlib_type) {
-
             // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
-            C_zeta_Z = Commitment::batch_mul(points, scalars);
+            // If Ultra and using biggroup, handle edge cases in batch_mul
+            if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
+                C_zeta_Z = Commitment::batch_mul(points, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            } else {
+                C_zeta_Z = Commitment::batch_mul(points, scalars);
+            }
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
         }
 
         return { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z };
-    }
-
-    /**
-     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i
-     *
-     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
-     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
-     * @param multivariate_challenge Challenge point u
-     * @param transcript
-     * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
-     */
-    static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
-                                      RefSpan<Commitment> to_be_shifted_commitments,
-                                      RefSpan<FF> unshifted_evaluations,
-                                      RefSpan<FF> shifted_evaluations,
-                                      std::span<FF> multivariate_challenge,
-                                      auto& transcript,
-                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-                                      RefSpan<FF> concatenated_evaluations = {})
-    {
-        Commitment first_g1;
-
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = multivariate_challenge[0].get_context();
-            first_g1 = Commitment::one(builder);
-        } else {
-            first_g1 = Commitment::one();
-        }
-        auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
-                                                                         to_be_shifted_commitments,
-                                                                         unshifted_evaluations,
-                                                                         shifted_evaluations,
-                                                                         multivariate_challenge,
-                                                                         first_g1,
-                                                                         transcript,
-                                                                         concatenation_group_commitments,
-                                                                         concatenated_evaluations);
-        return PCS::reduce_verify(opening_claim, transcript);
-    }
-
-    /**
-     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i.
-     *
-     * @details Identical purpose as the function above but used when the verification of the PCS evaluation protocol
-     * requires the verification key prior to the last step that is accumulated.
-     *
-     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
-     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
-     * @param multivariate_challenge Challenge point u
-     * @param transcript
-     * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
-     */
-    static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
-                                      RefSpan<Commitment> to_be_shifted_commitments,
-                                      RefSpan<FF> unshifted_evaluations,
-                                      RefSpan<FF> shifted_evaluations,
-                                      std::span<FF> multivariate_challenge,
-                                      const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
-                                      auto& transcript,
-                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-                                      RefSpan<FF> concatenated_evaluations = {})
-    {
-        Commitment first_g1 = vk->get_first_g1();
-
-        auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
-                                                                         to_be_shifted_commitments,
-                                                                         unshifted_evaluations,
-                                                                         shifted_evaluations,
-                                                                         multivariate_challenge,
-                                                                         first_g1,
-                                                                         transcript,
-                                                                         concatenation_group_commitments,
-                                                                         concatenated_evaluations);
-        return PCS::reduce_verify(vk, opening_claim, transcript);
     }
 };
 

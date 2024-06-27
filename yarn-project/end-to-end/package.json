@@ -40,6 +40,7 @@
     "@aztec/pxe": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@jest/globals": "^29.5.0",
@@ -79,7 +80,6 @@
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "tslib": "^2.4.0",
-    "tty-browserify": "^0.0.1",
     "typescript": "^5.0.4",
     "util": "^0.12.5",
     "viem": "^2.7.15",
@@ -116,7 +116,15 @@
     ],
     "transform": {
       "^.+\\.tsx?$": [
-        "@swc/jest"
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            }
+          }
+        }
       ]
     },
     "reporters": [
