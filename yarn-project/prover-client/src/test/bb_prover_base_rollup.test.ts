@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
+import { makePaddingProcessedTx } from '@aztec/circuit-types';
 import { TubeInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -36,8 +36,9 @@ describe('prover/bb_prover/base-rollup', () => {
       version,
     };
 
-    const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
-    const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
+    // LONDONTODO: Update base rollup test to take tube proof
+    const paddingTxPublicInputsAndProof = await context.prover.getEmptyPrivateKernelProof(inputs);
+    const tx = makePaddingProcessedTx(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
     const baseRollupInputs = await buildBaseRollupInput(

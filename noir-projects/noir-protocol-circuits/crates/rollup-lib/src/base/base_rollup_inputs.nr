@@ -57,13 +57,18 @@ struct BaseRollupInputs {
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
-        dep::std::verify_proof(
-            self.kernel_data.vk.key.as_slice(),
-            self.kernel_data.proof.fields.as_slice(),
-            &[],
-            self.kernel_data.vk.hash
-        );
+        // LONDONTODO: rever this! Update base rollup test to take tube proof
+ 
+        // // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
+        // dep::std::verify_proof(
+        //     self.kernel_data.vk.key.as_slice(),
+        //     self.kernel_data.proof.fields.as_slice(),
+        //     &[],
+        //     self.kernel_data.vk.hash
+        // );
+
+        self.kernel_data.verify();
+
 
         // Verify the kernel chain_id and versions
         assert(
