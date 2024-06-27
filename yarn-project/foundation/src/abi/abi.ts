@@ -59,10 +59,7 @@ export interface ABIVariable {
 /**
  * Indicates whether a parameter is public or secret/private.
  */
-export enum ABIParameterVisibility {
-  PUBLIC = 'public',
-  SECRET = 'secret',
-}
+export type ABIParameterVisibility = 'public' | 'private' | 'databus';
 
 /**
  * A function parameter.

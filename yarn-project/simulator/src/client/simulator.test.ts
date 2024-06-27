@@ -129,7 +129,7 @@ describe('Simulator', () => {
                 kind: 'field',
               },
             },
-            visibility: ABIParameterVisibility.SECRET,
+            visibility: 'private',
           },
         ],
       };

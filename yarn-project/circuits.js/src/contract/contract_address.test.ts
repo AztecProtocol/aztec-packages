@@ -38,7 +38,7 @@ describe('ContractAddress', () => {
       isInternal: false,
       isStatic: false,
       name: 'fun',
-      parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: ABIParameterVisibility.SECRET }],
+      parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: 'private' }],
       returnTypes: [],
     };
     const mockArgs: any[] = [true];

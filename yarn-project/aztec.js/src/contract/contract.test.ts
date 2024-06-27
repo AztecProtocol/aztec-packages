@@ -60,14 +60,14 @@ describe('Contract Class', () => {
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.PUBLIC,
+            visibility: 'public',
           },
           {
             name: 'value',
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.SECRET,
+            visibility: 'private',
           },
         ],
         returnTypes: [],
@@ -96,7 +96,7 @@ describe('Contract Class', () => {
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.PUBLIC,
+            visibility: 'public',
           },
         ],
         returnTypes: [
