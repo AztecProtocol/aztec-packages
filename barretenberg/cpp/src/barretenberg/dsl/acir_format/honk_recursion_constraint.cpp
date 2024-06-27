@@ -135,7 +135,6 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
         uint32_t offset = 3;
 
-        // WORKTODO: these changes seem very brittle and at least need comments and use of constant for 28
         for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
             auto comm = curve::BN254::AffineElement::one() * fr::random_element();
             auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -169,8 +168,8 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
             offset += 4;
         }
 
-        // now the univariates, which can just be 0s (7*28 Frs)
-        for (size_t i = 0; i < 28 * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+        // now the univariates, which can just be 0s (7*CONST_PROOF_SIZE_LOG_N Frs)
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
             builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
             offset++;
         }
@@ -181,8 +180,8 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
             offset++;
         }
 
-        // now the zeromorph commitments, which are 28 comms
-        for (size_t i = 0; i < 28; i++) {
+        // now the zeromorph commitments, which are CONST_PROOF_SIZE_LOG_N comms
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             auto comm = curve::BN254::AffineElement::one() * fr::random_element();
             auto frs = field_conversion::convert_to_bn254_frs(comm);
             builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);

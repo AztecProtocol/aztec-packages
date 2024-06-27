@@ -936,7 +936,6 @@ class ECCVMFlavor {
             size_t num_frs_read = 0;
             circuit_size = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
                                                                                         num_frs_read);
-            // size_t log_n = numeric::get_msb(circuit_size);
             transcript_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
@@ -1164,7 +1163,6 @@ class ECCVMFlavor {
             NativeTranscript::proof_data.clear();
 
             NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
-            // size_t log_n = numeric::get_msb(circuit_size);
 
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);

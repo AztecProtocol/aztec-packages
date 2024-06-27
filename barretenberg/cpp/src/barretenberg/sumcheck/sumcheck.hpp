@@ -191,26 +191,23 @@ template <typename Flavor> class SumcheckProver {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
 
-        // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
-        // univariates that would be there if the input circuit size were 1<<CONST_PROOF_SIZE_LOG_N.
-
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
-        transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(0), round_univariate);
-        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(0));
+        transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
         round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                   // release memory?        // All but final round
                                                   // We operate on partially_evaluated_polynomials in place.
-        for (size_t idx = 1; idx < multivariate_d; idx++) {
+        for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             // Write the round univariate to the transcript
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), round_univariate);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
@@ -221,8 +218,6 @@ template <typename Flavor> class SumcheckProver {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
-            // pow_univariate.current_element_idx++;
-            // pow_univariate.periodicity *= 2;
         }
 
         // Final round: Extract multivariate evaluations from #partially_evaluated_polynomials and add to transcript
@@ -404,20 +399,17 @@ template <typename Flavor> class SumcheckVerifier {
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
-            // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
-                // info("checked: ", checked, " at round: ", round_idx, " and dummy round: ", dummy_round.get_value());
-                // ignore the checked value if its a padded univariate
+                // Only utilize the checked value if this is not a constant proof size padding round
                 if (round_idx < multivariate_d) {
                     verified = verified && checked;
                 }
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
-                // info("round ", round_idx, " with sum ", round.target_total_sum);
                 pow_univariate.partially_evaluate(round_challenge, dummy_round);
 
             } else {
@@ -430,10 +422,7 @@ template <typename Flavor> class SumcheckVerifier {
                     pow_univariate.partially_evaluate(round_challenge);
                 } else {
                     multivariate_challenge.emplace_back(round_challenge);
-                    // pow_univariate.current_element_idx++;
-                    // pow_univariate.periodicity *= 2;
                 }
-                // info("round ", round_idx, " with sum ", round.target_total_sum);
             }
         }
 
