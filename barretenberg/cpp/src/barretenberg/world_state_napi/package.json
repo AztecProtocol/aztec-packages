@@ -1,0 +1,26 @@
+{
+  "name": "world_state_napi",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "install": "cmake-js compile"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "",
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "node-addon-api": "^8.0.0",
+    "node-api-headers": "^1.1.0"
+  },
+  "devDependencies": {
+    "cmake-js": "^7.3.0"
+  },
+  "binary": {
+    "napi_versions": [
+      9
+    ]
+  }
+}
