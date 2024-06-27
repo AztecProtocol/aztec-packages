@@ -9,7 +9,6 @@ using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmGasTests : public ::testing::Test {
-
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
@@ -34,7 +33,7 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
     kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = FF(startGas.l2_gas);
     kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = FF(startGas.da_gas);
 
-    VmPublicInputs public_inputs{};
+    VmPublicInputs public_inputs;
     std::get<0>(public_inputs) = kernel_inputs;
     AvmTraceBuilder trace_builder(public_inputs);
 
@@ -47,7 +46,7 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
 
     check_trace(trace);
 
-    log_avm_trace(trace, 0, 10);
+    // log_avm_trace(trace, 0, 10);
     validate_trace(std::move(trace), public_inputs);
 }
 
@@ -62,7 +61,7 @@ TEST_F(AvmGasPositiveTests, gasAdd)
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         // trace_builder.set()
         trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::FF);
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
     };
 
     auto checks = [=](const std::vector<Row>& trace) {

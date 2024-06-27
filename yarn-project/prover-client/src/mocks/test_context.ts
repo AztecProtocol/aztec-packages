@@ -21,7 +21,7 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type ContractsDataSourcePublicDB,
-  type PublicExecution,
+  type PublicExecutionRequest,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -31,6 +31,7 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
@@ -85,7 +86,7 @@ export class TestContext {
     logger: DebugLogger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new WASMSimulator())),
+      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
     blockNumber = 3,
   ) {
     const globalVariables = makeGlobals(blockNumber);
@@ -95,6 +96,7 @@ export class TestContext {
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    const telemetry = new NoopTelemetryClient();
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,
@@ -103,6 +105,7 @@ export class TestContext {
       Header.empty(),
       publicContractsDB,
       publicWorldStateDB,
+      telemetry,
     );
 
     let localProver: ServerCircuitProver;
@@ -112,7 +115,7 @@ export class TestContext {
       acvmBinaryPath: config?.expectedAcvmPath,
     });
     if (!config) {
-      localProver = new TestCircuitProver(simulationProvider);
+      localProver = new TestCircuitProver(new NoopTelemetryClient(), simulationProvider);
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -124,7 +127,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue();
-    const orchestrator = new ProvingOrchestrator(actualDb, queue);
+    const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -161,7 +164,7 @@ export class TestContext {
     txValidator?: TxValidator<ProcessedTx>,
   ) {
     const defaultExecutorImplementation = (
-      execution: PublicExecution,
+      execution: PublicExecutionRequest,
       _globalVariables: GlobalVariables,
       availableGas: Gas,
       _txContext: TxContext,
@@ -201,7 +204,7 @@ export class TestContext {
     blockProver?: BlockProver,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
-      execution: PublicExecution,
+      execution: PublicExecutionRequest,
       globalVariables: GlobalVariables,
       availableGas: Gas,
       txContext: TxContext,

@@ -7,38 +7,37 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#define MEM_ROW_FIELD_EQ(field_name, expression) Field(#field_name, &Row::mem_##field_name, expression)
+
 namespace tests_avm {
+
 using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
 
 class AvmMemOpcodeTests : public ::testing::Test {
   public:
+    AvmMemOpcodeTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+    }
+
+    VmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
 
   protected:
     std::vector<Row> trace;
-    size_t main_idx;
-    size_t mem_a_idx;
-    size_t mem_b_idx;
-    size_t mem_c_idx;
-    size_t mem_d_idx;
-    size_t mem_ind_a_idx;
-    size_t mem_ind_b_idx;
-    size_t mem_ind_c_idx;
-    size_t mem_ind_d_idx;
-
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    size_t main_addr;
+    size_t mem_a_addr;
+    size_t mem_b_addr;
+    size_t mem_c_addr;
+    size_t mem_d_addr;
+    size_t mem_ind_a_addr;
+    size_t mem_ind_b_addr;
+    size_t mem_ind_c_addr;
+    size_t mem_ind_d_addr;
 
     void build_mov_trace(bool indirect,
                          uint128_t const& val,
@@ -57,7 +56,7 @@ class AvmMemOpcodeTests : public ::testing::Test {
         }
 
         trace_builder.op_mov(indirect ? 3 : 0, src_offset, dst_offset);
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
         trace = trace_builder.finalize();
     }
 
@@ -68,7 +67,7 @@ class AvmMemOpcodeTests : public ::testing::Test {
         trace_builder.op_set(0, mov_a ? 9871 : 0, 20, AvmMemoryTag::U64); // Non-zero/zero condition value (we move a/b)
 
         trace_builder.op_cmov(0, 10, 11, 20, 12);
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
         trace = trace_builder.finalize();
 
         compute_cmov_indices(0);
@@ -85,14 +84,14 @@ class AvmMemOpcodeTests : public ::testing::Test {
         auto row =
             std::ranges::find_if(trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_LOAD_A));
         ASSERT_TRUE(row != trace.end());
-        mem_a_idx = static_cast<size_t>(row - trace.begin());
+        mem_a_addr = static_cast<size_t>(row - trace.begin());
 
         // Find the memory trace position of the indirect load for register ia.
         if (indirect) {
             row = std::ranges::find_if(
                 trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_IND_LOAD_A));
             ASSERT_TRUE(row != trace.end());
-            mem_ind_a_idx = static_cast<size_t>(row - trace.begin());
+            mem_ind_a_addr = static_cast<size_t>(row - trace.begin());
         }
     }
 
@@ -102,23 +101,23 @@ class AvmMemOpcodeTests : public ::testing::Test {
         auto row =
             std::ranges::find_if(trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_STORE_C));
         ASSERT_TRUE(row != trace.end());
-        mem_c_idx = static_cast<size_t>(row - trace.begin());
+        mem_c_addr = static_cast<size_t>(row - trace.begin());
 
         // Find the memory trace position of the indirect load for register ic.
         if (indirect) {
             row = std::ranges::find_if(
                 trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_IND_LOAD_C));
             ASSERT_TRUE(row != trace.end());
-            mem_ind_c_idx = static_cast<size_t>(row - trace.begin());
+            mem_ind_c_addr = static_cast<size_t>(row - trace.begin());
         }
     }
 
     void compute_mov_indices(bool indirect)
     {
         // Find the first row enabling the MOV selector
-        auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_mov == FF(1); });
+        auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mov == FF(1); });
         ASSERT_TRUE(row != trace.end());
-        main_idx = static_cast<size_t>(row - trace.begin());
+        main_addr = static_cast<size_t>(row - trace.begin());
 
         auto clk = row->main_clk;
 
@@ -129,9 +128,9 @@ class AvmMemOpcodeTests : public ::testing::Test {
     void compute_cmov_indices(uint8_t indirect)
     {
         // Find the first row enabling the CMOV selector
-        auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_cmov == FF(1); });
+        auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cmov == FF(1); });
         ASSERT_TRUE(row != trace.end());
-        main_idx = static_cast<size_t>(row - trace.begin());
+        main_addr = static_cast<size_t>(row - trace.begin());
 
         auto clk = row->main_clk;
         compute_index_a(clk, is_operand_indirect(indirect, 0));
@@ -140,27 +139,27 @@ class AvmMemOpcodeTests : public ::testing::Test {
         // Find the memory trace position corresponding to the load sub-operation of register ib.
         row = std::ranges::find_if(trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_LOAD_B));
         ASSERT_TRUE(row != trace.end());
-        mem_b_idx = static_cast<size_t>(row - trace.begin());
+        mem_b_addr = static_cast<size_t>(row - trace.begin());
 
         // Find the memory trace position of the indirect load for register ib.
         if (is_operand_indirect(indirect, 1)) {
             row = std::ranges::find_if(
                 trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_IND_LOAD_B));
             ASSERT_TRUE(row != trace.end());
-            mem_ind_b_idx = static_cast<size_t>(row - trace.begin());
+            mem_ind_b_addr = static_cast<size_t>(row - trace.begin());
         }
 
         // Find the memory trace position corresponding to the load sub-operation of register id.
         row = std::ranges::find_if(trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_LOAD_D));
         ASSERT_TRUE(row != trace.end());
-        mem_d_idx = static_cast<size_t>(row - trace.begin());
+        mem_d_addr = static_cast<size_t>(row - trace.begin());
 
         // Find the memory trace position of the indirect load for register id.
         if (is_operand_indirect(indirect, 3)) {
             row = std::ranges::find_if(
                 trace.begin(), trace.end(), gen_matcher(clk, AvmMemTraceBuilder::SUB_CLK_IND_LOAD_D));
             ASSERT_TRUE(row != trace.end());
-            mem_ind_d_idx = static_cast<size_t>(row - trace.begin());
+            mem_ind_d_addr = static_cast<size_t>(row - trace.begin());
         }
     }
 
@@ -170,66 +169,69 @@ class AvmMemOpcodeTests : public ::testing::Test {
                             uint32_t dst_offset,
                             AvmMemoryTag tag,
                             uint32_t dir_src_offset = 0,
-                            uint32_t dir_dst_offset = 0)
+                            uint32_t dir_dst_offset = 0,
+                            bool indirect_uninitialized = false)
     {
         compute_mov_indices(indirect);
         FF const val_ff = uint256_t::from_uint128(val);
-        auto const& main_row = trace.at(main_idx);
+        auto const& main_row = trace.at(main_addr);
 
         if (indirect) {
             EXPECT_THAT(
                 main_row,
-                AllOf(Field(&Row::main_mem_idx_a, dir_src_offset), Field(&Row::main_mem_idx_c, dir_dst_offset)));
+                AllOf(MAIN_ROW_FIELD_EQ(mem_addr_a, dir_src_offset), MAIN_ROW_FIELD_EQ(mem_addr_c, dir_dst_offset)));
         }
         EXPECT_THAT(main_row,
-                    AllOf(Field(&Row::main_sel_mov, 1),
-                          Field(&Row::main_sel_mov_a, 1),
-                          Field(&Row::main_ia, val_ff),
-                          Field(&Row::main_ib, 0),
-                          Field(&Row::main_ic, val_ff),
-                          Field(&Row::main_r_in_tag, static_cast<uint32_t>(tag)),
-                          Field(&Row::main_w_in_tag, static_cast<uint32_t>(tag))));
+                    AllOf(MAIN_ROW_FIELD_EQ(sel_op_mov, 1),
+                          MAIN_ROW_FIELD_EQ(sel_mov_ia_to_ic, 1),
+                          MAIN_ROW_FIELD_EQ(ia, val_ff),
+                          MAIN_ROW_FIELD_EQ(ib, 0),
+                          MAIN_ROW_FIELD_EQ(ic, val_ff),
+                          MAIN_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(tag)),
+                          MAIN_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(tag))));
 
-        auto const& mem_a_row = trace.at(mem_a_idx);
+        auto const& mem_a_row = trace.at(mem_a_addr);
 
         EXPECT_THAT(mem_a_row,
-                    AllOf(Field(&Row::mem_tag_err, 0),
-                          Field(&Row::mem_r_in_tag, static_cast<uint32_t>(tag)),
-                          Field(&Row::mem_tag, static_cast<uint32_t>(tag)),
-                          Field(&Row::mem_sel_mov_a, 1),
-                          Field(&Row::mem_addr, indirect ? dir_src_offset : src_offset),
-                          Field(&Row::mem_val, val_ff),
-                          Field(&Row::mem_rw, 0),
-                          Field(&Row::mem_op_a, 1)));
+                    AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
+                          MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(tag)),
+                          MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(tag)),
+                          MEM_ROW_FIELD_EQ(sel_mov_ia_to_ic, 1),
+                          MEM_ROW_FIELD_EQ(addr, indirect ? dir_src_offset : src_offset),
+                          MEM_ROW_FIELD_EQ(val, val_ff),
+                          MEM_ROW_FIELD_EQ(rw, 0),
+                          MEM_ROW_FIELD_EQ(sel_op_a, 1)));
 
-        auto const& mem_c_row = trace.at(mem_c_idx);
+        auto const& mem_c_row = trace.at(mem_c_addr);
 
         EXPECT_THAT(mem_c_row,
-                    AllOf(Field(&Row::mem_tag_err, 0),
-                          Field(&Row::mem_w_in_tag, static_cast<uint32_t>(tag)),
-                          Field(&Row::mem_tag, static_cast<uint32_t>(tag)),
-                          Field(&Row::mem_addr, indirect ? dir_dst_offset : dst_offset),
-                          Field(&Row::mem_val, val_ff),
-                          Field(&Row::mem_op_c, 1)));
+                    AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
+                          MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(tag)),
+                          MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(tag)),
+                          MEM_ROW_FIELD_EQ(addr, indirect ? dir_dst_offset : dst_offset),
+                          MEM_ROW_FIELD_EQ(val, val_ff),
+                          MEM_ROW_FIELD_EQ(sel_op_c, 1)));
 
         if (indirect) {
-            auto const& mem_ind_a_row = trace.at(mem_ind_a_idx);
+            auto const& mem_ind_a_row = trace.at(mem_ind_a_addr);
             EXPECT_THAT(mem_ind_a_row,
-                        AllOf(Field(&Row::mem_tag_err, 0),
-                              Field(&Row::mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                              Field(&Row::mem_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                              Field(&Row::mem_addr, src_offset),
-                              Field(&Row::mem_val, dir_src_offset),
-                              Field(&Row::mem_ind_op_a, 1)));
+                        AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
+                              MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                              MEM_ROW_FIELD_EQ(tag,
+                                               indirect_uninitialized ? static_cast<uint32_t>(AvmMemoryTag::U0)
+                                                                      : static_cast<uint32_t>(AvmMemoryTag::U32)),
+                              MEM_ROW_FIELD_EQ(addr, src_offset),
+                              MEM_ROW_FIELD_EQ(val, dir_src_offset),
+                              MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_a, 1)));
 
-            auto const& mem_ind_c_row = trace.at(mem_ind_c_idx);
+            auto const& mem_ind_c_row = trace.at(mem_ind_c_addr);
             EXPECT_THAT(mem_ind_c_row,
-                        AllOf(Field(&Row::mem_tag_err, 0),
-                              Field(&Row::mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                              Field(&Row::mem_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                              Field(&Row::mem_addr, dst_offset),
-                              Field(&Row::mem_val, dir_dst_offset),
-                              Field(&Row::mem_ind_op_c, 1)));
+                        AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
+                              MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                              MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                              MEM_ROW_FIELD_EQ(addr, dst_offset),
+                              MEM_ROW_FIELD_EQ(val, dir_dst_offset),
+                              MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1)));
         }
 
         validate_trace(std::move(trace), public_inputs);
@@ -252,82 +254,82 @@ class AvmMemOpcodeTests : public ::testing::Test {
         FF const& mov_val = mov_a ? a : b;
         FF const inv = mov_a ? d.invert() : 1;
 
-        EXPECT_THAT(trace.at(main_idx),
-                    AllOf(Field("ia", &Row::main_ia, a),
-                          Field("ib", &Row::main_ib, b),
-                          Field("ic", &Row::main_ic, mov_val),
-                          Field("id", &Row::main_id, d),
-                          Field("op_a", &Row::main_mem_op_a, 1),
-                          Field("op_b", &Row::main_mem_op_b, 1),
-                          Field("op_c", &Row::main_mem_op_c, 1),
-                          Field("op_d", &Row::main_mem_op_d, 1),
-                          Field("rwa", &Row::main_rwa, 0),
-                          Field("rwb", &Row::main_rwb, 0),
-                          Field("rwc", &Row::main_rwc, 1),
-                          Field("rwd", &Row::main_rwd, 0),
-                          Field("mem_idx_a", &Row::main_mem_idx_a, addr_a),
-                          Field("mem_idx_b", &Row::main_mem_idx_b, addr_b),
-                          Field("mem_idx_c", &Row::main_mem_idx_c, addr_c),
-                          Field("mem_idx_d", &Row::main_mem_idx_d, addr_d),
-                          Field("ind_op_a", &Row::main_ind_op_a, static_cast<uint32_t>(indirect)),
-                          Field("ind_op_b", &Row::main_ind_op_b, static_cast<uint32_t>(indirect)),
-                          Field("ind_op_c", &Row::main_ind_op_c, static_cast<uint32_t>(indirect)),
-                          Field("ind_op_d", &Row::main_ind_op_d, static_cast<uint32_t>(indirect)),
-                          Field("sel_cmov", &Row::main_sel_cmov, 1),
-                          Field("sel_mov_a", &Row::main_sel_mov_a, mov_a),
-                          Field("sel_mov_b", &Row::main_sel_mov_b, !mov_a),
-                          Field("r_in_tag", &Row::main_r_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("w_in_tag", &Row::main_w_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("inv", &Row::main_inv, inv)));
+        EXPECT_THAT(trace.at(main_addr),
+                    AllOf(MAIN_ROW_FIELD_EQ(ia, a),
+                          MAIN_ROW_FIELD_EQ(ib, b),
+                          MAIN_ROW_FIELD_EQ(ic, mov_val),
+                          MAIN_ROW_FIELD_EQ(id, d),
+                          MAIN_ROW_FIELD_EQ(sel_mem_op_a, 1),
+                          MAIN_ROW_FIELD_EQ(sel_mem_op_b, 1),
+                          MAIN_ROW_FIELD_EQ(sel_mem_op_c, 1),
+                          MAIN_ROW_FIELD_EQ(sel_mem_op_d, 1),
+                          MAIN_ROW_FIELD_EQ(rwa, 0),
+                          MAIN_ROW_FIELD_EQ(rwb, 0),
+                          MAIN_ROW_FIELD_EQ(rwc, 1),
+                          MAIN_ROW_FIELD_EQ(rwd, 0),
+                          MAIN_ROW_FIELD_EQ(mem_addr_a, addr_a),
+                          MAIN_ROW_FIELD_EQ(mem_addr_b, addr_b),
+                          MAIN_ROW_FIELD_EQ(mem_addr_c, addr_c),
+                          MAIN_ROW_FIELD_EQ(mem_addr_d, addr_d),
+                          MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_a, static_cast<uint32_t>(indirect)),
+                          MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_b, static_cast<uint32_t>(indirect)),
+                          MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, static_cast<uint32_t>(indirect)),
+                          MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_d, static_cast<uint32_t>(indirect)),
+                          MAIN_ROW_FIELD_EQ(sel_op_cmov, 1),
+                          MAIN_ROW_FIELD_EQ(sel_mov_ia_to_ic, mov_a),
+                          MAIN_ROW_FIELD_EQ(sel_mov_ib_to_ic, !mov_a),
+                          MAIN_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MAIN_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MAIN_ROW_FIELD_EQ(inv, inv)));
 
-        EXPECT_THAT(trace.at(mem_a_idx),
-                    AllOf(Field("r_in_tag", &Row::mem_r_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("w_in_tag", &Row::mem_w_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("tag", &Row::mem_tag, static_cast<uint32_t>(tag_a)),
-                          Field("sel_mov_a", &Row::mem_sel_mov_a, mov_a),
-                          Field("mem_addr", &Row::mem_addr, addr_a),
-                          Field("val", &Row::mem_val, a),
-                          Field("rw", &Row::mem_rw, 0),
-                          Field("skip_check_tag", &Row::mem_skip_check_tag, mov_a ? 0 : 1),
-                          Field("op_a", &Row::mem_op_a, 1),
-                          Field("ind_op_a", &Row::mem_ind_op_a, 0)));
+        EXPECT_THAT(trace.at(mem_a_addr),
+                    AllOf(MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(tag_a)),
+                          MEM_ROW_FIELD_EQ(sel_mov_ia_to_ic, mov_a),
+                          MEM_ROW_FIELD_EQ(addr, addr_a),
+                          MEM_ROW_FIELD_EQ(val, a),
+                          MEM_ROW_FIELD_EQ(rw, 0),
+                          MEM_ROW_FIELD_EQ(skip_check_tag, mov_a ? 0 : 1),
+                          MEM_ROW_FIELD_EQ(sel_op_a, 1),
+                          MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_a, 0)));
 
-        EXPECT_THAT(trace.at(mem_b_idx),
-                    AllOf(Field("r_in_tag", &Row::mem_r_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("w_in_tag", &Row::mem_w_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("tag", &Row::mem_tag, static_cast<uint32_t>(tag_b)),
-                          Field("tag_err", &Row::mem_tag_err, 0),
-                          Field("sel_mov_b", &Row::mem_sel_mov_b, !mov_a),
-                          Field("mem_addr", &Row::mem_addr, addr_b),
-                          Field("val", &Row::mem_val, b),
-                          Field("rw", &Row::mem_rw, 0),
-                          Field("skip_check_tag", &Row::mem_skip_check_tag, mov_a ? 1 : 0),
-                          Field("op_b", &Row::mem_op_b, 1),
-                          Field("ind_op_b", &Row::mem_ind_op_b, 0)));
+        EXPECT_THAT(trace.at(mem_b_addr),
+                    AllOf(MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(tag_b)),
+                          MEM_ROW_FIELD_EQ(tag_err, 0),
+                          MEM_ROW_FIELD_EQ(sel_mov_ib_to_ic, !mov_a),
+                          MEM_ROW_FIELD_EQ(addr, addr_b),
+                          MEM_ROW_FIELD_EQ(val, b),
+                          MEM_ROW_FIELD_EQ(rw, 0),
+                          MEM_ROW_FIELD_EQ(skip_check_tag, mov_a ? 1 : 0),
+                          MEM_ROW_FIELD_EQ(sel_op_b, 1),
+                          MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_b, 0)));
 
-        EXPECT_THAT(trace.at(mem_c_idx),
-                    AllOf(Field("r_in_tag", &Row::mem_r_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("w_in_tag", &Row::mem_w_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("tag", &Row::mem_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("tag_err", &Row::mem_tag_err, 0),
-                          Field("mem_addr", &Row::mem_addr, addr_c),
-                          Field("val", &Row::mem_val, mov_a ? a : b),
-                          Field("rw", &Row::mem_rw, 1),
-                          Field("skip_check_tag", &Row::mem_skip_check_tag, 0),
-                          Field("op_c", &Row::mem_op_c, 1),
-                          Field("ind_op_c", &Row::mem_ind_op_c, 0)));
+        EXPECT_THAT(trace.at(mem_c_addr),
+                    AllOf(MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(tag_err, 0),
+                          MEM_ROW_FIELD_EQ(addr, addr_c),
+                          MEM_ROW_FIELD_EQ(val, mov_a ? a : b),
+                          MEM_ROW_FIELD_EQ(rw, 1),
+                          MEM_ROW_FIELD_EQ(skip_check_tag, 0),
+                          MEM_ROW_FIELD_EQ(sel_op_c, 1),
+                          MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 0)));
 
-        EXPECT_THAT(trace.at(mem_d_idx),
-                    AllOf(Field("r_in_tag", &Row::mem_r_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("w_in_tag", &Row::mem_w_in_tag, static_cast<uint32_t>(mov_tag)),
-                          Field("tag", &Row::mem_tag, static_cast<uint32_t>(tag_d)),
-                          Field("tag_err", &Row::mem_tag_err, 0),
-                          Field("mem_addr", &Row::mem_addr, addr_d),
-                          Field("val", &Row::mem_val, d),
-                          Field("rw", &Row::mem_rw, 0),
-                          Field("skip_check_tag", &Row::mem_skip_check_tag, 1),
-                          Field("op_d", &Row::mem_op_d, 1),
-                          Field("ind_op_d", &Row::mem_ind_op_d, 0)));
+        EXPECT_THAT(trace.at(mem_d_addr),
+                    AllOf(MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(mov_tag)),
+                          MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(tag_d)),
+                          MEM_ROW_FIELD_EQ(tag_err, 0),
+                          MEM_ROW_FIELD_EQ(addr, addr_d),
+                          MEM_ROW_FIELD_EQ(val, d),
+                          MEM_ROW_FIELD_EQ(rw, 0),
+                          MEM_ROW_FIELD_EQ(skip_check_tag, 1),
+                          MEM_ROW_FIELD_EQ(sel_op_d, 1),
+                          MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_d, 0)));
     }
 };
 
@@ -359,7 +361,7 @@ TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
 {
     trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(0, 0, 1);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     validate_mov_trace(false, 0, 0, 1, AvmMemoryTag::U0);
@@ -370,10 +372,10 @@ TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
     trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
     trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(3, 2, 3);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::U0, 0, 1);
+    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::U0, 0, 1, true);
 }
 
 TEST_F(AvmMemOpcodeTests, indirectMov)
@@ -388,17 +390,17 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
     trace_builder.op_set(0, 16, 101, AvmMemoryTag::U128); // This will make the indirect load failing.
     trace_builder.op_set(0, 5, 15, AvmMemoryTag::FF);
     trace_builder.op_mov(3, 100, 101);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_mov_indices(true);
 
-    EXPECT_EQ(trace.at(main_idx).main_tag_err, 1);
-    EXPECT_THAT(trace.at(mem_ind_c_idx),
-                AllOf(Field(&Row::mem_tag_err, 1),
-                      Field(&Row::mem_tag, static_cast<uint32_t>(AvmMemoryTag::U128)),
-                      Field(&Row::mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                      Field(&Row::mem_ind_op_c, 1)));
+    EXPECT_EQ(trace.at(main_addr).main_tag_err, 1);
+    EXPECT_THAT(trace.at(mem_ind_c_addr),
+                AllOf(MEM_ROW_FIELD_EQ(tag_err, 1),
+                      MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U128)),
+                      MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                      MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1)));
 
     validate_trace(std::move(trace), public_inputs, true);
 }
@@ -415,7 +417,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovA)
     trace_builder.op_set(0, 8, 12, AvmMemoryTag::U32);      // Target, should be overwritten
 
     trace_builder.op_cmov(0, 10, 11, 20, 12);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_cmov_indices(0);
@@ -432,7 +434,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovB)
     trace_builder.op_set(0, 8, 12, AvmMemoryTag::U32);   // Target, should be overwritten
 
     trace_builder.op_cmov(0, 10, 11, 20, 12);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_cmov_indices(0);
@@ -449,7 +451,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovConditionUninitialized)
                                                          // value. It will be therefore zero. (we move b)
 
     trace_builder.op_cmov(0, 10, 11, 20, 12);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_cmov_indices(0);
@@ -465,7 +467,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovOverwriteA)
     trace_builder.op_set(0, 0, 20, AvmMemoryTag::U64);   // Zero condition value (we move b)
 
     trace_builder.op_cmov(0, 10, 11, 20, 10);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_cmov_indices(0);
@@ -492,7 +494,7 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovA)
     trace_builder.op_set(0, 8, 12, AvmMemoryTag::U32);      // Target, should be overwritten
 
     trace_builder.op_cmov(15, 110, 111, 120, 112);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_cmov_indices(15);
@@ -504,7 +506,7 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovA)
 TEST_F(AvmMemOpcodeTests, allIndirectCMovAllUnitialized)
 {
     trace_builder.op_cmov(15, 10, 11, 20, 10);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_cmov_indices(15);
@@ -519,26 +521,26 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovAllUnitialized)
 TEST_F(AvmMemOpcodeTests, directSet)
 {
     trace_builder.op_set(0, 5683, 99, AvmMemoryTag::U128);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_index_c(1, false);
     auto const& row = trace.at(1);
 
     EXPECT_THAT(row,
-                AllOf(Field(&Row::main_tag_err, 0),
-                      Field(&Row::main_ic, 5683),
-                      Field(&Row::main_mem_idx_c, 99),
-                      Field(&Row::main_mem_op_c, 1),
-                      Field(&Row::main_rwc, 1),
-                      Field(&Row::main_ind_op_c, 0)));
+                AllOf(MAIN_ROW_FIELD_EQ(tag_err, 0),
+                      MAIN_ROW_FIELD_EQ(ic, 5683),
+                      MAIN_ROW_FIELD_EQ(mem_addr_c, 99),
+                      MAIN_ROW_FIELD_EQ(sel_mem_op_c, 1),
+                      MAIN_ROW_FIELD_EQ(rwc, 1),
+                      MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 0)));
 
-    EXPECT_THAT(trace.at(mem_c_idx),
-                AllOf(Field(&Row::mem_val, 5683),
-                      Field(&Row::mem_addr, 99),
-                      Field(&Row::mem_op_c, 1),
-                      Field(&Row::mem_rw, 1),
-                      Field(&Row::mem_ind_op_c, 0)));
+    EXPECT_THAT(trace.at(mem_c_addr),
+                AllOf(MEM_ROW_FIELD_EQ(val, 5683),
+                      MEM_ROW_FIELD_EQ(addr, 99),
+                      MEM_ROW_FIELD_EQ(sel_op_c, 1),
+                      MEM_ROW_FIELD_EQ(rw, 1),
+                      MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 0)));
 
     validate_trace(std::move(trace), public_inputs);
 }
@@ -547,38 +549,38 @@ TEST_F(AvmMemOpcodeTests, indirectSet)
 {
     trace_builder.op_set(0, 100, 10, AvmMemoryTag::U32);
     trace_builder.op_set(1, 1979, 10, AvmMemoryTag::U64); // Set 1979 at memory index 100
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_index_c(2, true);
     auto const& row = trace.at(2);
 
     EXPECT_THAT(row,
-                AllOf(Field(&Row::main_tag_err, 0),
-                      Field(&Row::main_ic, 1979),
-                      Field(&Row::main_mem_idx_c, 100),
-                      Field(&Row::main_mem_op_c, 1),
-                      Field(&Row::main_rwc, 1),
-                      Field(&Row::main_ind_op_c, 1),
-                      Field(&Row::main_ind_c, 10)));
+                AllOf(MAIN_ROW_FIELD_EQ(tag_err, 0),
+                      MAIN_ROW_FIELD_EQ(ic, 1979),
+                      MAIN_ROW_FIELD_EQ(mem_addr_c, 100),
+                      MAIN_ROW_FIELD_EQ(sel_mem_op_c, 1),
+                      MAIN_ROW_FIELD_EQ(rwc, 1),
+                      MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+                      MAIN_ROW_FIELD_EQ(ind_addr_c, 10)));
 
-    EXPECT_THAT(trace.at(mem_c_idx),
-                AllOf(Field(&Row::mem_val, 1979),
-                      Field(&Row::mem_addr, 100),
-                      Field(&Row::mem_op_c, 1),
-                      Field(&Row::mem_rw, 1),
-                      Field(&Row::mem_ind_op_c, 0),
-                      Field(&Row::mem_w_in_tag, static_cast<uint32_t>(AvmMemoryTag::U64)),
-                      Field(&Row::mem_tag, static_cast<uint32_t>(AvmMemoryTag::U64))));
+    EXPECT_THAT(trace.at(mem_c_addr),
+                AllOf(MEM_ROW_FIELD_EQ(val, 1979),
+                      MEM_ROW_FIELD_EQ(addr, 100),
+                      MEM_ROW_FIELD_EQ(sel_op_c, 1),
+                      MEM_ROW_FIELD_EQ(rw, 1),
+                      MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 0),
+                      MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(AvmMemoryTag::U64)),
+                      MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U64))));
 
-    EXPECT_THAT(trace.at(mem_ind_c_idx),
-                AllOf(Field(&Row::mem_val, 100),
-                      Field(&Row::mem_addr, 10),
-                      Field(&Row::mem_op_c, 0),
-                      Field(&Row::mem_rw, 0),
-                      Field(&Row::mem_ind_op_c, 1),
-                      Field(&Row::mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                      Field(&Row::mem_tag, static_cast<uint32_t>(AvmMemoryTag::U32))));
+    EXPECT_THAT(trace.at(mem_ind_c_addr),
+                AllOf(MEM_ROW_FIELD_EQ(val, 100),
+                      MEM_ROW_FIELD_EQ(addr, 10),
+                      MEM_ROW_FIELD_EQ(sel_op_c, 0),
+                      MEM_ROW_FIELD_EQ(rw, 0),
+                      MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+                      MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                      MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U32))));
 
     validate_trace(std::move(trace), public_inputs);
 }
@@ -587,28 +589,28 @@ TEST_F(AvmMemOpcodeTests, indirectSetWrongTag)
 {
     trace_builder.op_set(0, 100, 10, AvmMemoryTag::U8);   // The address 100 has incorrect tag U8.
     trace_builder.op_set(1, 1979, 10, AvmMemoryTag::U64); // Set 1979 at memory index 100
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     compute_index_c(2, true);
     auto const& row = trace.at(2);
 
     EXPECT_THAT(row,
-                AllOf(Field(&Row::main_tag_err, 1),
-                      Field(&Row::main_mem_op_c, 1),
-                      Field(&Row::main_rwc, 1),
-                      Field(&Row::main_ind_op_c, 1),
-                      Field(&Row::main_ind_c, 10)));
+                AllOf(MAIN_ROW_FIELD_EQ(tag_err, 1),
+                      MAIN_ROW_FIELD_EQ(sel_mem_op_c, 1),
+                      MAIN_ROW_FIELD_EQ(rwc, 1),
+                      MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+                      MAIN_ROW_FIELD_EQ(ind_addr_c, 10)));
 
-    EXPECT_THAT(trace.at(mem_ind_c_idx),
-                AllOf(Field(&Row::mem_val, 100),
-                      Field(&Row::mem_addr, 10),
-                      Field(&Row::mem_op_c, 0),
-                      Field(&Row::mem_rw, 0),
-                      Field(&Row::mem_ind_op_c, 1),
-                      Field(&Row::mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                      Field(&Row::mem_tag, static_cast<uint32_t>(AvmMemoryTag::U8)),
-                      Field(&Row::mem_tag_err, 1)));
+    EXPECT_THAT(trace.at(mem_ind_c_addr),
+                AllOf(MEM_ROW_FIELD_EQ(val, 100),
+                      MEM_ROW_FIELD_EQ(addr, 10),
+                      MEM_ROW_FIELD_EQ(sel_op_c, 0),
+                      MEM_ROW_FIELD_EQ(rw, 0),
+                      MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+                      MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+                      MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U8)),
+                      MEM_ROW_FIELD_EQ(tag_err, 1)));
 
     validate_trace(std::move(trace), public_inputs);
 }
@@ -627,7 +629,7 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputErrorTag)
 {
     build_mov_trace(false, 234, 0, 1, AvmMemoryTag::U8);
     compute_mov_indices(false);
-    trace.at(main_idx).main_tag_err = 1;
+    trace.at(main_addr).main_tag_err = 1;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "INCL_MEM_TAG_ERR");
 }
@@ -636,7 +638,7 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputValue)
 {
     build_mov_trace(false, 234, 0, 1, AvmMemoryTag::U8);
     compute_mov_indices(false);
-    trace.at(main_idx).main_ic = 233;
+    trace.at(main_addr).main_ic = 233;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
 }
@@ -645,7 +647,7 @@ TEST_F(AvmMemOpcodeNegativeTests, indMovWrongOutputValue)
 {
     build_mov_trace(true, 8732, 23, 24, AvmMemoryTag::U16, 432, 876);
     compute_mov_indices(true);
-    trace.at(main_idx).main_ic = 8733;
+    trace.at(main_addr).main_ic = 8733;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
 }
@@ -665,14 +667,14 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagLoadIa)
 
     auto trace_tmp = trace;
 
-    trace.at(mem_a_idx).mem_r_in_tag = tag_u64;
-    trace.at(mem_a_idx).mem_tag_err = 1;
-    trace.at(mem_a_idx).mem_one_min_inv = one_min_inverse_diff;
-    trace.at(mem_c_idx).mem_tag = tag_u64;
-    trace.at(mem_c_idx).mem_w_in_tag = tag_u64;
-    trace.at(main_idx).main_r_in_tag = tag_u64;
-    trace.at(main_idx).main_w_in_tag = tag_u64;
-    trace.at(main_idx).main_tag_err = 1;
+    trace.at(mem_a_addr).mem_r_in_tag = tag_u64;
+    trace.at(mem_a_addr).mem_tag_err = 1;
+    trace.at(mem_a_addr).mem_one_min_inv = one_min_inverse_diff;
+    trace.at(mem_c_addr).mem_tag = tag_u64;
+    trace.at(mem_c_addr).mem_w_in_tag = tag_u64;
+    trace.at(main_addr).main_r_in_tag = tag_u64;
+    trace.at(main_addr).main_w_in_tag = tag_u64;
+    trace.at(main_addr).main_tag_err = 1;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_TAG");
 }
@@ -688,17 +690,17 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagDisabledSelector)
     build_mov_trace(false, 234, 0, 1, AvmMemoryTag::U8);
     compute_mov_indices(false);
 
-    trace.at(mem_a_idx).mem_r_in_tag = tag_u64;
-    trace.at(mem_a_idx).mem_w_in_tag = tag_u64;
-    trace.at(mem_a_idx).mem_tag_err = 1;
-    trace.at(mem_a_idx).mem_one_min_inv = one_min_inverse_diff;
-    trace.at(mem_a_idx).mem_sel_mov_a = 0;
-    trace.at(mem_c_idx).mem_tag = tag_u64;
-    trace.at(mem_c_idx).mem_r_in_tag = tag_u64;
-    trace.at(mem_c_idx).mem_w_in_tag = tag_u64;
-    trace.at(main_idx).main_r_in_tag = tag_u64;
-    trace.at(main_idx).main_w_in_tag = tag_u64;
-    trace.at(main_idx).main_tag_err = 1;
+    trace.at(mem_a_addr).mem_r_in_tag = tag_u64;
+    trace.at(mem_a_addr).mem_w_in_tag = tag_u64;
+    trace.at(mem_a_addr).mem_tag_err = 1;
+    trace.at(mem_a_addr).mem_one_min_inv = one_min_inverse_diff;
+    trace.at(mem_a_addr).mem_sel_mov_ia_to_ic = 0;
+    trace.at(mem_c_addr).mem_tag = tag_u64;
+    trace.at(mem_c_addr).mem_r_in_tag = tag_u64;
+    trace.at(mem_c_addr).mem_w_in_tag = tag_u64;
+    trace.at(main_addr).main_r_in_tag = tag_u64;
+    trace.at(main_addr).main_w_in_tag = tag_u64;
+    trace.at(main_addr).main_tag_err = 1;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
 }
@@ -712,10 +714,10 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagInMainTrace)
     build_mov_trace(false, 234, 0, 1, AvmMemoryTag::U8);
     compute_mov_indices(false);
 
-    trace.at(mem_c_idx).mem_tag = tag_u64;
-    trace.at(mem_c_idx).mem_w_in_tag = tag_u64;
-    trace.at(main_idx).main_w_in_tag = tag_u64;
-    trace.at(main_idx).main_tag_err = 1;
+    trace.at(mem_c_addr).mem_tag = tag_u64;
+    trace.at(mem_c_addr).mem_w_in_tag = tag_u64;
+    trace.at(main_addr).main_w_in_tag = tag_u64;
+    trace.at(main_addr).main_tag_err = 1;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_MAIN_SAME_TAG");
 }
@@ -728,8 +730,8 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagMainTraceRead)
     build_mov_trace(false, 234, 0, 1, AvmMemoryTag::U8);
     compute_mov_indices(false);
 
-    trace.at(mem_c_idx).mem_tag = tag_u64;
-    trace.at(mem_c_idx).mem_w_in_tag = tag_u64;
+    trace.at(mem_c_addr).mem_tag = tag_u64;
+    trace.at(mem_c_addr).mem_w_in_tag = tag_u64;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_C");
 }
@@ -741,7 +743,7 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovBInsteadA)
 {
     build_cmov_trace_neg_test(true);
 
-    trace.at(main_idx).main_ic = 1980;
+    trace.at(main_addr).main_ic = 1980;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
 }
 
@@ -749,7 +751,7 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovAInsteadB)
 {
     build_cmov_trace_neg_test(false);
 
-    trace.at(main_idx).main_ic = 1979;
+    trace.at(main_addr).main_ic = 1979;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_B");
 }
 
@@ -757,9 +759,9 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovAChangeTag)
 {
     build_cmov_trace_neg_test(true);
 
-    trace.at(mem_c_idx).mem_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
-    trace.at(mem_c_idx).mem_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
-    trace.at(main_idx).main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
+    trace.at(mem_c_addr).mem_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
+    trace.at(mem_c_addr).mem_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
+    trace.at(main_addr).main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_MAIN_SAME_TAG");
 }
@@ -768,7 +770,7 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovASkipCheckAbuse)
 {
     build_cmov_trace_neg_test(true);
 
-    trace.at(mem_a_idx).mem_skip_check_tag = 1;
+    trace.at(mem_a_addr).mem_skip_check_tag = 1;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SKIP_CHECK_TAG");
 }
@@ -777,8 +779,8 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovASkipCheckAbuseDisableSelMovA)
 {
     build_cmov_trace_neg_test(true);
 
-    trace.at(mem_a_idx).mem_skip_check_tag = 1;
-    trace.at(mem_a_idx).mem_sel_mov_a = 0;
+    trace.at(mem_a_addr).mem_skip_check_tag = 1;
+    trace.at(mem_a_addr).mem_sel_mov_ia_to_ic = 0;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
 }
@@ -787,8 +789,8 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovBSkipCheckAbuseDisableSelMovB)
 {
     build_cmov_trace_neg_test(false);
 
-    trace.at(mem_b_idx).mem_skip_check_tag = 1;
-    trace.at(mem_b_idx).mem_sel_mov_b = 0;
+    trace.at(mem_b_addr).mem_skip_check_tag = 1;
+    trace.at(mem_b_addr).mem_sel_mov_ib_to_ic = 0;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
 }

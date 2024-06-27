@@ -56,7 +56,10 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         .join(", ");
     let fn_return_type: noirc_frontend::ast::UnresolvedType = func.return_type();
 
-    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", SELECTOR_PLACEHOLDER);
+    let fn_selector = format!(
+        "dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")",
+        SELECTOR_PLACEHOLDER
+    );
 
     let parameters = func.parameters();
     let is_void = if matches!(fn_return_type.typ, UnresolvedTypeData::Unit) { "Void" } else { "" };
@@ -155,9 +158,17 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 name: \"{}\",
                 args_hash,
                 args: args_acc,
-                original: {}
+                original: {},
+                is_static: {}
             }}",
-            args_hash, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
+            args_hash,
+            fn_selector,
+            aztec_visibility,
+            is_static,
+            is_void,
+            fn_name,
+            original,
+            is_static_call
         )
     } else {
         let args = format!(
@@ -175,9 +186,17 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 name: \"{}\",
                 args: args_acc,
                 gas_opts: dep::aztec::context::gas::GasOpts::default(),
-                original: {}
+                original: {},
+                is_static: {}
             }}",
-            args, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
+            args,
+            fn_selector,
+            aztec_visibility,
+            is_static,
+            is_void,
+            fn_name,
+            original,
+            is_static_call
         )
     };
 

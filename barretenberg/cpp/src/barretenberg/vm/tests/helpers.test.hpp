@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
+#include "gmock/gmock.h"
 #include <array>
 
 #define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
@@ -10,8 +11,11 @@
         FAIL() << "An exception was expected";                                                                         \
     } catch (const std::exception& e) {                                                                                \
         std::string message = e.what();                                                                                \
-        EXPECT_TRUE(message.find(expectedMessage) != std::string::npos);                                               \
+        EXPECT_THAT(message, ::testing::HasSubstr(expectedMessage));                                                   \
     }
+
+#define MAIN_ROW_FIELD_EQ(field_name, expression) Field(#field_name, &Row::main_##field_name, expression)
+
 namespace tests_avm {
 
 using Flavor = bb::AvmFlavor;
@@ -36,5 +40,7 @@ void clear_range_check_counters(std::vector<Row>& trace, uint256_t previous_valu
 void update_slice_registers(Row& row, uint256_t a);
 std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<std::array<FF, 3>> operands,
                                                  std::vector<bb::avm_trace::AvmMemoryTag> mem_tags);
+
+VmPublicInputs generate_base_public_inputs();
 
 } // namespace tests_avm

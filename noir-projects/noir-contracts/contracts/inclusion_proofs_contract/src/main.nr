@@ -4,7 +4,7 @@ contract InclusionProofs {
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
         PrivateSet, PublicMutable
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 
     use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId, header::Header};
     use dep::aztec::{note::note_getter_options::NoteStatus};
@@ -36,7 +36,7 @@ contract InclusionProofs {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        owner_private_values.insert(&mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
+        owner_private_values.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
     }
     // docs:end:create_note
 
@@ -55,8 +55,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let notes = private_values.get_notes(options);
-        let maybe_note = notes[0];
+        let note = private_values.get_notes(options).get_unchecked(0);
         // docs:end:get_note_from_pxe
 
         // 2) Prove the note inclusion
@@ -66,7 +65,7 @@ contract InclusionProofs {
             context.get_header()
         };
         // docs:start:prove_note_inclusion
-        header.prove_note_inclusion(maybe_note.unwrap_unchecked());
+        header.prove_note_inclusion(note);
         // docs:end:prove_note_inclusion
     }
 
@@ -107,8 +106,7 @@ contract InclusionProofs {
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let notes = private_values.get_notes(options);
-        let maybe_note = notes[0];
+        let note = private_values.get_notes(options).get_unchecked(0);
 
         let header = if (use_block_number) {
             context.get_header_at(block_number)
@@ -116,7 +114,7 @@ contract InclusionProofs {
             context.get_header()
         };
         // docs:start:prove_note_not_nullified
-        header.prove_note_not_nullified(maybe_note.unwrap_unchecked(), &mut context);
+        header.prove_note_not_nullified(note, &mut context);
         // docs:end:prove_note_not_nullified
     }
 
@@ -134,8 +132,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let notes = private_values.get_notes(options);
-        let note = notes[0].unwrap();
+        let note = private_values.get_notes(options).get(0);
 
         // 2) Prove the note validity
         let header = if (use_block_number) {
@@ -155,7 +152,7 @@ contract InclusionProofs {
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
         let notes = private_values.get_notes(options);
-        let note = notes[0].unwrap();
+        let note = notes.get(0);
 
         private_values.remove(note);
     }

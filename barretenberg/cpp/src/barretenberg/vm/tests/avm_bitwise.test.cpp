@@ -12,6 +12,7 @@
 #include <vector>
 
 namespace tests_avm {
+
 using namespace bb;
 using namespace bb::avm_trace;
 
@@ -38,14 +39,14 @@ void common_validate_op_not(std::vector<Row> const& trace,
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_EQ(row->main_ic, c);
-    EXPECT_EQ(row->main_mem_idx_c, addr_c);
-    EXPECT_EQ(row->main_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_mem_addr_c, addr_c);
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
     EXPECT_EQ(row->main_rwc, FF(1));
 
     // Check that ia register is correctly set with memory load operations.
     EXPECT_EQ(row->main_ia, a);
-    EXPECT_EQ(row->main_mem_idx_a, addr_a);
-    EXPECT_EQ(row->main_mem_op_a, FF(1));
+    EXPECT_EQ(row->main_mem_addr_a, addr_a);
+    EXPECT_EQ(row->main_sel_mem_op_a, FF(1));
     EXPECT_EQ(row->main_rwa, FF(0));
 
     // Check the instruction tags
@@ -106,20 +107,20 @@ void common_validate_shift_op(std::vector<Row> const& trace,
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_EQ(row->main_ic, c);
-    EXPECT_EQ(row->main_mem_idx_c, addr_c);
-    EXPECT_EQ(row->main_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_mem_addr_c, addr_c);
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
     EXPECT_EQ(row->main_rwc, FF(1));
 
     // Check that ia register is correctly set with memory load operations.
     EXPECT_EQ(row->main_ia, a);
-    EXPECT_EQ(row->main_mem_idx_a, addr_a);
-    EXPECT_EQ(row->main_mem_op_a, FF(1));
+    EXPECT_EQ(row->main_mem_addr_a, addr_a);
+    EXPECT_EQ(row->main_sel_mem_op_a, FF(1));
     EXPECT_EQ(row->main_rwa, FF(0));
 
     // Check that ib register is correctly set with memory load operations.
     EXPECT_EQ(row->main_ib, b);
-    EXPECT_EQ(row->main_mem_idx_b, addr_b);
-    EXPECT_EQ(row->main_mem_op_b, FF(1));
+    EXPECT_EQ(row->main_mem_addr_b, addr_b);
+    EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
     EXPECT_EQ(row->main_rwb, FF(0));
 
     // Check the instruction tags
@@ -161,20 +162,20 @@ void common_validate_bit_op(std::vector<Row> const& trace,
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_EQ(row->main_ic, c);
-    EXPECT_EQ(row->main_mem_idx_c, addr_c);
-    EXPECT_EQ(row->main_mem_op_c, FF(1));
+    EXPECT_EQ(row->main_mem_addr_c, addr_c);
+    EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
     EXPECT_EQ(row->main_rwc, FF(1));
 
     // Check that ia register is correctly set with memory load operations.
     EXPECT_EQ(row->main_ia, a);
-    EXPECT_EQ(row->main_mem_idx_a, addr_a);
-    EXPECT_EQ(row->main_mem_op_a, FF(1));
+    EXPECT_EQ(row->main_mem_addr_a, addr_a);
+    EXPECT_EQ(row->main_sel_mem_op_a, FF(1));
     EXPECT_EQ(row->main_rwa, FF(0));
 
     // Check that ia register is correctly set with memory load operations.
     EXPECT_EQ(row->main_ib, b);
-    EXPECT_EQ(row->main_mem_idx_b, addr_b);
-    EXPECT_EQ(row->main_mem_op_b, FF(1));
+    EXPECT_EQ(row->main_mem_addr_b, addr_b);
+    EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
     EXPECT_EQ(row->main_rwb, FF(0));
 
     // Check the instruction tags
@@ -187,7 +188,7 @@ void common_validate_bit_op(std::vector<Row> const& trace,
     EXPECT_EQ(bin_row_start->binary_acc_ic, c);
 
     EXPECT_EQ(bin_row_start->binary_op_id, op_id);
-    EXPECT_EQ(bin_row_start->binary_bin_sel, FF(1));
+    EXPECT_EQ(bin_row_start->binary_sel_bin, FF(1));
     EXPECT_EQ(bin_row_start->binary_in_tag, static_cast<uint8_t>(tag));
 }
 
@@ -320,7 +321,7 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
             FF ctr = trace.at(i).binary_mem_tag_ctr;
             if (ctr == FF::one()) {
                 // If the tag is currently 1, it will be set to 0 which means we need to set bin_sel to 0.
-                trace.at(i).binary_bin_sel = FF(0);
+                trace.at(i).binary_sel_bin = FF(0);
                 trace.at(i).binary_mem_tag_ctr = FF(0);
                 trace.at(i).binary_mem_tag_ctr_inv = FF(0);
             } else if (ctr == FF::zero()) {
@@ -330,13 +331,13 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
                 // Replace the values with the next row's values
                 trace.at(i).binary_mem_tag_ctr = trace.at(i + 1).binary_mem_tag_ctr;
                 trace.at(i).binary_mem_tag_ctr_inv = trace.at(i + 1).binary_mem_tag_ctr_inv;
-                trace.at(i).binary_bin_sel = trace.at(i + 1).binary_bin_sel;
+                trace.at(i).binary_sel_bin = trace.at(i + 1).binary_sel_bin;
             }
         }
         break;
     }
     case IncorrectBinSelector:
-        binary_row->binary_bin_sel = FF(0);
+        binary_row->binary_sel_bin = FF(0);
         break;
     }
     return trace;
@@ -345,20 +346,15 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
 
 class AvmBitwiseTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
-
-  protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+    AvmBitwiseTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
 
     std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
     {
@@ -473,7 +469,7 @@ TEST_P(AvmBitwiseTestsNot, ParamTest)
     const auto [a, output] = operands;
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_not(0, 0, 1, mem_tag); // [1,254,0,0,....]
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     FF ff_a = FF(uint256_t::from_uint128(a));
     FF ff_output = FF(uint256_t::from_uint128(output));
@@ -492,7 +488,7 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_and(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
 
     auto trace = trace_builder.finalize();
     common_validate_bit_op(trace, 0, a, b, output, FF(0), FF(1), FF(2), mem_tag);
@@ -509,7 +505,7 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_or(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 1, a, b, output, FF(0), FF(1), FF(2), mem_tag);
@@ -526,7 +522,7 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_xor(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 2, a, b, output, FF(0), FF(1), FF(2), mem_tag);
@@ -544,7 +540,7 @@ TEST_P(AvmBitwiseTestsShr, AllShrTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_shr(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, true);
     validate_trace(std::move(trace), public_inputs);
@@ -561,7 +557,7 @@ TEST_P(AvmBitwiseTestsShl, AllShlTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_shl(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
 
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, false);
@@ -604,7 +600,7 @@ std::vector<std::tuple<std::string, BIT_FAILURES>> bit_failures = {
     { "LOOKUP_BYTE_LENGTHS", BIT_FAILURES::ByteLengthError },
     { "LOOKUP_BYTE_OPERATIONS", BIT_FAILURES::ByteLookupError },
     { "OP_ID_REL", BIT_FAILURES::InconsistentOpId },
-    { "BIN_SEL_CTR_REL", BIT_FAILURES::IncorrectBinSelector },
+    { "SEL_BIN_CTR_REL", BIT_FAILURES::IncorrectBinSelector },
 };
 std::vector<SHIFT_FAILURES> shift_failures = { SHIFT_FAILURES::IncorrectShiftPastBitLength,
                                                SHIFT_FAILURES::IncorrectInputDecomposition,
@@ -723,7 +719,7 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     trace_builder.op_not(0, 0, 1, AvmMemoryTag::U8);
     // Finally, we will have a write in row 3 of the mem_trace to copy the result
     // from the op_not operation.
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     // Manually update the memory tags in the relevant trace;
     auto trace = trace_builder.finalize();
     // TODO(ilyas): When the SET opcodes applies relational constraints, this will fail

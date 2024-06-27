@@ -257,8 +257,9 @@ contract Parent {
         let owner = env.create_account();
 
         // Deploy child contract
-        let child_contract_address = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
-        cheatcodes::advance_blocks(1);
+        let child_contract = env.deploy("@aztec/noir-contracts.js/Child").without_initializer();
+        let child_contract_address = child_contract.to_address();
+        cheatcodes::advance_blocks_by(1);
 
         // Set value in child through parent
         let value_to_set = 7;
@@ -274,8 +275,8 @@ contract Parent {
         let counter_slot = Child::storage().a_map_with_private_values.slot;
         let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
-        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(owner_slot, options);
-        let note_value = opt_notes[0].unwrap().value;
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let note_value = notes.get(0).value;
         assert(note_value == value_to_set);
         assert(note_value == result);
         // Get value from child through parent

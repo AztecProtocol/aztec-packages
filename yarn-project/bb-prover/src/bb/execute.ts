@@ -1,6 +1,6 @@
 import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn } from '@aztec/foundation/log';
+import { type LogFn, currentLevel as currentLogLevel } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -21,7 +21,7 @@ export enum BB_RESULT {
 
 export type BBSuccess = {
   status: BB_RESULT.SUCCESS | BB_RESULT.ALREADY_PRESENT;
-  duration: number;
+  durationMs: number;
   /** Full path of the public key. */
   pkPath?: string;
   /** Base directory for the VKs (raw, fields). */
@@ -155,7 +155,7 @@ export async function generateKeyForNoirCircuit(
       if (result.status == BB_RESULT.SUCCESS) {
         return {
           status: BB_RESULT.SUCCESS,
-          duration,
+          durationMs: duration,
           pkPath: key === 'pk' ? outputPath : undefined,
           vkPath: key === 'vk' ? outputPath : undefined,
           proofPath: undefined,
@@ -174,7 +174,7 @@ export async function generateKeyForNoirCircuit(
   if (!res) {
     return {
       status: BB_RESULT.ALREADY_PRESENT,
-      duration: 0,
+      durationMs: 0,
       pkPath: key === 'pk' ? outputPath : undefined,
       vkPath: key === 'vk' ? outputPath : undefined,
     };
@@ -237,7 +237,7 @@ export async function generateProof(
     if (result.status == BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
-        duration,
+        durationMs: duration,
         proofPath: `${outputPath}`,
         pkPath: undefined,
         vkPath: `${outputPath}`,
@@ -335,6 +335,7 @@ export async function generateAvmProof(
       avmHintsPath,
       '-o',
       outputPath,
+      currentLogLevel == 'debug' ? '-d' : 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -346,7 +347,7 @@ export async function generateAvmProof(
     if (result.status == BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
-        duration,
+        durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
         vkPath: outputPath,
@@ -426,7 +427,7 @@ async function verifyProofInternal(
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, duration };
+      return { status: BB_RESULT.SUCCESS, durationMs: duration };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
     return {
@@ -466,7 +467,7 @@ export async function writeVkAsFields(
     const result = await executeBB(pathToBB, 'vk_as_fields', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, duration, vkPath: verificationKeyPath };
+      return { status: BB_RESULT.SUCCESS, durationMs: duration, vkPath: verificationKeyPath };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
     return {
@@ -508,7 +509,7 @@ export async function writeProofAsFields(
     const result = await executeBB(pathToBB, 'proof_as_fields', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, duration, proofPath: proofPath };
+      return { status: BB_RESULT.SUCCESS, durationMs: duration, proofPath: proofPath };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
     return {
@@ -549,7 +550,7 @@ export async function generateContractForVerificationKey(
       const result = await executeBB(pathToBB, 'contract', args, log);
       const duration = timer.ms();
       if (result.status == BB_RESULT.SUCCESS) {
-        return { status: BB_RESULT.SUCCESS, duration, contractPath };
+        return { status: BB_RESULT.SUCCESS, durationMs: duration, contractPath };
       }
       // Not a great error message here but it is difficult to decipher what comes from bb
       return {
@@ -564,7 +565,7 @@ export async function generateContractForVerificationKey(
   if (!res) {
     return {
       status: BB_RESULT.ALREADY_PRESENT,
-      duration: 0,
+      durationMs: 0,
       contractPath,
     };
   }

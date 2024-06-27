@@ -12,7 +12,6 @@ using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmKernelTests : public ::testing::Test {
-
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
@@ -79,26 +78,26 @@ void test_kernel_lookup(bool indirect,
 /*
  * Helper function to assert row values for a kernel lookup opcode
  */
-void expect_row(auto row, FF selector, FF ia, FF ind_a, FF mem_idx_a, AvmMemoryTag w_in_tag)
+void expect_row(auto row, FF selector, FF ia, FF ind_a, FF mem_addr_a, AvmMemoryTag w_in_tag)
 {
     // Checks dependent on the opcode
     EXPECT_EQ(row->kernel_kernel_in_offset, selector);
     EXPECT_EQ(row->main_ia, ia);
-    EXPECT_EQ(row->main_mem_idx_a, mem_idx_a);
+    EXPECT_EQ(row->main_mem_addr_a, mem_addr_a);
 
     // Checks that are fixed for kernel inputs
     EXPECT_EQ(row->main_rwa, FF(1));
-    EXPECT_EQ(row->main_ind_a, ind_a);
-    EXPECT_EQ(row->main_ind_op_a, FF(ind_a != 0));
-    EXPECT_EQ(row->main_mem_op_a, FF(1));
+    EXPECT_EQ(row->main_ind_addr_a, ind_a);
+    EXPECT_EQ(row->main_sel_resolve_ind_addr_a, FF(ind_a != 0));
+    EXPECT_EQ(row->main_sel_mem_op_a, FF(1));
     EXPECT_EQ(row->main_w_in_tag, static_cast<uint32_t>(w_in_tag));
-    EXPECT_EQ(row->main_q_kernel_lookup, FF(1));
+    EXPECT_EQ(row->main_sel_q_kernel_lookup, FF(1));
 }
 
 void expect_output_table_row(auto row,
                              FF selector,
                              FF ia,
-                             FF mem_idx_a,
+                             FF mem_addr_a,
                              FF ind_a,
                              AvmMemoryTag r_in_tag,
                              uint32_t side_effect_counter,
@@ -107,15 +106,15 @@ void expect_output_table_row(auto row,
     // Checks dependent on the opcode
     EXPECT_EQ(row->kernel_kernel_out_offset, selector);
     EXPECT_EQ(row->main_ia, ia);
-    EXPECT_EQ(row->main_mem_idx_a, mem_idx_a);
+    EXPECT_EQ(row->main_mem_addr_a, mem_addr_a);
 
     // Checks that are fixed for kernel inputs
     EXPECT_EQ(row->main_rwa, FF(rwa));
-    EXPECT_EQ(row->main_ind_a, ind_a);
-    EXPECT_EQ(row->main_ind_op_a, FF(ind_a != 0));
-    EXPECT_EQ(row->main_mem_op_a, FF(1));
+    EXPECT_EQ(row->main_ind_addr_a, ind_a);
+    EXPECT_EQ(row->main_sel_resolve_ind_addr_a, FF(ind_a != 0));
+    EXPECT_EQ(row->main_sel_mem_op_a, FF(1));
     EXPECT_EQ(row->main_r_in_tag, static_cast<uint32_t>(r_in_tag));
-    EXPECT_EQ(row->main_q_kernel_output_lookup, FF(1));
+    EXPECT_EQ(row->main_sel_q_kernel_output_lookup, FF(1));
 
     EXPECT_EQ(row->kernel_side_effect_counter, FF(side_effect_counter));
 }
@@ -123,52 +122,52 @@ void expect_output_table_row(auto row,
 void expect_output_table_row_with_metadata(auto row,
                                            FF selector,
                                            FF ia,
-                                           FF mem_idx_a,
+                                           FF mem_addr_a,
                                            FF ind_a,
                                            FF ib,
-                                           FF mem_idx_b,
+                                           FF mem_addr_b,
                                            FF ind_b,
                                            AvmMemoryTag r_in_tag,
                                            uint32_t side_effect_counter,
                                            uint32_t rwa = 0,
                                            bool no_b = false)
 {
-    expect_output_table_row(row, selector, ia, mem_idx_a, ind_a, r_in_tag, side_effect_counter, rwa);
+    expect_output_table_row(row, selector, ia, mem_addr_a, ind_a, r_in_tag, side_effect_counter, rwa);
 
     EXPECT_EQ(row->main_ib, ib);
-    EXPECT_EQ(row->main_mem_idx_b, mem_idx_b);
+    EXPECT_EQ(row->main_mem_addr_b, mem_addr_b);
 
     // Checks that are fixed for kernel inputs
     EXPECT_EQ(row->main_rwb, FF(0));
 
     if (!no_b) {
-        EXPECT_EQ(row->main_ind_b, ind_b);
-        EXPECT_EQ(row->main_ind_op_b, FF(ind_b != 0));
-        EXPECT_EQ(row->main_mem_op_b, FF(1));
+        EXPECT_EQ(row->main_ind_addr_b, ind_b);
+        EXPECT_EQ(row->main_sel_resolve_ind_addr_b, FF(ind_b != 0));
+        EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
     }
 }
 
 void expect_output_table_row_with_exists_metadata(auto row,
                                                   FF selector,
                                                   FF ia,
-                                                  FF mem_idx_a,
+                                                  FF mem_addr_a,
                                                   FF ind_a,
                                                   FF ib,
-                                                  FF mem_idx_b,
+                                                  FF mem_addr_b,
                                                   FF ind_b,
                                                   AvmMemoryTag w_in_tag,
                                                   uint32_t side_effect_counter)
 {
-    expect_output_table_row(row, selector, ia, mem_idx_a, ind_a, w_in_tag, side_effect_counter);
+    expect_output_table_row(row, selector, ia, mem_addr_a, ind_a, w_in_tag, side_effect_counter);
 
     EXPECT_EQ(row->main_ib, ib);
-    EXPECT_EQ(row->main_mem_idx_b, mem_idx_b);
+    EXPECT_EQ(row->main_mem_addr_b, mem_addr_b);
 
     // Checks that are fixed for kernel inputs
     EXPECT_EQ(row->main_rwb, FF(1));
-    EXPECT_EQ(row->main_ind_b, ind_b);
-    EXPECT_EQ(row->main_ind_op_b, FF(ind_b != 0));
-    EXPECT_EQ(row->main_mem_op_b, FF(1));
+    EXPECT_EQ(row->main_ind_addr_b, ind_b);
+    EXPECT_EQ(row->main_sel_resolve_ind_addr_b, FF(ind_b != 0));
+    EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
 }
 
 void check_kernel_outputs(const Row& row, FF value, FF side_effect_counter, FF metadata)
@@ -206,7 +205,7 @@ TEST_F(AvmKernelPositiveTests, kernelSender)
                    /*ia=*/SENDER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -240,7 +239,7 @@ TEST_F(AvmKernelPositiveTests, kernelAddress)
                    /*ia=*/ADDRESS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(false, direct_apply_opcodes, checks);
@@ -273,7 +272,7 @@ TEST_F(AvmKernelPositiveTests, kernelStorageAddress)
                    /*ia=*/STORAGE_ADDRESS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -307,7 +306,7 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
                    /*ia=*/FEE_PER_DA_GAS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -341,7 +340,7 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerL2)
                    /*ia=*/FEE_PER_L2_GAS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -375,7 +374,7 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
                    /*ia=*/TRANSACTION_FEE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -409,7 +408,7 @@ TEST_F(AvmKernelPositiveTests, kernelChainId)
                    /*ia=*/CHAIN_ID_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -443,7 +442,7 @@ TEST_F(AvmKernelPositiveTests, kernelVersion)
                    /*ia=*/VERSION_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -477,7 +476,7 @@ TEST_F(AvmKernelPositiveTests, kernelBlockNumber)
                    /*ia=*/BLOCK_NUMBER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a=*/dst_offset,
+                   /*mem_addr_a=*/dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -511,7 +510,7 @@ TEST_F(AvmKernelPositiveTests, kernelCoinbase)
                    /*ia=*/COINBASE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a*/ dst_offset,
+                   /*mem_addr_a*/ dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -545,7 +544,7 @@ TEST_F(AvmKernelPositiveTests, kernelTimestamp)
                    /*ia=*/TIMESTAMP_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_idx_a*/ dst_offset,
+                   /*mem_addr_a*/ dst_offset,
                    /*w_in_tag=*/AvmMemoryTag::U64);
     };
 
@@ -604,7 +603,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
             /*kernel_in_offset=*/SENDER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -630,7 +629,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
             /*kernel_in_offset=*/ADDRESS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -656,7 +655,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaStorageAddress)
             /*kernel_in_offset=*/STORAGE_ADDRESS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -682,7 +681,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
             /*kernel_in_offset=*/FEE_PER_DA_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -708,7 +707,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
             /*kernel_in_offset=*/FEE_PER_L2_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -734,7 +733,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
             /*kernel_in_offset=*/TRANSACTION_FEE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -760,7 +759,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
             /*kernel_in_offset=*/CHAIN_ID_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -786,7 +785,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
             /*kernel_in_offset=*/VERSION_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -812,7 +811,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
             /*kernel_in_offset=*/BLOCK_NUMBER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -838,7 +837,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
             /*kernel_in_offset=*/TIMESTAMP_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a*/ dst_offset,
+            /*mem_addr_a*/ dst_offset,
             /*w_in_tag=*/AvmMemoryTag::U64);
     };
 
@@ -864,7 +863,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
             /*kernel_in_offset=*/COINBASE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
-            /*mem_idx_a=*/dst_offset,
+            /*mem_addr_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
@@ -903,7 +902,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/direct_offset,
+            /*mem_addr_a=*/direct_offset,
             /*ind_a*/ indirect ? indirect_offset : 0,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -945,7 +944,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/direct_offset,
+            /*mem_addr_a=*/direct_offset,
             /*ind_a*/ indirect ? indirect_offset : 0,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -995,10 +994,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/msg_offset,
+            /*mem_addr_a=*/msg_offset,
             /*ind_a*/ indirect ? indirect_msg_offset : 0,
             /*ib=*/recipient,
-            /*mem_idx_b=*/recipient_offset,
+            /*mem_addr_b=*/recipient_offset,
             /*ind_a*/ indirect ? indirect_recipient_offset : 0,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -1023,12 +1022,12 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
     // We write the note hash into memory
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, direct_offset, AvmMemoryTag::FF);
-        trace_builder.op_emit_unencrypted_log(/*indirect=*/false, direct_offset);
+        trace_builder.op_emit_unencrypted_log(/*indirect=*/false, direct_offset, /*log_size_offset=*/0);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, direct_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, direct_offset, indirect_offset, AvmMemoryTag::U32);
-        trace_builder.op_emit_unencrypted_log(/*indirect=*/true, indirect_offset);
+        trace_builder.op_emit_unencrypted_log(/*indirect=*/true, indirect_offset, /*log_size_offset=*/0);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -1040,7 +1039,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/direct_offset,
+            /*mem_addr_a=*/direct_offset,
             /*ind_a*/ indirect ? indirect_offset : 0,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -1079,12 +1078,12 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/dest_offset,
+            /*mem_addr_a=*/dest_offset,
             /*ind_a=*/false,
             /*ib=*/slot,
-            /*mem_idx_b=*/0,
+            /*mem_addr_b=*/0,
             /*ind_b=*/false,
-            /*r_in_tag=*/AvmMemoryTag::FF,
+            /*r_in_tag=*/AvmMemoryTag::U0, // Kernel Sload is writing to memory
             /*side_effect_counter=*/0,
             /*rwa=*/1,
             /*no_b=*/true);
@@ -1121,12 +1120,12 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/value_offset,
+            /*mem_addr_a=*/value_offset,
             /*ind_a*/ false,
             /*ib=*/slot,
-            /*mem_idx_b=*/0,
+            /*mem_addr_b=*/0,
             /*ind_b*/ false,
-            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*r_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0,
             /*rwa=*/0,
             /*no_b=*/true);
@@ -1170,10 +1169,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/value_offset,
+            /*mem_addr_a=*/value_offset,
             /*ind_a*/ indirect ? FF(indirect_value_offset) : FF(0),
             /*ib=*/exists,
-            /*mem_idx_b=*/metadata_offset,
+            /*mem_addr_b=*/metadata_offset,
             /*ind_b*/ indirect ? FF(indirect_metadata_offset) : FF(0),
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -1210,10 +1209,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/value_offset,
+            /*mem_addr_a=*/value_offset,
             /*ind_a*/ indirect,
             /*ib=*/exists,
-            /*mem_idx_b=*/metadata_offset,
+            /*mem_addr_b=*/metadata_offset,
             /*ind_b*/ indirect,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -1249,10 +1248,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/value_offset,
+            /*mem_addr_a=*/value_offset,
             /*ind_a*/ indirect,
             /*ib=*/exists,
-            /*mem_idx_b=*/metadata_offset,
+            /*mem_addr_b=*/metadata_offset,
             /*ind_b*/ indirect,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
@@ -1289,10 +1288,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
             row,
             /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a=*/value_offset,
+            /*mem_addr_a=*/value_offset,
             /*ind_a*/ indirect,
             /*ib=*/exists,
-            /*mem_idx_b=*/metadata_offset,
+            /*mem_addr_b=*/metadata_offset,
             /*ind_b*/ indirect,
             /*w_in_tag=*/AvmMemoryTag::FF,
             /*side_effect_counter=*/0);
