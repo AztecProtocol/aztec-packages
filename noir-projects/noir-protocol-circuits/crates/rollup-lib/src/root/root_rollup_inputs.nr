@@ -42,13 +42,14 @@ impl RootRollupInputs {
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
             self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
-        if !dep::std::runtime::is_unconstrained() {
+
             self.previous_rollup_data[1].verify();
             self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+
+            // verify the root parity
+            self.l1_to_l2_roots.verify();
+            self.l1_to_l2_roots.validate_in_vk_tree();
         }
-        // verify the root parity
-        self.l1_to_l2_roots.verify();
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;

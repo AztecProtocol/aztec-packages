@@ -151,7 +151,7 @@ export class ProvingOrchestrator {
       throw new Error('Too many L1 to L2 messages');
     }
     baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
+      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
     );
 
     const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db);

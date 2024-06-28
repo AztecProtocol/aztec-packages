@@ -32,6 +32,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
   type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
@@ -49,6 +50,7 @@ import {
   convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
   convertSimulatedPublicTailInputsToWitnessMap,
   convertSimulatedPublicTailOutputFromWitnessMap,
+  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -125,6 +127,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     const rootParityInput = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
       ProtocolCircuitVks['BaseParityArtifact'].keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes['BaseParityArtifact']),
       result,
     );
 
@@ -164,6 +167,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     const rootParityInput = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       ProtocolCircuitVks['RootParityArtifact'].keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes['RootParityArtifact']),
       result,
     );
 

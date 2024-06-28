@@ -38,6 +38,7 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  ProtocolCircuitVkIndexes,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -54,6 +55,7 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -144,7 +146,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     await this.verifyProof('BaseParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(proof, verificationKey.keyAsFields, circuitOutput);
+    return new RootParityInput(
+      proof,
+      verificationKey.keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
+      circuitOutput,
+    );
   }
 
   /**
@@ -168,7 +175,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     await this.verifyProof('RootParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(proof, verificationKey.keyAsFields, circuitOutput);
+    return new RootParityInput(
+      proof,
+      verificationKey.keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes.RootParityArtifact),
+      circuitOutput,
+    );
   }
 
   /**

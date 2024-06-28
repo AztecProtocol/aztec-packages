@@ -981,16 +981,21 @@ export function makeRootParityInput<PROOF_LENGTH extends number>(
   return new RootParityInput<PROOF_LENGTH>(
     makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
     VerificationKeyAsFields.makeFake(seed + 0x100),
-    makeParityPublicInputs(seed + 0x200),
+    makeTuple(VK_TREE_HEIGHT, fr, 0x200),
+    makeParityPublicInputs(seed + 0x300),
   );
 }
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
-  return new ParityPublicInputs(new Fr(BigInt(seed + 0x200)), new Fr(BigInt(seed + 0x300)));
+  return new ParityPublicInputs(
+    new Fr(BigInt(seed + 0x200)),
+    new Fr(BigInt(seed + 0x300)),
+    new Fr(BigInt(seed + 0x400)),
+  );
 }
 
 export function makeBaseParityInputs(seed = 0): BaseParityInputs {
-  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000));
+  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
 }
 
 export function makeRootParityInputs(seed = 0): RootParityInputs {

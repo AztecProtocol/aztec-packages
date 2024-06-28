@@ -2068,6 +2068,7 @@ export function mapRootRollupParityInputToNoir(
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
     verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
+    vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
 }
@@ -2106,6 +2107,7 @@ export function mapRootParityInputToNoir(
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
     verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
+    vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
 }
@@ -2114,6 +2116,7 @@ export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInpu
   return {
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
+    vk_tree_root: mapFieldToNoir(parityPublicInputs.vkTreeRoot),
   };
 }
 
@@ -2141,6 +2144,7 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
   return new ParityPublicInputs(
     mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
+    mapFieldFromNoir(parityPublicInputs.vk_tree_root),
   );
 }
 
@@ -2344,6 +2348,7 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
 export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityInputsNoir {
   return {
     msgs: mapTuple(inputs.msgs, mapFieldToNoir),
+    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
   };
 }
 
