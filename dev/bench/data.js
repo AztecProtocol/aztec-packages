@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719593321816,
+  "lastUpdate": 1719594500671,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -59856,6 +59856,78 @@ window.BENCHMARK_DATA = {
             "value": 160819985,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160819985 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "79e85883c90465cf2ff6e1a2d7af0e5d4d3e111c",
+          "message": "feat(avm): calldata gadget preliminaries (#7227)\n\nFirst preliminary work for issue #7211.\r\nAdded a new public calldata column and passes calldata file to the avm\r\nverifier.",
+          "timestamp": "2024-06-28T17:01:44Z",
+          "tree_id": "9c1b9f310dba732e07b6d7e2b2802f981aa90d15",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/79e85883c90465cf2ff6e1a2d7af0e5d4d3e111c"
+        },
+        "date": 1719594496640,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14035.34682,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9526.552043 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4749.4879090000095,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4358.574639 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43072.458811000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43072459000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14396.337119000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14396338000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4222960031,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4222960031 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194804472,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194804472 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3497310319,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3497310319 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161587731,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161587731 ns\nthreads: 1"
           }
         ]
       }
