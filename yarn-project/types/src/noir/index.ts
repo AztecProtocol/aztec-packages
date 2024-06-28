@@ -29,8 +29,6 @@ export type AbiErrorType =
 export interface NoirFunctionAbi {
   /** The parameters of the function. */
   parameters: ABIParameter[];
-  /** TODO */
-  error_types: Record<string, any>;
   /** The return type of the function. */
   return_type: {
     /**
