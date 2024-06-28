@@ -167,6 +167,22 @@ impl PublicContext {
     fn da_gas_left(self) -> Field {
         da_gas_left()
     }
+
+    fn raw_storage_read<N>(_self: Self, storage_slot: Field) -> [Field; N] {
+        storage_read(storage_slot)
+    }
+
+    fn storage_read<T, N>(_self: Self, storage_slot: Field) -> T where T: Deserialize<N> {
+        T::deserialize(storage_read(storage_slot))
+    }
+
+    fn raw_storage_write<N>(_self: Self, storage_slot: Field, values: [Field; N]) {
+        storage_write(storage_slot, values);
+    }
+
+    fn storage_write<T, N>(_self: Self, storage_slot: Field, value: T) where T: Serialize<N> {
+        storage_write(storage_slot, value.serialize());
+    }
 }
 
 // Helper functions
@@ -259,6 +275,14 @@ unconstrained fn call_static<RET_SIZE>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
+unconstrained fn storage_read<N>(storage_slot: Field) -> [Field; N] {
+    storage_read_opcode(storage_slot)
+}
+
+unconstrained fn storage_write<N>(storage_slot: Field, values: [Field; N]) {
+    storage_write(storage_slot, values);
+}
+
 impl Empty for PublicContext {
     fn empty() -> Self {
         PublicContext::new(PublicContextInputs::empty())
@@ -345,6 +369,12 @@ unconstrained fn call_static_opcode<RET_SIZE>(
     function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
+
+#[oracle(avmOpcodeStorageRead)]
+unconstrained fn storage_read_opcode<N>(storage_slot: Field) -> [Field; N] {}
+
+#[oracle(avmOpcodeStorageWrite)]
+unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}
 
 struct FunctionReturns<N> {
     values: [Field; N]

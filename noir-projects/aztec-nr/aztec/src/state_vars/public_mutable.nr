@@ -29,15 +29,13 @@ impl<T, Context> PublicMutable<T, Context> {
 impl<T> PublicMutable<T, &mut PublicContext> {
     // docs:start:public_mutable_struct_read
     pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
-        let fields = storage_read(self.storage_slot);
-        T::deserialize(fields)
+        self.context.storage_read(self.storage_slot)
     }
     // docs:end:public_mutable_struct_read
 
     // docs:start:public_mutable_struct_write
     pub fn write<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
-        let fields = T::serialize(value);
-        storage_write(self.storage_slot, fields);
+        self.context.storage_write(self.storage_slot, value);
     }
     // docs:end:public_mutable_struct_write
 }

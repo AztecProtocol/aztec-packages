@@ -98,19 +98,19 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> {
     }
 
     fn read_value_change(self) -> ScheduledValueChange<T> {
-        public_storage::read(self.get_value_change_storage_slot())
+        self.context.storage_read(self.get_value_change_storage_slot())
     }
 
     fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY> {
-        public_storage::read(self.get_delay_change_storage_slot())
+        self.context.storage_read(self.get_delay_change_storage_slot())
     }
 
     fn write_value_change(self, value_change: ScheduledValueChange<T>) {
-        public_storage::write(self.get_value_change_storage_slot(), value_change);
+        self.context.storage_write(self.get_value_change_storage_slot(), value_change);
     }
 
     fn write_delay_change(self, delay_change: ScheduledDelayChange<INITIAL_DELAY>) {
-        public_storage::write(self.get_delay_change_storage_slot(), delay_change);
+        self.context.storage_write(self.get_delay_change_storage_slot(), delay_change);
     }
 }
 
