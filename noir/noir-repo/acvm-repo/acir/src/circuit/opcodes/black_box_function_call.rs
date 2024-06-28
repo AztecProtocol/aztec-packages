@@ -11,24 +11,21 @@ pub struct WitnessInput {
     pub num_bits: u32,
 }
 
-trait ToString {
-    fn to_string(&self) -> String;
-}
-
-impl ToString for WitnessInput {
-    fn to_string(&self) -> String {
-        format!("witness:{}, num_bits: {}", self.witness.witness_index(), self.num_bits)
+impl std::fmt::Display for WitnessInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "witness:{}, num_bits: {}", self.witness.witness_index(), self.num_bits)
     }
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConstantInput<F> {
     pub constant: F,
     pub num_bits: u32,
 }
 
-impl<F: AcirField> ToString for ConstantInput<F> {
-    fn to_string(&self) -> String {
-        format!("field:{}, num_bits: {}", self.constant, self.num_bits)
+impl<F: std::fmt::Display> std::fmt::Display for ConstantInput<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "field:{}, num_bits: {}", self.constant, self.num_bits)
     }
 }
 
@@ -63,7 +60,7 @@ impl<F: AcirField> ToString for FunctionInput<F> {
     }
 }
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BlackBoxFuncCall<F: AcirField> {
+pub enum BlackBoxFuncCall<F> {
     AES128Encrypt {
         inputs: Vec<FunctionInput<F>>,
         iv: Box<[FunctionInput<F>; 16]>,
@@ -506,7 +503,7 @@ impl<F: AcirField> std::fmt::Debug for BlackBoxFuncCall<F> {
     }
 }
 
-fn serialize_big_array<S, F: AcirField + Serialize>(
+fn serialize_big_array<S, F: Serialize>(
     big_array: &[FunctionInput<F>; 64],
     s: S,
 ) -> Result<S::Ok, S::Error>
@@ -518,7 +515,7 @@ where
     (*big_array).serialize(s)
 }
 
-fn deserialize_big_array_into_box<'de, D, F: AcirField + Deserialize<'de>>(
+fn deserialize_big_array_into_box<'de, D, F: Deserialize<'de>>(
     deserializer: D,
 ) -> Result<Box<[FunctionInput<F>; 64]>, D::Error>
 where

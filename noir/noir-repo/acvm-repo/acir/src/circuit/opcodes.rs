@@ -27,7 +27,7 @@ impl BlockType {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Opcode<F: AcirField> {
+pub enum Opcode<F> {
     /// An `AssertZero` opcode adds the constraint that `P(w) = 0`, where
     /// `w=(w_1,..w_n)` is a tuple of `n` witnesses, and `P` is a multi-variate
     /// polynomial of total degree at most `2`.

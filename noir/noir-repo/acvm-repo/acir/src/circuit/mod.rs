@@ -38,13 +38,13 @@ pub enum ExpressionWidth {
 /// A program represented by multiple ACIR circuits. The execution trace of these
 /// circuits is dictated by construction of the [crate::native_types::WitnessStack].
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct Program<F: AcirField> {
+pub struct Program<F> {
     pub functions: Vec<Circuit<F>>,
     pub unconstrained_functions: Vec<BrilligBytecode<F>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct Circuit<F: AcirField> {
+pub struct Circuit<F> {
     // current_witness_index is the highest witness index in the circuit. The next witness to be added to this circuit
     // will take on this value. (The value is cached here as an optimization.)
     pub current_witness_index: u32,
@@ -223,7 +223,7 @@ impl<F: AcirField> Circuit<F> {
     }
 }
 
-impl<F: Serialize + AcirField> Program<F> {
+impl<F: Serialize> Program<F> {
     fn write<W: std::io::Write>(&self, writer: W) -> std::io::Result<()> {
         let buf = bincode::serialize(self).unwrap();
         let mut encoder = flate2::write::GzEncoder::new(writer, Compression::default());
