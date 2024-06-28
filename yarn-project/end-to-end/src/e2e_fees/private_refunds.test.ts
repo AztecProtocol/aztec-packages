@@ -23,7 +23,7 @@ describe('e2e_fees/private_refunds', () => {
   let InitialBobPrivateTokens: bigint;
   let InitialPrivateFPCGas: bigint;
 
-  const t = new FeesTest('private_payment_with_private_refund');
+  const t = new FeesTest('private_refunds');
 
   beforeAll(async () => {
     await t.applyInitialAccountsSnapshot();

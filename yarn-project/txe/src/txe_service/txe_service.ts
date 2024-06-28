@@ -633,17 +633,6 @@ export class TXEService {
     return toForeignCallResult([toArray(fields)]);
   }
 
-  /**
-   * Creates a PublicCallStackItem and sets it as the public teardown function. No function
-   * is actually called, since that must happen on the sequencer side. All the fields related to the result
-   * of the execution are empty.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   * @returns The public call stack item with the request information.
-   */
   public async setPublicTeardownFunctionCall(
     targetContractAddress: ForeignCallSingle,
     functionSelector: ForeignCallSingle,

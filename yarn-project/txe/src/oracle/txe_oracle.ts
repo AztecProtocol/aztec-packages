@@ -842,7 +842,8 @@ export class TXE implements TypedOracle {
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
-    // Definitely not right.
+    // Definitely not right, in that the teardown should always be last.
+    // But useful for executing flows.
     return this.enqueuePublicFunctionCall(
       targetContractAddress,
       functionSelector,

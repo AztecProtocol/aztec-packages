@@ -120,8 +120,6 @@ contract PrivateToken {
             assert(nonce == 0, "invalid nonce");
         }
 
-        // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
-        // be needed twice.
         let header = context.get_header();
         let from_ovpk = header.get_ovpk_m(&mut context, from);
         let from_ivpk = header.get_ivpk_m(&mut context, from);
@@ -130,11 +128,7 @@ contract PrivateToken {
         let to_npk_m_hash = header.get_npk_m_hash(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        // docs:start:increase_private_balance
-        // docs:start:encrypted
         storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
-        // docs:end:encrypted
-        // docs:end:increase_private_balance
         storage.balances.add(to_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk));
     }
 

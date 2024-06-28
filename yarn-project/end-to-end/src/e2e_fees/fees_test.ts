@@ -149,9 +149,9 @@ export class FeesTest {
   }
 
   public async applyBaseSnapshots() {
-    await this.applyDeployGasTokenSnapshot();
     await this.applyInitialAccountsSnapshot();
     await this.applyPublicDeployAccountsSnapshot();
+    await this.applyDeployGasTokenSnapshot();
     await this.applyDeployBananaTokenSnapshot();
   }
 
@@ -173,7 +173,7 @@ export class FeesTest {
         if (!bobInstance) {
           throw new Error('Bob instance not found');
         }
-        this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
+        await this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, MNEMONIC);
@@ -272,7 +272,7 @@ export class FeesTest {
           privateFPCAddress: privateFPC.address,
         };
       },
-      async (data, context) => {
+      async data => {
         this.privateFPC = await PrivateFPCContract.at(data.privateFPCAddress, this.bobWallet);
         this.privateToken = await PrivateTokenContract.at(data.privateTokenAddress, this.aliceWallet);
 
