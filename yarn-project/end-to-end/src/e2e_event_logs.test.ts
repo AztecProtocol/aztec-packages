@@ -139,7 +139,7 @@ describe('Logs', () => {
       );
     });
 
-    it('emits multiple events as encrypted logs and decodes them', async () => {
+    it('emits multiple events as unencrypted logs and decodes them', async () => {
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       let i = 0;
