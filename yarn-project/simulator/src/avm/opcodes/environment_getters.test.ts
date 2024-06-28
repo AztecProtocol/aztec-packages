@@ -8,6 +8,7 @@ import {
   ChainId,
   FeePerDAGas,
   FeePerL2Gas,
+  FunctionSelector,
   Sender,
   StorageAddress,
   Timestamp,
@@ -16,21 +17,19 @@ import {
 } from './environment_getters.js';
 
 type EnvInstruction =
-  | typeof FeePerL2Gas
-  | typeof FeePerDAGas
   | typeof Sender
   | typeof StorageAddress
   | typeof Address
-  | typeof TransactionFee;
+  | typeof TransactionFee
+  | typeof FunctionSelector;
 
 describe.each([
-  [FeePerL2Gas, 'feePerL2Gas'],
-  [FeePerDAGas, 'feePerDaGas'],
   [Sender, 'sender'],
   [StorageAddress, 'storageAddress'],
   [Address, 'address'],
   [TransactionFee, 'transactionFee'],
-])('Environment getters instructions', (clsValue: EnvInstruction, key: string) => {
+  [FunctionSelector, 'functionSelector', TypeTag.UINT32],
+])('Environment getters instructions', (clsValue: EnvInstruction, key: string, tag: TypeTag = TypeTag.FIELD) => {
   it(`${clsValue.name} should (de)serialize correctly`, () => {
     const buf = Buffer.from([
       clsValue.opcode, // opcode
@@ -50,19 +49,27 @@ describe.each([
 
     await instruction.execute(context);
 
-    expect(context.machineState.memory.getTag(0)).toBe(TypeTag.FIELD);
+    expect(context.machineState.memory.getTag(0)).toBe(tag);
     const actual = context.machineState.memory.get(0).toFr();
     expect(actual).toEqual(value);
   });
 });
 
-type GlobalsInstruction = typeof ChainId | typeof Version | typeof BlockNumber | typeof Timestamp;
+type GlobalsInstruction =
+  | typeof FeePerL2Gas
+  | typeof FeePerDAGas
+  | typeof ChainId
+  | typeof Version
+  | typeof BlockNumber
+  | typeof Timestamp;
 describe.each([
-  [ChainId, 'chainId', TypeTag.FIELD],
-  [Version, 'version', TypeTag.FIELD],
-  [BlockNumber, 'blockNumber', TypeTag.FIELD],
+  [ChainId, 'chainId'],
+  [Version, 'version'],
+  [BlockNumber, 'blockNumber'],
   [Timestamp, 'timestamp', TypeTag.UINT64],
-])('Global Variables', (clsValue: GlobalsInstruction, key: string, tag: TypeTag) => {
+  [FeePerL2Gas, 'feePerL2Gas'],
+  [FeePerDAGas, 'feePerDaGas'],
+])('Global Variables', (clsValue: GlobalsInstruction, key: string, tag: TypeTag = TypeTag.FIELD) => {
   it(`${clsValue.name} should (de)serialize correctly`, () => {
     const buf = Buffer.from([
       clsValue.opcode, // opcode
