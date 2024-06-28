@@ -143,7 +143,7 @@ describe('Kernel Prover Native', () => {
   //   proofCreator.createProofInit.mockClear();
   // };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult, true /* isPrivate */);
+  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();
@@ -169,7 +169,7 @@ describe('Kernel Prover Native', () => {
       // TEMP_DIR = tmpdir(),
       BB_WORKING_DIRECTORY = '',
     } = process.env;
-    
+
     proofCreator = new BBNativeProofCreator(
       BB_BINARY_PATH!,
       BB_WORKING_DIRECTORY

@@ -513,7 +513,7 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender, true /* isPrivate */);
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
       }
