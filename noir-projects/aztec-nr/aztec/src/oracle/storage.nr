@@ -2,26 +2,26 @@ use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
 
 #[oracle(storageRead)]
 unconstrained fn storage_read_oracle<N>(
-    storage_slot: Field,
-    length: Field,
     address: Field,
-    block_number: Field
+    storage_slot: Field,
+    block_number: Field,
+    length: Field
 ) -> [Field; N] {}
 
 unconstrained pub fn raw_storage_read<N>(
-    storage_slot: Field,
     address: AztecAddress,
+    storage_slot: Field,
     block_number: u32
 ) -> [Field; N] {
-    storage_read_oracle(storage_slot, N, address.to_field(), block_number as Field)
+    storage_read_oracle(address.to_field(), storage_slot, block_number as Field, N)
 }
 
 unconstrained pub fn storage_read<T, N>(
-    storage_slot: Field,
     address: AztecAddress,
+    storage_slot: Field,
     block_number: u32
 ) -> T where T: Deserialize<N> {
-    T::deserialize(raw_storage_read(storage_slot, address, block_number))
+    T::deserialize(raw_storage_read(address, storage_slot, block_number))
 }
 
 mod tests {
@@ -31,8 +31,8 @@ mod tests {
     use std::test::OracleMock;
     use crate::test::mocks::mock_struct::MockStruct;
 
-    global slot = 7;
     global address = AztecAddress::from_field(29);
+    global slot = 7;
     global block_number = 17;
 
     #[test]
@@ -41,7 +41,7 @@ mod tests {
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
 
-        let read: [Field; 2] = raw_storage_read(slot, address, block_number);
+        let read: [Field; 2] = raw_storage_read(address, slot, block_number);
         assert_eq(read[0], 13);
         assert_eq(read[1], 42);
     }
@@ -52,7 +52,7 @@ mod tests {
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
 
-        let read: MockStruct = storage_read(slot, address, block_number);
+        let read: MockStruct = storage_read(address, slot, block_number);
         assert_eq(read.a, 13);
         assert_eq(read.b, 42);
     }

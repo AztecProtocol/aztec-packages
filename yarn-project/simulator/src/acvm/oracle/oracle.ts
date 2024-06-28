@@ -288,16 +288,16 @@ export class Oracle {
   }
 
   async storageRead(
-    [startStorageSlot]: ACVMField[],
-    [numberOfElements]: ACVMField[],
     [contractAddress]: ACVMField[],
+    [startStorageSlot]: ACVMField[],
     [blockNumber]: ACVMField[],
+    [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(
-      fromACVMField(startStorageSlot),
-      +numberOfElements,
       fromACVMField(contractAddress),
+      fromACVMField(startStorageSlot),
       +blockNumber,
+      +numberOfElements,
     );
     return values.map(toACVMField);
   }

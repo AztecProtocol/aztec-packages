@@ -309,16 +309,16 @@ export class TXEService {
   }
 
   async storageRead(
-    startStorageSlot: ForeignCallSingle,
-    numberOfElements: ForeignCallSingle,
     contractAddress: ForeignCallSingle,
+    startStorageSlot: ForeignCallSingle,
     blockNumber: ForeignCallSingle,
+    numberOfElements: ForeignCallSingle,
   ) {
     const values = await this.typedOracle.storageRead(
-      fromSingle(startStorageSlot),
-      fromSingle(numberOfElements).toNumber(),
       fromSingle(contractAddress),
+      fromSingle(startStorageSlot),
       fromSingle(blockNumber).toNumber(),
+      fromSingle(numberOfElements).toNumber(),
     );
     return toForeignCallResult([toArray(values)]);
   }

@@ -38,7 +38,7 @@ impl UnconstrainedContext {
     }
 
     unconstrained fn raw_storage_read<N>(self: Self, storage_slot: Field) -> [Field; N] {
-        storage_read(storage_slot, self.this_address(), self.block_number())
+        storage_read(self.this_address(), storage_slot, self.block_number())
     }
 
     unconstrained fn storage_read<T, N>(self, storage_slot: Field) -> T where T: Deserialize<N> {

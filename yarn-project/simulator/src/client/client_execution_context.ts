@@ -678,16 +678,16 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Read the public storage data.
-   * @param startStorageSlot - The starting storage slot.
-   * @param numberOfElements - Number of elements to read from the starting storage slot.
    * @param contractAddress - The address to read storage from.
+   * @param startStorageSlot - The starting storage slot.
    * @param blockNumber - The block number to read storage at.
+   * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public override async storageRead(
-    startStorageSlot: Fr,
-    numberOfElements: number,
     contractAddress: Fr,
+    startStorageSlot: Fr,
     blockNumber: number,
+    numberOfElements: number,
   ): Promise<Fr[]> {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {

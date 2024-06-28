@@ -191,10 +191,10 @@ export abstract class TypedOracle {
   }
 
   storageRead(
-    _startStorageSlot: Fr,
-    _numberOfElements: number,
     _contractAddress: Fr,
+    _startStorageSlot: Fr,
     _blockNumber: number,
+    _numberOfElements: number,
   ): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageRead');
   }
