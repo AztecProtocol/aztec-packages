@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
 #include "barretenberg/vm/avm_trace/avm_helper.hpp"
@@ -78,10 +79,11 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
 
-    // The proof starts with the serialized public inputs
+    // Proof structure: public_inputs | calldata_size | calldata | raw proof
     HonkProof proof(public_inputs_vec);
+    proof.emplace_back(calldata.size());
+    proof.insert(proof.end(), calldata.begin(), calldata.end());
     auto raw_proof = prover.construct_proof();
-    // append the raw proof after the public inputs
     proof.insert(proof.end(), raw_proof.begin(), raw_proof.end());
     // TODO(#4887): Might need to return PCS vk when full verify is supported
     return std::make_tuple(*verifier.key, proof);
@@ -251,7 +253,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     return public_inputs;
 }
 
-bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof, std::vector<FF> const& calldata)
+bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
 {
     auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
     AvmVerifier verifier(verification_key);
@@ -261,11 +263,20 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof, st
     // crs_factory_);
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
+    // Proof structure: public_inputs | calldata_size | calldata | raw proof
     std::vector<FF> public_inputs_vec;
+    std::vector<FF> calldata;
     std::vector<FF> raw_proof;
-    std::copy(
-        proof.begin(), proof.begin() + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, std::back_inserter(public_inputs_vec));
-    std::copy(proof.begin() + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, proof.end(), std::back_inserter(raw_proof));
+
+    // This can be made nicer using BB's serialize::read, probably.
+    const auto public_inputs_offset = proof.begin();
+    const auto calldata_size_offset = public_inputs_offset + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+    const auto calldata_offset = calldata_size_offset + 1;
+    const auto raw_proof_offset = calldata_offset + static_cast<int64_t>(uint64_t(*calldata_size_offset));
+
+    std::copy(public_inputs_offset, calldata_size_offset, std::back_inserter(public_inputs_vec));
+    std::copy(calldata_offset, raw_proof_offset, std::back_inserter(calldata));
+    std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs, calldata);

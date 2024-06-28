@@ -23,7 +23,7 @@ class AvmCastTests : public ::testing::Test {
 
     VmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
-    std::vector<FF> calldata{};
+    std::vector<FF> calldata;
 
     std::vector<Row> trace;
     size_t main_addr;

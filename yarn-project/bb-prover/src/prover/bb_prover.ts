@@ -67,7 +67,6 @@ import * as path from 'path';
 import {
   type BBSuccess,
   BB_RESULT,
-  CALLDATA_FILENAME,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
   VK_FILENAME,
@@ -641,7 +640,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         proofFileName,
         verificationKeyPath!,
         logFunction,
-        verificationFunction instanceof verifyAvmProof ? path.join(bbWorkingDirectory, CALLDATA_FILENAME) : undefined,
       );
 
       if (result.status === BB_RESULT.FAILURE) {

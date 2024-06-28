@@ -723,22 +723,18 @@ void avm_prove(const std::filesystem::path& bytecode_path,
  *
  * @param proof_path Path to the file containing the serialized proof
  * @param vk_path Path to the file containing the serialized verification key
- * @param calldata_path Path to the file containing the serialised calldata (could be empty)
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-bool avm_verify(const std::filesystem::path& proof_path,
-                const std::filesystem::path& vk_path,
-                const std::filesystem::path& calldata_path)
+bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
 {
     std::vector<fr> const proof = many_from_buffer<fr>(read_file(proof_path));
-    std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
     auto circuit_size = from_buffer<size_t>(vk_bytes, 0);
     auto num_public_inputs = from_buffer<size_t>(vk_bytes, sizeof(size_t));
     auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs);
 
-    const bool verified = avm_trace::Execution::verify(vk, proof, calldata);
+    const bool verified = avm_trace::Execution::verify(vk, proof);
     vinfo("verified: ", verified);
     return verified;
 }
@@ -1148,8 +1144,7 @@ int main(int argc, char* argv[])
             avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
             avm_prove(avm_bytecode_path, avm_calldata_path, avm_public_inputs_path, avm_hints_path, output_path);
         } else if (command == "avm_verify") {
-            std::filesystem::path avm_calldata_path = get_option(args, "--avm-calldata", "./target/avm_calldata.bin");
-            return avm_verify(proof_path, vk_path, avm_calldata_path) ? 0 : 1;
+            return avm_verify(proof_path, vk_path) ? 0 : 1;
 #endif
         } else if (command == "prove_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
