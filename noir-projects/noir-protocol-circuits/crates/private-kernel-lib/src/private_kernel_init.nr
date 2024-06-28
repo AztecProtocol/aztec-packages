@@ -98,7 +98,12 @@ mod tests {
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let private_call = self.private_call.to_private_call_data();
-            PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call, hints: self.hints, vk_tree_root: fixtures::VK_TREE_ROOT }.execute()
+            PrivateKernelInitCircuitPrivateInputs {
+                tx_request: self.tx_request,
+                private_call,
+                hints: self.hints,
+                vk_tree_root: FixtureBuilder::vk_tree_root()
+            }.execute()
         }
     }
 

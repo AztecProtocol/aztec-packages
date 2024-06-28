@@ -104,7 +104,7 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX
     };
 
     struct PublicKernelSetupCircuitPrivateInputsBuilder {
@@ -115,7 +115,7 @@ mod tests {
 
     impl PublicKernelSetupCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new().as_parent_contract();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
             let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
@@ -164,6 +164,7 @@ mod tests {
             let setup_call = self.public_call.finish();
             self.push_public_call(setup_call);
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
             // Run the kernel on the setup call

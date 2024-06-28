@@ -15,8 +15,8 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
     private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, tests::{fixture_builder::FixtureBuilder, fixtures},
-    transaction::tx_request::TxRequest
+    constants::{MAX_NEW_NOTE_HASHES_PER_CALL, PRIVATE_KERNEL_INIT_INDEX},
+    tests::{fixture_builder::FixtureBuilder, fixtures}, transaction::tx_request::TxRequest
 };
 
 struct PrivateKernelCircuitOutputValidatorBuilder {
@@ -25,7 +25,6 @@ struct PrivateKernelCircuitOutputValidatorBuilder {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     output: FixtureBuilder,
     tx_request: TxRequest,
-    vk_tree_root: Field,
 }
 
 impl PrivateKernelCircuitOutputValidatorBuilder {
@@ -38,14 +37,12 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let first_nullifier = create_first_nullifier(tx_request);
         output.new_nullifiers.push(first_nullifier);
         previous_kernel.new_nullifiers.push(first_nullifier);
-        PrivateKernelCircuitOutputValidatorBuilder {
-            previous_kernel,
-            private_call,
-            note_hash_nullifier_counters,
-            output,
-            tx_request,
-            vk_tree_root: fixtures::VK_TREE_ROOT
-        }
+        previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
+        PrivateKernelCircuitOutputValidatorBuilder { previous_kernel, private_call, note_hash_nullifier_counters, output, tx_request }
+    }
+
+    pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
+        self.previous_kernel.in_vk_tree(vk_index);
     }
 
     pub fn offset_values(&mut self, num_prepended_items: Field) {
@@ -68,7 +65,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             self.note_hash_nullifier_counters,
             private_call.public_call_stack,
             private_call.public_teardown_call_request,
-            self.vk_tree_root
+            FixtureBuilder::vk_tree_root()
         );
     }
 

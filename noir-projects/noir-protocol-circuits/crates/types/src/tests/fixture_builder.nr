@@ -174,6 +174,20 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
+        self.vk_index = vk_index;
+        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+
+        let vk_hash = vk_tree.leaves[vk_index];
+        self.vk.hash = vk_hash;
+
+        self.vk_path = vk_tree.get_sibling_path(vk_index);
+
+        self.vk_tree_root = vk_tree.get_root();
+
+        *self
+    }
+
     pub fn is_delegate_call(&mut self) -> Self {
         self.is_delegate_call = true;
         self.storage_contract_address = fixtures::contracts::parent_contract.address;
@@ -390,13 +404,7 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData {
-            public_inputs,
-            proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-            vk_index: self.vk_index,
-            vk_path: self.vk_path
-        }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
@@ -912,6 +920,10 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
+
+    fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
 }
 
 impl Empty for FixtureBuilder {
@@ -961,7 +973,7 @@ impl Empty for FixtureBuilder {
             vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
-            vk_tree_root: 0,
+            vk_tree_root: FixtureBuilder::vk_tree_root(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

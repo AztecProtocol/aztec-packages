@@ -1,5 +1,6 @@
 mod contract_functions;
 mod contracts;
+mod vk_tree;
 
 use crate::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 
@@ -11,4 +12,3 @@ global CHAIN_ID = 1;
 
 global VERSION = 3;
 
-global VK_TREE_ROOT = 42;

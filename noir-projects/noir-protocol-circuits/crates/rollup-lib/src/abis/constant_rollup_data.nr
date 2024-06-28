@@ -10,6 +10,7 @@ struct ConstantRollupData {
 
     vk_tree_root : Field,
 
+    // TODO(Alvaro) delete this
     base_rollup_vk_hash : Field,
     merge_rollup_vk_hash : Field,
 

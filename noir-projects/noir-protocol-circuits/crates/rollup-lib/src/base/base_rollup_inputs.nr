@@ -472,7 +472,7 @@ mod tests {
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
         MAX_NEW_L2_TO_L1_MSGS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_TAIL_INDEX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
@@ -609,9 +609,10 @@ mod tests {
     impl BaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = BaseRollupInputsBuilder::empty();
-            inputs.kernel_data = FixtureBuilder::new();
+            inputs.kernel_data = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
             inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
             inputs.constants.global_variables.version = fixtures::VERSION;
+            inputs.constants.vk_tree_root = inputs.kernel_data.vk_tree_root;
 
             inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 

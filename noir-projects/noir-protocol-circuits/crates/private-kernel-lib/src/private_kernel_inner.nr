@@ -88,7 +88,7 @@ mod tests {
     use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernelInnerHints};
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
-        constants::MAX_NEW_NOTE_HASHES_PER_CALL,
+        constants::{PRIVATE_KERNEL_INIT_INDEX, MAX_NEW_NOTE_HASHES_PER_CALL},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
 
@@ -100,7 +100,7 @@ mod tests {
 
     impl PrivateKernelInnerInputsBuilder {
         pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new_from_counter(15).as_parent_contract();
+            let mut previous_kernel = FixtureBuilder::new_from_counter(15).in_vk_tree(PRIVATE_KERNEL_INIT_INDEX).as_parent_contract();
             let private_call = FixtureBuilder::new_from_counter(200);
             let hints = PrivateKernelInnerHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
 

@@ -99,7 +99,7 @@ mod tests {
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M
+        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX
     };
     use dep::types::{
         abis::{
@@ -123,7 +123,7 @@ mod tests {
 
     impl PrivateKernelResetInputsBuilder {
         pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new();
+            let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.append_new_nullifiers(1);
 
             PrivateKernelResetInputsBuilder {
