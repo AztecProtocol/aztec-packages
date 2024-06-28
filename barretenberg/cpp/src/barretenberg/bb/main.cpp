@@ -935,6 +935,40 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
 }
 
 /**
+ * @brief Create a Honk a prover from program bytecode and an optional witness
+ *
+ * @tparam Flavor
+ * @param bytecodePath
+ * @param witnessPath
+ * @return UltraProver_<Flavor>
+ */
+template <typename Flavor>
+UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = true;
+    }
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
+    acir_format::WitnessVector witness = {};
+    if (!witnessPath.empty()) {
+        witness = get_witness(witnessPath);
+    }
+
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
+
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
+    init_bn254_crs(srs_size);
+
+    Prover prover{ builder };
+    return prover;
+}
+
+/**
  * @brief Creates a proof for an ACIR circuit
  *
  * Communication:
@@ -990,17 +1024,6 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-    // info("vk size: ",
-    //      vk->circuit_size,
-    //      ", num public inputs: ",
-    //      vk->num_public_inputs,
-    //      ", pub input offset: ",
-    //      vk->pub_inputs_offset,
-    //      ", hash: ",
-    //      vk.hash());
-    // for (auto comm : vk->get_all()) {
-    //     info("comm: ", comm);
-    // }
     Verifier verifier{ vk };
 
     bool verified = verifier.verify_proof(proof);
