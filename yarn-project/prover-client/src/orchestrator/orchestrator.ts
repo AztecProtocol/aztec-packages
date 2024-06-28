@@ -418,6 +418,7 @@ export class ProvingOrchestrator {
         proof: this.provingState.finalProof,
         aggregationObject: this.provingState.finalAggregationObject,
         block: l2Block,
+        vkTreeRoot: rootRollupOutputs.vkTreeRoot,
       };
 
       pushTestData('blockResults', {

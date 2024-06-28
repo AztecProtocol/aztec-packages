@@ -1019,6 +1019,7 @@ export function makeRootRollupPublicInputs(
   return RootRollupPublicInputs.from({
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     header: makeHeader(seed + 0x200, blockNumber),
+    vkTreeRoot: fr(seed + 0x300),
   });
 }
 

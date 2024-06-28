@@ -81,6 +81,8 @@ impl RootRollupInputs {
 
         let total_fees = components::accumulate_fees(left, right);
 
+        let vk_tree_root = left.constants.vk_tree_root;
+
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
@@ -101,7 +103,7 @@ impl RootRollupInputs {
             0
         );
 
-        RootRollupPublicInputs { archive, header }
+        RootRollupPublicInputs { archive, header, vk_tree_root }
     }
 }
 

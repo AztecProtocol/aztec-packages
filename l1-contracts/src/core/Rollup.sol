@@ -93,6 +93,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
+    bytes32 _vkTreeRoot,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
@@ -112,7 +113,7 @@ contract Rollup is IRollup {
     }
 
     bytes32[] memory publicInputs =
-      new bytes32[](2 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
+      new bytes32[](3 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
     // the archive tree root
     publicInputs[0] = _archive;
     // this is the _next_ available leaf in the archive tree
@@ -120,9 +121,11 @@ contract Rollup is IRollup {
     // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
+    publicInputs[2] = _vkTreeRoot;
+
     bytes32[] memory headerFields = HeaderLib.toFields(header);
     for (uint256 i = 0; i < headerFields.length; i++) {
-      publicInputs[i + 2] = headerFields[i];
+      publicInputs[i + 3] = headerFields[i];
     }
 
     // the block proof is recursive, which means it comes with an aggregation object
@@ -134,12 +137,14 @@ contract Rollup is IRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 2 + Constants.HEADER_LENGTH] = part;
+      publicInputs[i + 3 + Constants.HEADER_LENGTH] = part;
     }
 
     if (!verifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
+
+    //TODO(Alvaro) check vkTreeRoot here
 
     archive = _archive;
     lastBlockTs = block.timestamp;

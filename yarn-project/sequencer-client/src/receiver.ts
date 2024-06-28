@@ -12,5 +12,5 @@ export interface L2BlockReceiver {
    * @param aggregationObject - The aggregation object for the block's proof.
    * @param proof - The proof for the block.
    */
-  processL2Block(l2BlockData: L2Block, aggregationObject: Fr[], proof: Proof): Promise<boolean>;
+  processL2Block(l2BlockData: L2Block, vkTreeRoot: Fr, aggregationObject: Fr[], proof: Proof): Promise<boolean>;
 }
