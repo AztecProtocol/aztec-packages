@@ -106,11 +106,13 @@ pub enum BlackBoxFuncCall<F: AcirField> {
         message: Vec<FunctionInput<F>>,
         output: Witness,
     },
+    /// Will be deprecated
     PedersenCommitment {
         inputs: Vec<FunctionInput<F>>,
         domain_separator: u32,
         outputs: (Witness, Witness),
     },
+    /// Will be deprecated
     PedersenHash {
         inputs: Vec<FunctionInput<F>>,
         domain_separator: u32,
@@ -242,8 +244,6 @@ impl<F: AcirField> BlackBoxFuncCall<F> {
             BlackBoxFuncCall::Blake2s { .. } => BlackBoxFunc::Blake2s,
             BlackBoxFuncCall::Blake3 { .. } => BlackBoxFunc::Blake3,
             BlackBoxFuncCall::SchnorrVerify { .. } => BlackBoxFunc::SchnorrVerify,
-            BlackBoxFuncCall::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
-            BlackBoxFuncCall::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
             BlackBoxFuncCall::EcdsaSecp256k1 { .. } => BlackBoxFunc::EcdsaSecp256k1,
             BlackBoxFuncCall::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
             BlackBoxFuncCall::MultiScalarMul { .. } => BlackBoxFunc::MultiScalarMul,
@@ -259,6 +259,8 @@ impl<F: AcirField> BlackBoxFuncCall<F> {
             BlackBoxFuncCall::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
             BlackBoxFuncCall::Poseidon2Permutation { .. } => BlackBoxFunc::Poseidon2Permutation,
             BlackBoxFuncCall::Sha256Compression { .. } => BlackBoxFunc::Sha256Compression,
+            BlackBoxFuncCall::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
+            BlackBoxFuncCall::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
         }
     }
 
@@ -272,9 +274,9 @@ impl<F: AcirField> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::SHA256 { inputs, .. }
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
+            | BlackBoxFuncCall::BigIntFromLeBytes { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
             | BlackBoxFuncCall::PedersenHash { inputs, .. }
-            | BlackBoxFuncCall::BigIntFromLeBytes { inputs, .. }
             | BlackBoxFuncCall::Poseidon2Permutation { inputs, .. } => inputs.to_vec(),
 
             BlackBoxFuncCall::Keccakf1600 { inputs, .. } => inputs.to_vec(),
@@ -467,6 +469,14 @@ fn get_outputs_string(outputs: &[Witness]) -> String {
 
 impl<F: AcirField> std::fmt::Display for BlackBoxFuncCall<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlackBoxFuncCall::PedersenCommitment { .. } => {
+                return write!(f, "BLACKBOX::Deprecated")
+            }
+            BlackBoxFuncCall::PedersenHash { .. } => return write!(f, "BLACKBOX::Deprecated"),
+            _ => (),
+        }
+
         let uppercase_name = self.name().to_uppercase();
         write!(f, "BLACKBOX::{uppercase_name} ")?;
         // INPUTS
@@ -486,13 +496,7 @@ impl<F: AcirField> std::fmt::Display for BlackBoxFuncCall<F> {
 
         write!(f, "]")?;
 
-        // SPECIFIC PARAMETERS
-        match self {
-            BlackBoxFuncCall::PedersenCommitment { domain_separator, .. } => {
-                write!(f, " domain_separator: {domain_separator}")
-            }
-            _ => write!(f, ""),
-        }
+        write!(f, "")
     }
 }
 
