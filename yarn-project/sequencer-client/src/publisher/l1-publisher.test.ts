@@ -59,7 +59,14 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
 
     expect(result).toEqual(true);
-    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body, aggregationObject, proof });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({
+      header,
+      archive,
+      body,
+      aggregationObject,
+      proof,
+      vkTreeRoot: Fr.ZERO.toBuffer(),
+    });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(processTxHash);
   });
 
