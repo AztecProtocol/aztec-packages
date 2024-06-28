@@ -1,7 +1,6 @@
 use dep::protocol_types::{hash::pedersen_hash, traits::FromField};
 
 use crate::context::{PrivateContext, PublicContext};
-use crate::public_storage;
 use crate::state_vars::{
     storage::Storage,
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
