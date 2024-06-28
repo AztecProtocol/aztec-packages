@@ -160,8 +160,6 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidProof();
     }
 
-    //TODO(Alvaro) check vkTreeRoot here
-
     archive = _archive;
     lastBlockTs = block.timestamp;
 
