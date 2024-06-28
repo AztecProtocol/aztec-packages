@@ -1366,9 +1366,10 @@ impl<F: AcirField> AcirContext<F> {
             }
             _ => (vec![], vec![]),
         };
-
+        // Allow constant inputs only for MSM for now
+        let allow_constant_inputs = name.eq(&BlackBoxFunc::MultiScalarMul);
         // Convert `AcirVar` to `FunctionInput`
-        let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
+        let inputs = self.prepare_inputs_for_black_box_func_call(inputs, allow_constant_inputs)?;
         // Call Black box with `FunctionInput`
         let mut results = vecmap(&constant_outputs, |c| self.add_constant(*c));
         let outputs = self.acir_ir.call_black_box(
@@ -1396,6 +1397,7 @@ impl<F: AcirField> AcirContext<F> {
     fn prepare_inputs_for_black_box_func_call(
         &mut self,
         inputs: Vec<AcirValue>,
+        allow_constant_inputs: bool,
     ) -> Result<Vec<Vec<FunctionInput<F>>>, RuntimeError> {
         let mut witnesses = Vec::new();
         for input in inputs {
@@ -1403,13 +1405,13 @@ impl<F: AcirField> AcirContext<F> {
             for (input, typ) in self.flatten(input)? {
                 let num_bits = typ.bit_size::<F>();
                 match self.vars[&input].as_constant() {
-                    Some(constant) => {
+                    Some(constant) if allow_constant_inputs => {
                         single_val_witnesses.push(FunctionInput::Constant(ConstantInput {
                             constant: *constant,
                             num_bits,
                         }));
                     }
-                    None => {
+                    _ => {
                         let witness_var = self.get_or_create_witness_var(input)?;
                         let witness = self.var_to_witness(witness_var)?;
                         single_val_witnesses
@@ -1904,18 +1906,11 @@ impl<F: AcirField> AcirContext<F> {
         output_count: usize,
         predicate: AcirVar,
     ) -> Result<Vec<AcirVar>, RuntimeError> {
-        let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
+        let inputs = self.prepare_inputs_for_black_box_func_call(inputs, false)?;
         let inputs = inputs
             .iter()
             .flat_map(|input| {
-                vecmap(input, |input| match input {
-                    FunctionInput::Constant(constant) => {
-                        let a = self.add_constant(constant.constant);
-                        let witness_var = self.get_or_create_witness_var(a).unwrap();
-                        self.var_to_witness(witness_var).unwrap()
-                    }
-                    FunctionInput::Witness(witness) => witness.witness,
-                })
+                vecmap(input, |input| input.to_witness())
             })
             .collect::<Vec<_>>();
         let outputs = vecmap(0..output_count, |_| self.acir_ir.next_witness_index());
