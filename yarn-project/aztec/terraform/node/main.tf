@@ -57,9 +57,7 @@ locals {
   publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
   node_count             = length(local.publisher_private_keys)
-  #node_count           = 1
-  data_dir             = "/usr/src/yarn-project/aztec/data"
-  agents_per_sequencer = var.AGENTS_PER_SEQUENCER
+  data_dir               = "/usr/src/yarn-project/aztec/data"
 }
 
 output "node_count" {
