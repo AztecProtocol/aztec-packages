@@ -1,0 +1,402 @@
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-79NOt4 -b /tmp/bb-5KsfBd/tmp-79NOt4/App-bytecode -w /tmp/bb-5KsfBd/tmp-79NOt4/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-admSWT -b /tmp/bb-5KsfBd/tmp-admSWT/App-bytecode -w /tmp/bb-5KsfBd/tmp-admSWT/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-79NOt4/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-79NOt4/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-79NOt4/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-79NOt4/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-nBhcKh -b /tmp/bb-5KsfBd/tmp-nBhcKh/PrivateKernelInitArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-nBhcKh/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-admSWT/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-admSWT/proof_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    vk written to: /tmp/bb-5KsfBd/tmp-admSWT/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-admSWT/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-gCmU3G -b /tmp/bb-5KsfBd/tmp-gCmU3G/PrivateKernelInitArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-gCmU3G/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-nBhcKh/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-nBhcKh/proof_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    vk written to: /tmp/bb-5KsfBd/tmp-nBhcKh/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-nBhcKh/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-ApSKNJ/proof -k /tmp/bb-5KsfBd/tmp-ApSKNJ/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-gCmU3G/proof
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-gCmU3G/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-gCmU3G/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-gCmU3G/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-bHec2Y -b /tmp/bb-5KsfBd/tmp-bHec2Y/PrivateKernelResetSmallArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-bHec2Y/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-QckmqF/proof -k /tmp/bb-5KsfBd/tmp-QckmqF/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-Qw08wR -b /tmp/bb-5KsfBd/tmp-Qw08wR/App-bytecode -w /tmp/bb-5KsfBd/tmp-Qw08wR/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-bHec2Y/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-bHec2Y/proof_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    vk written to: /tmp/bb-5KsfBd/tmp-bHec2Y/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-bHec2Y/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-yTFvZs/proof -k /tmp/bb-5KsfBd/tmp-yTFvZs/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-Qw08wR/proof
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-Qw08wR/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-Qw08wR/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-Qw08wR/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-n6DIuP -b /tmp/bb-5KsfBd/tmp-n6DIuP/PrivateKernelInnerArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-n6DIuP/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-QfgJyL -b /tmp/bb-5KsfBd/tmp-QfgJyL/PrivateKernelTailToPublicArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-QfgJyL/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-n6DIuP/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-n6DIuP/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-n6DIuP/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-n6DIuP/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-C27cEw/proof -k /tmp/bb-5KsfBd/tmp-C27cEw/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-ubgetZ -b /tmp/bb-5KsfBd/tmp-ubgetZ/PrivateKernelResetSmallArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-ubgetZ/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-ubgetZ/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-ubgetZ/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-ubgetZ/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-ubgetZ/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-2ObO6e/proof -k /tmp/bb-5KsfBd/tmp-2ObO6e/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-QfgJyL/proof
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-QfgJyL/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-QfgJyL/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-QfgJyL/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-5KsfBd/tmp-fBTX8c -b /tmp/bb-5KsfBd/tmp-fBTX8c/PrivateKernelTailArtifact-bytecode -w /tmp/bb-5KsfBd/tmp-fBTX8c/witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-HRRwZD/proof -k /tmp/bb-5KsfBd/tmp-HRRwZD/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: client_ivc_prove_output_all_msgpack -o /tmp/bb-5KsfBd/tmp-h66afn -b /tmp/bb-5KsfBd/tmp-h66afn/acir.msgpack -w /tmp/bb-5KsfBd/tmp-h66afn/witnesses.msgpack -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: client_ivc_prove_output_all_msgpack
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-5KsfBd/tmp-fBTX8c/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-5KsfBd/tmp-fBTX8c/proof_fields.json
+    vk written to: /tmp/bb-5KsfBd/tmp-fBTX8c/vk
+    vk as fields written to: /tmp/bb-5KsfBd/tmp-fBTX8c/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-5KsfBd/tmp-OjXtD4/proof -k /tmp/bb-5KsfBd/tmp-OjXtD4/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: client_ivc_prove_output_all_msgpack -o /tmp/bb-5KsfBd/tmp-U5aFre -b /tmp/bb-5KsfBd/tmp-U5aFre/acir.msgpack -w /tmp/bb-5KsfBd/tmp-U5aFre/witnesses.msgpack -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: client_ivc_prove_output_all_msgpack
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    folding proof size: 3941
+    decider proof size: 401
+        merge       proof size: 64
+        decider     proof size: 1768
+        goblin      proof size: 881
+        translation evals size: 10
+    goblin  proof size: 2723
+        merge       proof size: 64
+        decider     proof size: 1768
+        goblin      proof size: 881
+        translation evals size: 10
+    Client IVC proof size serialized to bytes: 225940
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    
+    Client IVC proof size serialized to elts : 7065
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    ensure valid proof: 1
+    write proof and vk data to files..
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    folding proof size: 490
+    decider proof size: 401
+        merge       proof size: 64
+        decider     proof size: 1772
+        goblin      proof size: 881
+        translation evals size: 10
+    goblin  proof size: 2727
+        merge       proof size: 64
+        decider     proof size: 1772
+        goblin      proof size: 881
+        translation evals size: 10
+    Client IVC proof size serialized to bytes: 115636
+    Client IVC proof size serialized to elts : 3618
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+    ensure valid proof: 1
+    write proof and vk data to files..
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
