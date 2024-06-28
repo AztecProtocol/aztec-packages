@@ -1,5 +1,6 @@
 import { ProvingRequestType } from '@aztec/circuit-types';
 import {
+  Fr,
   RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   VK_TREE_HEIGHT,
@@ -11,7 +12,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { Fr } from '../../../aztec.js/src/index.js';
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 
 describe('MemoryProvingQueue', () => {
