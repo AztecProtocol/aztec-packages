@@ -2183,7 +2183,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
  */
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
-    num_txs: mapNumberToNoir(contentCommitment.numTxs),
+    num_txs: mapFieldToNoir(contentCommitment.numTxs),
     txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
@@ -2196,7 +2196,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  */
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
-    mapNumberFromNoir(contentCommitment.num_txs),
+    mapFieldFromNoir(contentCommitment.num_txs),
     mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),

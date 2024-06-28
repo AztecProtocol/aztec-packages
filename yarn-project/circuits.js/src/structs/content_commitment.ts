@@ -6,7 +6,7 @@ import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
-  constructor(public numTxs: number, public txsEffectsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
+  constructor(public numTxs: Fr, public txsEffectsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
     if (txsEffectsHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`txsEffectsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
     }
@@ -32,12 +32,12 @@ export class ContentCommitment {
   }
 
   toBuffer() {
-    return serializeToBuffer(BigInt(this.numTxs), this.txsEffectsHash, this.inHash, this.outHash);
+    return serializeToBuffer(this.numTxs, this.txsEffectsHash, this.inHash, this.outHash);
   }
 
   toFields(): Fr[] {
     const serialized = [
-      new Fr(this.numTxs),
+      this.numTxs,
       Fr.fromBuffer(this.txsEffectsHash),
       Fr.fromBuffer(this.inHash),
       Fr.fromBuffer(this.outHash),
@@ -52,7 +52,7 @@ export class ContentCommitment {
     const reader = BufferReader.asReader(buffer);
 
     return new ContentCommitment(
-      reader.readNumber(),
+      reader.readObject(Fr),
       reader.readBytes(NUM_BYTES_PER_SHA256),
       reader.readBytes(NUM_BYTES_PER_SHA256),
       reader.readBytes(NUM_BYTES_PER_SHA256),
@@ -62,7 +62,7 @@ export class ContentCommitment {
   static fromFields(fields: Fr[] | FieldReader): ContentCommitment {
     const reader = FieldReader.asReader(fields);
     return new ContentCommitment(
-      reader.readU32(),
+      reader.readField(),
       reader.readField().toBuffer(),
       reader.readField().toBuffer(),
       reader.readField().toBuffer(),
@@ -71,7 +71,7 @@ export class ContentCommitment {
 
   static empty(): ContentCommitment {
     return new ContentCommitment(
-      0,
+      Fr.zero(),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
@@ -80,7 +80,7 @@ export class ContentCommitment {
 
   isEmpty(): boolean {
     return (
-      this.numTxs == 0 &&
+      this.numTxs.isZero() &&
       this.txsEffectsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))

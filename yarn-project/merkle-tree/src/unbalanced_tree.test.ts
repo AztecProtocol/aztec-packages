@@ -4,8 +4,8 @@ import { type FromBuffer } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type Hasher } from '@aztec/types/interfaces';
 
-import { SHA256Trunc } from '../sha_256.js';
-import { StandardTree } from './standard_tree.js';
+import { SHA256Trunc } from './sha_256.js';
+import { StandardTree } from './standard_tree/standard_tree.js';
 import { UnbalancedTree } from './unbalanced_tree.js';
 
 const noopDeserializer: FromBuffer<Buffer> = {
@@ -47,6 +47,12 @@ describe('Wonky tree', () => {
       const res = await createAndFillTree(2);
       tree = res.tree;
       leaves = res.leaves;
+    });
+
+    it("Shouldn't accept more leaves", () => {
+      expect(() => tree.appendLeaves([Buffer.alloc(32)])).toThrow(
+        "Can't re-append to an unbalanced tree. Current has 2 leaves.",
+      );
     });
 
     it('Correctly computes tree information', () => {

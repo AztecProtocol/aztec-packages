@@ -50,7 +50,7 @@ function makeContentCommitment(
   inHash: Buffer | undefined = undefined,
 ): ContentCommitment {
   return new ContentCommitment(
-    seed,
+    new Fr(seed),
     txsEffectsHash ?? toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
     inHash ?? toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),

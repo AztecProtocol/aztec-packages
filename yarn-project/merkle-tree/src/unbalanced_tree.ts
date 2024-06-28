@@ -2,8 +2,8 @@ import { SiblingPath } from '@aztec/circuit-types';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type Hasher } from '@aztec/types/interfaces';
 
-import { HasherWithStats } from '../hasher_with_stats.js';
-import { type MerkleTree } from '../interfaces/merkle_tree.js';
+import { HasherWithStats } from './hasher_with_stats.js';
+import { type MerkleTree } from './interfaces/merkle_tree.js';
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 
@@ -62,6 +62,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * The fn must exist to implement MerkleTree however.
    */
   public commit(): Promise<void> {
+    throw new Error("Unsupported function - cannot commit on an unbalanced tree as it's always ephemeral.");
     return Promise.resolve();
   }
 
@@ -89,7 +90,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    * We cannot add level as an input as its based on the MerkleTree class's function.
    */
   public getLeafValue(_index: bigint): undefined {
-    return undefined;
+    throw new Error('Unsupported function - cannot get leaf value from an index in an unbalanced tree.');
   }
 
   /**
@@ -166,6 +167,9 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
    */
   public appendLeaves(leaves: T[]): Promise<void> {
     this.hasher.reset();
+    if (this.size != BigInt(0)) {
+      throw Error(`Can't re-append to an unbalanced tree. Current has ${this.size} leaves.`);
+    }
     if (this.size + BigInt(leaves.length) - 1n > this.maxIndex) {
       throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
     }

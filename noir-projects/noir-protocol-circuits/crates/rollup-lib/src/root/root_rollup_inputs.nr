@@ -62,7 +62,7 @@ impl RootRollupInputs {
         let state = StateReference { l1_to_l2_message_tree: new_l1_to_l2_message_tree_snapshot, partial: right.end };
 
         let content_commitment = ContentCommitment {
-            num_txs: left.num_txs + right.num_txs,
+            num_txs: (left.num_txs + right.num_txs) as Field,
             txs_effects_hash: components::compute_txs_effects_hash(self.previous_rollup_data),
             in_hash: self.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: components::compute_out_hash(self.previous_rollup_data)
