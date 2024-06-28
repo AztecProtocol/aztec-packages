@@ -866,9 +866,7 @@ export function makeConstantBaseRollupData(
   return ConstantRollupData.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
     vkTreeRoot: fr(seed + 0x401),
-    baseRollupVkHash: fr(seed + 0x403),
-    mergeRollupVkHash: fr(seed + 0x404),
-    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x405),
+    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x402),
   });
 }
 
@@ -954,7 +952,6 @@ export function makePreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
     VerificationKeyAsFields.makeFake(),
-    seed + 0x110,
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }

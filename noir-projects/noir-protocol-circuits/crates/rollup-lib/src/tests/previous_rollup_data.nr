@@ -20,14 +20,11 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     previous_rollup_data[0].vk.hash = vk_hash;
     previous_rollup_data[1].vk.hash = vk_hash;
 
-    previous_rollup_data[0].vk_index = vk_index;
-    previous_rollup_data[1].vk_index = vk_index;
-
-    previous_rollup_data[0].vk_sibling_path = MembershipWitness {
+    previous_rollup_data[0].vk_witness = MembershipWitness {
         leaf_index: vk_index as Field,
         sibling_path: vk_path
     };
-    previous_rollup_data[1].vk_sibling_path =  MembershipWitness {
+    previous_rollup_data[1].vk_witness =  MembershipWitness {
         leaf_index: vk_index as Field,
         sibling_path: vk_path
     };

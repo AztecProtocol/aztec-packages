@@ -25,13 +25,9 @@ export class PreviousRollupData {
      */
     public vk: VerificationKeyAsFields,
     /**
-     * The index of the rollup circuit's vk in a big tree of rollup circuit vks.
-     */
-    public vkIndex: UInt32,
-    /**
      * Sibling path of the rollup circuit's vk in a big tree of rollup circuit vks.
      */
-    public vkSiblingPath: MembershipWitness<typeof VK_TREE_HEIGHT>,
+    public vkWitness: MembershipWitness<typeof VK_TREE_HEIGHT>,
   ) {}
 
   /**
@@ -39,7 +35,7 @@ export class PreviousRollupData {
    * @returns The buffer of the serialized previous rollup data.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.baseOrMergeRollupPublicInputs, this.proof, this.vk, this.vkIndex, this.vkSiblingPath);
+    return serializeToBuffer(this.baseOrMergeRollupPublicInputs, this.proof, this.vk, this.vkWitness);
   }
 
   /**
@@ -53,7 +49,6 @@ export class PreviousRollupData {
       reader.readObject(BaseOrMergeRollupPublicInputs),
       RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
       reader.readObject(VerificationKeyAsFields),
-      reader.readNumber(),
       MembershipWitness.fromBuffer(reader, VK_TREE_HEIGHT),
     );
   }

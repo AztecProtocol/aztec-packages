@@ -10,10 +10,6 @@ struct ConstantRollupData {
 
     vk_tree_root : Field,
 
-    // TODO(Alvaro) delete this
-    base_rollup_vk_hash : Field,
-    merge_rollup_vk_hash : Field,
-
     global_variables : GlobalVariables,
 }
 
@@ -21,9 +17,7 @@ impl Eq for ConstantRollupData {
     fn eq(self, other : ConstantRollupData) -> bool {
         self.last_archive.eq(other.last_archive) &
         self.global_variables.eq(other.global_variables) &
-        (self.vk_tree_root == other.vk_tree_root) &
-        (self.base_rollup_vk_hash == other.base_rollup_vk_hash) &
-        (self.merge_rollup_vk_hash == other.merge_rollup_vk_hash)
+        (self.vk_tree_root == other.vk_tree_root)
     }
 }
 
@@ -32,8 +26,6 @@ impl Empty for ConstantRollupData {
         ConstantRollupData {
             last_archive: AppendOnlyTreeSnapshot::zero(),
             vk_tree_root: 0,
-            base_rollup_vk_hash: 0,
-            merge_rollup_vk_hash: 0,
             global_variables: GlobalVariables::empty(),
         }
     }
@@ -45,8 +37,6 @@ impl Serialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
 
     fields.extend_from_array(self.last_archive.serialize());
     fields.push(self.vk_tree_root as Field);
-    fields.push(self.base_rollup_vk_hash as Field);
-    fields.push(self.merge_rollup_vk_hash as Field);
     fields.extend_from_array(self.global_variables.serialize());
 
     assert_eq(fields.len(), CONSTANT_ROLLUP_DATA_LENGTH);
@@ -61,8 +51,6 @@ impl Deserialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
     let item = Self {
         last_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
         vk_tree_root: reader.read(),
-        base_rollup_vk_hash: reader.read(),
-        merge_rollup_vk_hash: reader.read(),
         global_variables: reader.read_struct(GlobalVariables::deserialize),
     };
 

@@ -1898,8 +1898,6 @@ export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupDa
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constantRollupData.lastArchive),
     vk_tree_root: mapFieldToNoir(constantRollupData.vkTreeRoot),
-    base_rollup_vk_hash: mapFieldToNoir(constantRollupData.baseRollupVkHash),
-    merge_rollup_vk_hash: mapFieldToNoir(constantRollupData.mergeRollupVkHash),
     global_variables: mapGlobalVariablesToNoir(constantRollupData.globalVariables),
   };
 }
@@ -1950,8 +1948,6 @@ export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollup
   return new ConstantRollupData(
     mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.last_archive),
     mapFieldFromNoir(constantRollupData.vk_tree_root),
-    mapFieldFromNoir(constantRollupData.base_rollup_vk_hash),
-    mapFieldFromNoir(constantRollupData.merge_rollup_vk_hash),
     mapGlobalVariablesFromNoir(constantRollupData.global_variables),
   );
 }
@@ -2035,10 +2031,9 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
     vk: mapVerificationKeyToNoir(previousRollupData.vk),
-    vk_index: mapFieldToNoir(new Fr(previousRollupData.vkIndex)),
-    vk_sibling_path: {
-      leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkSiblingPath.leafIndex)),
-      sibling_path: mapTuple(previousRollupData.vkSiblingPath.siblingPath, mapFieldToNoir),
+    vk_witness: {
+      leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
+      sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
     },
   };
 }

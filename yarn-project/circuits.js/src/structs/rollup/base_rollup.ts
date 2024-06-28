@@ -31,14 +31,6 @@ export class ConstantRollupData {
      */
     public vkTreeRoot: Fr,
     /**
-     * Hash of the base rollup circuit verification key.
-     */
-    public baseRollupVkHash: Fr,
-    /**
-     * Hash of the merge rollup circuit verification key.
-     */
-    public mergeRollupVkHash: Fr,
-    /**
      * Global variables for the block
      */
     public globalVariables: GlobalVariables,
@@ -53,24 +45,16 @@ export class ConstantRollupData {
     return new ConstantRollupData(
       reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
     );
   }
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
-    return [
-      fields.lastArchive,
-      fields.vkTreeRoot,
-      fields.baseRollupVkHash,
-      fields.mergeRollupVkHash,
-      fields.globalVariables,
-    ] as const;
+    return [fields.lastArchive, fields.vkTreeRoot, fields.globalVariables] as const;
   }
 
   static empty() {
-    return new ConstantRollupData(AppendOnlyTreeSnapshot.zero(), Fr.ZERO, Fr.ZERO, Fr.ZERO, GlobalVariables.empty());
+    return new ConstantRollupData(AppendOnlyTreeSnapshot.zero(), Fr.ZERO, GlobalVariables.empty());
   }
 
   toBuffer() {

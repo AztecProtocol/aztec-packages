@@ -48,9 +48,6 @@ import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protoco
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-// Denotes fields that should be deleted
-const DELETE_FR = new Fr(0n);
-
 /**
  * Type representing the names of the trees for the base rollup.
  */
@@ -269,7 +266,6 @@ export function getPreviousRollupDataFromPublicInputs(
     rollupOutput,
     rollupProof,
     vk,
-    leafIndex,
     new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
   );
 }
@@ -279,8 +275,6 @@ export async function getConstantRollupData(
   db: MerkleTreeOperations,
 ): Promise<ConstantRollupData> {
   return ConstantRollupData.from({
-    baseRollupVkHash: DELETE_FR,
-    mergeRollupVkHash: DELETE_FR,
     vkTreeRoot: getVKTreeRoot(),
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,

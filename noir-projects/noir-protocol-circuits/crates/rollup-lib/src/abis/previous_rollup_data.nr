@@ -10,8 +10,7 @@ struct PreviousRollupData{
     base_or_merge_rollup_public_inputs : BaseOrMergeRollupPublicInputs,
     proof : NestedRecursiveProof,
     vk : VerificationKey,
-    vk_index : u32, // TODO(Alvaro) redundant with the witness, delete and rename to witness
-    vk_sibling_path : MembershipWitness<VK_TREE_HEIGHT>,
+    vk_witness : MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupData {
@@ -32,21 +31,20 @@ impl Empty for PreviousRollupData {
             base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs::empty(),
             proof : NestedRecursiveProof::empty(),
             vk : VerificationKey::empty(),
-            vk_index : 0 as u32,
-            vk_sibling_path : MembershipWitness::empty(),
+            vk_witness : MembershipWitness::empty(),
         }
     }
 }
 
 impl PreviousRollupData {
     fn validate_in_vk_tree<N>(self, allowed_indices: [u32; N]) {
-        let index_hint = find_index_hint(allowed_indices, self.vk_index);
-        assert_eq(allowed_indices[index_hint], self.vk_index, "Invalid vk index");
+        let index_hint = find_index_hint(allowed_indices, self.vk_witness.leaf_index as u32);
+        assert_eq(allowed_indices[index_hint], self.vk_witness.leaf_index as u32, "Invalid vk index");
 
         assert_check_membership(
             self.vk.hash,
-            self.vk_index as Field,
-            self.vk_sibling_path.sibling_path,
+            self.vk_witness.leaf_index,
+            self.vk_witness.sibling_path,
             self.base_or_merge_rollup_public_inputs.constants.vk_tree_root
         );
     }
