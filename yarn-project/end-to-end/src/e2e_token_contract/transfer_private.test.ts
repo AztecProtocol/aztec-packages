@@ -34,13 +34,13 @@ describe('e2e_token_contract transfer private', () => {
     const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer(accounts[1].address, amount).send().wait();
+    const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
     const events = await wallets[1].getEvents(
       EventType.Encrypted,
       TokenContract.events.Transfer,
-      await wallets[1].getBlockNumber(),
+      tx.blockNumber,
       1,
     );
 
