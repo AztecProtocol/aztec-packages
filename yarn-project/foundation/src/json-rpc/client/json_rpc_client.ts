@@ -103,7 +103,7 @@ export function createJsonRpcClient<T extends object>(
   namespaceMethods?: string | false,
   fetch = defaultFetch,
 ) {
-  const classConverter = new ClassConverter(stringClassMap, objectClassMap);
+  const classConverter = new ClassConverter({ fromString: stringClassMap, fromJSON: objectClassMap });
   let id = 0;
   const request = async (method: string, params: any[]): Promise<any> => {
     const body = {

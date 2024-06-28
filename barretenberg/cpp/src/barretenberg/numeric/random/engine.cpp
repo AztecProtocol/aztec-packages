@@ -126,12 +126,21 @@ RNG& get_debug_randomness(bool reset, std::uint_fast64_t seed)
     return debug_engine;
 }
 
+static bool use_deterministic_randomness = false;
+
+void set_use_deterministic_randomness()
+{
+    use_deterministic_randomness = true;
+}
+
 /**
  * Default engine. If wanting consistent proof construction, uncomment the line to return the debug engine.
  */
 RNG& get_randomness()
 {
-    // return get_debug_randomness();
+    if (use_deterministic_randomness) {
+        return get_debug_randomness();
+    }
     static RandomEngine engine;
     return engine;
 }

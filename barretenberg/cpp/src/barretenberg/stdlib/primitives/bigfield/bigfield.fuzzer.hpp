@@ -1125,7 +1125,7 @@ template <typename Builder> class BigFieldBase {
                                              Instruction& instruction)
         {
 
-            // THis is strange
+            // This is strange
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element.value,
                                  bigfield_t::from_witness(builder, bb::fq(instruction.arguments.element.value))));

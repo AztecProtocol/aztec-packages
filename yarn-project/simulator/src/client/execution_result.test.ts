@@ -1,10 +1,6 @@
 import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters, CacheableExecutionResult } from './execution_result.js';
 
-import {
-  type ExecutionResult,
-  collectNoteHashLeafIndexMap,
-  collectNullifiedNoteHashCounters,
-} from './execution_result.js';
 
 function emptyExecutionResult(): ExecutionResult {
   return {
@@ -87,7 +83,6 @@ describe('collectNullifiedNoteHashCounters', () => {
   it('returns a map containing note hash leaf indexes for nested executions', () => {
     executionResult.nullifiedNoteHashCounters.set(12, 99);
     executionResult.nullifiedNoteHashCounters.set(34, 88);
-
     const childExecution0 = emptyExecutionResult();
     childExecution0.nullifiedNoteHashCounters.set(56, 77);
 
@@ -106,5 +101,19 @@ describe('collectNullifiedNoteHashCounters', () => {
     expect(res.get(56)).toBe(77);
     expect(res.get(78)).toBe(66);
     expect(res.get(90)).toBe(55);
+  });
+});
+
+describe('ExecutionResult serialization', () => {
+  it('should serialize a sample execution result', () => {
+    const childExecution = emptyExecutionResult();
+    childExecution.nullifiedNoteHashCounters.set(56, 77);
+    childExecution.nestedExecutions = [emptyExecutionResult(), emptyExecutionResult()];
+    childExecution.nestedExecutions[0].nullifiedNoteHashCounters.set(57, 78);
+    const serialized = new CacheableExecutionResult(childExecution).toBuffer()
+    const deserialized = CacheableExecutionResult.fromBuffer(serialized).executionResult;
+    expect(deserialized.nestedExecutions.length).toBe(2);
+    expect(deserialized.nullifiedNoteHashCounters.get(56)).toBe(77);
+    expect(deserialized.nestedExecutions[0].nullifiedNoteHashCounters.get(57)).toBe(78);
   });
 });

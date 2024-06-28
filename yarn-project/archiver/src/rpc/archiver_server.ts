@@ -21,15 +21,17 @@ export function createArchiverRpcServer(archiverService: Archiver): JsonRpcServe
   return new JsonRpcServer(
     archiverService,
     {
-      EthAddress,
-      ExtendedUnencryptedL2Log,
-      Fr,
-      L2Block,
-      EncryptedNoteL2BlockL2Logs,
-      UnencryptedL2BlockL2Logs,
-      TxEffect,
+      fromString: {
+        EthAddress,
+        ExtendedUnencryptedL2Log,
+        Fr,
+        L2Block,
+        EncryptedNoteL2BlockL2Logs,
+        UnencryptedL2BlockL2Logs,
+        TxEffect,
+      },
+      fromJSON: { TxReceipt, NullifierMembershipWitness }
     },
-    { TxReceipt, NullifierMembershipWitness },
     ['start', 'stop'],
   );
 }

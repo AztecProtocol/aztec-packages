@@ -59,7 +59,7 @@ class TXEDispatcher {
  * @returns A running http server.
  */
 export function startTXEHttpServer(dispatcher: TXEDispatcher, port: string | number): http.Server {
-  const txeServer = new JsonRpcServer(dispatcher, { Fr }, {}, ['init']);
+  const txeServer = new JsonRpcServer(dispatcher, { fromString: { Fr } }, ['init']);
 
   const app = txeServer.getApp();
   const httpServer = http.createServer(app.callback());

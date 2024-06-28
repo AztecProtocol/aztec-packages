@@ -1,7 +1,7 @@
 export {
   StringClassConverterInput,
   JsonClassConverterInput as ObjClassConverterInput,
-  JsonEncodedClass,
+  EncodedClass,
   ClassConverter,
 } from './class_converter.js';
 

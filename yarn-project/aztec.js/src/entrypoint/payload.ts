@@ -43,7 +43,7 @@ type EncodedFunctionCall = {
 export abstract class EntrypointPayload {
   #packedArguments: PackedValues[] = [];
   #functionCalls: EncodedFunctionCall[] = [];
-  #nonce = Fr.random();
+  #nonce = Fr.randomId('nonce');
   #generatorIndex: number;
 
   protected constructor(functionCalls: FunctionCall[], generatorIndex: number) {

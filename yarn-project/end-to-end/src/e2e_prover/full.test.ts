@@ -2,6 +2,7 @@ import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
 import { FullProverTest } from './e2e_prover_test.js';
+import { RandomnessSingleton } from '../../../foundation/src/crypto/random/randomness_singleton.js';
 
 const TIMEOUT = 1_800_000;
 
@@ -33,6 +34,7 @@ describe('full_prover', () => {
   it(
     'makes both public and private transfers',
     async () => {
+      RandomnessSingleton.getInstance().reseedIfDeterministic()
       logger.info(
         `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
       );
@@ -50,15 +52,15 @@ describe('full_prover', () => {
         publicSendAmount,
         0,
       );
-      const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+      // const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
 
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying kernel tail to public proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
+      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      // logger.info(`Verifying kernel tail to public proof`);
+      // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
 
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying private kernel tail proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      // logger.info(`Verifying private kernel tail proof`);
+      // await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });

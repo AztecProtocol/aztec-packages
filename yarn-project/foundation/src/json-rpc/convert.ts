@@ -60,6 +60,10 @@ export function JsonStringify(obj: object, prettify?: boolean): string {
   );
 }
 
+export function convertFromJsonBuffer(cc: ClassConverter, buffer: Buffer): any {
+  return convertFromJsonObj(cc, JSON.parse(buffer.toString()));
+}
+
 /**
  * Convert a JSON-friendly object, which may encode a class object.
  * @param cc - The class converter.
@@ -81,6 +85,14 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
 
   if (obj.type === 'bigint' && typeof obj.data === 'string') {
     return BigInt(obj.data);
+  }
+  if (obj.type === "map" && Array.isArray(obj.data)) {
+    const entries: [any, any][] = obj.data;
+    const map = new Map();
+    for (const entry of entries) {
+      map.set(convertFromJsonObj(cc, entry[0]), convertFromJsonObj(cc, entry[1]));
+    }
+    return map;
   }
 
   // Is this a convertible type?
@@ -110,6 +122,10 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
   return obj;
 }
 
+export function convertToJsonBuffer(cc: ClassConverter, obj: any): Buffer {
+  return Buffer.from(JSON.stringify(convertToJsonObj(cc, obj)))
+}
+
 /**
  * Convert objects or classes to a JSON-friendly object.
  * @param cc - The class converter.
@@ -124,7 +140,16 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
       data: obj.toString(),
     };
   }
-
+  if (obj instanceof Map) {
+    const entries: [any, any][] = [];
+    for (const entry of obj.entries()) {
+      entries.push([convertToJsonObj(cc, entry[0]), convertToJsonObj(cc, entry[1])]);
+    }
+    return {
+      type: 'map',
+      data: entries
+    }
+  }
   if (!obj) {
     return obj; // Primitive type
   }
