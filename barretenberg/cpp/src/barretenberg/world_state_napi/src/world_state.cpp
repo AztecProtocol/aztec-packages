@@ -6,7 +6,6 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/dsl/acir_format/serde/serde.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/world_state_napi/src/get_root.hpp"
 #include "barretenberg/world_state_napi/src/tree_op.hpp"
 #include "barretenberg/world_state_napi/src/tree_with_store.hpp"
 #include "napi.h"
