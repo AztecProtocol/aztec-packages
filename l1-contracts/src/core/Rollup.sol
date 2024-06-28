@@ -44,17 +44,25 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
+  bytes32 public vkTreeRoot;
+
   using EnumerableSet for EnumerableSet.AddressSet;
 
   EnumerableSet.AddressSet private sequencers;
 
-  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle, IERC20 _gasToken) {
+  constructor(
+    IRegistry _registry,
+    IAvailabilityOracle _availabilityOracle,
+    IERC20 _gasToken,
+    bytes32 _vkTreeRoot
+  ) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
     GAS_TOKEN = _gasToken;
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     OUTBOX = new Outbox(address(this));
+    vkTreeRoot = _vkTreeRoot;
     VERSION = 1;
   }
 
@@ -84,6 +92,10 @@ contract Rollup is IRollup {
     verifier = IVerifier(_verifier);
   }
 
+  function setVkTreeRoot(bytes32 _vkTreeRoot) external {
+    vkTreeRoot = _vkTreeRoot;
+  }
+
   /**
    * @notice Process an incoming L2 block and progress the state
    * @param _header - The L2 block header
@@ -110,6 +122,10 @@ contract Rollup is IRollup {
     address sequencer = whoseTurnIsIt(header.globalVariables.blockNumber);
     if (sequencer != address(0x0) && sequencer != msg.sender) {
       revert Errors.Rollup__InvalidSequencer(msg.sender);
+    }
+
+    if (_vkTreeRoot != vkTreeRoot) {
+      revert Errors.Rollup__InvalidVkTreeRoot(vkTreeRoot, _vkTreeRoot);
     }
 
     bytes32[] memory publicInputs =
