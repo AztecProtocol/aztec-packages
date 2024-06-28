@@ -6,7 +6,7 @@ include_directories(${CMAKE_JS_INC})
 file(GLOB_RECURSE SOURCE_FILES *.cpp)
 file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
 
-add_library(world_state_napi SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
+add_library(world_state_napi SHARED ${SOURCE_FILES})
 set_target_properties(world_state_napi PROPERTIES PREFIX "" SUFFIX ".node")
 
 execute_process(
@@ -28,4 +28,4 @@ message(STATUS "Found node-addon-api at ${NODE_ADDON_API_DIR}")
 message(STATUS "Found node-api-headers at ${NODE_API_HEADERS_DIR}")
 
 target_include_directories(world_state_napi PRIVATE ${NODE_API_HEADERS_DIR} ${NODE_ADDON_API_DIR})
-target_link_libraries(world_state_napi common crypto_merkle_tree ${CMAKE_JS_LIB} ${TBB_IMPORTED_TARGETS})
+target_link_libraries(world_state_napi common crypto_merkle_tree ${TBB_IMPORTED_TARGETS})

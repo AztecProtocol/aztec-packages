@@ -9,14 +9,17 @@
 #include "barretenberg/world_state_napi/src/tree_op.hpp"
 #include "barretenberg/world_state_napi/src/tree_with_store.hpp"
 #include "napi.h"
+#include <chrono>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 
 WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
-    , _workers(4)
+    , _workers(16)
 {
     Napi::Env env = info.Env();
 
@@ -31,12 +34,12 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     }
 
     // bb::crypto::merkle_tree::LMDBEnvironment lmdb_env(info[0].ToString(), 1, 2, 16);
-    _lmdb_env = std::make_unique<bb::crypto::merkle_tree::LMDBEnvironment>(info[0].ToString(), 1, 2, 16);
+    _lmdb_env = std::make_unique<bb::crypto::merkle_tree::LMDBEnvironment>(info[0].ToString(), 64, 16, 16);
     // bb::crypto::merkle_tree::LMDBStore lmdb_store(*_lmdb_env, "world_state");
     _lmdb_store = std::make_unique<bb::crypto::merkle_tree::LMDBStore>(*_lmdb_env, "world_state");
 
     // bb::world_state::TreeStore store("notes", 2, *_lmdb_store);
-    _notes_store = std::make_unique<bb::world_state::TreeStore>("notes", 2, *_lmdb_store);
+    _notes_store = std::make_unique<bb::world_state::TreeStore>("notes", 40, *_lmdb_store);
     _notes_tree = std::make_shared<bb::world_state::Tree>(*_notes_store, _workers);
     // _store = std::make_shared<bb::world_state::TreeStore>("notes", 2, lmdb_store);
     // _notes_tree = std::make_shared<bb::world_state::Tree>(*_store, _workers);
@@ -69,18 +72,38 @@ Napi::Value WorldStateAddon::insert_leaf(const Napi::CallbackInfo& info)
     auto env = info.Env();
     auto deferred = Napi::Promise::Deferred::New(env);
 
-    if (info.Length() < 1) {
-        deferred.Reject(Napi::TypeError::New(env, "Wrong number of arguments").Value());
-        return deferred.Promise();
+    // if (info.Length() < 1) {
+    //     deferred.Reject(Napi::TypeError::New(env, "Wrong number of arguments").Value());
+    //     return deferred.Promise();
+    // }
+
+    // if (!info[0].IsString()) {
+    //     deferred.Reject(Napi::TypeError::New(env, "Leaf must be a string").Value());
+    //     return deferred.Promise();
+    // }
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+    auto js_leaves = info[0].As<Napi::Array>();
+    auto leaves = std::make_shared<std::vector<bb::fr>>();
+    // auto leaves = std::make_shared<std::vector<bb::fr>>(js_leaves.Length());
+    // leaves->reserve(info.Length());
+    std::cout << "leaves: " << js_leaves.Length() << std::endl;
+    for (uint32_t i = 0; i < js_leaves.Length(); i++) {
+        auto s = std::string(js_leaves.Get(i).ToString());
+        // std::cout << "param " << i << " " << s << std::endl;
+        leaves->emplace_back(bb::fr(s));
+        // std::cout << "actual bb::fr " << i << " " << (*leaves)[i] << std::endl;
     }
 
-    if (!info[0].IsString()) {
-        deferred.Reject(Napi::TypeError::New(env, "Leaf must be a string").Value());
-        return deferred.Promise();
-    }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    std::cout << "parse leaf strings to bb::fr "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "ms" << std::endl;
 
-    bb::fr leaf(info[0].As<Napi::String>());
-    auto* tree_op = new bb::world_state::TreeOp(env, deferred, [&]() {
+    auto* tree_op = new bb::world_state::TreeOp(env, deferred, [=]() {
+        auto t3 = std::chrono::high_resolution_clock::now();
+        std::cout << "async worker queue duration "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << "ms" << std::endl;
+
         bb::crypto::merkle_tree::Signal signal(1);
         bb::fr leaf_index(0);
         auto completion = [&](bb::fr leaf, bb::crypto::merkle_tree::index_t index) -> void {
@@ -89,8 +112,12 @@ Napi::Value WorldStateAddon::insert_leaf(const Napi::CallbackInfo& info)
             signal.signal_level(0);
         };
 
-        _notes_tree->add_value(leaf, completion);
+        _notes_tree->add_values(*leaves, completion);
         signal.wait_for_level(0);
+
+        auto t4 = std::chrono::high_resolution_clock::now();
+        std::cout << "insert leaf callback duration "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count() << "ms" << std::endl;
         return leaf_index;
     });
     tree_op->Queue();

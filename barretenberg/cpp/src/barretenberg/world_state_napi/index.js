@@ -1,9 +1,9 @@
 var addon = require("bindings")("world_state_napi");
 const fs = require("fs");
 
-const interval = setInterval(() => {
-  // console.log("\nRunning...");
-}, 1);
+// const interval = setInterval(() => {
+// console.log("\nRunning...");
+// }, 1);
 
 (async function main() {
   fs.mkdirSync("./data", { recursive: true });
@@ -40,9 +40,10 @@ const interval = setInterval(() => {
   console.time(insertLabel + " duration");
 
   const leaf =
-    "0x0000000000000000000000000000000000000000000000000000000000000001";
-  console.log("Leaf:", leaf);
-  const leafIndex = await x.insert_leaf(leaf);
+    "0x0000000000000000000000000000000000000000000000000000000000000010";
+  const N = 8192 * 2;
+  const leaves = Array(N).fill(leaf);
+  const leafIndex = await x.insert_leaf(leaves);
   console.log("Index:", leafIndex);
   console.timeEnd(insertLabel + " duration");
   console.groupEnd();
@@ -54,5 +55,7 @@ const interval = setInterval(() => {
   console.timeEnd("Commit duration");
   printRoots("After commit");
 
-  clearInterval(interval);
-})();
+  if (typeof interval !== "undefined") {
+    clearInterval(interval);
+  }
+})().then(console.log, console.error);
