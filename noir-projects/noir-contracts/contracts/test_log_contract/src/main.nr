@@ -4,7 +4,7 @@ contract TestLog {
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::aztec::event::event_interface::EventInterface;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys};
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
 
     #[aztec(event)]
@@ -46,7 +46,7 @@ contract TestLog {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
         event0.emit(
-            encode_and_encrypt_event(
+            encode_and_encrypt_event_with_randomness(
                 &mut context,
                 randomness[0],
                 context.msg_sender(),
@@ -57,7 +57,7 @@ contract TestLog {
         let event1 = ExampleEvent1 { value2: preimages[2], value3: preimages[3] };
 
         event1.emit(
-            encode_and_encrypt_event(
+            encode_and_encrypt_event_with_randomness(
                 &mut context,
                 randomness[1],
                 context.msg_sender(),
