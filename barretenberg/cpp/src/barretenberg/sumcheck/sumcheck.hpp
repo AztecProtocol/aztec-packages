@@ -191,28 +191,23 @@ template <typename Flavor> class SumcheckProver {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
 
-        // TODO(CONSTANT_PROOF_SIZE): Pad up the proof size by adding zero univariates to take up the space of
-        // univariates that would be there if the input circuit size were 1<<Flavor::MAX_LOG_CIRCUIT_SIZE.
-        // WORKTODO: avoiding flavor constant for now so I can build the recursion tests without adding to every flavor
-        const size_t MAX_LOG_CIRCUIT_SIZE = 28;
-
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
-        transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(0), round_univariate);
-        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(0));
+        transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
         round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                   // release memory?        // All but final round
                                                   // We operate on partially_evaluated_polynomials in place.
-        for (size_t idx = 1; idx < multivariate_d; idx++) {
+        for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             // Write the round univariate to the transcript
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), round_univariate);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);

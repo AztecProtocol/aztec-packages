@@ -47,7 +47,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
-    // info("In Ultra Verifier");
     transcript = std::make_shared<Transcript>(proof);
     VerifierCommitments commitments{ key };
     OinkVerifier<Flavor> oink_verifier{ key, transcript };
@@ -73,8 +72,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         info("Sumcheck verification failed.");
         return false;
-    } else if (sumcheck_verified.has_value()) {
-        info("sumcheck passed");
     }
 
     // Execute ZeroMorph rounds to produce an opening claim and verify it with a univariate PCS. See

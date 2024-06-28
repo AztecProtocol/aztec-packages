@@ -254,7 +254,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                               MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 
@@ -285,11 +287,6 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
-};
-
-HEAVY_TYPED_TEST(RecursiveVerifierTest, Zeromorph)
-{
-    TestFixture::test_recursive_verification();
 };
 
 } // namespace bb::stdlib::recursion::honk

@@ -169,7 +169,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                                               builder, elements.subspan(num_frs_read, num_frs_FF))
                                               .get_value());
             num_frs_read += num_frs_FF;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
                                                    builder, elements.subspan(num_frs_read, num_frs_FF))
                                                    .get_value());

@@ -5,7 +5,6 @@
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
-#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
@@ -358,7 +357,6 @@ template <typename Curve> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
-        // WORKTODO: is this initialization right?
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
@@ -403,14 +401,6 @@ template <typename Curve> class ZeroMorphProver_ {
         }
         // Add buffer elements to remove log_N dependence in proof
         for (size_t idx = log_N; idx < CONST_PROOF_SIZE_LOG_N; ++idx) {
-            auto buffer_element = Commitment::one();
-            std::string label = "ZM:C_q_" + std::to_string(idx);
-            transcript->send_to_verifier(label, buffer_element);
-        }
-
-        constexpr size_t MAX_LOG_CIRCUIT_SIZE = 28;
-        // TODO(CONSTANT_PROOF_SIZE): Send some BS q_ks (We dont have Flavor tho.. ick)
-        for (size_t idx = log_N; idx < MAX_LOG_CIRCUIT_SIZE; ++idx) {
             auto buffer_element = Commitment::one();
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, buffer_element);
@@ -489,13 +479,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
             log_N = static_cast<uint32_t>(log_circuit_size);
         }
 
-        size_t log_N;
-        if constexpr (Curve::is_stdlib_type) {
-            log_N = static_cast<uint32_t>(log_circuit_size.get_value());
-        } else {
-            log_N = static_cast<uint32_t>(log_circuit_size);
-        }
-        // info("log circuit size when computing C_zeta_x: ", log_N);
         // Instantiate containers for input to batch mul
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
@@ -746,7 +729,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
             log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
         }
         FF rho = transcript->template get_challenge<FF>("rho");
-        // info("rho: ", rho);
 
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
         FF batched_evaluation = FF(0);
@@ -771,11 +753,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
             C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
         }
 
-        // info("past the loop with 28 commitments");
-
         // Challenge y
         FF y_challenge = transcript->template get_challenge<FF>("ZM:y");
-        // info("ZM:y ", y_challenge);
 
         // Receive commitment C_{q}
         auto C_q = transcript->template receive_from_prover<Commitment>("ZM:C_q");
@@ -798,13 +777,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                          log_N,
                                          circuit_size,
                                          concatenation_group_commitments);
-        if constexpr (Curve::is_stdlib_type) {
-            // info(z_challenge.get_context()->num_gates,
-            //      " and arithmetic gates ",
-            //      z_challenge.get_context()->blocks.arithmetic.q_m().size());
-        }
 
-        // info("C_Z_x ", C_Z_x);
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
         if constexpr (Curve::is_stdlib_type) {

@@ -69,6 +69,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                                       multivariate_challenge,
                                                                       key->pcs_verification_key->get_g1_identity(),
                                                                       transcript);
+
     // Execute transcript consistency univariate opening round
     auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
 

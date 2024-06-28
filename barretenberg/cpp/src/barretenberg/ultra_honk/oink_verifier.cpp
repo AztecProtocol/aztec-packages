@@ -31,25 +31,20 @@ template <IsUltraFlavor Flavor> OinkOutput<Flavor> OinkVerifier<Flavor>::verify(
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-    [[maybe_unused]] const auto circuit_size =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "circuit_size");
-    // info("circuit size ", circuit_size);
-
-    [[maybe_unused]] const auto public_input_size =
+    const auto circuit_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "circuit_size");
+    const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "public_input_size");
-    // info("public input size", public_input_size);
-    [[maybe_unused]] const auto pub_inputs_offset =
+    const auto pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
-    // // info("pub inputs offset", pub_inputs_offset);
-    // ASSERT(circuit_size == key->circuit_size);
-    // ASSERT(public_input_size == key->num_public_inputs);
-    // ASSERT(pub_inputs_offset == key->pub_inputs_offset);
+
+    ASSERT(circuit_size == key->circuit_size);
+    ASSERT(public_input_size == key->num_public_inputs);
+    ASSERT(pub_inputs_offset == key->pub_inputs_offset);
 
     for (size_t i = 0; i < public_input_size; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
-        // info("RECEIVED PUBLIC INPUTS", public_input_i);
     }
 }
 
@@ -62,11 +57,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
-    // info("w_l ", witness_comms.w_l);
     witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
-    // info("w_r ", witness_comms.w_r);
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
-    // info("w_o ", witness_comms.w_o);
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -118,8 +110,6 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
 {
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
-    // info("beta ", beta);
-    // info("gamma ", gamma);
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 

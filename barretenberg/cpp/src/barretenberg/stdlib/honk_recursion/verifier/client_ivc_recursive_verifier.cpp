@@ -20,10 +20,8 @@ void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
     DeciderVerifier decider{ builder.get(), native_verifier_acc };
     decider.verify_proof(proof.decider_proof);
 
-    // LONDONTODO try to use goblin verifier on client ivc proof
     // Perform Goblin recursive verification
     GoblinVerifier goblin_verifier{ builder.get(), verifier_input.goblin_input };
-    // LONDONTODO inside this call
     goblin_verifier.verify(proof.goblin_proof);
 }
 

@@ -406,30 +406,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      */
     void check_selector_length_consistency()
     {
-        // first discrepancies:
-        // checking q_c          : 2766
-        // checking q_l          : 1029
-        // checking q_r          : 1029
-        // checking q_o          : 1029
-        // checking q_4          : 1029
-        // checking q_m          : 2765
-        // checking q_arith      : 1029
-        // checking q_delta_range: 33594
-        // checking q_elliptic   : 51085
-        // checking q_aux        : 51146
-        // checking q_lookup     : 75259
-        // checking sigma_1      : 1029
-        // checking sigma_2      : 1
-        // checking sigma_3      : 1029
-        // checking sigma_4      : 4
-        // checking id_1         : 1029
-        // checking id_2         : 1029
-        // checking id_3         : 1029
-        // checking id_4         : 1029
-        constexpr size_t index_of_interest = /* 1029; */ 5412;
-        if (this->blocks.arithmetic.size() == index_of_interest + 1) {
-            // info("index_of_interest");
-        }
 #if NDEBUG
         // do nothing
 #else

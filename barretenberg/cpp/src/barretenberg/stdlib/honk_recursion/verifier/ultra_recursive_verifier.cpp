@@ -38,7 +38,6 @@ template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& proof)
 {
-    // info("in Ultra Recursive Verifier");
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
@@ -70,14 +69,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
 
     // Get commitments to first three wire polynomials
-    // info("Honk verify_proof: receiving witness commitments ");
     commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
-    // info("w_l ", commitments.w_l.get_value());
     commitments.w_r = transcript->template receive_from_prover<Commitment>(commitment_labels.w_r);
-    // info("w_r ", commitments.w_r.get_value());
-
     commitments.w_o = transcript->template receive_from_prover<Commitment>(commitment_labels.w_o);
-    // info("w_o", commitments.w_o.get_value());
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -96,12 +90,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.return_data_read_counts =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
     }
-    // info("Honk verify_proof: done receiving witness commitments ");
 
     // Get eta challenges; used in RAM/ROM memory records and log derivative lookup argument
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
-    // info("eta: ", eta);
-    ;
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
@@ -115,8 +106,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
-    // info("beta ", beta.get_value());
-    // info("gamma ", gamma.get_value());
 
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
@@ -168,7 +157,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
                                            transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
-    // std::array<typename Flavor::GroupElement, 2> pairing_points;
     return pairing_points;
 }
 

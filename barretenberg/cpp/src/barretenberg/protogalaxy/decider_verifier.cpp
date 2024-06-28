@@ -46,8 +46,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const Hon
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         info("Sumcheck verification failed.");
         return false;
-    } else if (sumcheck_verified.has_value()) {
-        info("sumcheck passed");
     }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the

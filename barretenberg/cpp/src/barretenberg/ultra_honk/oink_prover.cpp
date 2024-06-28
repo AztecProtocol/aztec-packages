@@ -44,7 +44,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
 {
     const auto circuit_size = static_cast<uint32_t>(proving_key.circuit_size);
     const auto num_public_inputs = static_cast<uint32_t>(proving_key.num_public_inputs);
-    // info("Oink transcript->send_to_verifier(domain_separator circuit size): ", circuit_size);
     transcript->send_to_verifier(domain_separator + "circuit_size", circuit_size);
     transcript->send_to_verifier(domain_separator + "public_input_size", num_public_inputs);
     transcript->send_to_verifier(domain_separator + "pub_inputs_offset",
