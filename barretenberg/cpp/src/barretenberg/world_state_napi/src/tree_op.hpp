@@ -8,48 +8,69 @@
 
 #include <chrono>
 #include <thread>
+#include <utility>
 
 namespace bb::world_state {
 
 using namespace Napi;
 
+using tree_op_callback = std::function<bb::fr()>;
+
 class TreeOp : public AsyncWorker {
   public:
-    TreeOp(Napi::Env env, std::shared_ptr<bb::world_state::Tree>& tree)
+    TreeOp(Napi::Env env, tree_op_callback& callback)
         : AsyncWorker(env)
-        , _tree(tree)
+        , _callback(callback)
         , _deferred(env)
+        , _result(0)
     {}
 
+    TreeOp(Napi::Env env, Promise::Deferred& deferred, tree_op_callback& callback)
+        : AsyncWorker(env)
+        , _callback(callback)
+        , _deferred(deferred)
+        , _result(0)
+    {}
+
+    TreeOp(Napi::Env env, tree_op_callback callback)
+        : AsyncWorker(env)
+        , _callback(std::move(callback))
+        , _deferred(env)
+        , _result(0)
+    {}
+
+    TreeOp(Napi::Env env, Promise::Deferred& deferred, tree_op_callback callback)
+        : AsyncWorker(env)
+        , _callback(std::move(callback))
+        , _deferred(deferred)
+        , _result(0)
+    {}
+
+    TreeOp(const TreeOp&) = delete;
+    TreeOp& operator=(const TreeOp&) = delete;
+    TreeOp(TreeOp&&) = delete;
+    TreeOp& operator=(TreeOp&&) = delete;
+
     ~TreeOp() override = default;
-    // This code will be executed on the worker thread
+
     void Execute() override
     {
-        Signal signal(1);
-        auto completion =
-            [&](const std::string&, uint32_t, const bb::crypto::merkle_tree::index_t&, const bb::fr& r) -> void {
-            std::cout << "Got root " << format(_root) << "\n";
-            _root = r;
-            signal.signal_level(0);
-        };
-
-        _tree->get_meta_data(false, completion);
-        signal.wait_for_level(0);
+        try {
+            _result = _callback();
+        } catch (const std::exception& e) {
+            SetError(e.what());
+        }
     }
 
-    void OnOK() override
-    {
-        HandleScope scope(Env());
-        _deferred.Resolve(Napi::String::New(scope.Env(), format(_root)));
-        // Callback().Call({ Env().Null(), String::New(Env(), echo) });
-    }
+    void OnOK() override { _deferred.Resolve(String::New(Env(), format(_result))); }
+    void OnError(const Napi::Error& e) override { _deferred.Reject(e.Value()); }
 
-    Napi::Promise GetPromise() { return _deferred.Promise(); }
+    Promise GetPromise() { return _deferred.Promise(); }
 
   private:
-    std::shared_ptr<Tree> _tree;
-    bb::fr _root;
-    Napi::Promise::Deferred _deferred;
+    tree_op_callback _callback;
+    Promise::Deferred _deferred;
+    bb::fr _result;
 };
 
 } // namespace bb::world_state

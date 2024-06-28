@@ -1,7 +1,6 @@
 
 #include "thread_pool.hpp"
 #include "barretenberg/common/log.hpp"
-#include <iostream>
 namespace bb {
 
 ThreadPool::ThreadPool(size_t num_threads)
@@ -14,7 +13,6 @@ ThreadPool::ThreadPool(size_t num_threads)
 
 ThreadPool::~ThreadPool()
 {
-    std::cout << "Destroying thread pool\n";
     {
         std::unique_lock<std::mutex> lock(tasks_mutex);
         stop = true;
@@ -27,17 +25,11 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::enqueue(const std::function<void()>& task)
 {
-    std::cout << "Enqueueing task\n";
     {
-        std::cout << "acquiring lock\n";
         std::unique_lock<std::mutex> lock(tasks_mutex);
-        std::cout << "lock acquired\n";
         tasks.push(task);
-        std::cout << "task pushed\n";
     }
-    std::cout << "notifying\n";
     condition.notify_one();
-    std::cout << "notified\n";
 }
 
 void ThreadPool::wait()
@@ -53,7 +45,6 @@ void ThreadPool::worker_loop(size_t /*unused*/)
         std::function<void()> task;
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
-            std::cout << "worker waiting\n";
             condition.wait(lock, [this] { return !tasks.empty() || stop; });
 
             if (tasks.empty() && stop) {
@@ -61,14 +52,11 @@ void ThreadPool::worker_loop(size_t /*unused*/)
             }
 
             task = tasks.front();
-            std::cout << "task popped\n";
             tasks.pop();
             tasks_running++;
         }
-        std::cout << "worker processing task\n";
         // info("worker ", worker_num, " processing a task!");
         task();
-        std::cout << "worker finished task\n";
         // info("task done");
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);

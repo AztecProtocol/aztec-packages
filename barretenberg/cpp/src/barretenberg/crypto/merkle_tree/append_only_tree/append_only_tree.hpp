@@ -4,7 +4,6 @@
 #include "../types.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <utility>
 
@@ -102,19 +101,14 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
                                                          const meta_data_callback& on_completion)
 {
     auto job = [=]() {
-        std::cout << "started meta job\n";
         index_t size = 0;
         bb::fr root = fr::zero();
         {
-            std::cout << "creating read transaction\n";
             ReadTransactionPtr tx = store_.createReadTransaction();
             store_.get_meta(size, root, *tx, includeUncommitted);
-            std::cout << "got meta data\n";
         }
-        std::cout << "notifying of completion\n";
         on_completion(name_, depth_, size, root);
     };
-    std::cout << "putting job on the queue\n";
     workers_.enqueue(job);
 }
 

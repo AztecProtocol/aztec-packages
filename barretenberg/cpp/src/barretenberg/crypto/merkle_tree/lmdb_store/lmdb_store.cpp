@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <lmdb.h>
 #include <vector>
 
@@ -66,11 +65,8 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
 
 void LMDBEnvironment::waitForReader()
 {
-    std::cout << "Waiting for reader\n";
     std::unique_lock lock(_readersLock);
-    std::cout << "Acquired lock\n";
     if (_numReaders >= _maxReaders) {
-        std::cout << "Too many readers\n";
         _readersCondition.wait(lock, [&] { return _numReaders < _maxReaders; });
     }
     ++_numReaders;
@@ -124,7 +120,6 @@ bool LMDBReadTransaction::get_node(uint32_t level, index_t index, std::vector<ui
 
 LMDBReadTransaction::Ptr LMDBStore::createReadTransaction()
 {
-    std::cout << "Creating read transaction\n";
     _environment.waitForReader();
     return std::make_unique<LMDBReadTransaction>(_environment, _database);
 }

@@ -11,6 +11,7 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
     WorldStateAddon(const Napi::CallbackInfo&);
     Napi::Value get_root(const Napi::CallbackInfo&);
     Napi::Value insert_leaf(const Napi::CallbackInfo&);
+    Napi::Value commit(const Napi::CallbackInfo&);
 
     static Napi::Function get_class(Napi::Env);
 

@@ -6,9 +6,11 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/dsl/acir_format/serde/serde.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/world_state_napi/src/get_root.hpp"
 #include "barretenberg/world_state_napi/src/tree_op.hpp"
 #include "barretenberg/world_state_napi/src/tree_with_store.hpp"
 #include "napi.h"
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <thread>
@@ -44,27 +46,72 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
 
 Napi::Value WorldStateAddon::get_root(const Napi::CallbackInfo& info)
 {
-    Napi::Env env = info.Env();
-    auto* tree_op = new bb::world_state::TreeOp(env, _notes_tree);
+    bool uncomitted = info.Length() > 0;
+    auto* tree_op = new bb::world_state::TreeOp(info.Env(), [=]() {
+        bb::crypto::merkle_tree::Signal signal(1);
+        bb::fr root(0);
+        auto completion =
+            [&](const std::string&, uint32_t, const bb::crypto::merkle_tree::index_t&, const bb::fr& r) -> void {
+            root = r;
+            signal.signal_level(0);
+        };
+
+        _notes_tree->get_meta_data(uncomitted, completion);
+        signal.wait_for_level(0);
+
+        return root;
+    });
     tree_op->Queue();
     return tree_op->GetPromise();
-    // Napi::Promise::Deferred deferred(env);
-    // std::cout << "Getting root\n";
-    // auto completion =
-    //     [&](const std::string&, uint32_t, const bb::crypto::merkle_tree::index_t&, const bb::fr& root) -> void {
-    //     std::cout << "Got root " << format(root) << "\n";
-    //     deferred.Resolve(Napi::String::New(env, format(root)));
-    // };
-    // std::cout << "Requesting tree metadata\n";
-    // _notes_tree->get_meta_data(false, completion);
-    // std::cout << "Requested tree meta\n";
-    // std::cout << "Finishing func\n";
-    // return deferred.Promise();
 }
 
 Napi::Value WorldStateAddon::insert_leaf(const Napi::CallbackInfo& info)
 {
-    return Napi::Boolean::New(info.Env(), true);
+    auto env = info.Env();
+    auto deferred = Napi::Promise::Deferred::New(env);
+
+    if (info.Length() < 1) {
+        deferred.Reject(Napi::TypeError::New(env, "Wrong number of arguments").Value());
+        return deferred.Promise();
+    }
+
+    if (!info[0].IsString()) {
+        deferred.Reject(Napi::TypeError::New(env, "Leaf must be a string").Value());
+        return deferred.Promise();
+    }
+
+    bb::fr leaf(info[0].As<Napi::String>());
+    auto* tree_op = new bb::world_state::TreeOp(env, deferred, [&]() {
+        bb::crypto::merkle_tree::Signal signal(1);
+        bb::fr leaf_index(0);
+        auto completion = [&](bb::fr leaf, bb::crypto::merkle_tree::index_t index) -> void {
+            (void)leaf;
+            leaf_index = index;
+            signal.signal_level(0);
+        };
+
+        _notes_tree->add_value(leaf, completion);
+        signal.wait_for_level(0);
+        return leaf_index;
+    });
+    tree_op->Queue();
+
+    return deferred.Promise();
+}
+
+Napi::Value WorldStateAddon::commit(const Napi::CallbackInfo& info)
+{
+    auto* tree_op = new bb::world_state::TreeOp(info.Env(), [&]() {
+        bb::crypto::merkle_tree::Signal signal(1);
+        auto completion = [&]() -> void { signal.signal_level(0); };
+
+        _notes_tree->commit(completion);
+        signal.wait_for_level(0);
+        return 0;
+    });
+    tree_op->Queue();
+
+    return tree_op->GetPromise();
 }
 
 Napi::Function WorldStateAddon::get_class(Napi::Env env)
@@ -74,6 +121,7 @@ Napi::Function WorldStateAddon::get_class(Napi::Env env)
                        {
                            WorldStateAddon::InstanceMethod("get_root", &WorldStateAddon::get_root),
                            WorldStateAddon::InstanceMethod("insert_leaf", &WorldStateAddon::insert_leaf),
+                           WorldStateAddon::InstanceMethod("commit", &WorldStateAddon::commit),
                        });
 }
 

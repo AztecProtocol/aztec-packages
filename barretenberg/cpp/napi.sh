@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+set -e
+
 pushd src/barretenberg/world_state_napi
 mkdir -p build
 yarn
