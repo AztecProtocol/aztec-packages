@@ -12,7 +12,7 @@ struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
     rollup_type : u32,
-    num_txs : Field,
+    num_txs : u32,
     constants : ConstantRollupData,
 
     start: PartialStateReference,
@@ -33,7 +33,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
     fn empty() -> Self {
         BaseOrMergeRollupPublicInputs {
             rollup_type : 0 as u32,
-            num_txs : 0,
+            num_txs : 0 as u32,
             constants : ConstantRollupData::empty(),
             start: PartialStateReference::empty(),
             end: PartialStateReference::empty(),
@@ -81,7 +81,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
     let mut reader = Reader::new(fields);
     let item = Self {
         rollup_type: reader.read() as u32,
-        num_txs: reader.read(),
+        num_txs: reader.read() as u32,
         constants: reader.read_struct(ConstantRollupData::deserialize),        
         start: reader.read_struct(PartialStateReference::deserialize),
         end: reader.read_struct(PartialStateReference::deserialize),

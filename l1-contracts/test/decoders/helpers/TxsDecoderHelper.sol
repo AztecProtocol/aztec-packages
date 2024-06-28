@@ -27,10 +27,6 @@ contract TxsDecoderHelper {
     return TxsDecoder.computeUnbalancedRoot(_leaves);
   }
 
-  function computeSubtreeSizes(uint32 _numTxEffects) external pure returns (bytes memory) {
-    return MerkleLib.computeSubtreeSizes(_numTxEffects);
-  }
-
   function computeMinMaxPathLength(uint32 _numTxEffects) external pure returns (uint256, uint256) {
     return MerkleLib.computeMinMaxPathLength(_numTxEffects);
   }

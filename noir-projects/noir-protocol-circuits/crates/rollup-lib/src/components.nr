@@ -24,8 +24,8 @@ pub fn assert_txs_filled_from_left(
 ) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
-        let left_txs = left.num_txs as u32;
-        let right_txs = right.num_txs as u32;
+        let left_txs = left.num_txs;
+        let right_txs = right.num_txs;
         // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
         assert(
             (left_txs) & (left_txs - 1) == 0, "The rollup should be filled greedily from L to R, but received an unbalanced left subtree"

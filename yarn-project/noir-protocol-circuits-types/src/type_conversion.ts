@@ -2012,7 +2012,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
     mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.num_txs),
+    mapNumberFromNoir(baseOrMergeRollupPublicInputs.num_txs),
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
@@ -2183,7 +2183,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
  */
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
-    num_txs: mapFieldToNoir(contentCommitment.numTxs),
+    num_txs: mapNumberToNoir(contentCommitment.numTxs),
     txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
@@ -2196,7 +2196,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  */
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.num_txs),
+    mapNumberFromNoir(contentCommitment.num_txs),
     mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),

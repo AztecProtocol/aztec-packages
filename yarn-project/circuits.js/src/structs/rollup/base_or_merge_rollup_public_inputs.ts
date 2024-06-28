@@ -17,7 +17,7 @@ export class BaseOrMergeRollupPublicInputs {
     /**
      * Number of txs in this rollup.
      */
-    public numTxs: Fr,
+    public numTxs: number,
     /**
      * Data which is forwarded through the rollup circuits unchanged.
      */
@@ -57,7 +57,7 @@ export class BaseOrMergeRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
-      Fr.fromBuffer(reader),
+      reader.readNumber(),
       reader.readObject(ConstantRollupData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),

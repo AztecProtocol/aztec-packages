@@ -4,7 +4,7 @@ use crate::{
 };
 
 struct ContentCommitment {
-  num_txs: Field,
+  num_txs: u32,
   txs_effects_hash: Field,
   in_hash: Field,
   out_hash: Field,
@@ -14,7 +14,7 @@ impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
   fn serialize(self) -> [Field; CONTENT_COMMITMENT_LENGTH] {
     let mut fields: BoundedVec<Field, CONTENT_COMMITMENT_LENGTH> = BoundedVec::new();
 
-    fields.push(self.num_txs);
+    fields.push(self.num_txs as Field);
     fields.push(self.txs_effects_hash);
     fields.push(self.in_hash);
     fields.push(self.out_hash);
@@ -25,7 +25,7 @@ impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
 
 impl Deserialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
   fn deserialize(serialized: [Field; CONTENT_COMMITMENT_LENGTH]) -> Self {
-    let num_txs = serialized[0];
+    let num_txs = serialized[0] as u32;
 
     let txs_effects_hash = serialized[1];
 

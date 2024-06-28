@@ -27,43 +27,31 @@ contract UnbalancedMerkleTest is Test {
   function testDecomp() public {
     // Worst case - max num txs
     uint32 numTxs = 65535;
-    bytes memory subtrees = txsHelper.computeSubtreeSizes(numTxs);
-    assertEq(subtrees, hex"8000400020001000080004000200010000800040002000100008000400020001");
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 15);
     assertEq(max, 16);
     // Single tree of 2**15
     numTxs = 32768;
-    subtrees = txsHelper.computeSubtreeSizes(numTxs);
-    assertEq(subtrees, hex"8000");
     (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 15);
     assertEq(max, 15);
     // Single tree of 2**13
     numTxs = 8192;
-    subtrees = txsHelper.computeSubtreeSizes(numTxs);
-    assertEq(subtrees, hex"2000");
     (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 13);
     assertEq(max, 13);
     // Trees of 2**12, 2**11, ... 2**0
     numTxs = 8191;
-    subtrees = txsHelper.computeSubtreeSizes(numTxs);
-    assertEq(subtrees, hex"1000080004000200010000800040002000100008000400020001");
     (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 12);
     assertEq(max, 13);
     // Single tree of 2**8
     numTxs = 256;
-    subtrees = txsHelper.computeSubtreeSizes(numTxs);
-    assertEq(subtrees, hex"0100");
     (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 8);
     assertEq(max, 8);
     // Left subtree of 2**8, right subtree of single leaf
     numTxs = 257;
-    subtrees = txsHelper.computeSubtreeSizes(numTxs);
-    assertEq(subtrees, hex"01000001");
     (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 1);
     assertEq(max, 9);
@@ -81,8 +69,6 @@ contract UnbalancedMerkleTest is Test {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
     // We have just one 'balanced' branch, so depth is 0 with 2 elements
-    bytes memory subtreeSizes = txsHelper.computeSubtreeSizes(2);
-    assertEq(subtreeSizes, hex"0002");
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(2);
     assertEq(min, 1);
     assertEq(max, 1);
@@ -104,8 +90,6 @@ contract UnbalancedMerkleTest is Test {
     for (uint256 i = 0; i < 3; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    bytes memory subtreeSizes = txsHelper.computeSubtreeSizes(3);
-    assertEq(subtreeSizes, hex"00020001");
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(3);
     assertEq(min, 1);
     assertEq(max, 2);
@@ -131,8 +115,6 @@ contract UnbalancedMerkleTest is Test {
     for (uint256 i = 0; i < 5; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    bytes memory subtreeSizes = txsHelper.computeSubtreeSizes(5);
-    assertEq(subtreeSizes, hex"00040001");
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(5);
     assertEq(min, 1);
     assertEq(max, 3);
@@ -163,8 +145,6 @@ contract UnbalancedMerkleTest is Test {
     for (uint256 i = 0; i < 6; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    bytes memory subtreeSizes = txsHelper.computeSubtreeSizes(6);
-    assertEq(subtreeSizes, hex"00040002");
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(6);
     assertEq(min, 2);
     assertEq(max, 3);
@@ -197,8 +177,6 @@ contract UnbalancedMerkleTest is Test {
     for (uint256 i = 0; i < 6; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    bytes memory subtreeSizes = txsHelper.computeSubtreeSizes(7);
-    assertEq(subtreeSizes, hex"000400020001");
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(7);
     assertEq(min, 2);
     assertEq(max, 3);

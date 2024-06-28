@@ -262,7 +262,7 @@ describe('L1Publisher integration', () => {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
-            numTxs: Number(block.header.contentCommitment.numTxs.toBigInt()),
+            numTxs: Number(block.header.contentCommitment.numTxs),
             txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
