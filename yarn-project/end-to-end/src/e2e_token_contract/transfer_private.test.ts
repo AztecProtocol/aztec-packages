@@ -40,7 +40,7 @@ describe('e2e_token_contract transfer private', () => {
     const events = await wallets[1].getEvents(
       EventType.Encrypted,
       TokenContract.events.Transfer,
-      tx.blockNumber,
+      tx.blockNumber!,
       1,
     );
 
