@@ -399,7 +399,7 @@ template <typename Curve> class ZeroMorphProver_ {
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, q_k_commitment);
         }
-
+        // Add buffer elements to remove log_N dependence in proof
         for (size_t idx = log_N; idx < CONST_PROOF_SIZE_LOG_N; ++idx) {
             auto buffer_element = Commitment::one();
             std::string label = "ZM:C_q_" + std::to_string(idx);

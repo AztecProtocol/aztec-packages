@@ -79,7 +79,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // WORKTODO: circuit size nonsense
     auto multivariate_to_univariate_opening_claim = ZeroMorph::verify(circuit_size,
                                                                       commitments.get_unshifted(),
                                                                       commitments.get_to_be_shifted(),
