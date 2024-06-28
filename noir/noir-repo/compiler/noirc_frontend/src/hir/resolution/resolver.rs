@@ -528,7 +528,7 @@ impl<'a> Resolver<'a> {
             vecmap(constraint.trait_bound.trait_generics, |typ| self.resolve_type(typ));
 
         let span = constraint.trait_bound.trait_path.span();
-        let the_trait = self.lookup_trait_or_error(constraint.trait_bound.trait_path.clone())?;
+        let the_trait = self.lookup_trait_or_error(constraint.trait_bound.trait_path)?;
         let trait_id = the_trait.id;
 
         let expected_generics = the_trait.generics.len();
