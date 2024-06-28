@@ -72,6 +72,7 @@ export class ProvingState {
   }
 
   // Calculates the index and level of the parent rollup circuit
+  // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
   public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
     const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
       levelSize /= 2;

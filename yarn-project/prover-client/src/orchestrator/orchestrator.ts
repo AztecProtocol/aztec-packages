@@ -233,7 +233,7 @@ export class ProvingOrchestrator {
   }
 
   /**
-   * Marks the block as full and pads it to the full power of 2 block size, no more transactions will be accepted.
+   * Marks the block as full and pads it if required, no more transactions will be accepted.
    */
   @trackSpan('ProvingOrchestrator.setBlockCompleted', function () {
     if (!this.provingState) {
@@ -592,9 +592,13 @@ export class ProvingOrchestrator {
       currentIndex,
     );
     const mergeIndex = 2n ** mergeLevel - 1n + indexWithinMergeLevel;
-    const subscript = Number(mergeIndex);
     const ready = provingState.storeMergeInputs(mergeInputs, Number(indexWithinMerge), Number(mergeIndex));
-    return { ready, indexWithinMergeLevel, mergeLevel, mergeInputData: provingState.getMergeInputs(subscript) };
+    return {
+      ready,
+      indexWithinMergeLevel,
+      mergeLevel,
+      mergeInputData: provingState.getMergeInputs(Number(mergeIndex)),
+    };
   }
 
   // Executes the base rollup circuit and stored the output as intermediate state for the parent merge/root circuit
