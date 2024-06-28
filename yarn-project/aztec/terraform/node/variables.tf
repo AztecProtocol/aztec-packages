@@ -72,8 +72,3 @@ variable "PROVING_ENABLED" {
   type    = bool
   default = true
 }
-
-variable "AGENTS_PER_SEQUENCER" {
-  type    = string
-  default = 4
-}

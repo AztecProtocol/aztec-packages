@@ -4,7 +4,7 @@ variable "DEPLOY_TAG" {
 
 variable "AGENTS_PER_SEQUENCER" {
   type    = string
-  default = 4
+  default = 1
 }
 
 variable "PROVING_ENABLED" {
