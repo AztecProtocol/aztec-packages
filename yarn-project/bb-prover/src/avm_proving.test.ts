@@ -278,7 +278,8 @@ const proveAndVerifyAvmTestContract = async (
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
-  const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger);
+  const calldataPath = path.join(bbWorkingDirectory, 'avm_calldata.bin');
+  const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger, calldataPath);
   expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
 };
 

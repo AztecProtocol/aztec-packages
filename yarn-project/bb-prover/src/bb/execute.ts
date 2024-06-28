@@ -12,6 +12,7 @@ export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
+export const CALLDATA_FILENAME = 'avm_calldata.bin';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -277,7 +278,7 @@ export async function generateAvmProof(
 
   // Paths for the inputs
   const bytecodePath = join(workingDirectory, 'avm_bytecode.bin');
-  const calldataPath = join(workingDirectory, 'avm_calldata.bin');
+  const calldataPath = join(workingDirectory, CALLDATA_FILENAME);
   const publicInputsPath = join(workingDirectory, 'avm_public_inputs.bin');
   const avmHintsPath = join(workingDirectory, 'avm_hints.bin');
 
@@ -385,6 +386,7 @@ export async function verifyProof(
  * @param pathToBB - The full path to the bb binary
  * @param proofFullPath - The full path to the proof to be verified
  * @param verificationKeyPath - The full path to the circuit verification key
+ * @param calldataPath - The full path to calldata
  * @param log - A logging function
  * @returns An object containing a result indication and duration taken
  */
@@ -393,8 +395,9 @@ export async function verifyAvmProof(
   proofFullPath: string,
   verificationKeyPath: string,
   log: LogFn,
+  calldataPath?: string,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', log);
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', log, calldataPath);
 }
 
 /**
@@ -404,6 +407,7 @@ export async function verifyAvmProof(
  * @param verificationKeyPath - The full path to the circuit verification key
  * @param command - The BB command to execute (verify/avm_verify)
  * @param log - A logging function
+ * @param calldataPath - The full path to calldata (only relevant for avm_verify)
  * @returns An object containing a result indication and duration taken
  */
 async function verifyProofInternal(
@@ -412,6 +416,7 @@ async function verifyProofInternal(
   verificationKeyPath: string,
   command: 'verify' | 'avm_verify',
   log: LogFn,
+  calldataPath?: string,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
@@ -423,6 +428,9 @@ async function verifyProofInternal(
 
   try {
     const args = ['-p', proofFullPath, '-k', verificationKeyPath];
+    if (calldataPath !== undefined) {
+      args.push('--avm-calldata', calldataPath);
+    }
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
