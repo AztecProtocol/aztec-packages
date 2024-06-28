@@ -1,18 +1,18 @@
-Debugger listening on ws://127.0.0.1:9229/86c5cfb8-d467-4657-b51d-d29a5b73811b
+Debugger listening on ws://127.0.0.1:9229/c8b40c92-aef7-4538-8020-d4208da680bb
 For help, see: https://nodejs.org/en/docs/inspector
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[WARN] No data path given, will not persist any snapshots. [34m+0ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Initializing state... [34m+4ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Starting anvil... [34m+81ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Deploying L1 contracts... [34m+137ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Registry at 0x5fbdb2315678afecb367f032d93f642f64180aa3 [34m+231ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed AvailabilityOracle at 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [34m+36ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Gas Token at 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0 [34m+21ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Rollup at 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9 [34m+33ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Inbox available at 0x6d544390eb535d61e196c87d6b9c80dcd8628acd [34m+5ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Outbox available at 0xb1ede3f5ac8654124cb5124adf0fd3885cbdd1f7 [34m+2ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Gas Portal at 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707 [34m+33ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Initialized Gas Portal at 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707 to bridge between L1 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0 to L2 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [34m+17ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Funded rollup contract with gas tokens [34m+18ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Initializing state... [34m+3ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Starting anvil... [34m+80ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Deploying L1 contracts... [34m+125ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Registry at 0x5fbdb2315678afecb367f032d93f642f64180aa3 [34m+177ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed AvailabilityOracle at 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [34m+26ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Gas Token at 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0 [34m+16ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Rollup at 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9 [34m+23ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Inbox available at 0x6d544390eb535d61e196c87d6b9c80dcd8628acd [34m+4ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Outbox available at 0xb1ede3f5ac8654124cb5124adf0fd3885cbdd1f7 [34m+1ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Deployed Gas Portal at 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707 [34m+23ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Initialized Gas Portal at 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707 to bridge between L1 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0 to L2 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [34m+11ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[INFO] Funded rollup contract with gas tokens [34m+12ms[0m
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Using native ACVM binary at ../../noir/noir-repo/target/release/acvm with working directory /tmp/79040000/acvm [34m+1ms[0m
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Creating and synching an aztec node... [34m+1ms[0m
   [35;1maztec:node:lmdb [0m[INFO] Opening LMDB database at temporary location [35m+0ms[0m
@@ -31,31 +31,31 @@ Registry: 0x5fbdb2315678afecb367f032d93f642f64180aa3
 Inbox: 0x6d544390eb535d61e196c87d6b9c80dcd8628acd
 Outbox: 0xb1ede3f5ac8654124cb5124adf0fd3885cbdd1f7
 Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Creating pxe... [34m+665ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Creating pxe... [34m+617ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Added contract ContractClassRegisterer at 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417 [36m+0ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934 [36m+15ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b [36m+25ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [36m+25ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [36m+12ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract AuthRegistry at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [36m+23ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934 [36m+20ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b [36m+33ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [36m+29ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [36m+17ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract AuthRegistry at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [36m+27ms[0m
   [34;1maztec:pxe_synchronizer [0m[INFO] Initial sync complete [34m+0ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Started PXE connected to chain 31337 version 1 [36m+63ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Deploying key registry... [34m+312ms[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [36m+33ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Started PXE connected to chain 31337 version 1 [36m+66ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Deploying key registry... [34m+359ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [36m+36ms[0m
   [32;1maztec:js:contract_interaction [0m[INFO] Creating request for registering contract class 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46 as part of deployment for 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [32m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:0x60dc069d(MultiCallEntrypoint:entrypoint) [36m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417:0x98bc6593(ContractClassRegisterer:register) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractClassRegistered: 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46,0x23e2d15ea4a2510192615125560d92335d7f0d0db9d6d96edb2d4aca282ed6a9,0x15d28cad4c0736decea8997cb324cf0a0e0602f4d74472cd977bce2c8dd9923f,0x0000000000000000000000000000000000000000000000000000000000000005 [31m+0ms[0m
-  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..." [31m+93ms[0m
+  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..." [31m+92ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351,0x0000000000000000000000000000000000000000000000000000000000000001,0x0000000000000000000000000000000000000000000000000000000000000001,0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46,0x0000000000000000000000000000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000000000000000000000000000 [31m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..." [31m+3ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint [36m+2s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 2458023c79f67b11ef223d7b14a497ffa525ccb82c32a3d8c955d18477ba4e31 [31m+3s[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 2458023c79f67b11ef223d7b14a497ffa525ccb82c32a3d8c955d18477ba4e31 [36m+1s[0m
-  [31;1maztec:node [0m[INFO] Received tx 2458023c79f67b11ef223d7b14a497ffa525ccb82c32a3d8c955d18477ba4e31 [31m+147ms[0m
+  [31;1maztec:node [0m[INFO] Received tx 2458023c79f67b11ef223d7b14a497ffa525ccb82c32a3d8c955d18477ba4e31 [31m+146ms[0m
   console.log
     P2P adding tx with tx.clientIvcProof.isEmpty() = true
 
@@ -65,7 +65,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [33;1maztec:sequencer [0m[INFO] Building block 1 with 1 transactions [33m+5s[0m
   [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 1 [33m+1ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+0ms[0m
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 2458023c79f67b11ef223d7b14a497ffa525ccb82c32a3d8c955d18477ba4e31 [32m+64ms[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 2458023c79f67b11ef223d7b14a497ffa525ccb82c32a3d8c955d18477ba4e31 [32m+59ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? true
 
@@ -77,17 +77,17 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 1! [32m+2s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 1 eventName=l2-block-built duration=2108.3504509925842 publicProcessDuration=285.4079546928406 rollupCircuitsDuration=2107.559166908264 txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [33m+2s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 1 eventName=l2-block-built duration=2118.3780751228333 publicProcessDuration=288.70126008987427 rollupCircuitsDuration=2117.5594387054443 txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [33m+2s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=640761 bytes [33m+0ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x008d876cd3f7652a51ce7b6d211ed53c5edab16de4945dad9e94401780726803 [33m+673ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1344907023 gasUsed=634691 transactionHash=0x0d7e19130d508090df8aa81973b8cc6b169ba70da765466e7851a23a1fd01981 calldataGas=9404 calldataSize=1412 txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 eventName=rollup-published-to-l1 [33m+30ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 1 with 1 transactions [33m+745ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x008d876cd3f7652a51ce7b6d211ed53c5edab16de4945dad9e94401780726803 [33m+679ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1344907023 gasUsed=634691 transactionHash=0x0d7e19130d508090df8aa81973b8cc6b169ba70da765466e7851a23a1fd01981 calldataGas=9404 calldataSize=1412 txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 eventName=rollup-published-to-l1 [33m+44ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 1 with 1 transactions [33m+766ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 1 and 10. [34m+9s[0m
-  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46 [34m+69ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x1afb9c08e7dcf4658982e5144b970d2603a497fcc566a52761d8243fd61a4b46 [34m+73ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [34m+3ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 1 is ours, committing world state [32m+0ms[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=76.23318386077881 isBlockOurs=true txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [31m+8s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=89.04858493804932 isBlockOurs=true txCount=1 blockNumber=1 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [31m+8s[0m
   [34;1maztec:js:deploy_sent_tx [0m[INFO] Contract 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 successfully deployed. [34m+0ms[0m
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Deploying auth registry... [34m+9s[0m
   [36;1maztec:pxe_service [0m[INFO] Added contract AuthRegistry at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [36m+5s[0m
@@ -102,7 +102,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint [36m+2s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 1a5bacc7dcd24d0723776cd7a1099e2ba0d38b14d375c64dbc608af8500f7f88 [31m+8s[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 1a5bacc7dcd24d0723776cd7a1099e2ba0d38b14d375c64dbc608af8500f7f88 [36m+1s[0m
-  [31;1maztec:node [0m[INFO] Received tx 1a5bacc7dcd24d0723776cd7a1099e2ba0d38b14d375c64dbc608af8500f7f88 [31m+132ms[0m
+  [31;1maztec:node [0m[INFO] Received tx 1a5bacc7dcd24d0723776cd7a1099e2ba0d38b14d375c64dbc608af8500f7f88 [31m+140ms[0m
   console.log
     P2P adding tx with tx.clientIvcProof.isEmpty() = true
 
@@ -112,7 +112,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [33;1maztec:sequencer [0m[INFO] Building block 2 with 1 transactions [33m+5s[0m
   [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 2 [33m+1ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+6s[0m
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 1a5bacc7dcd24d0723776cd7a1099e2ba0d38b14d375c64dbc608af8500f7f88 [32m+57ms[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 1a5bacc7dcd24d0723776cd7a1099e2ba0d38b14d375c64dbc608af8500f7f88 [32m+59ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? true
 
@@ -124,37 +124,37 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 2! [32m+2s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 2 eventName=l2-block-built duration=1938.646390914917 publicProcessDuration=271.85609436035156 rollupCircuitsDuration=1938.0736808776855 txCount=1 blockNumber=2 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [33m+2s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 2 eventName=l2-block-built duration=1869.5377039909363 publicProcessDuration=276.960027217865 rollupCircuitsDuration=1869.014937877655 txCount=1 blockNumber=2 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [33m+2s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=640761 bytes [33m+7s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00794586d09ee7a9f9b478faf101c1918690afdb4c25124bf42816783868d1b3 [33m+660ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1285530988 gasUsed=610297 transactionHash=0x0416d1b4cbbec7bc712f6a674295d13ce61ba66fa4d6e5cba231e2341a3a9c4d calldataGas=9476 calldataSize=1412 txCount=1 blockNumber=2 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 eventName=rollup-published-to-l1 [33m+26ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 2 with 1 transactions [33m+730ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00794586d09ee7a9f9b478faf101c1918690afdb4c25124bf42816783868d1b3 [33m+665ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1285530988 gasUsed=610297 transactionHash=0xa1930e6fe29cbdeaaa8c3c27654ce1001cc05a935a8ad780ae39d7429c423e1c calldataGas=9476 calldataSize=1412 txCount=1 blockNumber=2 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 eventName=rollup-published-to-l1 [33m+26ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 2 with 1 transactions [33m+736ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 11 and 12. [34m+8s[0m
-  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x132db4af6dac8ae1276e3566dcaccae8f372ae2c7c1c8f20ee977f9076739f3e [34m+82ms[0m
-  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [34m+2ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x132db4af6dac8ae1276e3566dcaccae8f372ae2c7c1c8f20ee977f9076739f3e [34m+140ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [34m+3ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 2 is ours, committing world state [32m+8s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=48.159038066864014 isBlockOurs=true txCount=1 blockNumber=2 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [31m+8s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=61.09094190597534 isBlockOurs=true txCount=1 blockNumber=2 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640512 [31m+8s[0m
   [34;1maztec:js:deploy_sent_tx [0m[INFO] Contract 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 successfully deployed. [34m+0ms[0m
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Applying state transition for 2_accounts... [34m+8s[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Simulating account deployment... [36m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [36m+5s[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract SchnorrAccount at 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [36m+436ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract SchnorrAccount at 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [36m+427ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:0x60dc069d(MultiCallEntrypoint:entrypoint) [36m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0xaf9f8c44(SchnorrAccount:constructor) [36m+0ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint [36m+3s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [31m+10s[0m
   [36;1maztec:pxe_service [0m[INFO] Registered account 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [36m+1s[0m
-  [36;1maztec:pxe_service [0m[INFO] Added contract SchnorrAccount at 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [36m+404ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Added contract SchnorrAccount at 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [36m+496ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:0x60dc069d(MultiCallEntrypoint:entrypoint) [36m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef:0xaf9f8c44(SchnorrAccount:constructor) [36m+0ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b:entrypoint [36m+3s[0m
-  [31;1maztec:node [0m[INFO] Simulating tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [31m+4s[0m
+  [31;1maztec:node [0m[INFO] Simulating tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [31m+5s[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Deploying accounts... [36m+9s[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [36m+1s[0m
-  [31;1maztec:node [0m[INFO] Received tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [31m+215ms[0m
+  [31;1maztec:node [0m[INFO] Received tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [31m+234ms[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [36m+1ms[0m
-  [31;1maztec:node [0m[INFO] Received tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [31m+0ms[0m
+  [31;1maztec:node [0m[INFO] Received tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [31m+1ms[0m
   console.log
     P2P adding tx with tx.clientIvcProof.isEmpty() = true
 
@@ -167,58 +167,58 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at P2PClient.sendTx (../../p2p/src/client/p2p_client.ts:227:13)
           at async Promise.all (index 1)
 
-  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa eventName=tx-added-to-pool txHash=1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=3 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0 [36m+14s[0m
-  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 eventName=tx-added-to-pool txHash=036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=3 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0 [36m+1ms[0m
-  [33;1maztec:sequencer [0m[INFO] Building block 3 with 2 transactions [33m+11s[0m
+  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa eventName=tx-added-to-pool txHash=1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=3 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0 [36m+15s[0m
+  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 eventName=tx-added-to-pool txHash=036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 noteEncryptedLogCount=1 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=588 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=1 newNullifierCount=3 proofSize=42 size=10773 feePaymentMethod=none classRegisteredCount=0 [36m+2ms[0m
+  [33;1maztec:sequencer [0m[INFO] Building block 3 with 2 transactions [33m+12s[0m
   [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 3 [33m+1ms[0m
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+12s[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+13s[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [32m+19ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? true
 
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [32m+202ms[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [32m+204ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? true
 
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 3! [32m+2s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 3 eventName=l2-block-built duration=1994.5503449440002 publicProcessDuration=404.6346101760864 rollupCircuitsDuration=1994.1888389587402 txCount=2 blockNumber=3 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 [33m+2s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=1734 bytes [33m+13s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x002c36f77f29a7f6b6f10bbc90c77bc652d075b83b4ac7d0d5748928abd39c98 [33m+153ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1220579733 gasUsed=610249 transactionHash=0x58456d8c31306dda08173e376f25e6e031aae08c4463a088393066ab8e473779 calldataGas=9428 calldataSize=1412 txCount=2 blockNumber=3 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 eventName=rollup-published-to-l1 [33m+27ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 3 with 2 transactions [33m+185ms[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 3 eventName=l2-block-built duration=2094.8797793388367 publicProcessDuration=406.31962060928345 rollupCircuitsDuration=2094.391815662384 txCount=2 blockNumber=3 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 [33m+2s[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=1734 bytes [33m+14s[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x002c36f77f29a7f6b6f10bbc90c77bc652d075b83b4ac7d0d5748928abd39c98 [33m+158ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1220579733 gasUsed=610261 transactionHash=0xd76359f4262a2f8759c15e554a9447ae4ccf9937b047cd02f926b5716aafb203 calldataGas=9440 calldataSize=1412 txCount=2 blockNumber=3 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 eventName=rollup-published-to-l1 [33m+29ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 3 with 2 transactions [33m+192ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 13 and 14. [34m+13s[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 3 is ours, committing world state [32m+13s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=75.38716411590576 isBlockOurs=true txCount=2 blockNumber=3 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 [31m+13s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=85.25430536270142 isBlockOurs=true txCount=2 blockNumber=3 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=16 [31m+13s[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 with nullifier 0x021212b4d23e3ea13664e686d1860981d56473ccc0d370c4a8b48d914a4dc4e8 [33m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 [33m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef at slot 0x0000000000000000000000000000000000000000000000000000000000000001 with nullifier 0x1b38078ef721db020e9bc82bbac5acb0ffd2f4bfb1185bb6fc82645774b64313 [33m+0ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef at slot 0x0000000000000000000000000000000000000000000000000000000000000001 [33m+0ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] State transition for 2_accounts complete. [34m+13s[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef at slot 0x0000000000000000000000000000000000000000000000000000000000000001 [33m+1ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] State transition for 2_accounts complete. [34m+14s[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Wallet 0 address: 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [36m+5s[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Wallet 1 address: 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [36m+0ms[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Applying state transition for client_prover_integration... [34m+152ms[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Applying state transition for client_prover_integration... [34m+175ms[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Public deploy accounts... [36m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417:0x98bc6593(ContractClassRegisterer:register) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractClassRegistered: 0x0e57789ea5932f26bc5592a4f0845cd3ecffebf7c711e4b96b3353d54d662832,0x2bb6cfd6679a266b6cdcdc91da9d83ec95239d3028fc0360313791b9dbafd20e,0x28c0b23fbb368a01623685cef249edb754edfa1c368f0b5db6f9eb1a9f0adbfb,0x0000000000000000000000000000000000000000000000000000000000000005 [31m+0ms[0m
-  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..." [31m+77ms[0m
+  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..." [31m+79ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169,0x0000000000000000000000000000000000000000000000000000000000000001,0x0000000000000000000000000000000000000000000000000000000000000001,0x0e57789ea5932f26bc5592a4f0845cd3ecffebf7c711e4b96b3353d54d662832,0x0d575bb61eb5c31a04ad38bd45520e032daea6250b336b713edf0315e5116190,0x1f3bdaf6c9fee86372015c577af22dc745eaeb3cb339815fa07894a5939d6462,0x0000000000000000000000000000000000000000000000000000000000000000 [31m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..." [31m+4ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef,0x0000000000000000000000000000000000000000000000000000000000000001,0x0000000000000000000000000000000000000000000000000000000000000001,0x0e57789ea5932f26bc5592a4f0845cd3ecffebf7c711e4b96b3353d54d662832,0x1f073603e3306c3574520b76208980298f1a2a7a23cafe2942150faae615e005,0x1c7e2da4559c227fbd86eebe24fa6f856794649c044a4287cc16b601fe4cadcc,0x0000000000000000000000000000000000000000000000000000000000000000 [31m+0ms[0m
-  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..." [31m+3ms[0m
+  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..." [31m+4ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+7s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc [31m+9s[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc [36m+2s[0m
-  [31;1maztec:node [0m[INFO] Received tx 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc [31m+133ms[0m
+  [31;1maztec:node [0m[INFO] Received tx 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc [31m+142ms[0m
   console.log
     P2P adding tx with tx.clientIvcProof.isEmpty() = true
 
@@ -226,9 +226,9 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
   [36;1maztec:tx_pool [0m[INFO] Adding tx with id 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc eventName=tx-added-to-pool txHash=1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=3 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=640812 newCommitmentCount=0 newNullifierCount=4 proofSize=42 size=650997 feePaymentMethod=none classRegisteredCount=1 [36m+9s[0m
   [33;1maztec:sequencer [0m[INFO] Building block 4 with 1 transactions [33m+7s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 4 [33m+1ms[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 4 [33m+0ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+7s[0m
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc [32m+58ms[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 1ce1e8c24480efa6c6ebee1f58903698fbe0364aaa9640674238602a8ee613dc [32m+60ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? true
 
@@ -240,25 +240,25 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 4! [32m+2s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 4 eventName=l2-block-built duration=1972.3817291259766 publicProcessDuration=285.34267139434814 rollupCircuitsDuration=1971.4683756828308 txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 [33m+2s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 4 eventName=l2-block-built duration=1968.407331943512 publicProcessDuration=288.544029712677 rollupCircuitsDuration=1967.897057056427 txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 [33m+2s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=641093 bytes [33m+9s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00c4f6362c2727c23915114e1a7ae646c3295f5e859465a68cd3fb2e3c25a1e6 [33m+667ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1182416031 gasUsed=610273 transactionHash=0x28e9b0ee3ca2ff60cacbe4146a2270df689d9eaf547244d02abc9ab2be358d79 calldataGas=9452 calldataSize=1412 txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 eventName=rollup-published-to-l1 [33m+26ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 4 with 1 transactions [33m+737ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00c4f6362c2727c23915114e1a7ae646c3295f5e859465a68cd3fb2e3c25a1e6 [33m+695ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1182416052 gasUsed=610285 transactionHash=0xe3581a88187368f89f2a38a2e47c6c243baf67a27102b9c866a52c44c88e8300 calldataGas=9464 calldataSize=1412 txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 eventName=rollup-published-to-l1 [33m+27ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 4 with 1 transactions [33m+768ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 15 and 16. [34m+10s[0m
-  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x0e57789ea5932f26bc5592a4f0845cd3ecffebf7c711e4b96b3353d54d662832 [34m+95ms[0m
-  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [34m+3ms[0m
-  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [34m+0ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x0e57789ea5932f26bc5592a4f0845cd3ecffebf7c711e4b96b3353d54d662832 [34m+144ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [34m+4ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [34m+1ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
-  [32;1maztec:merkle_trees [0m[VERBOSE] Block 4 is ours, committing world state [32m+10s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=64.64885902404785 isBlockOurs=true txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 [31m+10s[0m
+  [32;1maztec:merkle_trees [0m[VERBOSE] Block 4 is ours, committing world state [32m+11s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=71.3733549118042 isBlockOurs=true txCount=1 blockNumber=4 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=3 unencryptedLogSize=640812 [31m+11s[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Deploying TokenContract... [36m+11s[0m
   [36;1maztec:pxe_service [0m[INFO] Added contract Token at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [36m+7s[0m
   [32;1maztec:js:contract_interaction [0m[INFO] Creating request for registering contract class 0x22bc042e1e8a4cc066175048788289d20ef127514b21a71ae835b5d35914ef57 as part of deployment for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [32m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417:0x98bc6593(ContractClassRegisterer:register) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractClassRegistered: 0x22bc042e1e8a4cc066175048788289d20ef127514b21a71ae835b5d35914ef57,0x1302febcd2e40e6cc4905c70c40a67e389b458f99589735e5605bb3d4153fcae,0x1cd03076ef849d2dba9d9d71d564facf8b6c6efc71b63678c930cedab741a2bf,0x0000000000000000000000000000000000000000000000000000000000000005 [31m+0ms[0m
-  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..." [31m+74ms[0m
+  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log from ContractClassRegisterer: "UnencryptedL2Log(contractAddress: 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417..." [31m+78ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934:0x7ebd3690(ContractInstanceDeployer:deploy) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] debug_log ContractInstanceDeployed: 0x0000000085864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631,0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14,0x0000000000000000000000000000000000000000000000000000000000000001,0x15bdbc8afbfe61404ae7f22fecbea7318ca1856c3647a66ba9045af152f360e1,0x22bc042e1e8a4cc066175048788289d20ef127514b21a71ae835b5d35914ef57,0x23c85aa3eb00787f065a28b1d99f0d5c5d0ac02f8c834c2d8eadbb4c66ccebb1,0x0000000000000000000000000000000000000000000000000000000000000000,0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [31m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Emitted unencrypted log: "UnencryptedL2Log(contractAddress: 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934..." [31m+3ms[0m
@@ -267,7 +267,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [31;1maztec:node [0m[INFO] Simulating tx 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [31m+11s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:constructor. [36m+0ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:constructor returned, reverted: false. eventName=avm-simulation appCircuitName=Token:constructor duration=95.57853078842163 bytecodeSize=24207 [36m+96ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:constructor returned, reverted: false. eventName=avm-simulation appCircuitName=Token:constructor duration=64.3210916519165 bytecodeSize=24207 [36m+65ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [36m+5s[0m
   [31;1maztec:node [0m[INFO] Received tx 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [31m+3s[0m
@@ -282,7 +282,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+11s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:constructor. [36m+3s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:constructor returned, reverted: false. eventName=avm-simulation appCircuitName=Token:constructor duration=55.93145513534546 bytecodeSize=24207 [36m+57ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:constructor returned, reverted: false. eventName=avm-simulation appCircuitName=Token:constructor duration=59.43688917160034 bytecodeSize=24207 [36m+60ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [33m+0ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 09a7f596076ebda588aa9393d3a0c3e8b050eda7f727a899dc2b02ec7692ba34 [32m+3s[0m
   console.log
@@ -296,17 +296,17 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 5! [32m+5s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 5 eventName=l2-block-built duration=7333.314570903778 publicProcessDuration=3060.732484817505 rollupCircuitsDuration=7332.783695220947 txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 [33m+7s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=641309 bytes [33m+18s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 5 eventName=l2-block-built duration=7364.209077358246 publicProcessDuration=2976.591272830963 rollupCircuitsDuration=7363.619846820831 txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 [33m+7s[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=641309 bytes [33m+17s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x002231ea86de446fd9a6670fa274972474c3ce14387322380781efd73d8f408c [33m+664ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1151448181 gasUsed=610261 transactionHash=0x9f033881c3dc130ef3c8a02ad68d09a5ea7a725f17331b38b08ee2a431ccd97a calldataGas=9440 calldataSize=1412 txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 eventName=rollup-published-to-l1 [33m+25ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 5 with 1 transactions [33m+732ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1151448216 gasUsed=610261 transactionHash=0x7c409d7e06656e760f32e66d219882b5821c05c08c3c265ba0d216ff2db8ba53 calldataGas=9440 calldataSize=1412 txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 eventName=rollup-published-to-l1 [33m+26ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 5 with 1 transactions [33m+734ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 17 and 18. [34m+18s[0m
-  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x22bc042e1e8a4cc066175048788289d20ef127514b21a71ae835b5d35914ef57 [34m+114ms[0m
-  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [34m+4ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Registering contract class 0x22bc042e1e8a4cc066175048788289d20ef127514b21a71ae835b5d35914ef57 [34m+104ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Storing contract instance at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [34m+3ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 5 is ours, committing world state [32m+18s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=66.04683589935303 isBlockOurs=true txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 [31m+18s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=56.68203020095825 isBlockOurs=true txCount=1 blockNumber=5 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=2 unencryptedLogSize=640516 [31m+18s[0m
   [34;1maztec:js:deploy_sent_tx [0m[INFO] Contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 successfully deployed. [34m+0ms[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Token deployed to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [36m+17s[0m
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] State transition for client_prover_integration complete. [34m+28s[0m
@@ -317,7 +317,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [31;1maztec:node [0m[INFO] Simulating tx 08e23378451d79a5dcfb62359fe9d1d36a3394b84aad3f75f670e2f6e31e48ba [31m+12s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 08e23378451d79a5dcfb62359fe9d1d36a3394b84aad3f75f670e2f6e31e48ba [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:admin. [36m+12s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:admin returned, reverted: false. eventName=avm-simulation appCircuitName=Token:admin duration=7.680821895599365 bytecodeSize=4283 [36m+8ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:admin returned, reverted: false. eventName=avm-simulation appCircuitName=Token:admin duration=7.655144214630127 bytecodeSize=4283 [36m+8ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 08e23378451d79a5dcfb62359fe9d1d36a3394b84aad3f75f670e2f6e31e48ba [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Executed local simulation for 08e23378451d79a5dcfb62359fe9d1d36a3394b84aad3f75f670e2f6e31e48ba [36m+3s[0m
   [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] Applying state transition for mint... [34m+4s[0m
@@ -328,7 +328,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [31;1maztec:node [0m[INFO] Simulating tx 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [31m+4s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:mint_public. [36m+4s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_public duration=28.20148277282715 bytecodeSize=19216 [36m+28ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_public duration=61.12789440155029 bytecodeSize=19216 [36m+61ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [36m+3s[0m
   [31;1maztec:node [0m[INFO] Received tx 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [31m+2s[0m
@@ -340,10 +340,10 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [36;1maztec:tx_pool [0m[INFO] Adding tx with id 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 eventName=tx-added-to-pool txHash=04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=0 newNullifierCount=1 proofSize=42 size=93873 feePaymentMethod=none classRegisteredCount=0 [36m+19s[0m
   [33;1maztec:sequencer [0m[INFO] Building block 6 with 1 transactions [33m+11s[0m
   [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 6 [33m+0ms[0m
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+11s[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+12s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [36m+0ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:mint_public. [36m+2s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_public duration=34.442505836486816 bytecodeSize=19216 [36m+35ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:mint_public. [36m+3s[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_public duration=32.61219310760498 bytecodeSize=19216 [36m+33ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [33m+0ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 04eac4bda7e461fa9ff2ff884694db976a0bc4b68596d0805bc5718a02921d68 [32m+2s[0m
   console.log
@@ -357,23 +357,23 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 6! [32m+4s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 6 eventName=l2-block-built duration=6069.972469806671 publicProcessDuration=2378.0191583633423 rollupCircuitsDuration=6069.58821439743 txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [33m+6s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 6 eventName=l2-block-built duration=6090.674340248108 publicProcessDuration=2362.6654019355774 rollupCircuitsDuration=6090.2315101623535 txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [33m+6s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=325 bytes [33m+17s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00a99087bb2a6dc44d817deebc3d1ffc6d7ba153bcfc235c77b05eaf8cd8a83a [33m+32ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1116808173 gasUsed=610273 transactionHash=0x55577743647c8421ae7ec65b014969b203857f24b9d3659e2fae4c46cc87f8fe calldataGas=9452 calldataSize=1412 txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 eventName=rollup-published-to-l1 [33m+24ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 6 with 1 transactions [33m+60ms[0m
-  [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 19 and 20. [34m+16s[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00a99087bb2a6dc44d817deebc3d1ffc6d7ba153bcfc235c77b05eaf8cd8a83a [33m+135ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1116808201 gasUsed=610273 transactionHash=0x830db9439e4bb0f9322ea2fda009aa2f30736addb0bc671cd7ad4d53cbf9c185 calldataGas=9452 calldataSize=1412 txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 eventName=rollup-published-to-l1 [33m+25ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 6 with 1 transactions [33m+163ms[0m
+  [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 19 and 20. [34m+17s[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
-  [32;1maztec:merkle_trees [0m[VERBOSE] Block 6 is ours, committing world state [32m+16s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=62.48482704162598 isBlockOurs=true txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [31m+16s[0m
-  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Minting 10000 privately... [36m+13s[0m
+  [32;1maztec:merkle_trees [0m[VERBOSE] Block 6 is ours, committing world state [32m+17s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=61.92076873779297 isBlockOurs=true txCount=1 blockNumber=6 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [31m+17s[0m
+  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Minting 10000 privately... [36m+14s[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x10763932(mint_private) [31m+0ms[0m
-  [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+10s[0m
-  [31;1maztec:node [0m[INFO] Simulating tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [31m+11s[0m
+  [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+11s[0m
+  [31;1maztec:node [0m[INFO] Simulating tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [31m+12s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:mint_private. [36m+11s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_private returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_private duration=21.210978031158447 bytecodeSize=9964 [36m+21ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_private returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_private duration=17.14820432662964 bytecodeSize=9964 [36m+17ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [36m+3s[0m
   [31;1maztec:node [0m[INFO] Received tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [31m+2s[0m
@@ -382,13 +382,13 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at P2PClient.sendTx (../../p2p/src/client/p2p_client.ts:227:13)
 
-  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 eventName=tx-added-to-pool txHash=0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=0 newNullifierCount=1 proofSize=42 size=93873 feePaymentMethod=none classRegisteredCount=0 [36m+13s[0m
+  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 eventName=tx-added-to-pool txHash=0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 noteEncryptedLogCount=0 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=8 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=0 newNullifierCount=1 proofSize=42 size=93873 feePaymentMethod=none classRegisteredCount=0 [36m+14s[0m
   [33;1maztec:sequencer [0m[INFO] Building block 7 with 1 transactions [33m+7s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 7 [33m+0ms[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 7 [33m+1ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+7s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:mint_private. [36m+2s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_private returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_private duration=23.019482612609863 bytecodeSize=9964 [36m+23ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:mint_private returned, reverted: false. eventName=avm-simulation appCircuitName=Token:mint_private duration=27.449638843536377 bytecodeSize=9964 [36m+39ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [33m+0ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 0480ed6a4b113b18a90ae23ca82656be7a46a6ae1dd7e8872fb80eb2e0412617 [32m+2s[0m
   console.log
@@ -402,15 +402,15 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 7! [32m+4s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 7 eventName=l2-block-built duration=5975.772521018982 publicProcessDuration=2333.4197392463684 rollupCircuitsDuration=5975.450648784637 txCount=1 blockNumber=7 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [33m+6s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 7 eventName=l2-block-built duration=5901.406238079071 publicProcessDuration=2301.8432602882385 rollupCircuitsDuration=5900.967118740082 txCount=1 blockNumber=7 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [33m+6s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=293 bytes [33m+13s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x000d55bc0d176d05a71c4c8e4369b52c51e3ccef355956b1044f0a3353f7428f [33m+30ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1090091166 gasUsed=610273 transactionHash=0x26cbb0e411f69cc6b1095c1f6723ec42d13fccf2d6e9717d46e0da86faa18e25 calldataGas=9452 calldataSize=1412 txCount=1 blockNumber=7 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 eventName=rollup-published-to-l1 [33m+126ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 7 with 1 transactions [33m+159ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1090091188 gasUsed=610285 transactionHash=0xbe69869f40821fe6b7bdf3a17f3a8337cc070c19ab8a6ddacf42d0daccd7e2f0 calldataGas=9464 calldataSize=1412 txCount=1 blockNumber=7 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 eventName=rollup-published-to-l1 [33m+23ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 7 with 1 transactions [33m+59ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 21 and 22. [34m+13s[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 7 is ours, committing world state [32m+13s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=90.51714706420898 isBlockOurs=true txCount=1 blockNumber=7 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [31m+13s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=86.7295069694519 isBlockOurs=true txCount=1 blockNumber=7 noteEncryptedLogLength=8 noteEncryptedLogCount=0 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=12 [31m+13s[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
@@ -419,7 +419,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+13s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 038702c9d391441c5c31de2241a667da0dbb706ce2c2c9ec752b16190c43ed00 [31m+14s[0m
   [36;1maztec:pxe_service [0m[INFO] Sending transaction 038702c9d391441c5c31de2241a667da0dbb706ce2c2c9ec752b16190c43ed00 [36m+1s[0m
-  [31;1maztec:node [0m[INFO] Received tx 038702c9d391441c5c31de2241a667da0dbb706ce2c2c9ec752b16190c43ed00 [31m+102ms[0m
+  [31;1maztec:node [0m[INFO] Received tx 038702c9d391441c5c31de2241a667da0dbb706ce2c2c9ec752b16190c43ed00 [31m+97ms[0m
   console.log
     P2P adding tx with tx.clientIvcProof.isEmpty() = true
 
@@ -441,65 +441,65 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at ProvingOrchestrator.enqueueBaseRollup (../../prover-client/src/orchestrator/orchestrator.ts:639:13)
 
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 8! [32m+2s[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 8 eventName=l2-block-built duration=1731.4351630210876 publicProcessDuration=178.63812685012817 rollupCircuitsDuration=1731.0879187583923 txCount=1 blockNumber=8 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 [33m+2s[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 8 eventName=l2-block-built duration=1713.9116368293762 publicProcessDuration=178.5817141532898 rollupCircuitsDuration=1713.5193700790405 txCount=1 blockNumber=8 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 [33m+2s[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=837 bytes [33m+11s[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00c45151aca9feca0c499336e439377420ca53d91beb40e08d622744c84c2787 [33m+133ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1069501514 gasUsed=610285 transactionHash=0xe748dfca86fc9365f181688779a82bcfc7dc11d96b1319dd7604f0eb94dd3149 calldataGas=9464 calldataSize=1412 txCount=1 blockNumber=8 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 eventName=rollup-published-to-l1 [33m+26ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 8 with 1 transactions [33m+166ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x00c45151aca9feca0c499336e439377420ca53d91beb40e08d622744c84c2787 [33m+132ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1069501539 gasUsed=610285 transactionHash=0x6d2f9f23afa4c352b5b67c6c9c84b3415d966c3f322db373f7b80b59c09428d6 calldataGas=9464 calldataSize=1412 txCount=1 blockNumber=8 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 eventName=rollup-published-to-l1 [33m+24ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 8 with 1 transactions [33m+160ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 23 and 24. [34m+11s[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 8 is ours, committing world state [32m+11s[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=79.4711709022522 isBlockOurs=true txCount=1 blockNumber=8 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 [31m+11s[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=75.81139993667603 isBlockOurs=true txCount=1 blockNumber=8 noteEncryptedLogLength=588 noteEncryptedLogCount=1 encryptedLogLength=8 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=8 [31m+11s[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+1m[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+1ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x0000000000000000000000000000000000000000000000000000000000000005 with nullifier 0x091f037fd2233ed3f3594708ad65f0c24e47bbc034d1ecf9d4f6b8da7a7ba5e9 [33m+2ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+0ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x0000000000000000000000000000000000000000000000000000000000000005 with nullifier 0x091f037fd2233ed3f3594708ad65f0c24e47bbc034d1ecf9d4f6b8da7a7ba5e9 [33m+3ms[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Minting complete. [36m+24s[0m
-  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] State transition for mint complete. [34m+37s[0m
+  [34;1maztec:snapshot_manager:full_prover_integration/full_prover [0m[VERBOSE] State transition for mint complete. [34m+38s[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0xd6421a4e(balance_of_public) [31m+0ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+7s[0m
-  [31;1maztec:node [0m[INFO] Simulating tx 120d2e587a7187dc359f06789182f407655f5029893085bd6ac65b6102034ddc [31m+7s[0m
+  [31;1maztec:node [0m[INFO] Simulating tx 120d2e587a7187dc359f06789182f407655f5029893085bd6ac65b6102034ddc [31m+8s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 120d2e587a7187dc359f06789182f407655f5029893085bd6ac65b6102034ddc [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:balance_of_public. [36m+22s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=13.277220249176025 bytecodeSize=8887 [36m+13ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=13.055814266204834 bytecodeSize=8887 [36m+13ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 120d2e587a7187dc359f06789182f407655f5029893085bd6ac65b6102034ddc [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Executed local simulation for 120d2e587a7187dc359f06789182f407655f5029893085bd6ac65b6102034ddc [36m+3s[0m
-  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Public balance of wallet 0: 10000 [36m+4s[0m
+  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Public balance of wallet 0: 10000 [36m+5s[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x98d16d67(balance_of_private) [31m+0ms[0m
-  [36;1maztec:pxe_service [0m[VERBOSE] Unconstrained simulation for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14.balance_of_private completed [36m+73ms[0m
-  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Private balance of wallet 0: 10000 [36m+72ms[0m
+  [36;1maztec:pxe_service [0m[VERBOSE] Unconstrained simulation for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14.balance_of_private completed [36m+118ms[0m
+  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Private balance of wallet 0: 10000 [36m+118ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x3940e9ee(total_supply) [31m+0ms[0m
-  [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+1s[0m
+  [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+2s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 1acdb2d0f13d1bbe063bb03f381bab6a0f7ab94274deacb9a728ac33de702478 [31m+5s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 1acdb2d0f13d1bbe063bb03f381bab6a0f7ab94274deacb9a728ac33de702478 [36m+0ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:total_supply. [36m+4s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:total_supply returned, reverted: false. eventName=avm-simulation appCircuitName=Token:total_supply duration=7.819781303405762 bytecodeSize=4877 [36m+8ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:total_supply. [36m+5s[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:total_supply returned, reverted: false. eventName=avm-simulation appCircuitName=Token:total_supply duration=7.9358229637146 bytecodeSize=4877 [36m+8ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 1acdb2d0f13d1bbe063bb03f381bab6a0f7ab94274deacb9a728ac33de702478 [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Executed local simulation for 1acdb2d0f13d1bbe063bb03f381bab6a0f7ab94274deacb9a728ac33de702478 [36m+3s[0m
-  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Total supply: 20000 [36m+4s[0m
+  [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Total supply: 20000 [36m+5s[0m
   [36;1maztec:full_prover_test:full_prover [0m[VERBOSE] Using native ACVM binary at ../../noir/noir-repo/target/release/acvm with working directory /tmp/6e1b0000/acvm [36m+8ms[0m
-  [36;1maztec:bb-prover [0m[INFO] Using native BB at /mnt/user-data/cody/aztec-packages/barretenberg/cpp/build/bin/bb and working directory /tmp/bb-2anlif [36m+0ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Using native BB at /mnt/user-data/cody/aztec-packages/barretenberg/cpp/build/bin/bb and working directory /tmp/bb-o4IUrk [36m+0ms[0m
   [36;1maztec:bb-prover [0m[INFO] Using native ACVM at ../../noir/noir-repo/target/release/acvm and working directory /tmp/79040000/acvm [36m+0ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract ContractClassRegisterer at 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417 [35m+0ms[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934 [35m+18ms[0m
-  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b [35m+29ms[0m
+  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b [35m+38ms[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [35m+27ms[0m
-  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [35m+14ms[0m
+  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [35m+15ms[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract AuthRegistry at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [35m+24ms[0m
   [31;1maztec:pxe_synchronizer_3f1c00 [0m[INFO] Initial sync complete [31m+0ms[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Started PXE connected to chain 31337 version 1 [35m+62ms[0m
-  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract Token at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [35m+444ms[0m
-  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [35m+33ms[0m
+  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Added contract Token at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [35m+497ms[0m
+  [35;1maztec:pxe_service_3f1c00 [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [35m+37ms[0m
   [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [33m+0ms[0m
-  [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [33m+1ms[0m
+  [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [33m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Deferred incoming note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [33m+7ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Deferred outgoing note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [33m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+145ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+140ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [36m+2s[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Registered account 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [35m+1s[0m
@@ -514,27 +514,27 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract ContractClassRegisterer at 0x302da9b6000a76691341b250565ca5c67723261fa99af1435ffe5178ccb21417 [31m+0ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934 [31m+17ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b [31m+24ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [31m+27ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract ContractInstanceDeployer at 0x2b231c13768709b1ba51c1f86275b47e38dfac16e3d7f242cb578d92a4e2d934 [31m+16ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract MultiCallEntrypoint at 0x05425591680496cbc66f87c6e2a7669f253c205e4487e2046e72a6d8a74aa73b [31m+28ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract GasToken at 0x06fc7badd50bb8ee32439b52e8874b5a16ddd2aa1d5647ec46b2a0f51356f889 [31m+26ms[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract KeyRegistry at 0x04c2d010f88e8c238882fbbcbce5c81fdc1dc8ece85e8dbf3f602b4d81ec0351 [31m+15ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract AuthRegistry at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [31m+23ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract AuthRegistry at 0x27ffa4fb3da8a80b6365315f9798c887474854c71c0720e1c5236861288ce147 [31m+25ms[0m
   [36;1maztec:pxe_synchronizer_401c00 [0m[INFO] Initial sync complete [36m+0ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Started PXE connected to chain 31337 version 1 [31m+63ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract Token at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [31m+446ms[0m
-  [31;1maztec:pxe_service_401c00 [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [31m+33ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Started PXE connected to chain 31337 version 1 [31m+62ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract Token at 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 [31m+467ms[0m
+  [31;1maztec:pxe_service_401c00 [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [31m+36ms[0m
   [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [33m+0ms[0m
-  [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [33m+0ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Deferred incoming note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [33m+8ms[0m
+  [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [33m+1ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Deferred incoming note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [33m+7ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Deferred outgoing note for contract 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 1fa6038c2eb4b1dc10d9d370d9029b9ed9a3b02792efc0fbed6d7ffd29a260fa [33m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+134ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+138ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Registered account 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [36m+2s[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Registered account 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [31m+1s[0m
   [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [33m+0ms[0m
-  [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [33m+1ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Deferred incoming note for contract 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [33m+7ms[0m
+  [33;1maztec:note_processor [0m[WARN] DB has no contract with address 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [33m+0ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Deferred incoming note for contract 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [33m+8ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Deferred outgoing note for contract 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef at slot 0x0000000000000000000000000000000000000000000000000000000000000001 in tx 036ccec3125770756ed32da640f7fe1cc1ac9be76680b104bbb1b150b2951841 [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Registered account 0x2e60d7bf28166215cb5f957248fb92d5c83717a05f1486b0c444967a40eb99ef [36m+1s[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Added contract SchnorrAccount at 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169 [31m+1s[0m
@@ -549,7 +549,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [31;1maztec:node [0m[INFO] Simulating tx 2c3fd02d1c3817128cc61b0da62d642488c712b58db704d092cb9b6f07ec5fb7 [31m+11s[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 2c3fd02d1c3817128cc61b0da62d642488c712b58db704d092cb9b6f07ec5fb7 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:balance_of_public. [36m+11s[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=17.44887685775757 bytecodeSize=8887 [36m+18ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=17.909386157989502 bytecodeSize=8887 [36m+18ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 2c3fd02d1c3817128cc61b0da62d642488c712b58db704d092cb9b6f07ec5fb7 [33m+0ms[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Executed local simulation for 2c3fd02d1c3817128cc61b0da62d642488c712b58db704d092cb9b6f07ec5fb7 [31m+3s[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
@@ -557,16 +557,16 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x7db8f449(transfer_public) [31m+0ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0xe9ae3e93(Token:transfer) [36m+0ms[0m
   [31;1maztec:pxe_service_401c00 [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [31m+4s[0m
-  [35;1maztec:pxe_service_3f1c00 [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [35m+12s[0m
+  [35;1maztec:pxe_service_3f1c00 [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [35m+13s[0m
   [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Proving App(SchnorrAccount:entrypoint) circuit... [34m+0ms[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving App(SchnorrAccount:entrypoint) circuit... [35m+0ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-BJpFS9 -b /tmp/bb-q2Vihj/tmp-BJpFS9/App-bytecode -w /tmp/bb-q2Vihj/tmp-BJpFS9/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-Kgl849 -b /tmp/bb-f87Jjw/tmp-Kgl849/App-bytecode -w /tmp/bb-f87Jjw/tmp-Kgl849/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-FDGhtR -b /tmp/bb-q2Vihj/tmp-FDGhtR/App-bytecode -w /tmp/bb-q2Vihj/tmp-FDGhtR/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-Whj3fQ -b /tmp/bb-f87Jjw/tmp-Whj3fQ/App-bytecode -w /tmp/bb-f87Jjw/tmp-Whj3fQ/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -581,49 +581,49 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-FDGhtR/proof
+    binary proof written to: /tmp/bb-f87Jjw/tmp-Whj3fQ/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-FDGhtR/proof_fields.json
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-Whj3fQ/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk written to: /tmp/bb-q2Vihj/tmp-FDGhtR/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-FDGhtR/vk_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-Whj3fQ/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-Whj3fQ/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated App(SchnorrAccount:entrypoint) circuit proof in 21661 ms [34m+22s[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated App(SchnorrAccount:entrypoint) circuit proof in 21648 ms [34m+22s[0m
   [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: App, complete proof length: 850, without public inputs: 393, num public inputs: 457, circuit size: 2097152, is recursive: false, raw length: 27204 [34m+2ms[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated proof eventName=circuit-proving circuitName=app-circuit duration=21616.405319690704 inputSize=24170 proofSize=27204 appCircuitName=SchnorrAccount:entrypoint circuitSize=2097152 numPublicInputs=457 [34m+0ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated proof eventName=circuit-proving circuitName=app-circuit duration=21601.761070251465 inputSize=24173 proofSize=27204 appCircuitName=SchnorrAccount:entrypoint circuitSize=2097152 numPublicInputs=457 [34m+0ms[0m
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-BJpFS9/proof
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-BJpFS9/proof_fields.json
-    vk written to: /tmp/bb-q2Vihj/tmp-BJpFS9/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-BJpFS9/vk_fields.json
+    binary proof written to: /tmp/bb-f87Jjw/tmp-Kgl849/proof
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-Kgl849/proof_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-Kgl849/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-Kgl849/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Proving PrivateKernelInitArtifact circuit... [34m+666ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Proving PrivateKernelInitArtifact circuit... [34m+663ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-SRFKvF -b /tmp/bb-q2Vihj/tmp-SRFKvF/PrivateKernelInitArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-SRFKvF/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-vscSC2 -b /tmp/bb-f87Jjw/tmp-vscSC2/PrivateKernelInitArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-vscSC2/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated App(SchnorrAccount:entrypoint) circuit proof in 22376 ms [35m+22s[0m
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated App(SchnorrAccount:entrypoint) circuit proof in 22402 ms [35m+22s[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: App, complete proof length: 850, without public inputs: 393, num public inputs: 457, circuit size: 2097152, is recursive: false, raw length: 27204 [35m+1ms[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated proof eventName=circuit-proving circuitName=app-circuit duration=22374.677349090576 inputSize=25138 proofSize=27204 appCircuitName=SchnorrAccount:entrypoint circuitSize=2097152 numPublicInputs=457 [35m+1ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated proof eventName=circuit-proving circuitName=app-circuit duration=22400.75522184372 inputSize=25131 proofSize=27204 appCircuitName=SchnorrAccount:entrypoint circuitSize=2097152 numPublicInputs=457 [35m+1ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving PrivateKernelInitArtifact circuit... [35m+642ms[0m
   console.log
-    bb COMMAND is: prove_ultra_honk_output_all
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving PrivateKernelInitArtifact circuit... [35m+650ms[0m
-  console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-cDIzjm -b /tmp/bb-q2Vihj/tmp-cDIzjm/PrivateKernelInitArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-cDIzjm/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-EamwYM -b /tmp/bb-f87Jjw/tmp-EamwYM/PrivateKernelInitArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-EamwYM/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -633,25 +633,25 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-SRFKvF/proof
+    binary proof written to: /tmp/bb-f87Jjw/tmp-vscSC2/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-SRFKvF/proof_fields.json
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-vscSC2/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk written to: /tmp/bb-q2Vihj/tmp-SRFKvF/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-SRFKvF/vk_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-vscSC2/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-vscSC2/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated PrivateKernelInitArtifact circuit proof in 2158 ms [34m+2s[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: PrivateKernelInitArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 65536, is recursive: false, raw length: 102276 [34m+5ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated PrivateKernelInitArtifact circuit proof in 2308 ms [34m+2s[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: PrivateKernelInitArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 65536, is recursive: false, raw length: 102276 [34m+6ms[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-L2np9w/proof -k /tmp/bb-q2Vihj/tmp-L2np9w/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-u5B67U/proof -k /tmp/bb-f87Jjw/tmp-u5B67U/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -665,25 +665,25 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Successfully verified PrivateKernelInitArtifact proof in 99 ms [34m+105ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Successfully verified PrivateKernelInitArtifact proof in 104 ms [34m+106ms[0m
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-cDIzjm/proof
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-cDIzjm/proof_fields.json
-    vk written to: /tmp/bb-q2Vihj/tmp-cDIzjm/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-cDIzjm/vk_fields.json
+    binary proof written to: /tmp/bb-f87Jjw/tmp-EamwYM/proof
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-EamwYM/proof_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-EamwYM/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-EamwYM/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelInitArtifact circuit proof in 4185 ms [35m+4s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelInitArtifact circuit proof in 4295 ms [35m+4s[0m
   [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Proving PrivateKernelResetSmallArtifact circuit... [34m+3s[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: PrivateKernelInitArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 65536, is recursive: false, raw length: 102276 [35m+7ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: PrivateKernelInitArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 65536, is recursive: false, raw length: 102276 [35m+5ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-JZJTBD -b /tmp/bb-q2Vihj/tmp-JZJTBD/PrivateKernelResetSmallArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-JZJTBD/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-S2rTW3 -b /tmp/bb-f87Jjw/tmp-S2rTW3/PrivateKernelResetSmallArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-S2rTW3/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-a0Qgcn/proof -k /tmp/bb-q2Vihj/tmp-a0Qgcn/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-DqRTy8/proof -k /tmp/bb-f87Jjw/tmp-DqRTy8/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -702,10 +702,10 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelInitArtifact proof in 98 ms [35m+133ms[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving App(Token:transfer) circuit... [35m+846ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelInitArtifact proof in 99 ms [35m+139ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving App(Token:transfer) circuit... [35m+856ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-ulOiXe -b /tmp/bb-q2Vihj/tmp-ulOiXe/App-bytecode -w /tmp/bb-q2Vihj/tmp-ulOiXe/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-NhjyAm -b /tmp/bb-f87Jjw/tmp-NhjyAm/App-bytecode -w /tmp/bb-f87Jjw/tmp-NhjyAm/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -715,25 +715,25 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-JZJTBD/proof
+    binary proof written to: /tmp/bb-f87Jjw/tmp-S2rTW3/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-JZJTBD/proof_fields.json
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-S2rTW3/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk written to: /tmp/bb-q2Vihj/tmp-JZJTBD/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-JZJTBD/vk_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-S2rTW3/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-S2rTW3/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated PrivateKernelResetSmallArtifact circuit proof in 5652 ms [34m+6s[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: PrivateKernelResetSmallArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 524288, is recursive: false, raw length: 102276 [34m+3ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated PrivateKernelResetSmallArtifact circuit proof in 5930 ms [34m+6s[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: PrivateKernelResetSmallArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 524288, is recursive: false, raw length: 102276 [34m+4ms[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-UuXRc8/proof -k /tmp/bb-q2Vihj/tmp-UuXRc8/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-a0IW7I/proof -k /tmp/bb-f87Jjw/tmp-a0IW7I/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -747,10 +747,10 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Successfully verified PrivateKernelResetSmallArtifact proof in 96 ms [34m+97ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Successfully verified PrivateKernelResetSmallArtifact proof in 103 ms [34m+103ms[0m
   [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Proving PrivateKernelTailToPublicArtifact circuit... [34m+9s[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-cFMU3H -b /tmp/bb-q2Vihj/tmp-cFMU3H/PrivateKernelTailToPublicArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-cFMU3H/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-5LPEvB -b /tmp/bb-f87Jjw/tmp-5LPEvB/PrivateKernelTailToPublicArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-5LPEvB/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -760,23 +760,27 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-ulOiXe/proof
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-ulOiXe/proof_fields.json
-    vk written to: /tmp/bb-q2Vihj/tmp-ulOiXe/vk
+    binary proof written to: /tmp/bb-f87Jjw/tmp-NhjyAm/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-ulOiXe/vk_fields.json
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-NhjyAm/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated App(Token:transfer) circuit proof in 18536 ms [35m+19s[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: App, complete proof length: 850, without public inputs: 393, num public inputs: 457, circuit size: 2097152, is recursive: false, raw length: 27204 [35m+5ms[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated proof eventName=circuit-proving circuitName=app-circuit duration=18524.423022270203 inputSize=582417 proofSize=27204 appCircuitName=Token:transfer circuitSize=2097152 numPublicInputs=457 [35m+0ms[0m
+  console.log
+    vk written to: /tmp/bb-f87Jjw/tmp-NhjyAm/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-NhjyAm/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated App(Token:transfer) circuit proof in 18488 ms [35m+18s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: App, complete proof length: 850, without public inputs: 393, num public inputs: 457, circuit size: 2097152, is recursive: false, raw length: 27204 [35m+2ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated proof eventName=circuit-proving circuitName=app-circuit duration=18484.7236700058 inputSize=582416 proofSize=27204 appCircuitName=Token:transfer circuitSize=2097152 numPublicInputs=457 [35m+0ms[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving PrivateKernelInnerArtifact circuit... [35m+1s[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-iHqerl -b /tmp/bb-q2Vihj/tmp-iHqerl/PrivateKernelInnerArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-iHqerl/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-qEjk6D -b /tmp/bb-f87Jjw/tmp-qEjk6D/PrivateKernelInnerArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-qEjk6D/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -786,25 +790,25 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-iHqerl/proof
+    binary proof written to: /tmp/bb-f87Jjw/tmp-qEjk6D/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-iHqerl/proof_fields.json
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-qEjk6D/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk written to: /tmp/bb-q2Vihj/tmp-iHqerl/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-iHqerl/vk_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-qEjk6D/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-qEjk6D/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelInnerArtifact circuit proof in 3753 ms [35m+4s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelInnerArtifact circuit proof in 3902 ms [35m+4s[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: PrivateKernelInnerArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 262144, is recursive: false, raw length: 102276 [35m+4ms[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-kxJeJk/proof -k /tmp/bb-q2Vihj/tmp-kxJeJk/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-kRlCla/proof -k /tmp/bb-f87Jjw/tmp-kRlCla/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -818,10 +822,10 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelInnerArtifact proof in 99 ms [35m+99ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelInnerArtifact proof in 101 ms [35m+101ms[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving PrivateKernelResetSmallArtifact circuit... [35m+3s[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-GW5nqr -b /tmp/bb-q2Vihj/tmp-GW5nqr/PrivateKernelResetSmallArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-GW5nqr/witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-jjD8gr -b /tmp/bb-f87Jjw/tmp-jjD8gr/PrivateKernelResetSmallArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-jjD8gr/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -831,76 +835,81 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-cFMU3H/proof
+    binary proof written to: /tmp/bb-f87Jjw/tmp-jjD8gr/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-cFMU3H/proof_fields.json
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-jjD8gr/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk written to: /tmp/bb-q2Vihj/tmp-cFMU3H/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-cFMU3H/vk_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-jjD8gr/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-jjD8gr/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-GW5nqr/proof
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-GW5nqr/proof_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    vk written to: /tmp/bb-q2Vihj/tmp-GW5nqr/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-GW5nqr/vk_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated PrivateKernelTailToPublicArtifact circuit proof in 18429 ms [34m+18s[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: PrivateKernelTailToPublicArtifact, complete proof length: 4227, without public inputs: 393, num public inputs: 3834, circuit size: 2097152, is recursive: false, raw length: 135268 [34m+4ms[0m
-  console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-uh17QK/proof -k /tmp/bb-q2Vihj/tmp-uh17QK/vk
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelResetSmallArtifact circuit proof in 6150 ms [35m+6s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelResetSmallArtifact circuit proof in 6183 ms [35m+6s[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: PrivateKernelResetSmallArtifact, complete proof length: 3196, without public inputs: 393, num public inputs: 2803, circuit size: 524288, is recursive: false, raw length: 102276 [35m+4ms[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-SZRMiI/proof -k /tmp/bb-q2Vihj/tmp-SZRMiI/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-Ptoju2/proof -k /tmp/bb-f87Jjw/tmp-Ptoju2/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
     bb COMMAND is: verify_ultra_honk
-    sumcheck passed
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Successfully verified PrivateKernelTailToPublicArtifact proof in 105 ms [34m+106ms[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generating Client IVC proof [34m+9ms[0m
   console.log
-    bb COMMAND is: verify_ultra_honk
     sumcheck passed
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelResetSmallArtifact proof in 2941 ms [35m+3s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelResetSmallArtifact proof in 105 ms [35m+106ms[0m
+  console.log
+    binary proof written to: /tmp/bb-f87Jjw/tmp-5LPEvB/proof
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-5LPEvB/proof_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-5LPEvB/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-5LPEvB/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated PrivateKernelTailToPublicArtifact circuit proof in 20519 ms [34m+21s[0m
   [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Proving PrivateKernelTailArtifact circuit... [35m+2s[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] bytecodePath /tmp/bb-q2Vihj/tmp-7u8tEm/acir.msgpack [34m+5s[0m
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] outputPath /tmp/bb-q2Vihj/tmp-7u8tEm [34m+0ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Circuit type: PrivateKernelTailToPublicArtifact, complete proof length: 4227, without public inputs: 393, num public inputs: 3834, circuit size: 2097152, is recursive: false, raw length: 135268 [34m+7ms[0m
   console.log
-    Executing BB with: client_ivc_prove_output_all_msgpack -o /tmp/bb-q2Vihj/tmp-7u8tEm -b /tmp/bb-q2Vihj/tmp-7u8tEm/acir.msgpack -w /tmp/bb-q2Vihj/tmp-7u8tEm/witnesses.msgpack -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-f87Jjw/tmp-zVQBJy -b /tmp/bb-f87Jjw/tmp-zVQBJy/PrivateKernelTailArtifact-bytecode -w /tmp/bb-f87Jjw/tmp-zVQBJy/witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-q2Vihj/tmp-CCPvkS -b /tmp/bb-q2Vihj/tmp-CCPvkS/PrivateKernelTailArtifact-bytecode -w /tmp/bb-q2Vihj/tmp-CCPvkS/witness.gz -v
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-WlmUb8/proof -k /tmp/bb-f87Jjw/tmp-WlmUb8/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Successfully verified PrivateKernelTailToPublicArtifact proof in 104 ms [34m+142ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generating Client IVC proof [34m+9ms[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] bytecodePath /tmp/bb-f87Jjw/tmp-diH4Oc/acir.msgpack [34m+3s[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] outputPath /tmp/bb-f87Jjw/tmp-diH4Oc [34m+0ms[0m
+  console.log
+    Executing BB with: client_ivc_prove_output_all_msgpack -o /tmp/bb-f87Jjw/tmp-diH4Oc -b /tmp/bb-f87Jjw/tmp-diH4Oc/acir.msgpack -w /tmp/bb-f87Jjw/tmp-diH4Oc/witnesses.msgpack -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -910,26 +919,25 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    bb COMMAND is: prove_ultra_honk_output_all
+    binary proof written to: /tmp/bb-f87Jjw/tmp-zVQBJy/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-q2Vihj/tmp-CCPvkS/proof
+    proof as fields written to: /tmp/bb-f87Jjw/tmp-zVQBJy/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-q2Vihj/tmp-CCPvkS/proof_fields.json
-    vk written to: /tmp/bb-q2Vihj/tmp-CCPvkS/vk
-    vk as fields written to: /tmp/bb-q2Vihj/tmp-CCPvkS/vk_fields.json
+    vk written to: /tmp/bb-f87Jjw/tmp-zVQBJy/vk
+    vk as fields written to: /tmp/bb-f87Jjw/tmp-zVQBJy/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelTailArtifact circuit proof in 9087 ms [35m+9s[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: PrivateKernelTailArtifact, complete proof length: 776, without public inputs: 393, num public inputs: 383, circuit size: 1048576, is recursive: false, raw length: 24836 [35m+2ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated PrivateKernelTailArtifact circuit proof in 9287 ms [35m+9s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Circuit type: PrivateKernelTailArtifact, complete proof length: 776, without public inputs: 393, num public inputs: 383, circuit size: 1048576, is recursive: false, raw length: 24836 [35m+1ms[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-q2Vihj/tmp-V11TKM/proof -k /tmp/bb-q2Vihj/tmp-V11TKM/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-f87Jjw/tmp-HiX7F7/proof -k /tmp/bb-f87Jjw/tmp-HiX7F7/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -943,12 +951,12 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelTailArtifact proof in 87 ms [35m+87ms[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generating Client IVC proof [35m+1ms[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] bytecodePath /tmp/bb-q2Vihj/tmp-RbfU94/acir.msgpack [35m+2s[0m
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] outputPath /tmp/bb-q2Vihj/tmp-RbfU94 [35m+1ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Successfully verified PrivateKernelTailArtifact proof in 92 ms [35m+92ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generating Client IVC proof [35m+2ms[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] bytecodePath /tmp/bb-f87Jjw/tmp-sh4PWd/acir.msgpack [35m+2s[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] outputPath /tmp/bb-f87Jjw/tmp-sh4PWd [35m+0ms[0m
   console.log
-    Executing BB with: client_ivc_prove_output_all_msgpack -o /tmp/bb-q2Vihj/tmp-RbfU94 -b /tmp/bb-q2Vihj/tmp-RbfU94/acir.msgpack -w /tmp/bb-q2Vihj/tmp-RbfU94/witnesses.msgpack -v
+    Executing BB with: client_ivc_prove_output_all_msgpack -o /tmp/bb-f87Jjw/tmp-sh4PWd -b /tmp/bb-f87Jjw/tmp-sh4PWd/acir.msgpack -w /tmp/bb-f87Jjw/tmp-sh4PWd/witnesses.msgpack -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -985,7 +993,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated IVC proof duration=103083.26103210449 eventName=circuit-proving [34m+2m[0m
+  [34;1maztec:pxe:bb-native-prover:401c00 [0m[INFO] Generated IVC proof duration=110303.30710983276 eventName=circuit-proving [34m+2m[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Sending transaction 2364756988e76898fcbfdf4bceabc0459441774e62f44850815ed1e553665c03 [31m+3m[0m
   [31;1maztec:node [0m[INFO] Received tx 2364756988e76898fcbfdf4bceabc0459441774e62f44850815ed1e553665c03 [31m+3m[0m
   console.log
@@ -1004,11 +1012,6 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
         translation evals size: 10
     goblin  proof size: 2727
         merge       proof size: 64
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    
         decider     proof size: 1772
         goblin      proof size: 881
         translation evals size: 10
@@ -1028,20 +1031,20 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated IVC proof duration=142720.06495714188 eventName=circuit-proving [35m+2m[0m
+  [35;1maztec:pxe:bb-native-prover:3f1c00 [0m[INFO] Generated IVC proof duration=141414.0024819374 eventName=circuit-proving [35m+2m[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Sending transaction 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 [35m+4m[0m
-  [31;1maztec:node [0m[INFO] Received tx 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 [31m+51s[0m
+  [31;1maztec:node [0m[INFO] Received tx 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 [31m+39s[0m
   console.log
     P2P adding tx with tx.clientIvcProof.isEmpty() = false
 
       at P2PClient.sendTx (../../p2p/src/client/p2p_client.ts:227:13)
           at async Promise.all (index 0)
 
-  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 eventName=tx-added-to-pool txHash=0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 noteEncryptedLogCount=2 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=1168 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=2 newNullifierCount=2 proofSize=24836 size=174320 feePaymentMethod=none classRegisteredCount=0 [36m+51s[0m
+  [36;1maztec:tx_pool [0m[INFO] Adding tx with id 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 eventName=tx-added-to-pool txHash=0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 noteEncryptedLogCount=2 encryptedLogCount=0 unencryptedLogCount=0 noteEncryptedLogSize=1168 encryptedLogSize=8 unencryptedLogSize=8 newCommitmentCount=2 newNullifierCount=2 proofSize=24836 size=174320 feePaymentMethod=none classRegisteredCount=0 [36m+39s[0m
   [33;1maztec:sequencer [0m[INFO] Building block 9 with 2 transactions [33m+4m[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 9 [33m+1ms[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Retrieved 0 L1 to L2 messages for block 9 [33m+0ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Starting new block with 2 transactions [32m+4m[0m
-  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 [32m+27ms[0m
+  [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 0f9beb6460347da7227859ca6e9a106b24fa21b5dd52aa49051b39ef15dc1c75 [32m+26ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? false
 
@@ -1049,16 +1052,86 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 2364756988e76898fcbfdf4bceabc0459441774e62f44850815ed1e553665c03 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:transfer_public. [36m+4m[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:transfer_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:transfer_public duration=65.81844425201416 bytecodeSize=31425 [36m+66ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:transfer_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:transfer_public duration=65.82691621780396 bytecodeSize=31425 [36m+67ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 2364756988e76898fcbfdf4bceabc0459441774e62f44850815ed1e553665c03 [33m+0ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Received transaction: 2364756988e76898fcbfdf4bceabc0459441774e62f44850815ed1e553665c03 [32m+2s[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-aHJBJq -b /tmp/bb-2anlif/tmp-aHJBJq/BaseParityArtifact-bytecode -w /tmp/bb-2anlif/tmp-aHJBJq/partial-witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-HxOsCx -b /tmp/bb-o4IUrk/tmp-HxOsCx/BaseParityArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-HxOsCx/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-6MFkIX -b /tmp/bb-2anlif/tmp-6MFkIX/BaseParityArtifact-bytecode -w /tmp/bb-2anlif/tmp-6MFkIX/partial-witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-bMhwxu -b /tmp/bb-o4IUrk/tmp-bMhwxu/BaseParityArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-bMhwxu/partial-witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-o4IUrk/tmp-HxOsCx/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-HxOsCx/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-HxOsCx/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-HxOsCx/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2304 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2303.332519054413 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+4m[0m
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-JRNVwl/proof -k /tmp/bb-o4IUrk/tmp-JRNVwl/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    binary proof written to: /tmp/bb-o4IUrk/tmp-bMhwxu/proof
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-bMhwxu/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-bMhwxu/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-bMhwxu/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2312 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2311.448595046997 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+74ms[0m
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-LsI4NS/proof -k /tmp/bb-o4IUrk/tmp-LsI4NS/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 115.16330432891846 ms [36m+43ms[0m
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 85.97619581222534 ms [36m+44ms[0m
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-Om26XQ -b /tmp/bb-o4IUrk/tmp-Om26XQ/BaseParityArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-Om26XQ/partial-witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-HA9H3T -b /tmp/bb-o4IUrk/tmp-HA9H3T/BaseParityArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-HA9H3T/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1073,30 +1146,22 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-aHJBJq/proof
+    binary proof written to: /tmp/bb-o4IUrk/tmp-Om26XQ/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-aHJBJq/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-aHJBJq/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-aHJBJq/vk_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-Om26XQ/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-Om26XQ/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-Om26XQ/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2327 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2326.92449092865 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+4m[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2169 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2168.1960582733154 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+2s[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-dVZ0We/proof -k /tmp/bb-2anlif/tmp-dVZ0We/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-ZHQzEY/proof -k /tmp/bb-o4IUrk/tmp-ZHQzEY/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-6MFkIX/proof
-    proof as fields written to: /tmp/bb-2anlif/tmp-6MFkIX/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-6MFkIX/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-6MFkIX/vk_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
     bb COMMAND is: verify_ultra_honk
@@ -1108,110 +1173,33 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2336 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2335.786032676697 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+84ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 94.3070158958435 ms [36m+96ms[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-WY2Yh1/proof -k /tmp/bb-2anlif/tmp-WY2Yh1/vk
+    binary proof written to: /tmp/bb-o4IUrk/tmp-HA9H3T/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-HA9H3T/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-HA9H3T/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-HA9H3T/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    Executing BB with: proof_as_fields_honk -p /tmp/bb-o4IUrk/tmp-1qMDRN/proof -k /tmp/bb-o4IUrk/tmp-1qMDRN/vk -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 129.58272743225098 ms [36m+48ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2348 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2347.81582403183 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+124ms[0m
   console.log
-    bb COMMAND is: verify_ultra_honk
-    sumcheck passed
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 113.3977279663086 ms [36m+68ms[0m
-  console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-XpgZcJ -b /tmp/bb-2anlif/tmp-XpgZcJ/BaseParityArtifact-bytecode -w /tmp/bb-2anlif/tmp-XpgZcJ/partial-witness.gz -v
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    bb COMMAND is: prove_ultra_honk_output_all
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-pAJzDu -b /tmp/bb-2anlif/tmp-pAJzDu/BaseParityArtifact-bytecode -w /tmp/bb-2anlif/tmp-pAJzDu/partial-witness.gz -v
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    bb COMMAND is: prove_ultra_honk_output_all
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-pAJzDu/proof
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-pAJzDu/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-pAJzDu/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-pAJzDu/vk_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-XpgZcJ/proof
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-XpgZcJ/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-XpgZcJ/vk
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    vk as fields written to: /tmp/bb-2anlif/tmp-XpgZcJ/vk_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2238 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2237.0828647613525 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+2s[0m
-  console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-2JNCHc/proof -k /tmp/bb-2anlif/tmp-2JNCHc/vk
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseParityArtifact in 2396 ms, size: 393 fields circuitName=base-parity circuitSize=131072 duration=2395.767961025238 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+49ms[0m
-  console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-QH8spj/proof -k /tmp/bb-2anlif/tmp-QH8spj/vk
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    bb COMMAND is: verify_ultra_honk
-    sumcheck passed
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 98.64832019805908 ms [36m+51ms[0m
-  console.log
-    bb COMMAND is: verify_ultra_honk
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    sumcheck passed
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 98.57447528839111 ms [36m+48ms[0m
-  console.log
-    Executing BB with: proof_as_fields_honk -p /tmp/bb-2anlif/tmp-TXPEwF/proof -k /tmp/bb-2anlif/tmp-TXPEwF/vk -v
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-uNOjG9/proof -k /tmp/bb-o4IUrk/tmp-uNOjG9/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
     bb COMMAND is: proof_as_fields_honk
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-TXPEwF/proof_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-1qMDRN/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
@@ -1221,20 +1209,27 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at BBNativeRollupProver.getBaseRollupProof (../../bb-prover/src/prover/bb_prover.ts:291:13)
 
   console.log
-    Executing BB with: prove_tube -o /mnt/user-data/cody/.aztec/cache/6021fa5259f61f51d7ec10b5dfc407e3782bd0122ee2d037db53e1a20c017317 -v
+    Executing BB with: prove_tube -o /mnt/user-data/cody/.aztec/cache/01283548a923a70b25c5d0f86e03c836b8134c586b74085450863d530e6d9fb2 -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
-  [36;1maztec:bb-prover [0m[INFO] Proving avm-circuit for Token:transfer_public... [36m+142ms[0m
   console.log
-    Executing BB with: avm_prove --avm-bytecode /tmp/bb-2anlif/tmp-vSeb1Y/avm_bytecode.bin --avm-calldata /tmp/bb-2anlif/tmp-vSeb1Y/avm_calldata.bin --avm-public-inputs /tmp/bb-2anlif/tmp-vSeb1Y/avm_public_inputs.bin --avm-hints /tmp/bb-2anlif/tmp-vSeb1Y/avm_hints.bin -o /tmp/bb-2anlif/tmp-vSeb1Y -v
+    bb COMMAND is: verify_ultra_honk
+    sumcheck passed
 
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 86.95026302337646 ms [36m+88ms[0m
   console.log
     bb COMMAND is: prove_tube
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Proving avm-circuit for Token:transfer_public... [36m+94ms[0m
+  console.log
+    Executing BB with: avm_prove --avm-bytecode /tmp/bb-o4IUrk/tmp-dqaVJs/avm_bytecode.bin --avm-calldata /tmp/bb-o4IUrk/tmp-dqaVJs/avm_calldata.bin --avm-public-inputs /tmp/bb-o4IUrk/tmp-dqaVJs/avm_public_inputs.bin --avm-hints /tmp/bb-o4IUrk/tmp-dqaVJs/avm_hints.bin -o /tmp/bb-o4IUrk/tmp-dqaVJs -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
   console.log
     bb COMMAND is: avm_prove
@@ -1266,15 +1261,19 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof written to: "/tmp/bb-2anlif/tmp-vSeb1Y/proof"
-    vk written to: "/tmp/bb-2anlif/tmp-vSeb1Y/vk"
-    vk as fields written to: "/tmp/bb-2anlif/tmp-vSeb1Y/vk_fields.json"
+    proof written to: "/tmp/bb-o4IUrk/tmp-dqaVJs/proof"
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for avm-circuit(Token:transfer_public) in 47412 ms circuitName=avm-circuit appCircuitName=Token:transfer_public duration=47411.22603225708 proofSize=93856 eventName=circuit-proving inputSize=44849 circuitSize=0 numPublicInputs=131072 [36m+47s[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-gO1ebJ -b /tmp/bb-2anlif/tmp-gO1ebJ/RootParityArtifact-bytecode -w /tmp/bb-2anlif/tmp-gO1ebJ/partial-witness.gz -v
+    vk written to: "/tmp/bb-o4IUrk/tmp-dqaVJs/vk"
+    vk as fields written to: "/tmp/bb-o4IUrk/tmp-dqaVJs/vk_fields.json"
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for avm-circuit(Token:transfer_public) in 46758 ms circuitName=avm-circuit appCircuitName=Token:transfer_public duration=46757.41848516464 proofSize=93856 eventName=circuit-proving inputSize=44849 circuitSize=0 numPublicInputs=131072 [36m+47s[0m
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-hjGe41 -b /tmp/bb-o4IUrk/tmp-hjGe41/RootParityArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-hjGe41/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1304,20 +1303,20 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-gO1ebJ/proof
+    binary proof written to: /tmp/bb-o4IUrk/tmp-hjGe41/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-gO1ebJ/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-gO1ebJ/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-gO1ebJ/vk_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-hjGe41/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-hjGe41/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-hjGe41/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for RootParityArtifact in 46807 ms, size: 393 fields circuitName=root-parity circuitSize=4194304 duration=46806.687682151794 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+47s[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for RootParityArtifact in 47399 ms, size: 393 fields circuitName=root-parity circuitSize=4194304 duration=47398.31424999237 inputSize=64 proofSize=12644 eventName=circuit-proving numPublicInputs=2 [36m+48s[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-LE3NFk/proof -k /tmp/bb-2anlif/tmp-LE3NFk/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-9AtBJc/proof -k /tmp/bb-o4IUrk/tmp-9AtBJc/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1331,9 +1330,9 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 86.99918603897095 ms [36m+89ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 88.36867904663086 ms [36m+90ms[0m
   console.log
-    Executing BB with: proof_as_fields_honk -p /tmp/bb-2anlif/tmp-zsooQV/proof -k /tmp/bb-2anlif/tmp-zsooQV/vk -v
+    Executing BB with: proof_as_fields_honk -p /tmp/bb-o4IUrk/tmp-AwRjNt/proof -k /tmp/bb-o4IUrk/tmp-AwRjNt/vk -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1343,7 +1342,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-zsooQV/proof_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-AwRjNt/proof_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
@@ -1353,7 +1352,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at BBNativeRollupProver.getPublicKernelProof (../../bb-prover/src/prover/bb_prover.ts:220:13)
 
   console.log
-    Executing BB with: prove_tube -o /mnt/user-data/cody/.aztec/cache/a855dab30fe6d0319c6c235b42552c4df4fdbb282203513d8532378002df6a8a -v
+    Executing BB with: prove_tube -o /mnt/user-data/cody/.aztec/cache/f89e0a64a91d09970eb522e1753fe1ec2662751f2c69ccf99ba0d7059ce15c02 -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1394,7 +1393,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for tubeCircuit in 265347 ms, size: 393 fields [36m+3m[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for tubeCircuit in 265140 ms, size: 393 fields [36m+3m[0m
   console.log
     verificaton key length in fields:103
 
@@ -1416,7 +1415,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-9z8gJq -b /tmp/bb-2anlif/tmp-9z8gJq/BaseRollupArtifact-bytecode -w /tmp/bb-2anlif/tmp-9z8gJq/partial-witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-eBrY1z -b /tmp/bb-o4IUrk/tmp-eBrY1z/BaseRollupArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-eBrY1z/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1425,9 +1424,9 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for tubeCircuit in 177163 ms, size: 393 fields [36m+7s[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for tubeCircuit in 177318 ms, size: 393 fields [36m+7s[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-IShGAy/proof -k /tmp/bb-2anlif/tmp-IShGAy/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-BTcZF7/proof -k /tmp/bb-o4IUrk/tmp-BTcZF7/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1441,95 +1440,9 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 112.86656141281128 ms [36m+114ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 125.1943769454956 ms [36m+126ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-Y3BqTr -b /tmp/bb-2anlif/tmp-Y3BqTr/PublicKernelAppLogicArtifact-bytecode -w /tmp/bb-2anlif/tmp-Y3BqTr/partial-witness.gz -v
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    bb COMMAND is: prove_ultra_honk_output_all
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    in create_honk_recursion_constraints
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    in create_honk_recursion_constraints
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-Y3BqTr/proof
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-Y3BqTr/proof_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    vk written to: /tmp/bb-2anlif/tmp-Y3BqTr/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-Y3BqTr/vk_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for PublicKernelAppLogicArtifact in 34159 ms, size: 393 fields circuitName=public-kernel-app-logic circuitSize=4194304 duration=34158.43588876724 inputSize=93334 proofSize=135268 eventName=circuit-proving numPublicInputs=3834 [36m+39s[0m
-  console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-Xc383b/proof -k /tmp/bb-2anlif/tmp-Xc383b/vk
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    bb COMMAND is: verify_ultra_honk
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    sumcheck passed
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 174.28560209274292 ms [36m+178ms[0m
-  console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-9z8gJq/proof
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-9z8gJq/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-9z8gJq/vk
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    vk as fields written to: /tmp/bb-2anlif/tmp-9z8gJq/vk_fields.json
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseRollupArtifact in 45243 ms, size: 393 fields circuitName=base-rollup circuitSize=4194304 duration=45242.945326805115 inputSize=756 proofSize=13572 eventName=circuit-proving numPublicInputs=31 [36m+5s[0m
-  console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-2tGfPi/proof -k /tmp/bb-2anlif/tmp-2tGfPi/vk
-
-      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
-
-  console.log
-    bb COMMAND is: verify_ultra_honk
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  console.log
-    sumcheck passed
-
-      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
-
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 143.73867273330688 ms [36m+145ms[0m
-  console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-HTAUPx -b /tmp/bb-2anlif/tmp-HTAUPx/PublicKernelTailArtifact-bytecode -w /tmp/bb-2anlif/tmp-HTAUPx/partial-witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-gppk6D -b /tmp/bb-o4IUrk/tmp-gppk6D/PublicKernelAppLogicArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-gppk6D/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1544,24 +1457,29 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-HTAUPx/proof
+    in create_honk_recursion_constraints
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-HTAUPx/proof_fields.json
+    binary proof written to: /tmp/bb-o4IUrk/tmp-gppk6D/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    vk written to: /tmp/bb-2anlif/tmp-HTAUPx/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-HTAUPx/vk_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-gppk6D/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-gppk6D/vk
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for PublicKernelTailArtifact in 73298 ms, size: 393 fields circuitName=public-kernel-tail circuitSize=8388608 duration=73297.09723520279 inputSize=10014 proofSize=24836 eventName=circuit-proving numPublicInputs=383 [36m+2m[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-hzVgrB/proof -k /tmp/bb-2anlif/tmp-hzVgrB/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-gppk6D/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for PublicKernelAppLogicArtifact in 32468 ms, size: 393 fields circuitName=public-kernel-app-logic circuitSize=4194304 duration=32467.711876392365 inputSize=93334 proofSize=135268 eventName=circuit-proving numPublicInputs=3834 [36m+38s[0m
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-PCo02z/proof -k /tmp/bb-o4IUrk/tmp-PCo02z/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1575,7 +1493,84 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 152.2119369506836 ms [36m+153ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 183.55298709869385 ms [36m+191ms[0m
+  console.log
+    binary proof written to: /tmp/bb-o4IUrk/tmp-eBrY1z/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-eBrY1z/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-eBrY1z/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-eBrY1z/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseRollupArtifact in 48746 ms, size: 393 fields circuitName=base-rollup circuitSize=4194304 duration=48745.130831718445 inputSize=756 proofSize=13572 eventName=circuit-proving numPublicInputs=31 [36m+10s[0m
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-z2mx1F/proof -k /tmp/bb-o4IUrk/tmp-z2mx1F/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 135.341805934906 ms [36m+137ms[0m
+  console.log
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-4hGK63 -b /tmp/bb-o4IUrk/tmp-4hGK63/PublicKernelTailArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-4hGK63/partial-witness.gz -v
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: prove_ultra_honk_output_all
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    in create_honk_recursion_constraints
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    binary proof written to: /tmp/bb-o4IUrk/tmp-4hGK63/proof
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-4hGK63/proof_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    vk written to: /tmp/bb-o4IUrk/tmp-4hGK63/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-4hGK63/vk_fields.json
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for PublicKernelTailArtifact in 73144 ms, size: 393 fields circuitName=public-kernel-tail circuitSize=8388608 duration=73143.46527719498 inputSize=10014 proofSize=24836 eventName=circuit-proving numPublicInputs=383 [36m+2m[0m
+  console.log
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-pWgeK6/proof -k /tmp/bb-o4IUrk/tmp-pWgeK6/vk
+
+      at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
+
+  console.log
+    bb COMMAND is: verify_ultra_honk
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  console.log
+    sumcheck passed
+
+      at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
+
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 163.78776168823242 ms [36m+165ms[0m
   console.log
     enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? false
 
@@ -1588,7 +1583,7 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
   [36;1maztec:bb-prover [0m[INFO] Generated proof for tubeCircuit in 0 ms, size: 393 fields [36m+7ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-4sYgT0 -b /tmp/bb-2anlif/tmp-4sYgT0/BaseRollupArtifact-bytecode -w /tmp/bb-2anlif/tmp-4sYgT0/partial-witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-xwi2Q0 -b /tmp/bb-o4IUrk/tmp-xwi2Q0/BaseRollupArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-xwi2Q0/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1603,20 +1598,20 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-4sYgT0/proof
+    binary proof written to: /tmp/bb-o4IUrk/tmp-xwi2Q0/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-4sYgT0/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-4sYgT0/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-4sYgT0/vk_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-xwi2Q0/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-xwi2Q0/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-xwi2Q0/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseRollupArtifact in 45974 ms, size: 393 fields circuitName=base-rollup circuitSize=4194304 duration=45973.87958240509 inputSize=756 proofSize=13572 eventName=circuit-proving numPublicInputs=31 [36m+51s[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for BaseRollupArtifact in 47061 ms, size: 393 fields circuitName=base-rollup circuitSize=4194304 duration=47060.32186412811 inputSize=756 proofSize=13572 eventName=circuit-proving numPublicInputs=31 [36m+52s[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-qpA0qj/proof -k /tmp/bb-2anlif/tmp-qpA0qj/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-HqrxrF/proof -k /tmp/bb-o4IUrk/tmp-HqrxrF/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1630,9 +1625,9 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 150.5563769340515 ms [36m+152ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 155.21221733093262 ms [36m+157ms[0m
   console.log
-    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-2anlif/tmp-pJDNRd -b /tmp/bb-2anlif/tmp-pJDNRd/RootRollupArtifact-bytecode -w /tmp/bb-2anlif/tmp-pJDNRd/partial-witness.gz -v
+    Executing BB with: prove_ultra_honk_output_all -o /tmp/bb-o4IUrk/tmp-1kKwKV -b /tmp/bb-o4IUrk/tmp-1kKwKV/RootRollupArtifact-bytecode -w /tmp/bb-o4IUrk/tmp-1kKwKV/partial-witness.gz -v
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1657,20 +1652,20 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    binary proof written to: /tmp/bb-2anlif/tmp-pJDNRd/proof
+    binary proof written to: /tmp/bb-o4IUrk/tmp-1kKwKV/proof
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
   console.log
-    proof as fields written to: /tmp/bb-2anlif/tmp-pJDNRd/proof_fields.json
-    vk written to: /tmp/bb-2anlif/tmp-pJDNRd/vk
-    vk as fields written to: /tmp/bb-2anlif/tmp-pJDNRd/vk_fields.json
+    proof as fields written to: /tmp/bb-o4IUrk/tmp-1kKwKV/proof_fields.json
+    vk written to: /tmp/bb-o4IUrk/tmp-1kKwKV/vk
+    vk as fields written to: /tmp/bb-o4IUrk/tmp-1kKwKV/vk_fields.json
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Generated proof for RootRollupArtifact in 40231 ms circuitName=root-rollup duration=40230.80945110321 proofSize=13380 eventName=circuit-proving inputSize=620 circuitSize=4194304 numPublicInputs=25 [36m+41s[0m
+  [36;1maztec:bb-prover [0m[INFO] Generated proof for RootRollupArtifact in 40854 ms circuitName=root-rollup duration=40853.03048181534 proofSize=13380 eventName=circuit-proving inputSize=620 circuitSize=4194304 numPublicInputs=25 [36m+41s[0m
   console.log
-    Executing BB with: verify_ultra_honk -p /tmp/bb-2anlif/tmp-KLVzjv/proof -k /tmp/bb-2anlif/tmp-KLVzjv/vk
+    Executing BB with: verify_ultra_honk -p /tmp/bb-o4IUrk/tmp-DBfdfw/proof -k /tmp/bb-o4IUrk/tmp-DBfdfw/vk
 
       at Promise.catch.status (../../bb-prover/src/bb/execute.ts:70:13)
 
@@ -1684,17 +1679,17 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
 
       at Socket.<anonymous> (../../bb-prover/src/bb/execute.ts:81:15)
 
-  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 177.92070198059082 ms [36m+180ms[0m
+  [36;1maztec:bb-prover [0m[INFO] Successfully verified proof from key in 159.74199390411377 ms [36m+161ms[0m
   [32;1maztec:prover:proving-orchestrator [0m[INFO] Successfully proven block 9! [32m+9m[0m
-  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 9 eventName=l2-block-built duration=528485.7229390144 publicProcessDuration=2584.524088859558 rollupCircuitsDuration=528485.0154500008 txCount=2 blockNumber=9 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=20 [33m+9m[0m
+  [33;1maztec:sequencer [0m[VERBOSE] Assembled block 9 eventName=l2-block-built duration=528696.7269968987 publicProcessDuration=2595.457206726074 rollupCircuitsDuration=528696.208480835 txCount=2 blockNumber=9 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=20 [33m+9m[0m
   [33;1maztec:sequencer:publisher [0m[INFO] TxEffects size=1770 bytes [33m+13m[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x002fcf7c39aaee853f668628259a30d22b5a685d48946aadf5a12a23383f9912 [33m+161ms[0m
-  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1053684944 gasUsed=765553 transactionHash=0xa0a1cebc05b489cb0cb7ffc5c0c4a4731654f3bed8b9dd93488e55a4a21bde10 calldataGas=161772 calldataSize=13956 txCount=2 blockNumber=9 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=20 eventName=rollup-published-to-l1 [33m+37ms[0m
-  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 9 with 2 transactions [33m+205ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Block txs effects published, txsEffectsHash: 0x002fcf7c39aaee853f668628259a30d22b5a685d48946aadf5a12a23383f9912 [33m+152ms[0m
+  [33;1maztec:sequencer:publisher [0m[INFO] Published L2 block to L1 rollup contract gasPrice=1053684963 gasUsed=765385 transactionHash=0x76cfd5456b605eced37e896f344d128052d03e1fd5154862bf34e92f3179f937 calldataGas=161604 calldataSize=13956 txCount=2 blockNumber=9 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=20 eventName=rollup-published-to-l1 [33m+35ms[0m
+  [33;1maztec:sequencer [0m[INFO] Submitted rollup block 9 with 2 transactions [33m+194ms[0m
   [34;1maztec:archiver [0m[VERBOSE] Retrieved 1 new L2 blocks between L1 blocks 25 and 26. [34m+13m[0m
   [34;1maztec:kv-store:lmdb [0m[INFO] Opening LMDB database at temporary location [34m+0ms[0m
   [32;1maztec:merkle_trees [0m[VERBOSE] Block 9 is ours, committing world state [32m+13m[0m
-  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=87.68401384353638 isBlockOurs=true txCount=2 blockNumber=9 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=20 [31m+13m[0m
+  [31;1maztec:world_state [0m[VERBOSE] Handled new L2 block eventName=l2-block-handled duration=81.02396631240845 isBlockOurs=true txCount=2 blockNumber=9 noteEncryptedLogLength=1176 noteEncryptedLogCount=2 encryptedLogLength=16 encryptedLogCount=0 unencryptedLogCount=0 unencryptedLogSize=20 [31m+13m[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
@@ -1704,56 +1699,56 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x27c8bbd191ecded8eb559a12245c8bb6048a02ae76544daa2293c44b1fbf8871 [33m+13m[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x118cfce549b225e5321406818b3e3c0e5fa8f8012a3c2325e103f9913f3b8f1d [33m+0ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+3ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x27c8bbd191ecded8eb559a12245c8bb6048a02ae76544daa2293c44b1fbf8871 [33m+13m[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+1ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x118cfce549b225e5321406818b3e3c0e5fa8f8012a3c2325e103f9913f3b8f1d [33m+0ms[0m
-  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
-  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+2ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x27c8bbd191ecded8eb559a12245c8bb6048a02ae76544daa2293c44b1fbf8871 [33m+13m[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b [33m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added outgoing note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x118cfce549b225e5321406818b3e3c0e5fa8f8012a3c2325e103f9913f3b8f1d [33m+0ms[0m
+  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
+  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+148ms[0m
+  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+148ms[0m
+  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
+  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
+  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
+  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x118cfce549b225e5321406818b3e3c0e5fa8f8012a3c2325e103f9913f3b8f1d with nullifier 0x09630166e1b7c4b9a36105065767f3e568d18f01326ee514f6e2e35391e6a16b [33m+14m[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+154ms[0m
-  [33;1maztec:note_processor [0m[VERBOSE] Removed note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x295755e5e5c0e36d89e61e9e8ef3b79a06801eb365d2f387b0ef8c4ba380b16b with nullifier 0x0b9b1773d96de7b9c2c0000f248c8ecf5634214b00703c492d9a05f6cd71b3d3 [33m+5ms[0m
-  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
-  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
-  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
-  [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x00000000(compute_note_hash_and_optionally_a_nullifier) [31m+0ms[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x118cfce549b225e5321406818b3e3c0e5fa8f8012a3c2325e103f9913f3b8f1d with nullifier 0x09630166e1b7c4b9a36105065767f3e568d18f01326ee514f6e2e35391e6a16b [33m+13m[0m
   [33;1maztec:note_processor [0m[VERBOSE] Added incoming note for contract 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14 at slot 0x118cfce549b225e5321406818b3e3c0e5fa8f8012a3c2325e103f9913f3b8f1d with nullifier 0x09630166e1b7c4b9a36105065767f3e568d18f01326ee514f6e2e35391e6a16b [33m+13m[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [4] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x3940e9ee(total_supply) [31m+0ms[0m
-  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [5] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0xd6421a4e(balance_of_public) [31m+178ms[0m
-  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [6] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0xd6421a4e(balance_of_public) [31m+177ms[0m
+  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [5] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0xd6421a4e(balance_of_public) [31m+186ms[0m
+  [31;1maztec:simulator:client_execution_context [0m[VERBOSE] Created PublicCallRequest of type [enqueued], side-effect counter [6] to 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0xd6421a4e(balance_of_public) [31m+190ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+13m[0m
   [31;1maztec:node [0m[INFO] Simulating tx 11eac4114248787144b24d66b146682be8428e1753ba639fb72e8032bb9321c8 [31m+9m[0m
   [36;1maztec:sequencer:app-logic [0m[VERBOSE] Processing tx 11eac4114248787144b24d66b146682be8428e1753ba639fb72e8032bb9321c8 [36m+0ms[0m
   [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:total_supply. [36m+9m[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:total_supply returned, reverted: false. eventName=avm-simulation appCircuitName=Token:total_supply duration=14.038422107696533 bytecodeSize=4877 [36m+14ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:balance_of_public. [36m+450ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=14.685145854949951 bytecodeSize=8887 [36m+15ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:balance_of_public. [36m+484ms[0m
-  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=15.917859077453613 bytecodeSize=8887 [36m+16ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:total_supply returned, reverted: false. eventName=avm-simulation appCircuitName=Token:total_supply duration=14.860960960388184 bytecodeSize=4877 [36m+15ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:balance_of_public. [36m+444ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=14.480308055877686 bytecodeSize=8887 [36m+15ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Executing public external function Token:balance_of_public. [36m+474ms[0m
+  [36;1maztec:simulator:public_executor [0m[VERBOSE] [AVM] Token:balance_of_public returned, reverted: false. eventName=avm-simulation appCircuitName=Token:balance_of_public duration=16.85404634475708 bytecodeSize=8887 [36m+17ms[0m
   [33;1maztec:sequencer:tail [0m[VERBOSE] Processing tx 11eac4114248787144b24d66b146682be8428e1753ba639fb72e8032bb9321c8 [33m+0ms[0m
   [36;1maztec:pxe_service [0m[INFO] Executed local simulation for 11eac4114248787144b24d66b146682be8428e1753ba639fb72e8032bb9321c8 [36m+4s[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x98d16d67(balance_of_private) [31m+0ms[0m
-  [36;1maztec:pxe_service [0m[VERBOSE] Unconstrained simulation for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14.balance_of_private completed [36m+88ms[0m
+  [36;1maztec:pxe_service [0m[VERBOSE] Unconstrained simulation for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14.balance_of_private completed [36m+89ms[0m
   [31;1maztec:simulator:unconstrained_execution [0m[VERBOSE] Executing unconstrained function 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14:0x98d16d67(balance_of_private) [31m+0ms[0m
-  [36;1maztec:pxe_service [0m[VERBOSE] Unconstrained simulation for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14.balance_of_private completed [36m+88ms[0m
+  [36;1maztec:pxe_service [0m[VERBOSE] Unconstrained simulation for 0x2f80f6fca223640ea137dbde6f23daf1e4704fb0a66740cdf67b5b08d7fd4c14.balance_of_private completed [36m+90ms[0m
   [36;1maztec:simulator:secret_execution [0m[VERBOSE] Executing external function 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:0x80056ba0(SchnorrAccount:entrypoint) [36m+0ms[0m
   [36;1maztec:pxe_service [0m[VERBOSE] Simulation completed for 0x258ddbd7a4711b00be620ed3acdae5f7065f5f73b9afeaf21fb59a10b3f11169:entrypoint [36m+1s[0m
   [31;1maztec:node [0m[INFO] Simulating tx 217c9c11beb8dd1a40d10dd1c0b00e75467c52676e7525a87fa947264ae55ba1 [31m+6s[0m
-  [36;1maztec:pxe_service [0m[INFO] Executed local simulation for 217c9c11beb8dd1a40d10dd1c0b00e75467c52676e7525a87fa947264ae55ba1 [36m+904ms[0m
-  [31;1maztec:node [0m[INFO] Stopping [31m+102ms[0m
-  [33;1maztec:sequencer [0m[INFO] Stopped sequencer [33m+12s[0m
+  [36;1maztec:pxe_service [0m[INFO] Executed local simulation for 217c9c11beb8dd1a40d10dd1c0b00e75467c52676e7525a87fa947264ae55ba1 [36m+897ms[0m
+  [31;1maztec:node [0m[INFO] Stopping [31m+99ms[0m
+  [33;1maztec:sequencer [0m[INFO] Stopped sequencer [33m+11s[0m
   [31;1maztec:p2p [0m[INFO] P2P client stopped. [31m+15m[0m
-  [31;1maztec:world_state [0m[INFO] Stopped [31m+12s[0m
-  [34;1maztec:archiver [0m[INFO] Stopped. [34m+12s[0m
+  [31;1maztec:world_state [0m[INFO] Stopped [31m+10s[0m
+  [34;1maztec:archiver [0m[INFO] Stopped. [34m+10s[0m
   [34;1maztec:prover-client:prover-agent [0m[INFO] Agent stopped [34m+15m[0m
   [34;1maztec:prover-client:prover-pool:queue [0m[INFO] Proving queue stopped [34m+15m[0m
-  [31;1maztec:node [0m[INFO] Stopped [31m+1s[0m
-  [36;1maztec:pxe_service [0m[INFO] Cancelled Job Queue [36m+1s[0m
+  [31;1maztec:node [0m[INFO] Stopped [31m+1ms[0m
+  [36;1maztec:pxe_service [0m[INFO] Cancelled Job Queue [36m+3ms[0m
   [34;1maztec:pxe_synchronizer [0m[INFO] Stopped [34m+15m[0m
   [36;1maztec:pxe_service [0m[INFO] Stopped Synchronizer [36m+0ms[0m
   [35;1maztec:pxe_service_3f1c00 [0m[INFO] Cancelled Job Queue [35m+9m[0m
@@ -1762,14 +1757,14 @@ Availability Oracle: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512 [31m+5ms[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Cancelled Job Queue [31m+10m[0m
   [36;1maztec:pxe_synchronizer_401c00 [0m[INFO] Stopped [36m+13m[0m
   [31;1maztec:pxe_service_401c00 [0m[INFO] Stopped Synchronizer [31m+0ms[0m
-PASS src/e2e_prover/full.test.ts (895.873 s)
+PASS src/e2e_prover/full.test.ts (891.333 s)
   full_prover
-    ✓ makes both public and private transfers (774090 ms)
+    ✓ makes both public and private transfers (768898 ms)
     ○ skipped rejects txs with invalid proofs
 
 Test Suites: 1 passed, 1 total
 Tests:       1 skipped, 1 passed, 2 total
 Snapshots:   0 total
-Time:        895.913 s
+Time:        891.373 s, estimated 896 s
 Ran all test suites matching /src\/e2e_prover\/full.test.ts/i.
 Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
