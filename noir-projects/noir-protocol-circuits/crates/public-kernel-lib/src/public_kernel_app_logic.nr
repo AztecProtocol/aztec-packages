@@ -40,7 +40,13 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
-        self.previous_kernel.verify();
+        dep::std::verify_proof(
+            self.previous_kernel.vk.key.as_slice(),
+            self.previous_kernel.proof.fields.as_slice(),
+            &[],
+            self.previous_kernel.vk.hash
+        );
+        // self.previous_kernel.verify();
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

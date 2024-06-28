@@ -972,6 +972,7 @@ export class ProvingOrchestrator {
           logger.debug(`Public functions completed for tx ${txIndex} enqueueing base rollup`);
           // Take the final public tail proof and verification key and pass them to the base rollup
           txProvingState.baseRollupInputs.kernelData.proof = result.proof;
+          // PUBLIC KERNEL: will this eventually need a client ivc proof?
           txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
           return;

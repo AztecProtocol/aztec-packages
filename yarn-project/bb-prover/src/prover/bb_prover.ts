@@ -216,10 +216,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       kernelRequest.inputs.previousKernel.vk,
     );
 
-    // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving
-    console.log(`PUBLIC KERNEL: tubeInput.clientIVCData.isEmpty(): ${kernelRequest.inputs.clientIvcProof.isEmpty()}`);
-    if (!kernelRequest.inputs.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.createTubeProof(new TubeInputs(kernelRequest.inputs.clientIvcProof));
+    // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving but it is not
+    console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
+    if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
+      const { tubeVK, tubeProof } = await this.createTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }
@@ -287,7 +287,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       baseRollupInput.kernelData.vk,
     );
 
-    console.log(`!tubeInput.clientIVCData.isEmpty(): ${!tubeInput.clientIVCData.isEmpty()}`);
+    // PUBLIC KERNEL: Trying to mirror this for the setup public kernel
+    console.log(`tubeInput.clientIVCData.isEmpty(): ${tubeInput.clientIVCData.isEmpty()}`);
     if (!tubeInput.clientIVCData.isEmpty()) {
       const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
       baseRollupInput.kernelData.vk = tubeVK;

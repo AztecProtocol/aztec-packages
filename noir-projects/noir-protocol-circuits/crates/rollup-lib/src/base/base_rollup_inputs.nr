@@ -64,6 +64,7 @@ impl BaseRollupInputs {
             &[],
             self.kernel_data.vk.hash
         );
+        // self.previous_kernel.verify();
 
         // Verify the kernel chain_id and versions
         assert(
