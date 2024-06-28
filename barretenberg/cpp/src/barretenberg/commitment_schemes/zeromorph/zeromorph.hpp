@@ -498,6 +498,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
             bool is_dummy_round = k >= log_N;
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): pow may not add proper constraints
             FF scalar = y_challenge.pow(k);
             size_t x_exponent = is_dummy_round ? 0 : N - deg_k - 1;
             scalar *= x_challenge.pow(x_exponent);
@@ -721,6 +722,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                       RefSpan<FF> concatenated_evaluations = {})
     {
         FF log_N;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): Connect witness log_N to circuit size
         if constexpr (Curve::is_stdlib_type) {
             log_N = FF(static_cast<int>(numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()))));
         } else {

@@ -793,7 +793,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
-    typename Flavor::VerificationKey vk(prover.instance->proving_key);
     auto proof = prover.construct_proof();
 
     if (outputPath == "-") {

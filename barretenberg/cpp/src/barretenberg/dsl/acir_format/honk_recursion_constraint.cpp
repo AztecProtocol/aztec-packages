@@ -126,6 +126,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
                 2 * num_frs_comm) %
                    (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
                0);
+        // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
         auto log_circuit_size = (input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
                                  UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
                                  UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
