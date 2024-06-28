@@ -51,14 +51,15 @@ impl<F> FunctionInput<F> {
     }
 }
 
-impl<F: AcirField> ToString for FunctionInput<F> {
-    fn to_string(&self) -> String {
+impl<F: std::fmt::Display> std::fmt::Display for FunctionInput<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FunctionInput::Constant(constant) => constant.to_string(),
-            FunctionInput::Witness(witness) => witness.to_string(),
+            FunctionInput::Constant(constant) => write!(f, "{constant}"),
+            FunctionInput::Witness(witness) => write!(f, "{witness}"),
         }
     }
 }
+
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlackBoxFuncCall<F> {
     AES128Encrypt {
