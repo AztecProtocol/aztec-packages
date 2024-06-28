@@ -3,7 +3,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { RecursiveProof } from '../recursive_proof.js';
-import { type UInt32 } from '../shared.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 
