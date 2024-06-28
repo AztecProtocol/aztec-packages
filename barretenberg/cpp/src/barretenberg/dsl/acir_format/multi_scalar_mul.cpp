@@ -42,8 +42,18 @@ template <typename Builder> void create_multi_scalar_mul_constraint(Builder& bui
         }
         cycle_group_ct input_point(point_x, point_y, infinite);
         // Reconstruct the scalar from the low and high limbs
-        field_ct scalar_low_as_field = field_ct::from_witness_index(&builder, input.scalars[2 * (i / 3)]);
-        field_ct scalar_high_as_field = field_ct::from_witness_index(&builder, input.scalars[2 * (i / 3) + 1]);
+        field_ct scalar_low_as_field;
+        field_ct scalar_high_as_field;
+        if (input.scalars[2 * (i / 3)].is_constant) {
+            scalar_low_as_field = field_ct(input.scalars[2 * (i / 3)].value);
+        } else {
+            scalar_low_as_field = field_ct::from_witness_index(&builder, input.scalars[2 * (i / 3)].index);
+        }
+        if (input.scalars[2 * (i / 3) + 1].is_constant) {
+            scalar_high_as_field = field_ct(input.scalars[2 * (i / 3) + 1].value);
+        } else {
+            scalar_high_as_field = field_ct::from_witness_index(&builder, input.scalars[2 * (i / 3) + 1].index);
+        }
         cycle_scalar_ct scalar(scalar_low_as_field, scalar_high_as_field);
 
         // Add the point and scalar to the vectors

@@ -16,7 +16,7 @@ template <typename FF> struct WitnessConstant {
 
 struct MultiScalarMul {
     std::vector<WitnessConstant<bb::fr>> points;
-    std::vector<uint32_t> scalars;
+    std::vector<WitnessConstant<bb::fr>> scalars;
 
     uint32_t out_point_x;
     uint32_t out_point_y;

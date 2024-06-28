@@ -199,19 +199,21 @@ WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
 {
     WitnessConstant result = std::visit(
         [&](auto&& e) {
-            using T = std::decay_t<decltype(2)>;
+            using T = std::decay_t<decltype(e)>;
             if constexpr (std::is_same_v<T, Program::FunctionInput::Witness>) {
-                return WitnessConstant{
-                    .index = e.value.witness,
-                    .is_constant = false,
+                return WitnessConstant<bb::fr>{
+                    .index = e.value.witness.value,
                     .value = bb::fr::zero(),
+                    .is_constant = false,
                 };
             } else if constexpr (std::is_same_v<T, Program::FunctionInput::Constant>) {
-                return WitnessConstant{
+                return WitnessConstant<bb::fr>{
                     .index = 0,
+                    .value = uint256_t(e.value.constant),
                     .is_constant = true,
-                    .value = e.value.constant,
                 };
+            } else {
+                ASSERT(false);
             }
             return WitnessConstant<bb::fr>{
                 .index = 0,
@@ -448,11 +450,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
                     .points = map(arg.points, [](auto& e) { return parse_input(e); }),
-                    .scalars = map(arg.scalars,
-                                   [](auto& e) {
-                                       auto input_witness = get_witness_from_function_input(e);
-                                       return std::get<0>(input_witness);
-                                   }),
+                    .scalars = map(arg.scalars, [](auto& e) { return parse_input(e); }),
                     .out_point_x = arg.outputs[0].value,
                     .out_point_y = arg.outputs[1].value,
                     .out_point_is_infinite = arg.outputs[2].value,
