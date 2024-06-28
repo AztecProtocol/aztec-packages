@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719608885431,
+  "lastUpdate": 1719612221272,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -60404,6 +60404,78 @@ window.BENCHMARK_DATA = {
             "value": 161988400,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161988400 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "17c8d3a00f3a2e500d5caa1fb438504bcd357e8a",
+          "message": "feat: Constant Honk proof sizes (#6954)\n\nIntroduces logic in the Honk provers/verifiers to 1) produce a proof of\r\nfixed size regardless of the size of the circuit, and 2) produce a\r\nrecursive verifier circuit that is independent of the size of the\r\ncircuit whose proof it is verifying. This was done largely for\r\nconvenience so that no additional logic is needed downstream of bberg to\r\nhandle the fact that Honk proofs and recursive verifier circuits are in\r\ngeneral dependent on the size of the inner circuit (unlike for Plonk).\r\n\r\n---------\r\n\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>\r\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2024-06-28T21:48:27Z",
+          "tree_id": "47a8cad1ca33ea97210699b4b32b5815bf65575e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/17c8d3a00f3a2e500d5caa1fb438504bcd357e8a"
+        },
+        "date": 1719612217669,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14044.962963999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9596.648876 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4737.023261000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4333.560014 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42705.763085,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42705763000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14454.952080000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14454952000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4260469617,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4260469617 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196256914,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 196256914 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3559863156,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3559863156 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167819678,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167819678 ns\nthreads: 1"
           }
         ]
       }
