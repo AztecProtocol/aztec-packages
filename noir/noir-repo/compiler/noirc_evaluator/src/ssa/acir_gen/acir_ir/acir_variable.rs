@@ -1907,7 +1907,16 @@ impl<F: AcirField> AcirContext<F> {
         let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
         let inputs = inputs
             .iter()
-            .flat_map(|input| vecmap(input, |input| input.to_witness()))
+            .flat_map(|input| {
+                vecmap(input, |input| match input {
+                    FunctionInput::Constant(constant) => {
+                        let a = self.add_constant(constant.constant);
+                        let witness_var = self.get_or_create_witness_var(a).unwrap();
+                        self.var_to_witness(witness_var).unwrap()
+                    }
+                    FunctionInput::Witness(witness) => witness.witness,
+                })
+            })
             .collect::<Vec<_>>();
         let outputs = vecmap(0..output_count, |_| self.acir_ir.next_witness_index());
 
