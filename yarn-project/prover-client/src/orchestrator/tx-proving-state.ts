@@ -51,6 +51,7 @@ export class TxProvingState {
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
     privateKernelVk: VerificationKeyData,
   ) {
+    // PUBLIC KERNEL: what's going on here?
     let previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined =
       makeRecursiveProofFromBinary(processedTx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
     let previousProofType = PublicKernelType.NON_PUBLIC;
@@ -95,6 +96,7 @@ export class TxProvingState {
     const nextFunction = this.publicFunctions[nextKernelIndex];
 
     // pass both the proof and verification key forward to the next circuit
+    // PUBLIC KERNEL: should be inserting client ivc proof here to signal it needs to be tubed?
     nextFunction.publicKernelRequest.inputs.previousKernel.proof = proof;
     nextFunction.publicKernelRequest.inputs.previousKernel.vk = verificationKey;
 

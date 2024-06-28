@@ -163,7 +163,7 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
-    const tx = await pxe.proveTx(txExReq, true, true /* isPrivate */);
+    const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     const { transactionFee } = await sentTx.wait();
 
@@ -207,7 +207,7 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
-    const tx = await pxe.proveTx(txExReq, true, true /* isPrivate */);
+    const tx = await pxe.proveTx(txExReq, true);
     expect(tx.data.feePayer).toEqual(subscriptionContract.address);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();

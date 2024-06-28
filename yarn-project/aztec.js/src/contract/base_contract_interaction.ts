@@ -18,8 +18,6 @@ export type SendMethodOptions = {
   fee?: FeeOptions;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings (will default to true later down the road). */
   estimateGas?: boolean;
-  /** LONDONTODO: Hack: using this to avoid generating ClientIVC proof */
-  isPrivate?: boolean;
   /** LONDONTODO: Hack: How better can we speed up tests? */
   cachedTxBuffer?: Buffer;
 };
@@ -60,7 +58,7 @@ export abstract class BaseContractInteraction {
       // LONDONTODO is this an ick?
       this.tx = Tx.fromBuffer(options.cachedTxBuffer);
     } else {
-      this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation, options.isPrivate!);
+      this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
     }
     return this.tx;
   }

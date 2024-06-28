@@ -162,13 +162,8 @@ export interface PXE {
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
-   * @todo LONDONTODO: this is a hack to avoid producing a ClientIVC proof when this function is called for the AVM. 
-   * In principle we could do this, but the the proving failed in barretenberg with an error that I think is due to 
-   * not having enough capacity in the structuring for ROM gates. I tried increasing the size of that block a bit but 
-   * it still wasn't enough. That was a bad solution in any case because it slows down _all_ ClientIVC proving 
-   * currently, I just plumbed through a new boolean.
    */
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, isPrivate: boolean): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.

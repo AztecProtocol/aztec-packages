@@ -636,6 +636,7 @@ export class ProvingOrchestrator {
       } for ${tx.processedTx.hash.toString()}`,
     );
 
+    console.log(`enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? ${tx.processedTx.clientIvcProof.isEmpty()}`)
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -652,7 +653,7 @@ export class ProvingOrchestrator {
             new TubeInputs(tx.processedTx.clientIvcProof),
             signal,
           ),
-        ),
+      ),
       result => {
         logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
         validatePartialState(result.inputs.end, tx.treeSnapshots);
@@ -956,6 +957,7 @@ export class ProvingOrchestrator {
       result => {
         const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(
           functionIndex,
+          // PUBLIC KERNEL: I want to pass a client ivc proof into here?
           result.proof,
           result.verificationKey,
         );
@@ -971,7 +973,6 @@ export class ProvingOrchestrator {
           // Take the final public tail proof and verification key and pass them to the base rollup
           txProvingState.baseRollupInputs.kernelData.proof = result.proof;
           txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
-          // LONDONTODO(BaseRollup)
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
           return;
         }

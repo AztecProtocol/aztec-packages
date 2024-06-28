@@ -375,28 +375,6 @@ export async function generateTubeProof(
       !filePresent(translatorVkPath) ||
       !filePresent(eccVkPath)
     ) {
-      // Write the inputs to the working directory.
-      // await fs.writeFile(vkPath, tubeInputs.clientIVCData.vk);
-      // if (!filePresent(vkPath)) {
-      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${vkPath}` };
-      // }
-      // await fs.writeFile(accPath, tubeInputs.clientIVCData.acc);
-      // if (!filePresent(accPath)) {
-      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${accPath}` };
-      // }
-      // await fs.writeFile(proofPath, tubeInputs.clientIVCData.proof);
-      // if (!filePresent(proofPath)) {
-      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${proofPath}` };
-      // }
-      // await fs.writeFile(translatorVkPath, tubeInputs.clientIVCData.translatorVk);
-      // if (!filePresent(translatorVkPath)) {
-      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${translatorVkPath}` };
-      // }
-      // await fs.writeFile(eccVkPath, tubeInputs.clientIVCData.eccVk);
-      // if (!filePresent(eccVkPath)) {
-      //   return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${eccVkPath}` };
-      // }
-
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];

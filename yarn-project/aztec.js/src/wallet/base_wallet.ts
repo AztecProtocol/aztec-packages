@@ -100,8 +100,8 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, isPrivate: boolean): Promise<Tx> {
-    return this.pxe.proveTx(txRequest, simulatePublic, isPrivate);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic);
   }
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);

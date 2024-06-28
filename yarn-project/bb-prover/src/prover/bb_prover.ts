@@ -216,6 +216,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       kernelRequest.inputs.previousKernel.vk,
     );
 
+    // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving
     console.log(`PUBLIC KERNEL: tubeInput.clientIVCData.isEmpty(): ${kernelRequest.inputs.clientIvcProof.isEmpty()}`);
     if (!kernelRequest.inputs.clientIvcProof.isEmpty()) {
       const { tubeVK, tubeProof } = await this.createTubeProof(new TubeInputs(kernelRequest.inputs.clientIvcProof));
