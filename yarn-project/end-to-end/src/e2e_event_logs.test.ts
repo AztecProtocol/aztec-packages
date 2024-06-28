@@ -96,7 +96,7 @@ describe('Logs', () => {
       expect(badEvent1).toBe(undefined);
     });
 
-    it('emits multiple events as unencrypted logs and decodes them', async () => {
+    it('emits multiple events as encrypted logs and decodes them', async () => {
       const randomness = makeTuple(5, makeTuple.bind(undefined, 2, Fr.random)) as Tuple<Tuple<Fr, 2>, 5>;
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 

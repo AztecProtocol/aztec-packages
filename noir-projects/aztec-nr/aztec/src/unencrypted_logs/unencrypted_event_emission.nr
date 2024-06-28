@@ -4,7 +4,7 @@ use crate::{
 };
 use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, traits::Serialize};
 
-fn emit_with_keys<Event, NB, MB, OB, N, M>(
+fn emit<Event, NB, MB, OB, N, M>(
     context: &mut PublicContext,
     event: Event
 ) where Event: EventInterface<NB, MB>, Event: Serialize<N>, [Field; N]: LensForEventSelector<N, M> {
@@ -25,7 +25,7 @@ fn emit_with_keys<Event, NB, MB, OB, N, M>(
 
 pub fn encode_event<Event, NB, MB, OB, N, M>(context: &mut PublicContext) -> fn[(&mut PublicContext,)](Event) -> () where Event: EventInterface<NB, MB>, Event: Serialize<N>, [Field; N]: LensForEventSelector<N, M> {
     | e: Event | {
-        emit_with_keys(
+        emit(
           context,
           e,
         );
