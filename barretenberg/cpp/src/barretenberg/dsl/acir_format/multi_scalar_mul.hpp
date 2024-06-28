@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "serde/index.hpp"
 #include <cstdint>
 #include <vector>
 
