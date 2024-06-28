@@ -262,14 +262,23 @@ export class ViewDataOracle extends TypedOracle {
    * Read the public storage data.
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
+   * @param contractAddress - The address to read storage from.
+   * @param blockNumber - The block number to read storage at.
    */
-  public override async storageRead(startStorageSlot: Fr, numberOfElements: number) {
+  public override async storageRead(
+    startStorageSlot: Fr,
+    numberOfElements: number,
+    contractAddress: Fr,
+    blockNumber: number,
+  ) {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.aztecNode.getPublicStorageAt(this.contractAddress, storageSlot);
+      const value = await this.aztecNode.getPublicStorageAt(contractAddress, storageSlot, blockNumber);
 
-      this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      this.log.debug(
+        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
+      );
       values.push(value);
     }
     return values;
