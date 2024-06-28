@@ -2132,8 +2132,8 @@ export function mapRootRollupPublicInputsFromNoir(
 ): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
-    mapHeaderFromNoir(rootRollupPublicInputs.header),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
+    mapHeaderFromNoir(rootRollupPublicInputs.header),
   );
 }
 

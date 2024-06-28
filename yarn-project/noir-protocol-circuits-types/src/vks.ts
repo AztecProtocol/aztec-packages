@@ -28,26 +28,26 @@ import {
 } from '@aztec/circuits.js';
 import { assertLength } from '@aztec/foundation/serialize';
 
+import EmptyNestedVkJson from '../artifacts/keys/empty_nested.vk.data.json' assert { type: 'json' };
+import BaseParityVkJson from '../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
+import RootParityVkJson from '../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };
+import PrivateKernelEmptyVkJson from '../artifacts/keys/private_kernel_empty.vk.data.json' assert { type: 'json' };
+import PrivateKernelInitVkJson from '../artifacts/keys/private_kernel_init.vk.data.json' assert { type: 'json' };
+import PrivateKernelInnerVkJson from '../artifacts/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
+import PrivateKernelResetFullVkJson from '../artifacts/keys/private_kernel_reset.vk.data.json' assert { type: 'json' };
+import PrivateKernelResetBigVkJson from '../artifacts/keys/private_kernel_reset_big.vk.data.json' assert { type: 'json' };
+import PrivateKernelResetMediumVkJson from '../artifacts/keys/private_kernel_reset_medium.vk.data.json' assert { type: 'json' };
+import PrivateKernelResetSmallVkJson from '../artifacts/keys/private_kernel_reset_small.vk.data.json' assert { type: 'json' };
+import PrivateKernelTailVkJson from '../artifacts/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
+import PrivateKernelTailToPublicVkJson from '../artifacts/keys/private_kernel_tail_to_public.vk.data.json' assert { type: 'json' };
+import PublicKernelAppLogicVkJson from '../artifacts/keys/public_kernel_app_logic.vk.data.json' assert { type: 'json' };
+import PublicKernelSetupVkJson from '../artifacts/keys/public_kernel_setup.vk.data.json' assert { type: 'json' };
+import PublicKernelTailVkJson from '../artifacts/keys/public_kernel_tail.vk.data.json' assert { type: 'json' };
+import PublicKernelTeardownVkJson from '../artifacts/keys/public_kernel_teardown.vk.data.json' assert { type: 'json' };
+import BaseRollupVkJson from '../artifacts/keys/rollup_base.vk.data.json' assert { type: 'json' };
+import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
+import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
 import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts.js';
-import EmptyNestedVkJson from './target/keys/empty_nested.vk.data.json' assert { type: 'json' };
-import BaseParityVkJson from './target/keys/parity_base.vk.data.json' assert { type: 'json' };
-import RootParityVkJson from './target/keys/parity_root.vk.data.json' assert { type: 'json' };
-import PrivateKernelEmptyVkJson from './target/keys/private_kernel_empty.vk.data.json' assert { type: 'json' };
-import PrivateKernelInitVkJson from './target/keys/private_kernel_init.vk.data.json' assert { type: 'json' };
-import PrivateKernelInnerVkJson from './target/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetFullVkJson from './target/keys/private_kernel_reset.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetBigVkJson from './target/keys/private_kernel_reset_big.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetMediumVkJson from './target/keys/private_kernel_reset_medium.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetSmallVkJson from './target/keys/private_kernel_reset_small.vk.data.json' assert { type: 'json' };
-import PrivateKernelTailVkJson from './target/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
-import PrivateKernelTailToPublicVkJson from './target/keys/private_kernel_tail_to_public.vk.data.json' assert { type: 'json' };
-import PublicKernelAppLogicVkJson from './target/keys/public_kernel_app_logic.vk.data.json' assert { type: 'json' };
-import PublicKernelSetupVkJson from './target/keys/public_kernel_setup.vk.data.json' assert { type: 'json' };
-import PublicKernelTailVkJson from './target/keys/public_kernel_tail.vk.data.json' assert { type: 'json' };
-import PublicKernelTeardownVkJson from './target/keys/public_kernel_teardown.vk.data.json' assert { type: 'json' };
-import BaseRollupVkJson from './target/keys/rollup_base.vk.data.json' assert { type: 'json' };
-import MergeRollupVkJson from './target/keys/rollup_merge.vk.data.json' assert { type: 'json' };
-import RootRollupVkJson from './target/keys/rollup_root.vk.data.json' assert { type: 'json' };
 
 interface VkJson {
   keyAsBytes: string;
