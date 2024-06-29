@@ -72,6 +72,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 type_span: note_struct.name.span(),
                 generics: vec![],
                 methods: vec![],
+                where_clause: vec![],
             };
             module.impls.push(default_impl.clone());
             module.impls.last_mut().unwrap()
@@ -562,8 +563,7 @@ fn generate_note_properties_struct_source(
         .filter_map(|(field_name, _)| {
             if field_name != note_header_field_name {
                 Some(format!(
-                    "{}: dep::aztec::note::note_getter_options::PropertySelector",
-                    field_name
+                    "{field_name}: dep::aztec::note::note_getter_options::PropertySelector"
                 ))
             } else {
                 None
@@ -670,8 +670,7 @@ fn generate_note_deserialize_content_source(
                 }
             } else {
                 format!(
-                    "{}: dep::aztec::note::note_header::NoteHeader::empty()",
-                    note_header_field_name
+                    "{note_header_field_name}: dep::aztec::note::note_header::NoteHeader::empty()"
                 )
             }
         })
