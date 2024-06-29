@@ -1,3 +1,4 @@
+import { GasFees } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
@@ -6,9 +7,11 @@ import { keccak256, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundatio
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 
+import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
+import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { type MemoryValue, TypeTag, type Uint8 } from './avm_memory_types.js';
@@ -40,10 +43,6 @@ import {
   mockStorageReadWithMap,
   mockTraceFork,
 } from './test_utils.js';
-import { GasFees } from '@aztec/circuits.js';
-import { type AvmContext } from './avm_context.js';
-import { randomInt } from 'crypto';
-import { maxInt64, maxUint64 } from 'viem';
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
