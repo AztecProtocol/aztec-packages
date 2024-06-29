@@ -57,7 +57,7 @@ import {
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
-import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, trackSpan } from '@aztec/telemetry-client';
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
@@ -107,15 +107,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private instrumentation: ProverInstrumentation;
 
-  constructor(private config: BBProverConfig, telemetry: TelemetryClient) {
-    this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
+  constructor(private config: BBProverConfig) {
+    this.instrumentation = new ProverInstrumentation('BBNativeRollupProver');
   }
 
   get tracer() {
     return this.instrumentation.tracer;
   }
 
-  static async new(config: BBProverConfig, telemetry: TelemetryClient) {
+  static async new(config: BBProverConfig) {
     await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);
@@ -123,7 +123,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
     logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
-    return new BBNativeRollupProver(config, telemetry);
+    return new BBNativeRollupProver(config);
   }
 
   /**

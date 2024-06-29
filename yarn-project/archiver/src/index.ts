@@ -1,6 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
@@ -36,7 +35,6 @@ async function main() {
     l1Contracts.registryAddress,
     archiverStore,
     1000,
-    new NoopTelemetryClient(),
   );
 
   const shutdown = async () => {

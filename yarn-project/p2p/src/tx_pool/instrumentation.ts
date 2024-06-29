@@ -1,5 +1,6 @@
 import { type Tx } from '@aztec/circuit-types';
-import { type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type UpDownCounter } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/global';
 
 /**
  * Instrumentation class for the TxPool.
@@ -10,7 +11,7 @@ export class TxPoolInstrumentation {
   /** Tracks tx size */
   private txSize: Histogram;
 
-  constructor(telemetry: TelemetryClient, name: string) {
+  constructor(name: string, telemetry = getTelemetryClient()) {
     const meter = telemetry.getMeter(name);
     this.txInMempool = meter.createUpDownCounter(Metrics.MEMPOOL_TX_COUNT, {
       description: 'The current number of transactions in the mempool',

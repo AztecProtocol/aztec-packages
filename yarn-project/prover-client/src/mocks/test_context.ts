@@ -31,7 +31,6 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
@@ -86,7 +85,7 @@ export class TestContext {
     logger: DebugLogger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
+      Promise.resolve(new TestCircuitProver(new WASMSimulator())),
     blockNumber = 3,
   ) {
     const globalVariables = makeGlobals(blockNumber);
@@ -96,7 +95,6 @@ export class TestContext {
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    const telemetry = new NoopTelemetryClient();
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,
@@ -105,7 +103,6 @@ export class TestContext {
       Header.empty(),
       publicContractsDB,
       publicWorldStateDB,
-      telemetry,
     );
 
     let localProver: ServerCircuitProver;
@@ -115,7 +112,7 @@ export class TestContext {
       acvmBinaryPath: config?.expectedAcvmPath,
     });
     if (!config) {
-      localProver = new TestCircuitProver(new NoopTelemetryClient(), simulationProvider);
+      localProver = new TestCircuitProver(simulationProvider);
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -127,7 +124,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue();
-    const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
+    const orchestrator = new ProvingOrchestrator(actualDb, queue);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();

@@ -6,8 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./start": "./dest/start.js",
-    "./noop": "./dest/noop.js"
+    "./global": "./dest/global.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -28,6 +27,7 @@
   "dependencies": {
     "@aztec/foundation": "workspace:^",
     "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/context-async-hooks": "^1.25.1",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.52.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.52.0",
     "@opentelemetry/host-metrics": "^0.35.2",

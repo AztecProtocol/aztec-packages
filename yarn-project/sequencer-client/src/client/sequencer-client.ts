@@ -2,7 +2,6 @@ import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-typ
 import { type BlockProver } from '@aztec/circuit-types/interfaces';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -39,18 +38,12 @@ export class SequencerClient {
     l1ToL2MessageSource: L1ToL2MessageSource,
     prover: BlockProver,
     simulationProvider: SimulationProvider,
-    telemetryClient: TelemetryClient,
   ) {
     const publisher = getL1Publisher(config);
     const globalsBuilder = getGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
-    const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTreeDb,
-      contractDataSource,
-      simulationProvider,
-      telemetryClient,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, simulationProvider);
 
     const sequencer = new Sequencer(
       publisher,
@@ -62,7 +55,6 @@ export class SequencerClient {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeDb, contractDataSource, !!config.enforceFees),
-      telemetryClient,
       config,
     );
 

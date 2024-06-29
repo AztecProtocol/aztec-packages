@@ -15,7 +15,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -28,7 +27,7 @@ describe('prover/bb_prover/parity', () => {
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
       bbConfig.circuitFilter = ['BaseParityArtifact', 'RootParityArtifact'];
-      bbProver = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
+      bbProver = await BBNativeRollupProver.new(bbConfig);
       return bbProver;
     };
     context = await TestContext.new(logger, 1, buildProver);

@@ -1,11 +1,12 @@
 import { type L2Block } from '@aztec/circuit-types';
 import { type Gauge, type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/global';
 
 export class ArchiverInstrumentation {
   private blockHeight: Gauge;
   private blockSize: Histogram;
 
-  constructor(telemetry: TelemetryClient) {
+  constructor(telemetry: TelemetryClient = getTelemetryClient()) {
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',

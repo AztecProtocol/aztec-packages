@@ -63,7 +63,6 @@ import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry'
 import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import getPort from 'get-port';
@@ -85,17 +84,11 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { initTelemetry } from './telemetry.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const { PXE_URL = '' } = process.env;
-
-const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
-if (typeof afterAll === 'function') {
-  afterAll(async () => {
-    await telemetry.stop();
-  });
-}
 
 const getAztecUrl = () => {
   return PXE_URL;
@@ -319,6 +312,8 @@ export async function setup(
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
 ): Promise<EndToEndContext> {
+  initTelemetry();
+
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
 
@@ -377,7 +372,7 @@ export async function setup(
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1BlockPublishRetryIntervalMS = 100;
-  const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
+  const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
   const prover = aztecNode.getProver();
 

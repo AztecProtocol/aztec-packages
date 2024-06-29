@@ -13,7 +13,6 @@ import {
 } from '@aztec/aztec.js';
 import { type BootNodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import fs from 'fs';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -206,7 +205,7 @@ describe('e2e_p2p_network', () => {
     };
     return await AztecNodeService.createAndSync(
       newConfig,
-      new NoopTelemetryClient(),
+
       createDebugLogger(`aztec:node-${tcpListenPort}`),
     );
   };
