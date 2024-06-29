@@ -74,6 +74,7 @@ export class CommitmentMap {
   }
 }
 
+// LONDONTODO: Brittle--where should these go?
 export const CIRCUIT_SIZE_INDEX = 0;
 export const CIRCUIT_PUBLIC_INPUTS_INDEX = 1;
 export const CIRCUIT_RECURSIVE_INDEX = 0;

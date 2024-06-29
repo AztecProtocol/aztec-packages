@@ -216,7 +216,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     input: BaseRollupInputs,
     _tubeInput: TubeInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
-    // WORKTODO this is a test function that should be updated to use the tube, not entirely sure where this is used and whether it's relevant to make thee full e2e test working, we shall see
+    // LONDONTODO(TESTING) this is a test function that should be updated to use the tube, not entirely sure where this is used and whether it's relevant to make thee full e2e test working, we shall see
     const timer = new Timer();
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
@@ -244,7 +244,6 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  // LONDONTODO(Rollup): make Rollup proof
   @trackSpan('TestCircuitProver.getMergeRollupProof')
   public async getMergeRollupProof(
     input: MergeRollupInputs,
@@ -277,8 +276,6 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  // LONDONTODO(Rollup): make rollup proof
-  // LONDONTODO(Rollup): same as root rollup
   @trackSpan('TestCircuitProver.getRootRollupProof')
   public async getRootRollupProof(
     input: RootRollupInputs,

@@ -16,6 +16,7 @@ export async function runInDirectory<T>(
   try {
     return await fn(workingDirectory);
   } finally {
+    // LONDONTODO: revert at the end
     // if (cleanup) {
     //   await fs.rm(workingDirectory, { recursive: true, force: true });
     // }

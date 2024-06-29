@@ -74,7 +74,7 @@ export class KernelProver {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
       proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
-      // LONDONTODO this is inelegant as we don't use this - we should revisit KernelProofOutput
+      // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
       outputWitness: new Map()
     };
 
@@ -88,7 +88,7 @@ export class KernelProver {
       if (!firstIteration && this.needsReset(executionStack, output)) {
         const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
         output = await this.proofCreator.createProofReset(resetInputs);
-        // LONDONTODO(AD) consider refactoring this
+        // LONDONTODO(CLIENT IVC) consider refactoring this
         acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       }
@@ -105,14 +105,12 @@ export class KernelProver {
         currentExecution.callStackItem.functionData.selector,
       );
 
-      // LONDONTODO: This runs through the user's call stack
       const proofOutput = await this.proofCreator.createAppCircuitProof(
         currentExecution.partialWitness,
         currentExecution.acir,
         functionName,
       );
       acirs.push(currentExecution.acir);
-      // LONDONTODO is this really a partial witness?
       witnessStack.push(currentExecution.partialWitness);
 
       const privateCallData = await this.createPrivateCallData(
@@ -159,7 +157,7 @@ export class KernelProver {
     if (this.somethingToReset(output)) {
       const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
       output = await this.proofCreator.createProofReset(resetInputs);
-      // LONDONTODO(AD) consider refactoring this
+      // LONDONTODO(ClIENT IVC) consider refactoring this
       acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
       witnessStack.push(output.outputWitness);
     }
@@ -180,14 +178,11 @@ export class KernelProver {
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, hints);
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    // LONDONTODO this will instead become part of our stack of programs
-    // LONDONTODO createProofTail won't be called in the future - this is redundantly proving
     const tailOutput = await this.proofCreator.createProofTail(privateInputs);
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-    // LONDONTODO for now we just smuggle all the needed vk etc data into the existing tail proof structure
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }
@@ -250,33 +245,6 @@ export class KernelProver {
       this.oracle,
     );
   }
-
-  // LONDONTODO(AD) this has now been unbundled from createProofReset
-  // private async runReset(
-  //   executionStack: ExecutionResult[],
-  //   output: KernelProofOutput<PrivateKernelCircuitPublicInputs>,
-  //   noteHashLeafIndexMap: Map<bigint, bigint>,
-  //   noteHashNullifierCounterMap: Map<number, number>,
-  // ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
-  //   const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
-  //   const previousKernelData = new PrivateKernelData(
-  //     output.publicInputs,
-  //     output.proof,
-  //     output.verificationKey,
-  //     Number(previousVkMembershipWitness.leafIndex),
-  //     assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
-  //   );
-
-  //   return this.proofCreator.createProofReset(
-  //     await buildPrivateKernelResetInputs(
-  //       executionStack,
-  //       previousKernelData,
-  //       noteHashLeafIndexMap,
-  //       noteHashNullifierCounterMap,
-  //       this.oracle,
-  //     ),
-  //   );
-  // }
 
   private async createPrivateCallData(
     { callStackItem }: ExecutionResult,

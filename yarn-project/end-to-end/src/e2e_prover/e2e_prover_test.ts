@@ -163,7 +163,7 @@ export class FullProverTest {
       const result = await setupPXEService(
         this.aztecNode,
         {
-          proverEnabled: true, // LONDONTODO(Client): Real proving is turned on here for full.test.ts
+          proverEnabled: true,
           bbBinaryPath: bbConfig?.bbBinaryPath,
           bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
         },

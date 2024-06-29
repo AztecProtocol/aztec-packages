@@ -41,19 +41,6 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
 /**
  * The result of executing a private function.
  */
-// LONDONTODO(Client): This object is very similar to the one received by bberg when we process a noir program
-// containing subprograms marked with the #fold decorator. Its basically a call stack: 'acir' is the acir
-// representation of the main program, and sub-programs are contained in nestedExecutions which is an array
-// of ExecutionResult (which can have further nested programs etc.). It almost seems like we could pass an
-// object like this to bberg, accumulate the circuits as we see fit, then return a ClientIVC proof. One issue
-// is that this call stack seems to only include the 'app' functions (and subfunctions), NOT the kernel
-// circuits. So we would have to somehow interleave the kernel circuits into the stack represented by this
-// object. (Also, we need to get rid of the recursive verifiers that I assume are currently present in the
-// kernel circuits).
-// The first thing I'd want to do is determine if what I've vaguely described above is viable from an Aztec
-// perspective. Can this be how things are really set up long term? If not, we need to understand why then
-// I guess go back to the drawing board. If so, should we be the ones hacking such a thing together? Is there
-// something more useful we can do on the bberg side to prepare?
 export interface ExecutionResult {
   // Needed for prover
   /** The ACIR bytecode. */

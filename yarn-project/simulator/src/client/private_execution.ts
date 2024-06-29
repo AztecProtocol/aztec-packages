@@ -27,7 +27,6 @@ export async function executePrivateFunction(
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
-  // LONDONTODO(Client): This 'just computes the witness', or the partial witness plus some piece of the full witness, or something...
   const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
     throw new ExecutionError(
       err.message,
@@ -85,7 +84,7 @@ export async function executePrivateFunction(
     newNotes,
     nullifiedNoteHashCounters,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),
-    nestedExecutions, // LONDONTODO(Client): These are pushed to the call stack. Where?
+    nestedExecutions, 
     enqueuedPublicFunctionCalls,
     noteEncryptedLogs,
     publicTeardownFunctionCall,

@@ -12,7 +12,7 @@ if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then
   echo "Make sure noir-contracts is built before running this script."
   exit 1
 fi
-# LONDONTODO(Client): This is how the app circuits are made accessible through the ts.
+
 # Generate index.ts header
 echo "// Auto generated module - do not edit!" >"$INDEX"
 

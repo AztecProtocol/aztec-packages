@@ -130,8 +130,6 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
 
   async verifyProof(tx: Tx): Promise<boolean> {
     const { proof, enqueuedPublicFunctionCalls } = tx;
-    // LONDONTODO verifyProof is not going to work like this anymore
-    // We need to plug in a tube
     const expectedCircuit: ClientProtocolArtifact =
       enqueuedPublicFunctionCalls.length > 0 ? 'PrivateKernelTailToPublicArtifact' : 'PrivateKernelTailArtifact';
 

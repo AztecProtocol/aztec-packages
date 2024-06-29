@@ -8,6 +8,8 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 const logger = createDebugLogger('aztec:bb-prover-base-rollup');
 
+// LONDONTODO: Decide whether to keep this test
+
 describe('prover/bb_prover/tube-rollup', () => {
   let context: TestContext;
   let prover: BBNativeRollupProver;
@@ -26,9 +28,6 @@ describe('prover/bb_prover/tube-rollup', () => {
     await context.cleanup();
   });
 
-  // LONDONTODO(BaseRollup): Good starting point.
-  // LONDONTODO(Rollup):     Also Good starting point.
-  // LONDONTODO(Rollup):     Duplicate and make a test of just merge cicuit. Another file?
   // it('proves the base rollup', async () => {
   //   const header = await context.actualDb.buildInitialHeader();
   //   const chainId = context.globalVariables.chainId;

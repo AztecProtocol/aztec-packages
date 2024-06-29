@@ -40,6 +40,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
+        // LONDONTODO(PUBLIC INPUTS)
         dep::std::verify_proof(
             self.previous_kernel.vk.key.as_slice(),
             self.previous_kernel.proof.fields.as_slice(),

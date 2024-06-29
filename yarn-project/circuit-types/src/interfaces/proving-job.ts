@@ -33,7 +33,6 @@ export type PublicInputsAndRecursiveProof<T> = {
   verificationKey: VerificationKeyData;
 };
 
-// TODO: This is a template?
 export type PublicInputsAndTubeProof<T> = {
   inputs: T;
   proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
@@ -73,7 +72,6 @@ export enum ProvingRequestType {
   ROOT_PARITY,
 }
 
-// LONDONTODO(Tube):
 export type ProvingRequest =
   | {
       type: ProvingRequestType.PUBLIC_VM;

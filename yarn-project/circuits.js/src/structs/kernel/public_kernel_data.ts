@@ -34,7 +34,7 @@ export class PublicKernelData {
      * Sibling path of the previous kernel's vk in a tree of vks.
      */
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
-    // LONDONTODO better model
+    // LONDONTODO(CLIENT IVC) better model
     public clientIvcProof: ClientIvcProof = ClientIvcProof.empty(),
   ) {}
 

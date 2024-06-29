@@ -94,6 +94,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     }
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
+        // LONDONTODO(PUBLIC INPUTS)
         // verify the previous kernel proof
         dep::std::verify_proof(
             self.previous_kernel.vk.key.as_slice(),

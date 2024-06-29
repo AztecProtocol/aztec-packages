@@ -47,6 +47,7 @@ rm -rf $current_dir/acir_artifacts
 mkdir -p $current_dir/acir_artifacts
 
 # Gather directories to process.
+# LONDONTODO(ACIR TESTS WORKFLOW)
 # dirs_to_process=("$base_path/assert_statement_recursive" "$base_path/verify_honk_proof" "$base_path/6_array" "$base_path/assert_statement" "$base_path/sha256")
 for dir in $base_path/*; do
     if [[ ! -d $dir ]] || [[ " ${excluded_dirs[@]} " =~ " $(basename "$dir") " ]]; then

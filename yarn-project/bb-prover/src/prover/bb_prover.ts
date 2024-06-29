@@ -187,6 +187,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
     const proofAndVk = await this.createAvmProof(inputs);
+    // LONDONTODO(AVM): reinstate AVM proof verification here
     // await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
     return proofAndVk;
   }

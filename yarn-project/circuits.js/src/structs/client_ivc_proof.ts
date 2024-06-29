@@ -3,6 +3,12 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import * as fs from "fs/promises";
 import path from 'path';
 
+
+
+// LONDONTODO(CLIENT IVC)
+
+
+
 /**
  * LONDONTODO(AD): this will eventually replace RecursiveProof as the primary proof
  * attached to a transaction. This was created as a means to isolate just what we need from the

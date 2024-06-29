@@ -81,7 +81,7 @@ export class BBNativeProofCreator implements ProofCreator {
     acirs: Buffer[],
     witnessStack: WitnessMap[],
   ): Promise<ClientIvcProof> {
-    // LONDONTODO(AD): Longer term we won't use this hacked together msgpack format
+    // LONDONTODO(CLIENT IVC): Longer term we won't use this hacked together msgpack format
     // and instead properly create the bincode serialization from rust
     await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
     await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
@@ -105,7 +105,7 @@ export class BBNativeProofCreator implements ProofCreator {
       eventName: 'circuit-proving',
     });
 
-    return proof; // LONDONTODO(Client): What is this vk now?
+    return proof; // LONDONTODO(CLIENT IVC): What is this vk now?
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
@@ -178,7 +178,6 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  // LONDONTODO(Client): This is the first proof created
   public async createAppCircuitProof(
     partialWitness: WitnessMap, // from simulation
     bytecode: Buffer,
@@ -187,7 +186,6 @@ export class BBNativeProofCreator implements ProofCreator {
     const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
       const proofOutput = await this.createProof(directory, partialWitness, bytecode, 'App', appCircuitName);
-      // LONDONTODO(Client): what's a recursive proof and why should this be one?
       if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
         throw new Error(`Incorrect proof length ${proofOutput.proof.proof.length} vs ${RECURSIVE_PROOF_LENGTH}`);
       }
@@ -298,16 +296,14 @@ export class BBNativeProofCreator implements ProofCreator {
   private async generateWitnessAndCreateProof<
     I extends { toBuffer: () => Buffer },
     O extends { toBuffer: () => Buffer },
-    >(
-      inputs: I,
-      circuitType: ClientProtocolArtifact,
-      directory: string,
-      convertInputs: (inputs: I) => WitnessMap,
-      convertOutputs: (outputs: WitnessMap) => O,
+  >(
+    inputs: I,
+    circuitType: ClientProtocolArtifact,
+    directory: string,
+    convertInputs: (inputs: I) => WitnessMap,
+    convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
-    // LONDONTODO(Client): This compiled circuit now needs to have a #fold appended
-    // LONDONTODO(Client): Question: you can separately compile circuits to be folded and then send, right?
     const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
 
     const witnessMap = convertInputs(inputs);
@@ -323,18 +319,15 @@ export class BBNativeProofCreator implements ProofCreator {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    // LONDONTODO(Client): This should just output the vk right? Consider refactor later (vk already supplied...?) but for now just re-use the function (possibly with rename?)?
     const proofOutput = await this.createProof(
       directory,
       outputWitness,
       Buffer.from(compiledCircuit.bytecode, 'base64'),
       circuitType,
     );
-    this.log.debug(`proof length: ${proofOutput.proof.proof.length}`);
     if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
       throw new Error(`Incorrect proof length`);
     }
-    // LONDONTODO(Client): this goes away from kernelOutput
     const nestedProof = proofOutput.proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
     const kernelOutput: KernelProofOutput<O> = {
       publicInputs: output,
@@ -360,26 +353,6 @@ export class BBNativeProofCreator implements ProofCreator {
     const inputsWitnessFile = join(directory, 'witness.gz');
 
     await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
-
-    // // LONDONTODO(FoldingStack): Every circuit processed by full.test passes through this method during proof construction. Here I'm just writing the
-    // // acir data (acir bytecode + witness) to a test fixtures file in bberg. (This should be all that's needed to construct corresponding bberg circuits).
-    // // Hoping this provides a quick way to start playing around with accumulation. Probably easiest to start in the integration tests suite. That's where
-    // // I'll plan to pick up tomorrow unless something else makes more sense by the time I get back to it. Once things are working there we can work to
-    // // fill in the real pieces, e.g. better organization/serialization of this data, a proper flow in the bb binary (which is maybe just the existing
-    // // flow if we end up serializing into a WitnessStack). One issue is going to be that the kernel circuits will have recursive verifiers. Might be easy
-    // // enough to just 'delete' those op codes from the acir representation, but might also make sense to have versions of the kernels without recursion
-    // // since we'll need them soon enough anyway.
-    // let fixturesDir = path.resolve(this.bbBinaryPath, '../../../../', 'e2e_fixtures/folding_stack');
-    // // Get circuit name; replace colons with underscores
-    // const circuitName = (appCircuitName ? appCircuitName : circuitType).replace(/:/g, '_');
-    // const stackItemDir = path.join(fixturesDir, circuitName);
-    // await fs.mkdir(stackItemDir, { recursive: true });
-    // // Write the acir bytecode and witness data to file
-    // const bytecodePath = `${stackItemDir}/bytecode`;
-    // const witnessPath = `${stackItemDir}/witness.gz`;
-    // this.log.info(`Writing data for ${circuitName} to ${fixturesDir}`);
-    // await fs.writeFile(bytecodePath, bytecode);
-    // await fs.writeFile(witnessPath, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
@@ -408,7 +381,7 @@ export class BBNativeProofCreator implements ProofCreator {
       const vkData = await extractVkData(directory);
       const proof = await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
 
-      this.log.info(`Generated proof`, {
+      this.log.debug(`Generated proof`, {
         eventName: 'circuit-proving',
         circuitName: 'app-circuit',
         duration: provingResult.durationMs,
@@ -418,8 +391,6 @@ export class BBNativeProofCreator implements ProofCreator {
         circuitSize: vkData.circuitSize,
         numPublicInputs: vkData.numPublicInputs,
       } as CircuitProvingStats);
-
-      // WORKTODO: push stuff to the stack for folding
 
       return { proof, verificationKey: vkData.keyAsFields };
     }
@@ -458,11 +429,11 @@ export class BBNativeProofCreator implements ProofCreator {
       fs.readFile(`${filePath}/${PROOF_FILENAME}`),
       fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
     ]);
-    // LONDONTODO we want to parse out the right bytes from proof
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
     const numPublicInputs = vkData.numPublicInputs;
     // const numPublicInputs =
+    // LONDONTODO(PUBLIC INPUTS)
     //   circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.info(

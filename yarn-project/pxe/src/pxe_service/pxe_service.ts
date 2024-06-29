@@ -80,7 +80,6 @@ import { Synchronizer } from '../synchronizer/index.js';
 /**
  * A Private eXecution Environment (PXE) implementation.
  */
-// LONDONTODO(Client): the only class that implements the PXE interface
 export class PXEService implements PXE {
   private synchronizer: Synchronizer;
   private contractDataOracle: ContractDataOracle;
@@ -503,7 +502,6 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  // LONDONTODO(Client): The simulate call actually does proving.
   public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.jobQueue.put(async () => {
       const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined);
@@ -760,7 +758,6 @@ export class PXEService implements PXE {
     const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
-    // LONDONTODO(Client): the mocked-ness of call to prove below depends on the proofCreator in this constructor
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     const { proof, clientIvcProof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);

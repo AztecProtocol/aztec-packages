@@ -59,6 +59,7 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
+        // LONDONTODO(PUBLIC INPUTS)
         // // verify the previous kernel proof
         // dep::std::verify_proof(
         //     self.previous_kernel.vk.key.as_slice(),

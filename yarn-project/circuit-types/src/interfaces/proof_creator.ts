@@ -28,11 +28,10 @@ export type KernelProofOutput<PublicInputsType> = {
   /**
    * The zk-SNARK proof for the kernel execution.
    */
-  // LONDONTODO(ClientIVCProofSize)
-  // LONDONTODO: this is no longer used for private kernel stack
+  // LONDONTODO(KERNEL PROVING): this is no longer used for private kernel stack
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   
-  // LONDONTODO: this is not used for public kernel stack
+  // LONDONTODO(KERNEL PROVING): this is not used for public kernel stack
   clientIvcProof?: ClientIvcProof;
 
   verificationKey: VerificationKeyAsFields;
@@ -58,8 +57,6 @@ export type AppCircuitProofOutput = {
  * ProofCreator provides functionality to create and validate proofs, and retrieve
  * siloed commitments necessary for maintaining transaction privacy and security on the network.
  */
-// LONDONTODO(Client): We have two classes conforming to this interface: BBNativeProofCreator and TestProofCreator.
-//                     Should we start with TestProofCreator update to reflect folding?
 export interface ProofCreator {
   /**
    * Computes the siloed commitments for a given set of public inputs.

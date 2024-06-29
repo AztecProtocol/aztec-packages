@@ -31,9 +31,6 @@ export interface PXEConfig {
   dataDirectory?: string;
 }
 
-// LONDONTODO(Client): definition of the 'config' type that determines real or mock proving (via KernelProverConfig). This gets
-// passed into the createPXEService method (or possibly to the PXEService constructor directly). Don't yet see where this is
-// happening for kernel_prover.test.. (Oh, looks like not at all. A proofCreator is just constructed directly).
 export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig;
 
 /**

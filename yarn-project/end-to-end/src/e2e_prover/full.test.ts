@@ -24,6 +24,7 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
+    // LONDONTODO(SOLIDITY VERIFIER)
     // await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
@@ -36,7 +37,6 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  // LONDONTODO(Client): Revert this to full
   it(
     'makes both public and private transfers',
     async () => {
@@ -58,7 +58,8 @@ describe('full_prover', () => {
         publicSendAmount,
         0,
       );
-
+      
+      // LONDONTODO(CACHING)
       // const cachedPrivateTxPath = '../../../e2e_private.tx';
       // const privateTxBuffer = fs.existsSync(cachedPrivateTxPath) ? fs.readFileSync(cachedPrivateTxPath) : undefined;
       // const privateTx = await privateInteraction.prove({ isPrivate: true, cachedTxBuffer: privateTxBuffer });
@@ -68,6 +69,7 @@ describe('full_prover', () => {
       // const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
       // fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
 
+      // LONDONTODO: Turn on verification
       // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       // logger.info(`Verifying private kernel tail proof`);
       // await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
@@ -76,23 +78,6 @@ describe('full_prover', () => {
       // logger.info(`Verifying kernel tail to public proof`);
       // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
 
-      // const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
-      // const bbWorkingDirectory = await mkdtemp(path.join(tmpdir(), 'bb-'));
-      // LONDONTODO this just is here to quickly check tube proof is valid
-      // await runInDirectory(bbWorkingDirectory, async (dir: string) => {
-      //   await privateTx.clientIvcProof!.writeToOutputDirectory(dir);
-      //   // Assumption: if there is a proof there, it was written only after being verified as valid
-      //   const tubeProofPath = path.join(bbWorkingDirectory, 'proof');
-      //   console.log(`tubeProofPath is ${tubeProofPath}`);
-      //   if (!fs.existsSync(tubeProofPath)) {
-      //     const result = await generateTubeProof(bbPath, bbWorkingDirectory, logger.info);
-      //     logger.info(`tube result: ${result.status}`);
-      //     if (result.status == BB_RESULT.FAILURE) {
-      //       logger.info(`tube result: ${result.reason}`);
-      //     }
-      //     expect(result.status).toBe(BB_RESULT.SUCCESS)
-      //   }
-      // });
 
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
@@ -127,7 +112,8 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  it.skip('rejects txs with invalid proofs', async () => {
+  // LONDONTODO: Does this still pass?
+  it('rejects txs with invalid proofs', async () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 

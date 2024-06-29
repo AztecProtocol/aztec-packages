@@ -224,8 +224,6 @@ export class P2PClient implements P2P {
     if (!ready) {
       throw new Error('P2P client not ready');
     }
-    console.log(`P2P adding tx with tx.clientIvcProof.isEmpty() = ${tx.clientIvcProof.isEmpty()}`);
-    
     await this.txPool.addTxs([tx]);
     this.p2pService.propagateTx(tx);
   }

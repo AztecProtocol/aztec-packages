@@ -34,6 +34,7 @@ export const getBBConfig = async (
 
     const cleanup = () => {
       if (directoryToCleanup) {
+        // LONDONTODO: revert at the end
         // await fs.rm(directoryToCleanup, { recursive: true, force: true });
         return Promise.resolve();
       }

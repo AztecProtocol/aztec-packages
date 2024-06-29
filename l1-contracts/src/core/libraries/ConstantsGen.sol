@@ -182,7 +182,6 @@ library Constants {
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 393;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 393;
-  uint256 internal constant H = 3618;
   uint256 internal constant TUBE_PROOF_LENGTH = 393;
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
 }

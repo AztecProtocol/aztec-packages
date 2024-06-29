@@ -30,7 +30,6 @@ describe('MemoryProvingQueue', () => {
 
   it('returns jobs in order', async () => {
     void queue.getBaseParityProof(makeBaseParityInputs());
-    // TODO(TubeInput)
     void queue.getBaseRollupProof(makeBaseRollupInputs(), TubeInputs.empty());
 
     const job1 = await queue.getProvingJob();

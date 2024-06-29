@@ -32,7 +32,6 @@ import { type WitnessMap } from '@noir-lang/types';
 export class TestProofCreator implements ProofCreator {
   constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
 
-  // LONDONTODO hacky for offsite
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());
   }

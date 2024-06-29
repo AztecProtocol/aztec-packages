@@ -71,18 +71,17 @@ export function executeBB(
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
-    console.log(`Executing BB with: ${command} ${args.join(' ')}`);
-    // console.log(new Error('bb calling').stack)
+    logger(`Executing BB with: ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
     });
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      console.log(message);
+      logger(message);
     });
     bb.stderr.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      console.log(message);
+      logger(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (resultParser(exitCode)) {
@@ -139,7 +138,7 @@ export async function generateKeyForNoirCircuit(
     if (!binaryPresent) {
       return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
     }
-    log(`here in generateKeyForNoirCircuit`);
+
     // We are now going to generate the key
     try {
       const bytecodePath = `${circuitOutputDirectory}/${bytecodeFilename}`;
@@ -150,7 +149,6 @@ export async function generateKeyForNoirCircuit(
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
       let result = await executeBB(pathToBB, `write_${key}_ultra_honk`, args, log);
-      log(`write vk result: ${result.status}`);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS && key === 'vk') {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
@@ -189,7 +187,7 @@ export async function generateKeyForNoirCircuit(
   return res;
 }
 
-// LONDONTODO comment this etc (really just take inspiration from this and rewrite it all O:))
+// LONDONTODO(CLIENT IVC) comment this etc (really just take inspiration from this and rewrite it all O:))
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
@@ -288,15 +286,7 @@ export async function generateProof(
 
   try {
     // Write the bytecode to the working directory
-    log(`bytecodePath ${bytecodePath}`);
-    log(`outputPath ${outputPath}`);
-    await fs.writeFile(bytecodePath, bytecode); // FOLDINGSTACK: circuit bytecode is written to a file here
-    // FOLDINGSTACK: input to bb execution is 3 paths: 1) where to write proof/vk, 2) bytecode path, 3) witness path. Maybe the easiest
-    // (also most correct?) thing to do is to simply store vectors of bytecode/witness paths, then send those all in one go to BB for
-    // folding. Serialization is already handled here (i.e. bytecode/witness have already been written to a file). Deserialization
-    // in BB for individual circuits is already handled so our work just amounts to  'create_circuit(bytecode_paths[i], witness_paths[i]).
-    // A possibly even simpler option: Write all of the bytecode/witness data to a directory './folding_stack', send that path
-    // to BB, then BB just processes each of the bytecode/witness file pairs in that directory.
+    await fs.writeFile(bytecodePath, bytecode); 
     const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v'];
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -348,9 +338,6 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  // const inputPath = workingDirectory;
-  // WORKTODO (Mara) : this should be the real workingDirectory but for now I manually put the proofs where the BB binary is because that doesn't change
-  // normally the workingDirectory is a temporary directory
   const vkPath = join(workingDirectory, 'inst_vk.bin'); // the vk of the last instance
   const accPath = join(workingDirectory, 'pg_acc.bin');
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
@@ -358,7 +345,6 @@ export async function generateTubeProof(
   const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
-  // const outputPath = workingDirectory
   const outputPath = workingDirectory;
   const filePresent = async (file: string) =>
     await fs
@@ -394,7 +380,6 @@ export async function generateTubeProof(
       return {
         status: BB_RESULT.SUCCESS,
         durationMs,
-        // proofPath: join(outputPath, PROOF_FILENAME),
         proofPath: outputPath,
         pkPath: undefined,
         vkPath: outputPath,

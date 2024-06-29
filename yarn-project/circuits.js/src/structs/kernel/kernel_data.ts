@@ -17,9 +17,9 @@ export class KernelData {
      */
     public publicInputs: KernelCircuitPublicInputs,
     /**
-     * Proof of the ClientIVC recursive verifier.
+     * LONDONTODO: Proof of the ClientIVC recursive verifier. Reused for other structures?
      */
-    public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>, // Length could differ for public vs private.
+    public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
     /**
      * Verification key of the previous kernel.
      */

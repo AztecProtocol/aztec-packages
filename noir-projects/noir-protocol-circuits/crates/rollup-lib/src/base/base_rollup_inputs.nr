@@ -57,6 +57,7 @@ struct BaseRollupInputs {
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
+        // LONDONTODO(PUBLIC INPUTS)
         // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
         dep::std::verify_proof(
             self.kernel_data.vk.key.as_slice(),

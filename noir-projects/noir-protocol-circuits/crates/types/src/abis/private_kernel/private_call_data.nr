@@ -31,7 +31,7 @@ impl Verifiable for PrivateCallData {
     let inputs = PrivateCircuitPublicInputs::serialize(self.call_stack_item.public_inputs);
     std::verify_proof(
         self.vk.key.as_slice(),
-        self.proof.fields.as_slice(), // LONDONTODO this seems wrong
+        self.proof.fields.as_slice(),
         inputs.as_slice(),
         self.vk.hash
     );

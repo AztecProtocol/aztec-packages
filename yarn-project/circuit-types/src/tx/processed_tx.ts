@@ -188,7 +188,7 @@ export type PaddingProcessedTxFromTube = ProcessedTx & {
   recursiveProof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
 };
 
-// TODO: double check that this is still in use
+// LONDONTODO: double check that this is still in use
 /**
  * Makes a padding empty tx with a valid proof.
  * @returns A valid padding processed tx.
@@ -204,7 +204,6 @@ export function makePaddingProcessedTx(
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: kernelOutput.inputs,
     proof: kernelOutput.proof.binaryProof,
-    // LONDONTODO will this cause issues?
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
@@ -231,7 +230,6 @@ export function makePaddingProcessedTxFromTubeProof(
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: kernelOutput.inputs,
     proof: kernelOutput.proof.binaryProof,
-    // LONDONTODO will this cause issues?
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
