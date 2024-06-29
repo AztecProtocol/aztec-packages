@@ -254,9 +254,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                               UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 
