@@ -250,6 +250,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     }
 };
 
+// LONDONTODO(REINSTATE SIMULATORS)
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
 using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaRecursiveFlavor_<UltraCircuitBuilder>,

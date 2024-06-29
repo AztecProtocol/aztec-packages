@@ -364,6 +364,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 };
 
+// LONDONTODO(REINSTATE SIMULATORS)
 using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                    MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<UltraCircuitBuilder>,

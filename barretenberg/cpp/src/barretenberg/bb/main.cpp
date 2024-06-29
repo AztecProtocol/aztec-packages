@@ -249,7 +249,7 @@ struct VectorOfAcirAndWitnesses {
     std::vector<std::map<uint8_t, std::string>> witnessMaps;
 };
 
-// TODO(AD): this could probably be more idiomatic
+// LONDONTODO(AD): this could probably be more idiomatic
 template <typename T> T unpack_from_file(const std::string& filename)
 {
     std::ifstream fin;
@@ -271,7 +271,7 @@ template <typename T> T unpack_from_file(const std::string& filename)
     return result;
 }
 
-// TODO find a home for this
+// LONDONTODO find a home for this
 acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
     acir_format::WitnessVector wv;
@@ -334,14 +334,14 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
     std::vector<Program> folding_stack;
     for (size_t i = 0; i < gzippedBincodes.size(); i++) {
-        // TODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in the
-        // future
+        // LONDONTODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
+        // the future
         std::vector<uint8_t> buffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
         std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
             buffer,
-            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+            false); // LONDONTODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                     // this assumes that folding is never done with ultrahonk.
         std::vector<uint8_t> witnessBuffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
@@ -1227,7 +1227,6 @@ int main(int argc, char* argv[])
         }
 
         std::string command = args[0];
-        info("bb COMMAND is: ", command);
         std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");

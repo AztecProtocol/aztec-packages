@@ -353,6 +353,7 @@ template <typename FF_> class UltraHonkArith {
         // Note 2: Current sizes result in a full trace size of 2^18. It's not possible to define a fixed structure
         // that accomdates both the kernel and the function circuit while remaining under 2^17. This is because the
         // circuits differ in structure but are also both designed to be "full" within the 2^17 size.
+        // LONDONTODO(BIG STRUCTURE CONSTANTS): We need to be able to do this dynamically for dev purposes...
         std::array<uint32_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
             30000,   // pub_inputs;
