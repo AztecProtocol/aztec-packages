@@ -15,7 +15,7 @@ use dep::types::{
     silo_unencrypted_log_hash
 },
     traits::is_empty, transaction::tx_request::TxRequest,
-    utils::arrays::{array_length, array_to_bounded_vec, sort_by_counters_asc, sort_by_counters_desc}
+    utils::arrays::{array_length, array_to_bounded_vec, sort_by_counters_asc}
 };
 
 struct DataSource {
@@ -287,7 +287,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.public_inputs.end.note_encrypted_logs_hashes.storage = sort_by_counters_asc(self.public_inputs.end.note_encrypted_logs_hashes.storage);
         self.public_inputs.end.encrypted_logs_hashes.storage = sort_by_counters_asc(self.public_inputs.end.encrypted_logs_hashes.storage);
         self.public_inputs.end.unencrypted_logs_hashes.storage = sort_by_counters_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);
-        self.public_inputs.end.public_call_stack.storage = sort_by_counters_desc(self.public_inputs.end.public_call_stack.storage);
+        self.public_inputs.end.public_call_stack.storage = sort_by_counters_asc(self.public_inputs.end.public_call_stack.storage);
     }
 
     fn silo_scoped_values(&mut self) {

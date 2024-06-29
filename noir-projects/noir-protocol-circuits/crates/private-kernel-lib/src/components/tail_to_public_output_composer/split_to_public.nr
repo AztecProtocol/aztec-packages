@@ -96,7 +96,9 @@ pub fn split_to_public(
     for i in 0..public_call_stack.max_len() {
         if i < public_call_stack.len() {
             let call_stack_item = public_call_stack.get_unchecked(i);
-            let public_call_request = call_stack_item.expose_to_public();
+            // TODO: Hide the counter of a public call request.
+            // let public_call_request = call_stack_item.expose_to_public();
+            let public_call_request = call_stack_item;
             if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
                 non_revertible_builder.public_call_stack.push(public_call_request);
             } else {

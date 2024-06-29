@@ -14,7 +14,7 @@ use dep::types::{
     silo_unencrypted_log_hash
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    utils::arrays::{sort_get_split_order_hints_asc, sort_get_split_order_hints_desc, SplitOrderHints}
+    utils::arrays::{sort_get_split_order_hints_asc, SplitOrderHints}
 };
 
 struct TailToPublicOutputHints {
@@ -100,8 +100,10 @@ unconstrained pub fn generate_tail_to_public_output_hints(previous_kernel: Priva
     let sorted_unencrypted_log_hash_hints = sort_get_split_order_hints_asc(previous_kernel.end.unencrypted_logs_hashes, split_counter);
 
     // public_call_requests
-    let public_call_requests = previous_kernel.end.public_call_stack.map(|cr: CallRequest| cr.expose_to_public());
-    let sorted_public_call_request_hints = sort_get_split_order_hints_desc(previous_kernel.end.public_call_stack, split_counter);
+    // TODO: Hide the counter of a public call request.
+    // let public_call_requests = previous_kernel.end.public_call_stack.map(|cr: CallRequest| cr.expose_to_public());
+    let public_call_requests = previous_kernel.end.public_call_stack;
+    let sorted_public_call_request_hints = sort_get_split_order_hints_asc(previous_kernel.end.public_call_stack, split_counter);
 
     TailToPublicOutputHints {
         siloed_note_hashes,

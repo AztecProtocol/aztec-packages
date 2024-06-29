@@ -14,8 +14,7 @@ use dep::types::{
     silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier,
     silo_unencrypted_log_hash
 },
-    traits::{Empty, is_empty_array},
-    utils::arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc}
+    traits::{Empty, is_empty_array}, utils::arrays::assert_split_sorted_transformed_value_arrays_asc
 };
 
 struct TailToPublicOutputValidator {
@@ -171,11 +170,12 @@ impl TailToPublicOutputValidator {
             |cr: CallRequest, public_cr: CallRequest| (public_cr.hash == cr.hash)
                 & (public_cr.caller_contract_address == cr.caller_contract_address)
                 & (public_cr.caller_context == cr.caller_context)
-                & (public_cr.start_side_effect_counter == 0)
+                // TODO: Hide the counter of a public call request.
+                // & (public_cr.start_side_effect_counter == 0)
                 & (public_cr.end_side_effect_counter == 0)
         );
 
-        assert_split_sorted_transformed_value_arrays_desc(
+        assert_split_sorted_transformed_value_arrays_asc(
             prev_data.public_call_stack,
             hints.public_call_requests,
             split_counter,
