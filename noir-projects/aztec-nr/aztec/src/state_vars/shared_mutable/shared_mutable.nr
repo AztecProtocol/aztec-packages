@@ -95,7 +95,7 @@ impl<T, INITIAL_DELAY, Context> SharedMutable<T, INITIAL_DELAY, Context> {
     ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField + ToField + Eq {
         // We could simply produce historical inclusion proofs for both the ScheduledValueChange and 
         // ScheduledDelayChange, but that'd require one full sibling path per storage slot (since due to kernel siloing
-        // the storage is not contiguous), and in the best case in which T is a single field that' be 4 slots.
+        // the storage is not contiguous), and in the best case in which T is a single field that'd be 4 slots.
         // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
