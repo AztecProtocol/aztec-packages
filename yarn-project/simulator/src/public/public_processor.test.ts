@@ -1020,7 +1020,6 @@ describe('public_processor', () => {
     it('runs a tx with only teardown', async function () {
       const baseContractAddressSeed = 0x200;
       const teardown = makePublicCallRequest(baseContractAddressSeed);
-      const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
       const tx = mockTxWithPartialState({
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
