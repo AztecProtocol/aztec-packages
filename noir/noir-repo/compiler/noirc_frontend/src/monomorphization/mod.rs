@@ -891,7 +891,11 @@ impl<'interner> Monomorphizer<'interner> {
             DefinitionKind::Local(_) => match self.lookup_captured_expr(ident.id) {
                 Some(expr) => expr,
                 None => {
-                    let ident = self.local_ident(&ident)?.unwrap();
+                    let Some(ident) = self.local_ident(&ident)? else {
+                        let location = self.interner.id_location(expr_id);
+                        let message = "ICE: Variable not found during monomorphization";
+                        return Err(MonomorphizationError::InternalError { location, message });
+                    };
                     ast::Expression::Ident(ident)
                 }
             },
@@ -943,7 +947,7 @@ impl<'interner> Monomorphizer<'interner> {
             HirType::TraitAsType(..) => {
                 unreachable!("All TraitAsType should be replaced before calling convert_type");
             }
-            HirType::NamedGeneric(binding, _) => {
+            HirType::NamedGeneric(binding, _, _) => {
                 if let TypeBinding::Bound(binding) = &*binding.borrow() {
                     return Self::convert_type(binding, location);
                 }
@@ -1014,7 +1018,7 @@ impl<'interner> Monomorphizer<'interner> {
             HirType::Forall(_, _) | HirType::Constant(_) | HirType::Error => {
                 unreachable!("Unexpected type {} found", typ)
             }
-            HirType::Code => unreachable!("Tried to translate Code type into runtime code"),
+            HirType::Quoted(_) => unreachable!("Tried to translate Code type into runtime code"),
         })
     }
 
@@ -1273,19 +1277,19 @@ impl<'interner> Monomorphizer<'interner> {
                     }
                     "modulus_le_bits" => {
                         let bits = FieldElement::modulus().to_radix_le(2);
-                        Some(self.modulus_array_literal(bits, IntegerBitSize::One, location))
+                        Some(self.modulus_slice_literal(bits, IntegerBitSize::One, location))
                     }
                     "modulus_be_bits" => {
                         let bits = FieldElement::modulus().to_radix_be(2);
-                        Some(self.modulus_array_literal(bits, IntegerBitSize::One, location))
+                        Some(self.modulus_slice_literal(bits, IntegerBitSize::One, location))
                     }
                     "modulus_be_bytes" => {
                         let bytes = FieldElement::modulus().to_bytes_be();
-                        Some(self.modulus_array_literal(bytes, IntegerBitSize::Eight, location))
+                        Some(self.modulus_slice_literal(bytes, IntegerBitSize::Eight, location))
                     }
                     "modulus_le_bytes" => {
                         let bytes = FieldElement::modulus().to_bytes_le();
-                        Some(self.modulus_array_literal(bytes, IntegerBitSize::Eight, location))
+                        Some(self.modulus_slice_literal(bytes, IntegerBitSize::Eight, location))
                     }
                     _ => None,
                 };
@@ -1294,7 +1298,7 @@ impl<'interner> Monomorphizer<'interner> {
         None
     }
 
-    fn modulus_array_literal(
+    fn modulus_slice_literal(
         &self,
         bytes: Vec<u8>,
         arr_elem_bits: IntegerBitSize,
@@ -1308,10 +1312,9 @@ impl<'interner> Monomorphizer<'interner> {
             Expression::Literal(Literal::Integer((byte as u128).into(), int_type.clone(), location))
         });
 
-        let typ = Type::Array(bytes_as_expr.len() as u32, Box::new(int_type));
-
+        let typ = Type::Slice(Box::new(int_type));
         let arr_literal = ArrayLiteral { typ, contents: bytes_as_expr };
-        Expression::Literal(Literal::Array(arr_literal))
+        Expression::Literal(Literal::Slice(arr_literal))
     }
 
     fn queue_function(
@@ -1815,13 +1818,13 @@ fn unwrap_struct_type(typ: &HirType) -> Vec<(String, HirType)> {
     }
 }
 
-fn perform_instantiation_bindings(bindings: &TypeBindings) {
+pub fn perform_instantiation_bindings(bindings: &TypeBindings) {
     for (var, binding) in bindings.values() {
         var.force_bind(binding.clone());
     }
 }
 
-fn undo_instantiation_bindings(bindings: TypeBindings) {
+pub fn undo_instantiation_bindings(bindings: TypeBindings) {
     for (id, (var, _)) in bindings {
         var.unbind(id);
     }

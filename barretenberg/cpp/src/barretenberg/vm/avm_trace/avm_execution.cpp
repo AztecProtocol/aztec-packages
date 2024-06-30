@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
 #include "barretenberg/vm/avm_trace/avm_helper.hpp"
@@ -78,10 +79,11 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
 
-    // The proof starts with the serialized public inputs
+    // Proof structure: public_inputs | calldata_size | calldata | raw proof
     HonkProof proof(public_inputs_vec);
+    proof.emplace_back(calldata.size());
+    proof.insert(proof.end(), calldata.begin(), calldata.end());
     auto raw_proof = prover.construct_proof();
-    // append the raw proof after the public inputs
     proof.insert(proof.end(), raw_proof.begin(), raw_proof.end());
     // TODO(#4887): Might need to return PCS vk when full verify is supported
     return std::make_tuple(*verifier.key, proof);
@@ -261,14 +263,23 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // crs_factory_);
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
+    // Proof structure: public_inputs | calldata_size | calldata | raw proof
     std::vector<FF> public_inputs_vec;
+    std::vector<FF> calldata;
     std::vector<FF> raw_proof;
-    std::copy(
-        proof.begin(), proof.begin() + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, std::back_inserter(public_inputs_vec));
-    std::copy(proof.begin() + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, proof.end(), std::back_inserter(raw_proof));
+
+    // This can be made nicer using BB's serialize::read, probably.
+    const auto public_inputs_offset = proof.begin();
+    const auto calldata_size_offset = public_inputs_offset + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+    const auto calldata_offset = calldata_size_offset + 1;
+    const auto raw_proof_offset = calldata_offset + static_cast<int64_t>(uint64_t(*calldata_size_offset));
+
+    std::copy(public_inputs_offset, calldata_size_offset, std::back_inserter(public_inputs_vec));
+    std::copy(calldata_offset, raw_proof_offset, std::back_inserter(calldata));
+    std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs);
+    std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs, calldata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
 }
 
@@ -309,7 +320,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     uint32_t start_side_effect_counter =
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
                                    : 0;
-    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter);
+    AvmTraceBuilder trace_builder(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -433,11 +444,10 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Execution Environment - Calldata
         case OpCode::CALLDATACOPY:
-            trace_builder.calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
-                                        std::get<uint32_t>(inst.operands.at(1)),
-                                        std::get<uint32_t>(inst.operands.at(2)),
-                                        std::get<uint32_t>(inst.operands.at(3)),
-                                        calldata);
+            trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
+                                           std::get<uint32_t>(inst.operands.at(1)),
+                                           std::get<uint32_t>(inst.operands.at(2)),
+                                           std::get<uint32_t>(inst.operands.at(3)));
             break;
         // Machine State - Gas
         case OpCode::L2GASLEFT:
@@ -533,7 +543,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::EMITUNENCRYPTEDLOG:
             trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint32_t>(inst.operands.at(1)));
+                                                  std::get<uint32_t>(inst.operands.at(1)),
+                                                  std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::SENDL2TOL1MSG:
             trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
@@ -542,18 +553,18 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Machine State - Internal Control Flow
         case OpCode::JUMP:
-            trace_builder.jump(std::get<uint32_t>(inst.operands.at(0)));
+            trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
             break;
         case OpCode::JUMPI:
-            trace_builder.jumpi(std::get<uint8_t>(inst.operands.at(0)),
-                                std::get<uint32_t>(inst.operands.at(1)),
-                                std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
+                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::INTERNALCALL:
-            trace_builder.internal_call(std::get<uint32_t>(inst.operands.at(0)));
+            trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
             break;
         case OpCode::INTERNALRETURN:
-            trace_builder.internal_return();
+            trace_builder.op_internal_return();
             break;
             // Machine State - Memory
         case OpCode::SET: {
@@ -598,7 +609,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Control Flow - Contract Calls
         case OpCode::RETURN: {
-            auto ret = trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)),
+            auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint32_t>(inst.operands.at(1)),
                                                std::get<uint32_t>(inst.operands.at(2)));
             returndata.insert(returndata.end(), ret.begin(), ret.end());
@@ -608,7 +619,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::DEBUGLOG:
             // We want a noop, but we need to execute something that both advances the PC,
             // and adds a valid row to the trace.
-            trace_builder.jump(pc + 1);
+            trace_builder.op_jump(pc + 1);
             break;
         case OpCode::CALL:
             trace_builder.op_call(std::get<uint8_t>(inst.operands.at(0)),

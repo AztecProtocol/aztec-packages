@@ -21,7 +21,7 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type ContractsDataSourcePublicDB,
-  type PublicExecution,
+  type PublicExecutionRequest,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -96,6 +96,7 @@ export class TestContext {
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    const telemetry = new NoopTelemetryClient();
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,
@@ -104,6 +105,7 @@ export class TestContext {
       Header.empty(),
       publicContractsDB,
       publicWorldStateDB,
+      telemetry,
     );
 
     let localProver: ServerCircuitProver;
@@ -125,7 +127,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue();
-    const orchestrator = new ProvingOrchestrator(actualDb, queue);
+    const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -162,7 +164,7 @@ export class TestContext {
     txValidator?: TxValidator<ProcessedTx>,
   ) {
     const defaultExecutorImplementation = (
-      execution: PublicExecution,
+      execution: PublicExecutionRequest,
       _globalVariables: GlobalVariables,
       availableGas: Gas,
       _txContext: TxContext,
@@ -202,7 +204,7 @@ export class TestContext {
     blockProver?: BlockProver,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
-      execution: PublicExecution,
+      execution: PublicExecutionRequest,
       globalVariables: GlobalVariables,
       availableGas: Gas,
       txContext: TxContext,

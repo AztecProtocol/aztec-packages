@@ -52,7 +52,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     // using PCS = Flavor::PCS;
-    // using ZeroMorph = ZeroMorphVerifier_<PCS>;
+    // using Curve = Flavor::Curve;
+    // using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using CommitmentLabels = Flavor::CommitmentLabels;
 
@@ -78,6 +79,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_kernel_side_effect_out);
     commitments.kernel_kernel_metadata_out =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_kernel_metadata_out);
+    commitments.main_calldata = transcript->template receive_from_prover<Commitment>(commitment_labels.main_calldata);
     commitments.alu_a_hi = transcript->template receive_from_prover<Commitment>(commitment_labels.alu_a_hi);
     commitments.alu_a_lo = transcript->template receive_from_prover<Commitment>(commitment_labels.alu_a_lo);
     commitments.alu_b_hi = transcript->template receive_from_prover<Commitment>(commitment_labels.alu_b_hi);
@@ -711,41 +713,48 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Public columns evaluation checks
+    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
+                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
 
-    FF kernel_kernel_inputs_evaluation =
-        evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
+    FF kernel_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, mle_challenge);
     if (kernel_kernel_inputs_evaluation != claimed_evaluations.kernel_kernel_inputs) {
         return false;
     }
 
-    FF kernel_kernel_value_out_evaluation =
-        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
+    FF kernel_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], circuit_size, mle_challenge);
     if (kernel_kernel_value_out_evaluation != claimed_evaluations.kernel_kernel_value_out) {
         return false;
     }
 
     FF kernel_kernel_side_effect_out_evaluation =
-        evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
+        evaluate_public_input_column(public_inputs[2], circuit_size, mle_challenge);
     if (kernel_kernel_side_effect_out_evaluation != claimed_evaluations.kernel_kernel_side_effect_out) {
         return false;
     }
 
     FF kernel_kernel_metadata_out_evaluation =
-        evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
+        evaluate_public_input_column(public_inputs[3], circuit_size, mle_challenge);
     if (kernel_kernel_metadata_out_evaluation != claimed_evaluations.kernel_kernel_metadata_out) {
+        return false;
+    }
+
+    FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], circuit_size, mle_challenge);
+    if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
         return false;
     }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
     // NOTE: temporarily disabled - facing integration issues
-    // auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+    // auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
     //                                         commitments.get_to_be_shifted(),
     //                                         claimed_evaluations.get_unshifted(),
     //                                         claimed_evaluations.get_shifted(),
     //                                         multivariate_challenge,
+    //                                         pcs_verification_key->get_g1_identity(),
     //                                         transcript);
 
+    // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
     // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     // return sumcheck_verified.value() && verified;
     return sumcheck_verified.value();

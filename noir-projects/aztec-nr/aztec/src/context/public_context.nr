@@ -17,32 +17,23 @@ impl PublicContext {
     pub fn storage_address(self) -> AztecAddress {
         storage_address()
     }
+
     pub fn fee_per_l2_gas(self) -> Field {
         fee_per_l2_gas()
     }
+
     pub fn fee_per_da_gas(self) -> Field {
         fee_per_da_gas()
     }
-    /**
-    * Emit a log with the given event selector and message.
-    *
-    * @param event_selector The event selector for the log.
-    * @param message The message to emit in the log.
-    */
-    pub fn emit_unencrypted_log_with_selector<T, N>(
-        &mut self,
-        event_selector: Field,
-        log: T
-    ) where T: Serialize<N> {
-        emit_unencrypted_log(event_selector, Serialize::serialize(log).as_slice());
-    }
-    // For compatibility with the selector-less API. We'll probably rename the above one.
+
     pub fn emit_unencrypted_log<T, N>(&mut self, log: T) where T: Serialize<N> {
-        self.emit_unencrypted_log_with_selector(/*event_selector=*/ 5, log);
+        emit_unencrypted_log(Serialize::serialize(log).as_slice());
     }
+
     pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
         note_hash_exists(note_hash, leaf_index) == 1
     }
+
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
@@ -175,6 +166,22 @@ impl PublicContext {
     fn da_gas_left(self) -> Field {
         da_gas_left()
     }
+
+    fn raw_storage_read<N>(_self: Self, storage_slot: Field) -> [Field; N] {
+        storage_read(storage_slot)
+    }
+
+    fn storage_read<T, N>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+        T::deserialize(self.raw_storage_read(storage_slot))
+    }
+
+    fn raw_storage_write<N>(_self: Self, storage_slot: Field, values: [Field; N]) {
+        storage_write(storage_slot, values);
+    }
+
+    fn storage_write<T, N>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+        self.raw_storage_write(storage_slot, value.serialize());
+    }
 }
 
 // Helper functions
@@ -241,8 +248,8 @@ unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
 unconstrained fn emit_nullifier(nullifier: Field) {
     emit_nullifier_opcode(nullifier)
 }
-unconstrained fn emit_unencrypted_log(event_selector: Field, message: [Field]) {
-    emit_unencrypted_log_opcode(event_selector, message)
+unconstrained fn emit_unencrypted_log(message: [Field]) {
+    emit_unencrypted_log_opcode(message)
 }
 unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
@@ -265,6 +272,14 @@ unconstrained fn call_static<RET_SIZE>(
     function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {
     call_static_opcode(gas, address, args, function_selector)
+}
+
+unconstrained fn storage_read<N>(storage_slot: Field) -> [Field; N] {
+    storage_read_opcode(storage_slot)
+}
+
+unconstrained fn storage_write<N>(storage_slot: Field, values: [Field; N]) {
+    storage_write_opcode(storage_slot, values);
 }
 
 impl Empty for PublicContext {
@@ -325,8 +340,8 @@ unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8
 #[oracle(avmOpcodeEmitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 
-#[oracle(amvOpcodeEmitUnencryptedLog)]
-unconstrained fn emit_unencrypted_log_opcode(event_selector: Field, message: [Field]) {}
+#[oracle(avmOpcodeEmitUnencryptedLog)]
+unconstrained fn emit_unencrypted_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
 unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
@@ -353,6 +368,12 @@ unconstrained fn call_static_opcode<RET_SIZE>(
     function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
+
+#[oracle(avmOpcodeStorageRead)]
+unconstrained fn storage_read_opcode<N>(storage_slot: Field) -> [Field; N] {}
+
+#[oracle(avmOpcodeStorageWrite)]
+unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}
 
 struct FunctionReturns<N> {
     values: [Field; N]

@@ -56,7 +56,7 @@ impl VerifierBuilder for BBFiles {
             |public_inputs_column_name: &String, idx: usize| {
                 format!(
                 "
-        FF {public_inputs_column_name}_evaluation = evaluate_public_input_column(public_inputs[{idx}], circuit_size, multivariate_challenge);
+        FF {public_inputs_column_name}_evaluation = evaluate_public_input_column(public_inputs[{idx}], circuit_size, mle_challenge);
         if ({public_inputs_column_name}_evaluation != claimed_evaluations.{public_inputs_column_name}) {{
             return false;
         }}
@@ -132,7 +132,8 @@ impl VerifierBuilder for BBFiles {
         using FF = Flavor::FF;
         using Commitment = Flavor::Commitment;
         // using PCS = Flavor::PCS;
-        // using ZeroMorph = ZeroMorphVerifier_<PCS>;
+        // using Curve = Flavor::Curve;
+        // using ZeroMorph = ZeroMorphVerifier_<Curve>;
         using VerifierCommitments = Flavor::VerifierCommitments;
         using CommitmentLabels = Flavor::CommitmentLabels;
     
@@ -177,18 +178,22 @@ impl VerifierBuilder for BBFiles {
         }}
 
         // Public columns evaluation checks
+        std::vector<FF> mle_challenge(multivariate_challenge.begin(),
+                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
         {public_inputs_check}
     
         // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
         // unrolled protocol.
         // NOTE: temporarily disabled - facing integration issues
-        // auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+        // auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
         //                                         commitments.get_to_be_shifted(),
         //                                         claimed_evaluations.get_unshifted(),
         //                                         claimed_evaluations.get_shifted(),
         //                                         multivariate_challenge,
+        //                                         pcs_verification_key->get_g1_identity(),
         //                                         transcript);
     
+        // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
         // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
         // return sumcheck_verified.value() && verified;
         return sumcheck_verified.value();

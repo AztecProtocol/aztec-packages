@@ -31,7 +31,6 @@ impl LensForEncryptedLog<3, 576> for [Field; 3] {
 impl LensForEncryptedLog<4, 608> for [Field; 4] {
     fn output_fields(self) -> [Field; 4] {[self[0]; 4]}
     fn output_bytes(self) -> [u8; 608] {[self[0] as u8; 608]}
-
 }
 impl LensForEncryptedLog<5, 640> for [Field; 5] {
     fn output_fields(self) -> [Field; 5] {[self[0]; 5]}
@@ -40,7 +39,55 @@ impl LensForEncryptedLog<5, 640> for [Field; 5] {
 impl LensForEncryptedLog<6, 672> for [Field; 6] {
     fn output_fields(self) -> [Field; 6] {[self[0]; 6]}
     fn output_bytes(self) -> [u8; 672] {[self[0] as u8; 672]}
+}
+impl LensForEncryptedLog<7, 704> for [Field; 7] {
+    fn output_fields(self) -> [Field; 7] {[self[0]; 7]}
+    fn output_bytes(self) -> [u8; 704] {[self[0] as u8; 704]}
+}
+impl LensForEncryptedLog<8, 736> for [Field; 8] {
+    fn output_fields(self) -> [Field; 8] {[self[0]; 8]}
+    fn output_bytes(self) -> [u8; 736] {[self[0] as u8; 736]}
+}
+impl LensForEncryptedLog<9, 768> for [Field; 9] {
+    fn output_fields(self) -> [Field; 9] {[self[0]; 9]}
+    fn output_bytes(self) -> [u8; 768] {[self[0] as u8; 768]}
+}
+impl LensForEncryptedLog<10, 800> for [Field; 10] {
+    fn output_fields(self) -> [Field; 10] {[self[0]; 10]}
+    fn output_bytes(self) -> [u8; 800] {[self[0] as u8; 800]}
+}
+impl LensForEncryptedLog<11, 832> for [Field; 11] {
+    fn output_fields(self) -> [Field; 11] {[self[0]; 11]}
+    fn output_bytes(self) -> [u8; 832] {[self[0] as u8; 832]}
+}
+impl LensForEncryptedLog<12, 864> for [Field; 12] {
+    fn output_fields(self) -> [Field; 12] {[self[0]; 12]}
+    fn output_bytes(self) -> [u8; 864] {[self[0] as u8; 864]}
+}
 
+trait LensForEncryptedEvent<N, M> {
+    // N = event preimage input in bytes
+    // M = encryption output len in bytes (= 480 + M)
+    fn output(self: [u8; N]) -> [u8; M];
+}
+
+impl LensForEncryptedEvent<96, 512> for [u8; 96] {
+    fn output(self) -> [u8; 512] {[self[0] as u8; 512]}
+}
+impl LensForEncryptedEvent<128, 544> for [u8; 128] {
+    fn output(self) -> [u8; 544] {[self[0] as u8; 544]}
+}
+impl LensForEncryptedEvent<160, 576> for [u8; 160] {
+    fn output(self) -> [u8; 576] {[self[0] as u8; 576]}
+}
+impl LensForEncryptedEvent<192, 608> for [u8; 192] {
+    fn output(self) -> [u8; 608] {[self[0] as u8; 608]}
+}
+impl LensForEncryptedEvent<224, 640> for [u8; 224] {
+    fn output(self) -> [u8; 640] {[self[0] as u8; 640]}
+}
+impl LensForEncryptedEvent<256, 672> for [u8; 256] {
+    fn output(self) -> [u8; 672] {[self[0] as u8; 672]}
 }
 
 // This trait defines the length of the inputs in bytes to

@@ -206,6 +206,7 @@ export class AztecNodeService implements AztecNode {
           archiver,
           prover!,
           simulationProvider,
+          telemetry,
         );
 
     return new AztecNodeService(
@@ -703,10 +704,11 @@ export class AztecNodeService implements AztecNode {
    *
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
+   * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState('latest');
+  public async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
+    const committedDb = await this.#getWorldState(blockNumber);
     const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -763,6 +765,7 @@ export class AztecNodeService implements AztecNode {
       merkleTrees.asLatest(),
       this.contractDataSource,
       new WASMSimulator(),
+      this.telemetry,
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx

@@ -17,8 +17,8 @@ export class AvmContextInputs {
  * Contains variables that remain constant during AVM execution
  * These variables are provided by the public kernel circuit
  */
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3992): gas not implemented
 export class AvmExecutionEnvironment {
+  private readonly calldataPrefixLength;
   constructor(
     public readonly address: AztecAddress,
     public readonly storageAddress: AztecAddress,
@@ -34,19 +34,20 @@ export class AvmExecutionEnvironment {
     public readonly gasSettings: GasSettings,
     public readonly transactionFee: Fr,
 
-    // Function selector is temporary since eventually public contract bytecode will be one blob
-    // containing all functions, and function selector will become an application-level mechanism
+    // Function selector may be temporary since eventually public contract bytecode will likely be one
+    // blob containing all functions, and function selector will become an application-level mechanism
     // (e.g. first few bytes of calldata + compiler-generated jump table)
-    public readonly temporaryFunctionSelector: FunctionSelector,
+    public readonly functionSelector: FunctionSelector,
   ) {
     // We encode some extra inputs (AvmContextInputs) in calldata.
     // This will have to go once we move away from one proof per call.
     const inputs = new AvmContextInputs(
-      temporaryFunctionSelector.toField(),
+      functionSelector.toField(),
       computeVarArgsHash(calldata),
       isStaticCall,
-    );
-    this.calldata = [...inputs.toFields(), ...calldata];
+    ).toFields();
+    this.calldata = [...inputs, ...calldata];
+    this.calldataPrefixLength = inputs.length;
   }
 
   private deriveEnvironmentForNestedCallInternal(
@@ -62,7 +63,7 @@ export class AvmExecutionEnvironment {
       /*sender=*/ this.address,
       this.feePerL2Gas,
       this.feePerDaGas,
-      this.contractCallDepth,
+      this.contractCallDepth.add(Fr.ONE),
       this.header,
       this.globals,
       isStaticCall,
@@ -108,5 +109,10 @@ export class AvmExecutionEnvironment {
     _functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
     throw new Error('Delegate calls not supported!');
+  }
+
+  public getCalldataWithoutPrefix(): Fr[] {
+    // clip off the first few entries
+    return this.calldata.slice(this.calldataPrefixLength);
   }
 }

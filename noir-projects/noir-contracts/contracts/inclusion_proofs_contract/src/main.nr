@@ -4,7 +4,7 @@ contract InclusionProofs {
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
         PrivateSet, PublicMutable
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 
     use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId, header::Header};
     use dep::aztec::{note::note_getter_options::NoteStatus};
@@ -36,7 +36,7 @@ contract InclusionProofs {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        owner_private_values.insert(&mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
+        owner_private_values.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
     }
     // docs:end:create_note
 
@@ -194,9 +194,11 @@ contract InclusionProofs {
         let header = context.get_header_at(block_number);
 
         assert_eq(
+            // docs:start:public_storage_historical_read
             header.public_storage_historical_read(
                 storage.public_unused_value.storage_slot,
                 context.this_address()
+            // docs:end:public_storage_historical_read
             ), 0
         );
     }
@@ -229,10 +231,14 @@ contract InclusionProofs {
         let header = context.get_header_at(block_number);
 
         if test_deployment {
+            // docs:start:prove_contract_deployment
             header.prove_contract_deployment(contract_address);
+            // docs:end:prove_contract_deployment
         }
         if test_initialization {
+            // docs:start:prove_contract_initialization
             header.prove_contract_initialization(contract_address);
+            // docs:end:prove_contract_initialization
         }
     }
 
@@ -247,10 +253,14 @@ contract InclusionProofs {
         let header = context.get_header_at(block_number);
 
         if test_deployment {
+            // docs:start:prove_contract_non_deployment
             header.prove_contract_non_deployment(contract_address);
+            // docs:end:prove_contract_non_deployment
         }
         if test_initialization {
+            // docs:start:prove_contract_non_initialization
             header.prove_contract_non_initialization(contract_address);
+            // docs:end:prove_contract_non_initialization
         }
     }
 }

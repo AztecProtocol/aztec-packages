@@ -100,7 +100,7 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = gen_trace_from_instr(instructions);
-    validate_trace(std::move(trace), public_inputs, true);
+    validate_trace(std::move(trace), public_inputs, {}, true);
 }
 
 // Positive test for SET and SUB opcodes
@@ -165,7 +165,7 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == 1; });
     EXPECT_EQ(row->main_ic, 10000); // 47123 - 37123 = 10000
-    validate_trace(std::move(trace), public_inputs, true);
+    validate_trace(std::move(trace), public_inputs, {}, true);
 }
 
 // Positive test for multiple MUL opcodes
@@ -467,7 +467,7 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     // It must have failed as subtraction was "jumped over".
     EXPECT_EQ(row, trace.end());
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, { 13, 156 });
 }
 
 // Positive test for JUMPI.
@@ -561,8 +561,8 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     EXPECT_EQ(row->main_ic, 1600); // 800 = (20 + 20) * (20 + 20)
 
     // traces validation
-    validate_trace(std::move(trace_jump), public_inputs);
-    validate_trace(std::move(trace_no_jump), public_inputs);
+    validate_trace(std::move(trace_jump), public_inputs, { 9873123 });
+    validate_trace(std::move(trace_no_jump), public_inputs, { 0 });
 }
 
 // Positive test with MOV.
@@ -805,7 +805,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
     }
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) });
 }
 
 // // Positive test with SHA256COMPRESSION.
@@ -873,7 +873,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 // Positive test with SHA256
@@ -992,7 +992,7 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 // Positive test with Keccakf1600.
@@ -1177,7 +1177,7 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
 
     EXPECT_EQ(returndata[0], expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 //
 // Positive test with EmbeddedCurveAdd
@@ -1239,7 +1239,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 // Positive test with MSM
@@ -1316,7 +1316,7 @@ TEST_F(AvmExecutionTests, msmOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 // Positive test for Kernel Input opcodes
@@ -1650,6 +1650,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
                                + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITUNENCRYPTEDLOG
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
+                               "00000002"                             // src size offset
                                + to_hex(OpCode::SENDL2TOL1MSG) +      // opcode SENDL2TOL1MSG
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
@@ -1898,7 +1899,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
     EXPECT_EQ(metadata_out, 9); // slot
 
     feed_output(sstore_out_offset, value_out, side_effect_out, metadata_out);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 // SSTORE
@@ -1960,7 +1961,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeComplex)
     feed_output(sstore_out_offset, 42, 0, 9);
     feed_output(sstore_out_offset + 1, 123, 1, 10);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 // SLOAD and SSTORE
@@ -2205,13 +2206,18 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for call operation
-    auto execution_hints = ExecutionHints().with_externalcall_hints(
-        { { .success = 1, .return_data = { 9, 8 }, .l2_gas_used = 0, .da_gas_used = 0 } });
+    auto execution_hints = ExecutionHints().with_externalcall_hints({ {
+        .success = 1,
+        .return_data = { 9, 8 },
+        .l2_gas_used = 0,
+        .da_gas_used = 0,
+        .end_side_effect_counter = 0,
+    } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 
 TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
@@ -2250,7 +2256,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, 6 })); // The first one represents true
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)

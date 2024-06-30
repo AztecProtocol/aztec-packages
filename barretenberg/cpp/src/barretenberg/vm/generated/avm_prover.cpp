@@ -7,7 +7,6 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -63,6 +62,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.kernel_kernel_value_out = commitment_key->commit(key->kernel_kernel_value_out);
     witness_commitments.kernel_kernel_side_effect_out = commitment_key->commit(key->kernel_kernel_side_effect_out);
     witness_commitments.kernel_kernel_metadata_out = commitment_key->commit(key->kernel_kernel_metadata_out);
+    witness_commitments.main_calldata = commitment_key->commit(key->main_calldata);
     witness_commitments.alu_a_hi = commitment_key->commit(key->alu_a_hi);
     witness_commitments.alu_a_lo = commitment_key->commit(key->alu_a_lo);
     witness_commitments.alu_b_hi = commitment_key->commit(key->alu_b_hi);
@@ -409,6 +409,7 @@ void AvmProver::execute_wire_commitments_round()
                                  witness_commitments.kernel_kernel_side_effect_out);
     transcript->send_to_verifier(commitment_labels.kernel_kernel_metadata_out,
                                  witness_commitments.kernel_kernel_metadata_out);
+    transcript->send_to_verifier(commitment_labels.main_calldata, witness_commitments.main_calldata);
     transcript->send_to_verifier(commitment_labels.alu_a_hi, witness_commitments.alu_a_hi);
     transcript->send_to_verifier(commitment_labels.alu_a_lo, witness_commitments.alu_a_lo);
     transcript->send_to_verifier(commitment_labels.alu_b_hi, witness_commitments.alu_b_hi);
@@ -964,18 +965,15 @@ void AvmProver::execute_relation_check_rounds()
  * */
 void AvmProver::execute_pcs_rounds()
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-
-    auto prover_opening_claim = ZeroMorph::prove(prover_polynomials.get_unshifted(),
+    auto prover_opening_claim = ZeroMorph::prove(key->circuit_size,
+                                                 prover_polynomials.get_unshifted(),
                                                  prover_polynomials.get_to_be_shifted(),
                                                  sumcheck_output.claimed_evaluations.get_unshifted(),
                                                  sumcheck_output.claimed_evaluations.get_shifted(),
                                                  sumcheck_output.challenge,
                                                  commitment_key,
                                                  transcript);
-    PCS::compute_opening_proof(
-        commitment_key, prover_opening_claim.opening_pair, prover_opening_claim.polynomial, transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof AvmProver::export_proof()
