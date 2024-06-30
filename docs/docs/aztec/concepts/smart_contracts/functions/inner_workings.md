@@ -24,7 +24,7 @@ To help illustrate how this interacts with the internals of Aztec and its kernel
 
 #include_code simple_macro_example_expanded /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-#### The expansion broken down?
+#### The expansion broken down
 
 Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts interact with the [kernel](../../circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
 
@@ -119,14 +119,234 @@ To create a public function you can annotate it with the `#[aztec(public)]` attr
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-TODO more to write here
+Under the hood:
+
+- Context Creation: The macro inserts code at the beginning of the function to create a`PublicContext` object:
+```rust
+let mut context = PublicContext::new(inputs);
+```
+This context provides access to public state and transaction information
+- Function Signature Modification: The macro modifies the function signature to include a `PublicContextInputs` parameter:
+```rust
+fn function_name(inputs: PublicContextInputs, ...other_params) -> ReturnType
+```
+- Return Type Transformation: For functions that return a value, the macro wraps the return type in a `PublicCircuitPublicInputs` struct:
+```rust 
+-> protocol_types::abis::public_circuit_public_inputs::PublicCircuitPublicInputs
+```
+- Storage Access: If the contract has a storage struct defined, the macro inserts code to initialize the storage:
+```rust
+let storage = Storage::init(&mut context);
+```
+- Function Body Wrapping: The original function body is wrapped in a new scope that handles the context and return value
+- Visibility Control: The function is marked as pub, making it accessible from outside the contract.
+- Unconstrained Execution: Public functions are marked as unconstrained, meaning they don't generate proofs and are executed directly by the sequencer.
+
+## Constrained `view` Functions #[aztec(view)]
+
+The `#[aztec(view)]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions-aztecunconstrained) keyword but are executed in a constrained environment. It is not possible to update state within an `#[aztec(view)]` function.
+
+This means the results of these functions are verifiable and can be trusted, as they are part of the proof generation and verification process. This is unlike unconstrained functions, where results are provided by the PXE and are not verified.
+
+This makes `#[aztec(view)]` functions suitable for critical read-only operations where the integrity of the result is crucial. Unconstrained functions, on the other hand, are executed entirely client-side without generating any proofs. It is better to use `#[aztec(view)]` if the result of the function will affect some sort of state, and they can be used for cross-contract calls.
+
+`#[aztec(view)]` functions can be combined with other Aztec attributes like `#[aztec(private)]` or `#[aztec(public)]`.
+
+## `Initializer` Functions #[aztec(initializer)]
+
+This is used to designate functions as initializers (or constructors) for an Aztec contract. These functions are responsible for setting up the initial state of the contract when it is first deployed. The macro does two important things:
+
+- `assert_initialization_matches_address_preimage(context)`: This checks that the arguments and sender to the initializer match the commitments from the address preimage
+- `mark_as_initialized(&mut context)`: This is called at the end of the function to emit the initialization nullifier, marking the contract as fully initialized and ensuring this function cannot be called again
+
+Key things to keep in mind:
+
+- A contract can have multiple initializer functions defined, but only one initializer function should be called for the lifetime of a contract instance
+- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[aztec(noinitcheck)])`](#aztecnoinitcheck)
+
+## #[aztec(noinitcheck)]
+
+In normal circumstances, all functions in an Aztec contract (except initializers) have an initialization check inserted at the beginning of the function body. This check ensures that the contract has been initialized before any other function can be called. However, there may be scenarios where you want a function to be callable regardless of the contract's initialization state. This is when you would use `#[aztec(noinitcheck)]`.
+
+When a function is annotated with `#[aztec(noinitcheck)]`:
+
+- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-aztecinitializer) for this specific function
+- The function can be called at any time, even if the contract hasn't been initialized yet
+
+## `Internal` functions #[aztec(internal)]
+
+This macro inserts a check at the beginning of the function to ensure that the caller is the contract itself. This is done by adding the following assertion:
+
+```rust
+assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
+```
+
+## Custom notes #[aztec(note)]
+
+Certainly! Let's draft the documentation for the "Custom notes #[aztec(note)]" section, focusing on the functionality provided by this attribute. I'll use the code you've shared to provide accurate and detailed information about how this attribute works under the hood.
+
+## Custom notes #[aztec(note)]
+
+The `#[aztec(note)]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../../concepts/storage/index.md).
+
+When a struct is annotated with `#[aztec(note)]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
+
+1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
+
+   - `serialize_content` and `deserialize_content`
+   - `get_header` and `set_header`
+   - `get_note_type_id`
+   - `compute_note_content_hash`
+   - `to_be_bytes`
+   - A `properties` method in the note's implementation
+
+2. **Automatic Header Field**: If the struct doesn't already have a `header` field of type `NoteHeader`, one is automatically created
+
+3. **Note Type ID Generation**: A unique `note_type_id` is automatically computed for the note type using a Keccak hash of the struct name
+
+4. **Serialization and Deserialization**: Methods for converting the note to and from a series of `Field` elements are generated, assuming each field can be converted to/from a `Field`
+
+5. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
+
+6. **Export Information**: The note type and its ID are automatically exported
+
+
+### Before expansion
+
+Here is how you could define a custom note:
+
+```rust
+#[aztec(note)]
+struct CustomNote {
+    data: Field,
+    owner: Address,
+}
+```
+
+### After expansaion
+
+```rust
+impl CustomNote {
+    fn serialize_content(self: CustomNote) -> [Field; NOTE_SERIALIZED_LEN] {
+        [self.data, self.owner.to_field()]
+    }
+
+    fn deserialize_content(serialized_note: [Field; NOTE_SERIALIZED_LEN]) -> Self {
+        CustomNote {
+            data: serialized_note[0] as Field,
+            owner: Address::from_field(serialized_note[1]),
+            header: NoteHeader::empty()
+        }
+    }
+
+    fn get_note_type_id() -> Field {
+        // Automatically generated unique ID based on Keccak hash of the struct name
+        0xd2de93eaab1d59abddf06134e737665f076f556feb7b6d3d72ca557b430b14d2
+    }
+
+    fn get_header(note: CustomNote) -> aztec::note::note_header::NoteHeader {
+        note.header
+    }
+
+    fn set_header(self: &mut CustomNote, header: aztec::note::note_header::NoteHeader) {
+        self.header = header;
+    }
+
+    fn compute_note_content_hash(self: CustomNote) -> Field {
+        aztec::hash::pedersen_hash(
+            self.serialize_content(), 
+            aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH
+        )
+    }
+
+    fn to_be_bytes(self: CustomNote, storage_slot: Field) -> [u8; NOTE_BYTES_LEN] {
+        let mut buffer: [u8; NOTE_BYTES_LEN] = [0; NOTE_BYTES_LEN];
+        buffer
+    }
+
+    pub fn properties() -> CustomNoteProperties {
+        CustomNoteProperties {
+            data: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
+            owner: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 }
+        }
+    }
+}
+
+struct CustomNoteProperties {
+    data: aztec::note::note_getter_options::PropertySelector,
+    owner: aztec::note::note_getter_options::PropertySelector,
+}
+```
+Key things to keep in mind:
+
+- Developers can override any of the auto-generated methods by specifying a note interface
+- The note's fields are automatically serialized and deserialized in the order they are defined in the struct
+
+## Storage struct #[aztec(storage)]
+
+The `#[aztec(storage)]` attribute is used to define the storage structure for an Aztec contract.
+
+When a struct is annotated with `#[aztec(storage)]`, the macro does this under the hood:
+
+1. **Context Injection**: injects a `Context` generic parameter into the storage struct and all its fields. This allows the storage to interact with the Aztec context, eg when using `context.msg_sender()`
+
+2. **Storage Implementation Generation**: generates an `impl` block for the storage struct with an `init` function. The developer can override this by implementing a `impl` block themselves
+
+3. **Storage Slot Assignment**: automatically assigns storage slots to each field in the struct based on their serialized length
+
+4. **Storage Layout Generation**: a `StorageLayout` struct and a global variable are generated to export the storage layout information for use in the contract artifact
+
+### Before expansion
+
+```rust
+#[aztec(storage)]
+struct Storage {
+    balance: PublicMutable<Field>,
+    owner: PublicMutable<Address>,
+    token_map: Map<Address, Field>,
+}
+```
+
+### After expansion
+
+```rust
+struct Storage<Context> {
+    balance: PublicMutable<Field, Context>,
+    owner: PublicMutable<Address, Context>,
+    token_map: Map<Address, Field, Context>,
+}
+
+impl<Context> Storage<Context> {
+    fn init(context: Context) -> Self {
+        Storage {
+            balance: PublicMutable::new(context, 1),
+            owner: PublicMutable::new(context, 2),
+            token_map: Map::new(context, 3, |context, slot| Field::new(context, slot)),
+        }
+    }
+}
+
+struct StorageLayout {
+    balance: dep::aztec::prelude::Storable,
+    owner: dep::aztec::prelude::Storable,
+    token_map: dep::aztec::prelude::Storable,
+}
+
+#[abi(storage)]
+global CONTRACT_NAME_STORAGE_LAYOUT = StorageLayout {
+    balance: dep::aztec::prelude::Storable { slot: 1 },
+    owner: dep::aztec::prelude::Storable { slot: 2 },
+    token_map: dep::aztec::prelude::Storable { slot: 3 },
+};
+```
+
+Key things to keep in mind:
+
+- Only one storage struct can be defined per contract
+- `Map` types and private `Note` types always occupy a single storage slot
 
 ## Further reading
 - [How do macros work](./function_types_macros.md)
 - [Macros reference](../../../../reference/smart_contract_reference/macros.md)
 
-## Constrained `view` Functions #[aztec(view)]
-## `Initializer` Functions #[aztec(initializer)]
-## #[aztec(noinitcheck)]
-## `Internal` functions #[aztec(internal)]
-## Custom notes #[aztec(note)]
+
