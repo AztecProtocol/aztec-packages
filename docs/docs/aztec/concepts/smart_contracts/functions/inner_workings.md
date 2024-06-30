@@ -346,7 +346,7 @@ Key things to keep in mind:
 - `Map` types and private `Note` types always occupy a single storage slot
 
 ## Further reading
-- [How do macros work](./function_types_macros.md)
+- [How do macros work](./inner_workings.md)
 - [Macros reference](../../../../reference/smart_contract_reference/macros.md)
 
 

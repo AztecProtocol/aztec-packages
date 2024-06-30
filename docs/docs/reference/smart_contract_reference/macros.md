@@ -16,4 +16,4 @@ It is also worth mentioning Noir's `unconstrained` function type [here](https://
 - `#[aztec(note)]` - Creates a custom note
 
 ## Further reading
-[What are Aztec macros?](../../aztec/concepts/smart_contracts/functions/function_types_macros.md)
+[How do Aztec macros work?](../../aztec/concepts/smart_contracts/functions/inner_workings.md)
