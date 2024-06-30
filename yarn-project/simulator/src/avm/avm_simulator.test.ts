@@ -281,7 +281,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       ['timestamp', timestamp.toField(), 'get_timestamp'],
       ['feePerDaGas', feePerDaGas.toField(), 'get_fee_per_da_gas'],
       ['feePerL2Gas', feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
-    ])('%s getter %s %s', async (_name: string, value: Fr, functionName: string) => {
+    ])('%s getter', async (_name: string, value: Fr, functionName: string) => {
       const bytecode = getAvmTestContractBytecode(functionName);
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
