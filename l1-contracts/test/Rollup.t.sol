@@ -136,6 +136,27 @@ contract RollupTest is DecoderBase {
     rollup.process(header, archive, bytes32(0), bytes(""), bytes(""));
   }
 
+  function testRevertWrongVkTreeRoot() public {
+    bytes32 expectedVkTreeRoot = bytes32(uint256(28));
+    bytes32 actualVkTreeRoot = bytes32(uint256(27));
+
+    rollup.setVkTreeRoot(expectedVkTreeRoot);
+
+    DecoderBase.Data memory data = load("empty_block_0").block;
+    bytes memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes memory body = data.body;
+
+    availabilityOracle.publish(body);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InvalidVkTreeRoot.selector, expectedVkTreeRoot, actualVkTreeRoot
+      )
+    );
+    rollup.process(header, archive, actualVkTreeRoot, bytes(""), bytes(""));
+  }
+
   function _testBlock(string memory name) public {
     DecoderBase.Full memory full = load(name);
     bytes memory header = full.block.header;

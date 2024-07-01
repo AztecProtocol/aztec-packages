@@ -85,7 +85,10 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
 }
 
 mod tests {
-    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, PrivateKernelResetOutputs};
+    use crate::private_kernel_reset::{
+        PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, PrivateKernelResetOutputs,
+        ALLOWED_PREVIOUS_CIRCUITS
+    };
     use dep::reset_kernel_lib::{
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
@@ -99,7 +102,7 @@ mod tests {
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX
+        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
@@ -463,5 +466,24 @@ mod tests {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PrivateKernelResetInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelResetInputsBuilder::new();
+
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }

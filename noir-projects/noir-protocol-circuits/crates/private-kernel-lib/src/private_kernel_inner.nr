@@ -85,10 +85,10 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernelInnerHints};
+    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernelInnerHints, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
-        constants::{PRIVATE_KERNEL_INIT_INDEX, MAX_NEW_NOTE_HASHES_PER_CALL},
+        constants::{PRIVATE_KERNEL_INIT_INDEX, MAX_NEW_NOTE_HASHES_PER_CALL, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
 
@@ -151,5 +151,24 @@ mod tests {
             public_inputs.end.encrypted_logs_hashes,
             [prev_encrypted_log_hashes[0], prev_encrypted_log_hashes[1], curr_encrypted_log_hashes[0]]
         );
+    }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PrivateKernelInnerInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }

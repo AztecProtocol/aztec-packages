@@ -100,7 +100,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::public_kernel_tail::PublicKernelTailCircuitPrivateInputs;
+    use crate::public_kernel_tail::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelTailCircuitPrivateInputs};
     use dep::reset_kernel_lib::{
         tests::{
         nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
@@ -123,7 +123,8 @@ mod tests {
         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PUBLIC_KERNEL_APP_LOGIC_INDEX
+        PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX, PUBLIC_KERNEL_SETUP_INDEX,
+        PUBLIC_KERNEL_TEARDOWN_INDEX
     },
         hash::{compute_siloed_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
@@ -602,5 +603,38 @@ mod tests {
         assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
+
+    #[test]
+    fn valid_previous_kernel_setup() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_SETUP_INDEX);
+
+        let _res = builder.execute();
+    }
+
+    #[test]
+    fn valid_previous_kernel_app_logic() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_APP_LOGIC_INDEX);
+
+        let _res = builder.execute();
+    }
+
+    #[test]
+    fn valid_previous_kernel_teardown() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_TEARDOWN_INDEX);
+
+        let _res = builder.execute();
+    }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }

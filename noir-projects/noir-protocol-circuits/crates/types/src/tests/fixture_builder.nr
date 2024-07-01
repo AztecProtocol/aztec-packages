@@ -427,7 +427,7 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            vk: self.vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }

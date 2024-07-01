@@ -25,8 +25,8 @@ use dep::types::{
     MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
     NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX,
-    PRIVATE_KERNEL_EMPTY_INDEX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX, PRIVATE_KERNEL_EMPTY_INDEX,
+    PRIVATE_KERNEL_TAIL_INDEX
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -452,7 +452,7 @@ mod tests {
     },
         base::{
         state_diff_hints::StateDiffHints,
-        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_gas_token_balance_leaf_slot}
+        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_gas_token_balance_leaf_slot, ALLOWED_PREVIOUS_CIRCUITS}
     },
         components::{TX_EFFECTS_HASH_INPUT_FIELDS, compute_kernel_out_hash}
     };
@@ -472,7 +472,8 @@ mod tests {
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
         MAX_NEW_L2_TO_L1_MSGS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_TAIL_INDEX
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, BASE_ROLLUP_INDEX, PRIVATE_KERNEL_EMPTY_INDEX,
+        PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
@@ -1424,5 +1425,38 @@ mod tests {
         builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
 
         builder.fails();
+    }
+
+    #[test]
+    fn valid_previous_kernel_empty() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_EMPTY_INDEX);
+
+        let _res = builder.execute();
+    }
+
+    #[test]
+    fn valid_previous_kernel_tail() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+
+        let _res = builder.execute();
+    }
+
+    #[test]
+    fn valid_previous_kernel_public_tail() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.kernel_data = builder.kernel_data.in_vk_tree(PUBLIC_KERNEL_TAIL_INDEX);
+
+        let _res = builder.execute();
+    }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.kernel_data = builder.kernel_data.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }
