@@ -204,7 +204,7 @@ impl FromStr for OpcodeLocation {
     }
 }
 
-impl<F> Circuit<F> {
+impl<F: AcirField> Circuit<F> {
     pub fn num_vars(&self) -> u32 {
         self.current_witness_index + 1
     }
@@ -249,7 +249,7 @@ impl<F: Serialize> Program<F> {
     }
 }
 
-impl<F: for<'a> Deserialize<'a>> Program<F> {
+impl<F: for<'a> Deserialize<'a> + AcirField> Program<F> {
     fn read<R: std::io::Read>(reader: R) -> std::io::Result<Self> {
         let mut gz_decoder = flate2::read::GzDecoder::new(reader);
         let mut buf_d = Vec::new();
@@ -360,7 +360,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        opcodes::{BlackBoxFuncCall, FunctionInput},
+        opcodes::{BlackBoxFuncCall, FunctionInput, WitnessInput},
         Circuit, Compression, Opcode, PublicInputs,
     };
     use crate::{
@@ -372,34 +372,38 @@ mod tests {
 
     fn and_opcode<F: AcirField>() -> Opcode<F> {
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::AND {
-            lhs: FunctionInput { witness: Witness(1), num_bits: 4 },
-            rhs: FunctionInput { witness: Witness(2), num_bits: 4 },
+            lhs: FunctionInput::Witness(WitnessInput { witness: Witness(1), num_bits: 4 }),
+            rhs: FunctionInput::Witness(WitnessInput { witness: Witness(2), num_bits: 4 }),
             output: Witness(3),
         })
     }
     fn range_opcode<F: AcirField>() -> Opcode<F> {
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-            input: FunctionInput { witness: Witness(1), num_bits: 8 },
+            input: FunctionInput::Witness(WitnessInput { witness: Witness(1), num_bits: 8 }),
         })
     }
     fn keccakf1600_opcode<F: AcirField>() -> Opcode<F> {
-        let inputs: Box<[FunctionInput; 25]> = Box::new(std::array::from_fn(|i| FunctionInput {
-            witness: Witness(i as u32 + 1),
-            num_bits: 8,
+        let inputs: Box<[FunctionInput<F>; 25]> = Box::new(std::array::from_fn(|i| {
+            FunctionInput::Witness(WitnessInput { witness: Witness(i as u32 + 1), num_bits: 8 })
         }));
         let outputs: Box<[Witness; 25]> = Box::new(std::array::from_fn(|i| Witness(i as u32 + 26)));
 
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::Keccakf1600 { inputs, outputs })
     }
     fn schnorr_verify_opcode<F: AcirField>() -> Opcode<F> {
-        let public_key_x =
-            FunctionInput { witness: Witness(1), num_bits: FieldElement::max_num_bits() };
-        let public_key_y =
-            FunctionInput { witness: Witness(2), num_bits: FieldElement::max_num_bits() };
-        let signature: Box<[FunctionInput; 64]> = Box::new(std::array::from_fn(|i| {
-            FunctionInput { witness: Witness(i as u32 + 3), num_bits: 8 }
+        let public_key_x = FunctionInput::Witness(WitnessInput {
+            witness: Witness(1),
+            num_bits: FieldElement::max_num_bits(),
+        });
+        let public_key_y = FunctionInput::Witness(WitnessInput {
+            witness: Witness(2),
+            num_bits: FieldElement::max_num_bits(),
+        });
+        let signature: Box<[FunctionInput<F>; 64]> = Box::new(std::array::from_fn(|i| {
+            FunctionInput::Witness(WitnessInput { witness: Witness(i as u32 + 3), num_bits: 8 })
         }));
-        let message: Vec<FunctionInput> = vec![FunctionInput { witness: Witness(67), num_bits: 8 }];
+        let message: Vec<FunctionInput<F>> =
+            vec![FunctionInput::Witness(WitnessInput { witness: Witness(67), num_bits: 8 })];
         let output = Witness(68);
 
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::SchnorrVerify {
@@ -425,7 +429,7 @@ mod tests {
         };
         let program = Program { functions: vec![circuit], unconstrained_functions: Vec::new() };
 
-        fn read_write<F: Serialize + for<'a> Deserialize<'a>>(
+        fn read_write<F: Serialize + for<'a> Deserialize<'a> + AcirField>(
             program: Program<F>,
         ) -> (Program<F>, Program<F>) {
             let bytes = Program::serialize_program(&program);

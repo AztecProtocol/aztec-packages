@@ -8,7 +8,7 @@ use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
-use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp};
+use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp, WitnessInput};
 use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
@@ -16,7 +16,7 @@ use acvm::{
     acir::AcirField,
     acir::{
         brillig::Opcode as BrilligOpcode,
-        circuit::opcodes::FunctionInput,
+        circuit::opcodes::{ConstantInput, FunctionInput},
         native_types::{Expression, Witness},
         BlackBoxFunc,
     },
@@ -1366,9 +1366,10 @@ impl<F: AcirField> AcirContext<F> {
             }
             _ => (vec![], vec![]),
         };
-
+        // Allow constant inputs only for MSM for now
+        let allow_constant_inputs = name.eq(&BlackBoxFunc::MultiScalarMul);
         // Convert `AcirVar` to `FunctionInput`
-        let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
+        let inputs = self.prepare_inputs_for_black_box_func_call(inputs, allow_constant_inputs)?;
         // Call Black box with `FunctionInput`
         let mut results = vecmap(&constant_outputs, |c| self.add_constant(*c));
         let outputs = self.acir_ir.call_black_box(
@@ -1396,18 +1397,27 @@ impl<F: AcirField> AcirContext<F> {
     fn prepare_inputs_for_black_box_func_call(
         &mut self,
         inputs: Vec<AcirValue>,
-    ) -> Result<Vec<Vec<FunctionInput>>, RuntimeError> {
+        allow_constant_inputs: bool,
+    ) -> Result<Vec<Vec<FunctionInput<F>>>, RuntimeError> {
         let mut witnesses = Vec::new();
         for input in inputs {
             let mut single_val_witnesses = Vec::new();
             for (input, typ) in self.flatten(input)? {
-                // Intrinsics only accept Witnesses. This is not a limitation of the
-                // intrinsics, its just how we have defined things. Ideally, we allow
-                // constants too.
-                let witness_var = self.get_or_create_witness_var(input)?;
-                let witness = self.var_to_witness(witness_var)?;
                 let num_bits = typ.bit_size::<F>();
-                single_val_witnesses.push(FunctionInput { witness, num_bits });
+                match self.vars[&input].as_constant() {
+                    Some(constant) if allow_constant_inputs => {
+                        single_val_witnesses.push(FunctionInput::Constant(ConstantInput {
+                            constant: *constant,
+                            num_bits,
+                        }));
+                    }
+                    _ => {
+                        let witness_var = self.get_or_create_witness_var(input)?;
+                        let witness = self.var_to_witness(witness_var)?;
+                        single_val_witnesses
+                            .push(FunctionInput::Witness(WitnessInput { witness, num_bits }));
+                    }
+                }
             }
             witnesses.push(single_val_witnesses);
         }
@@ -1896,10 +1906,10 @@ impl<F: AcirField> AcirContext<F> {
         output_count: usize,
         predicate: AcirVar,
     ) -> Result<Vec<AcirVar>, RuntimeError> {
-        let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
+        let inputs = self.prepare_inputs_for_black_box_func_call(inputs, false)?;
         let inputs = inputs
             .iter()
-            .flat_map(|input| vecmap(input, |input| input.witness))
+            .flat_map(|input| vecmap(input, |input| input.to_witness()))
             .collect::<Vec<_>>();
         let outputs = vecmap(0..output_count, |_| self.acir_ir.next_witness_index());
 
