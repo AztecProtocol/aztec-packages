@@ -1,4 +1,3 @@
-[package]
 name = "impl_where_clause"
 type = "bin"
 authors = [""]

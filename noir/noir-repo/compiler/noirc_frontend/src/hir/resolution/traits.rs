@@ -67,7 +67,6 @@ pub(crate) fn resolve_traits(
 
         context.def_interner.update_trait(trait_id, |trait_def| {
             trait_def.set_methods(methods);
-            trait_def.generics = generics;
         });
 
         // This check needs to be after the trait's methods are set since
