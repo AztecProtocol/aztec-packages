@@ -431,6 +431,8 @@ This function is called from [`burn`](#burn). The account's private balance is d
 
 View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from unconstrained functions in that the return values are constrained by their definition in the contract.
 
+Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
+
 #### `admin`
 
 A getter function for reading the public `admin` value.
@@ -461,7 +463,7 @@ Unconstrained functions are similar to `view` functions in Solidity in that they
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk_app` ([app-specific secret key](../../aztec/concepts/accounts/keys.md#scoped-keys)) in order to decrypt the notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk_app` ([app-specific secret key](../../aztec/concepts/accounts/keys.md##incoming-viewing-keys)) in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
