@@ -1,16 +1,16 @@
 ---
-title: Using custom notes in Aztec.nr
+title: Using custom note types in Aztec.nr
 ---
 
-It may be useful to write a custom note if you want to use a specific type of private data or struct that does not have a default implementation in Aztec.nr. Using a custom note means that the entire note is nullified with one nullifier, which may be better for your circumstances than having multiple notes that need nullified. 
+It may be useful to write a custom note type if you want to use a specific type of private data or struct that does not have a default implementation in Aztec.nr. Using a custom note type means that the entire note is nullified with one nullifier, which may be better for your circumstances than having multiple notes that need nullified. 
 
 If you want to work with values or addresses, you can check out [ValueNote](./value_note.md) or [AddressNote](./address_note.md). 
 
-## Define a custom note
+## Define a custom note type
 
 You will likely want to define your note in a new file and import it into your contract.
 
-A custom note can be defined with the macro `#[aztec(note)]` used on a struct:
+A custom note type can be defined with the macro `#[aztec(note)]` used on a struct:
 
 #include_code state_vars-CardNote noir-projects/noir-contracts/contracts/docs_example_contract/src/types/card_note.nr rust
 

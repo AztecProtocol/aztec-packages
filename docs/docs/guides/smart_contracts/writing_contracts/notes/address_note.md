@@ -2,13 +2,14 @@
 title: Using Address Note in Aztec.nr
 ---
 
-Address notes hold one unique property - an `address` in the type `AztecAddress`.
+Address notes hold one unique property - an `address` in the type `AztecAddress`. It also holds `npk_m_hash` and `randomness`, similar to other note types.
+
 
 ## AddressNote
 
 This is the AddressNote struct:
 
-#include_code address_note_def noir-projects/aztec-nr/address-note/src/address_note.nr rust
+#include_code address_note_struct noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
 ## Importing AddressNote
 
@@ -24,7 +25,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 
 ## Working with AddressNote
 
-### Creating a new note
+### Creating a new note 
 
 Creating a new `AddressNote` takes the following args:
 
