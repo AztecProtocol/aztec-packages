@@ -2,7 +2,7 @@
 title: Using custom note types in Aztec.nr
 ---
 
-It may be useful to write a custom note type if you want to use a specific type of private data or struct that does not have a default implementation in Aztec.nr. Using a custom note type means that the entire note is nullified with one nullifier, which may be better for your circumstances than having multiple notes that need nullified. 
+It may be useful to write a custom note type if you want to use a specific type of private data or struct that does not have a default implementation in Aztec.nr. Using a custom note type means that the entire note can be nullified with one nullifier, which may be better for your circumstances than having multiple notes that need nullified. 
 
 If you want to work with values or addresses, you can check out [ValueNote](./value_note.md) or [AddressNote](./address_note.md). 
 

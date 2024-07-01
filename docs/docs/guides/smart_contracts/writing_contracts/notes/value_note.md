@@ -2,7 +2,7 @@
 title: Using Value Notes in Aztec.nr
 ---
 
-ValueNotes hold one unique property - a `value` - and have utils useful for manipulating this value, such as incrementing and decrementing it similarly to an integer.
+ValueNotes hold one main property - a `value` - and have utils useful for manipulating this value, such as incrementing and decrementing it similarly to an integer.
 
 ## ValueNote
 
@@ -29,7 +29,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#inc
 Creating a new `ValueNote` takes the following args:
 
 - `value` (`Field`): the value of the ValueNote
-- `npk_m_hash` (`Field`): the master nullifier private key hash of the user
+- `npk_m_hash` (`Field`): the master nullifier public key hash of the user
 
 #include_code valuenote_new noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 

@@ -2,8 +2,7 @@
 title: Using Address Note in Aztec.nr
 ---
 
-Address notes hold one unique property - an `address` in the type `AztecAddress`. It also holds `npk_m_hash` and `randomness`, similar to other note types.
-
+Address notes hold one main property of the type `AztecAddress`. It also holds `npk_m_hash` and `randomness`, similar to other note types.
 
 ## AddressNote
 
@@ -30,7 +29,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 Creating a new `AddressNote` takes the following args:
 
 - `address` (`AztecAddress`): the address to store in the AddressNote
-- `npk_m_hash` (`Field`): the master nullifier private key hash of the user
+- `npk_m_hash` (`Field`): the master nullifier public key hash of the user
 
 #include_code addressnote_new noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr rust
 
