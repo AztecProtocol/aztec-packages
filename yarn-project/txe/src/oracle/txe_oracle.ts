@@ -434,13 +434,40 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
+  async avmOpcodeStorageRead(slot: Fr, length: Fr) {
+    const db = this.trees.asLatest();
+
+    let result = [];
+
+    for (let i = 0; i < length.toNumber(); i++) {
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot).toBigInt();
+
+      const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+      if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+        result.push(Fr.ZERO);
+        break;
+      }
+
+      const preimage = (await db.getLeafPreimage(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      )) as PublicDataTreeLeafPreimage;
+
+      result.push(preimage.value);
+    }
+    return result;
+  }
+
   async storageRead(
     contractAddress: Fr,
     startStorageSlot: Fr,
-    blockNumber: number, // TODO(#7230): use block number
+    blockNumber: number,
     numberOfElements: number,
   ): Promise<Fr[]> {
-    const db = this.trees.asLatest();
+    const db =
+      blockNumber === (await this.getBlockNumber())
+        ? this.trees.asLatest()
+        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
 
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {

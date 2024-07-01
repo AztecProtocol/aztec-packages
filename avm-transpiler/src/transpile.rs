@@ -992,7 +992,7 @@ fn handle_storage_read(
     inputs: &Vec<ValueOrArray>,
 ) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 1); // storage_slot
+    assert!(inputs.len() == 2); // output, len - but we dont use this len - its for the oracle
     assert!(destinations.len() == 1); // return values
 
     let slot_offset_maybe = inputs[0];
