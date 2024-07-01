@@ -14,20 +14,6 @@ impl PublicContext {
         PublicContext { inputs }
     }
 
-    pub fn storage_address(self) -> AztecAddress {
-        storage_address()
-    }
-    pub fn fee_per_l2_gas(self) -> Field {
-        fee_per_l2_gas()
-    }
-    pub fn fee_per_da_gas(self) -> Field {
-        fee_per_da_gas()
-    }
-    /**
-    * Emit a log with the given event selector and message.
-    * @param event_selector The event selector for the log.
-    * @param message The message to emit in the log.
-    */
     pub fn emit_unencrypted_log<T, N>(&mut self, log: T) where T: Serialize<N> {
         emit_unencrypted_log(Serialize::serialize(log).as_slice());
     }
@@ -35,20 +21,9 @@ impl PublicContext {
     pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
         note_hash_exists(note_hash, leaf_index) == 1
     }
+
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
-    }
-
-    fn block_number(self) -> Field {
-        block_number()
-    }
-
-    fn timestamp(self) -> u64 {
-        timestamp()
-    }
-
-    fn transaction_fee(self) -> Field {
-        transaction_fee()
     }
 
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
@@ -91,7 +66,7 @@ impl PublicContext {
     fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
-        temporary_function_selector: FunctionSelector,
+        function_selector: FunctionSelector,
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
@@ -99,7 +74,7 @@ impl PublicContext {
             gas_for_call(gas_opts),
             contract_address,
             args,
-            temporary_function_selector.to_field()
+            function_selector.to_field()
         );
         let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
@@ -111,7 +86,7 @@ impl PublicContext {
     fn static_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
-        temporary_function_selector: FunctionSelector,
+        function_selector: FunctionSelector,
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
@@ -119,7 +94,7 @@ impl PublicContext {
             gas_for_call(gas_opts),
             contract_address,
             args,
-            temporary_function_selector.to_field()
+            function_selector.to_field()
         );
 
         assert(success == 1, "Nested static call failed!");
@@ -143,29 +118,66 @@ impl PublicContext {
         // Cannot nullify pending commitments in AVM, so `nullified_commitment` is not used
         emit_nullifier(nullifier);
     }
-    fn msg_sender(self) -> AztecAddress {
-        sender()
-    }
+
     fn this_address(self) -> AztecAddress {
         address()
     }
+    pub fn storage_address(self) -> AztecAddress {
+        storage_address()
+    }
+    fn msg_sender(self) -> AztecAddress {
+        sender()
+    }
+    fn selector(self) -> FunctionSelector {
+        FunctionSelector::from_u32(function_selector())
+    }
+    fn get_args_hash(self) -> Field {
+        self.inputs.args_hash
+    }
+    fn transaction_fee(self) -> Field {
+        transaction_fee()
+    }
+
     fn chain_id(self) -> Field {
         chain_id()
     }
     fn version(self) -> Field {
         version()
     }
-    fn selector(self) -> FunctionSelector {
-        FunctionSelector::from_field(self.inputs.selector)
+    fn block_number(self) -> Field {
+        block_number()
     }
-    fn get_args_hash(self) -> Field {
-        self.inputs.args_hash
+    fn timestamp(self) -> u64 {
+        timestamp()
     }
+    pub fn fee_per_l2_gas(self) -> Field {
+        fee_per_l2_gas()
+    }
+    pub fn fee_per_da_gas(self) -> Field {
+        fee_per_da_gas()
+    }
+
     fn l2_gas_left(self) -> Field {
         l2_gas_left()
     }
     fn da_gas_left(self) -> Field {
         da_gas_left()
+    }
+
+    fn raw_storage_read<N>(_self: Self, storage_slot: Field) -> [Field; N] {
+        storage_read(storage_slot)
+    }
+
+    fn storage_read<T, N>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+        T::deserialize(self.raw_storage_read(storage_slot))
+    }
+
+    fn raw_storage_write<N>(_self: Self, storage_slot: Field, values: [Field; N]) {
+        storage_write(storage_slot, values);
+    }
+
+    fn storage_write<T, N>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+        self.raw_storage_write(storage_slot, value.serialize());
     }
 }
 
@@ -194,11 +206,8 @@ unconstrained fn sender() -> AztecAddress {
 unconstrained fn portal() -> EthAddress {
     portal_opcode()
 }
-unconstrained fn fee_per_l2_gas() -> Field {
-    fee_per_l2_gas_opcode()
-}
-unconstrained fn fee_per_da_gas() -> Field {
-    fee_per_da_gas_opcode()
+unconstrained fn function_selector() -> u32 {
+    function_selector_opcode()
 }
 unconstrained fn transaction_fee() -> Field {
     transaction_fee_opcode()
@@ -214,6 +223,12 @@ unconstrained fn block_number() -> Field {
 }
 unconstrained fn timestamp() -> u64 {
     timestamp_opcode()
+}
+unconstrained fn fee_per_l2_gas() -> Field {
+    fee_per_l2_gas_opcode()
+}
+unconstrained fn fee_per_da_gas() -> Field {
+    fee_per_da_gas_opcode()
 }
 unconstrained fn l2_gas_left() -> Field {
     l2_gas_left_opcode()
@@ -259,6 +274,14 @@ unconstrained fn call_static<RET_SIZE>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
+unconstrained fn storage_read<N>(storage_slot: Field) -> [Field; N] {
+    storage_read_opcode(storage_slot)
+}
+
+unconstrained fn storage_write<N>(storage_slot: Field, values: [Field; N]) {
+    storage_write_opcode(storage_slot, values);
+}
+
 impl Empty for PublicContext {
     fn empty() -> Self {
         PublicContext::new(PublicContextInputs::empty())
@@ -278,11 +301,8 @@ unconstrained fn sender_opcode() -> AztecAddress {}
 #[oracle(avmOpcodePortal)]
 unconstrained fn portal_opcode() -> EthAddress {}
 
-#[oracle(avmOpcodeFeePerL2Gas)]
-unconstrained fn fee_per_l2_gas_opcode() -> Field {}
-
-#[oracle(avmOpcodeFeePerDaGas)]
-unconstrained fn fee_per_da_gas_opcode() -> Field {}
+#[oracle(avmOpcodeFunctionSelector)]
+unconstrained fn function_selector_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTransactionFee)]
 unconstrained fn transaction_fee_opcode() -> Field {}
@@ -298,6 +318,12 @@ unconstrained fn block_number_opcode() -> Field {}
 
 #[oracle(avmOpcodeTimestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}
+
+#[oracle(avmOpcodeFeePerL2Gas)]
+unconstrained fn fee_per_l2_gas_opcode() -> Field {}
+
+#[oracle(avmOpcodeFeePerDaGas)]
+unconstrained fn fee_per_da_gas_opcode() -> Field {}
 
 #[oracle(avmOpcodeL2GasLeft)]
 unconstrained fn l2_gas_left_opcode() -> Field {}
@@ -345,6 +371,12 @@ unconstrained fn call_static_opcode<RET_SIZE>(
     function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
+
+#[oracle(avmOpcodeStorageRead)]
+unconstrained fn storage_read_opcode<N>(storage_slot: Field) -> [Field; N] {}
+
+#[oracle(avmOpcodeStorageWrite)]
+unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}
 
 struct FunctionReturns<N> {
     values: [Field; N]

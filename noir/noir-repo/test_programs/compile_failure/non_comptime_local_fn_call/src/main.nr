@@ -1,5 +1,6 @@
 fn main() {
-    comptime {
+    comptime
+    {
         let _a = id(3);
     }
 }

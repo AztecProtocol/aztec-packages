@@ -2,6 +2,5 @@
 name = "invalid_main_sub_lib"
 type = "bin"
 authors = [""]
-compiler_version = ">=0.30.0"
 
 [dependencies]

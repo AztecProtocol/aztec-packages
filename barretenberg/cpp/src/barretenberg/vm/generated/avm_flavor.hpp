@@ -100,11 +100,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 383;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 385;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 450;
+    static constexpr size_t NUM_ALL_ENTITIES = 452;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -264,6 +264,7 @@ class AvmFlavor {
                               kernel_kernel_value_out,
                               kernel_kernel_side_effect_out,
                               kernel_kernel_metadata_out,
+                              main_calldata,
                               alu_a_hi,
                               alu_a_lo,
                               alu_b_hi,
@@ -460,6 +461,7 @@ class AvmFlavor {
                               main_sel_op_fdiv,
                               main_sel_op_fee_per_da_gas,
                               main_sel_op_fee_per_l2_gas,
+                              main_sel_op_function_selector,
                               main_sel_op_get_contract_instance,
                               main_sel_op_halt,
                               main_sel_op_internal_call,
@@ -650,6 +652,7 @@ class AvmFlavor {
                      kernel_kernel_value_out,
                      kernel_kernel_side_effect_out,
                      kernel_kernel_metadata_out,
+                     main_calldata,
                      alu_a_hi,
                      alu_a_lo,
                      alu_b_hi,
@@ -846,6 +849,7 @@ class AvmFlavor {
                      main_sel_op_fdiv,
                      main_sel_op_fee_per_da_gas,
                      main_sel_op_fee_per_l2_gas,
+                     main_sel_op_function_selector,
                      main_sel_op_get_contract_instance,
                      main_sel_op_halt,
                      main_sel_op_internal_call,
@@ -1041,6 +1045,7 @@ class AvmFlavor {
                               kernel_kernel_value_out,
                               kernel_kernel_side_effect_out,
                               kernel_kernel_metadata_out,
+                              main_calldata,
                               alu_a_hi,
                               alu_a_lo,
                               alu_b_hi,
@@ -1237,6 +1242,7 @@ class AvmFlavor {
                               main_sel_op_fdiv,
                               main_sel_op_fee_per_da_gas,
                               main_sel_op_fee_per_l2_gas,
+                              main_sel_op_function_selector,
                               main_sel_op_get_contract_instance,
                               main_sel_op_halt,
                               main_sel_op_internal_call,
@@ -1494,6 +1500,7 @@ class AvmFlavor {
                      kernel_kernel_value_out,
                      kernel_kernel_side_effect_out,
                      kernel_kernel_metadata_out,
+                     main_calldata,
                      alu_a_hi,
                      alu_a_lo,
                      alu_b_hi,
@@ -1690,6 +1697,7 @@ class AvmFlavor {
                      main_sel_op_fdiv,
                      main_sel_op_fee_per_da_gas,
                      main_sel_op_fee_per_l2_gas,
+                     main_sel_op_function_selector,
                      main_sel_op_get_contract_instance,
                      main_sel_op_halt,
                      main_sel_op_internal_call,
@@ -1947,6 +1955,7 @@ class AvmFlavor {
                      kernel_kernel_value_out,
                      kernel_kernel_side_effect_out,
                      kernel_kernel_metadata_out,
+                     main_calldata,
                      alu_a_hi,
                      alu_a_lo,
                      alu_b_hi,
@@ -2143,6 +2152,7 @@ class AvmFlavor {
                      main_sel_op_fdiv,
                      main_sel_op_fee_per_da_gas,
                      main_sel_op_fee_per_l2_gas,
+                     main_sel_op_function_selector,
                      main_sel_op_get_contract_instance,
                      main_sel_op_halt,
                      main_sel_op_internal_call,
@@ -2756,6 +2766,7 @@ class AvmFlavor {
             Base::kernel_kernel_value_out = "KERNEL_KERNEL_VALUE_OUT";
             Base::kernel_kernel_side_effect_out = "KERNEL_KERNEL_SIDE_EFFECT_OUT";
             Base::kernel_kernel_metadata_out = "KERNEL_KERNEL_METADATA_OUT";
+            Base::main_calldata = "MAIN_CALLDATA";
             Base::alu_a_hi = "ALU_A_HI";
             Base::alu_a_lo = "ALU_A_LO";
             Base::alu_b_hi = "ALU_B_HI";
@@ -2952,6 +2963,7 @@ class AvmFlavor {
             Base::main_sel_op_fdiv = "MAIN_SEL_OP_FDIV";
             Base::main_sel_op_fee_per_da_gas = "MAIN_SEL_OP_FEE_PER_DA_GAS";
             Base::main_sel_op_fee_per_l2_gas = "MAIN_SEL_OP_FEE_PER_L2_GAS";
+            Base::main_sel_op_function_selector = "MAIN_SEL_OP_FUNCTION_SELECTOR";
             Base::main_sel_op_get_contract_instance = "MAIN_SEL_OP_GET_CONTRACT_INSTANCE";
             Base::main_sel_op_halt = "MAIN_SEL_OP_HALT";
             Base::main_sel_op_internal_call = "MAIN_SEL_OP_INTERNAL_CALL";
@@ -3158,6 +3170,7 @@ class AvmFlavor {
         Commitment kernel_kernel_value_out;
         Commitment kernel_kernel_side_effect_out;
         Commitment kernel_kernel_metadata_out;
+        Commitment main_calldata;
         Commitment alu_a_hi;
         Commitment alu_a_lo;
         Commitment alu_b_hi;
@@ -3354,6 +3367,7 @@ class AvmFlavor {
         Commitment main_sel_op_fdiv;
         Commitment main_sel_op_fee_per_da_gas;
         Commitment main_sel_op_fee_per_l2_gas;
+        Commitment main_sel_op_function_selector;
         Commitment main_sel_op_get_contract_instance;
         Commitment main_sel_op_halt;
         Commitment main_sel_op_internal_call;
@@ -3560,6 +3574,7 @@ class AvmFlavor {
             kernel_kernel_value_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             kernel_kernel_side_effect_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             kernel_kernel_metadata_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_calldata = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             alu_a_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             alu_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             alu_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3767,6 +3782,7 @@ class AvmFlavor {
             main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_op_function_selector = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_get_contract_instance =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_halt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3978,6 +3994,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(kernel_kernel_value_out, Transcript::proof_data);
             serialize_to_buffer<Commitment>(kernel_kernel_side_effect_out, Transcript::proof_data);
             serialize_to_buffer<Commitment>(kernel_kernel_metadata_out, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_calldata, Transcript::proof_data);
             serialize_to_buffer<Commitment>(alu_a_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(alu_a_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(alu_b_hi, Transcript::proof_data);
@@ -4174,6 +4191,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_fee_per_da_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_fee_per_l2_gas, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_op_function_selector, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_get_contract_instance, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_halt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_internal_call, Transcript::proof_data);

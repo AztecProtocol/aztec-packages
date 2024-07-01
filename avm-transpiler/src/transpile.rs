@@ -263,8 +263,8 @@ fn handle_foreign_call(
         "avmOpcodeGetContractInstance" => {
             handle_get_contract_instance(avm_instrs, destinations, inputs);
         }
-        "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
-        "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
+        "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
+        "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
@@ -314,11 +314,9 @@ fn handle_external_call(
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer.0 as u32, size.0 as u32),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
-    let temporary_function_selector_offset = match &inputs[4] {
+    let function_selector_offset = match &inputs[4] {
         ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
-        _ => panic!(
-            "Call instruction's temporary function selector input should be a basic MemoryAddress",
-        ),
+        _ => panic!("Call instruction's function selector input should be a basic MemoryAddress",),
     };
 
     let ret_offset_maybe = destinations[0];
@@ -351,7 +349,7 @@ fn handle_external_call(
             AvmOperand::U32 { value: ret_offset },
             AvmOperand::U32 { value: ret_size },
             AvmOperand::U32 { value: success_offset },
-            AvmOperand::U32 { value: temporary_function_selector_offset },
+            AvmOperand::U32 { value: function_selector_offset },
         ],
         ..Default::default()
     });
@@ -650,6 +648,7 @@ fn handle_getter_instruction(
         "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
         "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
         "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
+        "avmOpcodeFunctionSelector" => AvmOpcode::FUNCTIONSELECTOR,
         // "callStackDepth" => AvmOpcode::CallStackDepth,
         _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
     };
@@ -926,7 +925,7 @@ fn handle_storage_write(
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 1);
+    assert!(destinations.len() == 0);
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -992,8 +991,8 @@ fn handle_storage_read(
     inputs: &Vec<ValueOrArray>,
 ) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 2); // output, len - but we dont use this len - its for the oracle
-    assert!(destinations.len() == 1);
+    assert!(inputs.len() == 1); // storage_slot
+    assert!(destinations.len() == 1); // return values
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
