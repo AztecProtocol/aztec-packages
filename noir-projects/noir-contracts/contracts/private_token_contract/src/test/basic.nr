@@ -58,6 +58,7 @@ unconstrained fn setup_refund_success() {
     env.call_private_void(setup_refund_from_call_interface);
     let mut context = env.private();
     let owner_npk_m_hash = context.get_header().get_npk_m_hash(&mut context, owner);
+    let recipient_npk_m_hash = context.get_header().get_npk_m_hash(&mut context, recipient);
 
     // when the refund was set up, we would've broken the note worth mint_amount, and added back a note worth
     // mint_amount - funded_amount
@@ -75,6 +76,16 @@ unconstrained fn setup_refund_success() {
         PrivateToken::storage().balances.slot,
         token_contract_address
     );
+    env.store_note_in_cache(
+        &mut TokenNote {
+        amount: U128::from_integer(1),
+        npk_m_hash: recipient_npk_m_hash,
+        randomness: refund_nonce,
+        header: NoteHeader::empty()
+    },
+        PrivateToken::storage().balances.slot,
+        token_contract_address
+    );
 
     utils::check_private_balance(
         &mut env.private(),
@@ -82,6 +93,6 @@ unconstrained fn setup_refund_success() {
         owner,
         mint_amount - 1
     );
-    // utils::check_private_balance(&mut env.private(), token_contract_address, recipient, 1)
+    utils::check_private_balance(&mut env.private(), token_contract_address, recipient, 1)
 }
 

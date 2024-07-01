@@ -31,6 +31,7 @@ trait PrivatelyRefundable {
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+// Grumpkin generator point. 
 global G1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
 #[aztec(note)]
@@ -175,6 +176,70 @@ impl PrivatelyRefundable for TokenNote {
             y: fee_point_raw[1],
             is_infinite: fee_point_raw[2] ==1
         };
+
+        /**
+        What is happening here?
+
+        Back up in generate_refund_points, we created two points on the grumpkin curve;
+        these are going to be eventually turned into notes:
+        one for the user, and one for the FPC.
+
+        So you can think of these (x,y) points as "partial notes": they encode part of the internals of the notes.
+
+        This is because the compute_note_content_hash function above defines the the content hash to be
+        the x-coordinate of a point defined as:
+
+        amount * G + npk * G + randomness * G
+          = (amount + npk + randomness) * G
+        
+        where G is a generator point. Interesting point here is that we actually need to convert
+        - amount
+        - npk
+        - randomness
+        from grumpkin Field elements
+        (which have a modulus of 21888242871839275222246405745257275088548364400416034343698204186575808495617)
+        into a grumpkin scalar
+        (which have a modulus of 21888242871839275222246405745257275088696311157297823662689037894645226208583)
+
+        The intuition for this is that the Field elements define the domain of the x,y coordinates for points on the curves,
+        but the number of points on the curve is actually greater than the size of that domain.
+
+        (Consider, e.g. if the curve were defined over a field of 10 elements, and each x coord had two corresponding y for +/-)
+
+        For a bit more info, see
+        https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations
+
+
+        Anyway, if we have a secret scalar n := amount + npk + randomness, and then we reveal a point n * G, there is no efficient way to
+        deduce what n is. This is the discrete log problem.
+
+        However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
+        fee_payer_point := (fee_payer_npk + nonce) * G
+        sponsored_user_point := (sponsored_user_npk + funded_amount + nonce) * G
+
+        where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
+
+        So we pass those points into the teardown function (here) and compute a third point corresponding to the transaction fee as just
+
+        fee_point := transaction_fee * G
+
+        Then we arrive at the final points via addition/subtraction of that transaction fee point:
+
+        completed_fpc_point := fee_payer_point + fee_point
+                             = (fee_payer_npk + nonce) * G + transaction_fee * G
+                             = (fee_payer_npk + nonce + transaction_fee) * G
+
+        completed_user_point := sponsored_user_point - fee_point
+                              = (sponsored_user_npk + funded_amount + nonce) * G - transaction_fee * G
+                              = (sponsored_user_npk + nonce + (funded_amount - transaction_fee)) * G
+        
+        When we return the x-coordinate of those points, it identically matches the note_content_hash of (and therefore *is*) notes like:
+        {
+            amount: (funded_amount - transaction_fee),
+            npk_m_hash: sponsored_user_npk,
+            randomness: nonce
+        }
+        */
 
         let completed_fpc_point = fee_payer_point + fee_point;
 

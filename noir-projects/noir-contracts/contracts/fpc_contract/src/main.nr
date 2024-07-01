@@ -1,5 +1,3 @@
-mod lib;
-
 contract FPC {
     use dep::aztec::{
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty},
@@ -7,7 +5,6 @@ contract FPC {
     };
     use dep::token::Token;
     use dep::gas_token::GasToken;
-    use crate::lib::compute_rebate;
 
     #[aztec(storage)]
     struct Storage {
