@@ -43,7 +43,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
         let mut previous_public_inputs = self.previous_kernel.public_inputs;
 
         // verify/aggregate the previous kernel
-            // LONDONTODO(PUBLIC INPUTS)
+        // LONDONTODO(PUBLIC INPUTS)
         // self.previous_kernel.verify();
 
         previous_public_inputs.validation_requests = PrivateValidationRequestProcessor {
