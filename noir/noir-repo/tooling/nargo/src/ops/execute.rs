@@ -12,7 +12,7 @@ use crate::NargoError;
 
 use super::foreign_calls::ForeignCallExecutor;
 
-struct ProgramExecutor<'a, F: AcirField, B: BlackBoxFunctionSolver<F>, E: ForeignCallExecutor<F>> {
+struct ProgramExecutor<'a, F, B: BlackBoxFunctionSolver<F>, E: ForeignCallExecutor<F>> {
     functions: &'a [Circuit<F>],
 
     unconstrained_functions: &'a [BrilligBytecode<F>],
