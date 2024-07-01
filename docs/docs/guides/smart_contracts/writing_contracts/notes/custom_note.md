@@ -30,11 +30,11 @@ In this example, these functions compute the note hash by using `compute_note_ha
 
 ### Methods
 
-You will likely want to implement methods in order to use your note easily within contracts. For example, this may be what a `new` method can look like:
+You will likely want to implement methods in order to use your note easily within contracts. For example, this may be what a `new` method can look like, for creating a new note:
 
 #include_code cardnote_impl noir-projects/noir-contracts/contracts/docs_example_contract/src/types/card_note.nr rust
 
-If you are also planning to be able to access the data with a note in public state, you wull need to implement a method for serializing the note. This might look something like this:
+If you are also planning to be able to access the data with a note in public state, you will need to implement a method for serializing the note. This might look something like this:
 
 #include_code serialize noir-projects/noir-contracts/contracts/docs_example_contract/src/types/card_note.nr rust
 

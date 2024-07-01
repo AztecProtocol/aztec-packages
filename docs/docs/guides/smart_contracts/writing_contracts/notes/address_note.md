@@ -29,7 +29,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 Creating a new `AddressNote` takes the following args:
 
 - `address` (`AztecAddress`): the address to store in the AddressNote
-- `npk_m_hash` (`Field`): the master nullifier private key of the user
+- `npk_m_hash` (`Field`): the master nullifier private key hash of the user
 
 #include_code addressnote_new noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr rust
 

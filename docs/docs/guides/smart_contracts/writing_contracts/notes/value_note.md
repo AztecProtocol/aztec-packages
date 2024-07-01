@@ -29,7 +29,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#inc
 Creating a new `ValueNote` takes the following args:
 
 - `value` (`Field`): the value of the ValueNote
-- `npk_m_hash` (`Field`): the master nullifier private key of the user
+- `npk_m_hash` (`Field`): the master nullifier private key hash of the user
 
 #include_code valuenote_new noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
@@ -37,7 +37,7 @@ In this example, `amount` is the `value` and the `npk_m_hash` of the donor was c
 
 ### Getting a balance
 
-A user may have multiple notes in a set that all refer to the same content. By using `ValueNote`, you do not have to manually add each of these notes and can instead use a helper function `get_balance()`.
+A user may have multiple notes in a set that all refer to the same content (e.g. a set of notes representing a single token balance). By using the `ValueNote` type to represent token balances, you do not have to manually add each of these notes and can instead use a helper function `get_balance()`.
 
 It takes one argument - the set of notes.
 
@@ -52,7 +52,7 @@ Both `increment` and `decrement` functions take the same args:
 #include_code increment_args noir-projects/aztec-nr/value-note/src/utils.nr rust
 
 Note that this will create a new note in the set of notes passed as the first argument.
-
+For example:
 #include_code increment_valuenote noir-projects/noir-contracts/contracts/benchmarking_contract/src/main.nr rust
 
 The `decrement` function works similarly except the `amount` is the number that the value will be decremented by, and it will fail if the sum of the selected notes is less than the amount.
