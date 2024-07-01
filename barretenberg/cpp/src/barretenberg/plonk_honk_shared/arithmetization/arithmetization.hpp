@@ -364,7 +364,7 @@ template <typename FF_> class UltraHonkArith {
             460000,  // lookup;
             1 << 7,  // busread;
             15000,   // poseidon_external;
-            80000    // poseidon_internal;
+            85000    // poseidon_internal;
         };
 
         TraceBlocks()
@@ -416,6 +416,8 @@ template <typename FF_> class UltraHonkArith {
                     info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
                          "not be constructed correctly!");
                     info("Block index: ", i);
+                    info("Actual size: ", block.size());
+                    info("Fixed size: ", block.get_fixed_size());
                     ASSERT(false);
                 }
                 i++;
