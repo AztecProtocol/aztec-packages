@@ -241,9 +241,7 @@ impl<'interner> Monomorphizer<'interner> {
                         Definition::Oracle(opcode.to_string())
                     }
                     FunctionKind::Recursive => {
-                        let id =
-                            self.queue_function(id, expr_id, typ, turbofish_generics, trait_method);
-                        Definition::Function(id)
+                        unreachable!("Only main can be specified as recursive, which should already be checked");
                     }
                 }
             }
@@ -612,6 +610,7 @@ impl<'interner> Monomorphizer<'interner> {
                     })
                     .transpose()?
                     .map(Box::new);
+
                 Ok(ast::Expression::Constrain(Box::new(expr), location, assert_message))
             }
             HirStatement::Assign(assign) => self.assign(assign),
@@ -947,7 +946,7 @@ impl<'interner> Monomorphizer<'interner> {
             HirType::TraitAsType(..) => {
                 unreachable!("All TraitAsType should be replaced before calling convert_type");
             }
-            HirType::NamedGeneric(binding, _) => {
+            HirType::NamedGeneric(binding, _, _) => {
                 if let TypeBinding::Bound(binding) = &*binding.borrow() {
                     return Self::convert_type(binding, location);
                 }
@@ -1818,13 +1817,13 @@ fn unwrap_struct_type(typ: &HirType) -> Vec<(String, HirType)> {
     }
 }
 
-fn perform_instantiation_bindings(bindings: &TypeBindings) {
+pub fn perform_instantiation_bindings(bindings: &TypeBindings) {
     for (var, binding) in bindings.values() {
         var.force_bind(binding.clone());
     }
 }
 
-fn undo_instantiation_bindings(bindings: TypeBindings) {
+pub fn undo_instantiation_bindings(bindings: TypeBindings) {
     for (id, (var, _)) in bindings {
         var.unbind(id);
     }
