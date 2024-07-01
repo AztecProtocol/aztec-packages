@@ -1,5 +1,6 @@
 [package]
-name = "verify_honk_proof"
+name = "bench_sha256"
+version = "0.1.0"
 type = "bin"
 authors = [""]
 
