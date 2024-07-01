@@ -2,6 +2,7 @@ import {
   type AztecNode,
   EncryptedNoteFunctionL2Logs,
   type L1ToL2Message,
+  type L2BlockNumber,
   Note,
   PackedValues,
   PublicDataWitness,
@@ -264,8 +265,8 @@ describe('Private Execution test suite', () => {
 
     node = mock<AztecNode>();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    node.getPublicStorageAt.mockImplementation((address: Fr, storageSlot: Fr, blockNumber: number) => {
-      return Fr.ZERO;
+    node.getPublicStorageAt.mockImplementation((address: Fr, storageSlot: Fr, blockNumber: L2BlockNumber) => {
+      return Promise.resolve(Fr.ZERO);
     });
 
     acirSimulator = new AcirSimulator(oracle, node);
