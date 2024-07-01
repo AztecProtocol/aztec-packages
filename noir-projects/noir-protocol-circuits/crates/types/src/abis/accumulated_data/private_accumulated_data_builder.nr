@@ -15,7 +15,8 @@ use crate::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_NULLIFIER,
+    L2_GAS_PER_NOTE_HASH, L2_GAS_PER_LOG_BYTE, FIXED_AVM_STARTUP_L2_GAS
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::{Empty, is_empty}
 };
@@ -78,48 +79,54 @@ impl PrivateAccumulatedDataBuilder {
     }
 
     pub fn to_metered_gas_used(self) -> Gas {
-        let mut metered_bytes = 0;
+        let mut metered_da_bytes = 0;
+        let mut metered_l2_gas = 0;
 
         // note_hash_gas
         for i in 0..self.new_note_hashes.storage.len() {
             if !is_empty(self.new_note_hashes.get_unchecked(i)) {
-                metered_bytes += DA_BYTES_PER_FIELD;
+                metered_da_bytes += DA_BYTES_PER_FIELD;
+                metered_l2_gas += L2_GAS_PER_NOTE_HASH;
             }
         }
 
         // nullifier_gas
         for i in 0..self.new_nullifiers.storage.len() {
             if !is_empty(self.new_nullifiers.get_unchecked(i)) {
-                metered_bytes += DA_BYTES_PER_FIELD;
+                metered_da_bytes += DA_BYTES_PER_FIELD;
+                metered_l2_gas += L2_GAS_PER_NULLIFIER;
             }
         }
 
         // l2_to_l1_msg_gas
         for i in 0..self.new_l2_to_l1_msgs.storage.len() {
             if !is_empty(self.new_l2_to_l1_msgs.get_unchecked(i)) {
-                metered_bytes += DA_BYTES_PER_FIELD;
+                metered_da_bytes += DA_BYTES_PER_FIELD;
             }
         }
 
         // note_encrypted_logs_hash_gas
         for i in 0..self.note_encrypted_logs_hashes.storage.len() {
             let log = self.note_encrypted_logs_hashes.get_unchecked(i);
-            metered_bytes += log.length as u32;
+            metered_da_bytes += log.length as u32;
+            metered_l2_gas += log.length as u32 * L2_GAS_PER_LOG_BYTE;
         }
 
         // encrypted_logs_hash_gas
         for i in 0..self.encrypted_logs_hashes.storage.len() {
             let log = self.encrypted_logs_hashes.get_unchecked(i);
-            metered_bytes += log.log_hash.length as u32;
+            metered_da_bytes += log.log_hash.length as u32;
+            metered_l2_gas += log.log_hash.length as u32 * L2_GAS_PER_LOG_BYTE;
         }
 
         // unencrypted_logs_hash_gas
         for i in 0..self.unencrypted_logs_hashes.storage.len() {
             let log = self.unencrypted_logs_hashes.get_unchecked(i);
-            metered_bytes += log.log_hash.length as u32;
+            metered_da_bytes += log.log_hash.length as u32;
+            metered_l2_gas += log.log_hash.length as u32 * L2_GAS_PER_LOG_BYTE;
         }
 
-        Gas::new(DA_GAS_PER_BYTE * metered_bytes, 0)
+        Gas::new(DA_GAS_PER_BYTE * metered_da_bytes, metered_l2_gas)
     }
 
     pub fn split_to_public(
@@ -141,12 +148,14 @@ impl PrivateAccumulatedDataBuilder {
             if note_hash.counter() < min_revertible_side_effect_counter {
                 non_revertible_builder.new_note_hashes.push(public_note_hash);
                 if !is_empty(public_note_hash) {
-                    non_revertible_da_gas_used += DA_GAS_PER_FIELD ;
+                    non_revertible_da_gas_used += DA_GAS_PER_FIELD;
+                    non_revertible_l2_gas_used += L2_GAS_PER_NOTE_HASH;
                 }
             } else {
                 revertible_builder.new_note_hashes.push(public_note_hash);
                 if !is_empty(public_note_hash) {
                     revertible_da_gas_used += DA_GAS_PER_FIELD;
+                    revertible_l2_gas_used += L2_GAS_PER_NOTE_HASH;
                 }
             }
         }
@@ -158,11 +167,13 @@ impl PrivateAccumulatedDataBuilder {
                 non_revertible_builder.new_nullifiers.push(public_nullifier);
                 if !is_empty(public_nullifier) {
                     non_revertible_da_gas_used += DA_GAS_PER_FIELD;
+                    non_revertible_l2_gas_used += L2_GAS_PER_NULLIFIER;
                 }
             } else {
                 revertible_builder.new_nullifiers.push(public_nullifier);
                 if !is_empty(public_nullifier) {
                     revertible_da_gas_used += DA_GAS_PER_FIELD;
+                    revertible_l2_gas_used += L2_GAS_PER_NULLIFIER;
                 }
             }
         }
@@ -171,18 +182,29 @@ impl PrivateAccumulatedDataBuilder {
             let msg = self.new_l2_to_l1_msgs.storage[i];
             if msg.counter() < min_revertible_side_effect_counter {
                 non_revertible_builder.new_l2_to_l1_msgs.push(msg.message.content);
+                if !is_empty(msg.message.content) {
+                    non_revertible_da_gas_used += DA_GAS_PER_FIELD;
+                }
             } else {
                 revertible_builder.new_l2_to_l1_msgs.push(msg.message.content);
+                if !is_empty(msg.message.content) {
+                    revertible_da_gas_used += DA_GAS_PER_FIELD;
+                }
             }
         }
 
-        // TODO(gas): add AVM_STARTUP_L2_GAS here
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
             let call_stack_item = self.public_call_stack.storage[i];
             if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
                 non_revertible_builder.public_call_stack.push(call_stack_item);
+                if !is_empty(call_stack_item) {
+                    non_revertible_l2_gas_used += FIXED_AVM_STARTUP_L2_GAS;
+                }
             } else {
                 revertible_builder.public_call_stack.push(call_stack_item);
+                if !is_empty(call_stack_item) {
+                    revertible_l2_gas_used += FIXED_AVM_STARTUP_L2_GAS;
+                }
             }
         }
 
@@ -192,9 +214,11 @@ impl PrivateAccumulatedDataBuilder {
             if note_encrypted_logs_hash.counter < min_revertible_side_effect_counter {
                 non_revertible_builder.note_encrypted_logs_hashes.push(note_encrypted_logs_hash_public);
                 non_revertible_da_gas_used += note_encrypted_logs_hash_public.length as u32 * DA_GAS_PER_BYTE;
+                non_revertible_l2_gas_used += note_encrypted_logs_hash_public.length as u32 * L2_GAS_PER_LOG_BYTE;
             } else {
                 revertible_builder.note_encrypted_logs_hashes.push(note_encrypted_logs_hash_public);
                 revertible_da_gas_used += note_encrypted_logs_hash_public.length as u32 * DA_GAS_PER_BYTE;
+                revertible_l2_gas_used += note_encrypted_logs_hash_public.length as u32 * L2_GAS_PER_LOG_BYTE;
             }
         }
 
@@ -204,9 +228,11 @@ impl PrivateAccumulatedDataBuilder {
             if encrypted_logs_hash.counter() < min_revertible_side_effect_counter {
                 non_revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash_public);
                 non_revertible_da_gas_used += encrypted_logs_hash_public.length as u32 * DA_GAS_PER_BYTE;
+                non_revertible_l2_gas_used += encrypted_logs_hash_public.length as u32 * L2_GAS_PER_LOG_BYTE;
             } else {
                 revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash_public);
                 revertible_da_gas_used += encrypted_logs_hash_public.length as u32 * DA_GAS_PER_BYTE;
+                revertible_l2_gas_used += encrypted_logs_hash_public.length as u32 * L2_GAS_PER_LOG_BYTE;
             }
         }
 
@@ -215,9 +241,11 @@ impl PrivateAccumulatedDataBuilder {
             if unencrypted_logs_hash.counter < min_revertible_side_effect_counter {
                 non_revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
                 non_revertible_da_gas_used += unencrypted_logs_hash.length as u32 * DA_GAS_PER_BYTE;
+                non_revertible_l2_gas_used += unencrypted_logs_hash.length as u32 * L2_GAS_PER_LOG_BYTE;
             } else {
                 revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
                 revertible_da_gas_used += unencrypted_logs_hash.length as u32 * DA_GAS_PER_BYTE;
+                revertible_l2_gas_used += unencrypted_logs_hash.length as u32 * L2_GAS_PER_LOG_BYTE;
             }
         }
 
@@ -251,7 +279,11 @@ mod tests {
         log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash}
     },
         address::{AztecAddress, EthAddress}, messaging::l2_to_l1_message::L2ToL1Message,
-        utils::arrays::array_eq, constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE}
+        utils::arrays::array_eq,
+        constants::{
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, FIXED_AVM_STARTUP_L2_GAS
+    }
     };
 
     #[test]
@@ -450,24 +482,26 @@ mod tests {
 
         assert_eq(
             revertible.gas_used, Gas::new(
-            (4 * DA_BYTES_PER_FIELD
+            (5 * DA_BYTES_PER_FIELD // 2 notes, 2 nullifiers, 1 l2-l1 msg
             + 6 // revertible encrypted logs len
             + 10) // revertible unencrypted logs len
             * DA_GAS_PER_BYTE,
-            0
+            FIXED_AVM_STARTUP_L2_GAS +
+           2 * L2_GAS_PER_NOTE_HASH + 2 * L2_GAS_PER_NULLIFIER + 16 * L2_GAS_PER_LOG_BYTE 
         )
             + Gas::new(42, 17)
         );
 
-        assert_eq(
-            non_revertible.gas_used, Gas::new(
-            (4 * DA_BYTES_PER_FIELD
+        let expected = Gas::new(
+            (5 * DA_BYTES_PER_FIELD // 2 notes, 2 nullifiers, 1 l2-l1 msg
             + 6 // non-revertible encrypted logs len
             + 10) // non-revertible unencrypted logs len
             * DA_GAS_PER_BYTE,
-            0
+            2 * FIXED_AVM_STARTUP_L2_GAS +
+           2 * L2_GAS_PER_NOTE_HASH + 2 * L2_GAS_PER_NULLIFIER + 16 * L2_GAS_PER_LOG_BYTE 
         )
-            + Gas::tx_overhead()
-        );
+            + Gas::tx_overhead();
+
+        assert_eq(non_revertible.gas_used, expected);
     }
 }
