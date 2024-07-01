@@ -75,7 +75,7 @@ Any state variables declared in the `Storage` struct can now be accessed as norm
 
 This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
 
-## Unconstrained functions #[aztec(unconstrained)]
+## Unconstrained functions
 
 Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as un-trusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
 
@@ -148,7 +148,7 @@ The `#[aztec(view)]` attribute is used to define constrained view functions in A
 
 This means the results of these functions are verifiable and can be trusted, as they are part of the proof generation and verification process. This is unlike unconstrained functions, where results are provided by the PXE and are not verified.
 
-This makes `#[aztec(view)]` functions suitable for critical read-only operations where the integrity of the result is crucial. Unconstrained functions, on the other hand, are executed entirely client-side without generating any proofs. It is better to use `#[aztec(view)]` if the result of the function will affect some sort of state, and they can be used for cross-contract calls.
+This makes `#[aztec(view)]` functions suitable for critical read-only operations where the integrity of the result is crucial. Unconstrained functions, on the other hand, are executed entirely client-side without generating any proofs. It is better to use `#[aztec(view)]` if the result of the function will be used in another function that will affect state, and they can be used for cross-contract calls.
 
 `#[aztec(view)]` functions can be combined with other Aztec attributes like `#[aztec(private)]` or `#[aztec(public)]`.
 
@@ -180,10 +180,6 @@ This macro inserts a check at the beginning of the function to ensure that the c
 ```rust
 assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
 ```
-
-## Custom notes #[aztec(note)]
-
-Certainly! Let's draft the documentation for the "Custom notes #[aztec(note)]" section, focusing on the functionality provided by this attribute. I'll use the code you've shared to provide accurate and detailed information about how this attribute works under the hood.
 
 ## Custom notes #[aztec(note)]
 
@@ -259,10 +255,28 @@ impl CustomNote {
         )
     }
 
-    fn to_be_bytes(self: CustomNote, storage_slot: Field) -> [u8; NOTE_BYTES_LEN] {
-        let mut buffer: [u8; NOTE_BYTES_LEN] = [0; NOTE_BYTES_LEN];
-        buffer
-    }
+      fn to_be_bytes(self, storage_slot: Field) -> [u8; 128] {
+            assert(128 == 2 * 32 + 64, "Note byte length must be equal to (serialized_length * 32) + 64 bytes");
+            let serialized_note = self.serialize_content();
+
+            let mut buffer: [u8; 128] = [0; 128];
+
+            let storage_slot_bytes = storage_slot.to_be_bytes(32);
+            let note_type_id_bytes = CustomNote::get_note_type_id().to_be_bytes(32);
+
+            for i in 0..32 {
+                buffer[i] = storage_slot_bytes[i];
+                buffer[32 + i] = note_type_id_bytes[i];
+            }
+
+            for i in 0..serialized_note.len() {
+                let bytes = serialized_note[i].to_be_bytes(32);
+                for j in 0..32 {
+                    buffer[64 + i * 32 + j] = bytes[j];
+                }
+            }
+            buffer
+        }
 
     pub fn properties() -> CustomNoteProperties {
         CustomNoteProperties {
