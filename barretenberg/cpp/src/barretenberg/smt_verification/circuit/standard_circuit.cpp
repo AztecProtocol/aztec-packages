@@ -10,7 +10,7 @@ namespace smt_circuit {
  * @param tag tag of the circuit. Empty by default.
  */
 StandardCircuit::StandardCircuit(
-    CircuitSchema& circuit_info, Solver* solver, TermType type, const std::string& tag, bool optimizations)
+    CircuitSchema& circuit_info, Solver* solver, TermType type, const std::string& tag, bool enable_optimizations)
     : CircuitBase(circuit_info.vars_of_interest,
                   circuit_info.variables,
                   circuit_info.public_inps,
@@ -20,7 +20,7 @@ StandardCircuit::StandardCircuit(
                   solver,
                   type,
                   tag,
-                  optimizations)
+                  enable_optimizations)
     , selectors(circuit_info.selectors[0])
     , wires_idxs(circuit_info.wires[0])
 {
@@ -46,34 +46,34 @@ StandardCircuit::StandardCircuit(
  */
 size_t StandardCircuit::prepare_gates(size_t cursor)
 {
-    if (this->type == TermType::BVTerm && this->optimizations) {
+    if (this->type == TermType::BVTerm && this->enable_optimizations) {
         size_t res = handle_logic_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
         }
     }
 
-    if ((this->type == TermType::BVTerm || this->type == TermType::FFITerm) && this->optimizations) {
+    if ((this->type == TermType::BVTerm || this->type == TermType::FFITerm) && this->enable_optimizations) {
         size_t res = handle_range_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
         }
     }
 
-    if ((this->type == TermType::BVTerm) && this->optimizations) {
+    if ((this->type == TermType::BVTerm) && this->enable_optimizations) {
         size_t res = handle_ror_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
         }
     }
 
-    if ((this->type == TermType::BVTerm) && this->optimizations) {
+    if ((this->type == TermType::BVTerm) && this->enable_optimizations) {
         size_t res = handle_shl_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
         }
     }
-    if ((this->type == TermType::BVTerm) && this->optimizations) {
+    if ((this->type == TermType::BVTerm) && this->enable_optimizations) {
         size_t res = handle_shr_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
@@ -812,10 +812,10 @@ std::pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness_ext(
     const std::vector<std::string>& not_equal,
     const std::vector<std::string>& equal_at_the_same_time,
     const std::vector<std::string>& not_equal_at_the_same_time,
-    bool optimizations)
+    bool enable_optimizations)
 {
-    StandardCircuit c1(circuit_info, s, type, "circuit1", optimizations);
-    StandardCircuit c2(circuit_info, s, type, "circuit2", optimizations);
+    StandardCircuit c1(circuit_info, s, type, "circuit1", enable_optimizations);
+    StandardCircuit c2(circuit_info, s, type, "circuit2", enable_optimizations);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
@@ -863,11 +863,14 @@ std::pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness_ext(
  * @param equal The list of names of variables which should be equal in both circuits(each is equal)
  * @return std::pair<Circuit, Circuit>
  */
-std::pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness(
-    CircuitSchema& circuit_info, Solver* s, TermType type, const std::vector<std::string>& equal, bool optimizations)
+std::pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness(CircuitSchema& circuit_info,
+                                                                            Solver* s,
+                                                                            TermType type,
+                                                                            const std::vector<std::string>& equal,
+                                                                            bool enable_optimizations)
 {
-    StandardCircuit c1(circuit_info, s, type, "circuit1", optimizations);
-    StandardCircuit c2(circuit_info, s, type, "circuit2", optimizations);
+    StandardCircuit c1(circuit_info, s, type, "circuit1", enable_optimizations);
+    StandardCircuit c2(circuit_info, s, type, "circuit2", enable_optimizations);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
