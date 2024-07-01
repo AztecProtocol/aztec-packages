@@ -370,7 +370,7 @@ unconstrained fn call_static_opcode<RET_SIZE>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<N>(storage_slot: Field, size: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode<N>(storage_slot: Field, length: Field) -> [Field; N] {}
 
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}
