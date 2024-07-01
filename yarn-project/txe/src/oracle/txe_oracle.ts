@@ -437,7 +437,7 @@ export class TXE implements TypedOracle {
   async avmOpcodeStorageRead(slot: Fr, length: Fr) {
     const db = this.trees.asLatest();
 
-    let result = [];
+    const result = [];
 
     for (let i = 0; i < length.toNumber(); i++) {
       const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot).toBigInt();
