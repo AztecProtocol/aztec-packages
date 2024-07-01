@@ -356,12 +356,12 @@ template <typename FF_> class UltraHonkArith {
         // LONDONTODO(BIG STRUCTURE CONSTANTS): We need to be able to do this dynamically for dev purposes...
         std::array<uint32_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
-            30000,   // pub_inputs;
-            755000,  // arithmetic;
+            5000,    // pub_inputs;
+            500000,  // arithmetic;
             140000,  // delta_range;
-            600000,  // elliptic;
-            1400000, // aux;
-            460000,  // lookup;
+            425000,  // elliptic;
+            1050000, // aux;
+            275000,  // lookup;
             1 << 7,  // busread;
             15000,   // poseidon_external;
             85000    // poseidon_internal;
