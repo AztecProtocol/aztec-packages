@@ -412,6 +412,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
+        // TODO: Split the data using self.min_revertible_side_effect_counter.
         let accumulated_data = self.to_public_accumulated_data();
         let end_non_revertible = if revertible {
             PublicAccumulatedData::empty()
