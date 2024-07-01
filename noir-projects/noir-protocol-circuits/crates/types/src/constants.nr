@@ -100,8 +100,8 @@ global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: u32 = 12;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
-global ARGS_HASH_CHUNK_LENGTH: u32 = 64;
-global ARGS_HASH_CHUNK_COUNT: u32 = 64;
+global ARGS_HASH_CHUNK_LENGTH: u32 = 16;
+global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 global MAX_ARGS_LENGTH: u32 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The following is used in immutable state variables to compute an initialization slot whose value is used to
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
