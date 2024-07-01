@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -77,7 +77,15 @@
     "rootDir": "./src",
     "transform": {
       "^.+\\.tsx?$": [
-        "@swc/jest"
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            }
+          }
+        }
       ]
     },
     "extensionsToTreatAsEsm": [

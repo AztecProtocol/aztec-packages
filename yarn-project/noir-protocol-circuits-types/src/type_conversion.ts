@@ -1826,7 +1826,7 @@ export function mapStorageUpdateRequestToNoir(
   return {
     storage_slot: mapFieldToNoir(storageUpdateRequest.storageSlot),
     new_value: mapFieldToNoir(storageUpdateRequest.newValue),
-    counter: mapNumberToNoir(storageUpdateRequest.sideEffectCounter),
+    counter: mapNumberToNoir(storageUpdateRequest.counter),
   };
 }
 /**
@@ -1855,7 +1855,7 @@ export function mapStorageReadToNoir(storageRead: ContractStorageRead): StorageR
   return {
     storage_slot: mapFieldToNoir(storageRead.storageSlot),
     current_value: mapFieldToNoir(storageRead.currentValue),
-    counter: mapNumberToNoir(storageRead.sideEffectCounter),
+    counter: mapNumberToNoir(storageRead.counter),
   };
 }
 /**
@@ -1965,7 +1965,7 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
 ): BaseOrMergeRollupPublicInputsNoir {
   return {
     rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
-    height_in_block_tree: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupSubtreeHeight)),
+    num_txs: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.numTxs)),
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
@@ -2012,7 +2012,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
     mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.height_in_block_tree),
+    mapNumberFromNoir(baseOrMergeRollupPublicInputs.num_txs),
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
@@ -2183,7 +2183,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
  */
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
-    tx_tree_height: mapFieldToNoir(contentCommitment.txTreeHeight),
+    num_txs: mapFieldToNoir(contentCommitment.numTxs),
     txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
@@ -2196,7 +2196,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  */
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.tx_tree_height),
+    mapFieldFromNoir(contentCommitment.num_txs),
     mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),

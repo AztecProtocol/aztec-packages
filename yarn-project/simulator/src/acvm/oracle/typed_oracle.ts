@@ -16,7 +16,7 @@ import {
   type PrivateCallStackItem,
   type PublicCallRequest,
 } from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -164,7 +164,13 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNotes');
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr, _counter: number): void {
+  notifyCreatedNote(
+    _storageSlot: Fr,
+    _noteTypeId: NoteSelector,
+    _note: Fr[],
+    _innerNoteHash: Fr,
+    _counter: number,
+  ): void {
     throw new OracleMethodNotAvailableError('notifyCreatedNote');
   }
 
@@ -184,7 +190,12 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getL1ToL2MembershipWitness');
   }
 
-  storageRead(_startStorageSlot: Fr, _numberOfElements: number): Promise<Fr[]> {
+  storageRead(
+    _contractAddress: Fr,
+    _startStorageSlot: Fr,
+    _blockNumber: number,
+    _numberOfElements: number,
+  ): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageRead');
   }
 
@@ -219,7 +230,7 @@ export abstract class TypedOracle {
   computeEncryptedNoteLog(
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
-    _noteTypeId: Fr,
+    _noteTypeId: NoteSelector,
     _ovKeys: KeyValidationRequest,
     _ivpkM: PublicKey,
     _preimage: Fr[],

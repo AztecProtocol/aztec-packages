@@ -57,7 +57,7 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
-  type PublicExecution,
+  type PublicExecutionRequest,
   type PublicExecutionResult,
   type PublicExecutor,
   accumulateReturnValues,
@@ -256,7 +256,7 @@ export abstract class AbstractPhaseManager {
     const enqueuedCallResults = [];
 
     for (const enqueuedCall of enqueuedCalls) {
-      const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
+      const executionStack: (PublicExecutionRequest | PublicExecutionResult)[] = [enqueuedCall];
 
       // Keep track of which result is for the top/enqueued call
       let enqueuedExecutionResult: PublicExecutionResult | undefined;
@@ -266,13 +266,15 @@ export abstract class AbstractPhaseManager {
         const isExecutionRequest = !isPublicExecutionResult(current);
         const result = isExecutionRequest
           ? await this.publicExecutor.simulate(
-              current,
+              /*executionRequest=*/ current,
               this.globalVariables,
               /*availableGas=*/ this.getAvailableGas(tx, kernelPublicOutput),
               tx.data.constants.txContext,
               /*pendingNullifiers=*/ this.getSiloedPendingNullifiers(kernelPublicOutput),
               transactionFee,
               /*startSideEffectCounter=*/ AbstractPhaseManager.getMaxSideEffectCounter(kernelPublicOutput) + 1,
+              // NOTE: startSideEffectCounter is not the same as the executionRequest's sideEffectCounter
+              // (which counts the request itself)
             )
           : current;
 
@@ -281,10 +283,10 @@ export abstract class AbstractPhaseManager {
 
         // Sanity check for a current upstream assumption.
         // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
-        const functionSelector = result.execution.functionSelector.toString();
+        const functionSelector = result.executionRequest.functionSelector.toString();
         if (result.reverted && !result.revertReason) {
           throw new Error(
-            `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector}(${
+            `Simulation of ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
               result.functionName
             }) reverted with no reason.`,
           );
@@ -292,7 +294,7 @@ export abstract class AbstractPhaseManager {
 
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
           this.log.debug(
-            `Simulation error on ${result.execution.contractAddress.toString()}:${functionSelector}(${
+            `Simulation error on ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
               result.functionName
             }) with reason: ${result.revertReason}`,
           );
@@ -306,7 +308,7 @@ export abstract class AbstractPhaseManager {
 
         // Simulate the public kernel circuit.
         this.log.debug(
-          `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}(${
+          `Running public kernel circuit for ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
             result.functionName
           })`,
         );
@@ -320,7 +322,7 @@ export abstract class AbstractPhaseManager {
           calldata: result.calldata,
           bytecode: result.bytecode!,
           inputs: privateInputs,
-          avmHints: result.avmHints,
+          avmHints: result.avmCircuitHints,
         };
         provingInformationList.push(publicProvingInformation);
 
@@ -329,7 +331,7 @@ export abstract class AbstractPhaseManager {
         // but the kernel carries the reverted flag forward. But if the simulator reverts, so should the kernel.
         if (result.reverted && kernelPublicOutput.revertCode.isOK()) {
           throw new Error(
-            `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}(${
+            `Public kernel circuit did not revert on ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
               result.functionName
             }), but simulator did.`,
           );
@@ -339,7 +341,7 @@ export abstract class AbstractPhaseManager {
         // So safely return the revert reason and the kernel output (which has had its revertible side effects dropped)
         if (result.reverted) {
           this.log.debug(
-            `Reverting on ${result.execution.contractAddress.toString()}:${functionSelector}(${
+            `Reverting on ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
               result.functionName
             }) with reason: ${result.revertReason}`,
           );
@@ -428,9 +430,9 @@ export abstract class AbstractPhaseManager {
     );
 
     const publicCircuitPublicInputs = PublicCircuitPublicInputs.from({
-      callContext: result.execution.callContext,
+      callContext: result.executionRequest.callContext,
       proverAddress: AztecAddress.ZERO,
-      argsHash: computeVarArgsHash(result.execution.args),
+      argsHash: computeVarArgsHash(result.executionRequest.args),
       newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
@@ -479,8 +481,8 @@ export abstract class AbstractPhaseManager {
     });
 
     return new PublicCallStackItem(
-      result.execution.contractAddress,
-      new FunctionData(result.execution.functionSelector, false),
+      result.executionRequest.contractAddress,
+      new FunctionData(result.executionRequest.functionSelector, false),
       publicCircuitPublicInputs,
       isExecutionRequest,
     );

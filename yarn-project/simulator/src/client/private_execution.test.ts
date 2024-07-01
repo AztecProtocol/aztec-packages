@@ -2,6 +2,7 @@ import {
   type AztecNode,
   EncryptedNoteFunctionL2Logs,
   type L1ToL2Message,
+  type L2BlockNumber,
   Note,
   PackedValues,
   PublicDataWitness,
@@ -33,7 +34,13 @@ import {
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { type FunctionArtifact, FunctionSelector, encodeArguments, getFunctionArtifact } from '@aztec/foundation/abi';
+import {
+  type FunctionArtifact,
+  FunctionSelector,
+  type NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+} from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
@@ -61,7 +68,7 @@ import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
-import { type ExecutionResult, collectSortedEncryptedLogs, collectSortedUnencryptedLogs } from './execution_result.js';
+import { type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -256,45 +263,16 @@ describe('Private Execution test suite', () => {
       ),
     );
 
+    node = mock<AztecNode>();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    node.getPublicStorageAt.mockImplementation((address: Fr, storageSlot: Fr, blockNumber: L2BlockNumber) => {
+      return Promise.resolve(Fr.ZERO);
+    });
+
     acirSimulator = new AcirSimulator(oracle, node);
   });
 
   describe('no constructor', () => {
-    it('emits a field as an unencrypted log', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
-      const result = await runSimulator({ artifact, msgSender: owner });
-
-      const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
-      expect(newUnencryptedLogs).toHaveLength(1);
-
-      const functionLogs = collectSortedUnencryptedLogs(result);
-      expect(functionLogs.logs).toHaveLength(1);
-
-      const [unencryptedLog] = newUnencryptedLogs;
-      expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
-      // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
-      expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
-    });
-
-    it('emits a field array as an unencrypted log', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_unencrypted_logs');
-      const args = times(5, () => Fr.random());
-      const result = await runSimulator({ artifact, msgSender: owner, args: [args, false] });
-
-      const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
-      expect(newUnencryptedLogs).toHaveLength(1);
-      const functionLogs = collectSortedUnencryptedLogs(result);
-      expect(functionLogs.logs).toHaveLength(1);
-
-      const [unencryptedLog] = newUnencryptedLogs;
-      expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
-      // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
-      const expected = Buffer.concat(args.map(arg => arg.toBuffer())).toString('hex');
-      expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
-    });
-
     it('emits a field array as an encrypted log', async () => {
       // NB: this test does NOT cover correct enc/dec of values, just whether
       // the kernels correctly populate non-note encrypted logs
@@ -326,7 +304,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Fr, noteTypeId: Fr) => {
+    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Fr, noteTypeId: NoteSelector) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -946,7 +924,7 @@ describe('Private Execution test suite', () => {
   describe('setting fee payer', () => {
     it('should default to not being a fee payer', async () => {
       // arbitrary random function that doesn't set a fee payer
-      const entrypoint = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
+      const entrypoint = getFunctionArtifact(TestContractArtifact, 'get_this_address');
       const contractAddress = AztecAddress.random();
       const result = await runSimulator({ artifact: entrypoint, contractAddress });
       expect(result.callStackItem.publicInputs.isFeePayer).toBe(false);

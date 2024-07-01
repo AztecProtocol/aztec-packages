@@ -128,7 +128,7 @@ impl BaseRollupInputs {
 
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
-            height_in_block_tree: 0,
+            num_txs: 1,
             constants: self.constants,
             start: self.start,
             end: PartialStateReference {
@@ -1056,7 +1056,7 @@ mod tests {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
         let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
-        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let sha_digest = std::hash::sha256(hash_input_flattened);
         let expected_tx_effects_hash = field_from_bytes_32_trunc(sha_digest);
         assert_eq(outputs.txs_effects_hash, expected_tx_effects_hash);
     }
@@ -1067,7 +1067,7 @@ mod tests {
         // For now setting an empty out hash to be H(0,0) to keep consistent
         // with prev work.
         let hash_input_flattened = [0; 64];
-        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let sha_digest = std::hash::sha256(hash_input_flattened);
         let expected_out_hash = field_from_bytes_32_trunc(sha_digest);
         assert_eq(outputs.out_hash, expected_out_hash);
     }
@@ -1147,10 +1147,10 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn subtree_height_is_0() {
+    unconstrained fn num_txs_is_1() {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
-        assert_eq(outputs.height_in_block_tree, 0);
+        assert_eq(outputs.num_txs, 1);
     }
 
     #[test]

@@ -52,13 +52,16 @@ test:
   RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \
       # Wait for TXE to initialize
       sleep 5 && \
-      cd /usr/src/noir-projects/aztec-nr && nargo test --silence-warnings --oracle-resolver http://localhost:8080 ; \
+      cd /usr/src/noir-projects/aztec-nr && nargo test --use-legacy --silence-warnings --oracle-resolver http://localhost:8080 ; \
       kill $(cat /tmp/txe.pid)
 
   RUN cd /usr/src/yarn-project/txe && yarn start & echo $! > /tmp/txe.pid && \
       # Wait for TXE to initialize
       sleep 5 && \
-      cd /usr/src/noir-projects/noir-contracts && nargo test --silence-warnings --oracle-resolver http://localhost:8080 ; \
+      cd /usr/src/noir-projects/noir-contracts && \
+      # We need to increase the timeout since all tests running in parallel hammer TXE at the same time and processing slows down, leading to timeouts
+      # The only way we currently have to batch tests is via RAYON_NUM_THREADS, which is not ideal
+      NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --use-legacy --silence-warnings --oracle-resolver http://localhost:8080 ; \
       kill $(cat /tmp/txe.pid)
 
 format:
@@ -74,7 +77,7 @@ format:
   RUN nargo fmt --check
 
 gates-report:
-  FROM +build
+  FROM +build-protocol-circuits
   WORKDIR /usr/src/noir-projects
 
   COPY ./gates_report.sh ./gates_report.sh
