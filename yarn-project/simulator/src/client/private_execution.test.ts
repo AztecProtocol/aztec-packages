@@ -262,6 +262,12 @@ describe('Private Execution test suite', () => {
       ),
     );
 
+    node = mock<AztecNode>();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    node.getPublicStorageAt.mockImplementation((address: Fr, storageSlot: Fr, blockNumber: number) => {
+      return Fr.ZERO;
+    });
+
     acirSimulator = new AcirSimulator(oracle, node);
   });
 
