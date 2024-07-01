@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719866077994,
+  "lastUpdate": 1719867270320,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -62456,6 +62456,74 @@ window.BENCHMARK_DATA = {
             "value": 161586373,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161586373 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "ddf6fca1441d486493a2360241c42330b309b672",
+          "message": "chore: fix negative tests in AVM circuit for context input lookups",
+          "timestamp": "2024-07-01T17:49:56Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7261/commits/ddf6fca1441d486493a2360241c42330b309b672"
+        },
+        "date": 1719867267194,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14264.033901999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9679.513338 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4864.0075180000085,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4365.202634 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43634.455584999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43634456000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14545.307126,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14545307000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4262199377,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4262199377 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198528819,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198528819 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3532893038,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3532893038 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163459141,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163459141 ns\nthreads: 1"
           }
         ]
       }
