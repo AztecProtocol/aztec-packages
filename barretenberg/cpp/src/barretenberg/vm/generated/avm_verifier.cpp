@@ -376,6 +376,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.main_sel_op_fee_per_da_gas);
     commitments.main_sel_op_fee_per_l2_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.main_sel_op_fee_per_l2_gas);
+    commitments.main_sel_op_function_selector =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.main_sel_op_function_selector);
     commitments.main_sel_op_get_contract_instance =
         transcript->template receive_from_prover<Commitment>(commitment_labels.main_sel_op_get_contract_instance);
     commitments.main_sel_op_halt =
@@ -715,6 +717,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Public columns evaluation checks
     std::vector<FF> mle_challenge(multivariate_challenge.begin(),
                                   multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+
     FF kernel_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, mle_challenge);
     if (kernel_kernel_inputs_evaluation != claimed_evaluations.kernel_kernel_inputs) {
         return false;
@@ -737,7 +740,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
-    FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], circuit_size, multivariate_challenge);
+    FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], circuit_size, mle_challenge);
     if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
         return false;
     }
