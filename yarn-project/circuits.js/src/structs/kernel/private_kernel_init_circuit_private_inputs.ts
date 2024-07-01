@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { MAX_NEW_NOTE_HASHES_PER_CALL } from '../../constants.gen.js';
@@ -30,6 +31,10 @@ export class PrivateKernelInitCircuitPrivateInputs {
      */
     public txRequest: TxRequest,
     /**
+     * The root of the vk tree.
+     */
+    public vkTreeRoot: Fr,
+    /**
      * Private calldata corresponding to this iteration of the kernel.
      */
     public privateCall: PrivateCallData,
@@ -41,7 +46,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.txRequest, this.privateCall, this.hints);
+    return serializeToBuffer(this.txRequest, this.vkTreeRoot, this.privateCall, this.hints);
   }
 
   /**
@@ -53,6 +58,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelInitCircuitPrivateInputs(
       reader.readObject(TxRequest),
+      Fr.fromBuffer(reader),
       reader.readObject(PrivateCallData),
       reader.readObject(PrivateKernelInitHints),
     );

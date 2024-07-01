@@ -13,9 +13,20 @@ use dep::types::{
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX,
+    PRIVATE_KERNEL_RESET_FULL_INDEX, PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
+    PRIVATE_KERNEL_RESET_SMALL_INDEX
 }
 };
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_INIT_INDEX,
+    PRIVATE_KERNEL_INNER_INDEX,
+    PRIVATE_KERNEL_RESET_FULL_INDEX,
+    PRIVATE_KERNEL_RESET_BIG_INDEX,
+    PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
+    PRIVATE_KERNEL_RESET_SMALL_INDEX,
+];
 
 // TODO: Build hints in noir.
 struct PrivateKernelTailHints {
@@ -62,6 +73,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         if !std::runtime::is_unconstrained() {
             // verify/aggregate the previous kernel
             self.previous_kernel.verify();
+            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
@@ -74,7 +86,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_tail::{PrivateKernelTailCircuitPrivateInputs, PrivateKernelTailHints};
+    use crate::private_kernel_tail::{PrivateKernelTailCircuitPrivateInputs, PrivateKernelTailHints, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::reset_kernel_lib::{
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
@@ -87,7 +99,8 @@ mod tests {
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, PRIVATE_KERNEL_INNER_INDEX,
+        BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
@@ -112,7 +125,7 @@ mod tests {
 
     impl PrivateKernelTailInputsBuilder {
         pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new();
+            let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
 
             previous_kernel.append_new_nullifiers(1);
@@ -447,5 +460,25 @@ mod tests {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
+
+    // TODO looks like the builder doesn't provide valid hints in constrained mode, so we cannot currently run this test that needs to be in constrained mode
+    // #[test]
+    // fn valid_previous_kernel() {
+    //     for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+    //         let mut builder = PrivateKernelTailInputsBuilder::new();
+    //         builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+    //         let _res = builder.execute();
+    //     }
+    // }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }

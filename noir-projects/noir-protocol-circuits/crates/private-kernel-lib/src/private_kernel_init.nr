@@ -22,6 +22,7 @@ struct PrivateKernelInitHints {
 // Initialization struct for private inputs to the private kernel
 struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
+    vk_tree_root: Field,
     private_call: PrivateCallData,
     hints: PrivateKernelInitHints,
 }
@@ -29,7 +30,7 @@ struct PrivateKernelInitCircuitPrivateInputs {
 impl PrivateKernelInitCircuitPrivateInputs {
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
-        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
+        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs, self.vk_tree_root).compose(
             private_call_public_inputs,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
@@ -61,7 +62,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.private_call.call_stack_item.contract_address,
                 self.hints.note_hash_nullifier_counters,
                 self.private_call.public_call_stack,
-                self.private_call.public_teardown_call_request
+                self.private_call.public_teardown_call_request,
+                self.vk_tree_root
             );
         }
         output
@@ -73,7 +75,7 @@ mod tests {
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
         constants::MAX_NEW_NOTE_HASHES_PER_CALL,
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+        tests::{fixture_builder::FixtureBuilder, fixtures, utils::assert_array_eq},
         transaction::tx_request::TxRequest
     };
 
@@ -96,7 +98,12 @@ mod tests {
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let private_call = self.private_call.to_private_call_data();
-            PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call, hints: self.hints }.execute()
+            PrivateKernelInitCircuitPrivateInputs {
+                tx_request: self.tx_request,
+                private_call,
+                hints: self.hints,
+                vk_tree_root: FixtureBuilder::vk_tree_root()
+            }.execute()
         }
     }
 

@@ -44,17 +44,25 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
+  bytes32 public vkTreeRoot;
+
   using EnumerableSet for EnumerableSet.AddressSet;
 
   EnumerableSet.AddressSet private sequencers;
 
-  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle, IERC20 _gasToken) {
+  constructor(
+    IRegistry _registry,
+    IAvailabilityOracle _availabilityOracle,
+    IERC20 _gasToken,
+    bytes32 _vkTreeRoot
+  ) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
     GAS_TOKEN = _gasToken;
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     OUTBOX = new Outbox(address(this));
+    vkTreeRoot = _vkTreeRoot;
     VERSION = 1;
   }
 
@@ -84,6 +92,10 @@ contract Rollup is IRollup {
     verifier = IVerifier(_verifier);
   }
 
+  function setVkTreeRoot(bytes32 _vkTreeRoot) external {
+    vkTreeRoot = _vkTreeRoot;
+  }
+
   /**
    * @notice Process an incoming L2 block and progress the state
    * @param _header - The L2 block header
@@ -93,6 +105,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
+    bytes32 _vkTreeRoot,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
@@ -111,8 +124,12 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidSequencer(msg.sender);
     }
 
+    if (_vkTreeRoot != vkTreeRoot) {
+      revert Errors.Rollup__InvalidVkTreeRoot(vkTreeRoot, _vkTreeRoot);
+    }
+
     bytes32[] memory publicInputs =
-      new bytes32[](2 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
+      new bytes32[](3 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
     // the archive tree root
     publicInputs[0] = _archive;
     // this is the _next_ available leaf in the archive tree
@@ -120,9 +137,11 @@ contract Rollup is IRollup {
     // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
+    publicInputs[2] = _vkTreeRoot;
+
     bytes32[] memory headerFields = HeaderLib.toFields(header);
     for (uint256 i = 0; i < headerFields.length; i++) {
-      publicInputs[i + 2] = headerFields[i];
+      publicInputs[i + 3] = headerFields[i];
     }
 
     // the block proof is recursive, which means it comes with an aggregation object
@@ -134,7 +153,7 @@ contract Rollup is IRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 2 + Constants.HEADER_LENGTH] = part;
+      publicInputs[i + 3 + Constants.HEADER_LENGTH] = part;
     }
 
     if (!verifier.verify(_proof, publicInputs)) {

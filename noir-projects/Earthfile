@@ -5,6 +5,8 @@ source:
 
   # Install nargo
   COPY ../noir/+nargo/nargo /usr/bin/nargo
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
   WORKDIR /usr/src/noir-projects
 
