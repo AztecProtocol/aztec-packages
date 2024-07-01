@@ -1,6 +1,6 @@
 use crate::components::{
-    kernel_circuit_output_validator::KernelCircuitOutputValidator,
-    previous_kernel_validator::PreviousKernelValidator, tail_output_composer::TailOutputComposer
+    previous_kernel_validator::PreviousKernelValidator, tail_output_composer::TailOutputComposer,
+    tail_output_validator::TailOutputValidator
 };
 use dep::types::{abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs}};
 
@@ -26,7 +26,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         // Validate output.
         if !std::runtime::is_unconstrained() {
-            KernelCircuitOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+            TailOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
         }
 
         output

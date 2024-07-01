@@ -1,7 +1,7 @@
 mod kernel_circuit_output_hints;
 mod validate_value_transformation;
 
-use crate::components::kernel_circuit_output_validator::{
+use crate::components::tail_output_validator::{
     kernel_circuit_output_hints::{generate_kernel_circuit_output_hints, Hints},
     validate_value_transformation::{validate_transformed_values, validate_value_transformation}
 };
@@ -17,17 +17,17 @@ use dep::types::{
     traits::is_empty, utils::arrays::assert_sorted_transformed_value_array
 };
 
-struct KernelCircuitOutputValidator {
+struct TailOutputValidator {
     output: KernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
 }
 
-impl KernelCircuitOutputValidator {
+impl TailOutputValidator {
     pub fn new(
         output: KernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs
     ) -> Self {
-        KernelCircuitOutputValidator { output, previous_kernel }
+        TailOutputValidator { output, previous_kernel }
     }
 
     pub fn validate<N>(self) {

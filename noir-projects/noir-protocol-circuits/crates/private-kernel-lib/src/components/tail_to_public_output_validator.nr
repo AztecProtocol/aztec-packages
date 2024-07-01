@@ -1,7 +1,7 @@
 mod tail_to_public_output_hints;
 
 use crate::components::{
-    kernel_circuit_output_validator::validate_value_transformation::{validate_transformed_values, validate_value_transformation},
+    tail_output_validator::validate_value_transformation::{validate_transformed_values, validate_value_transformation},
     tail_to_public_output_validator::tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints}
 };
 use dep::types::{

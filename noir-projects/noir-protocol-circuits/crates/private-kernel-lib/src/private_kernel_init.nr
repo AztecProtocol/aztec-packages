@@ -38,7 +38,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        // Generate output and hints.
+        // Generate output.
         let output = self.generate_output();
 
         // Validate inputs.
