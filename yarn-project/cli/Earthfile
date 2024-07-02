@@ -1,0 +1,20 @@
+VERSION 0.8
+
+
+aztec-cli:
+    FROM ../+build
+    RUN yarn workspaces focus @aztec/cli --production && yarn cache clean
+
+    RUN mkdir /cache && chmod 777 /cache
+    ENV XDG_CACHE_HOME /cache
+    VOLUME "/cache"
+    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/cli/dest/bin/index.js"]
+
+deploy-l1-contracts:
+    FROM +aztec-cli
+    ARG PRIVATE_KEY
+    ARG RPC_URL
+    ENV PRIVATE_KEY=$PRIVATE_KEY
+    ENV ETHEREUM_HOST=$RPC_URL
+    RUN echo "Deploying L1 contracts with PRIVATE_KEY=$PRIVATE_KEY and RPC_URL=$RPC_URL"
+    RUN --entrypoint deploy-l1-contracts
