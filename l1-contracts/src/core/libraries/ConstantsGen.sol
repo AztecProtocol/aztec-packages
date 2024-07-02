@@ -200,13 +200,13 @@ library Constants {
   uint256 internal constant START_SIDE_EFFECT_COUNTER = 37;
   uint256 internal constant TRANSACTION_FEE_SELECTOR = 40;
   uint256 internal constant START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
-  uint256 internal constant START_NULLIFIER_EXISTS_OFFSET = 32;
-  uint256 internal constant START_NULLIFIER_NON_EXISTS_OFFSET = 64;
-  uint256 internal constant START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 96;
-  uint256 internal constant START_SSTORE_WRITE_OFFSET = 112;
-  uint256 internal constant START_SLOAD_WRITE_OFFSET = 144;
-  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 176;
-  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 192;
-  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 208;
-  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 210;
+  uint256 internal constant START_NULLIFIER_EXISTS_OFFSET = 16;
+  uint256 internal constant START_NULLIFIER_NON_EXISTS_OFFSET = 32;
+  uint256 internal constant START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 48;
+  uint256 internal constant START_SSTORE_WRITE_OFFSET = 64;
+  uint256 internal constant START_SLOAD_WRITE_OFFSET = 96;
+  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 128;
+  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
+  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
+  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
 }
