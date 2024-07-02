@@ -35,7 +35,9 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-release-artifacts-${{ github.actor }}
