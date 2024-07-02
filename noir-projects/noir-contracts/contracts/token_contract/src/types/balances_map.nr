@@ -120,10 +120,8 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         subtrahend: U128,
         limit: u32
     ) -> (U128, U128) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
-        // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend).set_limit(limit);
         let notes = self.map.at(owner).get_notes(options);
-        // docs:end:get_notes
 
         assert(notes.len() > 0, "No notes found");
 
@@ -136,9 +134,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
                 // This will call the the `compute_nullifer` function of the `token_note`
                 // which require knowledge of the secret key (currently the users encryption key).
                 // The contract logic must ensure that the spending key is used as well.
-                // docs:start:remove
                 self.map.at(owner).remove(note);
-                // docs:end:remove
 
                 minuend = minuend + note.get_amount();
             }
