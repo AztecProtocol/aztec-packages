@@ -15,6 +15,7 @@ import {TxsDecoder} from "./../libraries/decoders/TxsDecoder.sol";
  */
 contract AvailabilityOracle is IAvailabilityOracle {
   mapping(bytes32 txsHash => bool available) public override(IAvailabilityOracle) isAvailable;
+  mapping(bytes32 txsHash => bytes32 blockOutHash) public override(IAvailabilityOracle) outHash;
 
   /**
    * @notice Publishes transactions and marks its commitment, the TxsEffectsHash, as available
@@ -22,8 +23,9 @@ contract AvailabilityOracle is IAvailabilityOracle {
    * @return txsEffectsHash - The TxsEffectsHash
    */
   function publish(bytes calldata _body) external override(IAvailabilityOracle) returns (bytes32) {
-    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
+    (bytes32 txsEffectsHash, bytes32 blockOutHash) = TxsDecoder.decode(_body);
     isAvailable[txsEffectsHash] = true;
+    outHash[txsEffectsHash] = blockOutHash;
 
     emit TxsPublished(txsEffectsHash);
 

@@ -150,13 +150,12 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
-    // Min size = smallest path of the rollup tree + 1
-    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    uint256 l2ToL1TreeMinHeight = min + 1;
-    OUTBOX.insert(
-      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
-    );
+    bytes32 outHash = AVAILABILITY_ORACLE.outHash(header.contentCommitment.txsEffectsHash);
+    uint256 height = MerkleLib.calculateTreeHeightFromSize(header.contentCommitment.numTxs);
+    // Currently we have 8 msgs per tx => height of 3
+    // TODO: calc this value
+    uint256 l2ToL1TreeHeight = height + 3;
+    OUTBOX.insert(header.globalVariables.blockNumber, outHash, l2ToL1TreeHeight);
 
     // pay the coinbase 1 gas token if it is not empty and header.totalFees is not zero
     if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {

@@ -8,4 +8,6 @@ interface IAvailabilityOracle {
   function publish(bytes calldata _body) external returns (bytes32);
 
   function isAvailable(bytes32 _txsEffectsHash) external view returns (bool);
+
+  function outHash(bytes32 _txsEffectsHash) external view returns (bytes32);
 }

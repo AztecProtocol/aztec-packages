@@ -34,7 +34,8 @@ impl MergeRollupInputs {
 
         // compute calldata hash:
         let txs_effects_hash = components::compute_txs_effects_hash(self.previous_rollup_data);
-        let out_hash = components::compute_out_hash(self.previous_rollup_data);
+        //TODO remove
+        let out_hash = 0; //components::compute_out_hash(self.previous_rollup_data);
 
         let accumulated_fees = components::accumulate_fees(left, right);
 

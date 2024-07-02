@@ -48,12 +48,11 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
-import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
+import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
@@ -512,25 +511,22 @@ export class AztecNodeService implements AztecNode {
     if (block === undefined) {
       throw new Error('Block is not defined');
     }
+    // TODO ensure height correct - calc from constant?
+    const l2ToL1Messages = block.body.txEffects.map(txEffect => padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, 8));
 
-    const l2ToL1Messages = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-
-    // Find index of message
-    let indexOfMsgInSubtree = -1;
-    const indexOfMsgTx = l2ToL1Messages.findIndex(msgs => {
-      const idx = msgs.findIndex(msg => msg.equals(l2ToL1Message));
-      indexOfMsgInSubtree = Math.max(indexOfMsgInSubtree, idx);
-      return idx !== -1;
-    });
-
-    if (indexOfMsgTx === -1) {
+    // Index in full tree TODO less lazy way
+    const msgIndex = l2ToL1Messages.flat().findIndex(msg => msg.equals(l2ToL1Message));
+    if (msgIndex === -1) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
+    const indexOfMsgTx = msgIndex >> 3;
+    const indexOfMsgInSubtree = msgIndex % 8;
 
     // Construct message subtrees
+    // NOTE: we still need separate subtrees because the zero hashes are incorrect vs on-chain otherwise
     const l2toL1Subtrees = await Promise.all(
       l2ToL1Messages.map(async (msgs, i) => {
-        const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
+        const treeHeight = 3;
         const tree = new StandardTree(
           openTmpStore(true),
           new SHA256Trunc(),
@@ -544,33 +540,32 @@ export class AztecNodeService implements AztecNode {
       }),
     );
 
-    // path of the input msg from leaf -> first out hash calculated in base rolllup
+    // path of the input msg from leaf -> first out hash calculated in txs decoder
     const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
       BigInt(indexOfMsgInSubtree),
       true,
     );
 
-    let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
-    if (l2toL1SubtreeRoots.length < 2) {
-      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.fromBuffer(sha256Trunc(Buffer.alloc(64))), 2);
-    }
-    const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
-    // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
-    const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
+    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
+    // TODO calc height - currently height of tree req. for txs
+    const numTxs = block.body.txEffects.length < 2 ? 2 : block.body.txEffects.length;
+    const treeHeight = Math.ceil(Math.log2(numTxs));
+    const outHashTree = new StandardTree(
+      openTmpStore(true),
+      new SHA256Trunc(),
+      `temp_outhash_tree`,
+      treeHeight,
+      0n,
+      Fr,
+    );
     await outHashTree.appendLeaves(l2toL1SubtreeRoots);
 
-    const pathOfTxInOutHashTree = await outHashTree.getSiblingPath(l2toL1SubtreeRoots[indexOfMsgTx].toBigInt());
+    // TODO account for msgs with same hash
+    const pathOfTxInOutHashTree = await outHashTree.getSiblingPath(BigInt(indexOfMsgTx), true);
     // Append subtree path to out hash tree path
     const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxInOutHashTree.toBufferArray());
     // Append binary index of subtree path to binary index of out hash tree path
-    const mergedIndex = parseInt(
-      indexOfMsgTx
-        .toString(2)
-        .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
-      2,
-    );
-
-    return [BigInt(mergedIndex), new SiblingPath(mergedPath.length, mergedPath)];
+    return [BigInt(msgIndex), new SiblingPath(mergedPath.length, mergedPath)];
   }
 
   /**

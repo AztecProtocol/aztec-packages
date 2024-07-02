@@ -7,8 +7,9 @@ import {MerkleLib} from "../../../src/core/libraries/MerkleLib.sol";
 
 contract TxsDecoderHelper {
   // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _body) public pure returns (bytes32 txsHash) {
-    return TxsDecoder.decode(_body);
+  function decode(bytes calldata _body) public pure returns (bytes32) {
+    (bytes32 txsHash,) = TxsDecoder.decode(_body);
+    return txsHash;
   }
 
   function computeKernelLogsHash(bytes calldata _kernelLogs)

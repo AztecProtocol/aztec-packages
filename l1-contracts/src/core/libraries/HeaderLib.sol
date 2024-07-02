@@ -166,6 +166,7 @@ library HeaderLib {
     header.contentCommitment.numTxs = uint256(bytes32(_header[0x0024:0x0044]));
     header.contentCommitment.txsEffectsHash = bytes32(_header[0x0044:0x0064]);
     header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
+    // TODO remove
     header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
 
     // Reading StateReference

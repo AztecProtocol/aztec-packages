@@ -70,6 +70,7 @@ library TxsDecoder {
   struct ConsumablesVars {
     bytes32[] baseLeaves;
     bytes baseLeaf;
+    bytes32[] l2ToL1MsgsSubtreeRoots;
     uint256 kernelNoteEncryptedLogsLength;
     uint256 kernelEncryptedLogsLength;
     uint256 kernelUnencryptedLogsLength;
@@ -83,7 +84,7 @@ library TxsDecoder {
    * @param _body - The L2 block body calldata.
    * @return The txs effects hash.
    */
-  function decode(bytes calldata _body) internal pure returns (bytes32) {
+  function decode(bytes calldata _body) internal pure returns (bytes32, bytes32) {
     ArrayOffsets memory offsets;
     Counts memory counts;
     ConsumablesVars memory vars;
@@ -94,6 +95,8 @@ library TxsDecoder {
 
     offset += 0x4;
     vars.baseLeaves = new bytes32[](numTxEffects + numTxEffectsToPad);
+    vars.l2ToL1MsgsSubtreeRoots =
+      new bytes32[](numTxEffects + computeNumOutHashesToPad(numTxEffects));
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
@@ -127,32 +130,35 @@ library TxsDecoder {
         offset += 0x20;
 
         // NOTE HASHES
-        uint256 count = read1(_body, offset);
+        counts.noteHash = read1(_body, offset);
         offset += 0x1;
-        counts.noteHash = count;
+        // counts.noteHash = count;
         offsets.noteHash = offset;
-        offset += count * 0x20; // each note hash is 0x20 bytes long
+        offset += counts.noteHash * 0x20; // each note hash is 0x20 bytes long
 
         // NULLIFIERS
-        count = read1(_body, offset);
+        counts.nullifier = read1(_body, offset);
         offset += 0x1;
-        counts.nullifier = count;
+        // counts.nullifier = count;
         offsets.nullifier = offset;
-        offset += count * 0x20; // each nullifier is 0x20 bytes long
+        offset += counts.nullifier * 0x20; // each nullifier is 0x20 bytes long
 
         // L2 TO L1 MESSAGES
-        count = read1(_body, offset);
+        counts.l2ToL1Msgs = read1(_body, offset);
         offset += 0x1;
-        counts.l2ToL1Msgs = count;
+        // counts.l2ToL1Msgs = count;
         offsets.l2ToL1Msgs = offset;
-        offset += count * 0x20; // each l2 to l1 message is 0x20 bytes long
+        vars.l2ToL1MsgsSubtreeRoots[i] =
+          computeL2toL1MessageSubtreeRoot(offset, counts.l2ToL1Msgs, _body);
+
+        offset += counts.l2ToL1Msgs * 0x20; // each l2 to l1 message is 0x20 bytes long
 
         // PUBLIC DATA UPDATE REQUESTS
-        count = read1(_body, offset);
+        counts.publicData = read1(_body, offset);
         offset += 0x1;
-        counts.publicData = count;
+        // counts.publicData = count;
         offsets.publicData = offset;
-        offset += count * 0x40; // each public data update request is 0x40 bytes long
+        offset += counts.publicData * 0x40; // each public data update request is 0x40 bytes long
 
         // NOTE ENCRYPTED LOGS LENGTH
         offsets.noteEncryptedLogsLength = offset;
@@ -261,7 +267,7 @@ library TxsDecoder {
       }
     }
 
-    return computeUnbalancedRoot(vars.baseLeaves);
+    return (computeUnbalancedRoot(vars.baseLeaves), computeRoot(vars.l2ToL1MsgsSubtreeRoots));
   }
 
   /**
@@ -489,6 +495,24 @@ library TxsDecoder {
     return (kernelPublicInputsLogsHash, offset, kernelLogsLength);
   }
 
+  function computeL2toL1MessageSubtreeRoot(
+    uint256 _offsetInBlock,
+    uint256 numMsgs,
+    bytes calldata _body
+  ) internal pure returns (bytes32) {
+    bytes32[] memory l2ToL1Messages = new bytes32[](8);
+    uint256 offset = _offsetInBlock;
+    for (uint256 i = 0; i < numMsgs; i++) {
+      l2ToL1Messages[i] = bytes32(slice(_body, offset, 0x20));
+      offset += 0x20;
+    }
+    // TODO: Ensure height of subtree is constrained
+    // Currently msgs are padded to max (8 per tx) before serialising into block and sent on-chain, so the below always gives 3
+    // Should add some check to make sure this doesn't break
+    bytes32 subtreeRoot = computeRoot(l2ToL1Messages);
+    return subtreeRoot;
+  }
+
   /**
    * @notice Computes the root for a binary Merkle-tree given the leafs.
    * @dev Uses sha256.
@@ -627,5 +651,26 @@ library TxsDecoder {
       return 1;
     }
     return 0;
+  }
+
+  function computeNumOutHashesToPad(uint32 _numTxs) internal pure returns (uint32) {
+    if (_numTxs == 0) {
+      return 2;
+    } else if (_numTxs == 1) {
+      return 1;
+    }
+
+    uint32 v = _numTxs;
+
+    // the following rounds _numTxs up to the next power of 2 (works only for 4 bytes value!)
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    return v - _numTxs;
   }
 }
