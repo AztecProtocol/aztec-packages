@@ -9,9 +9,10 @@ export function buildPrivateKernelInnerHints(
   publicInputs: PrivateCircuitPublicInputs,
   noteHashNullifierCounterMap: Map<number, number>,
 ) {
-  const nullifierCounters = publicInputs.newNoteHashes.map(
-    n => noteHashNullifierCounterMap.get(n.counter) ?? 0,
-  ) as Tuple<number, typeof MAX_NOTE_HASHES_PER_CALL>;
+  const nullifierCounters = publicInputs.noteHashes.map(n => noteHashNullifierCounterMap.get(n.counter) ?? 0) as Tuple<
+    number,
+    typeof MAX_NOTE_HASHES_PER_CALL
+  >;
 
   return new PrivateKernelInnerHints(nullifierCounters);
 }

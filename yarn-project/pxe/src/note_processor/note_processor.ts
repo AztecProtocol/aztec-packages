@@ -134,7 +134,7 @@ export class NoteProcessor {
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
-        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
+        const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
@@ -167,7 +167,7 @@ export class NoteProcessor {
                 outgoingTaggedNote ? this.ovpkM : undefined,
                 payload,
                 txHash,
-                newNoteHashes,
+                noteHashes,
                 dataStartIndexForTx,
                 excludedIndices,
                 this.log,
@@ -240,10 +240,10 @@ export class NoteProcessor {
       });
     }
 
-    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
+    const nullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
-    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.ivpkM);
+    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, this.ivpkM);
     removedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${
@@ -300,7 +300,7 @@ export class NoteProcessor {
     const outgoingNotes: OutgoingNoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
-      const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, newNoteHashes, dataStartIndexForTx } =
+      const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, noteHashes, dataStartIndexForTx } =
         deferredNote;
       const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
@@ -318,7 +318,7 @@ export class NoteProcessor {
         isOutgoing ? this.ovpkM : undefined,
         payload,
         txHash,
-        newNoteHashes,
+        noteHashes,
         dataStartIndexForTx,
         excludedIndices,
         this.log,

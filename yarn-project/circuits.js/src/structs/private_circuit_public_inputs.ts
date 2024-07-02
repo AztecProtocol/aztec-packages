@@ -86,11 +86,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * New note hashes created by the corresponding function call.
      */
-    public newNoteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
+    public noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public newNullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
+    public nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
     /**
      * Private call requests made within the current kernel iteration.
      */
@@ -106,7 +106,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -257,12 +257,12 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.keyValidationRequestsAndGenerators) &&
-      isEmptyArray(this.newNoteHashes) &&
-      isEmptyArray(this.newNullifiers) &&
+      isEmptyArray(this.noteHashes) &&
+      isEmptyArray(this.nullifiers) &&
       isEmptyArray(this.privateCallRequests) &&
       isZeroArray(this.publicCallStackHashes) &&
       this.publicTeardownFunctionHash.isZero() &&
-      isEmptyArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.l2ToL1Msgs) &&
       isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
       isEmptyArray(this.unencryptedLogsHashes) &&
@@ -287,12 +287,12 @@ export class PrivateCircuitPublicInputs {
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.keyValidationRequestsAndGenerators,
-      fields.newNoteHashes,
-      fields.newNullifiers,
+      fields.noteHashes,
+      fields.nullifiers,
       fields.privateCallRequests,
       fields.publicCallStackHashes,
       fields.publicTeardownFunctionHash,
-      fields.newL2ToL1Msgs,
+      fields.l2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.noteEncryptedLogsHashes,

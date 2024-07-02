@@ -22,15 +22,15 @@ export class CombinedAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public newNoteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
+    public noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
+    public nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    public l2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated encrypted note logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -69,9 +69,9 @@ export class CombinedAccumulatedData {
 
   getSize() {
     return (
-      arraySerializedSizeOfNonEmpty(this.newNoteHashes) +
-      arraySerializedSizeOfNonEmpty(this.newNullifiers) +
-      arraySerializedSizeOfNonEmpty(this.newL2ToL1Msgs) +
+      arraySerializedSizeOfNonEmpty(this.noteHashes) +
+      arraySerializedSizeOfNonEmpty(this.nullifiers) +
+      arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
       this.noteEncryptedLogsHash.size +
       this.encryptedLogsHash.size +
       this.unencryptedLogsHash.size +
@@ -85,9 +85,9 @@ export class CombinedAccumulatedData {
 
   static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
     return [
-      fields.newNoteHashes,
-      fields.newNullifiers,
-      fields.newL2ToL1Msgs,
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
       fields.noteEncryptedLogsHash,
       fields.encryptedLogsHash,
       fields.unencryptedLogsHash,
@@ -160,15 +160,15 @@ export class CombinedAccumulatedData {
 
   [inspect.custom]() {
     return `CombinedAccumulatedData {
-      newNoteHashes: [${this.newNoteHashes
+      noteHashes: [${this.noteHashes
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],
-      newNullifiers: [${this.newNullifiers
+      nullifiers: [${this.nullifiers
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],
-      newL2ToL1Msgs: [${this.newL2ToL1Msgs
+      l2ToL1Msgs: [${this.l2ToL1Msgs
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],

@@ -82,7 +82,7 @@ export const mockTx = (
     nonRevertibleNullifiers[0] = firstNullifier;
 
     data.forPublic.endNonRevertibleData = nonRevertibleBuilder
-      .withNewNullifiers(nonRevertibleNullifiers)
+      .withNullifiers(nonRevertibleNullifiers)
       .withPublicCallStack(
         makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, i =>
           i < numberOfNonRevertiblePublicCallRequests
@@ -154,7 +154,7 @@ export const mockTx = (
       });
     }
   } else {
-    data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
     data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash());
     data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
     data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());

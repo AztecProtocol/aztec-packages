@@ -23,12 +23,12 @@ Each can have several transactions. Thus, an block is presently encoded as:
 | 0x4 + a \* 0x20 = tx0Start                                                                               | 0x4       | len(numTxs) (denoted t)                 |
 |                                                                                                          |           | TxEffect 0                            |
 | tx0Start                                                                                                 | 0x20      | revertCode                              |
-| tx0Start + 0x20                                                                                          | 0x1       | len(newNoteHashes) (denoted b)          |
-| tx0Start + 0x20 + 0x1                                                                                    | b \* 0x20 | newNoteHashes                           |
-| tx0Start + 0x20 + 0x1 + b \* 0x20                                                                        | 0x1       | len(newNullifiers) (denoted c)          |
-| tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1                                                                  | c \* 0x20 | newNullifiers                           |
-| tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20                                                      | 0x1       | len(newL2ToL1Msgs) (denoted d)          |
-| tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20 + 0x1                                                | d \* 0x20 | newL2ToL1Msgs                           |
+| tx0Start + 0x20                                                                                          | 0x1       | len(noteHashes) (denoted b)          |
+| tx0Start + 0x20 + 0x1                                                                                    | b \* 0x20 | noteHashes                           |
+| tx0Start + 0x20 + 0x1 + b \* 0x20                                                                        | 0x1       | len(nullifiers) (denoted c)          |
+| tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1                                                                  | c \* 0x20 | nullifiers                           |
+| tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20                                                      | 0x1       | len(l2ToL1Msgs) (denoted d)          |
+| tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20 + 0x1                                                | d \* 0x20 | l2ToL1Msgs                           |
 | tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20 + 0x1 + d \* 0x20                                    | 0x1       | len(newPublicDataWrites) (denoted e)    |
 | tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20 + 0x1 + d \* 0x20 + 0x01                             | e \* 0x40 | newPublicDataWrites                     |
 | tx0Start + 0x20 + 0x1 + b \* 0x20 + 0x1 + c \* 0x20 + 0x1 + d \* 0x20 + 0x01 + e \* 0x40                 | 0x04      | byteLen(newEncryptedLogs) (denoted f)   |

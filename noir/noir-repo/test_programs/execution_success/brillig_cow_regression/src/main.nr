@@ -104,7 +104,7 @@ unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA
     let new_note_hashes = kernel_data.new_note_hashes;
     let new_nullifiers = kernel_data.new_nullifiers;
     let public_data_update_requests = kernel_data.public_data_update_requests;
-    let newL2ToL1msgs = kernel_data.new_l2_to_l1_msgs;
+    let l2ToL1Msgs = kernel_data.new_l2_to_l1_msgs;
     let encryptedLogsHash = kernel_data.encrypted_logs_hash;
     let unencryptedLogsHash = kernel_data.unencrypted_logs_hash;
 
@@ -129,7 +129,7 @@ unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA
     offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
     for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-        tx_effects_hash_inputs[offset + j] = newL2ToL1msgs[j];
+        tx_effects_hash_inputs[offset + j] = l2ToL1Msgs[j];
     }
     offset += MAX_L2_TO_L1_MSGS_PER_TX;
 
