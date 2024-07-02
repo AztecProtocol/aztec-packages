@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-FILE_PATH=./script_output
+FILE_PATH=$1
 
 # Read the file line by line
 while IFS= read -r line; do
