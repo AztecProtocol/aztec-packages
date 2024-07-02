@@ -20,9 +20,8 @@ contract Benchmarking {
     fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
         // docs:start:increment_valuenote
         increment(storage.notes.at(owner), value, owner, outgoing_viewer);
-         // docs:end:increment_valuenote
+        // docs:end:increment_valuenote
     }
-
     // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
     // multiple txs that will land on the same block.

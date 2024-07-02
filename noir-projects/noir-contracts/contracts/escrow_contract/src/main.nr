@@ -21,7 +21,7 @@ contract Escrow {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
         // docs:start:addressnote_new
         let mut note = AddressNote::new(owner, owner_npk_m_hash);
-         // docs:end:addressnote_new
+        // docs:end:addressnote_new
         storage.owner.initialize(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
     }
 
