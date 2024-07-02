@@ -335,12 +335,36 @@ contract Token {
         let to_ivpk = header.get_ivpk_m(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk));
+        let mut (change, missing) = storage.balances.odd_sub(from, amount, 2);
+
+        // If we are still missing some balance to cover the amount, call accumulate to spend more notes.
+        if !missing.eq(U128::zero()) {
+            change = Token::at(context.this_address())._accumulate(from, missing.to_field()).call(&mut context);
+        }
+
+        storage.balances.add(from, change).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk));
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk));
 
         Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk));
     }
     // docs:end:transfer
+
+    /**
+     * Accumulate value by spending notes until we hit the missing amount
+     * If not enough notes are available, recurse to do it again.
+     * Will use MORE notes than the transfer directly since there are much smaller usual overhead on this function.
+     * Will fail with `Cannot return zero notes` if there are not enough notes to cover the amount.
+     */
+    #[aztec(private)]
+    #[aztec(internal)]
+    fn _accumulate(owner: AztecAddress, missing_: Field) -> U128 {
+        // Since we are already spending a lot of doing the call, and we don't do anything else in here, we might as well go over more notes.
+        let mut (change, missing) = storage.balances.odd_sub(owner, U128::from_integer(missing_), 8);
+        if !missing.eq(U128::zero()) {
+            change = Token::at(context.this_address())._accumulate(owner, missing.to_field()).call(&mut context);
+        }
+        change
+    }
 
     /**
      * Cancel a private authentication witness.
