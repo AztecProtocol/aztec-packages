@@ -56,7 +56,17 @@ impl Deserialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
 
 impl Hash for PrivateCallStackItem {
     fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_STACK_ITEM)
+        // We don't need a hash of the entire private call stack item, just a few pieces.
+        // See Issue(#7092) for more details.
+        pedersen_hash([
+            self.contract_address.to_field(),
+            self.public_inputs.call_context.hash(),
+            self.function_data.hash(),
+            self.public_inputs.args_hash,
+            self.public_inputs.returns_hash,
+            self.public_inputs.start_side_effect_counter as Field,
+            self.public_inputs.end_side_effect_counter as Field,
+        ], GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 }
 
@@ -85,6 +95,6 @@ fn empty_hash() {
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x157022d579f892f06461fb895cdf5550b24329e15e7a41df14f9dad582fa1bc5;
+    let test_data_empty_hash = 0x2a876837d4bf400bf6787126331db78e53027a9ba5d91d9c974dbab1d41fe37c;
     assert_eq(hash, test_data_empty_hash);
 }
