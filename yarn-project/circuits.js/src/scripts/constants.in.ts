@@ -234,7 +234,7 @@ ${processConstantsCpp(constants)}
 }
 
 /**
- * Generate the constants file in C++.
+ * Generate the constants file in PIL.
  */
 function generatePilConstants({ constants }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
