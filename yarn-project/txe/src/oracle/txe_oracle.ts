@@ -443,12 +443,12 @@ export class TXE implements TypedOracle {
     const result = [];
 
     for (let i = 0; i < length.toNumber(); i++) {
-      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot).toBigInt();
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot.add(new Fr(i))).toBigInt();
 
       const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
       if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
         result.push(Fr.ZERO);
-        break;
+        continue;
       }
 
       const preimage = (await db.getLeafPreimage(
