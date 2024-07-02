@@ -22,7 +22,7 @@ struct PrivateCallData {
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    
+
     acir_hash: Field,
 }
 

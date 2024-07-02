@@ -1,4 +1,5 @@
 import {
+  type ClientIvcProof,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
@@ -27,9 +28,16 @@ export type KernelProofOutput<PublicInputsType> = {
   /**
    * The zk-SNARK proof for the kernel execution.
    */
+  // LONDONTODO(KERNEL PROVING): this is no longer used for private kernel stack
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  
+  // LONDONTODO(KERNEL PROVING): this is not used for public kernel stack
+  clientIvcProof?: ClientIvcProof;
 
   verificationKey: VerificationKeyAsFields;
+
+  // LONDONTODO(AD): should this exist in the future?
+  outputWitness: WitnessMap
 };
 
 /**
@@ -97,6 +105,8 @@ export interface ProofCreator {
   createProofTail(
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
 
   /**
    * Creates a proof for an app circuit.

@@ -1,4 +1,4 @@
-import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
+import { Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 import { GasSettings } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -18,6 +18,8 @@ export type SendMethodOptions = {
   fee?: FeeOptions;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings (will default to true later down the road). */
   estimateGas?: boolean;
+  /** LONDONTODO(CACHING): Hack: How better can we speed up tests? */
+  cachedTxBuffer?: Buffer;
 };
 
 /**
@@ -25,7 +27,11 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  protected tx?: Tx;
+  /**
+   * The transaction execution result. Set by prove().
+   * Made public for simple mocking.
+   */
+  public tx?: Tx;
   protected txRequest?: TxExecutionRequest;
 
   protected log = createDebugLogger('aztec:js:contract_interaction');
@@ -45,8 +51,15 @@ export abstract class BaseContractInteraction {
    * @returns The resulting transaction
    */
   public async prove(options: SendMethodOptions = {}): Promise<Tx> {
+    // LONDONTODO: check logic here. Is create using the new field?
     const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
+    if (options.cachedTxBuffer) {
+      // We already have a cached transaction (typically from a test)
+      // LONDONTODO(CACHING) is this an ick?
+      this.tx = Tx.fromBuffer(options.cachedTxBuffer);
+    } else {
+      this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
+    }
     return this.tx;
   }
 

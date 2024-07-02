@@ -3,6 +3,7 @@ import {
   EncryptedTxL2Logs,
   PublicDataWrite,
   type PublicInputsAndRecursiveProof,
+  type PublicInputsAndTubeProof,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -25,6 +26,8 @@ import {
   type RecursiveProof,
   type VerificationKeyData,
   makeEmptyProof,
+  type TUBE_PROOF_LENGTH,
+  ClientIvcProof,
 } from '@aztec/circuits.js';
 
 import { type CircuitName } from '../stats/stats.js';
@@ -69,7 +72,7 @@ export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
  * Represents a tx that has been processed by the sequencer public processor,
  * so its kernel circuit public inputs are filled in.
  */
-export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
+export type ProcessedTx = Pick<Tx, 'proof' | 'clientIvcProof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
   /**
    * Output of the private tail or public tail kernel circuit for this tx.
    */
@@ -161,6 +164,8 @@ export function makeProcessedTx(
     hash: tx.getTxHash(),
     data: kernelOutput,
     proof,
+    // LONDONTODO(AD) deal with this client proof
+    clientIvcProof: tx.clientIvcProof,
     // TODO(4712): deal with non-revertible logs here
     noteEncryptedLogs: tx.noteEncryptedLogs,
     encryptedLogs: tx.encryptedLogs,
@@ -178,6 +183,12 @@ export type PaddingProcessedTx = ProcessedTx & {
   recursiveProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 };
 
+export type PaddingProcessedTxFromTube = ProcessedTx & {
+  verificationKey: VerificationKeyData;
+  recursiveProof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
+};
+
+// LONDONTODO: double check that this is still in use
 /**
  * Makes a padding empty tx with a valid proof.
  * @returns A valid padding processed tx.
@@ -193,6 +204,7 @@ export function makePaddingProcessedTx(
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: kernelOutput.inputs,
     proof: kernelOutput.proof.binaryProof,
+    clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
     publicProvingRequests: [],
@@ -202,6 +214,33 @@ export function makePaddingProcessedTx(
     recursiveProof: kernelOutput.proof,
   };
 }
+
+/**
+ * Makes a padding empty tx with a valid proof.
+ * @returns A valid padding processed tx.
+ */
+export function makePaddingProcessedTxFromTubeProof(
+  kernelOutput: PublicInputsAndTubeProof<KernelCircuitPublicInputs>,
+): PaddingProcessedTxFromTube {
+  const hash = new TxHash(Fr.ZERO.toBuffer());
+  return {
+    hash,
+    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.empty(),
+    unencryptedLogs: UnencryptedTxL2Logs.empty(),
+    data: kernelOutput.inputs,
+    proof: kernelOutput.proof.binaryProof,
+    clientIvcProof: ClientIvcProof.empty(),
+    isEmpty: true,
+    revertReason: undefined,
+    publicProvingRequests: [],
+    gasUsed: {},
+    finalPublicDataUpdateRequests: [],
+    verificationKey: kernelOutput.verificationKey,
+    recursiveProof: kernelOutput.proof,
+  };
+}
+
 
 /**
  * Makes an empty tx from an empty kernel circuit public inputs.
@@ -222,6 +261,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
     proof: emptyProof,
+    clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
     publicProvingRequests: [],

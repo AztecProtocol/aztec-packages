@@ -353,17 +353,18 @@ template <typename FF_> class UltraHonkArith {
         // Note 2: Current sizes result in a full trace size of 2^18. It's not possible to define a fixed structure
         // that accomdates both the kernel and the function circuit while remaining under 2^17. This is because the
         // circuits differ in structure but are also both designed to be "full" within the 2^17 size.
+        // LONDONTODO(BIG STRUCTURE CONSTANTS): We need to be able to do this dynamically for dev purposes...
         std::array<uint32_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
-            1 << 7,  // pub_inputs;
-            1 << 16, // arithmetic;
-            1 << 15, // delta_range;
-            1 << 14, // elliptic;
-            1 << 16, // aux;
-            1 << 15, // lookup;
+            5000,    // pub_inputs;
+            500000,  // arithmetic;
+            140000,  // delta_range;
+            425000,  // elliptic;
+            1050000, // aux;
+            275000,  // lookup;
             1 << 7,  // busread;
-            1 << 11, // poseidon_external;
-            1 << 14  // poseidon_internal;
+            15000,   // poseidon_external;
+            85000    // poseidon_internal;
         };
 
         TraceBlocks()
@@ -409,12 +410,17 @@ template <typename FF_> class UltraHonkArith {
 
         void check_within_fixed_sizes()
         {
+            int i = 0;
             for (auto block : this->get()) {
                 if (block.size() > block.get_fixed_size()) {
                     info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
                          "not be constructed correctly!");
+                    info("Block index: ", i);
+                    info("Actual size: ", block.size());
+                    info("Fixed size: ", block.get_fixed_size());
                     ASSERT(false);
                 }
+                i++;
             }
         }
 

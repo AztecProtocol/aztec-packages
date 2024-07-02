@@ -12,6 +12,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   VerificationKeyAsFields,
   makeRecursiveProof,
+  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -23,12 +24,17 @@ import {
   executeTail,
   executeTailForPublic,
 } from '@aztec/noir-protocol-circuits-types';
+import { type WitnessMap } from '@noir-lang/types';
 
 /**
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
 export class TestProofCreator implements ProofCreator {
-  constructor(private log = createDebugLogger('aztec:test_proof_creator')) {}
+  constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
+
+  createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+    return Promise.resolve(ClientIvcProof.empty());
+  }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const contractAddress = publicInputs.callContext.storageContractAddress;
@@ -110,6 +116,8 @@ export class TestProofCreator implements ProofCreator {
       publicInputs,
       proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
+      // LONDONTODO reconsider jamming this everywhere
+      outputWitness: new Map()
     };
     return kernelProofOutput;
   }

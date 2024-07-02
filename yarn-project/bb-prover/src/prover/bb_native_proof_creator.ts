@@ -16,6 +16,7 @@ import {
   RecursiveProof,
   type VerificationKeyAsFields,
   type VerificationKeyData,
+  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -38,10 +39,10 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { WASMSimulator } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
-
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
+import { encode } from "@msgpack/msgpack";
 import { join } from 'path';
 
 import {
@@ -51,9 +52,11 @@ import {
   generateKeyForNoirCircuit,
   generateProof,
   verifyProof,
+  executeBbClientIvcProof,
 } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+import path from 'path';
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -71,7 +74,49 @@ export class BBNativeProofCreator implements ProofCreator {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private log = createDebugLogger('aztec:bb-native-prover'),
-  ) {}
+  ) { }
+
+  private async _createClientIvcProof(
+    directory: string,
+    acirs: Buffer[],
+    witnessStack: WitnessMap[],
+  ): Promise<ClientIvcProof> {
+    // LONDONTODO(CLIENT IVC): Longer term we won't use this hacked together msgpack format
+    // and instead properly create the bincode serialization from rust
+    await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
+    await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
+    const provingResult = await executeBbClientIvcProof(
+      this.bbBinaryPath,
+      directory,
+      path.join(directory, "acir.msgpack"),
+      path.join(directory, "witnesses.msgpack"),
+      this.log.info
+    );
+
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      this.log.error(`Failed to generate client ivc proof`);
+      throw new Error(provingResult.reason);
+    }
+
+    const proof = await ClientIvcProof.readFromOutputDirectory(directory);
+
+    this.log.info(`Generated IVC proof`, {
+      duration: provingResult.durationMs,
+      eventName: 'circuit-proving',
+    });
+
+    return proof; // LONDONTODO(CLIENT IVC): What is this vk now?
+  }
+
+  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+    this.log.info(
+      `Generating Client IVC proof`,
+    );
+    const operation = async (directory: string) => {
+      return await this._createClientIvcProof(directory, acirs, witnessStack);
+    };
+    return await runInDirectory(this.bbWorkingDirectory, operation);
+  }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const contractAddress = publicInputs.callContext.storageContractAddress;
@@ -134,7 +179,7 @@ export class BBNativeProofCreator implements ProofCreator {
   }
 
   public async createAppCircuitProof(
-    partialWitness: WitnessMap,
+    partialWitness: WitnessMap, // from simulation
     bytecode: Buffer,
     appCircuitName?: string,
   ): Promise<AppCircuitProofOutput> {
@@ -142,9 +187,9 @@ export class BBNativeProofCreator implements ProofCreator {
       this.log.debug(`Proving app circuit`);
       const proofOutput = await this.createProof(directory, partialWitness, bytecode, 'App', appCircuitName);
       if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
-        throw new Error(`Incorrect proof length`);
+        throw new Error(`Incorrect proof length ${proofOutput.proof.proof.length} vs ${RECURSIVE_PROOF_LENGTH}`);
       }
-      const proof = proofOutput.proof as RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
+      const proof = proofOutput.proof;
       const output: AppCircuitProofOutput = {
         proof,
         verificationKey: proofOutput.verificationKey,
@@ -182,7 +227,7 @@ export class BBNativeProofCreator implements ProofCreator {
   private async verifyProofFromKey(
     verificationKey: Buffer,
     proof: Proof,
-    logFunction: (message: string) => void = () => {},
+    logFunction: (message: string) => void = () => { },
   ) {
     const operation = async (bbWorkingDirectory: string) => {
       const proofFileName = `${bbWorkingDirectory}/proof`;
@@ -284,11 +329,11 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(`Incorrect proof length`);
     }
     const nestedProof = proofOutput.proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-
     const kernelOutput: KernelProofOutput<O> = {
       publicInputs: output,
       proof: nestedProof,
       verificationKey: proofOutput.verificationKey,
+      outputWitness
     };
     return kernelOutput;
   }
@@ -307,7 +352,7 @@ export class BBNativeProofCreator implements ProofCreator {
 
     const inputsWitnessFile = join(directory, 'witness.gz');
 
-    await fs.writeFile(inputsWitnessFile, compressedBincodedWitness);
+    await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
@@ -386,10 +431,12 @@ export class BBNativeProofCreator implements ProofCreator {
     ]);
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
-    const numPublicInputs =
-      circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    const numPublicInputs = vkData.numPublicInputs;
+    // const numPublicInputs =
+    // LONDONTODO(PUBLIC INPUTS)
+    //   circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
-    this.log.debug(
+    this.log.info(
       `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
     const proof = new RecursiveProof<PROOF_LENGTH>(

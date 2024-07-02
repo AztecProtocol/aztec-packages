@@ -15,6 +15,8 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type TUBE_PROOF_LENGTH,
+  type TubeInputs,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 
@@ -28,6 +30,12 @@ export type ProofAndVerificationKey = {
 export type PublicInputsAndRecursiveProof<T> = {
   inputs: T;
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  verificationKey: VerificationKeyData;
+};
+
+export type PublicInputsAndTubeProof<T> = {
+  inputs: T;
+  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
   verificationKey: VerificationKeyData;
 };
 
@@ -90,6 +98,7 @@ export type ProvingRequest =
   | {
       type: ProvingRequestType.BASE_ROLLUP;
       inputs: BaseRollupInputs;
+      tubeInputs: TubeInputs;
     }
   | {
       type: ProvingRequestType.MERGE_ROLLUP;

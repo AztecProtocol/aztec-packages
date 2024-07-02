@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   CallRequest,
+  ClientIvcProof,
   GasSettings,
   LogHash,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -163,6 +164,7 @@ export const mockTx = (
   const tx = new Tx(
     data,
     makeEmptyProof(),
+    ClientIvcProof.empty(),
     noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,

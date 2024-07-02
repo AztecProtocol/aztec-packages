@@ -43,6 +43,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  TubeInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
   type VerificationKeys,
@@ -614,8 +615,7 @@ export class ProvingOrchestrator {
         .equals(tx.processedTx.noteEncryptedLogs.hash())
     ) {
       provingState.reject(
-        `Note encrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
+        `Note encrypted logs hash mismatch: ${tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
         } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash())}`,
       );
       return;
@@ -627,8 +627,7 @@ export class ProvingOrchestrator {
     ) {
       // @todo This rejection messages is never seen. Never making it out to the logs
       provingState.reject(
-        `Encrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
+        `Encrypted logs hash mismatch: ${tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
         } === ${Fr.fromBuffer(tx.processedTx.encryptedLogs.hash())}`,
       );
       return;
@@ -639,19 +638,18 @@ export class ProvingOrchestrator {
         .equals(tx.processedTx.unencryptedLogs.hash())
     ) {
       provingState.reject(
-        `Unencrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
+        `Unencrypted logs hash mismatch: ${tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
         } === ${Fr.fromBuffer(tx.processedTx.unencryptedLogs.hash())}`,
       );
       return;
     }
 
     logger.debug(
-      `Enqueuing deferred proving base rollup${
-        tx.processedTx.isEmpty ? ' with padding tx' : ''
+      `Enqueuing deferred proving base rollup${tx.processedTx.isEmpty ? ' with padding tx' : ''
       } for ${tx.processedTx.hash.toString()}`,
     );
 
+    console.log(`enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? ${tx.processedTx.clientIvcProof.isEmpty()}`)
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -662,7 +660,12 @@ export class ProvingOrchestrator {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-rollup' as CircuitName,
         },
-        signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
+        signal =>
+          this.prover.getBaseRollupProof(
+            tx.baseRollupInputs,
+            new TubeInputs(tx.processedTx.clientIvcProof),
+            signal,
+          ),
       ),
       result => {
         logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
@@ -967,6 +970,7 @@ export class ProvingOrchestrator {
       result => {
         const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(
           functionIndex,
+          // PUBLIC KERNEL: I want to pass a client ivc proof into here?
           result.proof,
           result.verificationKey,
         );

@@ -29,7 +29,9 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { ClientCircuitArtifacts, PrivateResetTagToArtifactName } from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
+import { type WitnessMap } from '@noir-lang/types';
 
 import {
   buildPrivateKernelInitHints,
@@ -47,7 +49,8 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) {}
+  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) { }
+
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -70,14 +73,23 @@ export class KernelProver {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
       proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
+      // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
+      outputWitness: new Map()
     };
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
+    // vector of gzipped bincode acirs
+    const acirs: Buffer[] = [];
+    const witnessStack: WitnessMap[] = [];
 
     while (executionStack.length) {
       if (!firstIteration && this.needsReset(executionStack, output)) {
-        output = await this.runReset(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+        const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+        output = await this.proofCreator.createProofReset(resetInputs);
+        // LONDONTODO(CLIENT IVC) consider refactoring this
+        acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
+        witnessStack.push(output.outputWitness);
       }
       const currentExecution = executionStack.pop()!;
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
@@ -97,6 +109,8 @@ export class KernelProver {
         currentExecution.acir,
         functionName,
       );
+      acirs.push(currentExecution.acir);
+      witnessStack.push(currentExecution.partialWitness);
 
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
@@ -114,6 +128,8 @@ export class KernelProver {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
+        acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInitArtifact.bytecode, 'base64'));
+        witnessStack.push(output.outputWitness);
       } else {
         const hints = buildPrivateKernelInnerHints(
           currentExecution.callStackItem.publicInputs,
@@ -130,12 +146,18 @@ export class KernelProver {
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData, hints);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.createProofInner(proofInput);
+        acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInnerArtifact.bytecode, 'base64'));
+        witnessStack.push(output.outputWitness);
       }
       firstIteration = false;
     }
 
     if (this.somethingToReset(output)) {
-      output = await this.runReset(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+      const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+      output = await this.proofCreator.createProofReset(resetInputs);
+      // LONDONTODO(ClIENT IVC) consider refactoring this
+      acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
+      witnessStack.push(output.outputWitness);
     }
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -153,30 +175,36 @@ export class KernelProver {
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    return await this.proofCreator.createProofTail(privateInputs);
+    const tailOutput = await this.proofCreator.createProofTail(privateInputs);
+    acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
+    witnessStack.push(tailOutput.outputWitness);
+
+    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+    tailOutput.clientIvcProof = ivcProof;
+    return tailOutput;
   }
 
   private needsReset(executionStack: ExecutionResult[], output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {
     const nextIteration = executionStack[executionStack.length - 1];
     return (
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNoteHashes).length +
-        getNonEmptyItems(output.publicInputs.end.newNoteHashes).length >
-        MAX_NEW_NOTE_HASHES_PER_TX ||
+      getNonEmptyItems(output.publicInputs.end.newNoteHashes).length >
+      MAX_NEW_NOTE_HASHES_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNullifiers).length +
-        getNonEmptyItems(output.publicInputs.end.newNullifiers).length >
-        MAX_NEW_NULLIFIERS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.end.newNullifiers).length >
+      MAX_NEW_NULLIFIERS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteEncryptedLogsHashes).length +
-        getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
+      MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashReadRequests).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.nullifierReadRequests).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
+      getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.keyValidationRequestsAndGenerators).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX
+      getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
+      MAX_KEY_VALIDATION_REQUESTS_PER_TX
     );
   }
 
@@ -190,12 +218,13 @@ export class KernelProver {
     );
   }
 
-  private async runReset(
+  // LONDONTODO(AD): not a great distinction between this and buildPrivateKernelResetInputs
+  private async getPrivateKernelResetInputs(
     executionStack: ExecutionResult[],
     output: KernelProofOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
     noteHashNullifierCounterMap: Map<number, number>,
-  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
+  ) {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
@@ -205,14 +234,12 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    return this.proofCreator.createProofReset(
-      await buildPrivateKernelResetInputs(
-        executionStack,
-        previousKernelData,
-        noteHashLeafIndexMap,
-        noteHashNullifierCounterMap,
-        this.oracle,
-      ),
+    return await buildPrivateKernelResetInputs(
+      executionStack,
+      previousKernelData,
+      noteHashLeafIndexMap,
+      noteHashNullifierCounterMap,
+      this.oracle,
     );
   }
 
