@@ -10,6 +10,8 @@ concurrency:
 env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
   GIT_COMMIT: ${{ github.sha }}
+  DEPLOY_TAG: devnet
+  FILE_PATH: ./l1-contracts/addresses.txt
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_CHAIN_ID: 31337
@@ -35,8 +37,8 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: build-release-artifacts-${{ github.actor }}
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
       - name: "Build & Push images"
         timeout-minutes: 40
         # Run the build steps for each image with version and arch, push to dockerhub
@@ -59,6 +61,32 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
+
+      - name: Check if L1 contracts need deployment
+        id: check_changes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
+            const fileChanged = changedFiles.includes('l1-contracts/REDEPLOY');
+            return { fileChanged };
+
+      - name: Deploy L1 Contracts
+        if: steps.check_changes.outputs.fileChanged == 'true'
+        run: |
+          earthly-ci --no-output ./yarn-project/cli+deploy-l1-contracts \
+            --PRIVATE_KEY=${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
+            --RPC_URL=https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
+            | tee ${{ env.FILE_PATH }}
+          ./scripts/extract_l1_addresses.sh ${{ env.FILE_PATH }}
+
+      - name: Apply l1-contracts Terraform
+        if: steps.check_changes.outputs.fileChanged == 'true'
+        working-directory: ./l1-contracts/terraform
+        run: |
+          terraform init -input=false -backend-config="key=devnet/l1-contracts"
+          terraform apply -input=false -auto-approve
 
       - name: Deploy P2P Bootstrap Nodes
         working-directory: ./yarn-project/p2p-bootstrap/terraform
