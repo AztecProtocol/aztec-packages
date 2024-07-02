@@ -29,12 +29,22 @@ serve:
   COPY ./static static
   COPY ./src src
   COPY ./docusaurus.config.js .
+  COPY ./playwright.config.ts .
   COPY ./sidebars.js .
+  COPY ./docs docs
   ENTRYPOINT ["yarn", "serve"]
   EXPOSE 3000
   SAVE ARTIFACT /usr/src/docs
   SAVE IMAGE aztecprotocol/docs-server
-
+  
+test:
+  FROM +serve
+  COPY docker-compose.yml .
+  COPY Dockerfile.test .
+  WITH DOCKER \
+    --compose docker-compose.yml
+    RUN docker compose -f docker-compose.yml up -d && docker exec -it test yarn test
+  END
 
 deploy-preview:
   BUILD ../yarn-project/+scripts-prod
