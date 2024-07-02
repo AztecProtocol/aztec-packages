@@ -3,10 +3,10 @@ import {
   CallRequest,
   Fr,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -161,10 +161,10 @@ export class KernelProver {
     return (
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNoteHashes).length +
         getNonEmptyItems(output.publicInputs.end.newNoteHashes).length >
-        MAX_NEW_NOTE_HASHES_PER_TX ||
+        MAX_NOTE_HASHES_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNullifiers).length +
         getNonEmptyItems(output.publicInputs.end.newNullifiers).length >
-        MAX_NEW_NULLIFIERS_PER_TX ||
+        MAX_NULLIFIERS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteEncryptedLogsHashes).length +
         getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
         MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||

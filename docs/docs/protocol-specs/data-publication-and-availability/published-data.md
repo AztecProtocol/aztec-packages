@@ -7,9 +7,9 @@ The "Effects" of a transaction are the collection of state changes and metadata 
 | Field                | Type                                                                    | Description                                                                          |
 | -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `revertCode`         | `RevertCode`                                                            | Indicates the reason for reverting in public application logic. 0 indicates success. |
-| `note_hashes`        | `Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>`                          | The note hashes to be inserted into the note hash tree.                              |
-| `nullifiers`         | `Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>`                           | The nullifiers to be inserted into the nullifier tree.                               |
-| `l2_to_l2_msgs`      | `Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>`                        | The L2 to L1 messages to be inserted into the messagebox on L1.                      |
+| `note_hashes`        | `Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>`                          | The note hashes to be inserted into the note hash tree.                              |
+| `nullifiers`         | `Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>`                           | The nullifiers to be inserted into the nullifier tree.                               |
+| `l2_to_l2_msgs`      | `Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>`                        | The L2 to L1 messages to be inserted into the messagebox on L1.                      |
 | `public_data_writes` | `Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>` | Public data writes to be inserted into the public data tree                          |
 | `encrypted_logs`     | `TxL2Logs`                                                              | Buffers containing the emitted encrypted logs.                                       |
 | `unencrypted_logs`   | `TxL2Logs`                                                              | Buffers containing the emitted unencrypted logs.                                     |

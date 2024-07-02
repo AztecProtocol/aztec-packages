@@ -9,7 +9,7 @@ import {
   type GlobalVariables,
   KernelData,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
@@ -139,18 +139,18 @@ export async function buildBaseRollupInput(
   const publicDataSiblingPath = txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath;
 
   const stateDiffHints = StateDiffHints.from({
-    nullifierPredecessorPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
+    nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
       i < nullifierWitnessLeaves.length
         ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
         : NullifierLeafPreimage.empty(),
     ),
-    nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
+    nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
       i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
         ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
         : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
     ),
-    sortedNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
-    sortedNullifierIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
+    sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
+    sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
     noteHashSubtreeSiblingPath,
     nullifierSubtreeSiblingPath,
     publicDataSiblingPath,

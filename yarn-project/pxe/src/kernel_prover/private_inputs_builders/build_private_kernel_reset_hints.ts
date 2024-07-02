@@ -2,10 +2,10 @@ import {
   type Fr,
   KeyValidationHint,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
@@ -33,7 +33,7 @@ import { buildPrivateKernelResetOutputs } from './build_private_kernel_reset_out
 
 function getNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-  nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+  nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
   oracle: ProvingDataOracle,
   sizePending: PENDING,
   sizeSettled: SETTLED,
@@ -169,8 +169,8 @@ export async function buildPrivateKernelResetInputs(
     publicInputs.end.noteEncryptedLogsHashes,
     futureNoteHashReads,
     futureNullifierReads,
-    MAX_NEW_NOTE_HASHES_PER_TX,
-    MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NOTE_HASHES_PER_TX,
+    MAX_NULLIFIERS_PER_TX,
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   );
 
