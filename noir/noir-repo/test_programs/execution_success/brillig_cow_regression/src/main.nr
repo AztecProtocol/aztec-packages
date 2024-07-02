@@ -1,8 +1,8 @@
 // Tests a performance regression found in aztec-packages with brillig cow optimization
 
-global MAX_NEW_NOTE_HASHES_PER_TX: u64 = 64;
-global MAX_NEW_NULLIFIERS_PER_TX: u64 = 64;
-global MAX_NEW_L2_TO_L1_MSGS_PER_TX: u64 = 2;
+global MAX_NOTE_HASHES_PER_TX: u64 = 64;
+global MAX_NULLIFIERS_PER_TX: u64 = 64;
+global MAX_L2_TO_L1_MSGS_PER_TX: u64 = 2;
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u64 = 16;
 global MAX_NEW_CONTRACTS_PER_TX: u64 = 1;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
@@ -30,10 +30,10 @@ impl NewContractData {
 }
 
 struct DataToHash {
-    new_note_hashes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+    new_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    new_nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+    new_l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
@@ -110,15 +110,15 @@ unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA
 
     let mut offset = 0;
 
-    for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
+    for j in 0..MAX_NOTE_HASHES_PER_TX {
         tx_effects_hash_inputs[offset + j] = new_note_hashes[j];
     }
-    offset += MAX_NEW_NOTE_HASHES_PER_TX ;
+    offset += MAX_NOTE_HASHES_PER_TX ;
 
-    for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
+    for j in 0..MAX_NULLIFIERS_PER_TX {
         tx_effects_hash_inputs[offset + j] = new_nullifiers[j];
     }
-    offset += MAX_NEW_NULLIFIERS_PER_TX ;
+    offset += MAX_NULLIFIERS_PER_TX ;
 
     for j in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         tx_effects_hash_inputs[offset + j * 2] =
@@ -128,10 +128,10 @@ unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA
     }
     offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
-    for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
+    for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
         tx_effects_hash_inputs[offset + j] = newL2ToL1msgs[j];
     }
-    offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
+    offset += MAX_L2_TO_L1_MSGS_PER_TX;
 
     let contract_leaf = kernel_data.new_contracts[0];
     tx_effects_hash_inputs[offset] = contract_leaf.hash();

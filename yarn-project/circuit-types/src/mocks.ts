@@ -3,7 +3,7 @@ import {
   CallRequest,
   GasSettings,
   LogHash,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
@@ -78,7 +78,7 @@ export const mockTx = (
     const revertibleBuilder = new PublicAccumulatedDataBuilder();
     const nonRevertibleBuilder = new PublicAccumulatedDataBuilder();
 
-    const nonRevertibleNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty);
+    const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
     nonRevertibleNullifiers[0] = firstNullifier;
 
     data.forPublic.endNonRevertibleData = nonRevertibleBuilder

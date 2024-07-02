@@ -4,7 +4,7 @@ import {
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
@@ -71,7 +71,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     const pendingNullifiers = mergeAccumulatedData(
       nonRevertibleData.newNullifiers,
       revertibleData.newNullifiers,
-      MAX_NEW_NULLIFIERS_PER_TX,
+      MAX_NULLIFIERS_PER_TX,
     );
 
     const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
