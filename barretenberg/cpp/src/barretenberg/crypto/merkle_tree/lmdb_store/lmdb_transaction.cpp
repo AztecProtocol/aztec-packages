@@ -18,6 +18,10 @@ MDB_txn* LMDBTransaction::underlying() const
 
 void LMDBTransaction::abort()
 {
+    if (state != TransactionState::OPEN) {
+        return;
+    }
     call_lmdb_func(mdb_txn_abort, _transaction);
+    state = TransactionState::ABORTED;
 }
 } // namespace bb::crypto::merkle_tree

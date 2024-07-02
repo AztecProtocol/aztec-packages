@@ -98,9 +98,9 @@ std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_lo
                                                                                         bool includeUncommitted,
                                                                                         ReadTransaction& tx) const
 {
-    uint256_t new_value_as_number = uint256_t(new_value.get_fr_value());
+    uint256_t new_value_as_number = uint256_t(new_value.get_key());
     std::vector<uint8_t> data;
-    FrKeyType key(new_value.get_fr_value());
+    FrKeyType key(new_value.get_key());
     tx.get_value_or_previous(key, data);
     auto db_index = from_buffer<index_t>(data, 0);
     uint256_t retrieved_value = key;
@@ -164,7 +164,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::set_at_index(const index_t&
 {
     leaves_[index] = leaf;
     if (add_to_index) {
-        indices_[uint256_t(leaf.value.get_fr_value())] = index;
+        indices_[uint256_t(leaf.value.get_key())] = index;
     }
 }
 
@@ -241,29 +241,34 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
 {
     {
         WriteTransactionPtr tx = createWriteTransaction();
-        for (uint32_t i = 1; i < nodes.size(); i++) {
-            auto& level = nodes[i];
-            for (auto& item : level) {
-                index_t index = item.first;
-                std::vector<uint8_t>& data = item.second;
-                tx->put_node(i, index, data);
+        try {
+            for (uint32_t i = 1; i < nodes.size(); i++) {
+                auto& level = nodes[i];
+                for (auto& item : level) {
+                    index_t index = item.first;
+                    std::vector<uint8_t>& data = item.second;
+                    tx->put_node(i, index, data);
+                }
             }
+            for (auto& idx : indices_) {
+                std::vector<uint8_t> value;
+                write(value, idx.second);
+                FrKeyType key = idx.first;
+                tx->put_value_by_integer(key, value);
+            }
+            for (const auto& leaf : leaves_) {
+                msgpack::sbuffer buffer;
+                msgpack::pack(buffer, leaf.second);
+                std::vector<uint8_t> value(buffer.data(), buffer.data() + buffer.size());
+                LeafIndexKeyType key = leaf.first;
+                tx->put_value_by_integer(key, value);
+            }
+            persistMeta(meta, *tx);
+            tx->commit();
+        } catch (std::exception& e) {
+            tx->try_abort();
+            throw;
         }
-        for (auto& idx : indices_) {
-            std::vector<uint8_t> value;
-            write(value, idx.second);
-            FrKeyType key = idx.first;
-            tx->put_value_by_integer(key, value);
-        }
-        for (const auto& leaf : leaves_) {
-            msgpack::sbuffer buffer;
-            msgpack::pack(buffer, leaf.second);
-            std::vector<uint8_t> value(buffer.data(), buffer.data() + buffer.size());
-            LeafIndexKeyType key = leaf.first;
-            tx->put_value_by_integer(key, value);
-        }
-        persistMeta(meta, *tx);
-        tx->commit();
     }
     rollback();
 }
@@ -318,8 +323,13 @@ void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
     meta.size = 0;
     meta.depth = depth;
     WriteTransactionPtr tx = createWriteTransaction();
-    persistMeta(meta, *tx);
-    tx->commit();
+    try {
+        persistMeta(meta, *tx);
+        tx->commit();
+    } catch (std::exception& e) {
+        tx->try_abort();
+        throw e;
+    }
 }
 
 } // namespace bb::crypto::merkle_tree

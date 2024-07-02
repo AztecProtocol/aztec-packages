@@ -1,9 +1,10 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/leaves_cache.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <benchmark/benchmark.h>
 #include <filesystem>
@@ -11,7 +12,7 @@
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
 
-using StoreType = CachedTreeStore<LMDBStore, nullifier_leaf>;
+using StoreType = CachedTreeStore<LMDBStore, NullifierLeafValue>;
 
 using Poseidon2 = IndexedTree<StoreType, Poseidon2HashPolicy>;
 using Pedersen = IndexedTree<StoreType, PedersenHashPolicy>;
@@ -19,10 +20,10 @@ using Pedersen = IndexedTree<StoreType, PedersenHashPolicy>;
 const size_t TREE_DEPTH = 40;
 const size_t MAX_BATCH_SIZE = 128;
 
-template <typename TreeType> void add_values(TreeType& tree, const std::vector<fr>& values)
+template <typename TreeType> void add_values(TreeType& tree, const std::vector<NullifierLeafValue>& values)
 {
     Signal signal(1);
-    auto completion = [&](const std::vector<fr_hash_path>&, fr&, index_t) -> void { signal.signal_level(0); };
+    auto completion = [&](const TypedResponse<AddIndexedDataResponse>&) -> void { signal.signal_level(0); };
 
     tree.add_or_update_values(values, completion);
     signal.wait_for_level(0);
@@ -37,7 +38,7 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
     std::string name = randomString();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024, 2, num_threads);
+    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
 
     LMDBStore db(environment, name, false, false, IntegerKeyCmp);
     StoreType store(name, depth, db);
@@ -46,7 +47,7 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
 
     for (auto _ : state) {
         state.PauseTiming();
-        std::vector<fr> values(batch_size);
+        std::vector<NullifierLeafValue> values(batch_size);
         for (size_t i = 0; i < batch_size; ++i) {
             values[i] = fr(random_engine.get_random_uint256());
         }
@@ -64,7 +65,7 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
     std::string name = randomString();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 1;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024, 2, num_threads);
+    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
 
     LMDBStore db(environment, name, false, false, IntegerKeyCmp);
     StoreType store(name, depth, db);
@@ -73,7 +74,7 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
 
     for (auto _ : state) {
         state.PauseTiming();
-        std::vector<fr> values(batch_size);
+        std::vector<NullifierLeafValue> values(batch_size);
         for (size_t i = 0; i < batch_size; ++i) {
             values[i] = fr(random_engine.get_random_uint256());
         }

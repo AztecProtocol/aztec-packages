@@ -7,6 +7,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <benchmark/benchmark.h>
@@ -26,7 +27,7 @@ const size_t MAX_BATCH_SIZE = 128;
 template <typename TreeType> void perform_batch_insert(TreeType& tree, const std::vector<fr>& values)
 {
     Signal signal(1);
-    auto completion = [&](const fr&, index_t) -> void { signal.signal_level(0); };
+    auto completion = [&](const TypedResponse<AddDataResponse>&) -> void { signal.signal_level(0); };
 
     tree.add_values(values, completion);
     signal.wait_for_level(0);
@@ -49,7 +50,7 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
     std::string name = randomString();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024, 2, num_threads);
+    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
 
     LMDBStore db(environment, name, false, false, IntegerKeyCmp);
     StoreType store(name, depth, db);

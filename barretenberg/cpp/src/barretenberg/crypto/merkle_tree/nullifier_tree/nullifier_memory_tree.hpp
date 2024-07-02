@@ -66,7 +66,7 @@ namespace bb::crypto::merkle_tree {
 template <typename HashingPolicy> class NullifierMemoryTree : public MemoryTree<HashingPolicy> {
 
   public:
-    NullifierMemoryTree(size_t depth, size_t initial_size = 1);
+    NullifierMemoryTree(size_t depth, size_t initial_size = 2);
 
     using MemoryTree<HashingPolicy>::get_hash_path;
     using MemoryTree<HashingPolicy>::root;

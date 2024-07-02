@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
+#include <stdexcept>
 #include <vector>
 
 #include "barretenberg/common/serialize.hpp"
@@ -33,7 +34,7 @@ class LMDBStoreTest : public testing::Test {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
         _directory = randomTempDirectory();
         std::filesystem::create_directories(_directory);
-        _environment = std::make_unique<LMDBEnvironment>(_directory, 1, 2, 2);
+        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 2, 2);
     }
 
     void TearDown() override { std::filesystem::remove_all(_directory); }
@@ -169,16 +170,15 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
         uint32_t num_reads = 128;
 
         {
-
+            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
             for (size_t i = 0; i < num_reads; i++) {
-                LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
                 std::vector<uint8_t> key;
                 write(key, VALUES[i]);
                 std::vector<uint8_t> buf;
                 write(buf, VALUES[i + 128]);
                 transaction->put_value(key, buf);
-                transaction->commit();
             }
+            transaction->commit();
         }
 
         {
@@ -192,6 +192,21 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
                 bb::fr value = from_buffer<bb::fr>(buf2, 0);
                 EXPECT_EQ(value, VALUES[i + 128]);
             }
+        }
+    }
+}
+
+TEST_F(LMDBStoreTest, throws_if_write_transaction_is_reused)
+{
+    {
+        LMDBStore store(*_environment, "DB1");
+        {
+            std::vector<uint8_t> buf;
+            write(buf, VALUES[0]);
+            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            transaction->put_node(0, 0, buf);
+            transaction->commit();
+            EXPECT_THROW(transaction->put_node(0, 1, buf), std::runtime_error);
         }
     }
 }

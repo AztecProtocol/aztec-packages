@@ -6,6 +6,7 @@
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
@@ -29,7 +30,7 @@ class PersistedAppendOnlyTreeTest : public testing::Test {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
         _directory = randomTempDirectory();
         std::filesystem::create_directories(_directory);
-        _environment = std::make_unique<LMDBEnvironment>(_directory, 1, 2, 2);
+        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 2, 2);
     }
 
     void TearDown() override { std::filesystem::remove_all(_directory); }
@@ -43,61 +44,84 @@ std::string PersistedAppendOnlyTreeTest::_directory;
 
 void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted = true)
 {
-    Signal signal(1);
-    auto completion = [&](const std::string&, uint32_t, const index_t& size, const fr&) -> void {
-        EXPECT_EQ(size, expected_size);
-        signal.signal_level(0);
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.size, expected_size);
+        signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);
-    signal.wait_for_level(0);
+    signal.wait_for_level();
 }
 
 void check_root(TreeType& tree, fr expected_root, bool includeUncommitted = true)
 {
-    Signal signal(1);
-    auto completion = [&](const std::string&, uint32_t, const index_t&, const fr& root) -> void {
-        EXPECT_EQ(root, expected_root);
-        signal.signal_level(0);
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.root, expected_root);
+        signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);
-    signal.wait_for_level(0);
+    signal.wait_for_level();
 }
 
 void check_hash_path(TreeType& tree, index_t index, fr_hash_path expected_hash_path, bool includeUncommitted = true)
 {
-    Signal signal(1);
-    auto completion = [&](const fr_hash_path& path) -> void {
-        EXPECT_EQ(path, expected_hash_path);
-        signal.signal_level(0);
+    Signal signal;
+    auto completion = [&](const TypedResponse<GetHashPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.path, expected_hash_path);
+        signal.signal_level();
     };
     tree.get_hash_path(index, completion, includeUncommitted);
-    signal.wait_for_level(0);
+    signal.wait_for_level();
 }
 
 void commit_tree(TreeType& tree)
 {
-    Signal signal(1);
-    auto completion = [&]() -> void { signal.signal_level(0); };
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, true);
+        signal.signal_level();
+    };
     tree.commit(completion);
-    signal.wait_for_level(0);
+    signal.wait_for_level();
+}
+
+void rollback_tree(TreeType& tree)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, true);
+        signal.signal_level();
+    };
+    tree.rollback(completion);
+    signal.wait_for_level();
 }
 
 void add_value(TreeType& tree, const fr& value)
 {
-    Signal signal(1);
-    auto completion = [&](fr, index_t) -> void { signal.signal_level(0); };
+    Signal signal;
+    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        signal.signal_level();
+    };
 
     tree.add_value(value, completion);
-    signal.wait_for_level(0);
+    signal.wait_for_level();
 }
 
 void add_values(TreeType& tree, const std::vector<fr>& values)
 {
-    Signal signal(1);
-    auto completion = [&](fr, index_t) -> void { signal.signal_level(0); };
+    Signal signal;
+    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        signal.signal_level();
+    };
 
     tree.add_values(values, completion);
-    signal.wait_for_level(0);
+    signal.wait_for_level();
 }
 
 TEST_F(PersistedAppendOnlyTreeTest, can_create)
@@ -141,16 +165,123 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_hash_path)
     check_size(tree, 0);
     check_root(tree, memdb.root());
 
-    Signal signal(1);
-    auto completion = [&](fr, index_t) -> void { signal.signal_level(0); };
-
     memdb.update_element(0, VALUES[0]);
-    tree.add_value(VALUES[0], completion);
-    signal.wait_for_level(0);
+    add_value(tree, VALUES[0]);
 
     check_size(tree, 1);
     check_root(tree, memdb.root());
     check_hash_path(tree, 0, memdb.get_hash_path(0));
+}
+
+TEST_F(PersistedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
+{
+    constexpr size_t depth = 4;
+    std::string name = randomString();
+    std::string directory = randomTempDirectory();
+    std::filesystem::create_directories(directory);
+    auto environment = std::make_unique<LMDBEnvironment>(directory, 1024, 1, 2);
+    LMDBStore db(*environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+
+    std::vector<fr> values;
+    for (uint32_t i = 0; i < 16; i++) {
+        values.push_back(VALUES[i]);
+    }
+    add_values(tree, values);
+
+    Signal signal;
+    auto add_completion = [&](const TypedResponse<AddDataResponse>& response) {
+        EXPECT_EQ(response.success, false);
+        EXPECT_EQ(response.message, "Tree is full");
+        signal.signal_level();
+    };
+    tree.add_value(VALUES[16], add_completion);
+    signal.wait_for_level();
+    std::filesystem::remove_all(directory);
+}
+
+TEST_F(PersistedAppendOnlyTreeTest, errors_are_caught_and_handled)
+{
+    // We use a deep tree with a small amount of storage (20 * 1024) bytes
+    constexpr size_t depth = 16;
+    std::string name = randomString();
+    std::string directory = randomTempDirectory();
+    std::filesystem::create_directories(directory);
+    auto environment = std::make_unique<LMDBEnvironment>(directory, 300, 1, 2);
+    LMDBStore db(*environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    // check the committed data only, so we read from the db
+    check_size(tree, 0, false);
+    check_root(tree, memdb.root(), false);
+
+    fr empty_root = memdb.root();
+
+    // Add lots of values to the tree
+    uint32_t num_values_to_add = 16 * 1024;
+    std::vector<fr> values(num_values_to_add, VALUES[0]);
+    for (uint32_t i = 0; i < num_values_to_add; i++) {
+        memdb.update_element(i, VALUES[0]);
+    }
+    add_values(tree, values);
+
+    // check the uncommitted data is accurate
+    check_size(tree, num_values_to_add, true);
+    check_root(tree, memdb.root(), true);
+
+    // trying to commit that should fail
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, false);
+        signal.signal_level();
+    };
+
+    tree.commit(completion);
+    signal.wait_for_level();
+
+    // At this stage, the tree is still in an uncommited state despite the error
+    // Reading both committed and uncommitted data shold be ok
+
+    // check the uncommitted data is accurate
+    check_size(tree, num_values_to_add, true);
+    check_root(tree, memdb.root(), true);
+
+    // Reading committed data should still work
+    check_size(tree, 0, false);
+    check_root(tree, empty_root, false);
+
+    // Now rollback the tree
+    rollback_tree(tree);
+
+    // committed and uncommitted data should be as an empty tree
+    check_size(tree, 0, true);
+    check_root(tree, empty_root, true);
+
+    // Reading committed data should still work
+    check_size(tree, 0, false);
+    check_root(tree, empty_root, false);
+
+    // // Now add a single value and commit it
+    add_value(tree, VALUES[0]);
+    commit_tree(tree);
+
+    MemoryTree<Poseidon2HashPolicy> memdb2(depth);
+    memdb2.update_element(0, VALUES[0]);
+
+    // committed and uncommitted data should be equal to the tree with 1 item
+    check_size(tree, 1, true);
+    check_root(tree, memdb2.root(), true);
+
+    // Reading committed data should still work
+    check_size(tree, 1, false);
+    check_root(tree, memdb2.root(), false);
 }
 
 TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
@@ -332,15 +463,17 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
 
         Signal signal(2);
 
-        auto add_completion = [&](const fr&, index_t) {
+        auto add_completion = [&](const TypedResponse<AddDataResponse>&) {
             signal.signal_level(1);
-            auto commit_completion = [&]() { signal.signal_level(0); };
+            auto commit_completion = [&](const Response&) { signal.signal_level(0); };
             tree.commit(commit_completion);
         };
         tree.add_value(VALUES[0], add_completion);
 
         for (size_t i = 0; i < num_reads; i++) {
-            auto completion = [&, i](const fr_hash_path& path) { paths[i] = path; };
+            auto completion = [&, i](const TypedResponse<GetHashPathResponse>& response) {
+                paths[i] = response.inner.path;
+            };
             tree.get_hash_path(0, completion, false);
         }
         signal.wait_for_level(0);

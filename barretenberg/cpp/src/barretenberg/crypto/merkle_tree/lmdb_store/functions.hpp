@@ -14,7 +14,7 @@ void ThrowError(const std::string& errorString, int error);
 
 int SizeCmp(const MDB_val* a, const MDB_val* b);
 
-int Invalid(const MDB_val*, const MDB_val*);
+int MemCmp(const MDB_val*, const MDB_val*);
 
 template <typename T> int ValueCmp(const MDB_val* a, const MDB_val* b)
 {

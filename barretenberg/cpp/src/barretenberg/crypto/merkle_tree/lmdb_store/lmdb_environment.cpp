@@ -1,10 +1,11 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include <stdexcept>
 #include <sys/stat.h>
 
 namespace bb::crypto::merkle_tree {
 LMDBEnvironment::LMDBEnvironment(const std::string& directory,
-                                 uint64_t mapSizeMB,
+                                 uint64_t mapSizeKB,
                                  uint32_t maxNumDBs,
                                  uint32_t maxNumReaders)
     : _maxReaders(maxNumReaders)
@@ -12,15 +13,21 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
 {
     call_lmdb_func("mdb_env_create", mdb_env_create, &_mdbEnv);
     uint64_t kb = 1024;
-    uint64_t totalMapSize = kb * kb * mapSizeMB;
-    call_lmdb_func(mdb_env_set_mapsize, _mdbEnv, totalMapSize);
-    call_lmdb_func(mdb_env_set_maxdbs, _mdbEnv, static_cast<MDB_dbi>(maxNumDBs));
-    call_lmdb_func(mdb_env_set_maxreaders, _mdbEnv, maxNumReaders);
+    uint64_t totalMapSize = kb * mapSizeKB;
     uint32_t flags = MDB_NOTLS;
-    if (!call_lmdb_func(
-            mdb_env_open, _mdbEnv, directory.c_str(), flags, static_cast<mdb_mode_t>(S_IRWXU | S_IRWXG | S_IRWXO))) {
+    try {
+        call_lmdb_func("mdb_env_set_mapsize", mdb_env_set_mapsize, _mdbEnv, totalMapSize);
+        call_lmdb_func("mdb_env_set_maxdbs", mdb_env_set_maxdbs, _mdbEnv, static_cast<MDB_dbi>(maxNumDBs));
+        call_lmdb_func("mdb_env_set_maxreaders", mdb_env_set_maxreaders, _mdbEnv, maxNumReaders);
+        call_lmdb_func("mdb_env_open",
+                       mdb_env_open,
+                       _mdbEnv,
+                       directory.c_str(),
+                       flags,
+                       static_cast<mdb_mode_t>(S_IRWXU | S_IRWXG | S_IRWXO));
+    } catch (std::runtime_error& error) {
         call_lmdb_func(mdb_env_close, _mdbEnv);
-        // throw here
+        throw error;
     }
 }
 

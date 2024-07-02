@@ -11,7 +11,7 @@ LMDBWriteTransaction::LMDBWriteTransaction(LMDBEnvironment& env, const LMDBDatab
 
 LMDBWriteTransaction::~LMDBWriteTransaction()
 {
-    tryAbort();
+    try_abort();
 }
 
 void LMDBWriteTransaction::commit()
@@ -23,13 +23,12 @@ void LMDBWriteTransaction::commit()
     state = TransactionState::COMMITTED;
 }
 
-void LMDBWriteTransaction::tryAbort()
+void LMDBWriteTransaction::try_abort()
 {
     if (state != TransactionState::OPEN) {
         return;
     }
     LMDBTransaction::abort();
-    state = TransactionState::ABORTED;
 }
 
 void LMDBWriteTransaction::put_node(uint32_t level, index_t index, std::vector<uint8_t>& data)
@@ -47,6 +46,6 @@ void LMDBWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<uint
     MDB_val dbVal;
     dbVal.mv_size = data.size();
     dbVal.mv_data = (void*)data.data();
-    call_lmdb_func(mdb_put, underlying(), _database.underlying(), &dbKey, &dbVal, 0U);
+    call_lmdb_func("mdb_put", mdb_put, underlying(), _database.underlying(), &dbKey, &dbVal, 0U);
 }
 } // namespace bb::crypto::merkle_tree

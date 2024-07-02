@@ -24,7 +24,7 @@ class LMDBWriteTransaction : public LMDBTransaction {
 
     void commit();
 
-    void tryAbort();
+    void try_abort();
 
   protected:
     const LMDBDatabase& _database;

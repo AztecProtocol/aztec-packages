@@ -42,9 +42,62 @@ struct NullifierLeafValue {
         return os;
     }
 
-    fr get_fr_value() const { return value; }
+    fr get_key() const { return value; }
 
-    static NullifierLeafValue empty() { return { 0 }; }
+    bool is_empty() const { return value == fr::zero(); }
+
+    static NullifierLeafValue empty() { return { fr::zero() }; }
+
+    static NullifierLeafValue padding(index_t i) { return { i }; }
+};
+
+struct PublicDataLeafValue {
+    fr value;
+    fr slot;
+
+    MSGPACK_FIELDS(value, slot)
+
+    PublicDataLeafValue() = default;
+    PublicDataLeafValue(const fr& s, const fr& v)
+        : value(v)
+        , slot(s)
+    {}
+    PublicDataLeafValue(const PublicDataLeafValue& other) = default;
+    PublicDataLeafValue(PublicDataLeafValue&& other) = default;
+    PublicDataLeafValue& operator=(const PublicDataLeafValue& other)
+    {
+        if (this != &other) {
+            value = other.value;
+            slot = other.slot;
+        }
+        return *this;
+    }
+
+    PublicDataLeafValue& operator=(PublicDataLeafValue&& other) noexcept
+    {
+        if (this != &other) {
+            value = other.value;
+            slot = other.slot;
+        }
+        return *this;
+    }
+    ~PublicDataLeafValue() = default;
+
+    bool operator==(PublicDataLeafValue const& other) const { return value == other.value && slot == other.slot; }
+
+    friend std::ostream& operator<<(std::ostream& os, const PublicDataLeafValue& v)
+    {
+        os << "slot = " << v.slot << " : value = " << v.value;
+        return os;
+    }
+
+    fr get_key() const { return slot; }
+
+    bool is_empty() const { return value == fr::zero() && slot == fr::zero(); }
+
+    static PublicDataLeafValue empty() { return { fr::zero(), fr::zero() }; }
+
+    static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
 };
 
 template <typename LeafType> struct IndexedLeaf {
@@ -100,6 +153,8 @@ template <typename LeafType> struct IndexedLeaf {
     std::vector<fr> get_hash_inputs() const { return std::vector<fr>({ value.value, nextIndex, nextValue }); }
 
     static IndexedLeaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
+
+    static IndexedLeaf<LeafType> padding(index_t i) { return { LeafType::padding(i), 0, 0 }; }
 };
 
 } // namespace bb::crypto::merkle_tree

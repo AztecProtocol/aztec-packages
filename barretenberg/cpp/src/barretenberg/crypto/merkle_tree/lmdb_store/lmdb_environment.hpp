@@ -7,7 +7,7 @@
 namespace bb::crypto::merkle_tree {
 class LMDBEnvironment {
   public:
-    LMDBEnvironment(const std::string& directory, uint64_t mapSizeMB, uint32_t maxNumDBs, uint32_t maxNumReaders);
+    LMDBEnvironment(const std::string& directory, uint64_t mapSizeKb, uint32_t maxNumDBs, uint32_t maxNumReaders);
     LMDBEnvironment(const LMDBEnvironment& other) = delete;
     LMDBEnvironment(LMDBEnvironment&& other) = delete;
     LMDBEnvironment& operator=(const LMDBEnvironment& other) = delete;
