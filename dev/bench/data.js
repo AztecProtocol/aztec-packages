@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719916544491,
+  "lastUpdate": 1719917277785,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -62796,6 +62796,78 @@ window.BENCHMARK_DATA = {
             "value": 162283686,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162283686 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "244ef7e5a6871443444df88c28a1c2a7430d6db1",
+          "message": "chore: generate PIL constants from via constants gen (#7258)\n\nCo-authored-by: Maddiaa <47148561+Maddiaa0@users.noreply.github.com>\r\nCo-authored-by: Jean M <132435771+jeanmon@users.noreply.github.com>",
+          "timestamp": "2024-07-02T06:37:10-04:00",
+          "tree_id": "18572d3e3446a7a5370fb96025cc623169a95d72",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/244ef7e5a6871443444df88c28a1c2a7430d6db1"
+        },
+        "date": 1719917274222,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14117.601777999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9554.53733 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4751.562538999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4343.686500999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43028.342151000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43028343000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14415.872881000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14415873000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4148705334,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4148705334 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194095368,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194095368 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3401037473,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3401037473 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160062717,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160062717 ns\nthreads: 1"
           }
         ]
       }
