@@ -287,7 +287,7 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
-  async avmOpcodeFunctionSelector() {
+  avmOpcodeFunctionSelector() {
     const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
     return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
