@@ -391,8 +391,8 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
 
-    init_bn254_crs(1 << 18);
-    init_grumpkin_crs(1 << 14);
+    init_bn254_crs(1 << 22);
+    init_grumpkin_crs(1 << 16);
 
     ClientIVC ivc;
     ivc.structured_flag = true;
