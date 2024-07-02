@@ -3,6 +3,7 @@ use powdr_number::FieldElement;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::composer_builder::ComposerBuilder;
+use crate::copy_builder::Copies;
 use crate::file_writer::BBFiles;
 use crate::flavor_builder::FlavorBuilder;
 use crate::lookup_builder::get_counts_from_lookups;
@@ -12,6 +13,10 @@ use crate::lookup_builder::LookupBuilder;
 use crate::permutation_builder::get_inverses_from_permutations;
 use crate::permutation_builder::Permutation;
 use crate::permutation_builder::PermutationBuilder;
+
+use crate::copy_builder::get_grand_products_from_copies;
+use crate::copy_builder::get_id_column_names;
+use crate::copy_builder::CopyBuilder;
 use crate::prover_builder::ProverBuilder;
 use crate::relation_builder::RelationBuilder;
 use crate::relation_builder::RelationOutput;
@@ -44,6 +49,8 @@ struct ColumnGroups {
     all_cols_with_shifts: Vec<String>,
     /// Inverses from lookups and permuations
     inverses: Vec<String>,
+    /// Grand Products from copy constrainst
+    grand_products: Vec<String>,
 }
 
 /// Analyzed to cpp
@@ -85,6 +92,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
     // ----------------------- Handle Lookup / Permutation Relation Identities -----------------------
     let permutations = bb_files.create_permutation_files(file_name, analyzed);
     let lookups = bb_files.create_lookup_files(file_name, analyzed);
+    let copies = bb_files.create_copy_files(file_name, analyzed);
 
     // TODO: hack - this can be removed with some restructuring
     let shifted_polys: Vec<String> = shifted_polys
@@ -105,6 +113,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         shifted,
         all_cols_with_shifts,
         inverses,
+        grand_products,
     } = get_all_col_names(
         fixed,
         witness,
@@ -112,15 +121,15 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &shifted_polys,
         &permutations,
         &lookups,
+        &copies,
     );
-
-    bb_files.create_declare_views(file_name, &all_cols_with_shifts);
 
     // ----------------------- Create the circuit builder file -----------------------
     bb_files.create_circuit_builder_hpp(
         file_name,
         &relations,
         &inverses,
+        &grand_products,
         &all_cols_without_inverses,
         &all_cols,
         &to_be_shifted,
@@ -134,6 +143,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         file_name,
         &relations,
         &inverses,
+        &grand_products,
         &fixed,
         &witness,
         &all_cols,
@@ -151,12 +161,18 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         file_name,
         &witnesses_without_inverses,
         &inverses,
+        &grand_products,
         &public_inputs,
     );
     bb_files.create_verifier_hpp(file_name, &public_inputs);
 
     // ----------------------- Create the Prover files -----------------------
-    bb_files.create_prover_cpp(file_name, &witnesses_without_inverses, &inverses);
+    bb_files.create_prover_cpp(
+        file_name,
+        &witnesses_without_inverses,
+        &inverses,
+        &grand_products,
+    );
     bb_files.create_prover_hpp(file_name);
 }
 
@@ -177,6 +193,7 @@ fn get_all_col_names(
     to_be_shifted: &[String],
     permutations: &[Permutation],
     lookups: &[Lookup],
+    copies: &Copies,
 ) -> ColumnGroups {
     log::info!("Getting all column names");
 
@@ -187,9 +204,19 @@ fn get_all_col_names(
     let perm_inverses = get_inverses_from_permutations(permutations);
     let lookup_inverses = get_inverses_from_lookups(lookups);
     let lookup_counts = get_counts_from_lookups(lookups);
+    let grand_products = get_grand_products_from_copies(copies);
+    let id_columns = get_id_column_names(copies.num_id_columns);
 
     // Gather sanitized column names
-    let fixed_names = collect_col(fixed, sanitize);
+    let mut fixed_names = collect_col(fixed, sanitize);
+
+    if !copies.copy_pairs.is_empty() {
+        // If we have copies, we must include lagrange first and last as fixed columns
+        // As the grand product argument calculations depend on them
+        fixed_names.push("lagrange_first".to_owned());
+        fixed_names.push("lagrange_last".to_owned());
+    }
+
     let witness_names = collect_col(witness, sanitize);
     let public_names = collect_col(public, sanitize);
     let inverses = flatten(&[perm_inverses, lookup_inverses]);
@@ -197,15 +224,21 @@ fn get_all_col_names(
         public_names.clone(),
         witness_names.clone(),
         lookup_counts.clone(),
+        id_columns.clone(),
     ]);
     let witnesses_with_inverses = flatten(&[
         public_names.clone(),
         witness_names,
         inverses.clone(),
         lookup_counts,
+        grand_products.clone(),
+        id_columns.clone(),
     ]);
 
     // Group columns by properties
+    // Redefine to be shifted as grand products will also need to be shifted
+    let to_be_shifted = &flatten(&[to_be_shifted.to_vec(), grand_products.clone()]);
+
     let shifted = transform_map(to_be_shifted, append_shift);
     let all_cols_without_inverses: Vec<String> =
         flatten(&[fixed_names.clone(), witnesses_without_inverses.clone()]);
@@ -232,5 +265,6 @@ fn get_all_col_names(
         shifted,
         all_cols_with_shifts,
         inverses,
+        grand_products,
     }
 }

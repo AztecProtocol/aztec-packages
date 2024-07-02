@@ -128,7 +128,6 @@ fn create_permutation_settings_file(permutation: &Permutation) -> String {
         .clone()
         .expect("Inverse column name must be provided using attribute syntax");
 
-    // This also will need to work for both sides of this !
     let lhs_selector = permutation
         .left
         .selector

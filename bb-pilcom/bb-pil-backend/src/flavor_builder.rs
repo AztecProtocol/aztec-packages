@@ -10,6 +10,7 @@ pub trait FlavorBuilder {
         name: &str,
         relation_file_names: &[String],
         lookups: &[String],
+        grand_products: &[String],
         fixed: &[String],
         witness: &[String],
         all_cols: &[String],
@@ -26,6 +27,7 @@ impl FlavorBuilder for BBFiles {
         name: &str,
         relation_file_names: &[String],
         lookups: &[String],
+        grand_products: &[String],
         fixed: &[String],
         witness: &[String],
         all_cols: &[String],
@@ -34,14 +36,20 @@ impl FlavorBuilder for BBFiles {
         all_cols_and_shifts: &[String],
     ) {
         let first_poly = &witness[0];
-        let includes = flavor_includes(&snake_case(name), relation_file_names, lookups);
+        let includes = flavor_includes(
+            &snake_case(name),
+            relation_file_names,
+            lookups,
+            grand_products,
+        );
         let num_precomputed = fixed.len();
         let num_witness = witness.len();
         let num_all = all_cols_and_shifts.len();
 
         // Top of file boilerplate
         let class_aliases = create_class_aliases();
-        let relation_definitions = create_relation_definitions(name, relation_file_names, lookups);
+        let relation_definitions =
+            create_relation_definitions(name, relation_file_names, lookups, grand_products);
         let container_size_definitions =
             container_size_definitions(num_precomputed, num_witness, num_all);
 
@@ -52,7 +60,7 @@ impl FlavorBuilder for BBFiles {
             create_all_entities(all_cols, to_be_shifted, shifted, all_cols_and_shifts);
 
         let proving_and_verification_key =
-            create_proving_and_verification_key(name, lookups, to_be_shifted);
+            create_proving_and_verification_key(name, lookups, grand_products, to_be_shifted);
         let polynomial_views = create_polynomial_views(first_poly);
 
         let commitment_labels_class = create_commitment_labels(all_cols);
@@ -112,8 +120,14 @@ class {name}Flavor {{
 }
 
 /// Imports located at the top of the flavor files
-fn flavor_includes(name: &str, relation_file_names: &[String], lookups: &[String]) -> String {
-    let relation_imports = get_relations_imports(name, relation_file_names, lookups);
+fn flavor_includes(
+    name: &str,
+    relation_file_names: &[String],
+    lookups: &[String],
+    grand_products: &[String],
+) -> String {
+    let relation_imports =
+        get_relations_imports(name, relation_file_names, lookups, grand_products);
 
     format!(
         "#pragma once
@@ -125,6 +139,7 @@ fn flavor_includes(name: &str, relation_file_names: &[String], lookups: &[String
 #include \"barretenberg/polynomials/univariate.hpp\"
 
 #include \"barretenberg/relations/generic_permutation/generic_permutation_relation.hpp\"
+#include \"barretenberg/plonk_honk_shared/library/grand_product_library.hpp\"
 
 #include \"barretenberg/flavor/flavor_macros.hpp\"
 #include \"barretenberg/transcript/transcript.hpp\"
@@ -145,7 +160,7 @@ fn create_relations_tuple(master_name: &str, relation_file_names: &[String]) -> 
         .join(", ")
 }
 
-/// Creates comma separated relations tuple file
+/// Creates comma separated lookups tuple file
 fn create_lookups_tuple(lookups: &[String]) -> Option<String> {
     if lookups.is_empty() {
         return None;
@@ -191,22 +206,23 @@ fn create_relation_definitions(
     name: &str,
     relation_file_names: &[String],
     lookups: &[String],
+    grand_products: &[String],
 ) -> String {
     // Relations tuple = ns::relation_name_0, ns::relation_name_1, ... ns::relation_name_n (comma speratated)
     let comma_sep_relations = create_relations_tuple(name, relation_file_names);
     let comma_sep_lookups: Option<String> = create_lookups_tuple(lookups);
+    let comma_sep_grand_products: Option<String> = create_lookups_tuple(grand_products);
 
     // We only include the grand product relations if we are given lookups
-    let mut grand_product_relations = String::new();
     let mut all_relations = comma_sep_relations.to_string();
     if let Some(lookups) = comma_sep_lookups {
         all_relations = all_relations + &format!(", {lookups}");
-        grand_product_relations = format!("using GrandProductRelations = std::tuple<{lookups}>;");
+    }
+    if let Some(grand_products) = comma_sep_grand_products {
+        all_relations = all_relations + &format!(", {grand_products}");
     }
 
     format!("
-        {grand_product_relations}
-
         using Relations = std::tuple<{all_relations}>;
 
         static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -340,11 +356,13 @@ fn create_all_entities(
 fn create_proving_and_verification_key(
     flavor_name: &str,
     lookups: &[String],
+    grand_products: &[String],
     to_be_shifted: &[String],
 ) -> String {
     let get_to_be_shifted = return_ref_vector("get_to_be_shifted", to_be_shifted);
     let compute_logderivative_inverses =
         create_compute_logderivative_inverses(flavor_name, lookups);
+    let compute_grand_products = create_compute_grand_products(flavor_name, grand_products);
 
     format!("
         public:
@@ -357,6 +375,8 @@ fn create_proving_and_verification_key(
             {get_to_be_shifted}
 
             {compute_logderivative_inverses}
+
+            {compute_grand_products}
         }};
 
         using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
@@ -514,6 +534,39 @@ fn create_compute_logderivative_inverses(flavor_name: &str, lookups: &[String]) 
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
 
             {compute_inverses}
+        }}
+        "
+    )
+}
+
+/// Create the compute_grand_products function
+///
+/// If we do not have any copy constraints we do not need to include this round
+fn create_compute_grand_products(flavor_name: &str, grand_products: &[String]) -> String {
+    if grand_products.is_empty() {
+        return "".to_string();
+    }
+
+    let compute_grand_products_transformation = |gp: &String| {
+        format!("bb::compute_grand_product<{flavor_name}Flavor, {gp}_relation<FF>>(prover_polynomials, relation_parameters);")
+    };
+    let compute_grand_product_shifts = |gp: &String| {
+        format!("prover_polynomials.{gp}_shift = static_cast<Polynomial>(prover_polynomials.{gp}.shifted());")
+    };
+
+    let compute_grand_products =
+        map_with_newline(grand_products, compute_grand_products_transformation);
+    let grand_product_shifts = map_with_newline(grand_products, compute_grand_product_shifts);
+
+    format!(
+        "
+        void compute_grand_products(const RelationParameters<FF>& relation_parameters)
+        {{
+            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
+
+            {compute_grand_products}
+
+            {grand_product_shifts}
         }}
         "
     )

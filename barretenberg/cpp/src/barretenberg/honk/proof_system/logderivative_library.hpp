@@ -247,4 +247,5 @@ void accumulate_logderivative_permutation_subrelation_contributions(ContainerOve
     std::get<1>(accumulator) -=
         permutation_relation.template compute_write_term_predicate<Accumulator, 0>(in) * denominator_accumulator[1];
 }
+
 } // namespace bb
