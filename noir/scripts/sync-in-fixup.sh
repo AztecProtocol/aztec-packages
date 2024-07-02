@@ -19,3 +19,4 @@ sed -i "s/^require_command wasm-opt/#require_command wasm-opt/" ./acvm-repo/acvm
 
 # Replace `verify_honk_proof` test
 cp -r ../verify_honk_proof ./test_programs/execution_success/verify_honk_proof
+git add ./test_programs/execution_success/verify_honk_proof
