@@ -113,6 +113,10 @@ export class TXE implements TypedOracle {
     return this.msgSender;
   }
 
+  getFunctionSelector() {
+    return this.functionSelector;
+  }
+
   setMsgSender(msgSender: Fr) {
     this.msgSender = msgSender;
   }
@@ -185,11 +189,10 @@ export class TXE implements TypedOracle {
 
   getPublicContextInputs() {
     const inputs = {
-      functionSelector: FunctionSelector.fromField(new Fr(0)),
       argsHash: new Fr(0),
       isStaticCall: false,
       toFields: function () {
-        return [this.functionSelector.toField(), this.argsHash, new Fr(this.isStaticCall)];
+        return [this.argsHash, new Fr(this.isStaticCall)];
       },
     };
     return inputs;

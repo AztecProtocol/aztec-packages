@@ -251,6 +251,16 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  setFunctionSelector(functionSelector: ForeignCallSingle) {
+    (this.typedOracle as TXE).setFunctionSelector(FunctionSelector.fromField(fromSingle(functionSelector)));
+    return toForeignCallResult([]);
+  }
+
+  getFunctionSelector() {
+    const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
+    return toForeignCallResult([toSingle(functionSelector.toField())]);
+  }
+
   // PXE oracles
 
   getRandomField() {
@@ -275,6 +285,11 @@ export class TXEService {
   async avmOpcodeBlockNumber() {
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
+  }
+
+  async avmOpcodeFunctionSelector() {
+    const functionSelector = await (this.typedOracle as TXE).getFunctionSelector();
+    return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
   async packArgumentsArray(args: ForeignCallArray) {
