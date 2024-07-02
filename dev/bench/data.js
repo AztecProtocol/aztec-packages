@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719936221707,
+  "lastUpdate": 1719936266726,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -64028,6 +64028,78 @@ window.BENCHMARK_DATA = {
             "value": 161818153,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161818153 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "463730458de2397d66ec90fedfeee61700c426a4",
+          "message": "refactor: reduce note and nullifier constants (#7255)\n\nReduces the `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL`,\r\n`MAX_NULLIFIER_READ_REQUESTS_PER_CALL`,\r\n`MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL` to `16` to align\r\nbetter what is possible, e.g., we should not allow doing more read\r\nrequests than what you would be able to \"read\" and check is up to date.\r\nAlso updating the TX versions.\r\n\r\nNote, there might be a slight edge case, namely that if doing\r\n`MAX_NOTE_HASH_READ_REQUESTS_PER_TX` you might not be able to really\r\nemit MAX nulliifier because one of them was used for the tx hash.",
+          "timestamp": "2024-07-02T16:50:27+01:00",
+          "tree_id": "a6e92a7a80fc4ad9bbeab4d3b0d51bce74d3e180",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/463730458de2397d66ec90fedfeee61700c426a4"
+        },
+        "date": 1719936264389,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14123.45888600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9688.285665999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4804.525979999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4377.169296 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 44393.105884000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 44393106000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14416.014912,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14416015000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4249362791,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4249362791 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195827869,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195827869 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3500501895,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3500501895 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161254564,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161254564 ns\nthreads: 1"
           }
         ]
       }
