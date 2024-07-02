@@ -27,15 +27,15 @@ export class PublicAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public readonly newNoteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+    public readonly noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public readonly newNullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
+    public readonly nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public readonly newL2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    public readonly l2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated encrypted note logs hashes from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -69,9 +69,9 @@ export class PublicAccumulatedData {
 
   getSize() {
     return (
-      arraySerializedSizeOfNonEmpty(this.newNoteHashes) +
-      arraySerializedSizeOfNonEmpty(this.newNullifiers) +
-      arraySerializedSizeOfNonEmpty(this.newL2ToL1Msgs) +
+      arraySerializedSizeOfNonEmpty(this.noteHashes) +
+      arraySerializedSizeOfNonEmpty(this.nullifiers) +
+      arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
       arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
@@ -83,9 +83,9 @@ export class PublicAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.newL2ToL1Msgs,
+      this.noteHashes,
+      this.nullifiers,
+      this.l2ToL1Msgs,
       this.noteEncryptedLogsHashes,
       this.encryptedLogsHashes,
       this.unencryptedLogsHashes,
@@ -101,9 +101,9 @@ export class PublicAccumulatedData {
 
   isEmpty(): boolean {
     return (
-      this.newNoteHashes.every(x => x.isEmpty()) &&
-      this.newNullifiers.every(x => x.isEmpty()) &&
-      this.newL2ToL1Msgs.every(x => x.isZero()) &&
+      this.noteHashes.every(x => x.isEmpty()) &&
+      this.nullifiers.every(x => x.isEmpty()) &&
+      this.l2ToL1Msgs.every(x => x.isZero()) &&
       this.noteEncryptedLogsHashes.every(x => x.isEmpty()) &&
       this.encryptedLogsHashes.every(x => x.isEmpty()) &&
       this.unencryptedLogsHashes.every(x => x.isEmpty()) &&
@@ -116,15 +116,15 @@ export class PublicAccumulatedData {
   [inspect.custom]() {
     // print out the non-empty fields
     return `PublicAccumulatedData {
-  newNoteHashes: [${this.newNoteHashes
+  noteHashes: [${this.noteHashes
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  newNullifiers: [${this.newNullifiers
+  nullifiers: [${this.nullifiers
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  newL2ToL1Msgs: [${this.newL2ToL1Msgs
+  l2ToL1Msgs: [${this.l2ToL1Msgs
     .filter(x => !x.isZero())
     .map(h => inspect(h))
     .join(', ')}],

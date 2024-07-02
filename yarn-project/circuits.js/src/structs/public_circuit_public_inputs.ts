@@ -95,15 +95,15 @@ export class PublicCircuitPublicInputs {
     /**
      * New note hashes created within a public execution call
      */
-    public newNoteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
+    public noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
-    public newNullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
+    public nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
     /**
      * New L2 to L1 messages generated during the call.
      */
-    public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * The side effect counter when this context was started.
      */
@@ -197,9 +197,9 @@ export class PublicCircuitPublicInputs {
       isEmptyArray(this.contractStorageUpdateRequests) &&
       isEmptyArray(this.contractStorageReads) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
-      isEmptyArray(this.newNoteHashes) &&
-      isEmptyArray(this.newNullifiers) &&
-      isEmptyArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.noteHashes) &&
+      isEmptyArray(this.nullifiers) &&
+      isEmptyArray(this.l2ToL1Msgs) &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
       isEmptyArray(this.unencryptedLogsHashes) &&
@@ -230,9 +230,9 @@ export class PublicCircuitPublicInputs {
       fields.contractStorageUpdateRequests,
       fields.contractStorageReads,
       fields.publicCallStackHashes,
-      fields.newNoteHashes,
-      fields.newNullifiers,
-      fields.newL2ToL1Msgs,
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.unencryptedLogsHashes,

@@ -69,8 +69,8 @@ export class TailPhaseManager extends AbstractPhaseManager {
     const { validationRequests, endNonRevertibleData: nonRevertibleData, end: revertibleData } = previousOutput;
 
     const pendingNullifiers = mergeAccumulatedData(
-      nonRevertibleData.newNullifiers,
-      revertibleData.newNullifiers,
+      nonRevertibleData.nullifiers,
+      revertibleData.nullifiers,
       MAX_NULLIFIERS_PER_TX,
     );
 

@@ -83,8 +83,8 @@ export class CombineHints {
     nonRevertibleData: PublicAccumulatedData;
   }): CombineHints {
     const mergedNoteHashes = mergeAccumulatedData(
-      nonRevertibleData.newNoteHashes,
-      revertibleData.newNoteHashes,
+      nonRevertibleData.noteHashes,
+      revertibleData.noteHashes,
       MAX_NOTE_HASHES_PER_TX,
     );
 
