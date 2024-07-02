@@ -288,7 +288,7 @@ export class TXEService {
   }
 
   async avmOpcodeFunctionSelector() {
-    const functionSelector = await (this.typedOracle as TXE).getFunctionSelector();
+    const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
     return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
