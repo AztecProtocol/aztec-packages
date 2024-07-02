@@ -22,13 +22,17 @@ You can also click on this badge and start a codespace - a free remote server th
 
 Start a new project by using the very same `npx` command that powers the codespace:
 
-<Test hidden>yes | npx aztec-app init -v zpedro/tutorials_refactor</Test>
+<Test mode="exec" hidden>
+  yes | npx aztec-app init -v zpedro/tutorials_refactor
+</Test>
 
 ```bash
 yes | npx aztec-app init
 ```
 
-<Test hidden>touch yarn.lock</Test>
+<Test mode="exec" hidden>
+  touch yarn.lock
+</Test>
 
 :::tip
 
@@ -44,7 +48,7 @@ Once upon a time, we could compile and deploy on the CLI. It will come back one 
 
 Ok ok let's compile this little guy. While we're here, we can also use the handy `aztec-builder` package to generate some TS bindings.
 
-<Test>
+<Test mode="exec">
 
 ```bash
 aztec-nargo compile
@@ -55,7 +59,7 @@ aztec-builder codegen -o artifacts target
 
 Wait, we don't yet have a project, right? Let's do it now, and btw let's install `@aztec/aztec.js` and `@aztec/accounts`.
 
-<Test>
+<Test mode="exec">
 
 ```bash
 yes | yarn add @aztec/aztec.js @aztec/accounts
@@ -67,7 +71,7 @@ These two packages are quite useful. `aztec.js` gives us a nice interface to int
 
 So, let's create an `index.ts` file and add those imports. Since we're here, let's import the contract artifact we generated above.
 
-<Test replaceLines="0" file="index.ts">
+<Test mode="all" file="index.ts">
 
 ```ts
 import { createPXEClient } from "@aztec/aztec.js";
@@ -87,7 +91,7 @@ Since the sandbox is running already, our PXE is also running. Yey! So we call i
 
 Then we can deploy our artifact, broadcast it, and wait for the result:
 
-<Test replaceLines="+" file="index.ts">
+<Test mode="end" file="index.ts">
 
 ```ts
 const pxe = createPXEClient("http://localhost:8080");
@@ -99,9 +103,17 @@ console.log("Yey! Address: ", address);
 
 </Test>
 
+<Test hidden mode="replace" begin="4" end="5" file="index.ts">
+    
+```ts
+const pxe = createPXEClient("http://aztec:8080");
+```
+
+</Test>
+
 With the infra ready, all we need is <s>love</s> hit the button:
 
-<Test>
+<Test mode="exec">
 
 ```bash
 yes | npx tsx index.ts
@@ -122,7 +134,7 @@ So I like tsx, which uses sensible defaults that "just work" 💡
 
 Ok ok let's dive in the actual voting logic. Let's have a look at our `main.nr`. There's not much in there, but there's an initializer that runs when you deploy it, and turns out we would like to have an admin for our little election. So we pass it as a parameter:
 
-<Test file="src/main.nr" replaceLines="3,-1">
+<Test file="src/main.nr" mode="replace" begin="3" end="-1">
 
 ```rust
 #[aztec(public)]
@@ -138,7 +150,7 @@ fn constructor(admin: AztecAddress) {
 
 What's this storage thing? Well, that's something we need to define. Thankfully, there's a `#[aztec(storage)]` macro for that. Above our initializer, we can add our admin.
 
-<Test file="src/main.nr" replaceLines="3,2">
+<Test file="src/main.nr" mode="insert" at="3">
 
 ```rust
 #[aztec(storage)]
@@ -156,7 +168,7 @@ We also added another storage value `tally`, which is a map that relates a key (
 
 Here's all the code we have so far:
 
-<Test compare file="src/main.nr">
+<Test mode="compare" file="src/main.nr">
 
 ```rust
 contract Main {
@@ -262,7 +274,7 @@ We now need to add +1 to the person we chose to vote for. So we call a public fu
 
 Let's call our own contract with our current execution context, and enqueue our call. And that's it for this function. Feel free to copy it, you lazy goblin!
 
-<Test replaceLines="-1,-1" file="src/main.nr">
+<Test mode="insert" at="-1" file="src/main.nr">
 
 ```rust
 #[aztec(private)]
@@ -282,7 +294,7 @@ fn cast_vote(candidate: Field) {
 
 The `add_to_tally_public` function is quite straightforward. It just reads and writes a public value from the `tally` [Map](../reference/smart_contract_reference/aztec-nr/aztec/state_vars/map#at):
 
-<Test replaceLines="-1,-1" file="src/main.nr">
+<Test mode="insert" at="-1" file="src/main.nr">
 
 ```rust
 #[aztec(public)]
@@ -301,7 +313,8 @@ You can deploy now! Just make sure to add the address as a parameter to the `dep
 {/* <!-- prettier-ignore-start --> */}
 
 <Test
-  replaceLines="-1"
+  mode="replace"
+  begin="-1"
   file="index.ts"
   hidden
 >
@@ -318,7 +331,7 @@ You can deploy now! Just make sure to add the address as a parameter to the `dep
 
 You also want to import some dependencies we're using, like `AztecAddress`. Make sure to do it _inside_ the `Contract` block:
 
-<Test replaceLines="2,3" file="src/main.nr">
+<Test mode="replace" begin="1" end="3" file="src/main.nr">
 
 ```rust
 contract Main {
@@ -331,7 +344,7 @@ contract Main {
 
 Head to your terminal to recompile, generate the artifact, and run:
 
-<Test>
+<Test mode="exec">
 
 ```bash
 aztec-nargo compile
