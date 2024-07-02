@@ -179,9 +179,9 @@ mod tests {
 
     unconstrained fn compute_hash_bytes(
         siloed_encrypted_logs_hash: Field,
-        siloed_encrypted_logs_hash: Field
+        new_siloed_encrypted_logs_hash: Field
     ) -> [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] {
-        siloed_encrypted_logs_hash.to_be_bytes(32).append(siloed_encrypted_logs_hash.to_be_bytes(32)).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 64]).as_array()
+        siloed_encrypted_logs_hash.to_be_bytes(32).append(new_siloed_encrypted_logs_hash.to_be_bytes(32)).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 64]).as_array()
     }
 
     #[test]
