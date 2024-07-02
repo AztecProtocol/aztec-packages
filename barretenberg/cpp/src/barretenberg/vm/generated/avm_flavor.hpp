@@ -72,6 +72,10 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_a.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_b.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_c.hpp"
+#include "barretenberg/relations/generated/avm/perm_pos_mem_d.hpp"
 #include "barretenberg/relations/generated/avm/poseidon2.hpp"
 #include "barretenberg/relations/generated/avm/powers.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
@@ -100,13 +104,17 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 385;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 676;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 452;
+    static constexpr size_t NUM_ALL_ENTITIES = 748;
 
-    using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
+    using GrandProductRelations = std::tuple<perm_pos_mem_a_relation<FF>,
+                                             perm_pos_mem_b_relation<FF>,
+                                             perm_pos_mem_c_relation<FF>,
+                                             perm_pos_mem_d_relation<FF>,
+                                             perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
                                              perm_main_conv_relation<FF>,
                                              perm_main_pos2_perm_relation<FF>,
@@ -173,6 +181,10 @@ class AvmFlavor {
                                  Avm_vm::poseidon2<FF>,
                                  Avm_vm::powers<FF>,
                                  Avm_vm::sha256<FF>,
+                                 perm_pos_mem_a_relation<FF>,
+                                 perm_pos_mem_b_relation<FF>,
+                                 perm_pos_mem_c_relation<FF>,
+                                 perm_pos_mem_d_relation<FF>,
                                  perm_main_alu_relation<FF>,
                                  perm_main_bin_relation<FF>,
                                  perm_main_conv_relation<FF>,
@@ -524,6 +536,10 @@ class AvmFlavor {
                               mem_sel_op_c,
                               mem_sel_op_cmov,
                               mem_sel_op_d,
+                              mem_sel_op_gadget_a,
+                              mem_sel_op_gadget_b,
+                              mem_sel_op_gadget_c,
+                              mem_sel_op_gadget_d,
                               mem_sel_resolve_ind_addr_a,
                               mem_sel_resolve_ind_addr_b,
                               mem_sel_resolve_ind_addr_c,
@@ -540,16 +556,303 @@ class AvmFlavor {
                               pedersen_input,
                               pedersen_output,
                               pedersen_sel_pedersen,
+                              poseidon2_B_10_0,
+                              poseidon2_B_10_1,
+                              poseidon2_B_10_2,
+                              poseidon2_B_10_3,
+                              poseidon2_B_11_0,
+                              poseidon2_B_11_1,
+                              poseidon2_B_11_2,
+                              poseidon2_B_11_3,
+                              poseidon2_B_12_0,
+                              poseidon2_B_12_1,
+                              poseidon2_B_12_2,
+                              poseidon2_B_12_3,
+                              poseidon2_B_13_0,
+                              poseidon2_B_13_1,
+                              poseidon2_B_13_2,
+                              poseidon2_B_13_3,
+                              poseidon2_B_14_0,
+                              poseidon2_B_14_1,
+                              poseidon2_B_14_2,
+                              poseidon2_B_14_3,
+                              poseidon2_B_15_0,
+                              poseidon2_B_15_1,
+                              poseidon2_B_15_2,
+                              poseidon2_B_15_3,
+                              poseidon2_B_16_0,
+                              poseidon2_B_16_1,
+                              poseidon2_B_16_2,
+                              poseidon2_B_16_3,
+                              poseidon2_B_17_0,
+                              poseidon2_B_17_1,
+                              poseidon2_B_17_2,
+                              poseidon2_B_17_3,
+                              poseidon2_B_18_0,
+                              poseidon2_B_18_1,
+                              poseidon2_B_18_2,
+                              poseidon2_B_18_3,
+                              poseidon2_B_19_0,
+                              poseidon2_B_19_1,
+                              poseidon2_B_19_2,
+                              poseidon2_B_19_3,
+                              poseidon2_B_20_0,
+                              poseidon2_B_20_1,
+                              poseidon2_B_20_2,
+                              poseidon2_B_20_3,
+                              poseidon2_B_21_0,
+                              poseidon2_B_21_1,
+                              poseidon2_B_21_2,
+                              poseidon2_B_21_3,
+                              poseidon2_B_22_0,
+                              poseidon2_B_22_1,
+                              poseidon2_B_22_2,
+                              poseidon2_B_22_3,
+                              poseidon2_B_23_0,
+                              poseidon2_B_23_1,
+                              poseidon2_B_23_2,
+                              poseidon2_B_23_3,
+                              poseidon2_B_24_0,
+                              poseidon2_B_24_1,
+                              poseidon2_B_24_2,
+                              poseidon2_B_24_3,
+                              poseidon2_B_25_0,
+                              poseidon2_B_25_1,
+                              poseidon2_B_25_2,
+                              poseidon2_B_25_3,
+                              poseidon2_B_26_0,
+                              poseidon2_B_26_1,
+                              poseidon2_B_26_2,
+                              poseidon2_B_26_3,
+                              poseidon2_B_27_0,
+                              poseidon2_B_27_1,
+                              poseidon2_B_27_2,
+                              poseidon2_B_27_3,
+                              poseidon2_B_28_0,
+                              poseidon2_B_28_1,
+                              poseidon2_B_28_2,
+                              poseidon2_B_28_3,
+                              poseidon2_B_29_0,
+                              poseidon2_B_29_1,
+                              poseidon2_B_29_2,
+                              poseidon2_B_29_3,
+                              poseidon2_B_30_0,
+                              poseidon2_B_30_1,
+                              poseidon2_B_30_2,
+                              poseidon2_B_30_3,
+                              poseidon2_B_31_0,
+                              poseidon2_B_31_1,
+                              poseidon2_B_31_2,
+                              poseidon2_B_31_3,
+                              poseidon2_B_32_0,
+                              poseidon2_B_32_1,
+                              poseidon2_B_32_2,
+                              poseidon2_B_32_3,
+                              poseidon2_B_33_0,
+                              poseidon2_B_33_1,
+                              poseidon2_B_33_2,
+                              poseidon2_B_33_3,
+                              poseidon2_B_34_0,
+                              poseidon2_B_34_1,
+                              poseidon2_B_34_2,
+                              poseidon2_B_34_3,
+                              poseidon2_B_35_0,
+                              poseidon2_B_35_1,
+                              poseidon2_B_35_2,
+                              poseidon2_B_35_3,
+                              poseidon2_B_36_0,
+                              poseidon2_B_36_1,
+                              poseidon2_B_36_2,
+                              poseidon2_B_36_3,
+                              poseidon2_B_37_0,
+                              poseidon2_B_37_1,
+                              poseidon2_B_37_2,
+                              poseidon2_B_37_3,
+                              poseidon2_B_38_0,
+                              poseidon2_B_38_1,
+                              poseidon2_B_38_2,
+                              poseidon2_B_38_3,
+                              poseidon2_B_39_0,
+                              poseidon2_B_39_1,
+                              poseidon2_B_39_2,
+                              poseidon2_B_39_3,
+                              poseidon2_B_40_0,
+                              poseidon2_B_40_1,
+                              poseidon2_B_40_2,
+                              poseidon2_B_40_3,
+                              poseidon2_B_41_0,
+                              poseidon2_B_41_1,
+                              poseidon2_B_41_2,
+                              poseidon2_B_41_3,
+                              poseidon2_B_42_0,
+                              poseidon2_B_42_1,
+                              poseidon2_B_42_2,
+                              poseidon2_B_42_3,
+                              poseidon2_B_43_0,
+                              poseidon2_B_43_1,
+                              poseidon2_B_43_2,
+                              poseidon2_B_43_3,
+                              poseidon2_B_44_0,
+                              poseidon2_B_44_1,
+                              poseidon2_B_44_2,
+                              poseidon2_B_44_3,
+                              poseidon2_B_45_0,
+                              poseidon2_B_45_1,
+                              poseidon2_B_45_2,
+                              poseidon2_B_45_3,
+                              poseidon2_B_46_0,
+                              poseidon2_B_46_1,
+                              poseidon2_B_46_2,
+                              poseidon2_B_46_3,
+                              poseidon2_B_47_0,
+                              poseidon2_B_47_1,
+                              poseidon2_B_47_2,
+                              poseidon2_B_47_3,
+                              poseidon2_B_48_0,
+                              poseidon2_B_48_1,
+                              poseidon2_B_48_2,
+                              poseidon2_B_48_3,
+                              poseidon2_B_49_0,
+                              poseidon2_B_49_1,
+                              poseidon2_B_49_2,
+                              poseidon2_B_49_3,
+                              poseidon2_B_4_0,
+                              poseidon2_B_4_1,
+                              poseidon2_B_4_2,
+                              poseidon2_B_4_3,
+                              poseidon2_B_50_0,
+                              poseidon2_B_50_1,
+                              poseidon2_B_50_2,
+                              poseidon2_B_50_3,
+                              poseidon2_B_51_0,
+                              poseidon2_B_51_1,
+                              poseidon2_B_51_2,
+                              poseidon2_B_51_3,
+                              poseidon2_B_52_0,
+                              poseidon2_B_52_1,
+                              poseidon2_B_52_2,
+                              poseidon2_B_52_3,
+                              poseidon2_B_53_0,
+                              poseidon2_B_53_1,
+                              poseidon2_B_53_2,
+                              poseidon2_B_53_3,
+                              poseidon2_B_54_0,
+                              poseidon2_B_54_1,
+                              poseidon2_B_54_2,
+                              poseidon2_B_54_3,
+                              poseidon2_B_55_0,
+                              poseidon2_B_55_1,
+                              poseidon2_B_55_2,
+                              poseidon2_B_55_3,
+                              poseidon2_B_56_0,
+                              poseidon2_B_56_1,
+                              poseidon2_B_56_2,
+                              poseidon2_B_56_3,
+                              poseidon2_B_57_0,
+                              poseidon2_B_57_1,
+                              poseidon2_B_57_2,
+                              poseidon2_B_57_3,
+                              poseidon2_B_58_0,
+                              poseidon2_B_58_1,
+                              poseidon2_B_58_2,
+                              poseidon2_B_58_3,
+                              poseidon2_B_59_0,
+                              poseidon2_B_59_1,
+                              poseidon2_B_59_2,
+                              poseidon2_B_59_3,
+                              poseidon2_B_5_0,
+                              poseidon2_B_5_1,
+                              poseidon2_B_5_2,
+                              poseidon2_B_5_3,
+                              poseidon2_B_6_0,
+                              poseidon2_B_6_1,
+                              poseidon2_B_6_2,
+                              poseidon2_B_6_3,
+                              poseidon2_B_7_0,
+                              poseidon2_B_7_1,
+                              poseidon2_B_7_2,
+                              poseidon2_B_7_3,
+                              poseidon2_B_8_0,
+                              poseidon2_B_8_1,
+                              poseidon2_B_8_2,
+                              poseidon2_B_8_3,
+                              poseidon2_B_9_0,
+                              poseidon2_B_9_1,
+                              poseidon2_B_9_2,
+                              poseidon2_B_9_3,
+                              poseidon2_EXT_LAYER_4,
+                              poseidon2_EXT_LAYER_5,
+                              poseidon2_EXT_LAYER_6,
+                              poseidon2_EXT_LAYER_7,
+                              poseidon2_T_0_4,
+                              poseidon2_T_0_5,
+                              poseidon2_T_0_6,
+                              poseidon2_T_0_7,
+                              poseidon2_T_1_4,
+                              poseidon2_T_1_5,
+                              poseidon2_T_1_6,
+                              poseidon2_T_1_7,
+                              poseidon2_T_2_4,
+                              poseidon2_T_2_5,
+                              poseidon2_T_2_6,
+                              poseidon2_T_2_7,
+                              poseidon2_T_3_4,
+                              poseidon2_T_3_5,
+                              poseidon2_T_3_6,
+                              poseidon2_T_3_7,
+                              poseidon2_T_60_4,
+                              poseidon2_T_60_5,
+                              poseidon2_T_60_6,
+                              poseidon2_T_60_7,
+                              poseidon2_T_61_4,
+                              poseidon2_T_61_5,
+                              poseidon2_T_61_6,
+                              poseidon2_T_61_7,
+                              poseidon2_T_62_4,
+                              poseidon2_T_62_5,
+                              poseidon2_T_62_6,
+                              poseidon2_T_62_7,
+                              poseidon2_T_63_4,
+                              poseidon2_T_63_5,
+                              poseidon2_T_63_6,
+                              poseidon2_T_63_7,
+                              poseidon2_a_0,
+                              poseidon2_a_1,
+                              poseidon2_a_2,
+                              poseidon2_a_3,
+                              poseidon2_b_0,
+                              poseidon2_b_1,
+                              poseidon2_b_2,
+                              poseidon2_b_3,
                               poseidon2_clk,
-                              poseidon2_input,
-                              poseidon2_output,
+                              poseidon2_input_addr,
+                              poseidon2_input_addr_1,
+                              poseidon2_input_addr_2,
+                              poseidon2_input_addr_3,
+                              poseidon2_mem_addr_a,
+                              poseidon2_mem_addr_b,
+                              poseidon2_mem_addr_c,
+                              poseidon2_mem_addr_d,
+                              poseidon2_mem_op,
+                              poseidon2_output_addr,
+                              poseidon2_output_addr_1,
+                              poseidon2_output_addr_2,
+                              poseidon2_output_addr_3,
+                              poseidon2_r_in_tag,
+                              poseidon2_read_line,
                               poseidon2_sel_poseidon_perm,
+                              poseidon2_w_in_tag,
+                              poseidon2_write_line,
                               powers_power_of_2,
                               sha256_clk,
                               sha256_input,
                               sha256_output,
                               sha256_sel_sha256_compression,
                               sha256_state,
+                              perm_pos_mem_a,
+                              perm_pos_mem_b,
+                              perm_pos_mem_c,
+                              perm_pos_mem_d,
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
@@ -912,6 +1215,10 @@ class AvmFlavor {
                      mem_sel_op_c,
                      mem_sel_op_cmov,
                      mem_sel_op_d,
+                     mem_sel_op_gadget_a,
+                     mem_sel_op_gadget_b,
+                     mem_sel_op_gadget_c,
+                     mem_sel_op_gadget_d,
                      mem_sel_resolve_ind_addr_a,
                      mem_sel_resolve_ind_addr_b,
                      mem_sel_resolve_ind_addr_c,
@@ -928,16 +1235,303 @@ class AvmFlavor {
                      pedersen_input,
                      pedersen_output,
                      pedersen_sel_pedersen,
+                     poseidon2_B_10_0,
+                     poseidon2_B_10_1,
+                     poseidon2_B_10_2,
+                     poseidon2_B_10_3,
+                     poseidon2_B_11_0,
+                     poseidon2_B_11_1,
+                     poseidon2_B_11_2,
+                     poseidon2_B_11_3,
+                     poseidon2_B_12_0,
+                     poseidon2_B_12_1,
+                     poseidon2_B_12_2,
+                     poseidon2_B_12_3,
+                     poseidon2_B_13_0,
+                     poseidon2_B_13_1,
+                     poseidon2_B_13_2,
+                     poseidon2_B_13_3,
+                     poseidon2_B_14_0,
+                     poseidon2_B_14_1,
+                     poseidon2_B_14_2,
+                     poseidon2_B_14_3,
+                     poseidon2_B_15_0,
+                     poseidon2_B_15_1,
+                     poseidon2_B_15_2,
+                     poseidon2_B_15_3,
+                     poseidon2_B_16_0,
+                     poseidon2_B_16_1,
+                     poseidon2_B_16_2,
+                     poseidon2_B_16_3,
+                     poseidon2_B_17_0,
+                     poseidon2_B_17_1,
+                     poseidon2_B_17_2,
+                     poseidon2_B_17_3,
+                     poseidon2_B_18_0,
+                     poseidon2_B_18_1,
+                     poseidon2_B_18_2,
+                     poseidon2_B_18_3,
+                     poseidon2_B_19_0,
+                     poseidon2_B_19_1,
+                     poseidon2_B_19_2,
+                     poseidon2_B_19_3,
+                     poseidon2_B_20_0,
+                     poseidon2_B_20_1,
+                     poseidon2_B_20_2,
+                     poseidon2_B_20_3,
+                     poseidon2_B_21_0,
+                     poseidon2_B_21_1,
+                     poseidon2_B_21_2,
+                     poseidon2_B_21_3,
+                     poseidon2_B_22_0,
+                     poseidon2_B_22_1,
+                     poseidon2_B_22_2,
+                     poseidon2_B_22_3,
+                     poseidon2_B_23_0,
+                     poseidon2_B_23_1,
+                     poseidon2_B_23_2,
+                     poseidon2_B_23_3,
+                     poseidon2_B_24_0,
+                     poseidon2_B_24_1,
+                     poseidon2_B_24_2,
+                     poseidon2_B_24_3,
+                     poseidon2_B_25_0,
+                     poseidon2_B_25_1,
+                     poseidon2_B_25_2,
+                     poseidon2_B_25_3,
+                     poseidon2_B_26_0,
+                     poseidon2_B_26_1,
+                     poseidon2_B_26_2,
+                     poseidon2_B_26_3,
+                     poseidon2_B_27_0,
+                     poseidon2_B_27_1,
+                     poseidon2_B_27_2,
+                     poseidon2_B_27_3,
+                     poseidon2_B_28_0,
+                     poseidon2_B_28_1,
+                     poseidon2_B_28_2,
+                     poseidon2_B_28_3,
+                     poseidon2_B_29_0,
+                     poseidon2_B_29_1,
+                     poseidon2_B_29_2,
+                     poseidon2_B_29_3,
+                     poseidon2_B_30_0,
+                     poseidon2_B_30_1,
+                     poseidon2_B_30_2,
+                     poseidon2_B_30_3,
+                     poseidon2_B_31_0,
+                     poseidon2_B_31_1,
+                     poseidon2_B_31_2,
+                     poseidon2_B_31_3,
+                     poseidon2_B_32_0,
+                     poseidon2_B_32_1,
+                     poseidon2_B_32_2,
+                     poseidon2_B_32_3,
+                     poseidon2_B_33_0,
+                     poseidon2_B_33_1,
+                     poseidon2_B_33_2,
+                     poseidon2_B_33_3,
+                     poseidon2_B_34_0,
+                     poseidon2_B_34_1,
+                     poseidon2_B_34_2,
+                     poseidon2_B_34_3,
+                     poseidon2_B_35_0,
+                     poseidon2_B_35_1,
+                     poseidon2_B_35_2,
+                     poseidon2_B_35_3,
+                     poseidon2_B_36_0,
+                     poseidon2_B_36_1,
+                     poseidon2_B_36_2,
+                     poseidon2_B_36_3,
+                     poseidon2_B_37_0,
+                     poseidon2_B_37_1,
+                     poseidon2_B_37_2,
+                     poseidon2_B_37_3,
+                     poseidon2_B_38_0,
+                     poseidon2_B_38_1,
+                     poseidon2_B_38_2,
+                     poseidon2_B_38_3,
+                     poseidon2_B_39_0,
+                     poseidon2_B_39_1,
+                     poseidon2_B_39_2,
+                     poseidon2_B_39_3,
+                     poseidon2_B_40_0,
+                     poseidon2_B_40_1,
+                     poseidon2_B_40_2,
+                     poseidon2_B_40_3,
+                     poseidon2_B_41_0,
+                     poseidon2_B_41_1,
+                     poseidon2_B_41_2,
+                     poseidon2_B_41_3,
+                     poseidon2_B_42_0,
+                     poseidon2_B_42_1,
+                     poseidon2_B_42_2,
+                     poseidon2_B_42_3,
+                     poseidon2_B_43_0,
+                     poseidon2_B_43_1,
+                     poseidon2_B_43_2,
+                     poseidon2_B_43_3,
+                     poseidon2_B_44_0,
+                     poseidon2_B_44_1,
+                     poseidon2_B_44_2,
+                     poseidon2_B_44_3,
+                     poseidon2_B_45_0,
+                     poseidon2_B_45_1,
+                     poseidon2_B_45_2,
+                     poseidon2_B_45_3,
+                     poseidon2_B_46_0,
+                     poseidon2_B_46_1,
+                     poseidon2_B_46_2,
+                     poseidon2_B_46_3,
+                     poseidon2_B_47_0,
+                     poseidon2_B_47_1,
+                     poseidon2_B_47_2,
+                     poseidon2_B_47_3,
+                     poseidon2_B_48_0,
+                     poseidon2_B_48_1,
+                     poseidon2_B_48_2,
+                     poseidon2_B_48_3,
+                     poseidon2_B_49_0,
+                     poseidon2_B_49_1,
+                     poseidon2_B_49_2,
+                     poseidon2_B_49_3,
+                     poseidon2_B_4_0,
+                     poseidon2_B_4_1,
+                     poseidon2_B_4_2,
+                     poseidon2_B_4_3,
+                     poseidon2_B_50_0,
+                     poseidon2_B_50_1,
+                     poseidon2_B_50_2,
+                     poseidon2_B_50_3,
+                     poseidon2_B_51_0,
+                     poseidon2_B_51_1,
+                     poseidon2_B_51_2,
+                     poseidon2_B_51_3,
+                     poseidon2_B_52_0,
+                     poseidon2_B_52_1,
+                     poseidon2_B_52_2,
+                     poseidon2_B_52_3,
+                     poseidon2_B_53_0,
+                     poseidon2_B_53_1,
+                     poseidon2_B_53_2,
+                     poseidon2_B_53_3,
+                     poseidon2_B_54_0,
+                     poseidon2_B_54_1,
+                     poseidon2_B_54_2,
+                     poseidon2_B_54_3,
+                     poseidon2_B_55_0,
+                     poseidon2_B_55_1,
+                     poseidon2_B_55_2,
+                     poseidon2_B_55_3,
+                     poseidon2_B_56_0,
+                     poseidon2_B_56_1,
+                     poseidon2_B_56_2,
+                     poseidon2_B_56_3,
+                     poseidon2_B_57_0,
+                     poseidon2_B_57_1,
+                     poseidon2_B_57_2,
+                     poseidon2_B_57_3,
+                     poseidon2_B_58_0,
+                     poseidon2_B_58_1,
+                     poseidon2_B_58_2,
+                     poseidon2_B_58_3,
+                     poseidon2_B_59_0,
+                     poseidon2_B_59_1,
+                     poseidon2_B_59_2,
+                     poseidon2_B_59_3,
+                     poseidon2_B_5_0,
+                     poseidon2_B_5_1,
+                     poseidon2_B_5_2,
+                     poseidon2_B_5_3,
+                     poseidon2_B_6_0,
+                     poseidon2_B_6_1,
+                     poseidon2_B_6_2,
+                     poseidon2_B_6_3,
+                     poseidon2_B_7_0,
+                     poseidon2_B_7_1,
+                     poseidon2_B_7_2,
+                     poseidon2_B_7_3,
+                     poseidon2_B_8_0,
+                     poseidon2_B_8_1,
+                     poseidon2_B_8_2,
+                     poseidon2_B_8_3,
+                     poseidon2_B_9_0,
+                     poseidon2_B_9_1,
+                     poseidon2_B_9_2,
+                     poseidon2_B_9_3,
+                     poseidon2_EXT_LAYER_4,
+                     poseidon2_EXT_LAYER_5,
+                     poseidon2_EXT_LAYER_6,
+                     poseidon2_EXT_LAYER_7,
+                     poseidon2_T_0_4,
+                     poseidon2_T_0_5,
+                     poseidon2_T_0_6,
+                     poseidon2_T_0_7,
+                     poseidon2_T_1_4,
+                     poseidon2_T_1_5,
+                     poseidon2_T_1_6,
+                     poseidon2_T_1_7,
+                     poseidon2_T_2_4,
+                     poseidon2_T_2_5,
+                     poseidon2_T_2_6,
+                     poseidon2_T_2_7,
+                     poseidon2_T_3_4,
+                     poseidon2_T_3_5,
+                     poseidon2_T_3_6,
+                     poseidon2_T_3_7,
+                     poseidon2_T_60_4,
+                     poseidon2_T_60_5,
+                     poseidon2_T_60_6,
+                     poseidon2_T_60_7,
+                     poseidon2_T_61_4,
+                     poseidon2_T_61_5,
+                     poseidon2_T_61_6,
+                     poseidon2_T_61_7,
+                     poseidon2_T_62_4,
+                     poseidon2_T_62_5,
+                     poseidon2_T_62_6,
+                     poseidon2_T_62_7,
+                     poseidon2_T_63_4,
+                     poseidon2_T_63_5,
+                     poseidon2_T_63_6,
+                     poseidon2_T_63_7,
+                     poseidon2_a_0,
+                     poseidon2_a_1,
+                     poseidon2_a_2,
+                     poseidon2_a_3,
+                     poseidon2_b_0,
+                     poseidon2_b_1,
+                     poseidon2_b_2,
+                     poseidon2_b_3,
                      poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
+                     poseidon2_input_addr,
+                     poseidon2_input_addr_1,
+                     poseidon2_input_addr_2,
+                     poseidon2_input_addr_3,
+                     poseidon2_mem_addr_a,
+                     poseidon2_mem_addr_b,
+                     poseidon2_mem_addr_c,
+                     poseidon2_mem_addr_d,
+                     poseidon2_mem_op,
+                     poseidon2_output_addr,
+                     poseidon2_output_addr_1,
+                     poseidon2_output_addr_2,
+                     poseidon2_output_addr_3,
+                     poseidon2_r_in_tag,
+                     poseidon2_read_line,
                      poseidon2_sel_poseidon_perm,
+                     poseidon2_w_in_tag,
+                     poseidon2_write_line,
                      powers_power_of_2,
                      sha256_clk,
                      sha256_input,
                      sha256_output,
                      sha256_sel_sha256_compression,
                      sha256_state,
+                     perm_pos_mem_a,
+                     perm_pos_mem_b,
+                     perm_pos_mem_c,
+                     perm_pos_mem_d,
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
@@ -1305,6 +1899,10 @@ class AvmFlavor {
                               mem_sel_op_c,
                               mem_sel_op_cmov,
                               mem_sel_op_d,
+                              mem_sel_op_gadget_a,
+                              mem_sel_op_gadget_b,
+                              mem_sel_op_gadget_c,
+                              mem_sel_op_gadget_d,
                               mem_sel_resolve_ind_addr_a,
                               mem_sel_resolve_ind_addr_b,
                               mem_sel_resolve_ind_addr_c,
@@ -1321,16 +1919,303 @@ class AvmFlavor {
                               pedersen_input,
                               pedersen_output,
                               pedersen_sel_pedersen,
+                              poseidon2_B_10_0,
+                              poseidon2_B_10_1,
+                              poseidon2_B_10_2,
+                              poseidon2_B_10_3,
+                              poseidon2_B_11_0,
+                              poseidon2_B_11_1,
+                              poseidon2_B_11_2,
+                              poseidon2_B_11_3,
+                              poseidon2_B_12_0,
+                              poseidon2_B_12_1,
+                              poseidon2_B_12_2,
+                              poseidon2_B_12_3,
+                              poseidon2_B_13_0,
+                              poseidon2_B_13_1,
+                              poseidon2_B_13_2,
+                              poseidon2_B_13_3,
+                              poseidon2_B_14_0,
+                              poseidon2_B_14_1,
+                              poseidon2_B_14_2,
+                              poseidon2_B_14_3,
+                              poseidon2_B_15_0,
+                              poseidon2_B_15_1,
+                              poseidon2_B_15_2,
+                              poseidon2_B_15_3,
+                              poseidon2_B_16_0,
+                              poseidon2_B_16_1,
+                              poseidon2_B_16_2,
+                              poseidon2_B_16_3,
+                              poseidon2_B_17_0,
+                              poseidon2_B_17_1,
+                              poseidon2_B_17_2,
+                              poseidon2_B_17_3,
+                              poseidon2_B_18_0,
+                              poseidon2_B_18_1,
+                              poseidon2_B_18_2,
+                              poseidon2_B_18_3,
+                              poseidon2_B_19_0,
+                              poseidon2_B_19_1,
+                              poseidon2_B_19_2,
+                              poseidon2_B_19_3,
+                              poseidon2_B_20_0,
+                              poseidon2_B_20_1,
+                              poseidon2_B_20_2,
+                              poseidon2_B_20_3,
+                              poseidon2_B_21_0,
+                              poseidon2_B_21_1,
+                              poseidon2_B_21_2,
+                              poseidon2_B_21_3,
+                              poseidon2_B_22_0,
+                              poseidon2_B_22_1,
+                              poseidon2_B_22_2,
+                              poseidon2_B_22_3,
+                              poseidon2_B_23_0,
+                              poseidon2_B_23_1,
+                              poseidon2_B_23_2,
+                              poseidon2_B_23_3,
+                              poseidon2_B_24_0,
+                              poseidon2_B_24_1,
+                              poseidon2_B_24_2,
+                              poseidon2_B_24_3,
+                              poseidon2_B_25_0,
+                              poseidon2_B_25_1,
+                              poseidon2_B_25_2,
+                              poseidon2_B_25_3,
+                              poseidon2_B_26_0,
+                              poseidon2_B_26_1,
+                              poseidon2_B_26_2,
+                              poseidon2_B_26_3,
+                              poseidon2_B_27_0,
+                              poseidon2_B_27_1,
+                              poseidon2_B_27_2,
+                              poseidon2_B_27_3,
+                              poseidon2_B_28_0,
+                              poseidon2_B_28_1,
+                              poseidon2_B_28_2,
+                              poseidon2_B_28_3,
+                              poseidon2_B_29_0,
+                              poseidon2_B_29_1,
+                              poseidon2_B_29_2,
+                              poseidon2_B_29_3,
+                              poseidon2_B_30_0,
+                              poseidon2_B_30_1,
+                              poseidon2_B_30_2,
+                              poseidon2_B_30_3,
+                              poseidon2_B_31_0,
+                              poseidon2_B_31_1,
+                              poseidon2_B_31_2,
+                              poseidon2_B_31_3,
+                              poseidon2_B_32_0,
+                              poseidon2_B_32_1,
+                              poseidon2_B_32_2,
+                              poseidon2_B_32_3,
+                              poseidon2_B_33_0,
+                              poseidon2_B_33_1,
+                              poseidon2_B_33_2,
+                              poseidon2_B_33_3,
+                              poseidon2_B_34_0,
+                              poseidon2_B_34_1,
+                              poseidon2_B_34_2,
+                              poseidon2_B_34_3,
+                              poseidon2_B_35_0,
+                              poseidon2_B_35_1,
+                              poseidon2_B_35_2,
+                              poseidon2_B_35_3,
+                              poseidon2_B_36_0,
+                              poseidon2_B_36_1,
+                              poseidon2_B_36_2,
+                              poseidon2_B_36_3,
+                              poseidon2_B_37_0,
+                              poseidon2_B_37_1,
+                              poseidon2_B_37_2,
+                              poseidon2_B_37_3,
+                              poseidon2_B_38_0,
+                              poseidon2_B_38_1,
+                              poseidon2_B_38_2,
+                              poseidon2_B_38_3,
+                              poseidon2_B_39_0,
+                              poseidon2_B_39_1,
+                              poseidon2_B_39_2,
+                              poseidon2_B_39_3,
+                              poseidon2_B_40_0,
+                              poseidon2_B_40_1,
+                              poseidon2_B_40_2,
+                              poseidon2_B_40_3,
+                              poseidon2_B_41_0,
+                              poseidon2_B_41_1,
+                              poseidon2_B_41_2,
+                              poseidon2_B_41_3,
+                              poseidon2_B_42_0,
+                              poseidon2_B_42_1,
+                              poseidon2_B_42_2,
+                              poseidon2_B_42_3,
+                              poseidon2_B_43_0,
+                              poseidon2_B_43_1,
+                              poseidon2_B_43_2,
+                              poseidon2_B_43_3,
+                              poseidon2_B_44_0,
+                              poseidon2_B_44_1,
+                              poseidon2_B_44_2,
+                              poseidon2_B_44_3,
+                              poseidon2_B_45_0,
+                              poseidon2_B_45_1,
+                              poseidon2_B_45_2,
+                              poseidon2_B_45_3,
+                              poseidon2_B_46_0,
+                              poseidon2_B_46_1,
+                              poseidon2_B_46_2,
+                              poseidon2_B_46_3,
+                              poseidon2_B_47_0,
+                              poseidon2_B_47_1,
+                              poseidon2_B_47_2,
+                              poseidon2_B_47_3,
+                              poseidon2_B_48_0,
+                              poseidon2_B_48_1,
+                              poseidon2_B_48_2,
+                              poseidon2_B_48_3,
+                              poseidon2_B_49_0,
+                              poseidon2_B_49_1,
+                              poseidon2_B_49_2,
+                              poseidon2_B_49_3,
+                              poseidon2_B_4_0,
+                              poseidon2_B_4_1,
+                              poseidon2_B_4_2,
+                              poseidon2_B_4_3,
+                              poseidon2_B_50_0,
+                              poseidon2_B_50_1,
+                              poseidon2_B_50_2,
+                              poseidon2_B_50_3,
+                              poseidon2_B_51_0,
+                              poseidon2_B_51_1,
+                              poseidon2_B_51_2,
+                              poseidon2_B_51_3,
+                              poseidon2_B_52_0,
+                              poseidon2_B_52_1,
+                              poseidon2_B_52_2,
+                              poseidon2_B_52_3,
+                              poseidon2_B_53_0,
+                              poseidon2_B_53_1,
+                              poseidon2_B_53_2,
+                              poseidon2_B_53_3,
+                              poseidon2_B_54_0,
+                              poseidon2_B_54_1,
+                              poseidon2_B_54_2,
+                              poseidon2_B_54_3,
+                              poseidon2_B_55_0,
+                              poseidon2_B_55_1,
+                              poseidon2_B_55_2,
+                              poseidon2_B_55_3,
+                              poseidon2_B_56_0,
+                              poseidon2_B_56_1,
+                              poseidon2_B_56_2,
+                              poseidon2_B_56_3,
+                              poseidon2_B_57_0,
+                              poseidon2_B_57_1,
+                              poseidon2_B_57_2,
+                              poseidon2_B_57_3,
+                              poseidon2_B_58_0,
+                              poseidon2_B_58_1,
+                              poseidon2_B_58_2,
+                              poseidon2_B_58_3,
+                              poseidon2_B_59_0,
+                              poseidon2_B_59_1,
+                              poseidon2_B_59_2,
+                              poseidon2_B_59_3,
+                              poseidon2_B_5_0,
+                              poseidon2_B_5_1,
+                              poseidon2_B_5_2,
+                              poseidon2_B_5_3,
+                              poseidon2_B_6_0,
+                              poseidon2_B_6_1,
+                              poseidon2_B_6_2,
+                              poseidon2_B_6_3,
+                              poseidon2_B_7_0,
+                              poseidon2_B_7_1,
+                              poseidon2_B_7_2,
+                              poseidon2_B_7_3,
+                              poseidon2_B_8_0,
+                              poseidon2_B_8_1,
+                              poseidon2_B_8_2,
+                              poseidon2_B_8_3,
+                              poseidon2_B_9_0,
+                              poseidon2_B_9_1,
+                              poseidon2_B_9_2,
+                              poseidon2_B_9_3,
+                              poseidon2_EXT_LAYER_4,
+                              poseidon2_EXT_LAYER_5,
+                              poseidon2_EXT_LAYER_6,
+                              poseidon2_EXT_LAYER_7,
+                              poseidon2_T_0_4,
+                              poseidon2_T_0_5,
+                              poseidon2_T_0_6,
+                              poseidon2_T_0_7,
+                              poseidon2_T_1_4,
+                              poseidon2_T_1_5,
+                              poseidon2_T_1_6,
+                              poseidon2_T_1_7,
+                              poseidon2_T_2_4,
+                              poseidon2_T_2_5,
+                              poseidon2_T_2_6,
+                              poseidon2_T_2_7,
+                              poseidon2_T_3_4,
+                              poseidon2_T_3_5,
+                              poseidon2_T_3_6,
+                              poseidon2_T_3_7,
+                              poseidon2_T_60_4,
+                              poseidon2_T_60_5,
+                              poseidon2_T_60_6,
+                              poseidon2_T_60_7,
+                              poseidon2_T_61_4,
+                              poseidon2_T_61_5,
+                              poseidon2_T_61_6,
+                              poseidon2_T_61_7,
+                              poseidon2_T_62_4,
+                              poseidon2_T_62_5,
+                              poseidon2_T_62_6,
+                              poseidon2_T_62_7,
+                              poseidon2_T_63_4,
+                              poseidon2_T_63_5,
+                              poseidon2_T_63_6,
+                              poseidon2_T_63_7,
+                              poseidon2_a_0,
+                              poseidon2_a_1,
+                              poseidon2_a_2,
+                              poseidon2_a_3,
+                              poseidon2_b_0,
+                              poseidon2_b_1,
+                              poseidon2_b_2,
+                              poseidon2_b_3,
                               poseidon2_clk,
-                              poseidon2_input,
-                              poseidon2_output,
+                              poseidon2_input_addr,
+                              poseidon2_input_addr_1,
+                              poseidon2_input_addr_2,
+                              poseidon2_input_addr_3,
+                              poseidon2_mem_addr_a,
+                              poseidon2_mem_addr_b,
+                              poseidon2_mem_addr_c,
+                              poseidon2_mem_addr_d,
+                              poseidon2_mem_op,
+                              poseidon2_output_addr,
+                              poseidon2_output_addr_1,
+                              poseidon2_output_addr_2,
+                              poseidon2_output_addr_3,
+                              poseidon2_r_in_tag,
+                              poseidon2_read_line,
                               poseidon2_sel_poseidon_perm,
+                              poseidon2_w_in_tag,
+                              poseidon2_write_line,
                               powers_power_of_2,
                               sha256_clk,
                               sha256_input,
                               sha256_output,
                               sha256_sel_sha256_compression,
                               sha256_state,
+                              perm_pos_mem_a,
+                              perm_pos_mem_b,
+                              perm_pos_mem_c,
+                              perm_pos_mem_d,
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
@@ -1490,7 +2375,12 @@ class AvmFlavor {
                               mem_sel_mem_shift,
                               mem_tag_shift,
                               mem_tsp_shift,
-                              mem_val_shift)
+                              mem_val_shift,
+                              poseidon2_a_0_shift,
+                              poseidon2_a_1_shift,
+                              poseidon2_a_2_shift,
+                              poseidon2_a_3_shift,
+                              poseidon2_write_line_shift)
 
         RefVector<DataType> get_wires()
         {
@@ -1760,6 +2650,10 @@ class AvmFlavor {
                      mem_sel_op_c,
                      mem_sel_op_cmov,
                      mem_sel_op_d,
+                     mem_sel_op_gadget_a,
+                     mem_sel_op_gadget_b,
+                     mem_sel_op_gadget_c,
+                     mem_sel_op_gadget_d,
                      mem_sel_resolve_ind_addr_a,
                      mem_sel_resolve_ind_addr_b,
                      mem_sel_resolve_ind_addr_c,
@@ -1776,16 +2670,303 @@ class AvmFlavor {
                      pedersen_input,
                      pedersen_output,
                      pedersen_sel_pedersen,
+                     poseidon2_B_10_0,
+                     poseidon2_B_10_1,
+                     poseidon2_B_10_2,
+                     poseidon2_B_10_3,
+                     poseidon2_B_11_0,
+                     poseidon2_B_11_1,
+                     poseidon2_B_11_2,
+                     poseidon2_B_11_3,
+                     poseidon2_B_12_0,
+                     poseidon2_B_12_1,
+                     poseidon2_B_12_2,
+                     poseidon2_B_12_3,
+                     poseidon2_B_13_0,
+                     poseidon2_B_13_1,
+                     poseidon2_B_13_2,
+                     poseidon2_B_13_3,
+                     poseidon2_B_14_0,
+                     poseidon2_B_14_1,
+                     poseidon2_B_14_2,
+                     poseidon2_B_14_3,
+                     poseidon2_B_15_0,
+                     poseidon2_B_15_1,
+                     poseidon2_B_15_2,
+                     poseidon2_B_15_3,
+                     poseidon2_B_16_0,
+                     poseidon2_B_16_1,
+                     poseidon2_B_16_2,
+                     poseidon2_B_16_3,
+                     poseidon2_B_17_0,
+                     poseidon2_B_17_1,
+                     poseidon2_B_17_2,
+                     poseidon2_B_17_3,
+                     poseidon2_B_18_0,
+                     poseidon2_B_18_1,
+                     poseidon2_B_18_2,
+                     poseidon2_B_18_3,
+                     poseidon2_B_19_0,
+                     poseidon2_B_19_1,
+                     poseidon2_B_19_2,
+                     poseidon2_B_19_3,
+                     poseidon2_B_20_0,
+                     poseidon2_B_20_1,
+                     poseidon2_B_20_2,
+                     poseidon2_B_20_3,
+                     poseidon2_B_21_0,
+                     poseidon2_B_21_1,
+                     poseidon2_B_21_2,
+                     poseidon2_B_21_3,
+                     poseidon2_B_22_0,
+                     poseidon2_B_22_1,
+                     poseidon2_B_22_2,
+                     poseidon2_B_22_3,
+                     poseidon2_B_23_0,
+                     poseidon2_B_23_1,
+                     poseidon2_B_23_2,
+                     poseidon2_B_23_3,
+                     poseidon2_B_24_0,
+                     poseidon2_B_24_1,
+                     poseidon2_B_24_2,
+                     poseidon2_B_24_3,
+                     poseidon2_B_25_0,
+                     poseidon2_B_25_1,
+                     poseidon2_B_25_2,
+                     poseidon2_B_25_3,
+                     poseidon2_B_26_0,
+                     poseidon2_B_26_1,
+                     poseidon2_B_26_2,
+                     poseidon2_B_26_3,
+                     poseidon2_B_27_0,
+                     poseidon2_B_27_1,
+                     poseidon2_B_27_2,
+                     poseidon2_B_27_3,
+                     poseidon2_B_28_0,
+                     poseidon2_B_28_1,
+                     poseidon2_B_28_2,
+                     poseidon2_B_28_3,
+                     poseidon2_B_29_0,
+                     poseidon2_B_29_1,
+                     poseidon2_B_29_2,
+                     poseidon2_B_29_3,
+                     poseidon2_B_30_0,
+                     poseidon2_B_30_1,
+                     poseidon2_B_30_2,
+                     poseidon2_B_30_3,
+                     poseidon2_B_31_0,
+                     poseidon2_B_31_1,
+                     poseidon2_B_31_2,
+                     poseidon2_B_31_3,
+                     poseidon2_B_32_0,
+                     poseidon2_B_32_1,
+                     poseidon2_B_32_2,
+                     poseidon2_B_32_3,
+                     poseidon2_B_33_0,
+                     poseidon2_B_33_1,
+                     poseidon2_B_33_2,
+                     poseidon2_B_33_3,
+                     poseidon2_B_34_0,
+                     poseidon2_B_34_1,
+                     poseidon2_B_34_2,
+                     poseidon2_B_34_3,
+                     poseidon2_B_35_0,
+                     poseidon2_B_35_1,
+                     poseidon2_B_35_2,
+                     poseidon2_B_35_3,
+                     poseidon2_B_36_0,
+                     poseidon2_B_36_1,
+                     poseidon2_B_36_2,
+                     poseidon2_B_36_3,
+                     poseidon2_B_37_0,
+                     poseidon2_B_37_1,
+                     poseidon2_B_37_2,
+                     poseidon2_B_37_3,
+                     poseidon2_B_38_0,
+                     poseidon2_B_38_1,
+                     poseidon2_B_38_2,
+                     poseidon2_B_38_3,
+                     poseidon2_B_39_0,
+                     poseidon2_B_39_1,
+                     poseidon2_B_39_2,
+                     poseidon2_B_39_3,
+                     poseidon2_B_40_0,
+                     poseidon2_B_40_1,
+                     poseidon2_B_40_2,
+                     poseidon2_B_40_3,
+                     poseidon2_B_41_0,
+                     poseidon2_B_41_1,
+                     poseidon2_B_41_2,
+                     poseidon2_B_41_3,
+                     poseidon2_B_42_0,
+                     poseidon2_B_42_1,
+                     poseidon2_B_42_2,
+                     poseidon2_B_42_3,
+                     poseidon2_B_43_0,
+                     poseidon2_B_43_1,
+                     poseidon2_B_43_2,
+                     poseidon2_B_43_3,
+                     poseidon2_B_44_0,
+                     poseidon2_B_44_1,
+                     poseidon2_B_44_2,
+                     poseidon2_B_44_3,
+                     poseidon2_B_45_0,
+                     poseidon2_B_45_1,
+                     poseidon2_B_45_2,
+                     poseidon2_B_45_3,
+                     poseidon2_B_46_0,
+                     poseidon2_B_46_1,
+                     poseidon2_B_46_2,
+                     poseidon2_B_46_3,
+                     poseidon2_B_47_0,
+                     poseidon2_B_47_1,
+                     poseidon2_B_47_2,
+                     poseidon2_B_47_3,
+                     poseidon2_B_48_0,
+                     poseidon2_B_48_1,
+                     poseidon2_B_48_2,
+                     poseidon2_B_48_3,
+                     poseidon2_B_49_0,
+                     poseidon2_B_49_1,
+                     poseidon2_B_49_2,
+                     poseidon2_B_49_3,
+                     poseidon2_B_4_0,
+                     poseidon2_B_4_1,
+                     poseidon2_B_4_2,
+                     poseidon2_B_4_3,
+                     poseidon2_B_50_0,
+                     poseidon2_B_50_1,
+                     poseidon2_B_50_2,
+                     poseidon2_B_50_3,
+                     poseidon2_B_51_0,
+                     poseidon2_B_51_1,
+                     poseidon2_B_51_2,
+                     poseidon2_B_51_3,
+                     poseidon2_B_52_0,
+                     poseidon2_B_52_1,
+                     poseidon2_B_52_2,
+                     poseidon2_B_52_3,
+                     poseidon2_B_53_0,
+                     poseidon2_B_53_1,
+                     poseidon2_B_53_2,
+                     poseidon2_B_53_3,
+                     poseidon2_B_54_0,
+                     poseidon2_B_54_1,
+                     poseidon2_B_54_2,
+                     poseidon2_B_54_3,
+                     poseidon2_B_55_0,
+                     poseidon2_B_55_1,
+                     poseidon2_B_55_2,
+                     poseidon2_B_55_3,
+                     poseidon2_B_56_0,
+                     poseidon2_B_56_1,
+                     poseidon2_B_56_2,
+                     poseidon2_B_56_3,
+                     poseidon2_B_57_0,
+                     poseidon2_B_57_1,
+                     poseidon2_B_57_2,
+                     poseidon2_B_57_3,
+                     poseidon2_B_58_0,
+                     poseidon2_B_58_1,
+                     poseidon2_B_58_2,
+                     poseidon2_B_58_3,
+                     poseidon2_B_59_0,
+                     poseidon2_B_59_1,
+                     poseidon2_B_59_2,
+                     poseidon2_B_59_3,
+                     poseidon2_B_5_0,
+                     poseidon2_B_5_1,
+                     poseidon2_B_5_2,
+                     poseidon2_B_5_3,
+                     poseidon2_B_6_0,
+                     poseidon2_B_6_1,
+                     poseidon2_B_6_2,
+                     poseidon2_B_6_3,
+                     poseidon2_B_7_0,
+                     poseidon2_B_7_1,
+                     poseidon2_B_7_2,
+                     poseidon2_B_7_3,
+                     poseidon2_B_8_0,
+                     poseidon2_B_8_1,
+                     poseidon2_B_8_2,
+                     poseidon2_B_8_3,
+                     poseidon2_B_9_0,
+                     poseidon2_B_9_1,
+                     poseidon2_B_9_2,
+                     poseidon2_B_9_3,
+                     poseidon2_EXT_LAYER_4,
+                     poseidon2_EXT_LAYER_5,
+                     poseidon2_EXT_LAYER_6,
+                     poseidon2_EXT_LAYER_7,
+                     poseidon2_T_0_4,
+                     poseidon2_T_0_5,
+                     poseidon2_T_0_6,
+                     poseidon2_T_0_7,
+                     poseidon2_T_1_4,
+                     poseidon2_T_1_5,
+                     poseidon2_T_1_6,
+                     poseidon2_T_1_7,
+                     poseidon2_T_2_4,
+                     poseidon2_T_2_5,
+                     poseidon2_T_2_6,
+                     poseidon2_T_2_7,
+                     poseidon2_T_3_4,
+                     poseidon2_T_3_5,
+                     poseidon2_T_3_6,
+                     poseidon2_T_3_7,
+                     poseidon2_T_60_4,
+                     poseidon2_T_60_5,
+                     poseidon2_T_60_6,
+                     poseidon2_T_60_7,
+                     poseidon2_T_61_4,
+                     poseidon2_T_61_5,
+                     poseidon2_T_61_6,
+                     poseidon2_T_61_7,
+                     poseidon2_T_62_4,
+                     poseidon2_T_62_5,
+                     poseidon2_T_62_6,
+                     poseidon2_T_62_7,
+                     poseidon2_T_63_4,
+                     poseidon2_T_63_5,
+                     poseidon2_T_63_6,
+                     poseidon2_T_63_7,
+                     poseidon2_a_0,
+                     poseidon2_a_1,
+                     poseidon2_a_2,
+                     poseidon2_a_3,
+                     poseidon2_b_0,
+                     poseidon2_b_1,
+                     poseidon2_b_2,
+                     poseidon2_b_3,
                      poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
+                     poseidon2_input_addr,
+                     poseidon2_input_addr_1,
+                     poseidon2_input_addr_2,
+                     poseidon2_input_addr_3,
+                     poseidon2_mem_addr_a,
+                     poseidon2_mem_addr_b,
+                     poseidon2_mem_addr_c,
+                     poseidon2_mem_addr_d,
+                     poseidon2_mem_op,
+                     poseidon2_output_addr,
+                     poseidon2_output_addr_1,
+                     poseidon2_output_addr_2,
+                     poseidon2_output_addr_3,
+                     poseidon2_r_in_tag,
+                     poseidon2_read_line,
                      poseidon2_sel_poseidon_perm,
+                     poseidon2_w_in_tag,
+                     poseidon2_write_line,
                      powers_power_of_2,
                      sha256_clk,
                      sha256_input,
                      sha256_output,
                      sha256_sel_sha256_compression,
                      sha256_state,
+                     perm_pos_mem_a,
+                     perm_pos_mem_b,
+                     perm_pos_mem_c,
+                     perm_pos_mem_d,
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
@@ -1945,7 +3126,12 @@ class AvmFlavor {
                      mem_sel_mem_shift,
                      mem_tag_shift,
                      mem_tsp_shift,
-                     mem_val_shift };
+                     mem_val_shift,
+                     poseidon2_a_0_shift,
+                     poseidon2_a_1_shift,
+                     poseidon2_a_2_shift,
+                     poseidon2_a_3_shift,
+                     poseidon2_write_line_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -2215,6 +3401,10 @@ class AvmFlavor {
                      mem_sel_op_c,
                      mem_sel_op_cmov,
                      mem_sel_op_d,
+                     mem_sel_op_gadget_a,
+                     mem_sel_op_gadget_b,
+                     mem_sel_op_gadget_c,
+                     mem_sel_op_gadget_d,
                      mem_sel_resolve_ind_addr_a,
                      mem_sel_resolve_ind_addr_b,
                      mem_sel_resolve_ind_addr_c,
@@ -2231,16 +3421,303 @@ class AvmFlavor {
                      pedersen_input,
                      pedersen_output,
                      pedersen_sel_pedersen,
+                     poseidon2_B_10_0,
+                     poseidon2_B_10_1,
+                     poseidon2_B_10_2,
+                     poseidon2_B_10_3,
+                     poseidon2_B_11_0,
+                     poseidon2_B_11_1,
+                     poseidon2_B_11_2,
+                     poseidon2_B_11_3,
+                     poseidon2_B_12_0,
+                     poseidon2_B_12_1,
+                     poseidon2_B_12_2,
+                     poseidon2_B_12_3,
+                     poseidon2_B_13_0,
+                     poseidon2_B_13_1,
+                     poseidon2_B_13_2,
+                     poseidon2_B_13_3,
+                     poseidon2_B_14_0,
+                     poseidon2_B_14_1,
+                     poseidon2_B_14_2,
+                     poseidon2_B_14_3,
+                     poseidon2_B_15_0,
+                     poseidon2_B_15_1,
+                     poseidon2_B_15_2,
+                     poseidon2_B_15_3,
+                     poseidon2_B_16_0,
+                     poseidon2_B_16_1,
+                     poseidon2_B_16_2,
+                     poseidon2_B_16_3,
+                     poseidon2_B_17_0,
+                     poseidon2_B_17_1,
+                     poseidon2_B_17_2,
+                     poseidon2_B_17_3,
+                     poseidon2_B_18_0,
+                     poseidon2_B_18_1,
+                     poseidon2_B_18_2,
+                     poseidon2_B_18_3,
+                     poseidon2_B_19_0,
+                     poseidon2_B_19_1,
+                     poseidon2_B_19_2,
+                     poseidon2_B_19_3,
+                     poseidon2_B_20_0,
+                     poseidon2_B_20_1,
+                     poseidon2_B_20_2,
+                     poseidon2_B_20_3,
+                     poseidon2_B_21_0,
+                     poseidon2_B_21_1,
+                     poseidon2_B_21_2,
+                     poseidon2_B_21_3,
+                     poseidon2_B_22_0,
+                     poseidon2_B_22_1,
+                     poseidon2_B_22_2,
+                     poseidon2_B_22_3,
+                     poseidon2_B_23_0,
+                     poseidon2_B_23_1,
+                     poseidon2_B_23_2,
+                     poseidon2_B_23_3,
+                     poseidon2_B_24_0,
+                     poseidon2_B_24_1,
+                     poseidon2_B_24_2,
+                     poseidon2_B_24_3,
+                     poseidon2_B_25_0,
+                     poseidon2_B_25_1,
+                     poseidon2_B_25_2,
+                     poseidon2_B_25_3,
+                     poseidon2_B_26_0,
+                     poseidon2_B_26_1,
+                     poseidon2_B_26_2,
+                     poseidon2_B_26_3,
+                     poseidon2_B_27_0,
+                     poseidon2_B_27_1,
+                     poseidon2_B_27_2,
+                     poseidon2_B_27_3,
+                     poseidon2_B_28_0,
+                     poseidon2_B_28_1,
+                     poseidon2_B_28_2,
+                     poseidon2_B_28_3,
+                     poseidon2_B_29_0,
+                     poseidon2_B_29_1,
+                     poseidon2_B_29_2,
+                     poseidon2_B_29_3,
+                     poseidon2_B_30_0,
+                     poseidon2_B_30_1,
+                     poseidon2_B_30_2,
+                     poseidon2_B_30_3,
+                     poseidon2_B_31_0,
+                     poseidon2_B_31_1,
+                     poseidon2_B_31_2,
+                     poseidon2_B_31_3,
+                     poseidon2_B_32_0,
+                     poseidon2_B_32_1,
+                     poseidon2_B_32_2,
+                     poseidon2_B_32_3,
+                     poseidon2_B_33_0,
+                     poseidon2_B_33_1,
+                     poseidon2_B_33_2,
+                     poseidon2_B_33_3,
+                     poseidon2_B_34_0,
+                     poseidon2_B_34_1,
+                     poseidon2_B_34_2,
+                     poseidon2_B_34_3,
+                     poseidon2_B_35_0,
+                     poseidon2_B_35_1,
+                     poseidon2_B_35_2,
+                     poseidon2_B_35_3,
+                     poseidon2_B_36_0,
+                     poseidon2_B_36_1,
+                     poseidon2_B_36_2,
+                     poseidon2_B_36_3,
+                     poseidon2_B_37_0,
+                     poseidon2_B_37_1,
+                     poseidon2_B_37_2,
+                     poseidon2_B_37_3,
+                     poseidon2_B_38_0,
+                     poseidon2_B_38_1,
+                     poseidon2_B_38_2,
+                     poseidon2_B_38_3,
+                     poseidon2_B_39_0,
+                     poseidon2_B_39_1,
+                     poseidon2_B_39_2,
+                     poseidon2_B_39_3,
+                     poseidon2_B_40_0,
+                     poseidon2_B_40_1,
+                     poseidon2_B_40_2,
+                     poseidon2_B_40_3,
+                     poseidon2_B_41_0,
+                     poseidon2_B_41_1,
+                     poseidon2_B_41_2,
+                     poseidon2_B_41_3,
+                     poseidon2_B_42_0,
+                     poseidon2_B_42_1,
+                     poseidon2_B_42_2,
+                     poseidon2_B_42_3,
+                     poseidon2_B_43_0,
+                     poseidon2_B_43_1,
+                     poseidon2_B_43_2,
+                     poseidon2_B_43_3,
+                     poseidon2_B_44_0,
+                     poseidon2_B_44_1,
+                     poseidon2_B_44_2,
+                     poseidon2_B_44_3,
+                     poseidon2_B_45_0,
+                     poseidon2_B_45_1,
+                     poseidon2_B_45_2,
+                     poseidon2_B_45_3,
+                     poseidon2_B_46_0,
+                     poseidon2_B_46_1,
+                     poseidon2_B_46_2,
+                     poseidon2_B_46_3,
+                     poseidon2_B_47_0,
+                     poseidon2_B_47_1,
+                     poseidon2_B_47_2,
+                     poseidon2_B_47_3,
+                     poseidon2_B_48_0,
+                     poseidon2_B_48_1,
+                     poseidon2_B_48_2,
+                     poseidon2_B_48_3,
+                     poseidon2_B_49_0,
+                     poseidon2_B_49_1,
+                     poseidon2_B_49_2,
+                     poseidon2_B_49_3,
+                     poseidon2_B_4_0,
+                     poseidon2_B_4_1,
+                     poseidon2_B_4_2,
+                     poseidon2_B_4_3,
+                     poseidon2_B_50_0,
+                     poseidon2_B_50_1,
+                     poseidon2_B_50_2,
+                     poseidon2_B_50_3,
+                     poseidon2_B_51_0,
+                     poseidon2_B_51_1,
+                     poseidon2_B_51_2,
+                     poseidon2_B_51_3,
+                     poseidon2_B_52_0,
+                     poseidon2_B_52_1,
+                     poseidon2_B_52_2,
+                     poseidon2_B_52_3,
+                     poseidon2_B_53_0,
+                     poseidon2_B_53_1,
+                     poseidon2_B_53_2,
+                     poseidon2_B_53_3,
+                     poseidon2_B_54_0,
+                     poseidon2_B_54_1,
+                     poseidon2_B_54_2,
+                     poseidon2_B_54_3,
+                     poseidon2_B_55_0,
+                     poseidon2_B_55_1,
+                     poseidon2_B_55_2,
+                     poseidon2_B_55_3,
+                     poseidon2_B_56_0,
+                     poseidon2_B_56_1,
+                     poseidon2_B_56_2,
+                     poseidon2_B_56_3,
+                     poseidon2_B_57_0,
+                     poseidon2_B_57_1,
+                     poseidon2_B_57_2,
+                     poseidon2_B_57_3,
+                     poseidon2_B_58_0,
+                     poseidon2_B_58_1,
+                     poseidon2_B_58_2,
+                     poseidon2_B_58_3,
+                     poseidon2_B_59_0,
+                     poseidon2_B_59_1,
+                     poseidon2_B_59_2,
+                     poseidon2_B_59_3,
+                     poseidon2_B_5_0,
+                     poseidon2_B_5_1,
+                     poseidon2_B_5_2,
+                     poseidon2_B_5_3,
+                     poseidon2_B_6_0,
+                     poseidon2_B_6_1,
+                     poseidon2_B_6_2,
+                     poseidon2_B_6_3,
+                     poseidon2_B_7_0,
+                     poseidon2_B_7_1,
+                     poseidon2_B_7_2,
+                     poseidon2_B_7_3,
+                     poseidon2_B_8_0,
+                     poseidon2_B_8_1,
+                     poseidon2_B_8_2,
+                     poseidon2_B_8_3,
+                     poseidon2_B_9_0,
+                     poseidon2_B_9_1,
+                     poseidon2_B_9_2,
+                     poseidon2_B_9_3,
+                     poseidon2_EXT_LAYER_4,
+                     poseidon2_EXT_LAYER_5,
+                     poseidon2_EXT_LAYER_6,
+                     poseidon2_EXT_LAYER_7,
+                     poseidon2_T_0_4,
+                     poseidon2_T_0_5,
+                     poseidon2_T_0_6,
+                     poseidon2_T_0_7,
+                     poseidon2_T_1_4,
+                     poseidon2_T_1_5,
+                     poseidon2_T_1_6,
+                     poseidon2_T_1_7,
+                     poseidon2_T_2_4,
+                     poseidon2_T_2_5,
+                     poseidon2_T_2_6,
+                     poseidon2_T_2_7,
+                     poseidon2_T_3_4,
+                     poseidon2_T_3_5,
+                     poseidon2_T_3_6,
+                     poseidon2_T_3_7,
+                     poseidon2_T_60_4,
+                     poseidon2_T_60_5,
+                     poseidon2_T_60_6,
+                     poseidon2_T_60_7,
+                     poseidon2_T_61_4,
+                     poseidon2_T_61_5,
+                     poseidon2_T_61_6,
+                     poseidon2_T_61_7,
+                     poseidon2_T_62_4,
+                     poseidon2_T_62_5,
+                     poseidon2_T_62_6,
+                     poseidon2_T_62_7,
+                     poseidon2_T_63_4,
+                     poseidon2_T_63_5,
+                     poseidon2_T_63_6,
+                     poseidon2_T_63_7,
+                     poseidon2_a_0,
+                     poseidon2_a_1,
+                     poseidon2_a_2,
+                     poseidon2_a_3,
+                     poseidon2_b_0,
+                     poseidon2_b_1,
+                     poseidon2_b_2,
+                     poseidon2_b_3,
                      poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
+                     poseidon2_input_addr,
+                     poseidon2_input_addr_1,
+                     poseidon2_input_addr_2,
+                     poseidon2_input_addr_3,
+                     poseidon2_mem_addr_a,
+                     poseidon2_mem_addr_b,
+                     poseidon2_mem_addr_c,
+                     poseidon2_mem_addr_d,
+                     poseidon2_mem_op,
+                     poseidon2_output_addr,
+                     poseidon2_output_addr_1,
+                     poseidon2_output_addr_2,
+                     poseidon2_output_addr_3,
+                     poseidon2_r_in_tag,
+                     poseidon2_read_line,
                      poseidon2_sel_poseidon_perm,
+                     poseidon2_w_in_tag,
+                     poseidon2_write_line,
                      powers_power_of_2,
                      sha256_clk,
                      sha256_input,
                      sha256_output,
                      sha256_sel_sha256_compression,
                      sha256_state,
+                     perm_pos_mem_a,
+                     perm_pos_mem_b,
+                     perm_pos_mem_c,
+                     perm_pos_mem_d,
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
@@ -2403,7 +3880,12 @@ class AvmFlavor {
                      mem_sel_mem,
                      mem_tag,
                      mem_tsp,
-                     mem_val };
+                     mem_val,
+                     poseidon2_a_0,
+                     poseidon2_a_1,
+                     poseidon2_a_2,
+                     poseidon2_a_3,
+                     poseidon2_write_line };
         };
         RefVector<DataType> get_shifted()
         {
@@ -2471,7 +3953,12 @@ class AvmFlavor {
                      mem_sel_mem_shift,
                      mem_tag_shift,
                      mem_tsp_shift,
-                     mem_val_shift };
+                     mem_val_shift,
+                     poseidon2_a_0_shift,
+                     poseidon2_a_1_shift,
+                     poseidon2_a_2_shift,
+                     poseidon2_a_3_shift,
+                     poseidon2_write_line_shift };
         };
     };
 
@@ -2549,13 +4036,26 @@ class AvmFlavor {
                      mem_sel_mem,
                      mem_tag,
                      mem_tsp,
-                     mem_val };
+                     mem_val,
+                     poseidon2_a_0,
+                     poseidon2_a_1,
+                     poseidon2_a_2,
+                     poseidon2_a_3,
+                     poseidon2_write_line };
         };
 
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
 
+            bb::compute_logderivative_inverse<AvmFlavor, perm_pos_mem_a_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_pos_mem_b_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_pos_mem_c_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_pos_mem_d_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
@@ -3026,6 +4526,10 @@ class AvmFlavor {
             Base::mem_sel_op_c = "MEM_SEL_OP_C";
             Base::mem_sel_op_cmov = "MEM_SEL_OP_CMOV";
             Base::mem_sel_op_d = "MEM_SEL_OP_D";
+            Base::mem_sel_op_gadget_a = "MEM_SEL_OP_GADGET_A";
+            Base::mem_sel_op_gadget_b = "MEM_SEL_OP_GADGET_B";
+            Base::mem_sel_op_gadget_c = "MEM_SEL_OP_GADGET_C";
+            Base::mem_sel_op_gadget_d = "MEM_SEL_OP_GADGET_D";
             Base::mem_sel_resolve_ind_addr_a = "MEM_SEL_RESOLVE_IND_ADDR_A";
             Base::mem_sel_resolve_ind_addr_b = "MEM_SEL_RESOLVE_IND_ADDR_B";
             Base::mem_sel_resolve_ind_addr_c = "MEM_SEL_RESOLVE_IND_ADDR_C";
@@ -3042,16 +4546,303 @@ class AvmFlavor {
             Base::pedersen_input = "PEDERSEN_INPUT";
             Base::pedersen_output = "PEDERSEN_OUTPUT";
             Base::pedersen_sel_pedersen = "PEDERSEN_SEL_PEDERSEN";
+            Base::poseidon2_B_10_0 = "POSEIDON2_B_10_0";
+            Base::poseidon2_B_10_1 = "POSEIDON2_B_10_1";
+            Base::poseidon2_B_10_2 = "POSEIDON2_B_10_2";
+            Base::poseidon2_B_10_3 = "POSEIDON2_B_10_3";
+            Base::poseidon2_B_11_0 = "POSEIDON2_B_11_0";
+            Base::poseidon2_B_11_1 = "POSEIDON2_B_11_1";
+            Base::poseidon2_B_11_2 = "POSEIDON2_B_11_2";
+            Base::poseidon2_B_11_3 = "POSEIDON2_B_11_3";
+            Base::poseidon2_B_12_0 = "POSEIDON2_B_12_0";
+            Base::poseidon2_B_12_1 = "POSEIDON2_B_12_1";
+            Base::poseidon2_B_12_2 = "POSEIDON2_B_12_2";
+            Base::poseidon2_B_12_3 = "POSEIDON2_B_12_3";
+            Base::poseidon2_B_13_0 = "POSEIDON2_B_13_0";
+            Base::poseidon2_B_13_1 = "POSEIDON2_B_13_1";
+            Base::poseidon2_B_13_2 = "POSEIDON2_B_13_2";
+            Base::poseidon2_B_13_3 = "POSEIDON2_B_13_3";
+            Base::poseidon2_B_14_0 = "POSEIDON2_B_14_0";
+            Base::poseidon2_B_14_1 = "POSEIDON2_B_14_1";
+            Base::poseidon2_B_14_2 = "POSEIDON2_B_14_2";
+            Base::poseidon2_B_14_3 = "POSEIDON2_B_14_3";
+            Base::poseidon2_B_15_0 = "POSEIDON2_B_15_0";
+            Base::poseidon2_B_15_1 = "POSEIDON2_B_15_1";
+            Base::poseidon2_B_15_2 = "POSEIDON2_B_15_2";
+            Base::poseidon2_B_15_3 = "POSEIDON2_B_15_3";
+            Base::poseidon2_B_16_0 = "POSEIDON2_B_16_0";
+            Base::poseidon2_B_16_1 = "POSEIDON2_B_16_1";
+            Base::poseidon2_B_16_2 = "POSEIDON2_B_16_2";
+            Base::poseidon2_B_16_3 = "POSEIDON2_B_16_3";
+            Base::poseidon2_B_17_0 = "POSEIDON2_B_17_0";
+            Base::poseidon2_B_17_1 = "POSEIDON2_B_17_1";
+            Base::poseidon2_B_17_2 = "POSEIDON2_B_17_2";
+            Base::poseidon2_B_17_3 = "POSEIDON2_B_17_3";
+            Base::poseidon2_B_18_0 = "POSEIDON2_B_18_0";
+            Base::poseidon2_B_18_1 = "POSEIDON2_B_18_1";
+            Base::poseidon2_B_18_2 = "POSEIDON2_B_18_2";
+            Base::poseidon2_B_18_3 = "POSEIDON2_B_18_3";
+            Base::poseidon2_B_19_0 = "POSEIDON2_B_19_0";
+            Base::poseidon2_B_19_1 = "POSEIDON2_B_19_1";
+            Base::poseidon2_B_19_2 = "POSEIDON2_B_19_2";
+            Base::poseidon2_B_19_3 = "POSEIDON2_B_19_3";
+            Base::poseidon2_B_20_0 = "POSEIDON2_B_20_0";
+            Base::poseidon2_B_20_1 = "POSEIDON2_B_20_1";
+            Base::poseidon2_B_20_2 = "POSEIDON2_B_20_2";
+            Base::poseidon2_B_20_3 = "POSEIDON2_B_20_3";
+            Base::poseidon2_B_21_0 = "POSEIDON2_B_21_0";
+            Base::poseidon2_B_21_1 = "POSEIDON2_B_21_1";
+            Base::poseidon2_B_21_2 = "POSEIDON2_B_21_2";
+            Base::poseidon2_B_21_3 = "POSEIDON2_B_21_3";
+            Base::poseidon2_B_22_0 = "POSEIDON2_B_22_0";
+            Base::poseidon2_B_22_1 = "POSEIDON2_B_22_1";
+            Base::poseidon2_B_22_2 = "POSEIDON2_B_22_2";
+            Base::poseidon2_B_22_3 = "POSEIDON2_B_22_3";
+            Base::poseidon2_B_23_0 = "POSEIDON2_B_23_0";
+            Base::poseidon2_B_23_1 = "POSEIDON2_B_23_1";
+            Base::poseidon2_B_23_2 = "POSEIDON2_B_23_2";
+            Base::poseidon2_B_23_3 = "POSEIDON2_B_23_3";
+            Base::poseidon2_B_24_0 = "POSEIDON2_B_24_0";
+            Base::poseidon2_B_24_1 = "POSEIDON2_B_24_1";
+            Base::poseidon2_B_24_2 = "POSEIDON2_B_24_2";
+            Base::poseidon2_B_24_3 = "POSEIDON2_B_24_3";
+            Base::poseidon2_B_25_0 = "POSEIDON2_B_25_0";
+            Base::poseidon2_B_25_1 = "POSEIDON2_B_25_1";
+            Base::poseidon2_B_25_2 = "POSEIDON2_B_25_2";
+            Base::poseidon2_B_25_3 = "POSEIDON2_B_25_3";
+            Base::poseidon2_B_26_0 = "POSEIDON2_B_26_0";
+            Base::poseidon2_B_26_1 = "POSEIDON2_B_26_1";
+            Base::poseidon2_B_26_2 = "POSEIDON2_B_26_2";
+            Base::poseidon2_B_26_3 = "POSEIDON2_B_26_3";
+            Base::poseidon2_B_27_0 = "POSEIDON2_B_27_0";
+            Base::poseidon2_B_27_1 = "POSEIDON2_B_27_1";
+            Base::poseidon2_B_27_2 = "POSEIDON2_B_27_2";
+            Base::poseidon2_B_27_3 = "POSEIDON2_B_27_3";
+            Base::poseidon2_B_28_0 = "POSEIDON2_B_28_0";
+            Base::poseidon2_B_28_1 = "POSEIDON2_B_28_1";
+            Base::poseidon2_B_28_2 = "POSEIDON2_B_28_2";
+            Base::poseidon2_B_28_3 = "POSEIDON2_B_28_3";
+            Base::poseidon2_B_29_0 = "POSEIDON2_B_29_0";
+            Base::poseidon2_B_29_1 = "POSEIDON2_B_29_1";
+            Base::poseidon2_B_29_2 = "POSEIDON2_B_29_2";
+            Base::poseidon2_B_29_3 = "POSEIDON2_B_29_3";
+            Base::poseidon2_B_30_0 = "POSEIDON2_B_30_0";
+            Base::poseidon2_B_30_1 = "POSEIDON2_B_30_1";
+            Base::poseidon2_B_30_2 = "POSEIDON2_B_30_2";
+            Base::poseidon2_B_30_3 = "POSEIDON2_B_30_3";
+            Base::poseidon2_B_31_0 = "POSEIDON2_B_31_0";
+            Base::poseidon2_B_31_1 = "POSEIDON2_B_31_1";
+            Base::poseidon2_B_31_2 = "POSEIDON2_B_31_2";
+            Base::poseidon2_B_31_3 = "POSEIDON2_B_31_3";
+            Base::poseidon2_B_32_0 = "POSEIDON2_B_32_0";
+            Base::poseidon2_B_32_1 = "POSEIDON2_B_32_1";
+            Base::poseidon2_B_32_2 = "POSEIDON2_B_32_2";
+            Base::poseidon2_B_32_3 = "POSEIDON2_B_32_3";
+            Base::poseidon2_B_33_0 = "POSEIDON2_B_33_0";
+            Base::poseidon2_B_33_1 = "POSEIDON2_B_33_1";
+            Base::poseidon2_B_33_2 = "POSEIDON2_B_33_2";
+            Base::poseidon2_B_33_3 = "POSEIDON2_B_33_3";
+            Base::poseidon2_B_34_0 = "POSEIDON2_B_34_0";
+            Base::poseidon2_B_34_1 = "POSEIDON2_B_34_1";
+            Base::poseidon2_B_34_2 = "POSEIDON2_B_34_2";
+            Base::poseidon2_B_34_3 = "POSEIDON2_B_34_3";
+            Base::poseidon2_B_35_0 = "POSEIDON2_B_35_0";
+            Base::poseidon2_B_35_1 = "POSEIDON2_B_35_1";
+            Base::poseidon2_B_35_2 = "POSEIDON2_B_35_2";
+            Base::poseidon2_B_35_3 = "POSEIDON2_B_35_3";
+            Base::poseidon2_B_36_0 = "POSEIDON2_B_36_0";
+            Base::poseidon2_B_36_1 = "POSEIDON2_B_36_1";
+            Base::poseidon2_B_36_2 = "POSEIDON2_B_36_2";
+            Base::poseidon2_B_36_3 = "POSEIDON2_B_36_3";
+            Base::poseidon2_B_37_0 = "POSEIDON2_B_37_0";
+            Base::poseidon2_B_37_1 = "POSEIDON2_B_37_1";
+            Base::poseidon2_B_37_2 = "POSEIDON2_B_37_2";
+            Base::poseidon2_B_37_3 = "POSEIDON2_B_37_3";
+            Base::poseidon2_B_38_0 = "POSEIDON2_B_38_0";
+            Base::poseidon2_B_38_1 = "POSEIDON2_B_38_1";
+            Base::poseidon2_B_38_2 = "POSEIDON2_B_38_2";
+            Base::poseidon2_B_38_3 = "POSEIDON2_B_38_3";
+            Base::poseidon2_B_39_0 = "POSEIDON2_B_39_0";
+            Base::poseidon2_B_39_1 = "POSEIDON2_B_39_1";
+            Base::poseidon2_B_39_2 = "POSEIDON2_B_39_2";
+            Base::poseidon2_B_39_3 = "POSEIDON2_B_39_3";
+            Base::poseidon2_B_40_0 = "POSEIDON2_B_40_0";
+            Base::poseidon2_B_40_1 = "POSEIDON2_B_40_1";
+            Base::poseidon2_B_40_2 = "POSEIDON2_B_40_2";
+            Base::poseidon2_B_40_3 = "POSEIDON2_B_40_3";
+            Base::poseidon2_B_41_0 = "POSEIDON2_B_41_0";
+            Base::poseidon2_B_41_1 = "POSEIDON2_B_41_1";
+            Base::poseidon2_B_41_2 = "POSEIDON2_B_41_2";
+            Base::poseidon2_B_41_3 = "POSEIDON2_B_41_3";
+            Base::poseidon2_B_42_0 = "POSEIDON2_B_42_0";
+            Base::poseidon2_B_42_1 = "POSEIDON2_B_42_1";
+            Base::poseidon2_B_42_2 = "POSEIDON2_B_42_2";
+            Base::poseidon2_B_42_3 = "POSEIDON2_B_42_3";
+            Base::poseidon2_B_43_0 = "POSEIDON2_B_43_0";
+            Base::poseidon2_B_43_1 = "POSEIDON2_B_43_1";
+            Base::poseidon2_B_43_2 = "POSEIDON2_B_43_2";
+            Base::poseidon2_B_43_3 = "POSEIDON2_B_43_3";
+            Base::poseidon2_B_44_0 = "POSEIDON2_B_44_0";
+            Base::poseidon2_B_44_1 = "POSEIDON2_B_44_1";
+            Base::poseidon2_B_44_2 = "POSEIDON2_B_44_2";
+            Base::poseidon2_B_44_3 = "POSEIDON2_B_44_3";
+            Base::poseidon2_B_45_0 = "POSEIDON2_B_45_0";
+            Base::poseidon2_B_45_1 = "POSEIDON2_B_45_1";
+            Base::poseidon2_B_45_2 = "POSEIDON2_B_45_2";
+            Base::poseidon2_B_45_3 = "POSEIDON2_B_45_3";
+            Base::poseidon2_B_46_0 = "POSEIDON2_B_46_0";
+            Base::poseidon2_B_46_1 = "POSEIDON2_B_46_1";
+            Base::poseidon2_B_46_2 = "POSEIDON2_B_46_2";
+            Base::poseidon2_B_46_3 = "POSEIDON2_B_46_3";
+            Base::poseidon2_B_47_0 = "POSEIDON2_B_47_0";
+            Base::poseidon2_B_47_1 = "POSEIDON2_B_47_1";
+            Base::poseidon2_B_47_2 = "POSEIDON2_B_47_2";
+            Base::poseidon2_B_47_3 = "POSEIDON2_B_47_3";
+            Base::poseidon2_B_48_0 = "POSEIDON2_B_48_0";
+            Base::poseidon2_B_48_1 = "POSEIDON2_B_48_1";
+            Base::poseidon2_B_48_2 = "POSEIDON2_B_48_2";
+            Base::poseidon2_B_48_3 = "POSEIDON2_B_48_3";
+            Base::poseidon2_B_49_0 = "POSEIDON2_B_49_0";
+            Base::poseidon2_B_49_1 = "POSEIDON2_B_49_1";
+            Base::poseidon2_B_49_2 = "POSEIDON2_B_49_2";
+            Base::poseidon2_B_49_3 = "POSEIDON2_B_49_3";
+            Base::poseidon2_B_4_0 = "POSEIDON2_B_4_0";
+            Base::poseidon2_B_4_1 = "POSEIDON2_B_4_1";
+            Base::poseidon2_B_4_2 = "POSEIDON2_B_4_2";
+            Base::poseidon2_B_4_3 = "POSEIDON2_B_4_3";
+            Base::poseidon2_B_50_0 = "POSEIDON2_B_50_0";
+            Base::poseidon2_B_50_1 = "POSEIDON2_B_50_1";
+            Base::poseidon2_B_50_2 = "POSEIDON2_B_50_2";
+            Base::poseidon2_B_50_3 = "POSEIDON2_B_50_3";
+            Base::poseidon2_B_51_0 = "POSEIDON2_B_51_0";
+            Base::poseidon2_B_51_1 = "POSEIDON2_B_51_1";
+            Base::poseidon2_B_51_2 = "POSEIDON2_B_51_2";
+            Base::poseidon2_B_51_3 = "POSEIDON2_B_51_3";
+            Base::poseidon2_B_52_0 = "POSEIDON2_B_52_0";
+            Base::poseidon2_B_52_1 = "POSEIDON2_B_52_1";
+            Base::poseidon2_B_52_2 = "POSEIDON2_B_52_2";
+            Base::poseidon2_B_52_3 = "POSEIDON2_B_52_3";
+            Base::poseidon2_B_53_0 = "POSEIDON2_B_53_0";
+            Base::poseidon2_B_53_1 = "POSEIDON2_B_53_1";
+            Base::poseidon2_B_53_2 = "POSEIDON2_B_53_2";
+            Base::poseidon2_B_53_3 = "POSEIDON2_B_53_3";
+            Base::poseidon2_B_54_0 = "POSEIDON2_B_54_0";
+            Base::poseidon2_B_54_1 = "POSEIDON2_B_54_1";
+            Base::poseidon2_B_54_2 = "POSEIDON2_B_54_2";
+            Base::poseidon2_B_54_3 = "POSEIDON2_B_54_3";
+            Base::poseidon2_B_55_0 = "POSEIDON2_B_55_0";
+            Base::poseidon2_B_55_1 = "POSEIDON2_B_55_1";
+            Base::poseidon2_B_55_2 = "POSEIDON2_B_55_2";
+            Base::poseidon2_B_55_3 = "POSEIDON2_B_55_3";
+            Base::poseidon2_B_56_0 = "POSEIDON2_B_56_0";
+            Base::poseidon2_B_56_1 = "POSEIDON2_B_56_1";
+            Base::poseidon2_B_56_2 = "POSEIDON2_B_56_2";
+            Base::poseidon2_B_56_3 = "POSEIDON2_B_56_3";
+            Base::poseidon2_B_57_0 = "POSEIDON2_B_57_0";
+            Base::poseidon2_B_57_1 = "POSEIDON2_B_57_1";
+            Base::poseidon2_B_57_2 = "POSEIDON2_B_57_2";
+            Base::poseidon2_B_57_3 = "POSEIDON2_B_57_3";
+            Base::poseidon2_B_58_0 = "POSEIDON2_B_58_0";
+            Base::poseidon2_B_58_1 = "POSEIDON2_B_58_1";
+            Base::poseidon2_B_58_2 = "POSEIDON2_B_58_2";
+            Base::poseidon2_B_58_3 = "POSEIDON2_B_58_3";
+            Base::poseidon2_B_59_0 = "POSEIDON2_B_59_0";
+            Base::poseidon2_B_59_1 = "POSEIDON2_B_59_1";
+            Base::poseidon2_B_59_2 = "POSEIDON2_B_59_2";
+            Base::poseidon2_B_59_3 = "POSEIDON2_B_59_3";
+            Base::poseidon2_B_5_0 = "POSEIDON2_B_5_0";
+            Base::poseidon2_B_5_1 = "POSEIDON2_B_5_1";
+            Base::poseidon2_B_5_2 = "POSEIDON2_B_5_2";
+            Base::poseidon2_B_5_3 = "POSEIDON2_B_5_3";
+            Base::poseidon2_B_6_0 = "POSEIDON2_B_6_0";
+            Base::poseidon2_B_6_1 = "POSEIDON2_B_6_1";
+            Base::poseidon2_B_6_2 = "POSEIDON2_B_6_2";
+            Base::poseidon2_B_6_3 = "POSEIDON2_B_6_3";
+            Base::poseidon2_B_7_0 = "POSEIDON2_B_7_0";
+            Base::poseidon2_B_7_1 = "POSEIDON2_B_7_1";
+            Base::poseidon2_B_7_2 = "POSEIDON2_B_7_2";
+            Base::poseidon2_B_7_3 = "POSEIDON2_B_7_3";
+            Base::poseidon2_B_8_0 = "POSEIDON2_B_8_0";
+            Base::poseidon2_B_8_1 = "POSEIDON2_B_8_1";
+            Base::poseidon2_B_8_2 = "POSEIDON2_B_8_2";
+            Base::poseidon2_B_8_3 = "POSEIDON2_B_8_3";
+            Base::poseidon2_B_9_0 = "POSEIDON2_B_9_0";
+            Base::poseidon2_B_9_1 = "POSEIDON2_B_9_1";
+            Base::poseidon2_B_9_2 = "POSEIDON2_B_9_2";
+            Base::poseidon2_B_9_3 = "POSEIDON2_B_9_3";
+            Base::poseidon2_EXT_LAYER_4 = "POSEIDON2_EXT_LAYER_4";
+            Base::poseidon2_EXT_LAYER_5 = "POSEIDON2_EXT_LAYER_5";
+            Base::poseidon2_EXT_LAYER_6 = "POSEIDON2_EXT_LAYER_6";
+            Base::poseidon2_EXT_LAYER_7 = "POSEIDON2_EXT_LAYER_7";
+            Base::poseidon2_T_0_4 = "POSEIDON2_T_0_4";
+            Base::poseidon2_T_0_5 = "POSEIDON2_T_0_5";
+            Base::poseidon2_T_0_6 = "POSEIDON2_T_0_6";
+            Base::poseidon2_T_0_7 = "POSEIDON2_T_0_7";
+            Base::poseidon2_T_1_4 = "POSEIDON2_T_1_4";
+            Base::poseidon2_T_1_5 = "POSEIDON2_T_1_5";
+            Base::poseidon2_T_1_6 = "POSEIDON2_T_1_6";
+            Base::poseidon2_T_1_7 = "POSEIDON2_T_1_7";
+            Base::poseidon2_T_2_4 = "POSEIDON2_T_2_4";
+            Base::poseidon2_T_2_5 = "POSEIDON2_T_2_5";
+            Base::poseidon2_T_2_6 = "POSEIDON2_T_2_6";
+            Base::poseidon2_T_2_7 = "POSEIDON2_T_2_7";
+            Base::poseidon2_T_3_4 = "POSEIDON2_T_3_4";
+            Base::poseidon2_T_3_5 = "POSEIDON2_T_3_5";
+            Base::poseidon2_T_3_6 = "POSEIDON2_T_3_6";
+            Base::poseidon2_T_3_7 = "POSEIDON2_T_3_7";
+            Base::poseidon2_T_60_4 = "POSEIDON2_T_60_4";
+            Base::poseidon2_T_60_5 = "POSEIDON2_T_60_5";
+            Base::poseidon2_T_60_6 = "POSEIDON2_T_60_6";
+            Base::poseidon2_T_60_7 = "POSEIDON2_T_60_7";
+            Base::poseidon2_T_61_4 = "POSEIDON2_T_61_4";
+            Base::poseidon2_T_61_5 = "POSEIDON2_T_61_5";
+            Base::poseidon2_T_61_6 = "POSEIDON2_T_61_6";
+            Base::poseidon2_T_61_7 = "POSEIDON2_T_61_7";
+            Base::poseidon2_T_62_4 = "POSEIDON2_T_62_4";
+            Base::poseidon2_T_62_5 = "POSEIDON2_T_62_5";
+            Base::poseidon2_T_62_6 = "POSEIDON2_T_62_6";
+            Base::poseidon2_T_62_7 = "POSEIDON2_T_62_7";
+            Base::poseidon2_T_63_4 = "POSEIDON2_T_63_4";
+            Base::poseidon2_T_63_5 = "POSEIDON2_T_63_5";
+            Base::poseidon2_T_63_6 = "POSEIDON2_T_63_6";
+            Base::poseidon2_T_63_7 = "POSEIDON2_T_63_7";
+            Base::poseidon2_a_0 = "POSEIDON2_A_0";
+            Base::poseidon2_a_1 = "POSEIDON2_A_1";
+            Base::poseidon2_a_2 = "POSEIDON2_A_2";
+            Base::poseidon2_a_3 = "POSEIDON2_A_3";
+            Base::poseidon2_b_0 = "POSEIDON2_B_0";
+            Base::poseidon2_b_1 = "POSEIDON2_B_1";
+            Base::poseidon2_b_2 = "POSEIDON2_B_2";
+            Base::poseidon2_b_3 = "POSEIDON2_B_3";
             Base::poseidon2_clk = "POSEIDON2_CLK";
-            Base::poseidon2_input = "POSEIDON2_INPUT";
-            Base::poseidon2_output = "POSEIDON2_OUTPUT";
+            Base::poseidon2_input_addr = "POSEIDON2_INPUT_ADDR";
+            Base::poseidon2_input_addr_1 = "POSEIDON2_INPUT_ADDR_1";
+            Base::poseidon2_input_addr_2 = "POSEIDON2_INPUT_ADDR_2";
+            Base::poseidon2_input_addr_3 = "POSEIDON2_INPUT_ADDR_3";
+            Base::poseidon2_mem_addr_a = "POSEIDON2_MEM_ADDR_A";
+            Base::poseidon2_mem_addr_b = "POSEIDON2_MEM_ADDR_B";
+            Base::poseidon2_mem_addr_c = "POSEIDON2_MEM_ADDR_C";
+            Base::poseidon2_mem_addr_d = "POSEIDON2_MEM_ADDR_D";
+            Base::poseidon2_mem_op = "POSEIDON2_MEM_OP";
+            Base::poseidon2_output_addr = "POSEIDON2_OUTPUT_ADDR";
+            Base::poseidon2_output_addr_1 = "POSEIDON2_OUTPUT_ADDR_1";
+            Base::poseidon2_output_addr_2 = "POSEIDON2_OUTPUT_ADDR_2";
+            Base::poseidon2_output_addr_3 = "POSEIDON2_OUTPUT_ADDR_3";
+            Base::poseidon2_r_in_tag = "POSEIDON2_R_IN_TAG";
+            Base::poseidon2_read_line = "POSEIDON2_READ_LINE";
             Base::poseidon2_sel_poseidon_perm = "POSEIDON2_SEL_POSEIDON_PERM";
+            Base::poseidon2_w_in_tag = "POSEIDON2_W_IN_TAG";
+            Base::poseidon2_write_line = "POSEIDON2_WRITE_LINE";
             Base::powers_power_of_2 = "POWERS_POWER_OF_2";
             Base::sha256_clk = "SHA256_CLK";
             Base::sha256_input = "SHA256_INPUT";
             Base::sha256_output = "SHA256_OUTPUT";
             Base::sha256_sel_sha256_compression = "SHA256_SEL_SHA256_COMPRESSION";
             Base::sha256_state = "SHA256_STATE";
+            Base::perm_pos_mem_a = "PERM_POS_MEM_A";
+            Base::perm_pos_mem_b = "PERM_POS_MEM_B";
+            Base::perm_pos_mem_c = "PERM_POS_MEM_C";
+            Base::perm_pos_mem_d = "PERM_POS_MEM_D";
             Base::perm_main_alu = "PERM_MAIN_ALU";
             Base::perm_main_bin = "PERM_MAIN_BIN";
             Base::perm_main_conv = "PERM_MAIN_CONV";
@@ -3430,6 +5221,10 @@ class AvmFlavor {
         Commitment mem_sel_op_c;
         Commitment mem_sel_op_cmov;
         Commitment mem_sel_op_d;
+        Commitment mem_sel_op_gadget_a;
+        Commitment mem_sel_op_gadget_b;
+        Commitment mem_sel_op_gadget_c;
+        Commitment mem_sel_op_gadget_d;
         Commitment mem_sel_resolve_ind_addr_a;
         Commitment mem_sel_resolve_ind_addr_b;
         Commitment mem_sel_resolve_ind_addr_c;
@@ -3446,16 +5241,303 @@ class AvmFlavor {
         Commitment pedersen_input;
         Commitment pedersen_output;
         Commitment pedersen_sel_pedersen;
+        Commitment poseidon2_B_10_0;
+        Commitment poseidon2_B_10_1;
+        Commitment poseidon2_B_10_2;
+        Commitment poseidon2_B_10_3;
+        Commitment poseidon2_B_11_0;
+        Commitment poseidon2_B_11_1;
+        Commitment poseidon2_B_11_2;
+        Commitment poseidon2_B_11_3;
+        Commitment poseidon2_B_12_0;
+        Commitment poseidon2_B_12_1;
+        Commitment poseidon2_B_12_2;
+        Commitment poseidon2_B_12_3;
+        Commitment poseidon2_B_13_0;
+        Commitment poseidon2_B_13_1;
+        Commitment poseidon2_B_13_2;
+        Commitment poseidon2_B_13_3;
+        Commitment poseidon2_B_14_0;
+        Commitment poseidon2_B_14_1;
+        Commitment poseidon2_B_14_2;
+        Commitment poseidon2_B_14_3;
+        Commitment poseidon2_B_15_0;
+        Commitment poseidon2_B_15_1;
+        Commitment poseidon2_B_15_2;
+        Commitment poseidon2_B_15_3;
+        Commitment poseidon2_B_16_0;
+        Commitment poseidon2_B_16_1;
+        Commitment poseidon2_B_16_2;
+        Commitment poseidon2_B_16_3;
+        Commitment poseidon2_B_17_0;
+        Commitment poseidon2_B_17_1;
+        Commitment poseidon2_B_17_2;
+        Commitment poseidon2_B_17_3;
+        Commitment poseidon2_B_18_0;
+        Commitment poseidon2_B_18_1;
+        Commitment poseidon2_B_18_2;
+        Commitment poseidon2_B_18_3;
+        Commitment poseidon2_B_19_0;
+        Commitment poseidon2_B_19_1;
+        Commitment poseidon2_B_19_2;
+        Commitment poseidon2_B_19_3;
+        Commitment poseidon2_B_20_0;
+        Commitment poseidon2_B_20_1;
+        Commitment poseidon2_B_20_2;
+        Commitment poseidon2_B_20_3;
+        Commitment poseidon2_B_21_0;
+        Commitment poseidon2_B_21_1;
+        Commitment poseidon2_B_21_2;
+        Commitment poseidon2_B_21_3;
+        Commitment poseidon2_B_22_0;
+        Commitment poseidon2_B_22_1;
+        Commitment poseidon2_B_22_2;
+        Commitment poseidon2_B_22_3;
+        Commitment poseidon2_B_23_0;
+        Commitment poseidon2_B_23_1;
+        Commitment poseidon2_B_23_2;
+        Commitment poseidon2_B_23_3;
+        Commitment poseidon2_B_24_0;
+        Commitment poseidon2_B_24_1;
+        Commitment poseidon2_B_24_2;
+        Commitment poseidon2_B_24_3;
+        Commitment poseidon2_B_25_0;
+        Commitment poseidon2_B_25_1;
+        Commitment poseidon2_B_25_2;
+        Commitment poseidon2_B_25_3;
+        Commitment poseidon2_B_26_0;
+        Commitment poseidon2_B_26_1;
+        Commitment poseidon2_B_26_2;
+        Commitment poseidon2_B_26_3;
+        Commitment poseidon2_B_27_0;
+        Commitment poseidon2_B_27_1;
+        Commitment poseidon2_B_27_2;
+        Commitment poseidon2_B_27_3;
+        Commitment poseidon2_B_28_0;
+        Commitment poseidon2_B_28_1;
+        Commitment poseidon2_B_28_2;
+        Commitment poseidon2_B_28_3;
+        Commitment poseidon2_B_29_0;
+        Commitment poseidon2_B_29_1;
+        Commitment poseidon2_B_29_2;
+        Commitment poseidon2_B_29_3;
+        Commitment poseidon2_B_30_0;
+        Commitment poseidon2_B_30_1;
+        Commitment poseidon2_B_30_2;
+        Commitment poseidon2_B_30_3;
+        Commitment poseidon2_B_31_0;
+        Commitment poseidon2_B_31_1;
+        Commitment poseidon2_B_31_2;
+        Commitment poseidon2_B_31_3;
+        Commitment poseidon2_B_32_0;
+        Commitment poseidon2_B_32_1;
+        Commitment poseidon2_B_32_2;
+        Commitment poseidon2_B_32_3;
+        Commitment poseidon2_B_33_0;
+        Commitment poseidon2_B_33_1;
+        Commitment poseidon2_B_33_2;
+        Commitment poseidon2_B_33_3;
+        Commitment poseidon2_B_34_0;
+        Commitment poseidon2_B_34_1;
+        Commitment poseidon2_B_34_2;
+        Commitment poseidon2_B_34_3;
+        Commitment poseidon2_B_35_0;
+        Commitment poseidon2_B_35_1;
+        Commitment poseidon2_B_35_2;
+        Commitment poseidon2_B_35_3;
+        Commitment poseidon2_B_36_0;
+        Commitment poseidon2_B_36_1;
+        Commitment poseidon2_B_36_2;
+        Commitment poseidon2_B_36_3;
+        Commitment poseidon2_B_37_0;
+        Commitment poseidon2_B_37_1;
+        Commitment poseidon2_B_37_2;
+        Commitment poseidon2_B_37_3;
+        Commitment poseidon2_B_38_0;
+        Commitment poseidon2_B_38_1;
+        Commitment poseidon2_B_38_2;
+        Commitment poseidon2_B_38_3;
+        Commitment poseidon2_B_39_0;
+        Commitment poseidon2_B_39_1;
+        Commitment poseidon2_B_39_2;
+        Commitment poseidon2_B_39_3;
+        Commitment poseidon2_B_40_0;
+        Commitment poseidon2_B_40_1;
+        Commitment poseidon2_B_40_2;
+        Commitment poseidon2_B_40_3;
+        Commitment poseidon2_B_41_0;
+        Commitment poseidon2_B_41_1;
+        Commitment poseidon2_B_41_2;
+        Commitment poseidon2_B_41_3;
+        Commitment poseidon2_B_42_0;
+        Commitment poseidon2_B_42_1;
+        Commitment poseidon2_B_42_2;
+        Commitment poseidon2_B_42_3;
+        Commitment poseidon2_B_43_0;
+        Commitment poseidon2_B_43_1;
+        Commitment poseidon2_B_43_2;
+        Commitment poseidon2_B_43_3;
+        Commitment poseidon2_B_44_0;
+        Commitment poseidon2_B_44_1;
+        Commitment poseidon2_B_44_2;
+        Commitment poseidon2_B_44_3;
+        Commitment poseidon2_B_45_0;
+        Commitment poseidon2_B_45_1;
+        Commitment poseidon2_B_45_2;
+        Commitment poseidon2_B_45_3;
+        Commitment poseidon2_B_46_0;
+        Commitment poseidon2_B_46_1;
+        Commitment poseidon2_B_46_2;
+        Commitment poseidon2_B_46_3;
+        Commitment poseidon2_B_47_0;
+        Commitment poseidon2_B_47_1;
+        Commitment poseidon2_B_47_2;
+        Commitment poseidon2_B_47_3;
+        Commitment poseidon2_B_48_0;
+        Commitment poseidon2_B_48_1;
+        Commitment poseidon2_B_48_2;
+        Commitment poseidon2_B_48_3;
+        Commitment poseidon2_B_49_0;
+        Commitment poseidon2_B_49_1;
+        Commitment poseidon2_B_49_2;
+        Commitment poseidon2_B_49_3;
+        Commitment poseidon2_B_4_0;
+        Commitment poseidon2_B_4_1;
+        Commitment poseidon2_B_4_2;
+        Commitment poseidon2_B_4_3;
+        Commitment poseidon2_B_50_0;
+        Commitment poseidon2_B_50_1;
+        Commitment poseidon2_B_50_2;
+        Commitment poseidon2_B_50_3;
+        Commitment poseidon2_B_51_0;
+        Commitment poseidon2_B_51_1;
+        Commitment poseidon2_B_51_2;
+        Commitment poseidon2_B_51_3;
+        Commitment poseidon2_B_52_0;
+        Commitment poseidon2_B_52_1;
+        Commitment poseidon2_B_52_2;
+        Commitment poseidon2_B_52_3;
+        Commitment poseidon2_B_53_0;
+        Commitment poseidon2_B_53_1;
+        Commitment poseidon2_B_53_2;
+        Commitment poseidon2_B_53_3;
+        Commitment poseidon2_B_54_0;
+        Commitment poseidon2_B_54_1;
+        Commitment poseidon2_B_54_2;
+        Commitment poseidon2_B_54_3;
+        Commitment poseidon2_B_55_0;
+        Commitment poseidon2_B_55_1;
+        Commitment poseidon2_B_55_2;
+        Commitment poseidon2_B_55_3;
+        Commitment poseidon2_B_56_0;
+        Commitment poseidon2_B_56_1;
+        Commitment poseidon2_B_56_2;
+        Commitment poseidon2_B_56_3;
+        Commitment poseidon2_B_57_0;
+        Commitment poseidon2_B_57_1;
+        Commitment poseidon2_B_57_2;
+        Commitment poseidon2_B_57_3;
+        Commitment poseidon2_B_58_0;
+        Commitment poseidon2_B_58_1;
+        Commitment poseidon2_B_58_2;
+        Commitment poseidon2_B_58_3;
+        Commitment poseidon2_B_59_0;
+        Commitment poseidon2_B_59_1;
+        Commitment poseidon2_B_59_2;
+        Commitment poseidon2_B_59_3;
+        Commitment poseidon2_B_5_0;
+        Commitment poseidon2_B_5_1;
+        Commitment poseidon2_B_5_2;
+        Commitment poseidon2_B_5_3;
+        Commitment poseidon2_B_6_0;
+        Commitment poseidon2_B_6_1;
+        Commitment poseidon2_B_6_2;
+        Commitment poseidon2_B_6_3;
+        Commitment poseidon2_B_7_0;
+        Commitment poseidon2_B_7_1;
+        Commitment poseidon2_B_7_2;
+        Commitment poseidon2_B_7_3;
+        Commitment poseidon2_B_8_0;
+        Commitment poseidon2_B_8_1;
+        Commitment poseidon2_B_8_2;
+        Commitment poseidon2_B_8_3;
+        Commitment poseidon2_B_9_0;
+        Commitment poseidon2_B_9_1;
+        Commitment poseidon2_B_9_2;
+        Commitment poseidon2_B_9_3;
+        Commitment poseidon2_EXT_LAYER_4;
+        Commitment poseidon2_EXT_LAYER_5;
+        Commitment poseidon2_EXT_LAYER_6;
+        Commitment poseidon2_EXT_LAYER_7;
+        Commitment poseidon2_T_0_4;
+        Commitment poseidon2_T_0_5;
+        Commitment poseidon2_T_0_6;
+        Commitment poseidon2_T_0_7;
+        Commitment poseidon2_T_1_4;
+        Commitment poseidon2_T_1_5;
+        Commitment poseidon2_T_1_6;
+        Commitment poseidon2_T_1_7;
+        Commitment poseidon2_T_2_4;
+        Commitment poseidon2_T_2_5;
+        Commitment poseidon2_T_2_6;
+        Commitment poseidon2_T_2_7;
+        Commitment poseidon2_T_3_4;
+        Commitment poseidon2_T_3_5;
+        Commitment poseidon2_T_3_6;
+        Commitment poseidon2_T_3_7;
+        Commitment poseidon2_T_60_4;
+        Commitment poseidon2_T_60_5;
+        Commitment poseidon2_T_60_6;
+        Commitment poseidon2_T_60_7;
+        Commitment poseidon2_T_61_4;
+        Commitment poseidon2_T_61_5;
+        Commitment poseidon2_T_61_6;
+        Commitment poseidon2_T_61_7;
+        Commitment poseidon2_T_62_4;
+        Commitment poseidon2_T_62_5;
+        Commitment poseidon2_T_62_6;
+        Commitment poseidon2_T_62_7;
+        Commitment poseidon2_T_63_4;
+        Commitment poseidon2_T_63_5;
+        Commitment poseidon2_T_63_6;
+        Commitment poseidon2_T_63_7;
+        Commitment poseidon2_a_0;
+        Commitment poseidon2_a_1;
+        Commitment poseidon2_a_2;
+        Commitment poseidon2_a_3;
+        Commitment poseidon2_b_0;
+        Commitment poseidon2_b_1;
+        Commitment poseidon2_b_2;
+        Commitment poseidon2_b_3;
         Commitment poseidon2_clk;
-        Commitment poseidon2_input;
-        Commitment poseidon2_output;
+        Commitment poseidon2_input_addr;
+        Commitment poseidon2_input_addr_1;
+        Commitment poseidon2_input_addr_2;
+        Commitment poseidon2_input_addr_3;
+        Commitment poseidon2_mem_addr_a;
+        Commitment poseidon2_mem_addr_b;
+        Commitment poseidon2_mem_addr_c;
+        Commitment poseidon2_mem_addr_d;
+        Commitment poseidon2_mem_op;
+        Commitment poseidon2_output_addr;
+        Commitment poseidon2_output_addr_1;
+        Commitment poseidon2_output_addr_2;
+        Commitment poseidon2_output_addr_3;
+        Commitment poseidon2_r_in_tag;
+        Commitment poseidon2_read_line;
         Commitment poseidon2_sel_poseidon_perm;
+        Commitment poseidon2_w_in_tag;
+        Commitment poseidon2_write_line;
         Commitment powers_power_of_2;
         Commitment sha256_clk;
         Commitment sha256_input;
         Commitment sha256_output;
         Commitment sha256_sel_sha256_compression;
         Commitment sha256_state;
+        Commitment perm_pos_mem_a;
+        Commitment perm_pos_mem_b;
+        Commitment perm_pos_mem_c;
+        Commitment perm_pos_mem_d;
         Commitment perm_main_alu;
         Commitment perm_main_bin;
         Commitment perm_main_conv;
@@ -3846,6 +5928,10 @@ class AvmFlavor {
             mem_sel_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            mem_sel_op_gadget_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            mem_sel_op_gadget_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            mem_sel_op_gadget_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            mem_sel_op_gadget_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3862,16 +5948,303 @@ class AvmFlavor {
             pedersen_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             pedersen_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             pedersen_sel_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_10_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_10_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_10_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_10_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_11_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_11_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_11_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_11_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_12_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_12_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_12_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_12_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_13_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_13_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_13_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_13_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_14_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_14_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_14_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_14_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_15_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_15_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_15_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_15_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_17_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_17_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_17_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_17_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_18_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_18_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_18_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_18_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_19_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_19_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_19_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_19_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_20_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_20_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_20_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_20_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_21_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_21_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_21_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_21_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_22_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_22_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_22_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_22_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_23_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_23_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_23_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_23_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_24_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_24_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_24_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_24_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_25_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_25_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_25_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_25_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_26_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_26_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_26_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_26_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_27_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_27_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_27_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_27_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_28_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_28_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_28_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_28_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_29_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_29_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_29_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_29_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_30_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_30_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_30_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_30_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_31_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_31_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_31_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_31_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_32_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_32_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_32_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_32_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_33_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_33_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_33_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_33_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_34_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_34_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_34_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_34_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_35_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_35_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_35_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_35_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_36_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_36_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_36_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_36_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_37_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_37_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_37_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_37_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_38_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_38_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_38_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_38_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_39_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_39_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_39_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_39_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_40_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_40_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_40_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_40_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_41_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_41_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_41_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_41_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_42_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_42_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_42_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_42_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_43_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_43_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_43_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_43_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_44_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_44_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_44_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_44_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_45_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_45_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_45_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_45_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_46_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_46_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_46_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_46_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_47_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_47_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_47_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_47_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_48_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_48_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_48_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_48_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_49_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_49_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_49_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_49_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_4_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_4_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_4_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_4_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_50_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_50_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_50_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_50_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_51_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_51_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_51_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_51_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_52_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_52_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_52_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_52_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_53_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_53_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_53_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_53_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_54_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_54_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_54_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_54_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_55_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_55_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_55_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_55_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_56_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_56_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_56_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_56_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_57_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_57_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_57_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_57_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_58_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_58_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_58_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_58_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_59_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_59_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_59_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_59_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_5_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_5_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_5_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_5_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_6_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_6_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_6_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_6_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_7_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_7_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_7_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_7_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_8_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_8_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_8_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_8_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_9_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_9_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_9_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_B_9_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_EXT_LAYER_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_EXT_LAYER_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_EXT_LAYER_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_EXT_LAYER_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_0_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_0_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_0_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_0_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_1_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_1_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_1_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_1_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_2_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_2_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_2_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_2_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_3_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_3_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_3_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_3_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_60_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_60_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_60_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_60_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_61_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_61_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_61_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_61_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_62_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_62_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_62_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_62_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_63_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_63_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_63_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_T_63_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_a_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_a_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_a_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_a_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_b_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_b_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_b_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_b_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             poseidon2_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_input_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_input_addr_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_input_addr_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_input_addr_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_mem_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_mem_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_mem_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_mem_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_mem_op = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_output_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_output_addr_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_output_addr_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_output_addr_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_read_line = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             poseidon2_sel_poseidon_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            poseidon2_write_line = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             powers_power_of_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             sha256_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             sha256_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             sha256_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             sha256_sel_sha256_compression = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             sha256_state = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_pos_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_pos_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_pos_mem_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_pos_mem_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -4254,6 +6627,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(mem_sel_op_c, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_cmov, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_d, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(mem_sel_op_gadget_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(mem_sel_op_gadget_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(mem_sel_op_gadget_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(mem_sel_op_gadget_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_c, Transcript::proof_data);
@@ -4270,16 +6647,303 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(pedersen_input, Transcript::proof_data);
             serialize_to_buffer<Commitment>(pedersen_output, Transcript::proof_data);
             serialize_to_buffer<Commitment>(pedersen_sel_pedersen, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_10_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_10_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_10_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_10_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_11_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_11_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_11_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_11_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_12_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_12_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_12_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_12_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_13_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_13_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_13_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_13_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_14_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_14_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_14_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_14_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_15_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_15_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_15_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_15_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_16_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_16_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_16_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_16_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_17_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_17_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_17_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_17_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_18_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_18_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_18_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_18_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_19_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_19_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_19_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_19_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_20_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_20_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_20_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_20_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_21_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_21_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_21_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_21_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_22_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_22_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_22_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_22_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_23_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_23_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_23_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_23_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_24_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_24_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_24_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_24_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_25_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_25_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_25_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_25_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_26_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_26_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_26_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_26_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_27_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_27_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_27_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_27_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_28_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_28_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_28_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_28_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_29_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_29_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_29_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_29_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_30_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_30_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_30_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_30_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_31_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_31_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_31_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_31_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_32_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_32_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_32_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_32_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_33_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_33_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_33_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_33_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_34_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_34_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_34_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_34_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_35_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_35_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_35_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_35_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_36_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_36_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_36_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_36_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_37_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_37_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_37_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_37_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_38_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_38_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_38_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_38_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_39_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_39_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_39_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_39_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_40_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_40_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_40_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_40_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_41_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_41_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_41_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_41_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_42_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_42_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_42_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_42_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_43_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_43_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_43_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_43_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_44_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_44_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_44_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_44_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_45_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_45_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_45_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_45_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_46_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_46_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_46_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_46_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_47_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_47_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_47_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_47_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_48_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_48_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_48_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_48_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_49_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_49_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_49_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_49_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_4_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_4_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_4_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_4_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_50_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_50_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_50_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_50_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_51_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_51_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_51_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_51_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_52_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_52_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_52_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_52_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_53_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_53_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_53_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_53_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_54_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_54_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_54_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_54_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_55_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_55_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_55_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_55_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_56_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_56_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_56_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_56_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_57_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_57_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_57_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_57_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_58_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_58_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_58_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_58_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_59_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_59_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_59_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_59_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_5_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_5_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_5_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_5_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_6_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_6_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_6_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_6_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_7_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_7_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_7_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_7_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_8_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_8_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_8_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_8_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_9_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_9_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_9_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_B_9_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_EXT_LAYER_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_EXT_LAYER_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_EXT_LAYER_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_EXT_LAYER_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_0_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_0_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_0_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_0_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_1_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_1_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_1_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_1_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_2_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_2_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_2_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_2_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_3_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_3_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_3_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_3_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_60_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_60_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_60_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_60_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_61_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_61_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_61_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_61_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_62_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_62_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_62_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_62_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_63_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_63_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_63_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_T_63_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_a_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_a_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_a_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_a_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_b_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_b_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_b_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_b_3, Transcript::proof_data);
             serialize_to_buffer<Commitment>(poseidon2_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_output, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_input_addr, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_input_addr_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_input_addr_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_input_addr_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_mem_addr_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_mem_addr_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_mem_addr_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_mem_addr_d, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_mem_op, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_output_addr, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_output_addr_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_output_addr_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_output_addr_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_r_in_tag, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_read_line, Transcript::proof_data);
             serialize_to_buffer<Commitment>(poseidon2_sel_poseidon_perm, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_w_in_tag, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(poseidon2_write_line, Transcript::proof_data);
             serialize_to_buffer<Commitment>(powers_power_of_2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(sha256_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(sha256_input, Transcript::proof_data);
             serialize_to_buffer<Commitment>(sha256_output, Transcript::proof_data);
             serialize_to_buffer<Commitment>(sha256_sel_sha256_compression, Transcript::proof_data);
             serialize_to_buffer<Commitment>(sha256_state, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_pos_mem_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_pos_mem_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_pos_mem_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_pos_mem_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);

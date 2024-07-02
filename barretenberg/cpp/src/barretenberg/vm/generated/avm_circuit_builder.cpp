@@ -284,6 +284,10 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "mem_sel_op_c",
              "mem_sel_op_cmov",
              "mem_sel_op_d",
+             "mem_sel_op_gadget_a",
+             "mem_sel_op_gadget_b",
+             "mem_sel_op_gadget_c",
+             "mem_sel_op_gadget_d",
              "mem_sel_resolve_ind_addr_a",
              "mem_sel_resolve_ind_addr_b",
              "mem_sel_resolve_ind_addr_c",
@@ -300,16 +304,303 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "pedersen_input",
              "pedersen_output",
              "pedersen_sel_pedersen",
+             "poseidon2_B_10_0",
+             "poseidon2_B_10_1",
+             "poseidon2_B_10_2",
+             "poseidon2_B_10_3",
+             "poseidon2_B_11_0",
+             "poseidon2_B_11_1",
+             "poseidon2_B_11_2",
+             "poseidon2_B_11_3",
+             "poseidon2_B_12_0",
+             "poseidon2_B_12_1",
+             "poseidon2_B_12_2",
+             "poseidon2_B_12_3",
+             "poseidon2_B_13_0",
+             "poseidon2_B_13_1",
+             "poseidon2_B_13_2",
+             "poseidon2_B_13_3",
+             "poseidon2_B_14_0",
+             "poseidon2_B_14_1",
+             "poseidon2_B_14_2",
+             "poseidon2_B_14_3",
+             "poseidon2_B_15_0",
+             "poseidon2_B_15_1",
+             "poseidon2_B_15_2",
+             "poseidon2_B_15_3",
+             "poseidon2_B_16_0",
+             "poseidon2_B_16_1",
+             "poseidon2_B_16_2",
+             "poseidon2_B_16_3",
+             "poseidon2_B_17_0",
+             "poseidon2_B_17_1",
+             "poseidon2_B_17_2",
+             "poseidon2_B_17_3",
+             "poseidon2_B_18_0",
+             "poseidon2_B_18_1",
+             "poseidon2_B_18_2",
+             "poseidon2_B_18_3",
+             "poseidon2_B_19_0",
+             "poseidon2_B_19_1",
+             "poseidon2_B_19_2",
+             "poseidon2_B_19_3",
+             "poseidon2_B_20_0",
+             "poseidon2_B_20_1",
+             "poseidon2_B_20_2",
+             "poseidon2_B_20_3",
+             "poseidon2_B_21_0",
+             "poseidon2_B_21_1",
+             "poseidon2_B_21_2",
+             "poseidon2_B_21_3",
+             "poseidon2_B_22_0",
+             "poseidon2_B_22_1",
+             "poseidon2_B_22_2",
+             "poseidon2_B_22_3",
+             "poseidon2_B_23_0",
+             "poseidon2_B_23_1",
+             "poseidon2_B_23_2",
+             "poseidon2_B_23_3",
+             "poseidon2_B_24_0",
+             "poseidon2_B_24_1",
+             "poseidon2_B_24_2",
+             "poseidon2_B_24_3",
+             "poseidon2_B_25_0",
+             "poseidon2_B_25_1",
+             "poseidon2_B_25_2",
+             "poseidon2_B_25_3",
+             "poseidon2_B_26_0",
+             "poseidon2_B_26_1",
+             "poseidon2_B_26_2",
+             "poseidon2_B_26_3",
+             "poseidon2_B_27_0",
+             "poseidon2_B_27_1",
+             "poseidon2_B_27_2",
+             "poseidon2_B_27_3",
+             "poseidon2_B_28_0",
+             "poseidon2_B_28_1",
+             "poseidon2_B_28_2",
+             "poseidon2_B_28_3",
+             "poseidon2_B_29_0",
+             "poseidon2_B_29_1",
+             "poseidon2_B_29_2",
+             "poseidon2_B_29_3",
+             "poseidon2_B_30_0",
+             "poseidon2_B_30_1",
+             "poseidon2_B_30_2",
+             "poseidon2_B_30_3",
+             "poseidon2_B_31_0",
+             "poseidon2_B_31_1",
+             "poseidon2_B_31_2",
+             "poseidon2_B_31_3",
+             "poseidon2_B_32_0",
+             "poseidon2_B_32_1",
+             "poseidon2_B_32_2",
+             "poseidon2_B_32_3",
+             "poseidon2_B_33_0",
+             "poseidon2_B_33_1",
+             "poseidon2_B_33_2",
+             "poseidon2_B_33_3",
+             "poseidon2_B_34_0",
+             "poseidon2_B_34_1",
+             "poseidon2_B_34_2",
+             "poseidon2_B_34_3",
+             "poseidon2_B_35_0",
+             "poseidon2_B_35_1",
+             "poseidon2_B_35_2",
+             "poseidon2_B_35_3",
+             "poseidon2_B_36_0",
+             "poseidon2_B_36_1",
+             "poseidon2_B_36_2",
+             "poseidon2_B_36_3",
+             "poseidon2_B_37_0",
+             "poseidon2_B_37_1",
+             "poseidon2_B_37_2",
+             "poseidon2_B_37_3",
+             "poseidon2_B_38_0",
+             "poseidon2_B_38_1",
+             "poseidon2_B_38_2",
+             "poseidon2_B_38_3",
+             "poseidon2_B_39_0",
+             "poseidon2_B_39_1",
+             "poseidon2_B_39_2",
+             "poseidon2_B_39_3",
+             "poseidon2_B_40_0",
+             "poseidon2_B_40_1",
+             "poseidon2_B_40_2",
+             "poseidon2_B_40_3",
+             "poseidon2_B_41_0",
+             "poseidon2_B_41_1",
+             "poseidon2_B_41_2",
+             "poseidon2_B_41_3",
+             "poseidon2_B_42_0",
+             "poseidon2_B_42_1",
+             "poseidon2_B_42_2",
+             "poseidon2_B_42_3",
+             "poseidon2_B_43_0",
+             "poseidon2_B_43_1",
+             "poseidon2_B_43_2",
+             "poseidon2_B_43_3",
+             "poseidon2_B_44_0",
+             "poseidon2_B_44_1",
+             "poseidon2_B_44_2",
+             "poseidon2_B_44_3",
+             "poseidon2_B_45_0",
+             "poseidon2_B_45_1",
+             "poseidon2_B_45_2",
+             "poseidon2_B_45_3",
+             "poseidon2_B_46_0",
+             "poseidon2_B_46_1",
+             "poseidon2_B_46_2",
+             "poseidon2_B_46_3",
+             "poseidon2_B_47_0",
+             "poseidon2_B_47_1",
+             "poseidon2_B_47_2",
+             "poseidon2_B_47_3",
+             "poseidon2_B_48_0",
+             "poseidon2_B_48_1",
+             "poseidon2_B_48_2",
+             "poseidon2_B_48_3",
+             "poseidon2_B_49_0",
+             "poseidon2_B_49_1",
+             "poseidon2_B_49_2",
+             "poseidon2_B_49_3",
+             "poseidon2_B_4_0",
+             "poseidon2_B_4_1",
+             "poseidon2_B_4_2",
+             "poseidon2_B_4_3",
+             "poseidon2_B_50_0",
+             "poseidon2_B_50_1",
+             "poseidon2_B_50_2",
+             "poseidon2_B_50_3",
+             "poseidon2_B_51_0",
+             "poseidon2_B_51_1",
+             "poseidon2_B_51_2",
+             "poseidon2_B_51_3",
+             "poseidon2_B_52_0",
+             "poseidon2_B_52_1",
+             "poseidon2_B_52_2",
+             "poseidon2_B_52_3",
+             "poseidon2_B_53_0",
+             "poseidon2_B_53_1",
+             "poseidon2_B_53_2",
+             "poseidon2_B_53_3",
+             "poseidon2_B_54_0",
+             "poseidon2_B_54_1",
+             "poseidon2_B_54_2",
+             "poseidon2_B_54_3",
+             "poseidon2_B_55_0",
+             "poseidon2_B_55_1",
+             "poseidon2_B_55_2",
+             "poseidon2_B_55_3",
+             "poseidon2_B_56_0",
+             "poseidon2_B_56_1",
+             "poseidon2_B_56_2",
+             "poseidon2_B_56_3",
+             "poseidon2_B_57_0",
+             "poseidon2_B_57_1",
+             "poseidon2_B_57_2",
+             "poseidon2_B_57_3",
+             "poseidon2_B_58_0",
+             "poseidon2_B_58_1",
+             "poseidon2_B_58_2",
+             "poseidon2_B_58_3",
+             "poseidon2_B_59_0",
+             "poseidon2_B_59_1",
+             "poseidon2_B_59_2",
+             "poseidon2_B_59_3",
+             "poseidon2_B_5_0",
+             "poseidon2_B_5_1",
+             "poseidon2_B_5_2",
+             "poseidon2_B_5_3",
+             "poseidon2_B_6_0",
+             "poseidon2_B_6_1",
+             "poseidon2_B_6_2",
+             "poseidon2_B_6_3",
+             "poseidon2_B_7_0",
+             "poseidon2_B_7_1",
+             "poseidon2_B_7_2",
+             "poseidon2_B_7_3",
+             "poseidon2_B_8_0",
+             "poseidon2_B_8_1",
+             "poseidon2_B_8_2",
+             "poseidon2_B_8_3",
+             "poseidon2_B_9_0",
+             "poseidon2_B_9_1",
+             "poseidon2_B_9_2",
+             "poseidon2_B_9_3",
+             "poseidon2_EXT_LAYER_4",
+             "poseidon2_EXT_LAYER_5",
+             "poseidon2_EXT_LAYER_6",
+             "poseidon2_EXT_LAYER_7",
+             "poseidon2_T_0_4",
+             "poseidon2_T_0_5",
+             "poseidon2_T_0_6",
+             "poseidon2_T_0_7",
+             "poseidon2_T_1_4",
+             "poseidon2_T_1_5",
+             "poseidon2_T_1_6",
+             "poseidon2_T_1_7",
+             "poseidon2_T_2_4",
+             "poseidon2_T_2_5",
+             "poseidon2_T_2_6",
+             "poseidon2_T_2_7",
+             "poseidon2_T_3_4",
+             "poseidon2_T_3_5",
+             "poseidon2_T_3_6",
+             "poseidon2_T_3_7",
+             "poseidon2_T_60_4",
+             "poseidon2_T_60_5",
+             "poseidon2_T_60_6",
+             "poseidon2_T_60_7",
+             "poseidon2_T_61_4",
+             "poseidon2_T_61_5",
+             "poseidon2_T_61_6",
+             "poseidon2_T_61_7",
+             "poseidon2_T_62_4",
+             "poseidon2_T_62_5",
+             "poseidon2_T_62_6",
+             "poseidon2_T_62_7",
+             "poseidon2_T_63_4",
+             "poseidon2_T_63_5",
+             "poseidon2_T_63_6",
+             "poseidon2_T_63_7",
+             "poseidon2_a_0",
+             "poseidon2_a_1",
+             "poseidon2_a_2",
+             "poseidon2_a_3",
+             "poseidon2_b_0",
+             "poseidon2_b_1",
+             "poseidon2_b_2",
+             "poseidon2_b_3",
              "poseidon2_clk",
-             "poseidon2_input",
-             "poseidon2_output",
+             "poseidon2_input_addr",
+             "poseidon2_input_addr_1",
+             "poseidon2_input_addr_2",
+             "poseidon2_input_addr_3",
+             "poseidon2_mem_addr_a",
+             "poseidon2_mem_addr_b",
+             "poseidon2_mem_addr_c",
+             "poseidon2_mem_addr_d",
+             "poseidon2_mem_op",
+             "poseidon2_output_addr",
+             "poseidon2_output_addr_1",
+             "poseidon2_output_addr_2",
+             "poseidon2_output_addr_3",
+             "poseidon2_r_in_tag",
+             "poseidon2_read_line",
              "poseidon2_sel_poseidon_perm",
+             "poseidon2_w_in_tag",
+             "poseidon2_write_line",
              "powers_power_of_2",
              "sha256_clk",
              "sha256_input",
              "sha256_output",
              "sha256_sel_sha256_compression",
              "sha256_state",
+             "perm_pos_mem_a",
+             "perm_pos_mem_b",
+             "perm_pos_mem_c",
+             "perm_pos_mem_d",
              "perm_main_alu",
              "perm_main_bin",
              "perm_main_conv",
@@ -555,7 +846,9 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
            << field_to_string(row.mem_sel_mov_ia_to_ic) << "," << field_to_string(row.mem_sel_mov_ib_to_ic) << ","
            << field_to_string(row.mem_sel_op_a) << "," << field_to_string(row.mem_sel_op_b) << ","
            << field_to_string(row.mem_sel_op_c) << "," << field_to_string(row.mem_sel_op_cmov) << ","
-           << field_to_string(row.mem_sel_op_d) << "," << field_to_string(row.mem_sel_resolve_ind_addr_a) << ","
+           << field_to_string(row.mem_sel_op_d) << "," << field_to_string(row.mem_sel_op_gadget_a) << ","
+           << field_to_string(row.mem_sel_op_gadget_b) << "," << field_to_string(row.mem_sel_op_gadget_c) << ","
+           << field_to_string(row.mem_sel_op_gadget_d) << "," << field_to_string(row.mem_sel_resolve_ind_addr_a) << ","
            << field_to_string(row.mem_sel_resolve_ind_addr_b) << "," << field_to_string(row.mem_sel_resolve_ind_addr_c)
            << "," << field_to_string(row.mem_sel_resolve_ind_addr_d) << "," << field_to_string(row.mem_sel_rng_chk)
            << "," << field_to_string(row.mem_skip_check_tag) << "," << field_to_string(row.mem_space_id) << ","
@@ -563,20 +856,163 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
            << field_to_string(row.mem_tsp) << "," << field_to_string(row.mem_val) << ","
            << field_to_string(row.mem_w_in_tag) << "," << field_to_string(row.pedersen_clk) << ","
            << field_to_string(row.pedersen_input) << "," << field_to_string(row.pedersen_output) << ","
-           << field_to_string(row.pedersen_sel_pedersen) << "," << field_to_string(row.poseidon2_clk) << ","
-           << field_to_string(row.poseidon2_input) << "," << field_to_string(row.poseidon2_output) << ","
-           << field_to_string(row.poseidon2_sel_poseidon_perm) << "," << field_to_string(row.powers_power_of_2) << ","
-           << field_to_string(row.sha256_clk) << "," << field_to_string(row.sha256_input) << ","
-           << field_to_string(row.sha256_output) << "," << field_to_string(row.sha256_sel_sha256_compression) << ","
-           << field_to_string(row.sha256_state) << "," << field_to_string(row.perm_main_alu) << ","
-           << field_to_string(row.perm_main_bin) << "," << field_to_string(row.perm_main_conv) << ","
-           << field_to_string(row.perm_main_pos2_perm) << "," << field_to_string(row.perm_main_pedersen) << ","
-           << field_to_string(row.perm_main_mem_a) << "," << field_to_string(row.perm_main_mem_b) << ","
-           << field_to_string(row.perm_main_mem_c) << "," << field_to_string(row.perm_main_mem_d) << ","
-           << field_to_string(row.perm_main_mem_ind_addr_a) << "," << field_to_string(row.perm_main_mem_ind_addr_b)
-           << "," << field_to_string(row.perm_main_mem_ind_addr_c) << ","
-           << field_to_string(row.perm_main_mem_ind_addr_d) << "," << field_to_string(row.lookup_byte_lengths) << ","
-           << field_to_string(row.lookup_byte_operations) << "," << field_to_string(row.lookup_opcode_gas) << ","
+           << field_to_string(row.pedersen_sel_pedersen) << "," << field_to_string(row.poseidon2_B_10_0) << ","
+           << field_to_string(row.poseidon2_B_10_1) << "," << field_to_string(row.poseidon2_B_10_2) << ","
+           << field_to_string(row.poseidon2_B_10_3) << "," << field_to_string(row.poseidon2_B_11_0) << ","
+           << field_to_string(row.poseidon2_B_11_1) << "," << field_to_string(row.poseidon2_B_11_2) << ","
+           << field_to_string(row.poseidon2_B_11_3) << "," << field_to_string(row.poseidon2_B_12_0) << ","
+           << field_to_string(row.poseidon2_B_12_1) << "," << field_to_string(row.poseidon2_B_12_2) << ","
+           << field_to_string(row.poseidon2_B_12_3) << "," << field_to_string(row.poseidon2_B_13_0) << ","
+           << field_to_string(row.poseidon2_B_13_1) << "," << field_to_string(row.poseidon2_B_13_2) << ","
+           << field_to_string(row.poseidon2_B_13_3) << "," << field_to_string(row.poseidon2_B_14_0) << ","
+           << field_to_string(row.poseidon2_B_14_1) << "," << field_to_string(row.poseidon2_B_14_2) << ","
+           << field_to_string(row.poseidon2_B_14_3) << "," << field_to_string(row.poseidon2_B_15_0) << ","
+           << field_to_string(row.poseidon2_B_15_1) << "," << field_to_string(row.poseidon2_B_15_2) << ","
+           << field_to_string(row.poseidon2_B_15_3) << "," << field_to_string(row.poseidon2_B_16_0) << ","
+           << field_to_string(row.poseidon2_B_16_1) << "," << field_to_string(row.poseidon2_B_16_2) << ","
+           << field_to_string(row.poseidon2_B_16_3) << "," << field_to_string(row.poseidon2_B_17_0) << ","
+           << field_to_string(row.poseidon2_B_17_1) << "," << field_to_string(row.poseidon2_B_17_2) << ","
+           << field_to_string(row.poseidon2_B_17_3) << "," << field_to_string(row.poseidon2_B_18_0) << ","
+           << field_to_string(row.poseidon2_B_18_1) << "," << field_to_string(row.poseidon2_B_18_2) << ","
+           << field_to_string(row.poseidon2_B_18_3) << "," << field_to_string(row.poseidon2_B_19_0) << ","
+           << field_to_string(row.poseidon2_B_19_1) << "," << field_to_string(row.poseidon2_B_19_2) << ","
+           << field_to_string(row.poseidon2_B_19_3) << "," << field_to_string(row.poseidon2_B_20_0) << ","
+           << field_to_string(row.poseidon2_B_20_1) << "," << field_to_string(row.poseidon2_B_20_2) << ","
+           << field_to_string(row.poseidon2_B_20_3) << "," << field_to_string(row.poseidon2_B_21_0) << ","
+           << field_to_string(row.poseidon2_B_21_1) << "," << field_to_string(row.poseidon2_B_21_2) << ","
+           << field_to_string(row.poseidon2_B_21_3) << "," << field_to_string(row.poseidon2_B_22_0) << ","
+           << field_to_string(row.poseidon2_B_22_1) << "," << field_to_string(row.poseidon2_B_22_2) << ","
+           << field_to_string(row.poseidon2_B_22_3) << "," << field_to_string(row.poseidon2_B_23_0) << ","
+           << field_to_string(row.poseidon2_B_23_1) << "," << field_to_string(row.poseidon2_B_23_2) << ","
+           << field_to_string(row.poseidon2_B_23_3) << "," << field_to_string(row.poseidon2_B_24_0) << ","
+           << field_to_string(row.poseidon2_B_24_1) << "," << field_to_string(row.poseidon2_B_24_2) << ","
+           << field_to_string(row.poseidon2_B_24_3) << "," << field_to_string(row.poseidon2_B_25_0) << ","
+           << field_to_string(row.poseidon2_B_25_1) << "," << field_to_string(row.poseidon2_B_25_2) << ","
+           << field_to_string(row.poseidon2_B_25_3) << "," << field_to_string(row.poseidon2_B_26_0) << ","
+           << field_to_string(row.poseidon2_B_26_1) << "," << field_to_string(row.poseidon2_B_26_2) << ","
+           << field_to_string(row.poseidon2_B_26_3) << "," << field_to_string(row.poseidon2_B_27_0) << ","
+           << field_to_string(row.poseidon2_B_27_1) << "," << field_to_string(row.poseidon2_B_27_2) << ","
+           << field_to_string(row.poseidon2_B_27_3) << "," << field_to_string(row.poseidon2_B_28_0) << ","
+           << field_to_string(row.poseidon2_B_28_1) << "," << field_to_string(row.poseidon2_B_28_2) << ","
+           << field_to_string(row.poseidon2_B_28_3) << "," << field_to_string(row.poseidon2_B_29_0) << ","
+           << field_to_string(row.poseidon2_B_29_1) << "," << field_to_string(row.poseidon2_B_29_2) << ","
+           << field_to_string(row.poseidon2_B_29_3) << "," << field_to_string(row.poseidon2_B_30_0) << ","
+           << field_to_string(row.poseidon2_B_30_1) << "," << field_to_string(row.poseidon2_B_30_2) << ","
+           << field_to_string(row.poseidon2_B_30_3) << "," << field_to_string(row.poseidon2_B_31_0) << ","
+           << field_to_string(row.poseidon2_B_31_1) << "," << field_to_string(row.poseidon2_B_31_2) << ","
+           << field_to_string(row.poseidon2_B_31_3) << "," << field_to_string(row.poseidon2_B_32_0) << ","
+           << field_to_string(row.poseidon2_B_32_1) << "," << field_to_string(row.poseidon2_B_32_2) << ","
+           << field_to_string(row.poseidon2_B_32_3) << "," << field_to_string(row.poseidon2_B_33_0) << ","
+           << field_to_string(row.poseidon2_B_33_1) << "," << field_to_string(row.poseidon2_B_33_2) << ","
+           << field_to_string(row.poseidon2_B_33_3) << "," << field_to_string(row.poseidon2_B_34_0) << ","
+           << field_to_string(row.poseidon2_B_34_1) << "," << field_to_string(row.poseidon2_B_34_2) << ","
+           << field_to_string(row.poseidon2_B_34_3) << "," << field_to_string(row.poseidon2_B_35_0) << ","
+           << field_to_string(row.poseidon2_B_35_1) << "," << field_to_string(row.poseidon2_B_35_2) << ","
+           << field_to_string(row.poseidon2_B_35_3) << "," << field_to_string(row.poseidon2_B_36_0) << ","
+           << field_to_string(row.poseidon2_B_36_1) << "," << field_to_string(row.poseidon2_B_36_2) << ","
+           << field_to_string(row.poseidon2_B_36_3) << "," << field_to_string(row.poseidon2_B_37_0) << ","
+           << field_to_string(row.poseidon2_B_37_1) << "," << field_to_string(row.poseidon2_B_37_2) << ","
+           << field_to_string(row.poseidon2_B_37_3) << "," << field_to_string(row.poseidon2_B_38_0) << ","
+           << field_to_string(row.poseidon2_B_38_1) << "," << field_to_string(row.poseidon2_B_38_2) << ","
+           << field_to_string(row.poseidon2_B_38_3) << "," << field_to_string(row.poseidon2_B_39_0) << ","
+           << field_to_string(row.poseidon2_B_39_1) << "," << field_to_string(row.poseidon2_B_39_2) << ","
+           << field_to_string(row.poseidon2_B_39_3) << "," << field_to_string(row.poseidon2_B_40_0) << ","
+           << field_to_string(row.poseidon2_B_40_1) << "," << field_to_string(row.poseidon2_B_40_2) << ","
+           << field_to_string(row.poseidon2_B_40_3) << "," << field_to_string(row.poseidon2_B_41_0) << ","
+           << field_to_string(row.poseidon2_B_41_1) << "," << field_to_string(row.poseidon2_B_41_2) << ","
+           << field_to_string(row.poseidon2_B_41_3) << "," << field_to_string(row.poseidon2_B_42_0) << ","
+           << field_to_string(row.poseidon2_B_42_1) << "," << field_to_string(row.poseidon2_B_42_2) << ","
+           << field_to_string(row.poseidon2_B_42_3) << "," << field_to_string(row.poseidon2_B_43_0) << ","
+           << field_to_string(row.poseidon2_B_43_1) << "," << field_to_string(row.poseidon2_B_43_2) << ","
+           << field_to_string(row.poseidon2_B_43_3) << "," << field_to_string(row.poseidon2_B_44_0) << ","
+           << field_to_string(row.poseidon2_B_44_1) << "," << field_to_string(row.poseidon2_B_44_2) << ","
+           << field_to_string(row.poseidon2_B_44_3) << "," << field_to_string(row.poseidon2_B_45_0) << ","
+           << field_to_string(row.poseidon2_B_45_1) << "," << field_to_string(row.poseidon2_B_45_2) << ","
+           << field_to_string(row.poseidon2_B_45_3) << "," << field_to_string(row.poseidon2_B_46_0) << ","
+           << field_to_string(row.poseidon2_B_46_1) << "," << field_to_string(row.poseidon2_B_46_2) << ","
+           << field_to_string(row.poseidon2_B_46_3) << "," << field_to_string(row.poseidon2_B_47_0) << ","
+           << field_to_string(row.poseidon2_B_47_1) << "," << field_to_string(row.poseidon2_B_47_2) << ","
+           << field_to_string(row.poseidon2_B_47_3) << "," << field_to_string(row.poseidon2_B_48_0) << ","
+           << field_to_string(row.poseidon2_B_48_1) << "," << field_to_string(row.poseidon2_B_48_2) << ","
+           << field_to_string(row.poseidon2_B_48_3) << "," << field_to_string(row.poseidon2_B_49_0) << ","
+           << field_to_string(row.poseidon2_B_49_1) << "," << field_to_string(row.poseidon2_B_49_2) << ","
+           << field_to_string(row.poseidon2_B_49_3) << "," << field_to_string(row.poseidon2_B_4_0) << ","
+           << field_to_string(row.poseidon2_B_4_1) << "," << field_to_string(row.poseidon2_B_4_2) << ","
+           << field_to_string(row.poseidon2_B_4_3) << "," << field_to_string(row.poseidon2_B_50_0) << ","
+           << field_to_string(row.poseidon2_B_50_1) << "," << field_to_string(row.poseidon2_B_50_2) << ","
+           << field_to_string(row.poseidon2_B_50_3) << "," << field_to_string(row.poseidon2_B_51_0) << ","
+           << field_to_string(row.poseidon2_B_51_1) << "," << field_to_string(row.poseidon2_B_51_2) << ","
+           << field_to_string(row.poseidon2_B_51_3) << "," << field_to_string(row.poseidon2_B_52_0) << ","
+           << field_to_string(row.poseidon2_B_52_1) << "," << field_to_string(row.poseidon2_B_52_2) << ","
+           << field_to_string(row.poseidon2_B_52_3) << "," << field_to_string(row.poseidon2_B_53_0) << ","
+           << field_to_string(row.poseidon2_B_53_1) << "," << field_to_string(row.poseidon2_B_53_2) << ","
+           << field_to_string(row.poseidon2_B_53_3) << "," << field_to_string(row.poseidon2_B_54_0) << ","
+           << field_to_string(row.poseidon2_B_54_1) << "," << field_to_string(row.poseidon2_B_54_2) << ","
+           << field_to_string(row.poseidon2_B_54_3) << "," << field_to_string(row.poseidon2_B_55_0) << ","
+           << field_to_string(row.poseidon2_B_55_1) << "," << field_to_string(row.poseidon2_B_55_2) << ","
+           << field_to_string(row.poseidon2_B_55_3) << "," << field_to_string(row.poseidon2_B_56_0) << ","
+           << field_to_string(row.poseidon2_B_56_1) << "," << field_to_string(row.poseidon2_B_56_2) << ","
+           << field_to_string(row.poseidon2_B_56_3) << "," << field_to_string(row.poseidon2_B_57_0) << ","
+           << field_to_string(row.poseidon2_B_57_1) << "," << field_to_string(row.poseidon2_B_57_2) << ","
+           << field_to_string(row.poseidon2_B_57_3) << "," << field_to_string(row.poseidon2_B_58_0) << ","
+           << field_to_string(row.poseidon2_B_58_1) << "," << field_to_string(row.poseidon2_B_58_2) << ","
+           << field_to_string(row.poseidon2_B_58_3) << "," << field_to_string(row.poseidon2_B_59_0) << ","
+           << field_to_string(row.poseidon2_B_59_1) << "," << field_to_string(row.poseidon2_B_59_2) << ","
+           << field_to_string(row.poseidon2_B_59_3) << "," << field_to_string(row.poseidon2_B_5_0) << ","
+           << field_to_string(row.poseidon2_B_5_1) << "," << field_to_string(row.poseidon2_B_5_2) << ","
+           << field_to_string(row.poseidon2_B_5_3) << "," << field_to_string(row.poseidon2_B_6_0) << ","
+           << field_to_string(row.poseidon2_B_6_1) << "," << field_to_string(row.poseidon2_B_6_2) << ","
+           << field_to_string(row.poseidon2_B_6_3) << "," << field_to_string(row.poseidon2_B_7_0) << ","
+           << field_to_string(row.poseidon2_B_7_1) << "," << field_to_string(row.poseidon2_B_7_2) << ","
+           << field_to_string(row.poseidon2_B_7_3) << "," << field_to_string(row.poseidon2_B_8_0) << ","
+           << field_to_string(row.poseidon2_B_8_1) << "," << field_to_string(row.poseidon2_B_8_2) << ","
+           << field_to_string(row.poseidon2_B_8_3) << "," << field_to_string(row.poseidon2_B_9_0) << ","
+           << field_to_string(row.poseidon2_B_9_1) << "," << field_to_string(row.poseidon2_B_9_2) << ","
+           << field_to_string(row.poseidon2_B_9_3) << "," << field_to_string(row.poseidon2_EXT_LAYER_4) << ","
+           << field_to_string(row.poseidon2_EXT_LAYER_5) << "," << field_to_string(row.poseidon2_EXT_LAYER_6) << ","
+           << field_to_string(row.poseidon2_EXT_LAYER_7) << "," << field_to_string(row.poseidon2_T_0_4) << ","
+           << field_to_string(row.poseidon2_T_0_5) << "," << field_to_string(row.poseidon2_T_0_6) << ","
+           << field_to_string(row.poseidon2_T_0_7) << "," << field_to_string(row.poseidon2_T_1_4) << ","
+           << field_to_string(row.poseidon2_T_1_5) << "," << field_to_string(row.poseidon2_T_1_6) << ","
+           << field_to_string(row.poseidon2_T_1_7) << "," << field_to_string(row.poseidon2_T_2_4) << ","
+           << field_to_string(row.poseidon2_T_2_5) << "," << field_to_string(row.poseidon2_T_2_6) << ","
+           << field_to_string(row.poseidon2_T_2_7) << "," << field_to_string(row.poseidon2_T_3_4) << ","
+           << field_to_string(row.poseidon2_T_3_5) << "," << field_to_string(row.poseidon2_T_3_6) << ","
+           << field_to_string(row.poseidon2_T_3_7) << "," << field_to_string(row.poseidon2_T_60_4) << ","
+           << field_to_string(row.poseidon2_T_60_5) << "," << field_to_string(row.poseidon2_T_60_6) << ","
+           << field_to_string(row.poseidon2_T_60_7) << "," << field_to_string(row.poseidon2_T_61_4) << ","
+           << field_to_string(row.poseidon2_T_61_5) << "," << field_to_string(row.poseidon2_T_61_6) << ","
+           << field_to_string(row.poseidon2_T_61_7) << "," << field_to_string(row.poseidon2_T_62_4) << ","
+           << field_to_string(row.poseidon2_T_62_5) << "," << field_to_string(row.poseidon2_T_62_6) << ","
+           << field_to_string(row.poseidon2_T_62_7) << "," << field_to_string(row.poseidon2_T_63_4) << ","
+           << field_to_string(row.poseidon2_T_63_5) << "," << field_to_string(row.poseidon2_T_63_6) << ","
+           << field_to_string(row.poseidon2_T_63_7) << "," << field_to_string(row.poseidon2_a_0) << ","
+           << field_to_string(row.poseidon2_a_1) << "," << field_to_string(row.poseidon2_a_2) << ","
+           << field_to_string(row.poseidon2_a_3) << "," << field_to_string(row.poseidon2_b_0) << ","
+           << field_to_string(row.poseidon2_b_1) << "," << field_to_string(row.poseidon2_b_2) << ","
+           << field_to_string(row.poseidon2_b_3) << "," << field_to_string(row.poseidon2_clk) << ","
+           << field_to_string(row.poseidon2_input_addr) << "," << field_to_string(row.poseidon2_input_addr_1) << ","
+           << field_to_string(row.poseidon2_input_addr_2) << "," << field_to_string(row.poseidon2_input_addr_3) << ","
+           << field_to_string(row.poseidon2_mem_addr_a) << "," << field_to_string(row.poseidon2_mem_addr_b) << ","
+           << field_to_string(row.poseidon2_mem_addr_c) << "," << field_to_string(row.poseidon2_mem_addr_d) << ","
+           << field_to_string(row.poseidon2_mem_op) << "," << field_to_string(row.poseidon2_output_addr) << ","
+           << field_to_string(row.poseidon2_output_addr_1) << "," << field_to_string(row.poseidon2_output_addr_2) << ","
+           << field_to_string(row.poseidon2_output_addr_3) << "," << field_to_string(row.poseidon2_r_in_tag) << ","
+           << field_to_string(row.poseidon2_read_line) << "," << field_to_string(row.poseidon2_sel_poseidon_perm) << ","
+           << field_to_string(row.poseidon2_w_in_tag) << "," << field_to_string(row.poseidon2_write_line) << ","
+           << field_to_string(row.powers_power_of_2) << "," << field_to_string(row.sha256_clk) << ","
+           << field_to_string(row.sha256_input) << "," << field_to_string(row.sha256_output) << ","
+           << field_to_string(row.sha256_sel_sha256_compression) << "," << field_to_string(row.sha256_state) << ","
+           << field_to_string(row.perm_pos_mem_a) << "," << field_to_string(row.perm_pos_mem_b) << ","
+           << field_to_string(row.perm_pos_mem_c) << "," << field_to_string(row.perm_pos_mem_d) << ","
+           << field_to_string(row.perm_main_alu) << "," << field_to_string(row.perm_main_bin) << ","
+           << field_to_string(row.perm_main_conv) << "," << field_to_string(row.perm_main_pos2_perm) << ","
+           << field_to_string(row.perm_main_pedersen) << "," << field_to_string(row.perm_main_mem_a) << ","
+           << field_to_string(row.perm_main_mem_b) << "," << field_to_string(row.perm_main_mem_c) << ","
+           << field_to_string(row.perm_main_mem_d) << "," << field_to_string(row.perm_main_mem_ind_addr_a) << ","
+           << field_to_string(row.perm_main_mem_ind_addr_b) << "," << field_to_string(row.perm_main_mem_ind_addr_c)
+           << "," << field_to_string(row.perm_main_mem_ind_addr_d) << "," << field_to_string(row.lookup_byte_lengths)
+           << "," << field_to_string(row.lookup_byte_operations) << "," << field_to_string(row.lookup_opcode_gas) << ","
            << field_to_string(row.range_check_l2_gas_hi) << "," << field_to_string(row.range_check_l2_gas_lo) << ","
            << field_to_string(row.range_check_da_gas_hi) << "," << field_to_string(row.range_check_da_gas_lo) << ","
            << field_to_string(row.kernel_output_lookup) << "," << field_to_string(row.lookup_into_kernel) << ","

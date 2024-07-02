@@ -58,7 +58,8 @@ void AvmMemTraceBuilder::insert_in_mem_trace(uint8_t space_id,
                                              AvmMemoryTag const m_tag,
                                              AvmMemoryTag const r_in_tag,
                                              AvmMemoryTag const w_in_tag,
-                                             bool const m_rw)
+                                             bool const m_rw,
+                                             bool const gadget_op)
 {
     mem_trace.emplace_back(MemoryTraceEntry{
         .m_space_id = space_id,
@@ -70,6 +71,7 @@ void AvmMemTraceBuilder::insert_in_mem_trace(uint8_t space_id,
         .r_in_tag = r_in_tag,
         .w_in_tag = w_in_tag,
         .m_rw = m_rw,
+        .gadget_mem_op = gadget_op,
     });
 }
 
@@ -144,13 +146,14 @@ bool AvmMemTraceBuilder::load_from_mem_trace(uint8_t space_id,
                                              uint32_t addr,
                                              FF const& val,
                                              AvmMemoryTag r_in_tag,
-                                             AvmMemoryTag w_in_tag)
+                                             AvmMemoryTag w_in_tag,
+                                             bool gadget_op)
 {
     auto& mem_space = memory.at(space_id);
     AvmMemoryTag m_tag = mem_space.contains(addr) ? mem_space.at(addr).tag : AvmMemoryTag::U0;
 
     if (m_tag == AvmMemoryTag::U0 || m_tag == r_in_tag) {
-        insert_in_mem_trace(space_id, clk, sub_clk, addr, val, m_tag, r_in_tag, w_in_tag, false);
+        insert_in_mem_trace(space_id, clk, sub_clk, addr, val, m_tag, r_in_tag, w_in_tag, false, gadget_op);
         return true;
     }
 
@@ -177,7 +180,8 @@ void AvmMemTraceBuilder::store_in_mem_trace(uint8_t space_id,
                                             uint32_t addr,
                                             FF const& val,
                                             AvmMemoryTag r_in_tag,
-                                            AvmMemoryTag w_in_tag)
+                                            AvmMemoryTag w_in_tag,
+                                            bool gadget_op)
 {
     uint32_t sub_clk = 0;
     switch (interm_reg) {
@@ -195,7 +199,7 @@ void AvmMemTraceBuilder::store_in_mem_trace(uint8_t space_id,
         break;
     }
 
-    insert_in_mem_trace(space_id, clk, sub_clk, addr, val, w_in_tag, r_in_tag, w_in_tag, true);
+    insert_in_mem_trace(space_id, clk, sub_clk, addr, val, w_in_tag, r_in_tag, w_in_tag, true, gadget_op);
 }
 
 /**
@@ -393,7 +397,8 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::read_and_load_from_memory(uint8_
                                                                           IntermRegister const interm_reg,
                                                                           uint32_t const addr,
                                                                           AvmMemoryTag const r_in_tag,
-                                                                          AvmMemoryTag const w_in_tag)
+                                                                          AvmMemoryTag const w_in_tag,
+                                                                          bool gadget_op)
 {
     uint32_t sub_clk = 0;
     switch (interm_reg) {
@@ -412,7 +417,7 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::read_and_load_from_memory(uint8_
     }
     auto& mem_space = memory.at(space_id);
     FF val = mem_space.contains(addr) ? mem_space.at(addr).val : 0;
-    bool tagMatch = load_from_mem_trace(space_id, clk, sub_clk, addr, val, r_in_tag, w_in_tag);
+    bool tagMatch = load_from_mem_trace(space_id, clk, sub_clk, addr, val, r_in_tag, w_in_tag, gadget_op);
 
     return MemRead{
         .tag_match = tagMatch,
@@ -470,7 +475,8 @@ void AvmMemTraceBuilder::write_into_memory(uint8_t space_id,
                                            uint32_t addr,
                                            FF const& val,
                                            AvmMemoryTag r_in_tag,
-                                           AvmMemoryTag w_in_tag)
+                                           AvmMemoryTag w_in_tag,
+                                           bool gadget_op)
 {
     MemEntry memEntry{ val, w_in_tag };
     auto& mem_space = memory.at(space_id);
@@ -480,7 +486,7 @@ void AvmMemTraceBuilder::write_into_memory(uint8_t space_id,
     } else {
         mem_space.emplace(addr, memEntry);
     }
-    store_in_mem_trace(space_id, clk, interm_reg, addr, val, r_in_tag, w_in_tag);
+    store_in_mem_trace(space_id, clk, interm_reg, addr, val, r_in_tag, w_in_tag, gadget_op);
 }
 
 bool AvmMemTraceBuilder::MemoryTraceEntry::operator<(const AvmMemTraceBuilder::MemoryTraceEntry& other) const

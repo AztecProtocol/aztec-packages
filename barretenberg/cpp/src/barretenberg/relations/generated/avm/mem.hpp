@@ -30,6 +30,10 @@ template <typename FF> struct MemRow {
     FF mem_sel_op_c{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
+    FF mem_sel_op_gadget_a{};
+    FF mem_sel_op_gadget_b{};
+    FF mem_sel_op_gadget_c{};
+    FF mem_sel_op_gadget_d{};
     FF mem_sel_resolve_ind_addr_a{};
     FF mem_sel_resolve_ind_addr_b{};
     FF mem_sel_resolve_ind_addr_c{};
@@ -223,11 +227,13 @@ template <typename FF_> class memImpl {
             Avm_DECLARE_VIEWS(12);
 
             auto tmp =
-                (mem_sel_mem -
-                 (((((((mem_sel_op_a + mem_sel_op_b) + mem_sel_op_c) + mem_sel_op_d) + mem_sel_resolve_ind_addr_a) +
-                    mem_sel_resolve_ind_addr_b) +
-                   mem_sel_resolve_ind_addr_c) +
-                  mem_sel_resolve_ind_addr_d));
+                (mem_sel_mem - ((((((((mem_sel_op_a + mem_sel_op_gadget_a) + (mem_sel_op_b + mem_sel_op_gadget_b)) +
+                                     (mem_sel_op_c + mem_sel_op_gadget_c)) +
+                                    (mem_sel_op_d + mem_sel_op_gadget_d)) +
+                                   mem_sel_resolve_ind_addr_a) +
+                                  mem_sel_resolve_ind_addr_b) +
+                                 mem_sel_resolve_ind_addr_c) +
+                                mem_sel_resolve_ind_addr_d));
             tmp *= scaling_factor;
             std::get<12>(evals) += tmp;
         }
@@ -279,9 +285,9 @@ template <typename FF_> class memImpl {
                 (mem_tsp -
                  ((mem_clk * FF(12)) +
                   (mem_sel_mem *
-                   ((((mem_sel_resolve_ind_addr_b + mem_sel_op_b) +
-                      ((mem_sel_resolve_ind_addr_c + mem_sel_op_c) * FF(2))) +
-                     ((mem_sel_resolve_ind_addr_d + mem_sel_op_d) * FF(3))) +
+                   ((((mem_sel_resolve_ind_addr_b + (mem_sel_op_b + mem_sel_op_gadget_b)) +
+                      ((mem_sel_resolve_ind_addr_c + (mem_sel_op_c + mem_sel_op_gadget_c)) * FF(2))) +
+                     ((mem_sel_resolve_ind_addr_d + (mem_sel_op_d + mem_sel_op_gadget_d)) * FF(3))) +
                     (((-(((mem_sel_resolve_ind_addr_a + mem_sel_resolve_ind_addr_b) + mem_sel_resolve_ind_addr_c) +
                          mem_sel_resolve_ind_addr_d) +
                        FF(1)) +

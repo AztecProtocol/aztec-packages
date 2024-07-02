@@ -953,29 +953,38 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")),
                               FF(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")) };
 
+    // TODO: Indirect is disabled at the moment
     std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY
                                "00"                           // Indirect Flag
                                "00000000"                     // cd_offset
-                               "00000004"                     // copy_size
+                               "00000002"                     // copy_size
                                "00000001"                     // dst_offset 1
-                               + to_hex(OpCode::SET) +        // opcode SET for indirect src (input)
-                               "00"                           // Indirect flag
-                               "03"                           // U32
-                               "00000001"                     // value 1 (i.e. where the src will be read from)
-                               "00000024"                     // dst_offset 36
-                               + to_hex(OpCode::SET) +        // opcode SET for indirect dst (output)
-                               "00"                           // Indirect flag
-                               "03"                           // U32
-                               "00000009"                     // value 9 (i.e. where the ouput will be written to)
-                               "00000023"                     // dst_offset 35
-                               + to_hex(OpCode::POSEIDON2) +  // opcode POSEIDON2
-                               "03"                           // Indirect flag (first 2 operands indirect)
-                               "00000024"                     // input offset (indirect 36)
-                               "00000023"                     // output offset (indirect 35)
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "00000009"                     // ret offset 256
-                               "00000004";                    // ret size 8
+                               + to_hex(OpCode::CALLDATACOPY) +
+                               "00"
+                               "00000002"
+                               "00000002"
+                               "00000003" +
+                               to_hex(OpCode::SET) +         // opcode SET for indirect src (input)
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000001"                    // value 1 (i.e. where the src will be read from)
+                               "00000024"                    // dst_offset 36
+                               + to_hex(OpCode::SET) +       // opcode SET for indirect dst (output)
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000009"                    // value 9 (i.e. where the ouput will be written to)
+                               "00000023"                    // dst_offset 35
+                               + to_hex(OpCode::POSEIDON2) + // opcode POSEIDON2
+                               "03"                          // Indirect flag (first 2 operands indirect)
+                               "00000024"                    // input offset (indirect 36)
+                               "00000023"                    // output offset (indirect 35)
+                               // "00"                       // Indirect Flag
+                               // "00000001"                 // input offset 1
+                               // "00000009"                 // output offset 35
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000009"                 // ret offset 256
+                               "00000004";                // ret size 8
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);

@@ -44,6 +44,8 @@ class AvmMemTraceBuilder {
         bool m_sel_cmov = false;
         bool m_tag_err_count_relevant = false;
 
+        bool gadget_mem_op = false;
+
         /**
          * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm. We sort first by
          *        ascending address (m_addr), then by clock (m_clk) and finally sub-clock (m_sub_clk).
@@ -79,7 +81,8 @@ class AvmMemTraceBuilder {
                                       IntermRegister interm_reg,
                                       uint32_t addr,
                                       AvmMemoryTag r_in_tag,
-                                      AvmMemoryTag w_in_tag);
+                                      AvmMemoryTag w_in_tag,
+                                      bool gadget_mem_op = false);
     MemRead indirect_read_and_load_from_memory(uint8_t space_id, uint32_t clk, IndirectRegister ind_reg, uint32_t addr);
     void write_into_memory(uint8_t space_id,
                            uint32_t clk,
@@ -87,7 +90,8 @@ class AvmMemTraceBuilder {
                            uint32_t addr,
                            FF const& val,
                            AvmMemoryTag r_in_tag,
-                           AvmMemoryTag w_in_tag);
+                           AvmMemoryTag w_in_tag,
+                           bool gadget_mem_op = false);
 
   private:
     std::vector<MemoryTraceEntry> mem_trace; // Entries will be sorted by m_clk, m_sub_clk after finalize().
@@ -103,7 +107,8 @@ class AvmMemTraceBuilder {
                              AvmMemoryTag m_tag,
                              AvmMemoryTag r_in_tag,
                              AvmMemoryTag w_in_tag,
-                             bool m_rw);
+                             bool m_rw,
+                             bool gadget_mem_op = false);
 
     void load_mismatch_tag_in_mem_trace(uint8_t space_id,
                                         uint32_t m_clk,
@@ -120,13 +125,15 @@ class AvmMemTraceBuilder {
                              uint32_t addr,
                              FF const& val,
                              AvmMemoryTag r_in_tag,
-                             AvmMemoryTag w_in_tag);
+                             AvmMemoryTag w_in_tag,
+                             bool gadget_mem_op = false);
     void store_in_mem_trace(uint8_t space_id,
                             uint32_t clk,
                             IntermRegister interm_reg,
                             uint32_t addr,
                             FF const& val,
                             AvmMemoryTag r_in_tag,
-                            AvmMemoryTag w_in_tag);
+                            AvmMemoryTag w_in_tag,
+                            bool gadget_mem_op = false);
 };
 } // namespace bb::avm_trace
