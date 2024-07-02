@@ -92,16 +92,7 @@ impl ProverBuilder for BBFiles {
         let include_str = includes_cpp(&snake_case(name));
 
         let polynomial_commitment_phase = create_commitments_phase(commitment_polys);
-
-        let (call_log_derivative_phase, log_derivative_inverse_phase): (String, String) =
-            if lookup_names.is_empty() {
-                ("".to_owned(), "".to_owned())
-            } else {
-                (
-                    "execute_log_derivative_inverse_round();".to_owned(),
-                    create_log_derivative_inverse_round(lookup_names),
-                )
-            };
+        let log_derivative_inverse_phase = create_log_derivative_inverse_round(lookup_names);
 
         let prover_cpp = format!("
     {include_str}
@@ -216,18 +207,18 @@ impl ProverBuilder for BBFiles {
         execute_preamble_round();
     
         // Compute wire commitments
-        execute_wire_commitments_round();
+        AVM_TRACK_TIME(\"proving/wire_commitments_round_ms\", execute_wire_commitments_round());
     
         // Compute sorted list accumulator and commitment
-        {call_log_derivative_phase}
+        AVM_TRACK_TIME(\"proving/log_derivative_inverse_round_ms\", execute_log_derivative_inverse_round());
     
         // Fiat-Shamir: alpha
         // Run sumcheck subprotocol.
-        execute_relation_check_rounds();
+        AVM_TRACK_TIME(\"proving/relation_check_rounds_ms\", execute_relation_check_rounds());
     
         // Fiat-Shamir: rho, y, x, z
         // Execute Zeromorph multilinear PCS
-        execute_pcs_rounds();
+        AVM_TRACK_TIME(\"proving/pcs_rounds_ms\", execute_pcs_rounds());
     
         return export_proof();
     }}
@@ -274,6 +265,7 @@ fn includes_cpp(name: &str) -> String {
     #include \"barretenberg/polynomials/polynomial.hpp\"
     #include \"barretenberg/relations/permutation_relation.hpp\"
     #include \"barretenberg/sumcheck/sumcheck.hpp\"
+    #include \"barretenberg/vm/avm_trace/stats.hpp\"
     "
     )
 }
@@ -309,6 +301,10 @@ fn create_commitments_phase(polys_to_commit_to: &[String]) -> String {
 }
 
 fn create_log_derivative_inverse_round(lookup_operations: &[String]) -> String {
+    if lookup_operations.is_empty() {
+        return "".to_owned();
+    }
+
     let all_commit_operations = map_with_newline(lookup_operations, commitment_transform);
     let send_to_verifier_operations =
         map_with_newline(lookup_operations, send_to_verifier_transform);
