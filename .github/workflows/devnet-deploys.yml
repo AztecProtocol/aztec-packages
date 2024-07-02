@@ -44,7 +44,7 @@ jobs:
         timeout-minutes: 40
         # Run the build steps for each image with version and arch, push to dockerhub
         run: |
-          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=devnet
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
 
   terraform_deploy:
     runs-on: ubuntu-latest
@@ -73,6 +73,7 @@ jobs:
             const { execSync } = require('child_process');
             const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
             const fileChanged = changedFiles.includes('l1-contracts/REDEPLOY');
+            console.log('fileChanged:', fileChanged);
             return { fileChanged };
 
       - name: Deploy L1 Contracts
@@ -88,23 +89,23 @@ jobs:
         if: steps.check_changes.outputs.fileChanged == 'true'
         working-directory: ./l1-contracts/terraform
         run: |
-          terraform init -input=false -backend-config="key=devnet/l1-contracts"
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
 
       - name: Deploy P2P Bootstrap Nodes
         working-directory: ./yarn-project/p2p-bootstrap/terraform
         run: |
-          terraform init -input=false -backend-config="key=devnet/p2p-bootstrap"
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/p2p-bootstrap"
           terraform apply -input=false -auto-approve
 
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
-          terraform init -input=false -backend-config="key=devnet/aztec-node"
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
           terraform apply -input=false -auto-approve
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
         run: |
-          terraform init -input=false -backend-config="key=devnet/prover"
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
           terraform apply -input=false -auto-approve
