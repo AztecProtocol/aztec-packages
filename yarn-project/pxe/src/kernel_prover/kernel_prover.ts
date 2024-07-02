@@ -37,7 +37,6 @@ import {
   buildPrivateKernelInitHints,
   buildPrivateKernelInnerHints,
   buildPrivateKernelResetInputs,
-  buildPrivateKernelTailHints,
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -125,7 +124,6 @@ export class KernelProver {
         const hints = buildPrivateKernelInitHints(
           currentExecution.callStackItem.publicInputs,
           noteHashNullifierCounterMap,
-          currentExecution.callStackItem.publicInputs.privateCallRequests,
         );
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
         pushTestData('private-kernel-inputs-init', proofInput);
@@ -174,9 +172,8 @@ export class KernelProver {
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    const hints = buildPrivateKernelTailHints(output.publicInputs);
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, hints);
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     const tailOutput = await this.proofCreator.createProofTail(privateInputs);
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
