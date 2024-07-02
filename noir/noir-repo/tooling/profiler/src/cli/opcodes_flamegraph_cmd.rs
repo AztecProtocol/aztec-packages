@@ -14,10 +14,6 @@ pub(crate) struct OpcodesFlamegraphCommand {
     #[clap(long, short)]
     artifact_path: String,
 
-    /// Path to the noir backend binary
-    #[clap(long, short)]
-    backend_path: String,
-
     /// The output folder for the flamegraph svg files
     #[clap(long, short)]
     output: String,
