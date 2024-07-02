@@ -245,10 +245,15 @@ void clear_range_check_counters(std::vector<Row>& trace, uint256_t previous_valu
     previous_value >>= 16;
 }
 
-VmPublicInputs generate_base_public_inputs()
+VmPublicInputs generate_base_public_inputs(bool assign_kernel_inputs)
 {
     VmPublicInputs public_inputs;
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
+    if (assign_kernel_inputs) {
+        for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
+            kernel_inputs[i] = FF(i + 1);
+        }
+    }
     kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
     kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
     std::get<0>(public_inputs) = kernel_inputs;

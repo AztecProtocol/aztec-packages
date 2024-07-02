@@ -1,9 +1,11 @@
 #pragma once
 
+#include <array>
+
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
+
 #include "gmock/gmock.h"
-#include <array>
 
 #define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
     try {                                                                                                              \
@@ -42,6 +44,6 @@ void update_slice_registers(Row& row, uint256_t a);
 std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<std::array<FF, 3>> operands,
                                                  std::vector<bb::avm_trace::AvmMemoryTag> mem_tags);
 
-VmPublicInputs generate_base_public_inputs();
+VmPublicInputs generate_base_public_inputs(bool assign_kernel_inputs = false);
 
 } // namespace tests_avm
