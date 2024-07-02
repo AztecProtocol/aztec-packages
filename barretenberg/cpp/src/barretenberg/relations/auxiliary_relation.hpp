@@ -74,7 +74,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
      * | Bigfield Product 1           | 1     | 0   | 1   | 1   | 0   | 0   | --- | 0       |
      * | Bigfield Product 2           | 1     | 0   | 1   | 0   | 1   | 0   | --- | 0       |
      * | Bigfield Product 3           | 1     | 0   | 1   | 0   | 0   | 1   | --- | 0       |
-     * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- | 0       |
+     * | ROM access gate              | 1     | 1   | 0   | 0   | 0   | 1   | --- | 0       |
+     * | RAM access gate              | 1     | 0   | 0   | 0   | 1   | 1   | --- | 0       |
      * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- | 0       |
      * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- | 0       |
      * | RAM consistency check        | 1     | 0   | 0   | 0   | 0   | 0   | 0   | 1       |
@@ -216,6 +217,23 @@ template <typename FF_> class AuxiliaryRelationImpl {
          **/
 
         /**
+         * RAM Record Check
+         * Partial degree: 1
+         * Total degree: 2
+         *
+         * A RAM access gate can be evaluated with the identity:
+         *
+         * w2 + w1 \eta + qc η₂ + w3 η₃ - w4 = 0
+         *
+         * w2 = access type, w1 = index, qc = timestamp, w3 = value, w4 = record
+         */
+        auto ram_memory_record_check = w_3 * eta_three;
+        ram_memory_record_check += q_c * eta_two;
+        ram_memory_record_check += w_1 * eta;
+        ram_memory_record_check += w_2;
+        ram_memory_record_check = ram_memory_record_check - w_4;
+
+        /**
          * Memory Record Check
          * Partial degree: 1
          * Total degree: 2
@@ -226,12 +244,12 @@ template <typename FF_> class AuxiliaryRelationImpl {
          *
          * For ROM gates, qc = 0
          */
-        auto memory_record_check = w_3 * eta_three;
-        memory_record_check += w_2 * eta_two;
-        memory_record_check += w_1 * eta;
-        memory_record_check += q_c;
-        auto partial_record_check = memory_record_check; // used in RAM consistency check; deg 1 or 2
-        memory_record_check = memory_record_check - w_4;
+        auto rom_memory_record_check = w_3 * eta_three;
+        rom_memory_record_check += w_2 * eta_two;
+        rom_memory_record_check += w_1 * eta;
+        rom_memory_record_check += q_c;
+        auto partial_record_check = rom_memory_record_check; // used in RAM consistency check; deg 1 or 2
+        rom_memory_record_check = rom_memory_record_check - w_4;
 
         /**
          * ROM Consistency Check
@@ -262,7 +280,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         std::get<1>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_aux_by_scaling;            // deg 5
         std::get<2>(accumulators) += index_is_monotonically_increasing * q_one_by_two_by_aux_by_scaling; // deg 5
-        auto ROM_consistency_check_identity = memory_record_check * q_one_by_two;                        // deg 3 or 4
+        auto ROM_consistency_check_identity = rom_memory_record_check * q_one_by_two;                    // deg 3 or 4
 
         /**
          * RAM Consistency Check
@@ -333,8 +351,9 @@ template <typename FF_> class AuxiliaryRelationImpl {
          */
         auto memory_identity = ROM_consistency_check_identity;         // deg 3 or 4
         memory_identity += RAM_timestamp_check_identity * (q_4 * q_1); // deg 4
-        memory_identity += memory_record_check * (q_m * q_1);          // deg 3 or 4
-        memory_identity += RAM_consistency_check_identity;             // deg 3 or 5
+        memory_identity += rom_memory_record_check * (q_m * q_1);      // deg 3 or 4
+        memory_identity += ram_memory_record_check * (q_m * q_4);
+        memory_identity += RAM_consistency_check_identity; // deg 3 or 5
 
         // (deg 3 or 5) + (deg 4) + (deg 3)
         auto auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;

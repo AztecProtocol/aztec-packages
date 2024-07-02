@@ -552,22 +552,48 @@ template <typename settings> void ProverBase<settings>::add_plookup_memory_recor
     auto w_2 = key->polynomial_store.get("w_2_lagrange");
     auto w_3 = key->polynomial_store.get("w_3_lagrange");
     auto w_4 = key->polynomial_store.get("w_4_lagrange");
+    auto q_c = key->polynomial_store.get("q_c_lagrange");
+    auto q_4 = key->polynomial_store.get("q_4_lagrange");
+
     for (const auto& gate_idx : key->memory_read_records) {
-        w_4[gate_idx] += w_3[gate_idx];
-        w_4[gate_idx] *= eta;
-        w_4[gate_idx] += w_2[gate_idx];
-        w_4[gate_idx] *= eta;
-        w_4[gate_idx] += w_1[gate_idx];
-        w_4[gate_idx] *= eta;
+        // if q_4 is 1, this is a non-sorted RAM record, which uses a different formula to compute the record.
+        // (this is so that we can put the RAM timestamp value in a selector polynomial)
+        if (!q_4[gate_idx].is_zero()) {
+            w_4[gate_idx] += w_3[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += q_c[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += w_1[gate_idx];
+            w_4[gate_idx] *= eta;
+        } else {
+            w_4[gate_idx] += w_3[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += w_2[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += w_1[gate_idx];
+            w_4[gate_idx] *= eta;
+        }
     }
     for (const auto& gate_idx : key->memory_write_records) {
-        w_4[gate_idx] += w_3[gate_idx];
-        w_4[gate_idx] *= eta;
-        w_4[gate_idx] += w_2[gate_idx];
-        w_4[gate_idx] *= eta;
-        w_4[gate_idx] += w_1[gate_idx];
-        w_4[gate_idx] *= eta;
-        w_4[gate_idx] += 1;
+        // if q_4 is 1, this is a non-sorted RAM record, which uses a different formula to compute the record.
+        // (this is so that we can put the RAM timestamp value in a selector polynomial)
+        if (!q_4[gate_idx].is_zero()) {
+            w_4[gate_idx] += w_3[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += q_c[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += w_1[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += 1;
+        } else {
+            w_4[gate_idx] += w_3[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += w_2[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += w_1[gate_idx];
+            w_4[gate_idx] *= eta;
+            w_4[gate_idx] += 1;
+        }
     }
     key->polynomial_store.put("w_4_lagrange", std::move(w_4));
 }

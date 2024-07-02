@@ -118,7 +118,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             WRITE,
         };
         uint32_t index_witness = 0;
+        // timestamp is in w_2 for sorted records
         uint32_t timestamp_witness = 0;
+        // read/write bool is in w_2 (not for sorted records, only initial access gates)
+        uint32_t access_witness = 0;
         uint32_t value_witness = 0;
         uint32_t index = 0;
         uint32_t timestamp = 0;
@@ -132,7 +135,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         }
         bool operator==(const RamRecord& other) const noexcept
         {
-            return index_witness == other.index_witness && timestamp_witness == other.timestamp_witness &&
+            return index_witness == other.index_witness && access_witness == other.access_witness &&
                    value_witness == other.value_witness && index == other.index && timestamp == other.timestamp &&
                    access_type == other.access_type && record_witness == other.record_witness &&
                    gate_index == other.gate_index;
@@ -505,6 +508,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
         count = this->num_gates;
+
+        std::cout << "initial count = " << count << std::endl;
         // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
         for (size_t i = 0; i < rom_arrays.size(); ++i) {
             for (size_t j = 0; j < rom_arrays[i].state.size(); ++j) {
@@ -547,6 +552,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             ram_range_sizes.push_back(ram_range_check_gate_count);
             ram_range_exists.push_back(false);
         }
+        std::cout << "ramcount = " << ramcount << std::endl;
         for (const auto& list : range_lists) {
             auto list_size = list.second.variable_indices.size();
             size_t padding = (NUM_WIRES - (list.second.variable_indices.size() % NUM_WIRES)) % NUM_WIRES;
@@ -756,7 +762,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     /**
      * Custom Gate Selectors
      **/
-    void apply_aux_selectors(const AUX_SELECTORS type);
+    void apply_aux_selectors(const AUX_SELECTORS type, const uint32_t ram_timestamp = 0);
 
     /**
      * Non Native Field Arithmetic
