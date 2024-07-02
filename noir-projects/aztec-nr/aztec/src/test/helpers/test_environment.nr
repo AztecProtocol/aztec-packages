@@ -30,6 +30,10 @@ impl TestEnvironment {
         cheatcodes::get_block_number()
     }
 
+    fn contract_address(self) -> AztecAddress {
+        cheatcodes::get_contract_address()
+    }
+
     fn advance_block_to(&mut self, block_number: u32) {
         let difference = block_number - cheatcodes::get_block_number();
         self.advance_block_by(difference);
@@ -40,7 +44,8 @@ impl TestEnvironment {
     }
 
     fn public(self) -> PublicContext {
-        PublicContext::empty()
+        let mut inputs = cheatcodes::get_public_context_inputs();
+        PublicContext::new(inputs)
     }
 
     fn private(&mut self) -> PrivateContext {
