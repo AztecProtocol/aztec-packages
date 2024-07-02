@@ -1,6 +1,7 @@
 contract PrivateFPC {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty};
     use dep::aztec::state_vars::SharedImmutable;
+    use dep::aztec::oracle::logs::emit_unencrypted_log_private_internal;
     use dep::private_token::PrivateToken;
     use dep::aztec::context::gas::GasOpts;
 
@@ -22,8 +23,10 @@ contract PrivateFPC {
         assert(asset == storage.other_asset.read_private());
         // convince the FPC we are not cheating
         context.push_new_nullifier(nonce, 0);
+        let counter = context.next_counter();
+        let event_type_id = 0;
         // allow the FPC to reconstruct their fee note
-        context.emit_unencrypted_log(nonce);
+        let _void = emit_unencrypted_log_private_internal(context.this_address(), event_type_id, nonce, counter);
         PrivateToken::at(asset).setup_refund(
             storage.admin_npk_m_hash.read_private(),
             context.msg_sender(),
