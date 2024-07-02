@@ -32,3 +32,8 @@ If you're looking for a good place to start, look for issues labeled ["good firs
 - I have reviewed my diff in github, line by line and removed unexpected formatting changes, testing logs, or commented-out code.
 - Every change is related to the PR description.
 - I have [linked](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) this pull request to relevant issues (if any exist).
+
+## Resources
+
+- [Using Pull Requests](https://help.github.com/articles/about-pull-requests/)
+- [GitHub Help](https://help.github.com)
