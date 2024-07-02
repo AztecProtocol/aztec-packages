@@ -11,6 +11,8 @@ namespace tests_avm {
 using namespace bb;
 using namespace bb::avm_trace;
 
+auto const BAD_LOOKUP = "LOOKUP_INTO_KERNEL";
+
 class AvmKernelTests : public ::testing::Test {
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
@@ -614,6 +616,8 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
     auto& ta = trace.at(1);
 
     ta.main_ia = incorrect_ia;
+    // memory trace should only have one row for these tests as well, so first row has looked-up val
+    ta.mem_val = incorrect_ia;
 
     check_trace(/*indirect*/ false, trace);
 
@@ -643,7 +647,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
@@ -669,7 +673,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaStorageAddress)
@@ -695,7 +699,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaStorageAddress)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaFunctionSelector)
@@ -721,7 +725,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaFunctionSelector)
             /*w_in_tag=*/AvmMemoryTag::U32);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
@@ -747,7 +751,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
@@ -773,7 +777,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
@@ -799,7 +803,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
@@ -825,7 +829,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
@@ -851,7 +855,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
@@ -877,7 +881,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
@@ -903,7 +907,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
             /*w_in_tag=*/AvmMemoryTag::U64);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
@@ -929,7 +933,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
             /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
 // KERNEL OUTPUTS
@@ -942,7 +946,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
     uint32_t indirect_offset = 69;
     uint32_t value = 1234;
 
-    uint32_t output_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
+    uint32_t output_offset = START_EMIT_NOTE_HASH_WRITE_OFFSET;
 
     // We write the note hash into memory
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
@@ -984,7 +988,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
     uint32_t indirect_offset = 69;
     uint32_t value = 1234;
 
-    uint32_t output_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET;
+    uint32_t output_offset = START_EMIT_NULLIFIER_WRITE_OFFSET;
 
     // We write the note hash into memory
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
@@ -1032,7 +1036,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
 
     uint32_t value = 1234;
     uint32_t recipient = 420;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET;
+    uint32_t output_offset = START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET;
 
     // auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
     //     trace_builder.op_set(0, 1234, msg_offset, AvmMemoryTag::FF);
@@ -1079,7 +1083,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
     uint32_t indirect_offset = 69;
     uint32_t value = 1234;
     uint32_t slot = 0;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
+    uint32_t output_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
 
     // We write the note hash into memory
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
@@ -1122,7 +1126,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
     uint32_t size = 1;
     uint32_t slot_offset = 420;
     auto slot = 12345;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
+    uint32_t output_offset = START_SLOAD_WRITE_OFFSET;
 
     // Provide a hint for sload value slot
     auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, value } });
@@ -1165,7 +1169,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
     auto slot = 12345;
     uint8_t indirect = 0;
     uint32_t size = 1;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+    uint32_t output_offset = START_SSTORE_WRITE_OFFSET;
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
@@ -1207,7 +1211,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     uint32_t metadata_offset = 420;
     uint32_t indirect_metadata_offset = 690;
     auto exists = 1;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
+    uint32_t output_offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET;
 
     auto execution_hints = ExecutionHints().with_note_hash_exists_hints({ { 0, exists } });
 
@@ -1254,7 +1258,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET;
+    uint32_t output_offset = START_NULLIFIER_EXISTS_OFFSET;
 
     auto execution_hints = ExecutionHints().with_nullifier_exists_hints({ { 0, exists } });
 
@@ -1293,7 +1297,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 0;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_NULLIFIER_NON_EXISTS_OFFSET;
+    uint32_t output_offset = START_NULLIFIER_NON_EXISTS_OFFSET;
 
     auto execution_hints = ExecutionHints().with_nullifier_exists_hints({ { 0, exists } });
 
@@ -1332,7 +1336,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
-    uint32_t output_offset = AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
+    uint32_t output_offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
 
     // Create an execution hints object with the result of the operation
     auto execution_hints = ExecutionHints().with_l1_to_l2_message_exists_hints({ { 0, exists } });
