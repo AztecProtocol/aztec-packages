@@ -50,7 +50,9 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.5
