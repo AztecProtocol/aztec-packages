@@ -120,10 +120,6 @@ fn location_to_callsite_label<'files>(
     // Check code slice for ";" and replace it with 'GREEK QUESTION MARK' (U+037E)
     let code_slice = code_slice.replace(';', "\u{037E}");
 
-    // // "\n" is used for sample separation, and is not allowed by inferno
-    // // Remove all newlines from the code and replace them with spaces
-    // let code_slice = code_slice.replace('\n', " ");
-
     let (line, column) = line_and_column_from_span(source.as_ref(), &location.span);
 
     format!("{}:{}:{}::{}", filename, line, column, code_slice)
