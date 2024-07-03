@@ -431,7 +431,7 @@ fn get_inputs_string<F: std::fmt::Display>(inputs: &[FunctionInput<F>]) -> Strin
     if should_abbreviate_inputs {
         let mut result = String::new();
         for (index, inp) in inputs.iter().enumerate() {
-            result += &format!("({})", inp.to_string());
+            result += &format!("({})", inp);
             // Add a comma, unless it is the last entry
             if index != inputs.len() - 1 {
                 result += ", ";
@@ -443,7 +443,7 @@ fn get_inputs_string<F: std::fmt::Display>(inputs: &[FunctionInput<F>]) -> Strin
         let last = inputs.last().unwrap();
 
         let mut result = String::new();
-        result += &format!("({})...({})", first.to_string(), last.to_string(),);
+        result += &format!("({})...({})", first, last);
 
         result
     }
