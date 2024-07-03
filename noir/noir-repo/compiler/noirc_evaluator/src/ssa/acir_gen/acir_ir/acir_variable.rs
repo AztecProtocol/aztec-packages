@@ -1406,10 +1406,7 @@ impl<F: AcirField> AcirContext<F> {
                 let num_bits = typ.bit_size::<F>();
                 match self.vars[&input].as_constant() {
                     Some(constant) if allow_constant_inputs => {
-                        single_val_witnesses.push(FunctionInput::Constant(ConstantInput {
-                            constant: *constant,
-                            num_bits,
-                        }));
+                        single_val_witnesses.push(FunctionInput::constant(*constant, num_bits));
                     }
                     _ => {
                         let witness_var = self.get_or_create_witness_var(input)?;

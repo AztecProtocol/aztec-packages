@@ -35,6 +35,10 @@ pub enum FunctionInput<F> {
 }
 
 impl<F> FunctionInput<F> {
+    pub fn constant(constant: F, num_bits: u32) -> Self {
+        FunctionInput::Constant(ConstantInput { constant, num_bits })
+    }
+
     pub fn witness(witness: Witness, num_bits: u32) -> Self {
         FunctionInput::Witness(WitnessInput { witness, num_bits })
     }
