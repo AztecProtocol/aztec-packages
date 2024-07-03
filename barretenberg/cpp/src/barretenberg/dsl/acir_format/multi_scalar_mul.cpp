@@ -60,14 +60,24 @@ template <typename Builder> void create_multi_scalar_mul_constraint(Builder& bui
         points.push_back(input_point);
         scalars.push_back(scalar);
     }
-
     // Call batch_mul to multiply the points and scalars and sum the results
     auto output_point = cycle_group_ct::batch_mul(points, scalars).get_standard_form();
-
-    // Add the constraints
-    builder.assert_equal(output_point.x.get_witness_index(), input.out_point_x);
-    builder.assert_equal(output_point.y.get_witness_index(), input.out_point_y);
-    builder.assert_equal(output_point.is_point_at_infinity().witness_index, input.out_point_is_infinite);
+    // Add the constraints and handle constant values
+    if (output_point.is_point_at_infinity().is_constant()) {
+        builder.fix_witness(input.out_point_is_infinite, output_point.is_point_at_infinity().get_value());
+    } else {
+        builder.assert_equal(output_point.is_point_at_infinity().witness_index, input.out_point_is_infinite);
+    }
+    if (output_point.x.is_constant()) {
+        builder.fix_witness(input.out_point_x, output_point.x.get_value());
+    } else {
+        builder.assert_equal(output_point.x.get_witness_index(), input.out_point_x);
+    }
+    if (output_point.y.is_constant()) {
+        builder.fix_witness(input.out_point_y, output_point.y.get_value());
+    } else {
+        builder.assert_equal(output_point.y.get_witness_index(), input.out_point_y);
+    }
 }
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
