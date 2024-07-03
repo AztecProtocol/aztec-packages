@@ -853,7 +853,7 @@ mod tests {
 
         let new_note_hashes = [27, 28, 29, 30, 31, 32];
         for i in 0..new_note_hashes.len() {
-            builder.kernel_data.add_new_note_hash(new_note_hashes[i], 0);
+            builder.kernel_data.add_new_note_hash(new_note_hashes[i]);
         }
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
             [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],

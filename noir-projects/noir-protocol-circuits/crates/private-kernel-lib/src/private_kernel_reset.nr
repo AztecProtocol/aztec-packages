@@ -1,22 +1,17 @@
 use dep::reset_kernel_lib::{
-    NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor,
-    verify_squashed_transient_note_hashes_and_nullifiers, reset::key_validation_hint::KeyValidationHint
+    get_transient_or_propagated_note_hash_indexes_for_logs, KeyValidationHint, NoteHashReadRequestHints,
+    NullifierReadRequestHints, PrivateValidationRequestProcessor, verify_squashed_transient_data
 };
 use dep::types::{
     abis::{
     private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
     note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash
 },
-    constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
-},
+    constants::{MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX},
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty,
     PrivateKernelCircuitPublicInputs
 };
 
-// Can just be KernelCircuitPublicInputs.
 struct PrivateKernelResetOutputs {
     note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
@@ -26,7 +21,6 @@ struct PrivateKernelResetOutputs {
 struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     transient_nullifier_indexes_for_note_hashes: [u32; MAX_NEW_NOTE_HASHES_PER_TX],
     transient_note_hash_indexes_for_nullifiers: [u32; MAX_NEW_NULLIFIERS_PER_TX],
-    transient_note_hash_indexes_for_logs: [u32; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
@@ -34,6 +28,7 @@ struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL
 
 struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     previous_kernel: PrivateKernelData,
+    // TODO: Construct output in an unconstrained function.
     outputs: PrivateKernelResetOutputs,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
 }
@@ -56,7 +51,12 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             key_validation_hints: self.hints.key_validation_hints,
         }.validate();
 
-        verify_squashed_transient_note_hashes_and_nullifiers(
+        let transient_or_propagated_note_hash_indexes_for_logs = get_transient_or_propagated_note_hash_indexes_for_logs(
+            previous_public_inputs.end.note_encrypted_logs_hashes,
+            previous_public_inputs.end.new_note_hashes,
+            self.outputs.note_hashes
+        );
+        verify_squashed_transient_data(
             previous_public_inputs.end.new_note_hashes,
             previous_public_inputs.end.new_nullifiers,
             previous_public_inputs.end.note_encrypted_logs_hashes,
@@ -65,7 +65,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             self.outputs.note_encrypted_log_hashes,
             self.hints.transient_nullifier_indexes_for_note_hashes,
             self.hints.transient_note_hash_indexes_for_nullifiers,
-            self.hints.transient_note_hash_indexes_for_logs
+            transient_or_propagated_note_hash_indexes_for_logs
         );
 
         previous_public_inputs.end.new_note_hashes = self.outputs.note_hashes;
@@ -82,16 +82,17 @@ mod tests {
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
         nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers, squash_transient_logs}
+        squash_transient_data::squash_transient_data
     },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
-        reset::key_validation_hint::KeyValidationHint
+        reset::{
+        read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+        key_validation_hint::KeyValidationHint
+    }
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, GENERATOR_INDEX__OVSK_M
     };
     use dep::types::{
         abis::{
@@ -108,7 +109,6 @@ mod tests {
         previous_kernel: FixtureBuilder,
         transient_nullifier_indexes_for_note_hashes: [u32; MAX_NEW_NOTE_HASHES_PER_TX],
         transient_note_hash_indexes_for_nullifiers: [u32; MAX_NEW_NULLIFIERS_PER_TX],
-        transient_note_hash_indexes_for_logs: [u32; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
     }
@@ -122,7 +122,6 @@ mod tests {
                 previous_kernel,
                 transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
                 transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
-                transient_note_hash_indexes_for_logs: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
                 note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
             }
@@ -147,33 +146,22 @@ mod tests {
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
             let note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).note_hash;
-            self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter();
             self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash.value;
             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
             self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
-            for i in 0..self.previous_kernel.note_encrypted_logs_hashes.len() {
-                // we may have many, or no, logs per note hash, so we cycle rather than .find
-                if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash_counter
-                    == note_hash.counter {
-                    self.transient_note_hash_indexes_for_logs[i] = note_hash_index;
-                }
-            }
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
-            let outputs = PrivateKernelResetOutputs {
-                note_hashes: squash_transient_note_hashes(self.previous_kernel.new_note_hashes.storage),
-                nullifiers: squash_transient_nullifiers(self.previous_kernel.new_nullifiers.storage),
-                note_encrypted_log_hashes: squash_transient_logs(
-                    self.previous_kernel.note_encrypted_logs_hashes.storage,
-                    self.previous_kernel.new_note_hashes.storage
-                )
-            };
+            let (note_hashes, nullifiers, note_encrypted_log_hashes) = squash_transient_data(
+                self.previous_kernel.new_note_hashes.storage,
+                self.previous_kernel.new_nullifiers.storage,
+                self.previous_kernel.note_encrypted_logs_hashes.storage
+            );
+            let outputs = PrivateKernelResetOutputs { note_hashes, nullifiers, note_encrypted_log_hashes };
 
             let hints = PrivateKernelResetHints {
                 transient_nullifier_indexes_for_note_hashes: self.transient_nullifier_indexes_for_note_hashes,
                 transient_note_hash_indexes_for_nullifiers: self.transient_note_hash_indexes_for_nullifiers,
-                transient_note_hash_indexes_for_logs: self.transient_note_hash_indexes_for_logs,
                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 key_validation_hints: [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]

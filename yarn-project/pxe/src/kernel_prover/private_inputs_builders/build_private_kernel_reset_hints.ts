@@ -4,7 +4,6 @@ import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
@@ -102,11 +101,7 @@ export async function buildPrivateKernelResetInputs(
     const nonEmptyNoteHashes = getNonEmptyItems(executionResult.callStackItem.publicInputs.newNoteHashes);
     return nonEmptyNoteHashes.map(
       noteHash =>
-        new ScopedNoteHash(
-          noteHash,
-          noteHashNullifierCounterMap.get(noteHash.counter) ?? 0,
-          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
-        ),
+        new ScopedNoteHash(noteHash, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
     );
   });
 
@@ -159,19 +154,14 @@ export async function buildPrivateKernelResetInputs(
     executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
   );
 
-  const [
-    transientNullifierIndexesForNoteHashes,
-    transientNoteHashIndexesForNullifiers,
-    transientNoteHashIndexesForLogs,
-  ] = buildTransientDataHints(
+  const [transientNullifierIndexesForNoteHashes, transientNoteHashIndexesForNullifiers] = buildTransientDataHints(
     publicInputs.end.newNoteHashes,
     publicInputs.end.newNullifiers,
-    publicInputs.end.noteEncryptedLogsHashes,
     futureNoteHashReads,
     futureNullifierReads,
+    noteHashNullifierCounterMap,
     MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   );
 
   const expectedOutputs = buildPrivateKernelResetOutputs(
@@ -198,7 +188,6 @@ export async function buildPrivateKernelResetInputs(
         new PrivateKernelResetHints(
           transientNullifierIndexesForNoteHashes,
           transientNoteHashIndexesForNullifiers,
-          transientNoteHashIndexesForLogs,
           noteHashReadRequestHints,
           nullifierReadRequestHints,
           keysHints,

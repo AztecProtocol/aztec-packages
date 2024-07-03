@@ -81,9 +81,7 @@ import {
   type PrivateKernelData,
   type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInitHints,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelInnerHints,
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetHints,
   type PrivateKernelResetOutputs,
@@ -197,9 +195,7 @@ import type {
   PrivateKernelData as PrivateKernelDataNoir,
   PrivateKernelEmptyPrivateInputs as PrivateKernelEmptyPrivateInputsNoir,
   PrivateKernelInitCircuitPrivateInputs as PrivateKernelInitCircuitPrivateInputsNoir,
-  PrivateKernelInitHints as PrivateKernelInitHintsNoir,
   PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircuitPrivateInputsNoir,
-  PrivateKernelInnerHints as PrivateKernelInnerHintsNoir,
   PrivateKernelResetCircuitPrivateInputs as PrivateKernelResetCircuitPrivateInputsNoir,
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
   PrivateKernelResetOutputs as PrivateKernelResetOutputsNoir,
@@ -613,7 +609,6 @@ function mapNoteHashFromNoir(noteHash: NoteHashNoir) {
 function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): ScopedNoteHashNoir {
   return {
     note_hash: mapNoteHashToNoir(noteHash.noteHash),
-    nullifier_counter: mapNumberToNoir(noteHash.nullifierCounter),
     contract_address: mapAztecAddressToNoir(noteHash.contractAddress),
   };
 }
@@ -621,7 +616,6 @@ function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): ScopedNoteHashNoir {
 function mapScopedNoteHashFromNoir(noteHash: ScopedNoteHashNoir) {
   return new ScopedNoteHash(
     mapNoteHashFromNoir(noteHash.note_hash),
-    mapNumberFromNoir(noteHash.nullifier_counter),
     mapAztecAddressFromNoir(noteHash.contract_address),
   );
 }
@@ -1596,25 +1590,12 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
   );
 }
 
-function mapPrivateKernelInitHintsToNoir(inputs: PrivateKernelInitHints): PrivateKernelInitHintsNoir {
-  return {
-    note_hash_nullifier_counters: mapTuple(inputs.noteHashNullifierCounters, mapNumberToNoir),
-  };
-}
-
-function mapPrivateKernelInnerHintsToNoir(inputs: PrivateKernelInnerHints): PrivateKernelInnerHintsNoir {
-  return {
-    note_hash_nullifier_counters: mapTuple(inputs.noteHashNullifierCounters, mapNumberToNoir),
-  };
-}
-
 export function mapPrivateKernelInitCircuitPrivateInputsToNoir(
   inputs: PrivateKernelInitCircuitPrivateInputs,
 ): PrivateKernelInitCircuitPrivateInputsNoir {
   return {
     tx_request: mapTxRequestToNoir(inputs.txRequest),
     private_call: mapPrivateCallDataToNoir(inputs.privateCall),
-    hints: mapPrivateKernelInitHintsToNoir(inputs.hints),
   };
 }
 
@@ -1624,7 +1605,6 @@ export function mapPrivateKernelInnerCircuitPrivateInputsToNoir(
   return {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
     private_call: mapPrivateCallDataToNoir(inputs.privateCall),
-    hints: mapPrivateKernelInnerHintsToNoir(inputs.hints),
   };
 }
 
@@ -1657,7 +1637,6 @@ function mapPrivateKernelResetHintsToNoir<
       mapNumberToNoir,
     ),
     transient_note_hash_indexes_for_nullifiers: mapTuple(inputs.transientNoteHashIndexesForNullifiers, mapNumberToNoir),
-    transient_note_hash_indexes_for_logs: mapTuple(inputs.transientNoteHashIndexesForLogs, mapNumberToNoir),
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     key_validation_hints: inputs.keyValidationHints.map(mapKeyValidationHintToNoir) as FixedLengthArray<

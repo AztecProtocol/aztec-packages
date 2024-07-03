@@ -56,10 +56,6 @@ export class PrivateKernelResetHints<
      */
     public transientNoteHashIndexesForNullifiers: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
-     * Contains hints for the transient logs to locate corresponding note hashes.
-     */
-    public transientNoteHashIndexesForLogs: Tuple<number, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
     public noteHashReadRequestHints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
@@ -77,7 +73,6 @@ export class PrivateKernelResetHints<
     return serializeToBuffer(
       this.transientNullifierIndexesForNoteHashes,
       this.transientNoteHashIndexesForNullifiers,
-      this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
       this.keyValidationHints,
@@ -106,7 +101,6 @@ export class PrivateKernelResetHints<
     return new PrivateKernelResetHints(
       this.transientNullifierIndexesForNoteHashes,
       this.transientNoteHashIndexesForNullifiers,
-      this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints.trimToSizes(numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
       this.nullifierReadRequestHints.trimToSizes(numNullifierReadRequestPending, numNullifierReadRequestSettled),
       this.keyValidationHints.slice(0, numKeyValidationRequests) as Tuple<
@@ -138,7 +132,6 @@ export class PrivateKernelResetHints<
     return new PrivateKernelResetHints(
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
-      reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       reader.readObject({
         fromBuffer: buf =>
           noteHashReadRequestHintsFromBuffer(buf, numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
