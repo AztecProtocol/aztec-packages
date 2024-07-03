@@ -204,7 +204,7 @@ impl FromStr for OpcodeLocation {
     }
 }
 
-impl<F: AcirField> Circuit<F> {
+impl<F> Circuit<F> {
     pub fn num_vars(&self) -> u32 {
         self.current_witness_index + 1
     }
@@ -249,7 +249,7 @@ impl<F: Serialize> Program<F> {
     }
 }
 
-impl<F: for<'a> Deserialize<'a> + AcirField> Program<F> {
+impl<F: for<'a> Deserialize<'a>> Program<F> {
     fn read<R: std::io::Read>(reader: R) -> std::io::Result<Self> {
         let mut gz_decoder = flate2::read::GzDecoder::new(reader);
         let mut buf_d = Vec::new();

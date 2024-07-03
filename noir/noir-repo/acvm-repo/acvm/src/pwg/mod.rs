@@ -151,7 +151,7 @@ impl<F> From<BlackBoxResolutionError> for OpcodeResolutionError<F> {
     }
 }
 
-pub struct ACVM<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> {
+pub struct ACVM<'a, F, B: BlackBoxFunctionSolver<F>> {
     status: ACVMStatus<F>,
 
     backend: &'a B,

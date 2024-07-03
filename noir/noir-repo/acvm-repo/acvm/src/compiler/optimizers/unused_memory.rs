@@ -1,14 +1,13 @@
 use acir::circuit::{opcodes::BlockId, Circuit, Opcode};
-use acir::AcirField;
 use std::collections::HashSet;
 
 /// `UnusedMemoryOptimizer` will remove initializations of memory blocks which are unused.
-pub(crate) struct UnusedMemoryOptimizer<F: AcirField> {
+pub(crate) struct UnusedMemoryOptimizer<F> {
     unused_memory_initializations: HashSet<BlockId>,
     circuit: Circuit<F>,
 }
 
-impl<F: AcirField> UnusedMemoryOptimizer<F> {
+impl<F> UnusedMemoryOptimizer<F> {
     /// Creates a new `UnusedMemoryOptimizer ` by collecting unused memory init
     /// opcodes from `Circuit`.
     pub(crate) fn new(circuit: Circuit<F>) -> Self {
