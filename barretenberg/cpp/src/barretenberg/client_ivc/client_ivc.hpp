@@ -81,7 +81,7 @@ class ClientIVC {
 
         void print()
         {
-            info("Max block sizes: ");
+            info("Minimum required block sizes for structured trace: ");
             info("goblin ecc op :\t", ecc_op);
             info("pub inputs    :\t", pub_inputs);
             info("arithmetic    :\t", arithmetic);
@@ -129,6 +129,6 @@ class ClientIVC {
 
     std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
 
-    MaxBlockSizes max_block_sizes;
+    MaxBlockSizes max_block_sizes; // for tracking minimum block size requirements across an IVC
 };
 } // namespace bb
