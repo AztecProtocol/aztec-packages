@@ -147,7 +147,6 @@ pub enum BlackBoxFuncCall<F> {
     },
     MultiScalarMul {
         points: Vec<FunctionInput<F>>,
-        //    constant_points: Vec<(F,F)>,
         scalars: Vec<FunctionInput<F>>,
         outputs: (Witness, Witness, Witness),
     },
