@@ -231,7 +231,7 @@ pub enum BlackBoxFuncCall<F> {
     },
 }
 
-impl<F: AcirField> BlackBoxFuncCall<F> {
+impl<F: Copy> BlackBoxFuncCall<F> {
     pub fn get_black_box_func(&self) -> BlackBoxFunc {
         match self {
             BlackBoxFuncCall::AES128Encrypt { .. } => BlackBoxFunc::AES128Encrypt,
