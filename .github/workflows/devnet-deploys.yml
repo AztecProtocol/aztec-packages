@@ -98,7 +98,7 @@ jobs:
         if: steps.check_changes_release.outputs.result == 'true'
         run: |
           docker pull aztecprotocol/cli:${{ env.DEPLOY_TAG }}
-          docker run -ti --rm aztecprotocol/cli:${{ env.DEPLOY_TAG }} \
+          docker run aztecprotocol/cli:${{ env.DEPLOY_TAG }} \
             deploy-l1-contracts -p ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
             -u https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
             | tee ${{ env.FILE_PATH }}
