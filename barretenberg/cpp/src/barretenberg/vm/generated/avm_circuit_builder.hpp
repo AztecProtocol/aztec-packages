@@ -12,6 +12,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
@@ -904,77 +905,79 @@ class AvmCircuitBuilder {
             polys.lookup_div_u16_7_counts[i] = rows[i].lookup_div_u16_7_counts;
         }
 
-        polys.alu_a_hi_shift = Polynomial(polys.alu_a_hi.shifted());
-        polys.alu_a_lo_shift = Polynomial(polys.alu_a_lo.shifted());
-        polys.alu_b_hi_shift = Polynomial(polys.alu_b_hi.shifted());
-        polys.alu_b_lo_shift = Polynomial(polys.alu_b_lo.shifted());
-        polys.alu_cmp_rng_ctr_shift = Polynomial(polys.alu_cmp_rng_ctr.shifted());
-        polys.alu_div_u16_r0_shift = Polynomial(polys.alu_div_u16_r0.shifted());
-        polys.alu_div_u16_r1_shift = Polynomial(polys.alu_div_u16_r1.shifted());
-        polys.alu_div_u16_r2_shift = Polynomial(polys.alu_div_u16_r2.shifted());
-        polys.alu_div_u16_r3_shift = Polynomial(polys.alu_div_u16_r3.shifted());
-        polys.alu_div_u16_r4_shift = Polynomial(polys.alu_div_u16_r4.shifted());
-        polys.alu_div_u16_r5_shift = Polynomial(polys.alu_div_u16_r5.shifted());
-        polys.alu_div_u16_r6_shift = Polynomial(polys.alu_div_u16_r6.shifted());
-        polys.alu_div_u16_r7_shift = Polynomial(polys.alu_div_u16_r7.shifted());
-        polys.alu_op_add_shift = Polynomial(polys.alu_op_add.shifted());
-        polys.alu_op_cast_prev_shift = Polynomial(polys.alu_op_cast_prev.shifted());
-        polys.alu_op_cast_shift = Polynomial(polys.alu_op_cast.shifted());
-        polys.alu_op_div_shift = Polynomial(polys.alu_op_div.shifted());
-        polys.alu_op_mul_shift = Polynomial(polys.alu_op_mul.shifted());
-        polys.alu_op_shl_shift = Polynomial(polys.alu_op_shl.shifted());
-        polys.alu_op_shr_shift = Polynomial(polys.alu_op_shr.shifted());
-        polys.alu_op_sub_shift = Polynomial(polys.alu_op_sub.shifted());
-        polys.alu_p_sub_a_hi_shift = Polynomial(polys.alu_p_sub_a_hi.shifted());
-        polys.alu_p_sub_a_lo_shift = Polynomial(polys.alu_p_sub_a_lo.shifted());
-        polys.alu_p_sub_b_hi_shift = Polynomial(polys.alu_p_sub_b_hi.shifted());
-        polys.alu_p_sub_b_lo_shift = Polynomial(polys.alu_p_sub_b_lo.shifted());
-        polys.alu_sel_alu_shift = Polynomial(polys.alu_sel_alu.shifted());
-        polys.alu_sel_cmp_shift = Polynomial(polys.alu_sel_cmp.shifted());
-        polys.alu_sel_div_rng_chk_shift = Polynomial(polys.alu_sel_div_rng_chk.shifted());
-        polys.alu_sel_rng_chk_lookup_shift = Polynomial(polys.alu_sel_rng_chk_lookup.shifted());
-        polys.alu_sel_rng_chk_shift = Polynomial(polys.alu_sel_rng_chk.shifted());
-        polys.alu_u16_r0_shift = Polynomial(polys.alu_u16_r0.shifted());
-        polys.alu_u16_r1_shift = Polynomial(polys.alu_u16_r1.shifted());
-        polys.alu_u16_r2_shift = Polynomial(polys.alu_u16_r2.shifted());
-        polys.alu_u16_r3_shift = Polynomial(polys.alu_u16_r3.shifted());
-        polys.alu_u16_r4_shift = Polynomial(polys.alu_u16_r4.shifted());
-        polys.alu_u16_r5_shift = Polynomial(polys.alu_u16_r5.shifted());
-        polys.alu_u16_r6_shift = Polynomial(polys.alu_u16_r6.shifted());
-        polys.alu_u8_r0_shift = Polynomial(polys.alu_u8_r0.shifted());
-        polys.alu_u8_r1_shift = Polynomial(polys.alu_u8_r1.shifted());
-        polys.binary_acc_ia_shift = Polynomial(polys.binary_acc_ia.shifted());
-        polys.binary_acc_ib_shift = Polynomial(polys.binary_acc_ib.shifted());
-        polys.binary_acc_ic_shift = Polynomial(polys.binary_acc_ic.shifted());
-        polys.binary_mem_tag_ctr_shift = Polynomial(polys.binary_mem_tag_ctr.shifted());
-        polys.binary_op_id_shift = Polynomial(polys.binary_op_id.shifted());
+        polys.alu_a_hi_shift = static_cast<Polynomial>(polys.alu_a_hi.shifted());
+        polys.alu_a_lo_shift = static_cast<Polynomial>(polys.alu_a_lo.shifted());
+        polys.alu_b_hi_shift = static_cast<Polynomial>(polys.alu_b_hi.shifted());
+        polys.alu_b_lo_shift = static_cast<Polynomial>(polys.alu_b_lo.shifted());
+        polys.alu_cmp_rng_ctr_shift = static_cast<Polynomial>(polys.alu_cmp_rng_ctr.shifted());
+        polys.alu_div_u16_r0_shift = static_cast<Polynomial>(polys.alu_div_u16_r0.shifted());
+        polys.alu_div_u16_r1_shift = static_cast<Polynomial>(polys.alu_div_u16_r1.shifted());
+        polys.alu_div_u16_r2_shift = static_cast<Polynomial>(polys.alu_div_u16_r2.shifted());
+        polys.alu_div_u16_r3_shift = static_cast<Polynomial>(polys.alu_div_u16_r3.shifted());
+        polys.alu_div_u16_r4_shift = static_cast<Polynomial>(polys.alu_div_u16_r4.shifted());
+        polys.alu_div_u16_r5_shift = static_cast<Polynomial>(polys.alu_div_u16_r5.shifted());
+        polys.alu_div_u16_r6_shift = static_cast<Polynomial>(polys.alu_div_u16_r6.shifted());
+        polys.alu_div_u16_r7_shift = static_cast<Polynomial>(polys.alu_div_u16_r7.shifted());
+        polys.alu_op_add_shift = static_cast<Polynomial>(polys.alu_op_add.shifted());
+        polys.alu_op_cast_prev_shift = static_cast<Polynomial>(polys.alu_op_cast_prev.shifted());
+        polys.alu_op_cast_shift = static_cast<Polynomial>(polys.alu_op_cast.shifted());
+        polys.alu_op_div_shift = static_cast<Polynomial>(polys.alu_op_div.shifted());
+        polys.alu_op_mul_shift = static_cast<Polynomial>(polys.alu_op_mul.shifted());
+        polys.alu_op_shl_shift = static_cast<Polynomial>(polys.alu_op_shl.shifted());
+        polys.alu_op_shr_shift = static_cast<Polynomial>(polys.alu_op_shr.shifted());
+        polys.alu_op_sub_shift = static_cast<Polynomial>(polys.alu_op_sub.shifted());
+        polys.alu_p_sub_a_hi_shift = static_cast<Polynomial>(polys.alu_p_sub_a_hi.shifted());
+        polys.alu_p_sub_a_lo_shift = static_cast<Polynomial>(polys.alu_p_sub_a_lo.shifted());
+        polys.alu_p_sub_b_hi_shift = static_cast<Polynomial>(polys.alu_p_sub_b_hi.shifted());
+        polys.alu_p_sub_b_lo_shift = static_cast<Polynomial>(polys.alu_p_sub_b_lo.shifted());
+        polys.alu_sel_alu_shift = static_cast<Polynomial>(polys.alu_sel_alu.shifted());
+        polys.alu_sel_cmp_shift = static_cast<Polynomial>(polys.alu_sel_cmp.shifted());
+        polys.alu_sel_div_rng_chk_shift = static_cast<Polynomial>(polys.alu_sel_div_rng_chk.shifted());
+        polys.alu_sel_rng_chk_lookup_shift = static_cast<Polynomial>(polys.alu_sel_rng_chk_lookup.shifted());
+        polys.alu_sel_rng_chk_shift = static_cast<Polynomial>(polys.alu_sel_rng_chk.shifted());
+        polys.alu_u16_r0_shift = static_cast<Polynomial>(polys.alu_u16_r0.shifted());
+        polys.alu_u16_r1_shift = static_cast<Polynomial>(polys.alu_u16_r1.shifted());
+        polys.alu_u16_r2_shift = static_cast<Polynomial>(polys.alu_u16_r2.shifted());
+        polys.alu_u16_r3_shift = static_cast<Polynomial>(polys.alu_u16_r3.shifted());
+        polys.alu_u16_r4_shift = static_cast<Polynomial>(polys.alu_u16_r4.shifted());
+        polys.alu_u16_r5_shift = static_cast<Polynomial>(polys.alu_u16_r5.shifted());
+        polys.alu_u16_r6_shift = static_cast<Polynomial>(polys.alu_u16_r6.shifted());
+        polys.alu_u8_r0_shift = static_cast<Polynomial>(polys.alu_u8_r0.shifted());
+        polys.alu_u8_r1_shift = static_cast<Polynomial>(polys.alu_u8_r1.shifted());
+        polys.binary_acc_ia_shift = static_cast<Polynomial>(polys.binary_acc_ia.shifted());
+        polys.binary_acc_ib_shift = static_cast<Polynomial>(polys.binary_acc_ib.shifted());
+        polys.binary_acc_ic_shift = static_cast<Polynomial>(polys.binary_acc_ic.shifted());
+        polys.binary_mem_tag_ctr_shift = static_cast<Polynomial>(polys.binary_mem_tag_ctr.shifted());
+        polys.binary_op_id_shift = static_cast<Polynomial>(polys.binary_op_id.shifted());
         polys.kernel_emit_l2_to_l1_msg_write_offset_shift =
-            Polynomial(polys.kernel_emit_l2_to_l1_msg_write_offset.shifted());
-        polys.kernel_emit_note_hash_write_offset_shift = Polynomial(polys.kernel_emit_note_hash_write_offset.shifted());
-        polys.kernel_emit_nullifier_write_offset_shift = Polynomial(polys.kernel_emit_nullifier_write_offset.shifted());
+            static_cast<Polynomial>(polys.kernel_emit_l2_to_l1_msg_write_offset.shifted());
+        polys.kernel_emit_note_hash_write_offset_shift =
+            static_cast<Polynomial>(polys.kernel_emit_note_hash_write_offset.shifted());
+        polys.kernel_emit_nullifier_write_offset_shift =
+            static_cast<Polynomial>(polys.kernel_emit_nullifier_write_offset.shifted());
         polys.kernel_emit_unencrypted_log_write_offset_shift =
-            Polynomial(polys.kernel_emit_unencrypted_log_write_offset.shifted());
+            static_cast<Polynomial>(polys.kernel_emit_unencrypted_log_write_offset.shifted());
         polys.kernel_l1_to_l2_msg_exists_write_offset_shift =
-            Polynomial(polys.kernel_l1_to_l2_msg_exists_write_offset.shifted());
+            static_cast<Polynomial>(polys.kernel_l1_to_l2_msg_exists_write_offset.shifted());
         polys.kernel_note_hash_exist_write_offset_shift =
-            Polynomial(polys.kernel_note_hash_exist_write_offset.shifted());
+            static_cast<Polynomial>(polys.kernel_note_hash_exist_write_offset.shifted());
         polys.kernel_nullifier_exists_write_offset_shift =
-            Polynomial(polys.kernel_nullifier_exists_write_offset.shifted());
+            static_cast<Polynomial>(polys.kernel_nullifier_exists_write_offset.shifted());
         polys.kernel_nullifier_non_exists_write_offset_shift =
-            Polynomial(polys.kernel_nullifier_non_exists_write_offset.shifted());
-        polys.kernel_side_effect_counter_shift = Polynomial(polys.kernel_side_effect_counter.shifted());
-        polys.kernel_sload_write_offset_shift = Polynomial(polys.kernel_sload_write_offset.shifted());
-        polys.kernel_sstore_write_offset_shift = Polynomial(polys.kernel_sstore_write_offset.shifted());
-        polys.main_da_gas_remaining_shift = Polynomial(polys.main_da_gas_remaining.shifted());
-        polys.main_internal_return_ptr_shift = Polynomial(polys.main_internal_return_ptr.shifted());
-        polys.main_l2_gas_remaining_shift = Polynomial(polys.main_l2_gas_remaining.shifted());
-        polys.main_pc_shift = Polynomial(polys.main_pc.shifted());
-        polys.mem_glob_addr_shift = Polynomial(polys.mem_glob_addr.shifted());
-        polys.mem_rw_shift = Polynomial(polys.mem_rw.shifted());
-        polys.mem_sel_mem_shift = Polynomial(polys.mem_sel_mem.shifted());
-        polys.mem_tag_shift = Polynomial(polys.mem_tag.shifted());
-        polys.mem_tsp_shift = Polynomial(polys.mem_tsp.shifted());
-        polys.mem_val_shift = Polynomial(polys.mem_val.shifted());
+            static_cast<Polynomial>(polys.kernel_nullifier_non_exists_write_offset.shifted());
+        polys.kernel_side_effect_counter_shift = static_cast<Polynomial>(polys.kernel_side_effect_counter.shifted());
+        polys.kernel_sload_write_offset_shift = static_cast<Polynomial>(polys.kernel_sload_write_offset.shifted());
+        polys.kernel_sstore_write_offset_shift = static_cast<Polynomial>(polys.kernel_sstore_write_offset.shifted());
+        polys.main_da_gas_remaining_shift = static_cast<Polynomial>(polys.main_da_gas_remaining.shifted());
+        polys.main_internal_return_ptr_shift = static_cast<Polynomial>(polys.main_internal_return_ptr.shifted());
+        polys.main_l2_gas_remaining_shift = static_cast<Polynomial>(polys.main_l2_gas_remaining.shifted());
+        polys.main_pc_shift = static_cast<Polynomial>(polys.main_pc.shifted());
+        polys.mem_glob_addr_shift = static_cast<Polynomial>(polys.mem_glob_addr.shifted());
+        polys.mem_rw_shift = static_cast<Polynomial>(polys.mem_rw.shifted());
+        polys.mem_sel_mem_shift = static_cast<Polynomial>(polys.mem_sel_mem.shifted());
+        polys.mem_tag_shift = static_cast<Polynomial>(polys.mem_tag.shifted());
+        polys.mem_tsp_shift = static_cast<Polynomial>(polys.mem_tsp.shifted());
+        polys.mem_val_shift = static_cast<Polynomial>(polys.mem_val.shifted());
 
         return polys;
     }
@@ -1046,288 +1049,288 @@ class AvmCircuitBuilder {
             return true;
         };
 
-        auto alu = [=]() {
+        auto alu = [&]() {
             return evaluate_relation.template operator()<Avm_vm::alu<FF>>("alu", Avm_vm::get_relation_label_alu);
         };
 
-        auto binary = [=]() {
+        auto binary = [&]() {
             return evaluate_relation.template operator()<Avm_vm::binary<FF>>("binary",
                                                                              Avm_vm::get_relation_label_binary);
         };
 
-        auto conversion = [=]() {
+        auto conversion = [&]() {
             return evaluate_relation.template operator()<Avm_vm::conversion<FF>>("conversion",
                                                                                  Avm_vm::get_relation_label_conversion);
         };
 
-        auto gas = [=]() {
+        auto gas = [&]() {
             return evaluate_relation.template operator()<Avm_vm::gas<FF>>("gas", Avm_vm::get_relation_label_gas);
         };
 
-        auto keccakf1600 = [=]() {
+        auto keccakf1600 = [&]() {
             return evaluate_relation.template operator()<Avm_vm::keccakf1600<FF>>(
                 "keccakf1600", Avm_vm::get_relation_label_keccakf1600);
         };
 
-        auto kernel = [=]() {
+        auto kernel = [&]() {
             return evaluate_relation.template operator()<Avm_vm::kernel<FF>>("kernel",
                                                                              Avm_vm::get_relation_label_kernel);
         };
 
-        auto main = [=]() {
+        auto main = [&]() {
             return evaluate_relation.template operator()<Avm_vm::main<FF>>("main", Avm_vm::get_relation_label_main);
         };
 
-        auto mem = [=]() {
+        auto mem = [&]() {
             return evaluate_relation.template operator()<Avm_vm::mem<FF>>("mem", Avm_vm::get_relation_label_mem);
         };
 
-        auto pedersen = [=]() {
+        auto pedersen = [&]() {
             return evaluate_relation.template operator()<Avm_vm::pedersen<FF>>("pedersen",
                                                                                Avm_vm::get_relation_label_pedersen);
         };
 
-        auto poseidon2 = [=]() {
+        auto poseidon2 = [&]() {
             return evaluate_relation.template operator()<Avm_vm::poseidon2<FF>>("poseidon2",
                                                                                 Avm_vm::get_relation_label_poseidon2);
         };
 
-        auto powers = [=]() {
+        auto powers = [&]() {
             return evaluate_relation.template operator()<Avm_vm::powers<FF>>("powers",
                                                                              Avm_vm::get_relation_label_powers);
         };
 
-        auto sha256 = [=]() {
+        auto sha256 = [&]() {
             return evaluate_relation.template operator()<Avm_vm::sha256<FF>>("sha256",
                                                                              Avm_vm::get_relation_label_sha256);
         };
 
-        auto perm_main_alu = [=]() {
+        auto perm_main_alu = [&]() {
             return evaluate_logderivative.template operator()<perm_main_alu_relation<FF>>("PERM_MAIN_ALU");
         };
 
-        auto perm_main_bin = [=]() {
+        auto perm_main_bin = [&]() {
             return evaluate_logderivative.template operator()<perm_main_bin_relation<FF>>("PERM_MAIN_BIN");
         };
 
-        auto perm_main_conv = [=]() {
+        auto perm_main_conv = [&]() {
             return evaluate_logderivative.template operator()<perm_main_conv_relation<FF>>("PERM_MAIN_CONV");
         };
 
-        auto perm_main_pos2_perm = [=]() {
+        auto perm_main_pos2_perm = [&]() {
             return evaluate_logderivative.template operator()<perm_main_pos2_perm_relation<FF>>("PERM_MAIN_POS2_PERM");
         };
 
-        auto perm_main_pedersen = [=]() {
+        auto perm_main_pedersen = [&]() {
             return evaluate_logderivative.template operator()<perm_main_pedersen_relation<FF>>("PERM_MAIN_PEDERSEN");
         };
 
-        auto perm_main_mem_a = [=]() {
+        auto perm_main_mem_a = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_a_relation<FF>>("PERM_MAIN_MEM_A");
         };
 
-        auto perm_main_mem_b = [=]() {
+        auto perm_main_mem_b = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_b_relation<FF>>("PERM_MAIN_MEM_B");
         };
 
-        auto perm_main_mem_c = [=]() {
+        auto perm_main_mem_c = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_c_relation<FF>>("PERM_MAIN_MEM_C");
         };
 
-        auto perm_main_mem_d = [=]() {
+        auto perm_main_mem_d = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_d_relation<FF>>("PERM_MAIN_MEM_D");
         };
 
-        auto perm_main_mem_ind_addr_a = [=]() {
+        auto perm_main_mem_ind_addr_a = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_ind_addr_a_relation<FF>>(
                 "PERM_MAIN_MEM_IND_ADDR_A");
         };
 
-        auto perm_main_mem_ind_addr_b = [=]() {
+        auto perm_main_mem_ind_addr_b = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_ind_addr_b_relation<FF>>(
                 "PERM_MAIN_MEM_IND_ADDR_B");
         };
 
-        auto perm_main_mem_ind_addr_c = [=]() {
+        auto perm_main_mem_ind_addr_c = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_ind_addr_c_relation<FF>>(
                 "PERM_MAIN_MEM_IND_ADDR_C");
         };
 
-        auto perm_main_mem_ind_addr_d = [=]() {
+        auto perm_main_mem_ind_addr_d = [&]() {
             return evaluate_logderivative.template operator()<perm_main_mem_ind_addr_d_relation<FF>>(
                 "PERM_MAIN_MEM_IND_ADDR_D");
         };
 
-        auto lookup_byte_lengths = [=]() {
+        auto lookup_byte_lengths = [&]() {
             return evaluate_logderivative.template operator()<lookup_byte_lengths_relation<FF>>("LOOKUP_BYTE_LENGTHS");
         };
 
-        auto lookup_byte_operations = [=]() {
+        auto lookup_byte_operations = [&]() {
             return evaluate_logderivative.template operator()<lookup_byte_operations_relation<FF>>(
                 "LOOKUP_BYTE_OPERATIONS");
         };
 
-        auto lookup_opcode_gas = [=]() {
+        auto lookup_opcode_gas = [&]() {
             return evaluate_logderivative.template operator()<lookup_opcode_gas_relation<FF>>("LOOKUP_OPCODE_GAS");
         };
 
-        auto range_check_l2_gas_hi = [=]() {
+        auto range_check_l2_gas_hi = [&]() {
             return evaluate_logderivative.template operator()<range_check_l2_gas_hi_relation<FF>>(
                 "RANGE_CHECK_L2_GAS_HI");
         };
 
-        auto range_check_l2_gas_lo = [=]() {
+        auto range_check_l2_gas_lo = [&]() {
             return evaluate_logderivative.template operator()<range_check_l2_gas_lo_relation<FF>>(
                 "RANGE_CHECK_L2_GAS_LO");
         };
 
-        auto range_check_da_gas_hi = [=]() {
+        auto range_check_da_gas_hi = [&]() {
             return evaluate_logderivative.template operator()<range_check_da_gas_hi_relation<FF>>(
                 "RANGE_CHECK_DA_GAS_HI");
         };
 
-        auto range_check_da_gas_lo = [=]() {
+        auto range_check_da_gas_lo = [&]() {
             return evaluate_logderivative.template operator()<range_check_da_gas_lo_relation<FF>>(
                 "RANGE_CHECK_DA_GAS_LO");
         };
 
-        auto kernel_output_lookup = [=]() {
+        auto kernel_output_lookup = [&]() {
             return evaluate_logderivative.template operator()<kernel_output_lookup_relation<FF>>(
                 "KERNEL_OUTPUT_LOOKUP");
         };
 
-        auto lookup_into_kernel = [=]() {
+        auto lookup_into_kernel = [&]() {
             return evaluate_logderivative.template operator()<lookup_into_kernel_relation<FF>>("LOOKUP_INTO_KERNEL");
         };
 
-        auto incl_main_tag_err = [=]() {
+        auto incl_main_tag_err = [&]() {
             return evaluate_logderivative.template operator()<incl_main_tag_err_relation<FF>>("INCL_MAIN_TAG_ERR");
         };
 
-        auto incl_mem_tag_err = [=]() {
+        auto incl_mem_tag_err = [&]() {
             return evaluate_logderivative.template operator()<incl_mem_tag_err_relation<FF>>("INCL_MEM_TAG_ERR");
         };
 
-        auto lookup_mem_rng_chk_lo = [=]() {
+        auto lookup_mem_rng_chk_lo = [&]() {
             return evaluate_logderivative.template operator()<lookup_mem_rng_chk_lo_relation<FF>>(
                 "LOOKUP_MEM_RNG_CHK_LO");
         };
 
-        auto lookup_mem_rng_chk_mid = [=]() {
+        auto lookup_mem_rng_chk_mid = [&]() {
             return evaluate_logderivative.template operator()<lookup_mem_rng_chk_mid_relation<FF>>(
                 "LOOKUP_MEM_RNG_CHK_MID");
         };
 
-        auto lookup_mem_rng_chk_hi = [=]() {
+        auto lookup_mem_rng_chk_hi = [&]() {
             return evaluate_logderivative.template operator()<lookup_mem_rng_chk_hi_relation<FF>>(
                 "LOOKUP_MEM_RNG_CHK_HI");
         };
 
-        auto lookup_pow_2_0 = [=]() {
+        auto lookup_pow_2_0 = [&]() {
             return evaluate_logderivative.template operator()<lookup_pow_2_0_relation<FF>>("LOOKUP_POW_2_0");
         };
 
-        auto lookup_pow_2_1 = [=]() {
+        auto lookup_pow_2_1 = [&]() {
             return evaluate_logderivative.template operator()<lookup_pow_2_1_relation<FF>>("LOOKUP_POW_2_1");
         };
 
-        auto lookup_u8_0 = [=]() {
+        auto lookup_u8_0 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u8_0_relation<FF>>("LOOKUP_U8_0");
         };
 
-        auto lookup_u8_1 = [=]() {
+        auto lookup_u8_1 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u8_1_relation<FF>>("LOOKUP_U8_1");
         };
 
-        auto lookup_u16_0 = [=]() {
+        auto lookup_u16_0 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_0_relation<FF>>("LOOKUP_U16_0");
         };
 
-        auto lookup_u16_1 = [=]() {
+        auto lookup_u16_1 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_1_relation<FF>>("LOOKUP_U16_1");
         };
 
-        auto lookup_u16_2 = [=]() {
+        auto lookup_u16_2 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_2_relation<FF>>("LOOKUP_U16_2");
         };
 
-        auto lookup_u16_3 = [=]() {
+        auto lookup_u16_3 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_3_relation<FF>>("LOOKUP_U16_3");
         };
 
-        auto lookup_u16_4 = [=]() {
+        auto lookup_u16_4 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_4_relation<FF>>("LOOKUP_U16_4");
         };
 
-        auto lookup_u16_5 = [=]() {
+        auto lookup_u16_5 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_5_relation<FF>>("LOOKUP_U16_5");
         };
 
-        auto lookup_u16_6 = [=]() {
+        auto lookup_u16_6 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_6_relation<FF>>("LOOKUP_U16_6");
         };
 
-        auto lookup_u16_7 = [=]() {
+        auto lookup_u16_7 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_7_relation<FF>>("LOOKUP_U16_7");
         };
 
-        auto lookup_u16_8 = [=]() {
+        auto lookup_u16_8 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_8_relation<FF>>("LOOKUP_U16_8");
         };
 
-        auto lookup_u16_9 = [=]() {
+        auto lookup_u16_9 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_9_relation<FF>>("LOOKUP_U16_9");
         };
 
-        auto lookup_u16_10 = [=]() {
+        auto lookup_u16_10 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_10_relation<FF>>("LOOKUP_U16_10");
         };
 
-        auto lookup_u16_11 = [=]() {
+        auto lookup_u16_11 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_11_relation<FF>>("LOOKUP_U16_11");
         };
 
-        auto lookup_u16_12 = [=]() {
+        auto lookup_u16_12 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_12_relation<FF>>("LOOKUP_U16_12");
         };
 
-        auto lookup_u16_13 = [=]() {
+        auto lookup_u16_13 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_13_relation<FF>>("LOOKUP_U16_13");
         };
 
-        auto lookup_u16_14 = [=]() {
+        auto lookup_u16_14 = [&]() {
             return evaluate_logderivative.template operator()<lookup_u16_14_relation<FF>>("LOOKUP_U16_14");
         };
 
-        auto lookup_div_u16_0 = [=]() {
+        auto lookup_div_u16_0 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_0_relation<FF>>("LOOKUP_DIV_U16_0");
         };
 
-        auto lookup_div_u16_1 = [=]() {
+        auto lookup_div_u16_1 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_1_relation<FF>>("LOOKUP_DIV_U16_1");
         };
 
-        auto lookup_div_u16_2 = [=]() {
+        auto lookup_div_u16_2 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_2_relation<FF>>("LOOKUP_DIV_U16_2");
         };
 
-        auto lookup_div_u16_3 = [=]() {
+        auto lookup_div_u16_3 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_3_relation<FF>>("LOOKUP_DIV_U16_3");
         };
 
-        auto lookup_div_u16_4 = [=]() {
+        auto lookup_div_u16_4 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_4_relation<FF>>("LOOKUP_DIV_U16_4");
         };
 
-        auto lookup_div_u16_5 = [=]() {
+        auto lookup_div_u16_5 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_5_relation<FF>>("LOOKUP_DIV_U16_5");
         };
 
-        auto lookup_div_u16_6 = [=]() {
+        auto lookup_div_u16_6 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_6_relation<FF>>("LOOKUP_DIV_U16_6");
         };
 
-        auto lookup_div_u16_7 = [=]() {
+        auto lookup_div_u16_7 = [&]() {
             return evaluate_logderivative.template operator()<lookup_div_u16_7_relation<FF>>("LOOKUP_DIV_U16_7");
         };
 
@@ -1468,9 +1471,9 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_div_u16_7));
 
-        // Wait for lookup evaluations to complete
+        // Wait for evaluations to complete
         for (auto& future : relation_futures) {
-            int result = future.get();
+            bool result = future.get();
             if (!result) {
                 return false;
             }

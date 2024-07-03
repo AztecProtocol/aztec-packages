@@ -63,6 +63,12 @@ pub trait RelationBuilder {
         labels_lookup: String,
     );
 
+    fn create_recursive_relation(
+        &self,
+        root_name: &str,
+        name: &str,
+    );
+
     /// Declare views
     ///
     /// Declare views is a macro that generates a reference for each of the columns
@@ -114,6 +120,7 @@ impl RelationBuilder for BBFiles {
                 &row_type,
                 labels_lookup,
             );
+            self.create_recursive_relation(file_name, relation_name);
         }
 
         shifted_polys.sort();
@@ -180,6 +187,22 @@ namespace bb::{root_name}_vm {{
             &format!("{}/{}", &self.rel, snake_case(name)),
             "declare_views.hpp",
             &declare_views,
+        );
+    }
+
+    // NOTE(md): MORE TO SAY
+    fn create_recursive_relation(
+        &self,
+        root_name: &str,
+        name: &str,
+    ) {
+        let definition = make_recursive_definition(name);
+        let name = &format!("{name}_recursive");
+
+        self.write_file(
+            &format!("{}/{}", &self.rel, snake_case(root_name)),
+            &format!("{}.hpp", snake_case(name)),
+            &definition,
         );
     }
 }
@@ -558,5 +581,22 @@ fn create_relation_labels(relation_name: &str, labels: HashMap<usize, String>) -
         return std::to_string(index);
     }}
     "
+    )
+}
+
+
+fn make_recursive_definition(name: &str) -> String {
+    format!(
+        "
+#include \"barretenberg/vm/recursion/avm_recursive_flavor.hpp\"
+#include \"barretenberg/flavor/relation_definitions.hpp\"
+#include \"barretenberg/relations/generated/avm/{name}.hpp\"
+#include \"barretenberg/stdlib/primitives/bigfield/bigfield.hpp\"
+
+namespace bb {{
+    template class {name}Impl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+    DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS({name}Impl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
+}} // namespace bb
+        "
     )
 }
