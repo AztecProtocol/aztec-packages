@@ -498,11 +498,11 @@ void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-    std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
+    std::string vkPath = output_path + "/inst_vk"; // the vk of the last instance
+    std::string accPath = output_path + "/pg_acc";
+    std::string proofPath = output_path + "/client_ivc_proof";
+    std::string translatorVkPath = output_path + "/translator_vk";
+    std::string eccVkPath = output_path + "/ecc_vk";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
     init_bn254_crs(1 << 25);
@@ -534,24 +534,25 @@ void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
 
-    for (size_t i = 0; i < 100; i++) {
+    // Padding needed for sending the right number of public inputs
+    for (size_t i = 0; i < num_unused_public_inputs; i++) {
         builder->add_public_variable({});
     }
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
-    std::string tubeProofPath = outputPath + "/proof";
+    std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
-    std::string tubeProofAsFieldsPath = outputPath + "/proof_fields.json";
+    std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
     auto proof_data = to_json(tube_proof);
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
-    std::string tubeVkPath = outputPath + "/vk";
+    std::string tubeVkPath = output_path + "/vk";
     auto tube_verification_key =
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
-    std::string tubeAsFieldsVkPath = outputPath + "/vk_fields.json";
+    std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
     auto field_els = tube_verification_key->to_field_elements();
     info("verificaton key length in fields:", field_els.size());
     auto data = to_json(field_els);
@@ -1289,7 +1290,8 @@ int main(int argc, char* argv[])
             client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
-            prove_tube(output_path);
+            std::string num_unused_public_inputs = get_option(args, "-pi", "0");
+            prove_tube(output_path, static_cast<size_t>(std::stoi(num_unused_public_inputs)));
         } else if (command == "verify_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
             auto tube_proof_path = output_path + "/proof";
