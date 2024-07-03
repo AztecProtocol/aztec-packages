@@ -18,6 +18,10 @@ import path from 'path';
  */
 export class ClientIvcProof {
   constructor(
+    // LONDONTODO these should go out of this object and be independently
+    // produced by the sequencer when making the tube proof
+    // LONDONTODO CREATE ISSUE FOR THIS: Need to precompute private kernel tail VK so we can verify this immediately in the tx pool
+    // LONDONTODO which parts of these are needed to quickly verify that we have a correct IVC proof?
     public instVkBuffer: Buffer,
     public pgAccBuffer: Buffer,
     public clientIvcProofBuffer: Buffer,

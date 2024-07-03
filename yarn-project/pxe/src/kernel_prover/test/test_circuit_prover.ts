@@ -114,7 +114,6 @@ export class TestProofCreator implements ProofCreator {
   private makeEmptyKernelProofOutput<PublicInputsType>(publicInputs: PublicInputsType) {
     const kernelProofOutput: KernelProofOutput<PublicInputsType> = {
       publicInputs,
-      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
       // LONDONTODO reconsider jamming this everywhere
       outputWitness: new Map()

@@ -482,9 +482,10 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 /**
  * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
  *
- * @param outputPath the working directory from which the proof and verification data are read
+ * @param output_path the working directory from which the proof and verification data are read
+ * @param num_unused_public_inputs
  */
-void prove_tube(const std::string& outputPath)
+void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
@@ -533,6 +534,9 @@ void prove_tube(const std::string& outputPath)
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
 
+    for (size_t i = 0; i < 100; i++) {
+        builder->add_public_variable({});
+    }
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubeProofPath = outputPath + "/proof";
@@ -1257,6 +1261,8 @@ int main(int argc, char* argv[])
         }
         // LONDONTOD(AD): We will eventually want to get rid of this version when we correctly
         // create the bincode that client_ivc_prove_output_all expects
+        // LONDONTODO we need a verify_client_ivc bb cli command
+        // LONDONTODO talk to Maxim about getting rid of the msgpack endpoint
         if (command == "client_ivc_prove_output_all_msgpack") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_path);

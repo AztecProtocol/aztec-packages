@@ -289,6 +289,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     // PUBLIC KERNEL: Trying to mirror this for the setup public kernel
+    // LONDONTODO this should get an issue to first sequence the tube proof then request the base rollup
     console.log(`tubeInput.clientIVCData.isEmpty(): ${tubeInput.clientIVCData.isEmpty()}`);
     if (!tubeInput.clientIVCData.isEmpty()) {
       const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
@@ -846,6 +847,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         encoding: 'utf-8',
       });
       const json = JSON.parse(proofString);
+      // LONDONTODO revert this to master
       const fields = json
         .slice(0, 3)
         .map(Fr.fromString)

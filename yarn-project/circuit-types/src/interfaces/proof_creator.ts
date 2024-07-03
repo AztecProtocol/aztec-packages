@@ -36,6 +36,7 @@ export interface KernelProofOutput<PublicInputsType> {
    */
   publicInputs: PublicInputsType;
 
+  // TODO we want ACIR bytecode to be output here
   // LONDONTODO(KERNEL PROVING): this is not used for public kernel stack
   clientIvcProof?: ClientIvcProof;
   verificationKey: VerificationKeyAsFields;

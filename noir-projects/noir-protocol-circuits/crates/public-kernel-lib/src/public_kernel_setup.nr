@@ -12,8 +12,8 @@ struct PublicKernelSetupCircuitPrivateInputs {
     // And we just initialize the missing values to zero in TS before passing it to the circuit,
     // except for the constants.global_variables which we populate with the current block values.
     // This is a bit of a hack, but it allows us to reuse the setup circuit until
-    // the setup phase of the public kernel is complete. Maybe in a perfect world we would 
-    // have a SetupInit, SetupInner, etc, but this will change anyway once the public VM is able to 
+    // the setup phase of the public kernel is complete. Maybe in a perfect world we would
+    // have a SetupInit, SetupInner, etc, but this will change anyway once the public VM is able to
     // consume entire enqueued public calls.
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
@@ -42,6 +42,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
         // PUBLIC KERNEL: Just following my nose here, it seems I want the line below to verify the tube proof.
         // LONDONTODO(PUBLIC INPUTS)
+        // LONDONTODO we are leaving this as is however we should let everyone know that e.g. fee abstraction would break assumptions about which kind of proof this is
         dep::std::verify_proof(
             self.previous_kernel.vk.key.as_slice(),
             self.previous_kernel.proof.fields.as_slice(),
