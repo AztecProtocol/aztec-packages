@@ -113,6 +113,10 @@ export class TXE implements TypedOracle {
     return this.msgSender;
   }
 
+  getFunctionSelector() {
+    return this.functionSelector;
+  }
+
   setMsgSender(msgSender: Fr) {
     this.msgSender = msgSender;
   }
@@ -185,11 +189,10 @@ export class TXE implements TypedOracle {
 
   getPublicContextInputs() {
     const inputs = {
-      functionSelector: FunctionSelector.fromField(new Fr(0)),
       argsHash: new Fr(0),
       isStaticCall: false,
       toFields: function () {
-        return [this.functionSelector.toField(), this.argsHash, new Fr(this.isStaticCall)];
+        return [this.argsHash, new Fr(this.isStaticCall)];
       },
     };
     return inputs;
@@ -434,13 +437,40 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
+  async avmOpcodeStorageRead(slot: Fr, length: Fr) {
+    const db = this.trees.asLatest();
+
+    const result = [];
+
+    for (let i = 0; i < length.toNumber(); i++) {
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot.add(new Fr(i))).toBigInt();
+
+      const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+      if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+        result.push(Fr.ZERO);
+        continue;
+      }
+
+      const preimage = (await db.getLeafPreimage(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      )) as PublicDataTreeLeafPreimage;
+
+      result.push(preimage.value);
+    }
+    return result;
+  }
+
   async storageRead(
     contractAddress: Fr,
     startStorageSlot: Fr,
-    blockNumber: number, // TODO(#7230): use block number
+    blockNumber: number,
     numberOfElements: number,
   ): Promise<Fr[]> {
-    const db = this.trees.asLatest();
+    const db =
+      blockNumber === (await this.getBlockNumber())
+        ? this.trees.asLatest()
+        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
 
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
@@ -690,7 +720,7 @@ export class TXE implements TypedOracle {
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],
-      /* transactionFee */ Fr.ZERO,
+      /* transactionFee */ Fr.ONE,
       callContext.sideEffectCounter,
     );
   }
@@ -835,14 +865,23 @@ export class TXE implements TypedOracle {
   }
 
   setPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
-    throw new Error('Method not implemented.');
+    // Definitely not right, in that the teardown should always be last.
+    // But useful for executing flows.
+    return this.enqueuePublicFunctionCall(
+      targetContractAddress,
+      functionSelector,
+      argsHash,
+      sideEffectCounter,
+      isStaticCall,
+      isDelegateCall,
+    );
   }
 
   aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {

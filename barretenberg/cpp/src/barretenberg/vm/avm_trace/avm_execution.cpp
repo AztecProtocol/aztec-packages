@@ -133,19 +133,21 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
     std::array<FF, KERNEL_INPUTS_LENGTH>& kernel_inputs = std::get<KERNEL_INPUTS>(public_inputs);
 
-    // Copy the call context items
-    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR];                   // Sender
-    kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
+    // Copy items from PublicCircuitPublicInputs vector to public input columns
+    // PublicCircuitPublicInputs - CallContext
+    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR]; // Sender
+    // NOTE: address has same position as storage address (they are the same for now...)
+    // kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
     kernel_inputs[STORAGE_ADDRESS_SELECTOR] = public_inputs_vec[STORAGE_ADDRESS_SELECTOR]; // Storage Address
+    kernel_inputs[FUNCTION_SELECTOR_SELECTOR] = public_inputs_vec[FUNCTION_SELECTOR_SELECTOR];
 
-    // Global variables
+    // PublicCircuitPublicInputs - GlobalVariables
     kernel_inputs[CHAIN_ID_SELECTOR] = public_inputs_vec[CHAIN_ID_OFFSET];         // Chain ID
     kernel_inputs[VERSION_SELECTOR] = public_inputs_vec[VERSION_OFFSET];           // Version
     kernel_inputs[BLOCK_NUMBER_SELECTOR] = public_inputs_vec[BLOCK_NUMBER_OFFSET]; // Block Number
     kernel_inputs[TIMESTAMP_SELECTOR] = public_inputs_vec[TIMESTAMP_OFFSET];       // Timestamp
     kernel_inputs[COINBASE_SELECTOR] = public_inputs_vec[COINBASE_OFFSET];         // Coinbase
-
-    // Fees
+    // PublicCircuitPublicInputs - GlobalVariables - GasFees
     kernel_inputs[FEE_PER_DA_GAS_SELECTOR] = public_inputs_vec[FEE_PER_DA_GAS_OFFSET];
     kernel_inputs[FEE_PER_L2_GAS_SELECTOR] = public_inputs_vec[FEE_PER_L2_GAS_OFFSET];
 
@@ -163,7 +165,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     // We copy each type of the kernel outputs into their respective columns, each has differeing lengths / data
     // For NOTEHASHEXISTS
     for (size_t i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
+        size_t dest_offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NOTE_HASH_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -171,7 +173,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For NULLIFIEREXISTS
     for (size_t i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET + i;
+        size_t dest_offset = START_NULLIFIER_EXISTS_OFFSET + i;
         size_t pcpi_offset = PCPI_NULLIFIER_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -180,7 +182,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For NULLIFIEREXISTS - non existent
     for (size_t i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_NULLIFIER_NON_EXISTS_OFFSET + i;
+        size_t dest_offset = START_NULLIFIER_NON_EXISTS_OFFSET + i;
         size_t pcpi_offset = PCPI_NULLIFIER_NON_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -189,7 +191,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For L1TOL2MSGEXISTS
     for (size_t i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + i;
+        size_t dest_offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_L1_TO_L2_MSG_READ_REQUESTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -197,7 +199,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For SSTORE
     for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET + i;
+        size_t dest_offset = START_SSTORE_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_PUBLIC_DATA_UPDATE_OFFSET + (i * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH);
 
         // slot, value, side effect
@@ -207,7 +209,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For SLOAD
     for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET + i;
+        size_t dest_offset = START_SLOAD_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_PUBLIC_DATA_READ_OFFSET + (i * CONTRACT_STORAGE_READ_LENGTH);
 
         // slot, value, side effect
@@ -217,7 +219,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For EMITNOTEHASH
     for (size_t i = 0; i < MAX_NEW_NOTE_HASHES_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET + i;
+        size_t dest_offset = START_EMIT_NOTE_HASH_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_NOTE_HASHES_OFFSET + (i * NOTE_HASH_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -225,7 +227,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For EMITNULLIFIER
     for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET + i;
+        size_t dest_offset = START_EMIT_NULLIFIER_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_NULLIFIERS_OFFSET + (i * NULLIFIER_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -233,7 +235,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For EMITL2TOL1MSG
     for (size_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET + i;
+        size_t dest_offset = START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_L2_TO_L1_MSGS_OFFSET + (i * L2_TO_L1_MESSAGE_LENGTH);
 
         // Note: unorthadox order
@@ -243,7 +245,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For EMITUNENCRYPTEDLOG
     for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
+        size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 2);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -457,9 +459,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_dagasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
-        case OpCode::SENDER:
-            trace_builder.op_sender(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
         case OpCode::ADDRESS:
             trace_builder.op_address(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
@@ -467,13 +466,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_storage_address(std::get<uint8_t>(inst.operands.at(0)),
                                              std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::FEEPERL2GAS:
-            trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+        case OpCode::SENDER:
+            trace_builder.op_sender(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::FEEPERDAGAS:
-            trace_builder.op_fee_per_da_gas(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+        case OpCode::FUNCTIONSELECTOR:
+            trace_builder.op_function_selector(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::TRANSACTIONFEE:
             trace_builder.op_transaction_fee(std::get<uint8_t>(inst.operands.at(0)),
@@ -494,6 +492,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::TIMESTAMP:
             trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::FEEPERL2GAS:
+            trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::FEEPERDAGAS:
+            trace_builder.op_fee_per_da_gas(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::NOTEHASHEXISTS:
             trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),

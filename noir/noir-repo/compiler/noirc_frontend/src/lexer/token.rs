@@ -28,7 +28,9 @@ pub enum BorrowedToken<'input> {
     BlockComment(&'input str, Option<DocStyle>),
     Quote(&'input Tokens),
     QuotedType(QuotedTypeId),
+    /// <
     Less,
+    /// <=
     LessEqual,
     /// >
     Greater,
@@ -911,7 +913,7 @@ pub enum Keyword {
     Trait,
     Type,
     TypeType,
-    TypeDefinition,
+    StructDefinition,
     Unchecked,
     Unconstrained,
     Use,
@@ -959,7 +961,7 @@ impl fmt::Display for Keyword {
             Keyword::Trait => write!(f, "trait"),
             Keyword::Type => write!(f, "type"),
             Keyword::TypeType => write!(f, "Type"),
-            Keyword::TypeDefinition => write!(f, "TypeDefinition"),
+            Keyword::StructDefinition => write!(f, "StructDefinition"),
             Keyword::Unchecked => write!(f, "unchecked"),
             Keyword::Unconstrained => write!(f, "unconstrained"),
             Keyword::Use => write!(f, "use"),
@@ -1010,7 +1012,7 @@ impl Keyword {
             "trait" => Keyword::Trait,
             "type" => Keyword::Type,
             "Type" => Keyword::TypeType,
-            "TypeDefinition" => Keyword::TypeDefinition,
+            "StructDefinition" => Keyword::StructDefinition,
             "unchecked" => Keyword::Unchecked,
             "unconstrained" => Keyword::Unconstrained,
             "use" => Keyword::Use,

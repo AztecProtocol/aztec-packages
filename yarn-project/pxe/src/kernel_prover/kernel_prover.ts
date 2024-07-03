@@ -36,7 +36,6 @@ import {
   buildPrivateKernelInitHints,
   buildPrivateKernelInnerHints,
   buildPrivateKernelResetInputs,
-  buildPrivateKernelTailHints,
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -112,7 +111,6 @@ export class KernelProver {
         const hints = buildPrivateKernelInitHints(
           currentExecution.callStackItem.publicInputs,
           noteHashNullifierCounterMap,
-          currentExecution.callStackItem.publicInputs.privateCallRequests,
         );
 
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
@@ -159,9 +157,7 @@ export class KernelProver {
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    const hints = buildPrivateKernelTailHints(output.publicInputs);
-
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, hints);
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     return await this.proofCreator.createProofTail(privateInputs);
