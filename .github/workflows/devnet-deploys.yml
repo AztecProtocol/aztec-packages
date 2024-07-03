@@ -138,3 +138,9 @@ jobs:
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
           terraform apply -input=false -auto-approve
+
+      - name: Deploy Provers
+        working-directory: ./yarn-project/aztec/terraform/prover
+        run: |
+          terraform init -input=false -backend-config="key=devnet/prover"
+          terraform apply -input=false -auto-approve
