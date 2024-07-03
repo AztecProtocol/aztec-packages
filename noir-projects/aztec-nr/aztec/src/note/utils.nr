@@ -33,7 +33,7 @@ pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where
     let inner_note_hash = compute_inner_note_hash(note);
     let nonce = note.get_header().nonce;
 
-    compute_unique_note_hash(inner_note_hash, nonce)
+    compute_unique_note_hash(nonce, inner_note_hash)
 }
 
 pub fn compute_note_hash_for_consumption<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {
@@ -53,7 +53,7 @@ pub fn compute_note_hash_for_consumption<Note, N, M>(note: Note) -> Field where 
         // previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_unique_note_hash(inner_note_hash, header.nonce);
+        let unique_note_hash = compute_unique_note_hash(header.nonce, inner_note_hash);
         compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
@@ -76,7 +76,7 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, N, M, S>(
     note.set_header(note_header);
 
     let inner_note_hash = compute_inner_note_hash(note);
-    let unique_note_hash = compute_unique_note_hash(inner_note_hash, note_header.nonce);
+    let unique_note_hash = compute_unique_note_hash(note_header.nonce, inner_note_hash);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
