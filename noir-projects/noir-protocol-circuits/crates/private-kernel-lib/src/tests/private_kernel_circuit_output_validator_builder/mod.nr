@@ -32,8 +32,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
         let first_nullifier = create_first_nullifier(tx_request);
-        output.new_nullifiers.push(first_nullifier);
-        previous_kernel.new_nullifiers.push(first_nullifier);
+        output.nullifiers.push(first_nullifier);
+        previous_kernel.nullifiers.push(first_nullifier);
         PrivateKernelCircuitOutputValidatorBuilder { previous_kernel, private_call, output, tx_request }
     }
 

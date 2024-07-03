@@ -149,51 +149,45 @@ fn new_from_previous_kernel_with_private_call_key_validation_requests_succeeds()
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_new_note_hashes_succeeds() {
+fn new_from_previous_kernel_with_private_call_note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_new_note_hashes(2);
-    let prev = builder.previous_kernel.new_note_hashes.storage;
-    builder.private_call.append_new_note_hashes(2);
-    let curr = builder.private_call.new_note_hashes.storage;
+    builder.previous_kernel.append_note_hashes(2);
+    let prev = builder.previous_kernel.note_hashes.storage;
+    builder.private_call.append_note_hashes(2);
+    let curr = builder.private_call.note_hashes.storage;
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_array_eq(
-        output.end.new_note_hashes,
-        [prev[0], prev[1], curr[0], curr[1]]
-    );
+    assert_array_eq(output.end.note_hashes, [prev[0], prev[1], curr[0], curr[1]]);
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_new_nullifiers_succeeds() {
+fn new_from_previous_kernel_with_private_call_nullifiers_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_new_nullifiers(2);
-    let prev = builder.previous_kernel.new_nullifiers.storage;
-    builder.private_call.append_new_nullifiers(2);
-    let curr = builder.private_call.new_nullifiers.storage;
+    builder.previous_kernel.append_nullifiers(2);
+    let prev = builder.previous_kernel.nullifiers.storage;
+    builder.private_call.append_nullifiers(2);
+    let curr = builder.private_call.nullifiers.storage;
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_array_eq(
-        output.end.new_nullifiers,
-        [prev[0], prev[1], curr[0], curr[1]]
-    );
+    assert_array_eq(output.end.nullifiers, [prev[0], prev[1], curr[0], curr[1]]);
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_new_l2_to_l1_msgs_succeeds() {
+fn new_from_previous_kernel_with_private_call_l2_to_l1_msgs_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_new_l2_to_l1_msgs(1);
-    let prev = builder.previous_kernel.new_l2_to_l1_msgs.storage;
-    builder.private_call.append_new_l2_to_l1_msgs(1);
-    let curr = builder.private_call.new_l2_to_l1_msgs.storage;
+    builder.previous_kernel.append_l2_to_l1_msgs(1);
+    let prev = builder.previous_kernel.l2_to_l1_msgs.storage;
+    builder.private_call.append_l2_to_l1_msgs(1);
+    let curr = builder.private_call.l2_to_l1_msgs.storage;
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_array_eq(output.end.new_l2_to_l1_msgs, [prev[0], curr[0]]);
+    assert_array_eq(output.end.l2_to_l1_msgs, [prev[0], curr[0]]);
 }
 
 #[test]

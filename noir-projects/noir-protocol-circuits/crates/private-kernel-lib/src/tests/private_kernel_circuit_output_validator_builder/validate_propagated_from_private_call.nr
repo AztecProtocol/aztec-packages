@@ -235,78 +235,78 @@ fn validate_propagated_from_private_call_key_validation_requests_output_one_more
 }
 
 /**
- * new_note_hashes
+ * note_hashes
  */
 
 #[test]
-fn validate_propagated_from_private_call_new_note_hashes_succeeds() {
+fn validate_propagated_from_private_call_note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2);
-    builder.output.append_new_note_hashes(2);
+    builder.private_call.append_note_hashes(2);
+    builder.output.append_note_hashes(2);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with="output should be appended with empty items")]
-fn validate_propagated_from_private_call_new_note_hashes_output_one_more_fails() {
+fn validate_propagated_from_private_call_note_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2);
+    builder.private_call.append_note_hashes(2);
     // Propagate 1 more item to the output.
-    builder.output.append_new_note_hashes(3);
+    builder.output.append_note_hashes(3);
 
     builder.validate_as_inner_call();
 }
 
 /**
- * new_nullifiers
+ * nullifiers
  */
 
 #[test]
-fn validate_propagated_from_private_call_new_nullifiers_succeeds() {
+fn validate_propagated_from_private_call_nullifiers_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.offset_values(1); // Offset the first nullifier.
-    builder.private_call.append_new_nullifiers(2);
-    builder.output.append_new_nullifiers(2);
+    builder.private_call.append_nullifiers(2);
+    builder.output.append_nullifiers(2);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with="output should be appended with empty items")]
-fn validate_propagated_from_private_call_new_nullifiers_output_one_more_fails() {
+fn validate_propagated_from_private_call_nullifiers_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.offset_values(1); // Offset the first nullifier.
-    builder.private_call.append_new_nullifiers(2);
+    builder.private_call.append_nullifiers(2);
     // Propagate 1 more item to the output.
-    builder.output.append_new_nullifiers(3);
+    builder.output.append_nullifiers(3);
 
     builder.validate_as_inner_call();
 }
 
 /**
- * new_l2_to_l1_msgs
+ * l2_to_l1_msgs
  */
 
 #[test]
-fn validate_propagated_from_private_call_new_l2_to_l1_msgs_succeeds() {
+fn validate_propagated_from_private_call_l2_to_l1_msgs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_l2_to_l1_msgs(2);
-    builder.output.append_new_l2_to_l1_msgs(2);
+    builder.private_call.append_l2_to_l1_msgs(2);
+    builder.output.append_l2_to_l1_msgs(2);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with="output should be appended with empty items")]
-fn validate_propagated_from_private_call_new_l2_to_l1_msgs_output_one_more_fails() {
+fn validate_propagated_from_private_call_l2_to_l1_msgs_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_l2_to_l1_msgs(1);
+    builder.private_call.append_l2_to_l1_msgs(1);
     // Propagate 1 more item to the output.
-    builder.output.append_new_l2_to_l1_msgs(2);
+    builder.output.append_l2_to_l1_msgs(2);
 
     builder.validate_as_inner_call();
 }

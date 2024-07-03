@@ -56,7 +56,7 @@ impl PublicContext {
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, 0);
+        self.push_nullifier(nullifier, 0);
     }
 
     fn message_portal(&mut self, recipient: EthAddress, content: Field) {
@@ -111,10 +111,10 @@ impl PublicContext {
         FunctionReturns::new([0; RETURNS_COUNT])
     }
 
-    fn push_new_note_hash(&mut self, note_hash: Field) {
+    fn push_note_hash(&mut self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
-    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
+    fn push_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
         // Cannot nullify pending commitments in AVM, so `nullified_commitment` is not used
         emit_nullifier(nullifier);
     }
@@ -275,7 +275,7 @@ unconstrained fn call_static<RET_SIZE>(
 }
 
 unconstrained fn storage_read<N>(storage_slot: Field) -> [Field; N] {
-    storage_read_opcode(storage_slot)
+    storage_read_opcode(storage_slot, N)
 }
 
 unconstrained fn storage_write<N>(storage_slot: Field, values: [Field; N]) {
@@ -373,7 +373,7 @@ unconstrained fn call_static_opcode<RET_SIZE>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<N>(storage_slot: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode<N>(storage_slot: Field, length: Field) -> [Field; N] {}
 
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}

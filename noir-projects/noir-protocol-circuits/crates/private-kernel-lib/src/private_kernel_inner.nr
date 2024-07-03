@@ -38,7 +38,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         let call_request = self.previous_kernel.public_inputs.end.private_call_stack[private_call_stack_size - 1];
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
-        private_call_data_validator.validate(output.end.new_note_hashes);
+        private_call_data_validator.validate(output.end.note_hashes);
         if !std::runtime::is_unconstrained() {
             // verify/aggregate the private call proof
             self.private_call.verify();
@@ -80,7 +80,7 @@ mod tests {
             let private_call = FixtureBuilder::new_from_counter(200);
 
             // 0th nullifier must be non-zero.
-            previous_kernel.append_new_nullifiers(1);
+            previous_kernel.append_nullifiers(1);
 
             PrivateKernelInnerInputsBuilder { previous_kernel, private_call }
         }
