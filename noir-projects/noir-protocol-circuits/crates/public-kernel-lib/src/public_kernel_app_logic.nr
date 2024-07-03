@@ -109,7 +109,7 @@ mod tests {
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         hash::{
         compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_unencrypted_log_hash
+        compute_siloed_unencrypted_log_hash, compute_unique_note_hash
     },
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
@@ -209,11 +209,17 @@ mod tests {
     }
 
     #[test]
-    fn circuit_outputs_should_be_correctly_populated_with_previous_commitments() {
+    fn circuit_outputs_should_be_correctly_populated_with_previous_note_hashes() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
+
         // Setup 2 new note hashes and logs on the previous kernel.
+        builder.previous_kernel.set_first_nullifier();
         builder.previous_kernel.append_note_hashes_with_logs(2);
+
+        // First nullifier is tx hash.
+        let tx_hash = builder.previous_kernel.nullifiers.get(0).nullifier.value();
+
         let previous = builder.previous_kernel.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
         let prev_data = builder.previous_kernel.to_public_accumulated_data();
         let prev_note_logs = prev_data.note_encrypted_logs_hashes;
@@ -223,7 +229,9 @@ mod tests {
             NoteHash { value: previous[1].value + 2, counter: 6 }
         ];
         builder.public_call.public_inputs.note_hashes.extend_from_array(current);
-        let siloed = current.map(|c: NoteHash| compute_siloed_note_hash(contract_address, c.value));
+        let siloed = current.map(
+            |c: NoteHash| compute_siloed_note_hash(contract_address, compute_unique_note_hash(tx_hash, c.value))
+        );
         let note_hashes = [
             previous[0], previous[1], NoteHash { value: siloed[0], counter: 5 }, NoteHash { value: siloed[1], counter: 6 }
         ];

@@ -415,8 +415,8 @@ fn propagate_note_hashes(public_call: PublicCallData, circuit_outputs: &mut Publ
     let note_hashes = public_call.call_stack_item.public_inputs.note_hashes;
 
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
-    // First nullifier is tx hash.
-    let tx_hash = public_call_public_inputs.nullifiers[0].value();
+    // First nullifier is tx hash (that's why we use get_unchecked - it's guaranteed to be populated).
+    let tx_hash = circuit_outputs.end.nullifiers.get_unchecked(0).value();
 
     let mut siloed_note_hashes : BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NOTE_HASHES_PER_CALL {
