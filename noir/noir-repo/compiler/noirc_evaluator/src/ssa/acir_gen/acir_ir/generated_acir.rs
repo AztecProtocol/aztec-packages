@@ -10,7 +10,7 @@ use crate::{
 use acvm::acir::{
     circuit::{
         brillig::{BrilligInputs, BrilligOutputs},
-        opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode, WitnessInput},
+        opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
         AssertionPayload, OpcodeLocation,
     },
     native_types::Witness,

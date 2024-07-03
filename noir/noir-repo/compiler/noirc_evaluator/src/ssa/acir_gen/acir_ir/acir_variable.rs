@@ -8,7 +8,7 @@ use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
-use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp, WitnessInput};
+use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp};
 use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
@@ -16,7 +16,7 @@ use acvm::{
     acir::AcirField,
     acir::{
         brillig::Opcode as BrilligOpcode,
-        circuit::opcodes::{ConstantInput, FunctionInput},
+        circuit::opcodes::FunctionInput,
         native_types::{Expression, Witness},
         BlackBoxFunc,
     },
