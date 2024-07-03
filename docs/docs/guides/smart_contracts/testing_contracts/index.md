@@ -37,6 +37,10 @@ Furthermore, executing many tests in parallel might slow processing of the RPC c
 
 #include_code txe_test_increment /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr rust
 
+:::warning
+Tests run significantly faster as `unconstrained` functions. This means we generate bytecode (Brillig) and not circuits (ACIR), which *should* yield exactly the same results. Any other behavior is considered a bug.
+:::
+
 #### Deploying contracts
 
 ```rust
@@ -60,6 +64,16 @@ let my_contract_instance = env.without_initializer();
 :::warning
 At the moment, TXE uses the generated contract TypeScript interfaces to perform deployments, and they must be provided as either an absolute path, a relative path to TXE's location or a module in an npm direct dependency such as `@aztec/noir-contracts.js`. It is not always necessary to deploy a contract in order to test it, but sometimes it's inevitable (when testing functions that depend on the contract being initialized, or contracts that call others for example) **It is important to keep them up to date**, as TXE cannot recompile them on changes. This will be improved in the future.
 :::
+
+#### Time traveling
+
+TXE can force the generation of "new blocks" very quickly using 
+
+```rust
+env.advance_block_by(n_blocks);
+```
+
+This will effectively consolidate state transitions into TXE's internal trees, allowing things such as reading "historical state" from private, generate inclusion proofs, etc.
 
 #### Calling functions
 

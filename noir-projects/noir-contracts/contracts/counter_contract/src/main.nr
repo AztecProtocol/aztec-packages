@@ -74,6 +74,7 @@ contract Counter {
         // Increment the counter
         let increment_call_interface = Counter::at(contract_address).increment(owner, outgoing_viewer);
         env.call_private_void(increment_call_interface);
+        // get_counter is an unconstrained function, so we call it directly (we're in the same module)
         let current_value_for_owner = get_counter(owner);
         let expected_current_value = initial_value + 1;
         assert(
