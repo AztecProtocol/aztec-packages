@@ -3,7 +3,7 @@ use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interf
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__INNER_NOTE_HASH,
     hash::{
-    pedersen_hash, compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
+    pedersen_hash, compute_unique_note_hash, compute_siloed_note_hash,
     compute_siloed_nullifier as compute_siloed_nullifier_from_preimage
 },
     utils::arr_copy_slice
@@ -33,7 +33,12 @@ pub fn compute_note_hash_for_read_request<Note, N, M>(note: Note) -> Field where
     let inner_note_hash = compute_inner_note_hash(note);
     let nonce = note.get_header().nonce;
 
-    compute_unique_note_hash(nonce, inner_note_hash)
+    if (nonce == 0) {
+        // If nonce is zero, that means we are reading a pending note.
+        inner_note_hash
+    } else {
+        compute_unique_note_hash(nonce, inner_note_hash)
+    }
 }
 
 pub fn compute_note_hash_for_consumption<Note, N, M>(note: Note) -> Field where Note: NoteInterface<N, M> {

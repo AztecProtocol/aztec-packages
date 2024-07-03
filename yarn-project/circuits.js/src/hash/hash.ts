@@ -36,6 +36,7 @@ export function hashVK(vkBuf: Buffer) {
  * @param txHash - Tx hash (the first nullifier in the tx).
  * @param noteHashIndex - The index of the note hash.
  * @returns A note hash nonce.
+ * TODO(#7311): Use TxHash type here
  */
 export function computeNoteHashNonce(txHash: Fr, noteHashIndex: number): Fr {
   return pedersenHash([txHash, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
