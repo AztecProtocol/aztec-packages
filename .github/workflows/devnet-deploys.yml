@@ -117,11 +117,15 @@ jobs:
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/p2p-bootstrap"
           terraform apply -input=false -auto-approve
 
+      - name: Init Aztec Node Terraform
+        working-directory: ./yarn-project/aztec/terraform/node
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
+
       - name: Taint node filesystem if L1 contracts are redeployed
         if: steps.check_changes_release.outputs.result == 'true'
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
-          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
           terraform state list | grep 'aws_efs_file_system.node_data_store' | xargs -n1 terraform taint
 
       - name: Deploy Aztec Nodes
@@ -133,10 +137,4 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/prover
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
-          terraform apply -input=false -auto-approve
-
-      - name: Deploy Provers
-        working-directory: ./yarn-project/aztec/terraform/prover
-        run: |
-          terraform init -input=false -backend-config="key=devnet/prover"
           terraform apply -input=false -auto-approve
