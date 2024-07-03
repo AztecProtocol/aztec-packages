@@ -112,7 +112,7 @@ pub fn hash_args(args: [Field]) -> Field {
     if args.len() == 0 {
         0
     } else {
-        assert(args.len() < MAX_ARGS_LENGTH);
+        assert(args.len() <= MAX_ARGS_LENGTH, "Args length exceeds maximum");
         let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
         let mut current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
 
