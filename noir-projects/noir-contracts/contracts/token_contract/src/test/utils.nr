@@ -83,7 +83,7 @@ pub fn check_public_balance(token_contract_address: AztecAddress, address: Aztec
     assert(amount.to_field() == address_amount, "Public balance is not correct");
     cheatcodes::set_contract_address(current_contract_address);
 }
-// docs:start:txe_test_read_public
+// docs:end:txe_test_read_public
 
 // docs:start:txe_test_call_unconstrained
 pub fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
