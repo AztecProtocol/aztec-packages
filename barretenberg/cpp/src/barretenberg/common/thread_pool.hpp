@@ -19,6 +19,7 @@ class ThreadPool {
 
     void enqueue(const std::function<void()>& task);
     void wait();
+    size_t num_threads() { return workers.size(); };
 
   private:
     std::vector<std::thread> workers;

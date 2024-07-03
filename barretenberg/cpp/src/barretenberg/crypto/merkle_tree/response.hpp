@@ -21,13 +21,13 @@ struct AddDataResponse {
     fr root;
 };
 
-struct GetHashPathResponse {
-    fr_hash_path path;
+struct GetSiblingPathResponse {
+    fr_sibling_path path;
 };
 
 struct AddIndexedDataResponse {
     AddDataResponse add_data_result;
-    std::shared_ptr<std::vector<fr_hash_path>> paths;
+    std::shared_ptr<std::vector<fr_sibling_path>> paths;
 };
 
 template <typename LeafValueType> struct GetIndexedLeafResponse {

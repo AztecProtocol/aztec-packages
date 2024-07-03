@@ -1,6 +1,7 @@
 #pragma once
 #include "../hash.hpp"
 #include "../memory_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "nullifier_leaf.hpp"
 
 namespace bb::crypto::merkle_tree {
@@ -69,10 +70,11 @@ template <typename HashingPolicy> class NullifierMemoryTree : public MemoryTree<
     NullifierMemoryTree(size_t depth, size_t initial_size = 2);
 
     using MemoryTree<HashingPolicy>::get_hash_path;
+    using MemoryTree<HashingPolicy>::get_sibling_path;
     using MemoryTree<HashingPolicy>::root;
     using MemoryTree<HashingPolicy>::update_element;
 
-    fr_hash_path update_element(fr const& value);
+    fr_sibling_path update_element(fr const& value);
 
     const std::vector<bb::fr>& get_hashes() { return hashes_; }
     const WrappedNullifierLeaf<HashingPolicy> get_leaf(size_t index)
@@ -125,15 +127,15 @@ NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t ini
     }
 }
 
-template <typename HashingPolicy> fr_hash_path NullifierMemoryTree<HashingPolicy>::update_element(fr const& value)
+template <typename HashingPolicy> fr_sibling_path NullifierMemoryTree<HashingPolicy>::update_element(fr const& value)
 {
     // Find the leaf with the value closest and less than `value`
 
     // If value is 0 we simply append 0 a null NullifierLeaf to the tree
-    fr_hash_path hash_path;
+    fr_sibling_path hash_path;
     if (value == 0) {
         auto zero_leaf = WrappedNullifierLeaf<HashingPolicy>::zero();
-        hash_path = get_hash_path(leaves_.size() - 1);
+        hash_path = get_sibling_path(leaves_.size() - 1);
         leaves_.push_back(zero_leaf);
         update_element(leaves_.size() - 1, zero_leaf.hash());
         return hash_path;
@@ -159,7 +161,7 @@ template <typename HashingPolicy> fr_hash_path NullifierMemoryTree<HashingPolicy
         leaves_.push_back(new_leaf);
     }
 
-    hash_path = get_hash_path(current);
+    hash_path = get_sibling_path(current);
     // Update the old leaf in the tree
     auto old_leaf_hash = HashingPolicy::hash(current_leaf.get_hash_inputs());
     size_t old_leaf_index = current;

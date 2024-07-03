@@ -26,7 +26,7 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
   public:
     using AppendCompletionCallback = std::function<void(const TypedResponse<AddDataResponse>&)>;
     using MetaDataCallback = std::function<void(const TypedResponse<TreeMetaResponse>&)>;
-    using HashPathCallback = std::function<void(const TypedResponse<GetHashPathResponse>&)>;
+    using HashPathCallback = std::function<void(const TypedResponse<GetSiblingPathResponse>&)>;
     using CommitCallback = std::function<void(const Response&)>;
     using RollbackCallback = std::function<void(const Response&)>;
 
@@ -48,9 +48,9 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     virtual void add_values(const std::vector<fr>& values, const AppendCompletionCallback& on_completion);
 
     /**
-     * @brief Returns the hash path from the leaf at the given index to the root
+     * @brief Returns the sibling path from the leaf at the given index to the root
      */
-    void get_hash_path(const index_t& index, const HashPathCallback& on_completion, bool includeUncommitted) const;
+    void get_sibling_path(const index_t& index, const HashPathCallback& on_completion, bool includeUncommitted) const;
 
     void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion);
 
@@ -123,22 +123,20 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_hash_path(const index_t& index,
-                                                         const HashPathCallback& on_completion,
-                                                         bool includeUncommitted) const
+void AppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
+                                                            const HashPathCallback& on_completion,
+                                                            bool includeUncommitted) const
 {
     auto job = [=]() {
-        ExecuteAndReport<GetHashPathResponse>(
-            [=](TypedResponse<GetHashPathResponse>& response) {
+        ExecuteAndReport<GetSiblingPathResponse>(
+            [=](TypedResponse<GetSiblingPathResponse>& response) {
                 index_t current_index = index;
                 ReadTransactionPtr tx = store_.createReadTransaction();
                 for (uint32_t level = depth_; level > 0; --level) {
                     bool is_right = static_cast<bool>(current_index & 0x01);
-                    fr right_value = is_right ? get_element_or_zero(level, current_index, *tx, includeUncommitted)
-                                              : get_element_or_zero(level, current_index + 1, *tx, includeUncommitted);
-                    fr left_value = is_right ? get_element_or_zero(level, current_index - 1, *tx, includeUncommitted)
-                                             : get_element_or_zero(level, current_index, *tx, includeUncommitted);
-                    response.inner.path.emplace_back(left_value, right_value);
+                    fr sibling = is_right ? get_element_or_zero(level, current_index - 1, *tx, includeUncommitted)
+                                          : get_element_or_zero(level, current_index + 1, *tx, includeUncommitted);
+                    response.inner.path.emplace_back(sibling);
                     current_index >>= 1;
                 }
             },

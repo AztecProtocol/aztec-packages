@@ -66,15 +66,18 @@ void check_root(TreeType& tree, fr expected_root, bool includeUncommitted = true
     signal.wait_for_level();
 }
 
-void check_hash_path(TreeType& tree, index_t index, fr_hash_path expected_hash_path, bool includeUncommitted = true)
+void check_sibling_path(TreeType& tree,
+                        index_t index,
+                        fr_sibling_path expected_sibling_path,
+                        bool includeUncommitted = true)
 {
     Signal signal;
-    auto completion = [&](const TypedResponse<GetHashPathResponse>& response) -> void {
+    auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.path, expected_hash_path);
+        EXPECT_EQ(response.inner.path, expected_sibling_path);
         signal.signal_level();
     };
-    tree.get_hash_path(index, completion, includeUncommitted);
+    tree.get_sibling_path(index, completion, includeUncommitted);
     signal.wait_for_level();
 }
 
@@ -151,7 +154,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
     EXPECT_ANY_THROW(Store store_wrong_depth(name, depth + 1, db));
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_hash_path)
+TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_sibling_path)
 {
     constexpr size_t depth = 10;
     std::string name = randomString();
@@ -170,7 +173,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_hash_path)
 
     check_size(tree, 1);
     check_root(tree, memdb.root());
-    check_hash_path(tree, 0, memdb.get_hash_path(0));
+    check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 }
 
 TEST_F(PersistedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
@@ -298,22 +301,22 @@ TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
 
         check_size(tree, 0);
         check_root(tree, memdb.root());
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
         bb::fr initial_root = memdb.root();
-        fr_hash_path initial_hash_path = memdb.get_hash_path(0);
+        fr_sibling_path initial_sibling_path = memdb.get_sibling_path(0);
         memdb.update_element(0, VALUES[0]);
         add_value(tree, VALUES[0]);
 
         // check uncommitted state
         check_size(tree, 1);
         check_root(tree, memdb.root());
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
         // check committed state
         check_size(tree, 0, false);
         check_root(tree, initial_root, false);
-        check_hash_path(tree, 0, initial_hash_path, false);
+        check_sibling_path(tree, 0, initial_sibling_path, false);
 
         // commit the changes
         commit_tree(tree);
@@ -322,12 +325,12 @@ TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
         // check uncommitted state
         check_size(tree, 1);
         check_root(tree, memdb.root());
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
         // check committed state
         check_size(tree, 1, false);
         check_root(tree, memdb.root(), false);
-        check_hash_path(tree, 0, memdb.get_hash_path(0), false);
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0), false);
     }
 
     // Re-create the store and tree, it should be the same as how we left it
@@ -341,12 +344,12 @@ TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
         // check uncommitted state
         check_size(tree, 1);
         check_root(tree, memdb.root());
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
         // check committed state
         check_size(tree, 1, false);
         check_root(tree, memdb.root(), false);
-        check_hash_path(tree, 0, memdb.get_hash_path(0), false);
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0), false);
     }
 }
 
@@ -393,8 +396,8 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values)
         add_value(tree, VALUES[i]);
         check_root(tree, mock_root);
 
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
-        check_hash_path(tree, i, memdb.get_hash_path(i));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, i, memdb.get_sibling_path(i));
     }
 }
 
@@ -414,8 +417,8 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values_in_a_batch)
     add_values(tree, VALUES);
     check_size(tree, NUM_VALUES);
     check_root(tree, memdb.root());
-    check_hash_path(tree, 0, memdb.get_hash_path(0));
-    check_hash_path(tree, NUM_VALUES - 1, memdb.get_hash_path(NUM_VALUES - 1));
+    check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    check_sibling_path(tree, NUM_VALUES - 1, memdb.get_sibling_path(NUM_VALUES - 1));
 }
 
 TEST_F(PersistedAppendOnlyTreeTest, can_be_filled)
@@ -437,20 +440,20 @@ TEST_F(PersistedAppendOnlyTreeTest, can_be_filled)
     }
 
     check_root(tree, memdb.root());
-    check_hash_path(tree, 0, memdb.get_hash_path(0));
-    check_hash_path(tree, 7, memdb.get_hash_path(7));
+    check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    check_sibling_path(tree, 7, memdb.get_sibling_path(7));
 }
 
 TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
 {
     constexpr size_t depth = 10;
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
-    fr_hash_path initial_path = memdb.get_hash_path(0);
+    fr_sibling_path initial_path = memdb.get_sibling_path(0);
     memdb.update_element(0, VALUES[0]);
-    fr_hash_path final_hash_path = memdb.get_hash_path(0);
+    fr_sibling_path final_sibling_path = memdb.get_sibling_path(0);
 
     uint32_t num_reads = 16 * 1024;
-    std::vector<fr_hash_path> paths(num_reads);
+    std::vector<fr_sibling_path> paths(num_reads);
 
     {
         std::string name = randomString();
@@ -471,15 +474,15 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
         tree.add_value(VALUES[0], add_completion);
 
         for (size_t i = 0; i < num_reads; i++) {
-            auto completion = [&, i](const TypedResponse<GetHashPathResponse>& response) {
+            auto completion = [&, i](const TypedResponse<GetSiblingPathResponse>& response) {
                 paths[i] = response.inner.path;
             };
-            tree.get_hash_path(0, completion, false);
+            tree.get_sibling_path(0, completion, false);
         }
         signal.wait_for_level(0);
     }
 
     for (auto& path : paths) {
-        EXPECT_TRUE(path == initial_path || path == final_hash_path);
+        EXPECT_TRUE(path == initial_path || path == final_sibling_path);
     }
 }

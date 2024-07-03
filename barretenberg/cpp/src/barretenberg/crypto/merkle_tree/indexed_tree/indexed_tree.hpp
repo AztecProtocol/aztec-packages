@@ -58,7 +58,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
 
     void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion);
 
-    using AppendOnlyTree<Store, HashingPolicy>::get_hash_path;
+    using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
 
   private:
     using typename AppendOnlyTree<Store, HashingPolicy>::AppendCompletionCallback;
@@ -86,7 +86,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
                                       const IndexedLeafValueType& leaf,
                                       Signal& leader,
                                       Signal& follower,
-                                      fr_hash_path& previous_hash_path,
+                                      fr_sibling_path& previous_sibling_path,
                                       ReadTransaction& tx);
 
     struct InsertionGenerationResponse {
@@ -99,7 +99,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
                              const InsertionGenerationCallback& completion);
 
     struct InsertionCompletionResponse {
-        std::shared_ptr<std::vector<fr_hash_path>> paths;
+        std::shared_ptr<std::vector<fr_sibling_path>> paths;
     };
 
     using InsertionCompletionCallback = std::function<void(const TypedResponse<InsertionCompletionResponse>&)>;
@@ -224,7 +224,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
     // This is to collect some state from the asynchronous operations we are about to perform
     struct IntermediateResults {
         std::shared_ptr<std::vector<fr>> hashes_to_append;
-        std::shared_ptr<std::vector<fr_hash_path>> paths;
+        std::shared_ptr<std::vector<fr_sibling_path>> paths;
         std::atomic<uint32_t> count;
         Status status;
 
@@ -320,7 +320,8 @@ void IndexedTree<Store, HashingPolicy>::perform_insertions(std::shared_ptr<std::
 {
     // We now kick off multiple workers to perform the low leaf updates
     // We create set of signals to coordinate the workers as the move up the tree
-    std::shared_ptr<std::vector<fr_hash_path>> paths = std::make_shared<std::vector<fr_hash_path>>(insertions->size());
+    std::shared_ptr<std::vector<fr_sibling_path>> paths =
+        std::make_shared<std::vector<fr_sibling_path>>(insertions->size());
     std::shared_ptr<std::vector<Signal>> signals = std::make_shared<std::vector<Signal>>();
     std::shared_ptr<Status> status = std::make_shared<Status>();
     // The first signal is set to 0. This ensures the first worker up the tree is not impeded
@@ -467,7 +468,7 @@ void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index
                                                                      const IndexedLeafValueType& leaf,
                                                                      Signal& leader,
                                                                      Signal& follower,
-                                                                     fr_hash_path& previous_hash_path,
+                                                                     fr_sibling_path& previous_sibling_path,
                                                                      ReadTransaction& tx)
 {
     auto get_node = [&](uint32_t level, index_t index) -> fr { return get_element_or_zero(level, index, tx, true); };
@@ -488,9 +489,8 @@ void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index
     // Extract the value of the leaf node and it's sibling
     bool is_right = static_cast<bool>(index & 0x01);
     // extract the current leaf hash values for the previous hash path
-    fr current_right_value = get_node(level, index + (is_right ? 0 : 1));
-    fr current_left_value = get_node(level, is_right ? (index - 1) : index);
-    previous_hash_path.emplace_back(current_left_value, current_right_value);
+    fr sibling = get_node(level, is_right ? index - 1 : index + 1);
+    previous_sibling_path.emplace_back(sibling);
 
     // Write the new leaf hash in place
     write_node(level, index, new_hash);
@@ -508,10 +508,8 @@ void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index
             // Now read the node and it's sibling
             index_t index_of_node_above = index >> 1;
             bool node_above_is_right = static_cast<bool>(index_of_node_above & 0x01);
-            fr above_right_value = get_node(level_to_read, index_of_node_above + (node_above_is_right ? 0 : 1));
-            fr above_left_value =
-                get_node(level_to_read, node_above_is_right ? (index_of_node_above - 1) : index_of_node_above);
-            previous_hash_path.emplace_back(above_left_value, above_right_value);
+            fr above_sibling = get_node(level, node_above_is_right ? index_of_node_above - 1 : index_of_node_above + 1);
+            previous_sibling_path.emplace_back(above_sibling);
         }
 
         // Now that we have extracted the hash path from the row above

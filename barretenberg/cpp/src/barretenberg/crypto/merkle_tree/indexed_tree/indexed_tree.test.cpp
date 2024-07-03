@@ -92,17 +92,17 @@ void check_root(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2
 }
 
 template <typename LeafValueType>
-fr_hash_path get_hash_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                           index_t index,
-                           bool includeUncommitted = true)
+fr_sibling_path get_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
+                                 index_t index,
+                                 bool includeUncommitted = true)
 {
-    fr_hash_path h;
+    fr_sibling_path h;
     Signal signal;
-    auto completion = [&](const TypedResponse<GetHashPathResponse>& response) -> void {
+    auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
         h = response.inner.path;
         signal.signal_level();
     };
-    tree.get_hash_path(index, completion, includeUncommitted);
+    tree.get_sibling_path(index, completion, includeUncommitted);
     signal.wait_for_level();
     return h;
 }
@@ -124,13 +124,13 @@ IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafV
 }
 
 template <typename LeafValueType>
-void check_hash_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                     index_t index,
-                     fr_hash_path expected_hash_path,
-                     bool includeUncommitted = true)
+void check_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
+                        index_t index,
+                        fr_sibling_path expected_sibling_path,
+                        bool includeUncommitted = true)
 {
-    fr_hash_path path = get_hash_path(tree, index, includeUncommitted);
-    EXPECT_EQ(path, expected_hash_path);
+    fr_sibling_path path = get_sibling_path(tree, index, includeUncommitted);
+    EXPECT_EQ(path, expected_sibling_path);
 }
 
 template <typename LeafValueType>
@@ -249,7 +249,7 @@ TEST_F(PersistedIndexedTreeTest, reports_an_error_if_tree_is_overfilled)
     signal.wait_for_level();
 }
 
-TEST_F(PersistedIndexedTreeTest, test_get_hash_path)
+TEST_F(PersistedIndexedTreeTest, test_get_sibling_path)
 {
     index_t current_size = 2;
     NullifierMemoryTree<HashPolicy> memdb(10);
@@ -263,14 +263,14 @@ TEST_F(PersistedIndexedTreeTest, test_get_hash_path)
 
     check_size(tree, current_size);
     check_root(tree, memdb.root());
-    check_hash_path(tree, 0, memdb.get_hash_path(0));
+    check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
     memdb.update_element(VALUES[512]);
     add_value(tree, NullifierLeafValue(VALUES[512]));
 
     check_size(tree, ++current_size);
-    check_hash_path(tree, 0, memdb.get_hash_path(0));
-    check_hash_path(tree, 1, memdb.get_hash_path(1));
+    check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    check_sibling_path(tree, 1, memdb.get_sibling_path(1));
 
     uint32_t num_to_append = 512;
 
@@ -279,8 +279,8 @@ TEST_F(PersistedIndexedTreeTest, test_get_hash_path)
         add_value(tree, NullifierLeafValue(VALUES[i]));
     }
     check_size(tree, num_to_append + current_size);
-    check_hash_path(tree, 0, memdb.get_hash_path(0));
-    check_hash_path(tree, 512, memdb.get_hash_path(512));
+    check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    check_sibling_path(tree, 512, memdb.get_sibling_path(512));
 }
 
 TEST_F(PersistedIndexedTreeTest, can_commit_and_restore)
@@ -298,23 +298,23 @@ TEST_F(PersistedIndexedTreeTest, can_commit_and_restore)
 
         check_size(tree, current_size);
         check_root(tree, memdb.root());
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
         add_value(tree, NullifierLeafValue(VALUES[512]));
 
         // Committed data should not have changed
         check_size(tree, current_size, false);
         check_root(tree, memdb.root(), false);
-        check_hash_path(tree, 0, memdb.get_hash_path(0), false);
-        check_hash_path(tree, 1, memdb.get_hash_path(1), false);
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0), false);
+        check_sibling_path(tree, 1, memdb.get_sibling_path(1), false);
 
         memdb.update_element(VALUES[512]);
 
         // Uncommitted data should have changed
         check_size(tree, current_size + 1, true);
         check_root(tree, memdb.root(), true);
-        check_hash_path(tree, 0, memdb.get_hash_path(0), true);
-        check_hash_path(tree, 1, memdb.get_hash_path(1), true);
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0), true);
+        check_sibling_path(tree, 1, memdb.get_sibling_path(1), true);
 
         // Now commit
         commit_tree(tree);
@@ -322,8 +322,8 @@ TEST_F(PersistedIndexedTreeTest, can_commit_and_restore)
         // Now committed data should have changed
         check_size(tree, ++current_size, false);
         check_root(tree, memdb.root(), false);
-        check_hash_path(tree, 0, memdb.get_hash_path(0), false);
-        check_hash_path(tree, 1, memdb.get_hash_path(1), false);
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0), false);
+        check_sibling_path(tree, 1, memdb.get_sibling_path(1), false);
     }
 
     // Now restore and it should continue from where we left off
@@ -335,12 +335,12 @@ TEST_F(PersistedIndexedTreeTest, can_commit_and_restore)
         // check uncommitted state
         check_size(tree, current_size);
         check_root(tree, memdb.root());
-        check_hash_path(tree, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
         // check committed state
         check_size(tree, current_size, false);
         check_root(tree, memdb.root(), false);
-        check_hash_path(tree, 0, memdb.get_hash_path(0), false);
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0), false);
     }
 }
 
@@ -367,26 +367,26 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
     check_root(tree1, memdb.root());
     check_root(tree2, memdb.root());
 
-    check_hash_path(tree1, 0, memdb.get_hash_path(0));
-    check_hash_path(tree2, 0, memdb.get_hash_path(0));
+    check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+    check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
 
-    check_hash_path(tree1, 512, memdb.get_hash_path(512));
-    check_hash_path(tree2, 512, memdb.get_hash_path(512));
+    check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+    check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
 
     for (uint32_t i = 0; i < num_batches; i++) {
         std::vector<NullifierLeafValue> batch;
-        std::vector<fr_hash_path> memory_tree_hash_paths;
+        std::vector<fr_sibling_path> memory_tree_sibling_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
-            fr_hash_path path = memdb.update_element(batch[j].value);
-            memory_tree_hash_paths.push_back(path);
+            fr_sibling_path path = memdb.update_element(batch[j].value);
+            memory_tree_sibling_paths.push_back(path);
         }
-        std::shared_ptr<std::vector<fr_hash_path>> tree1_hash_paths;
-        std::shared_ptr<std::vector<fr_hash_path>> tree2_hash_paths;
+        std::shared_ptr<std::vector<fr_sibling_path>> tree1_sibling_paths;
+        std::shared_ptr<std::vector<fr_sibling_path>> tree2_sibling_paths;
         {
             Signal signal;
             CompletionCallback completion = [&](const TypedResponse<AddIndexedDataResponse>& response) {
-                tree1_hash_paths = response.inner.paths;
+                tree1_sibling_paths = response.inner.paths;
                 signal.signal_level();
             };
             tree1.add_or_update_values(batch, completion);
@@ -395,7 +395,7 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
         {
             Signal signal;
             CompletionCallback completion = [&](const TypedResponse<AddIndexedDataResponse>& response) {
-                tree2_hash_paths = response.inner.paths;
+                tree2_sibling_paths = response.inner.paths;
                 signal.signal_level();
             };
             tree2.add_or_update_values(batch, completion);
@@ -404,14 +404,14 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
         check_root(tree1, memdb.root());
         check_root(tree2, memdb.root());
 
-        check_hash_path(tree1, 0, memdb.get_hash_path(0));
-        check_hash_path(tree2, 0, memdb.get_hash_path(0));
+        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
 
-        check_hash_path(tree1, 512, memdb.get_hash_path(512));
-        check_hash_path(tree2, 512, memdb.get_hash_path(512));
+        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
 
         for (uint32_t j = 0; j < batch_size; j++) {
-            EXPECT_EQ(tree1_hash_paths->at(j), tree2_hash_paths->at(j));
+            EXPECT_EQ(tree1_sibling_paths->at(j), tree2_sibling_paths->at(j));
         }
     }
 }
@@ -447,16 +447,16 @@ template <typename LeafValueType> fr hash_leaf(const IndexedLeaf<LeafValueType>&
     return HashPolicy::hash(leaf.get_hash_inputs());
 }
 
-bool verify_hash_path(TreeType& tree, const IndexedNullifierLeafType& leaf_value, const uint32_t idx)
+bool verify_sibling_path(TreeType& tree, const IndexedNullifierLeafType& leaf_value, const uint32_t idx)
 {
     fr root = get_root(tree, true);
-    fr_hash_path path = get_hash_path(tree, idx, true);
+    fr_sibling_path path = get_sibling_path(tree, idx, true);
     auto current = hash_leaf(leaf_value);
     uint32_t depth_ = static_cast<uint32_t>(path.size());
     uint32_t index = idx;
     for (uint32_t i = 0; i < depth_; ++i) {
-        fr left = (index & 1) ? path[i].first : current;
-        fr right = (index & 1) ? current : path[i].second;
+        fr left = (index & 1) ? path[i] : current;
+        fr right = (index & 1) ? current : path[i];
         current = HashPolicy::hash_pair(left, right);
         index >>= 1;
     }
@@ -597,30 +597,45 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
 
     // Check the hash path at index 2 and 3
     // Note: This merkle proof would also serve as a non-membership proof of values in (10, 20) and (20, 30)
-    fr_hash_path expected = {
-        std::make_pair(e000, e001),
-        std::make_pair(e00, e01),
-        std::make_pair(e0, e1),
+    fr_sibling_path expected = {
+        e001,
+        e01,
+        e1,
     };
-    check_hash_path(tree, 0, expected);
-    check_hash_path(tree, 1, expected);
+    check_sibling_path(tree, 0, expected);
     expected = {
-        std::make_pair(e010, e011),
-        std::make_pair(e00, e01),
-        std::make_pair(e0, e1),
+        e000,
+        e01,
+        e1,
     };
-    check_hash_path(tree, 2, expected);
-    check_hash_path(tree, 3, expected);
+    check_sibling_path(tree, 1, expected);
+    expected = {
+        e011,
+        e00,
+        e1,
+    };
+    check_sibling_path(tree, 2, expected);
+    expected = {
+        e010,
+        e00,
+        e1,
+    };
+    check_sibling_path(tree, 3, expected);
     check_root(tree, root);
 
     // Check the hash path at index 6 and 7
     expected = {
-        std::make_pair(e110, e111),
-        std::make_pair(e10, e11),
-        std::make_pair(e0, e1),
+        e111,
+        e10,
+        e0,
     };
-    check_hash_path(tree, 6, expected);
-    check_hash_path(tree, 7, expected);
+    check_sibling_path(tree, 6, expected);
+    expected = {
+        e110,
+        e10,
+        e0,
+    };
+    check_sibling_path(tree, 7, expected);
 }
 
 TEST_F(PersistedIndexedTreeTest, test_indexed_tree)
@@ -667,19 +682,19 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_tree)
     auto index = static_cast<uint32_t>(it - differences.begin());
 
     // Merkle proof at `index` proves non-membership of `new_member`
-    EXPECT_TRUE(verify_hash_path(tree, get_leaf(tree, index), index));
+    EXPECT_TRUE(verify_sibling_path(tree, get_leaf(tree, index), index));
 }
 
 TEST_F(PersistedIndexedTreeTest, can_add_single_whilst_reading)
 {
     constexpr size_t depth = 10;
     NullifierMemoryTree<HashPolicy> memdb(10);
-    fr_hash_path initial_path = memdb.get_hash_path(0);
+    fr_sibling_path initial_path = memdb.get_sibling_path(0);
     memdb.update_element(VALUES[0]);
-    fr_hash_path final_hash_path = memdb.get_hash_path(0);
+    fr_sibling_path final_sibling_path = memdb.get_sibling_path(0);
 
     uint32_t num_reads = 16 * 1024;
-    std::vector<fr_hash_path> paths(num_reads);
+    std::vector<fr_sibling_path> paths(num_reads);
 
     {
         std::string name = randomString();
@@ -700,16 +715,16 @@ TEST_F(PersistedIndexedTreeTest, can_add_single_whilst_reading)
         tree.add_or_update_value(VALUES[0], add_completion);
 
         for (size_t i = 0; i < num_reads; i++) {
-            auto completion = [&, i](const TypedResponse<GetHashPathResponse>& response) {
+            auto completion = [&, i](const TypedResponse<GetSiblingPathResponse>& response) {
                 paths[i] = response.inner.path;
             };
-            tree.get_hash_path(0, completion, false);
+            tree.get_sibling_path(0, completion, false);
         }
         signal.wait_for_level();
     }
 
     for (auto& path : paths) {
-        EXPECT_TRUE(path == initial_path || path == final_hash_path);
+        EXPECT_TRUE(path == initial_path || path == final_sibling_path);
     }
 }
 
@@ -831,30 +846,43 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
     auto e1 = HashPolicy::hash_pair(e10, e11);
     auto root = HashPolicy::hash_pair(e0, e1);
 
-    // Check the hash path at index 2 and 3
-    // Note: This merkle proof would also serve as a non-membership proof of values in (10, 20) and (20, 30)
-    fr_hash_path expected = {
-        std::make_pair(e000, e001),
-        std::make_pair(e00, e01),
-        std::make_pair(e0, e1),
+    fr_sibling_path expected = {
+        e001,
+        e01,
+        e1,
     };
-    check_hash_path(tree, 0, expected);
-    check_hash_path(tree, 1, expected);
+    check_sibling_path(tree, 0, expected);
     expected = {
-        std::make_pair(e010, e011),
-        std::make_pair(e00, e01),
-        std::make_pair(e0, e1),
+        e000,
+        e01,
+        e1,
     };
-    check_hash_path(tree, 2, expected);
-    check_hash_path(tree, 3, expected);
+    check_sibling_path(tree, 1, expected);
+    expected = {
+        e011,
+        e00,
+        e1,
+    };
+    check_sibling_path(tree, 2, expected);
+    expected = {
+        e010,
+        e00,
+        e1,
+    };
+    check_sibling_path(tree, 3, expected);
     check_root(tree, root);
 
     // Check the hash path at index 6 and 7
     expected = {
-        std::make_pair(e110, e111),
-        std::make_pair(e10, e11),
-        std::make_pair(e0, e1),
+        e111,
+        e10,
+        e0,
     };
-    check_hash_path(tree, 6, expected);
-    check_hash_path(tree, 7, expected);
+    check_sibling_path(tree, 6, expected);
+    expected = {
+        e110,
+        e10,
+        e0,
+    };
+    check_sibling_path(tree, 7, expected);
 }
