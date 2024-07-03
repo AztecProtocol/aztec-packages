@@ -338,8 +338,9 @@ contract Token {
         let mut (change, missing) = storage.balances.odd_sub(from, amount, 2);
 
         // If we are still missing some balance to cover the amount, call accumulate to spend more notes.
+        let call = Token::at(context.this_address())._accumulate(from, missing.to_field());
         if !missing.eq(U128::zero()) {
-            change = Token::at(context.this_address())._accumulate(from, missing.to_field()).call(&mut context);
+            change = call.call(&mut context);
         }
 
         storage.balances.add(from, change).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk));
@@ -360,8 +361,9 @@ contract Token {
     fn _accumulate(owner: AztecAddress, missing_: Field) -> U128 {
         // Since we are already spending a lot of doing the call, and we don't do anything else in here, we might as well go over more notes.
         let mut (change, missing) = storage.balances.odd_sub(owner, U128::from_integer(missing_), 8);
+        let call = Token::at(context.this_address())._accumulate(owner, missing.to_field());
         if !missing.eq(U128::zero()) {
-            change = Token::at(context.this_address())._accumulate(owner, missing.to_field()).call(&mut context);
+            change = call.call(&mut context);
         }
         change
     }
