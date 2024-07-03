@@ -17,7 +17,7 @@ use dep::types::{
 },
     hash::{
     compute_siloed_note_hash, compute_siloed_nullifier, compute_l2_to_l1_hash,
-    compute_siloed_unencrypted_log_hash
+    compute_siloed_unencrypted_log_hash, compute_unique_note_hash
 },
     utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
 };
@@ -410,14 +410,18 @@ fn propagate_note_hashes(public_call: PublicCallData, circuit_outputs: &mut Publ
     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
 
     let note_hashes = public_call.call_stack_item.public_inputs.note_hashes;
+    
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
+    // First nullifier is tx hash.
+    let tx_hash = public_call_public_inputs.nullifiers[0].value();
 
     let mut siloed_note_hashes : BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NOTE_HASHES_PER_CALL {
-        let new_note_hash = note_hashes[i].value;
-        if new_note_hash != 0 {
-            let siloed_new_note_hash = compute_siloed_note_hash(storage_contract_address, new_note_hash);
-            siloed_note_hashes.push(NoteHash { value: siloed_new_note_hash, counter: note_hashes[i].counter });
+        let note_hash = note_hashes[i].value;
+        if note_hash != 0 {
+            let unique_note_hash = compute_unique_note_hash(tx_hash, note_hash);
+            let siloed_note_hash = compute_siloed_note_hash(storage_contract_address, unique_note_hash);
+            siloed_note_hashes.push(NoteHash { value: siloed_note_hash, counter: note_hashes[i].counter });
         }
     }
     circuit_outputs.end.note_hashes.extend_from_bounded_vec(siloed_note_hashes);
