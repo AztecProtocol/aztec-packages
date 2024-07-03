@@ -180,12 +180,12 @@ library Constants {
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 41;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1152;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2227;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2228;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3258;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 383;
-  uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 14;
-  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 31;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3259;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 384;
+  uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 11;
+  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 28;
   uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH = 9;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
