@@ -1,2 +1,1 @@
 export { buildPrivateKernelResetInputs } from './build_private_kernel_reset_hints.js';
-export { buildPrivateKernelResetOutputs } from './build_private_kernel_reset_outputs.js';

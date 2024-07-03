@@ -84,7 +84,6 @@ import {
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetHints,
-  type PrivateKernelResetOutputs,
   type PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedData,
@@ -198,7 +197,6 @@ import type {
   PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircuitPrivateInputsNoir,
   PrivateKernelResetCircuitPrivateInputs as PrivateKernelResetCircuitPrivateInputsNoir,
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
-  PrivateKernelResetOutputs as PrivateKernelResetOutputsNoir,
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailToPublicCircuitPrivateInputs as PrivateKernelTailToPublicCircuitPrivateInputsNoir,
   PublicAccumulatedData as PublicAccumulatedDataNoir,
@@ -1604,14 +1602,6 @@ export function mapPrivateKernelInnerCircuitPrivateInputsToNoir(
   };
 }
 
-function mapPrivateKernelResetOutputsToNoir(inputs: PrivateKernelResetOutputs): PrivateKernelResetOutputsNoir {
-  return {
-    note_hashes: mapTuple(inputs.noteHashes, mapScopedNoteHashToNoir),
-    nullifiers: mapTuple(inputs.nullifiers, mapScopedNullifierToNoir),
-    note_encrypted_log_hashes: mapTuple(inputs.noteEncryptedLogHashes, mapNoteLogHashToNoir),
-  };
-}
-
 function mapPrivateKernelResetHintsToNoir<
   NH_RR_PENDING extends number,
   NH_RR_SETTLED extends number,
@@ -1667,7 +1657,6 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
 > {
   return {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
-    outputs: mapPrivateKernelResetOutputsToNoir(inputs.outputs),
     hints: mapPrivateKernelResetHintsToNoir(inputs.hints),
   };
 }

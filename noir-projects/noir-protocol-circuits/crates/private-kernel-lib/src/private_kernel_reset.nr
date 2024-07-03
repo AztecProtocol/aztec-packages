@@ -1,22 +1,12 @@
+use crate::components::reset_output_composer::{PrivateKernelResetOutputs, ResetOutputComposer};
 use dep::reset_kernel_lib::{
     get_transient_or_propagated_note_hash_indexes_for_logs, KeyValidationHint, NoteHashReadRequestHints,
     NullifierReadRequestHints, PrivateValidationRequestProcessor, verify_squashed_transient_data
 };
 use dep::types::{
-    abis::{
-    private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash
-},
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX},
-    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty,
-    PrivateKernelCircuitPublicInputs
+    abis::private_kernel_data::PrivateKernelData,
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, PrivateKernelCircuitPublicInputs
 };
-
-struct PrivateKernelResetOutputs {
-    note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
-    nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
-    note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-}
 
 struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
@@ -28,19 +18,30 @@ struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL
 
 struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     previous_kernel: PrivateKernelData,
-    // TODO: Construct output in an unconstrained function.
-    outputs: PrivateKernelResetOutputs,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
 }
 
 impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+    unconstrained fn generate_output(self) -> PrivateKernelResetOutputs {
+        ResetOutputComposer::new(
+            self.previous_kernel.public_inputs,
+            self.hints.transient_nullifier_indexes_for_note_hashes,
+            self.hints.transient_note_hash_indexes_for_nullifiers
+        ).finish()
+    }
+
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        let mut previous_public_inputs = self.previous_kernel.public_inputs;
+        // Generate output.
+        let output = self.generate_output();
 
-        // verify/aggregate the previous kernel
-        self.previous_kernel.verify();
+        // Validate inputs.
+        if !std::runtime::is_unconstrained() {
+            // verify/aggregate the previous kernel
+            self.previous_kernel.verify();
+        }
 
-        previous_public_inputs.validation_requests = PrivateValidationRequestProcessor {
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+        let updated_validation_requests = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
             note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
             pending_note_hashes: previous_public_inputs.end.note_hashes,
@@ -48,41 +49,44 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
             pending_nullifiers: previous_public_inputs.end.nullifiers,
             nullifier_tree_root: previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root,
-            key_validation_hints: self.hints.key_validation_hints,
+            key_validation_hints: self.hints.key_validation_hints
         }.validate();
 
+        // Validate output.
         let transient_or_propagated_note_hash_indexes_for_logs = get_transient_or_propagated_note_hash_indexes_for_logs(
             previous_public_inputs.end.note_encrypted_logs_hashes,
             previous_public_inputs.end.note_hashes,
-            self.outputs.note_hashes
+            output.note_hashes
         );
         verify_squashed_transient_data(
             previous_public_inputs.end.note_hashes,
             previous_public_inputs.end.nullifiers,
             previous_public_inputs.end.note_encrypted_logs_hashes,
-            self.outputs.note_hashes,
-            self.outputs.nullifiers,
-            self.outputs.note_encrypted_log_hashes,
+            output.note_hashes,
+            output.nullifiers,
+            output.note_encrypted_log_hashes,
             self.hints.transient_nullifier_indexes_for_note_hashes,
             self.hints.transient_note_hash_indexes_for_nullifiers,
             transient_or_propagated_note_hash_indexes_for_logs
         );
 
-        previous_public_inputs.end.note_hashes = self.outputs.note_hashes;
-        previous_public_inputs.end.nullifiers = self.outputs.nullifiers;
-        previous_public_inputs.end.note_encrypted_logs_hashes = self.outputs.note_encrypted_log_hashes;
+        // Generate output.
+        let mut previous_public_inputs = self.previous_kernel.public_inputs;
+        previous_public_inputs.validation_requests = updated_validation_requests;
+        previous_public_inputs.end.note_hashes = output.note_hashes;
+        previous_public_inputs.end.nullifiers = output.nullifiers;
+        previous_public_inputs.end.note_encrypted_logs_hashes = output.note_encrypted_log_hashes;
 
         previous_public_inputs
     }
 }
 
 mod tests {
-    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, PrivateKernelResetOutputs};
+    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints};
     use dep::reset_kernel_lib::{
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        squash_transient_data::squash_transient_data
+        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder
     },
         reset::{
         read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
@@ -91,8 +95,7 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, GENERATOR_INDEX__OVSK_M
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__OVSK_M
     };
     use dep::types::{
         abis::{
@@ -152,13 +155,6 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
-            let (note_hashes, nullifiers, note_encrypted_log_hashes) = squash_transient_data(
-                self.previous_kernel.note_hashes.storage,
-                self.previous_kernel.nullifiers.storage,
-                self.previous_kernel.note_encrypted_logs_hashes.storage
-            );
-            let outputs = PrivateKernelResetOutputs { note_hashes, nullifiers, note_encrypted_log_hashes };
-
             let hints = PrivateKernelResetHints {
                 transient_nullifier_indexes_for_note_hashes: self.transient_nullifier_indexes_for_note_hashes,
                 transient_note_hash_indexes_for_nullifiers: self.transient_note_hash_indexes_for_nullifiers,
@@ -167,7 +163,7 @@ mod tests {
                 key_validation_hints: [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]
             };
 
-            let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), outputs, hints };
+            let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), hints };
             kernel.execute()
         }
 
@@ -181,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn execution_succeeded() {
+    fn execution_succeeded() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         let _public_inputs = builder.execute();
     }

@@ -28,7 +28,6 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import type { ExecutionResult } from '@aztec/simulator';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
-import { buildPrivateKernelResetOutputs } from './build_private_kernel_reset_outputs.js';
 
 function getNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -164,14 +163,6 @@ export async function buildPrivateKernelResetInputs(
     MAX_NULLIFIERS_PER_TX,
   );
 
-  const expectedOutputs = buildPrivateKernelResetOutputs(
-    previousKernelData.publicInputs.end.noteHashes,
-    previousKernelData.publicInputs.end.nullifiers,
-    previousKernelData.publicInputs.end.noteEncryptedLogsHashes,
-    transientNullifierIndexesForNoteHashes,
-    transientNoteHashIndexesForNullifiers,
-  );
-
   let privateInputs;
 
   for (const [sizeTag, hintSizes] of Object.entries(PRIVATE_RESET_VARIANTS)) {
@@ -184,7 +175,6 @@ export async function buildPrivateKernelResetInputs(
     ) {
       privateInputs = new PrivateKernelResetCircuitPrivateInputs(
         previousKernelData,
-        expectedOutputs,
         new PrivateKernelResetHints(
           transientNullifierIndexesForNoteHashes,
           transientNoteHashIndexesForNullifiers,
