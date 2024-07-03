@@ -71,3 +71,24 @@ jobs:
   #           }
   #       env:
   #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
+
+  rerun-check:
+    runs-on: ubuntu-20.04
+    permissions:
+      actions: write
+    needs:
+      - build
+      - e2e
+    if: ${{ !cancelled() }}
+    steps:
+      - name: Check for Rerun
+        env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
+          HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+            echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          fi
