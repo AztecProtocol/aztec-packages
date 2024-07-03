@@ -14,7 +14,7 @@ import {
   createDebugLogger,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
+import { EthAddress, type Fq, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { PortalERC20Abi } from '@aztec/l1-artifacts';
 import {
@@ -83,6 +83,8 @@ export class FeesTest {
   public readonly ALICE_INITIAL_BANANAS = BigInt(1e12);
   public readonly SUBSCRIPTION_AMOUNT = 10_000n;
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
+
+  public accountKeys: [Fr, Fq][] = [];
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_fees:${testName}`);
@@ -162,6 +164,7 @@ export class FeesTest {
       async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
+        this.accountKeys = accountKeys;
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
