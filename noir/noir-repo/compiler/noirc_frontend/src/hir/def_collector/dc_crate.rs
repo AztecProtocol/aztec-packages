@@ -21,7 +21,6 @@ use crate::hir::Context;
 use crate::macros_api::{MacroError, MacroProcessor};
 use crate::node_interner::{
     DependencyId, FuncId, GlobalId, NodeInterner, StructId, TraitId, TraitImplId, TypeAliasId,
-    DependencyId, FuncId, GlobalId, NodeInterner, StructId, TraitId, TraitImplId, TypeAliasId,
 };
 
 use crate::ast::{
