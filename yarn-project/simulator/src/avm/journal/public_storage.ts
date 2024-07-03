@@ -16,7 +16,7 @@ type PublicStorageReadResult = {
  */
 export class PublicStorage {
   /** Cached storage writes. */
-  private cache: PublicStorageCache;
+  private readonly cache: PublicStorageCache;
 
   constructor(
     /** Reference to node storage. Checked on parent cache-miss. */
@@ -134,7 +134,7 @@ class PublicStorageCache {
    * mapping storage slot to latest staged write value.
    */
   public cachePerContract: Map<bigint, Map<bigint, Fr>> = new Map();
-  // FIXME: storage ^ should be private, but its value is used in tests for "currentStorageValue"
+  // FIXME: storage ^ should be private, but its value is used in commitToDB
 
   /**
    * Read a staged value from storage, if it has been previously written to.

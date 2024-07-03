@@ -1,10 +1,14 @@
 contract TestLog {
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{traits::Serialize, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
+    use dep::aztec::protocol_types::{
+        traits::Serialize, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
+        address::AztecAddress
+    };
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::aztec::event::event_interface::EventInterface;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys};
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
+    use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
 
     #[aztec(event)]
     struct ExampleEvent0 {
@@ -41,27 +45,51 @@ contract TestLog {
     }
 
     #[aztec(private)]
-    fn emit_encrypted_events(randomness: [Field; 2], preimages: [Field; 4]) {
+    fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
         event0.emit(
-            encode_and_encrypt_event(
+            encode_and_encrypt_event_with_randomness(
                 &mut context,
                 randomness[0],
-                context.msg_sender(),
+                // outgoing is set to other, incoming is set to msg sender
+                other,
                 context.msg_sender()
+            )
+        );
+
+        // We duplicate the emission, but specifying different incoming and outgoing parties
+        event0.emit(
+            encode_and_encrypt_event_with_randomness(
+                &mut context,
+                randomness[0],
+                // outgoing is set to msg sender, incoming is set to other
+                context.msg_sender(),
+                other
             )
         );
 
         let event1 = ExampleEvent1 { value2: preimages[2], value3: preimages[3] };
 
         event1.emit(
-            encode_and_encrypt_event(
+            encode_and_encrypt_event_with_randomness(
                 &mut context,
                 randomness[1],
-                context.msg_sender(),
+                // outgoing is set to other, incoming is set to msg sender
+                other,
                 context.msg_sender()
             )
         );
+    }
+
+    #[aztec(public)]
+    fn emit_unencrypted_events(preimages: [Field; 4]) {
+        let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
+
+        event0.emit(encode_event(&mut context));
+
+        let event1 = ExampleEvent1 { value2: preimages[2], value3: preimages[3] };
+
+        event1.emit(encode_event(&mut context));
     }
 }

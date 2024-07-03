@@ -141,10 +141,10 @@ server.addMethod("resolve_function_call", async (params) => {
   if params.function !== "getSqrt" {
     throw Error("Unexpected foreign call")
   };
-  const values = params.inputs[0].map((field) => {
+  const values = params.inputs[0].Array.map((field) => {
     return `${Math.sqrt(parseInt(field, 16))}`;
   });
-  return { values };
+  return { values: [{ Array: values }] };
 });
 ```
 
@@ -165,6 +165,10 @@ interface ForeignCallResult {
   values: ForeignCallParam[],
 }
 ```
+
+::: Multidimensional Arrays
+
+If the Oracle function is returning an array containing other arrays, such as `[['1','2],['3','4']]`, you need to provide the values in json as flattened values. In the previous example, it would be `['1', '2', '3', '4']`. In the noir program, the Oracle signature can use a nested type, the flattened values will be automatically converted to the nested type.
 
 :::
 

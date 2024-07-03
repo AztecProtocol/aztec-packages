@@ -1,3 +1,4 @@
+import { GasFees } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
@@ -6,14 +7,16 @@ import { keccak256, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundatio
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 
+import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
-import { isAvmBytecode, markBytecodeAsAvm } from '../public/transitional_adaptors.js';
+import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { type MemoryValue, TypeTag, type Uint8 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
+import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
   adjustCalldataIndex,
   getAvmTestContractBytecode,
@@ -234,73 +237,58 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Environment getters', () => {
-    const testEnvGetter = async (valueName: string, value: any, functionName: string, globalVar: boolean = false) => {
-      // Execute
-      let overrides = {};
-      if (globalVar === true) {
-        const globals = initGlobalVariables({ [valueName]: value });
-        overrides = { globals };
-      } else {
-        overrides = { [valueName]: value };
-      }
-      const context = initContext({ env: initExecutionEnvironment(overrides) });
+    const address = AztecAddress.random();
+    const storageAddress = AztecAddress.random();
+    const sender = AztecAddress.random();
+    const functionSelector = FunctionSelector.random();
+    const transactionFee = Fr.random();
+    const chainId = Fr.random();
+    const version = Fr.random();
+    const blockNumber = Fr.random();
+    const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
+    const feePerDaGas = Fr.random();
+    const feePerL2Gas = Fr.random();
+    const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
+    const globals = initGlobalVariables({
+      chainId,
+      version,
+      blockNumber,
+      timestamp,
+      gasFees,
+    });
+    const env = initExecutionEnvironment({
+      address,
+      storageAddress,
+      sender,
+      functionSelector,
+      transactionFee,
+      globals,
+    });
+    let context: AvmContext;
+    beforeEach(() => {
+      context = initContext({ env });
+    });
+
+    it.each([
+      ['address', address.toField(), 'get_address'],
+      ['storageAddress', storageAddress.toField(), 'get_storage_address'],
+      ['sender', sender.toField(), 'get_sender'],
+      ['functionSelector', functionSelector.toField(), 'get_function_selector'],
+      ['transactionFee', transactionFee.toField(), 'get_transaction_fee'],
+      ['chainId', chainId.toField(), 'get_chain_id'],
+      ['version', version.toField(), 'get_version'],
+      ['blockNumber', blockNumber.toField(), 'get_block_number'],
+      ['timestamp', timestamp.toField(), 'get_timestamp'],
+      ['feePerDaGas', feePerDaGas.toField(), 'get_fee_per_da_gas'],
+      ['feePerL2Gas', feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
+    ])('%s getter', async (_name: string, value: Fr, functionName: string) => {
       const bytecode = getAvmTestContractBytecode(functionName);
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
 
       const returnData = results.output;
-      expect(returnData).toEqual([value.toField()]);
-    };
-
-    it('address', async () => {
-      const address = AztecAddress.fromField(new Fr(1));
-      await testEnvGetter('address', address, 'get_address');
-    });
-
-    it('storageAddress', async () => {
-      const storageAddress = AztecAddress.fromField(new Fr(1));
-      await testEnvGetter('storageAddress', storageAddress, 'get_storage_address');
-    });
-
-    it('sender', async () => {
-      const sender = AztecAddress.fromField(new Fr(1));
-      await testEnvGetter('sender', sender, 'get_sender');
-    });
-
-    it('getFeePerL2Gas', async () => {
-      const fee = new Fr(1);
-      await testEnvGetter('feePerL2Gas', fee, 'get_fee_per_l2_gas');
-    });
-
-    it('getFeePerDaGas', async () => {
-      const fee = new Fr(1);
-      await testEnvGetter('feePerDaGas', fee, 'get_fee_per_da_gas');
-    });
-
-    it('getTransactionFee', async () => {
-      const fee = new Fr(1);
-      await testEnvGetter('transactionFee', fee, 'get_transaction_fee');
-    });
-
-    it('chainId', async () => {
-      const chainId = new Fr(1);
-      await testEnvGetter('chainId', chainId, 'get_chain_id', /*globalVar=*/ true);
-    });
-
-    it('version', async () => {
-      const version = new Fr(1);
-      await testEnvGetter('version', version, 'get_version', /*globalVar=*/ true);
-    });
-
-    it('blockNumber', async () => {
-      const blockNumber = new Fr(1);
-      await testEnvGetter('blockNumber', blockNumber, 'get_block_number', /*globalVar=*/ true);
-    });
-
-    it('timestamp', async () => {
-      const timestamp = new Fr(1);
-      await testEnvGetter('timestamp', timestamp, 'get_timestamp', /*globalVar=*/ true);
+      expect(returnData).toEqual([value]);
     });
   });
 
@@ -308,7 +296,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('selector', async () => {
       const context = initContext({
         env: initExecutionEnvironment({
-          temporaryFunctionSelector: FunctionSelector.fromSignature('check_selector()'),
+          functionSelector: FunctionSelector.fromSignature('check_selector()'),
         }),
       });
       const bytecode = getAvmTestContractBytecode('check_selector');
@@ -345,8 +333,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
   describe('Side effects, world state, nested calls', () => {
     const address = new Fr(1);
-    // TODO(dbanks12): should be able to make address and storage address different
-    const storageAddress = new Fr(1);
+    const storageAddress = new Fr(2);
     const sender = new Fr(42);
     const leafIndex = new Fr(7);
     const slotNumber = 1; // must update Noir contract if changing this
@@ -411,7 +398,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
       const existsStr = exists ? 'DOES exist' : 'does NOT exist';
-      it(`Should return ${exists} (and be traced) when noteHash ${existsStr}`, async () => {
+      it(`Should return ${exists} (and be traced) when nullifier ${existsStr}`, async () => {
         const calldata = [value0];
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
@@ -430,7 +417,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
         expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
           storageAddress,
-          value0,
+          /*nullifier=*/ value0,
           tracedLeafIndex,
           exists,
           isPending,
@@ -451,7 +438,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
         : '';
 
-      it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
+      it(`Should return ${expectFound} (and be traced) when message ${existsStr} ${foundAtStr}`, async () => {
         const calldata = [value0, leafIndex];
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
@@ -466,7 +453,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*noteHash=*/ value0,
+          /*msgHash=*/ value0,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -485,7 +472,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(
         expect.objectContaining(storageAddress),
-        /*nullifier=*/ value0,
+        /*noteHash=*/ value0,
       );
     });
 
@@ -525,7 +512,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
         expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
           storageAddress,
-          value0,
+          /*nullifier=*/ value0,
           /*leafIndex=*/ Fr.ZERO,
           /*exists=*/ true,
           /*isPending=*/ true,
@@ -558,7 +545,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        const eventSelector = new Fr(5);
         const expectedFields = [new Fr(10), new Fr(20), new Fr(30)];
         const expectedString = 'Hello, world!'.split('').map(c => new Fr(c.charCodeAt(0)));
         const expectedCompressedString = [
@@ -567,9 +553,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ].map(s => new Fr(Buffer.from(s)));
 
         expect(trace.traceUnencryptedLog).toHaveBeenCalledTimes(3);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, eventSelector, expectedFields);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, eventSelector, expectedString);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, eventSelector, expectedCompressedString);
+        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedFields);
+        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedString);
+        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedCompressedString);
       });
     });
 
@@ -640,8 +626,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(await context.persistableState.peekStorage(address, listSlot0)).toEqual(calldata[0]);
-        expect(await context.persistableState.peekStorage(address, listSlot1)).toEqual(calldata[1]);
+        expect(await context.persistableState.peekStorage(storageAddress, listSlot0)).toEqual(calldata[0]);
+        expect(await context.persistableState.peekStorage(storageAddress, listSlot1)).toEqual(calldata[1]);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(2);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, listSlot0, value0);
