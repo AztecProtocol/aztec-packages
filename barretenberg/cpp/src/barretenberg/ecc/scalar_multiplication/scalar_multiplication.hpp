@@ -183,6 +183,10 @@ void remove_duplicates(std::span<const typename Curve::ScalarField> polynomial,
                        std::span<typename Curve::AffineElement> base_points,
                        pippenger_runtime_state<Curve>& pippenger_runtime_state);
 
+template <typename Curve>
+void compute_point_addition_denominators(MultipleAdditionSequences<Curve>& add_sequences,
+                                         std::span<typename Curve::BaseField> denominators);
+
 // Explicit instantiation
 // BN254
 

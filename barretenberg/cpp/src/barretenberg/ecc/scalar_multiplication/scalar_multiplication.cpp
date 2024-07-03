@@ -1060,105 +1060,105 @@ template curve::Grumpkin::Element pippenger_without_endomorphism_basis_points<cu
     const size_t num_initial_points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 
-template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences)
-{
-    using G1 = typename Curve::AffineElement;
-    using Fq = typename Curve::BaseField;
-    std::cout << "enter" << std::endl;
-    const size_t num_points = addition_sequences.points.size();
-    if (num_points == 0 || num_points == 1) { // nothing to do
-        return;
-    }
+// template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences)
+// {
+//     using G1 = typename Curve::AffineElement;
+//     using Fq = typename Curve::BaseField;
+//     std::cout << "enter" << std::endl;
+//     const size_t num_points = addition_sequences.points.size();
+//     if (num_points == 0 || num_points == 1) { // nothing to do
+//         return;
+//     }
 
-    std::vector<Fq> reserved_batch_inverse_space;
-    Fq* scratch_space;
-    if (!addition_sequences.scratch_space.has_value()) {
-        reserved_batch_inverse_space.resize(num_points);
-        scratch_space = &reserved_batch_inverse_space[0];
-    } else {
-        scratch_space = &addition_sequences.scratch_space.value()[0];
-    }
+//     std::vector<Fq> reserved_batch_inverse_space;
+//     Fq* scratch_space;
+//     if (!addition_sequences.scratch_space.has_value()) {
+//         reserved_batch_inverse_space.resize(num_points);
+//         scratch_space = &reserved_batch_inverse_space[0];
+//     } else {
+//         scratch_space = &addition_sequences.scratch_space.value()[0];
+//     }
 
-    auto points = addition_sequences.points;
-    auto sequence_counts = addition_sequences.sequence_counts;
+//     auto points = addition_sequences.points;
+//     auto sequence_counts = addition_sequences.sequence_counts;
 
-    const size_t num_sequences = sequence_counts.size();
+//     const size_t num_sequences = sequence_counts.size();
 
-    Fq accumulator = 1;
-    G1* point_ptr = &points[num_points - 2];
-    size_t cc = 0;
-    for (size_t i = 0; i < num_sequences; ++i) {
-        const size_t num_sequence_additions = sequence_counts[num_sequences - 1 - i] >> 1;
-        for (size_t j = 0; j < num_sequence_additions; ++j) {
-            const auto& x1 = point_ptr[0].x;
-            const auto& x2 = point_ptr[1].x;
-            //       std::cout << "t0 = " << accumulator << std::endl;
-            //   ASSERT(accumulator != 0);
-            *scratch_space = accumulator;
-            //      std::cout << "t1 = " << accumulator << std::endl;
-            //   ASSERT(accumulator != 0);
-            accumulator *= (x2 - x1);
-            //      std::cout << "t2 = " << accumulator << std::endl;
-            if (accumulator == 0) {
-                std::cout << "cc " << cc << std::endl;
-                std::cout << "diff = " << std::ptrdiff_t(&points[num_points - 2] - point_ptr) << std::endl;
-                ;
-            }
-            ASSERT(accumulator != 0);
-            point_ptr -= 2;
-            scratch_space += 1;
-            ++cc;
-        }
-        point_ptr += (sequence_counts[num_sequences - 1 - i] & 0x01ULL);
-    }
+//     Fq accumulator = 1;
+//     G1* point_ptr = &points[num_points - 2];
+//     size_t cc = 0;
+//     for (size_t i = 0; i < num_sequences; ++i) {
+//         const size_t num_sequence_additions = sequence_counts[num_sequences - 1 - i] >> 1;
+//         for (size_t j = 0; j < num_sequence_additions; ++j) {
+//             const auto& x1 = point_ptr[0].x;
+//             const auto& x2 = point_ptr[1].x;
+//             //       std::cout << "t0 = " << accumulator << std::endl;
+//             //   ASSERT(accumulator != 0);
+//             *scratch_space = accumulator;
+//             //      std::cout << "t1 = " << accumulator << std::endl;
+//             //   ASSERT(accumulator != 0);
+//             accumulator *= (x2 - x1);
+//             //      std::cout << "t2 = " << accumulator << std::endl;
+//             if (accumulator == 0) {
+//                 std::cout << "cc " << cc << std::endl;
+//                 std::cout << "diff = " << std::ptrdiff_t(&points[num_points - 2] - point_ptr) << std::endl;
+//                 ;
+//             }
+//             ASSERT(accumulator != 0);
+//             point_ptr -= 2;
+//             scratch_space += 1;
+//             ++cc;
+//         }
+//         point_ptr += (sequence_counts[num_sequences - 1 - i] & 0x01ULL);
+//     }
 
-    Fq inverse = accumulator.invert();
+//     Fq inverse = accumulator.invert();
 
-    point_ptr = &points[0];
-    size_t output_point_count = 0;
-    size_t output_sequence_count = 0;
-    bool more_additions = false;
-    for (size_t i = 0; i < num_sequences; ++i) {
-        const size_t num_sequence_points = sequence_counts[i];
-        const size_t num_sequence_additions = num_sequence_points >> 1;
-        const bool overflow = static_cast<bool>(num_sequence_points & 0x01ULL);
-        if (overflow) {
-            points[output_point_count] = *point_ptr;
-            output_point_count += 1;
-            point_ptr += 1;
-        }
-        for (size_t j = 0; j < num_sequence_additions; ++j) {
-            const auto& x1 = point_ptr[0].x;
-            const auto& y1 = point_ptr[0].x;
-            const auto& x2 = point_ptr[1].x;
-            const auto& y2 = point_ptr[1].x;
+//     point_ptr = &points[0];
+//     size_t output_point_count = 0;
+//     size_t output_sequence_count = 0;
+//     bool more_additions = false;
+//     for (size_t i = 0; i < num_sequences; ++i) {
+//         const size_t num_sequence_points = sequence_counts[i];
+//         const size_t num_sequence_additions = num_sequence_points >> 1;
+//         const bool overflow = static_cast<bool>(num_sequence_points & 0x01ULL);
+//         if (overflow) {
+//             points[output_point_count] = *point_ptr;
+//             output_point_count += 1;
+//             point_ptr += 1;
+//         }
+//         for (size_t j = 0; j < num_sequence_additions; ++j) {
+//             const auto& x1 = point_ptr[0].x;
+//             const auto& y1 = point_ptr[0].x;
+//             const auto& x2 = point_ptr[1].x;
+//             const auto& y2 = point_ptr[1].x;
 
-            const Fq denominator = inverse * (*scratch_space);
-            inverse *= (x2 - x1);
+//             const Fq denominator = inverse * (*scratch_space);
+//             inverse *= (x2 - x1);
 
-            const Fq lambda = denominator * (y2 - y1);
-            Fq x3 = lambda.sqr() - x2 - x1;
-            Fq y3 = lambda * (x1 - x3) - y1;
-            points[output_point_count] = { x3, y3 };
-            scratch_space -= 1;
-            point_ptr += 2;
-            output_point_count += 1;
-        }
-        sequence_counts[output_sequence_count] =
-            static_cast<uint64_t>(num_sequence_additions) + static_cast<uint64_t>(overflow);
-        output_sequence_count++;
+//             const Fq lambda = denominator * (y2 - y1);
+//             Fq x3 = lambda.sqr() - x2 - x1;
+//             Fq y3 = lambda * (x1 - x3) - y1;
+//             points[output_point_count] = { x3, y3 };
+//             scratch_space -= 1;
+//             point_ptr += 2;
+//             output_point_count += 1;
+//         }
+//         sequence_counts[output_sequence_count] =
+//             static_cast<uint64_t>(num_sequence_additions) + static_cast<uint64_t>(overflow);
+//         output_sequence_count++;
 
-        more_additions = more_additions || (sequence_counts[output_sequence_count] > 1);
-    }
+//         more_additions = more_additions || (sequence_counts[output_sequence_count] > 1);
+//     }
 
-    std::cout << "output sequence count = " << output_sequence_count << std::endl;
-    if (more_additions) {
-        std::span<G1> next_points(&points[0], output_point_count);
-        std::span<uint64_t> next_sequences(&sequence_counts[0], output_sequence_count);
-        return batched_affine_add_in_place<Curve>(MultipleAdditionSequences<Curve>{
-            sequence_counts = next_sequences, points = next_points, addition_sequences.scratch_space });
-    }
-}
+//     std::cout << "output sequence count = " << output_sequence_count << std::endl;
+//     if (more_additions) {
+//         std::span<G1> next_points(&points[0], output_point_count);
+//         std::span<uint64_t> next_sequences(&sequence_counts[0], output_sequence_count);
+//         return batched_affine_add_in_place<Curve>(MultipleAdditionSequences<Curve>{
+//             sequence_counts = next_sequences, points = next_points, addition_sequences.scratch_space });
+//     }
+// }
 
 // template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences)
 
@@ -1221,6 +1221,124 @@ void remove_duplicates(std::span<const typename Curve::ScalarField> polynomial,
                                                 .scratch_space = scratch_space };
     batched_affine_add_in_place<Curve>(sequences);
 }
+
+template <typename Curve>
+void compute_point_addition_denominators(MultipleAdditionSequences<Curve>& addition_sequences,
+                                         std::span<typename Curve::BaseField> denominators)
+{
+    using Fq = typename Curve::BaseField;
+
+    auto points = addition_sequences.points;
+    auto sequence_counts = addition_sequences.sequence_counts;
+
+    // Count the total number of pairs across all addition sequences
+    size_t total_num_pairs{ 0 };
+    for (auto& count : sequence_counts) {
+        total_num_pairs += count >> 1;
+    }
+
+    auto scratch_space = denominators;
+    std::vector<Fq> differences;
+    // scratch_space.resize(total_num_pairs); // can both be num_points/2
+    differences.resize(total_num_pairs);
+
+    Fq accumulator = 1;
+    size_t point_idx = 0;
+    size_t pair_idx = 0;
+    for (auto& count : sequence_counts) {
+        const size_t num_pairs = count >> 1;
+        for (size_t j = 0; j < num_pairs; ++j) {
+            const auto& x1 = points[point_idx++].x;
+            const auto& x2 = points[point_idx++].x;
+
+            ASSERT(x1 != x2);
+
+            auto diff = x2 - x1;
+            differences[pair_idx] = diff;
+
+            scratch_space[pair_idx++] = accumulator;
+            accumulator *= diff;
+        }
+        // If number of points in the sequence is odd, we skip the last one since it has no pair
+        point_idx += (count & 0x01ULL);
+    }
+
+    Fq inverse = accumulator.invert();
+
+    // Compute the point addition denominators 1/(x2 - x1) in place
+    for (size_t i = 0; i < total_num_pairs; ++i) {
+        size_t idx = total_num_pairs - 1 - i;
+        scratch_space[idx] *= inverse;
+        inverse *= differences[idx];
+    }
+}
+
+template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences)
+{
+    using G1 = typename Curve::AffineElement;
+    using Fq = typename Curve::BaseField;
+    // std::cout << "enter" << std::endl;
+    const size_t num_points = addition_sequences.points.size();
+    if (num_points == 0 || num_points == 1) { // nothing to do
+        return;
+    }
+
+    std::vector<Fq> reserved_batch_inverse_space;
+    Fq* denominators;
+    if (!addition_sequences.scratch_space.has_value()) {
+        reserved_batch_inverse_space.resize(num_points); // WORKTODO: num_pairs
+        scratch_space = &reserved_batch_inverse_space[0];
+    } else {
+        denominators = &addition_sequences.scratch_space.value()[0];
+    }
+
+    scalar_multiplication::compute_point_addition_denominators(addition_sequences, denominators);
+
+    auto points = addition_sequences.points;
+    auto sequence_counts = addition_sequences.sequence_counts;
+
+    size_t point_idx = 0;
+    size_t result_point_idx = 0;
+    size_t result_sequence_idx = 0;
+    size_t pair_idx = 0;
+    bool more_additions = false;
+    for (auto& count : sequence_counts) {
+        const size_t num_pairs = count >> 1;
+        const bool overflow = static_cast<bool>(count & 0x01ULL);
+        if (overflow) {
+            points[result_point_idx++] = points[point_idx++];
+        }
+        for (size_t j = 0; j < num_pairs; ++j) {
+            const auto& x1 = points[point_idx].x;
+            const auto& y1 = points[point_idx++].y;
+            const auto& x2 = points[point_idx].x;
+            const auto& y2 = points[point_idx++].y;
+
+            const Fq lambda = denominator[pair_idx++] * (y2 - y1);
+            Fq x3 = lambda.sqr() - x2 - x1;
+            Fq y3 = lambda * (x1 - x3) - y1;
+            points[result_point_idx++] = { x3, y3 };
+        }
+        const uint64_t result_sequence_count = static_cast<uint64_t>(num_pairs) + static_cast<uint64_t>(overflow);
+        sequence_counts[result_sequence_idx++] = result_sequence_count;
+
+        more_additions = more_additions || (result_sequence_count > 1);
+    }
+
+    // std::cout << "output sequence count = " << output_sequence_count << std::endl;
+    // if (more_additions) {
+    //     std::span<G1> next_points(&points[0], output_point_count);
+    //     std::span<uint64_t> next_sequences(&sequence_counts[0], output_sequence_count);
+    //     return batched_affine_add_in_place<Curve>(MultipleAdditionSequences<Curve>{
+    //         sequence_counts = next_sequences, points = next_points, addition_sequences.scratch_space });
+    // }
+}
+
+template void compute_point_addition_denominators<curve::Grumpkin>(
+    MultipleAdditionSequences<curve::Grumpkin>& addition_sequences, std::span<curve::Grumpkin::BaseField> denominators);
+
+template void compute_point_addition_denominators<curve::BN254>(
+    MultipleAdditionSequences<curve::BN254>& addition_sequences, std::span<curve::BN254::BaseField> denominators);
 
 template void remove_duplicates<curve::Grumpkin>(std::span<const curve::Grumpkin::ScalarField> polynomial,
                                                  std::span<curve::Grumpkin::AffineElement> base_points,

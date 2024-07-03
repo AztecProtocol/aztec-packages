@@ -12,6 +12,7 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
@@ -244,6 +245,35 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
         expected[i] = expected[i].normalize();
         EXPECT_EQ((output[i].x == expected[i].x), true);
         EXPECT_EQ((output[i].y == expected[i].y), true);
+    }
+}
+
+TYPED_TEST(ScalarMultiplicationTests, ComputePointAdditionDenominators)
+{
+    using Curve = TypeParam;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+    using Fq = typename Curve::BaseField;
+
+    const size_t num_points = 5;
+    std::array<AffineElement, num_points> points;
+    for (auto& point : points) {
+        point = Element::random_element();
+    }
+    std::array<uint64_t, 2> sequence_counts{ 3, 2 };
+
+    scalar_multiplication::MultipleAdditionSequences<Curve> addition_sequences{ sequence_counts, points, {} };
+
+    const size_t num_pairs = 2;
+    std::array<Fq, num_pairs> denominators_expected;
+    denominators_expected[0] = (points[1].x - points[0].x).invert();
+    denominators_expected[1] = (points[4].x - points[3].x).invert();
+
+    std::array<Fq, num_pairs> denominators;
+    scalar_multiplication::compute_point_addition_denominators(addition_sequences, denominators);
+
+    for (auto [result, expected] : zip_view(denominators, denominators_expected)) {
+        EXPECT_EQ(result, expected);
     }
 }
 
