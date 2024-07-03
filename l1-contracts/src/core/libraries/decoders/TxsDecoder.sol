@@ -265,6 +265,18 @@ library TxsDecoder {
         // Value taken from tx_effect.test.ts "hash of empty tx effect matches snapshot" test case
         vars.baseLeaves[i] = hex"00e8b31e302d11fbf7da124b537ba2d44f88e165da03c6557e2b0f6dc486e025";
       }
+      // We pad tx out hashes with hashes of empty tx node at that level.
+      // TODO calc subtree height based on num msgs per tx (currently 8 => height = 3)
+      // TODO handle case of 0 msgs better
+      if (numTxEffects != 0) {
+        bytes32 zeroHash = 0;
+        for (uint256 i = 0; i < 3; i++) {
+          zeroHash = Hash.sha256ToField(bytes.concat(zeroHash, zeroHash));
+        }
+        for (uint256 i = numTxEffects; i < vars.l2ToL1MsgsSubtreeRoots.length; i++) {
+          vars.l2ToL1MsgsSubtreeRoots[i] = zeroHash;
+        }
+      }
     }
 
     return (computeUnbalancedRoot(vars.baseLeaves), computeRoot(vars.l2ToL1MsgsSubtreeRoots));

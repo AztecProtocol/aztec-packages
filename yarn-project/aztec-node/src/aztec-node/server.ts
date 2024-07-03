@@ -20,7 +20,7 @@ import {
   PublicDataWitness,
   PublicSimulationOutput,
   type SequencerConfig,
-  SiblingPath,
+  type SiblingPath,
   type Tx,
   type TxEffect,
   type TxHash,
@@ -36,6 +36,7 @@ import {
   type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -511,61 +512,23 @@ export class AztecNodeService implements AztecNode {
     if (block === undefined) {
       throw new Error('Block is not defined');
     }
-    // TODO ensure height correct - calc from constant?
-    const l2ToL1Messages = block.body.txEffects.map(txEffect => padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, 8));
-
-    // Index in full tree TODO less lazy way
+    // TODO account for msgs with same hash
+    const subtreeHeight = Math.ceil(Math.log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX));
+    const numTxs = block.body.txEffects.length < 2 ? 2 : block.body.txEffects.length;
+    const treeHeight = Math.ceil(Math.log2(numTxs)) + subtreeHeight;
+    const l2ToL1Messages = block.body.txEffects.map(txEffect =>
+      padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX),
+    );
+    // TODO ensure user is not supplying 0 value msg to avoid revert later on L1
     const msgIndex = l2ToL1Messages.flat().findIndex(msg => msg.equals(l2ToL1Message));
     if (msgIndex === -1) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
-    const indexOfMsgTx = msgIndex >> 3;
-    const indexOfMsgInSubtree = msgIndex % 8;
 
-    // Construct message subtrees
-    // NOTE: we still need separate subtrees because the zero hashes are incorrect vs on-chain otherwise
-    const l2toL1Subtrees = await Promise.all(
-      l2ToL1Messages.map(async (msgs, i) => {
-        const treeHeight = 3;
-        const tree = new StandardTree(
-          openTmpStore(true),
-          new SHA256Trunc(),
-          `temp_msgs_subtrees_${i}`,
-          treeHeight,
-          0n,
-          Fr,
-        );
-        await tree.appendLeaves(msgs);
-        return tree;
-      }),
-    );
-
-    // path of the input msg from leaf -> first out hash calculated in txs decoder
-    const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
-      BigInt(indexOfMsgInSubtree),
-      true,
-    );
-
-    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
-    // TODO calc height - currently height of tree req. for txs
-    const numTxs = block.body.txEffects.length < 2 ? 2 : block.body.txEffects.length;
-    const treeHeight = Math.ceil(Math.log2(numTxs));
-    const outHashTree = new StandardTree(
-      openTmpStore(true),
-      new SHA256Trunc(),
-      `temp_outhash_tree`,
-      treeHeight,
-      0n,
-      Fr,
-    );
-    await outHashTree.appendLeaves(l2toL1SubtreeRoots);
-
-    // TODO account for msgs with same hash
-    const pathOfTxInOutHashTree = await outHashTree.getSiblingPath(BigInt(indexOfMsgTx), true);
-    // Append subtree path to out hash tree path
-    const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxInOutHashTree.toBufferArray());
-    // Append binary index of subtree path to binary index of out hash tree path
-    return [BigInt(msgIndex), new SiblingPath(mergedPath.length, mergedPath)];
+    const tree = new StandardTree(openTmpStore(true), new SHA256Trunc(), `temp_outhash_tree`, treeHeight, 0n, Fr);
+    await tree.appendLeaves(l2ToL1Messages.flat());
+    const path = await tree.getSiblingPath(BigInt(msgIndex), true);
+    return [BigInt(msgIndex), path];
   }
 
   /**
