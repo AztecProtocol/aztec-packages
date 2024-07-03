@@ -8,7 +8,7 @@ use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
-use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp};
+use acvm::acir::circuit::opcodes::{BlockId, BlockType, ConstantOrWitnessEnum, MemOp};
 use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
@@ -1411,7 +1411,7 @@ impl<F: AcirField> AcirContext<F> {
                     _ => {
                         let witness_var = self.get_or_create_witness_var(input)?;
                         let witness = self.var_to_witness(witness_var)?;
-                        single_val_witnesses.push(FunctionInput::witness(witness, num_bits));
+                        single_val_witnesses.push(FunctionInput::from_witness(witness, num_bits));
                     }
                 }
             }

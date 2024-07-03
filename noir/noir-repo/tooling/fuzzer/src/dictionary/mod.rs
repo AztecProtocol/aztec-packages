@@ -10,7 +10,7 @@ use acvm::{
         circuit::{
             brillig::{BrilligBytecode, BrilligInputs},
             directives::Directive,
-            opcodes::{BlackBoxFuncCall, ConstantInput, FunctionInput, WitnessInput},
+            opcodes::{BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput},
             Circuit, Opcode, Program,
         },
         native_types::Expression,
@@ -84,10 +84,10 @@ fn build_dictionary_from_circuit<F: AcirField>(circuit: &Circuit<F>) -> HashSet<
             }
 
             Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                input: FunctionInput::Constant(ConstantInput { num_bits, .. }),
+                input: FunctionInput { input: ConstantOrWitnessEnum::Constant(_), num_bits },
             })
             | Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                input: FunctionInput::Witness(WitnessInput { num_bits, .. }),
+                input: FunctionInput { input: ConstantOrWitnessEnum::Witness(_), num_bits },
             }) => {
                 let field = 1u128.wrapping_shl(*num_bits);
                 constants.insert(F::from(field));

@@ -6,7 +6,7 @@ use acir::{
     brillig::ForeignCallResult,
     circuit::{
         brillig::BrilligBytecode,
-        opcodes::{BlockId, FunctionInput},
+        opcodes::{BlockId, ConstantOrWitnessEnum, FunctionInput},
         AssertionPayload, ErrorSelector, ExpressionOrMemory, Opcode, OpcodeLocation,
         RawAssertionPayload, ResolvedAssertionPayload, STRING_ERROR_SELECTOR,
     },
@@ -634,9 +634,9 @@ pub fn input_to_value<F: AcirField>(
     initial_witness: &WitnessMap<F>,
     input: FunctionInput<F>,
 ) -> Result<F, OpcodeResolutionError<F>> {
-    match input {
-        FunctionInput::Witness(witness) => Ok(*witness_to_value(initial_witness, witness.witness)?),
-        FunctionInput::Constant(value) => Ok(value.constant),
+    match input.input {
+        ConstantOrWitnessEnum::Witness(witness) => Ok(*witness_to_value(initial_witness, witness)?),
+        ConstantOrWitnessEnum::Constant(value) => Ok(value),
     }
 }
 

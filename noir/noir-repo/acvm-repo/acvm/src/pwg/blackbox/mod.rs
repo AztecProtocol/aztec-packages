@@ -1,5 +1,5 @@
 use acir::{
-    circuit::opcodes::{BlackBoxFuncCall, FunctionInput},
+    circuit::opcodes::{BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput},
     native_types::{Witness, WitnessMap},
     AcirField,
 };
@@ -42,11 +42,11 @@ fn first_missing_assignment<F>(
     inputs: &[FunctionInput<F>],
 ) -> Option<Witness> {
     inputs.iter().find_map(|input| {
-        if let FunctionInput::Witness(witness) = input {
-            if witness_assignments.contains_key(&witness.witness) {
+        if let ConstantOrWitnessEnum::Witness(witness) = input.input {
+            if witness_assignments.contains_key(&witness) {
                 None
             } else {
-                Some(witness.witness)
+                Some(witness)
             }
         } else {
             None

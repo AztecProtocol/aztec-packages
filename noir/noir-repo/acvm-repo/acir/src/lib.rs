@@ -42,7 +42,7 @@ mod reflection {
         circuit::{
             brillig::{BrilligInputs, BrilligOutputs},
             directives::Directive,
-            opcodes::{BlackBoxFuncCall, BlockType, FunctionInput},
+            opcodes::{BlackBoxFuncCall, BlockType, ConstantOrWitnessEnum, FunctionInput},
             AssertionPayload, Circuit, ExpressionOrMemory, ExpressionWidth, Opcode, OpcodeLocation,
             Program,
         },
@@ -68,6 +68,7 @@ mod reflection {
         tracer.trace_simple_type::<Opcode<FieldElement>>().unwrap();
         tracer.trace_simple_type::<OpcodeLocation>().unwrap();
         tracer.trace_simple_type::<BinaryFieldOp>().unwrap();
+        tracer.trace_simple_type::<ConstantOrWitnessEnum<FieldElement>>().unwrap();
         tracer.trace_simple_type::<FunctionInput<FieldElement>>().unwrap();
         tracer.trace_simple_type::<BlackBoxFuncCall<FieldElement>>().unwrap();
         tracer.trace_simple_type::<BrilligInputs<FieldElement>>().unwrap();

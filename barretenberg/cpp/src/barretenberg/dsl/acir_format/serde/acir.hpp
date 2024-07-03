@@ -5,15 +5,6 @@
 
 namespace Program {
 
-struct ConstantInput {
-    std::string constant;
-    uint32_t num_bits;
-
-    friend bool operator==(const ConstantInput&, const ConstantInput&);
-    std::vector<uint8_t> bincodeSerialize() const;
-    static ConstantInput bincodeDeserialize(std::vector<uint8_t>);
-};
-
 struct Witness {
     uint32_t value;
 
@@ -22,19 +13,10 @@ struct Witness {
     static Witness bincodeDeserialize(std::vector<uint8_t>);
 };
 
-struct WitnessInput {
-    Program::Witness witness;
-    uint32_t num_bits;
-
-    friend bool operator==(const WitnessInput&, const WitnessInput&);
-    std::vector<uint8_t> bincodeSerialize() const;
-    static WitnessInput bincodeDeserialize(std::vector<uint8_t>);
-};
-
-struct FunctionInput {
+struct ConstantOrWitnessEnum {
 
     struct Constant {
-        Program::ConstantInput value;
+        std::string value;
 
         friend bool operator==(const Constant&, const Constant&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -42,7 +24,7 @@ struct FunctionInput {
     };
 
     struct Witness {
-        Program::WitnessInput value;
+        Program::Witness value;
 
         friend bool operator==(const Witness&, const Witness&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -50,6 +32,15 @@ struct FunctionInput {
     };
 
     std::variant<Constant, Witness> value;
+
+    friend bool operator==(const ConstantOrWitnessEnum&, const ConstantOrWitnessEnum&);
+    std::vector<uint8_t> bincodeSerialize() const;
+    static ConstantOrWitnessEnum bincodeDeserialize(std::vector<uint8_t>);
+};
+
+struct FunctionInput {
+    Program::ConstantOrWitnessEnum input;
+    uint32_t num_bits;
 
     friend bool operator==(const FunctionInput&, const FunctionInput&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -6945,28 +6936,25 @@ Program::Circuit serde::Deserializable<Program::Circuit>::deserialize(Deserializ
 
 namespace Program {
 
-inline bool operator==(const ConstantInput& lhs, const ConstantInput& rhs)
+inline bool operator==(const ConstantOrWitnessEnum& lhs, const ConstantOrWitnessEnum& rhs)
 {
-    if (!(lhs.constant == rhs.constant)) {
-        return false;
-    }
-    if (!(lhs.num_bits == rhs.num_bits)) {
+    if (!(lhs.value == rhs.value)) {
         return false;
     }
     return true;
 }
 
-inline std::vector<uint8_t> ConstantInput::bincodeSerialize() const
+inline std::vector<uint8_t> ConstantOrWitnessEnum::bincodeSerialize() const
 {
     auto serializer = serde::BincodeSerializer();
-    serde::Serializable<ConstantInput>::serialize(*this, serializer);
+    serde::Serializable<ConstantOrWitnessEnum>::serialize(*this, serializer);
     return std::move(serializer).bytes();
 }
 
-inline ConstantInput ConstantInput::bincodeDeserialize(std::vector<uint8_t> input)
+inline ConstantOrWitnessEnum ConstantOrWitnessEnum::bincodeDeserialize(std::vector<uint8_t> input)
 {
     auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<ConstantInput>::deserialize(deserializer);
+    auto value = serde::Deserializable<ConstantOrWitnessEnum>::deserialize(deserializer);
     if (deserializer.get_buffer_offset() < input.size()) {
         throw_or_abort("Some input bytes were not read");
     }
@@ -6977,23 +6965,117 @@ inline ConstantInput ConstantInput::bincodeDeserialize(std::vector<uint8_t> inpu
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Program::ConstantInput>::serialize(const Program::ConstantInput& obj, Serializer& serializer)
+void serde::Serializable<Program::ConstantOrWitnessEnum>::serialize(const Program::ConstantOrWitnessEnum& obj,
+                                                                    Serializer& serializer)
 {
     serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.constant)>::serialize(obj.constant, serializer);
-    serde::Serializable<decltype(obj.num_bits)>::serialize(obj.num_bits, serializer);
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
     serializer.decrease_container_depth();
 }
 
 template <>
 template <typename Deserializer>
-Program::ConstantInput serde::Deserializable<Program::ConstantInput>::deserialize(Deserializer& deserializer)
+Program::ConstantOrWitnessEnum serde::Deserializable<Program::ConstantOrWitnessEnum>::deserialize(
+    Deserializer& deserializer)
 {
     deserializer.increase_container_depth();
-    Program::ConstantInput obj;
-    obj.constant = serde::Deserializable<decltype(obj.constant)>::deserialize(deserializer);
-    obj.num_bits = serde::Deserializable<decltype(obj.num_bits)>::deserialize(deserializer);
+    Program::ConstantOrWitnessEnum obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const ConstantOrWitnessEnum::Constant& lhs, const ConstantOrWitnessEnum::Constant& rhs)
+{
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> ConstantOrWitnessEnum::Constant::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<ConstantOrWitnessEnum::Constant>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline ConstantOrWitnessEnum::Constant ConstantOrWitnessEnum::Constant::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<ConstantOrWitnessEnum::Constant>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::ConstantOrWitnessEnum::Constant>::serialize(
+    const Program::ConstantOrWitnessEnum::Constant& obj, Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::ConstantOrWitnessEnum::Constant serde::Deserializable<Program::ConstantOrWitnessEnum::Constant>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::ConstantOrWitnessEnum::Constant obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const ConstantOrWitnessEnum::Witness& lhs, const ConstantOrWitnessEnum::Witness& rhs)
+{
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> ConstantOrWitnessEnum::Witness::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<ConstantOrWitnessEnum::Witness>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline ConstantOrWitnessEnum::Witness ConstantOrWitnessEnum::Witness::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<ConstantOrWitnessEnum::Witness>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::ConstantOrWitnessEnum::Witness>::serialize(
+    const Program::ConstantOrWitnessEnum::Witness& obj, Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::ConstantOrWitnessEnum::Witness serde::Deserializable<Program::ConstantOrWitnessEnum::Witness>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::ConstantOrWitnessEnum::Witness obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }
 
@@ -7448,7 +7530,10 @@ namespace Program {
 
 inline bool operator==(const FunctionInput& lhs, const FunctionInput& rhs)
 {
-    if (!(lhs.value == rhs.value)) {
+    if (!(lhs.input == rhs.input)) {
+        return false;
+    }
+    if (!(lhs.num_bits == rhs.num_bits)) {
         return false;
     }
     return true;
@@ -7478,7 +7563,8 @@ template <typename Serializer>
 void serde::Serializable<Program::FunctionInput>::serialize(const Program::FunctionInput& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+    serde::Serializable<decltype(obj.input)>::serialize(obj.input, serializer);
+    serde::Serializable<decltype(obj.num_bits)>::serialize(obj.num_bits, serializer);
     serializer.decrease_container_depth();
 }
 
@@ -7488,102 +7574,9 @@ Program::FunctionInput serde::Deserializable<Program::FunctionInput>::deserializ
 {
     deserializer.increase_container_depth();
     Program::FunctionInput obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    obj.input = serde::Deserializable<decltype(obj.input)>::deserialize(deserializer);
+    obj.num_bits = serde::Deserializable<decltype(obj.num_bits)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const FunctionInput::Constant& lhs, const FunctionInput::Constant& rhs)
-{
-    if (!(lhs.value == rhs.value)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> FunctionInput::Constant::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<FunctionInput::Constant>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline FunctionInput::Constant FunctionInput::Constant::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<FunctionInput::Constant>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::FunctionInput::Constant>::serialize(const Program::FunctionInput::Constant& obj,
-                                                                      Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::FunctionInput::Constant serde::Deserializable<Program::FunctionInput::Constant>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::FunctionInput::Constant obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const FunctionInput::Witness& lhs, const FunctionInput::Witness& rhs)
-{
-    if (!(lhs.value == rhs.value)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> FunctionInput::Witness::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<FunctionInput::Witness>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline FunctionInput::Witness FunctionInput::Witness::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<FunctionInput::Witness>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::FunctionInput::Witness>::serialize(const Program::FunctionInput::Witness& obj,
-                                                                     Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::FunctionInput::Witness serde::Deserializable<Program::FunctionInput::Witness>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::FunctionInput::Witness obj;
-    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }
 
@@ -8907,60 +8900,6 @@ Program::Witness serde::Deserializable<Program::Witness>::deserialize(Deserializ
     deserializer.increase_container_depth();
     Program::Witness obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
-    deserializer.decrease_container_depth();
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const WitnessInput& lhs, const WitnessInput& rhs)
-{
-    if (!(lhs.witness == rhs.witness)) {
-        return false;
-    }
-    if (!(lhs.num_bits == rhs.num_bits)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> WitnessInput::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<WitnessInput>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline WitnessInput WitnessInput::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<WitnessInput>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::WitnessInput>::serialize(const Program::WitnessInput& obj, Serializer& serializer)
-{
-    serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.witness)>::serialize(obj.witness, serializer);
-    serde::Serializable<decltype(obj.num_bits)>::serialize(obj.num_bits, serializer);
-    serializer.decrease_container_depth();
-}
-
-template <>
-template <typename Deserializer>
-Program::WitnessInput serde::Deserializable<Program::WitnessInput>::deserialize(Deserializer& deserializer)
-{
-    deserializer.increase_container_depth();
-    Program::WitnessInput obj;
-    obj.witness = serde::Deserializable<decltype(obj.witness)>::deserialize(deserializer);
-    obj.num_bits = serde::Deserializable<decltype(obj.num_bits)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
 }

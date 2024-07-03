@@ -4,65 +4,45 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Note: Some functions will not use all of the witness
 // So we need to supply how many bits of the witness is needed
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WitnessInput {
-    pub witness: Witness,
+pub enum ConstantOrWitnessEnum<F> {
+    Constant(F),
+    Witness(Witness),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FunctionInput<F> {
+    pub input: ConstantOrWitnessEnum<F>,
     pub num_bits: u32,
-}
-
-impl std::fmt::Display for WitnessInput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "witness:{}, num_bits: {}", self.witness.witness_index(), self.num_bits)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConstantInput<F> {
-    pub constant: F,
-    pub num_bits: u32,
-}
-
-impl<F: std::fmt::Display> std::fmt::Display for ConstantInput<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "field:{}, num_bits: {}", self.constant, self.num_bits)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FunctionInput<F> {
-    Constant(ConstantInput<F>),
-    Witness(WitnessInput),
 }
 
 impl<F> FunctionInput<F> {
-    pub fn constant(constant: F, num_bits: u32) -> Self {
-        FunctionInput::Constant(ConstantInput { constant, num_bits })
-    }
-
-    pub fn witness(witness: Witness, num_bits: u32) -> Self {
-        FunctionInput::Witness(WitnessInput { witness, num_bits })
-    }
-
     pub fn to_witness(&self) -> Witness {
-        match self {
-            FunctionInput::Constant(_) => unreachable!("ICE - Expected Witness"),
-            FunctionInput::Witness(witness) => witness.witness,
+        match self.input {
+            ConstantOrWitnessEnum::Constant(_) => unreachable!("ICE - Expected Witness"),
+            ConstantOrWitnessEnum::Witness(witness) => witness,
         }
     }
 
     pub fn num_bits(&self) -> u32 {
-        match self {
-            FunctionInput::Constant(constant) => constant.num_bits,
-            FunctionInput::Witness(witness) => witness.num_bits,
-        }
+        self.num_bits
+    }
+
+    pub fn from_witness(witness: Witness, num_bits: u32) -> FunctionInput<F> {
+        FunctionInput { input: ConstantOrWitnessEnum::Witness(witness), num_bits }
+    }
+
+    pub fn constant(value: F, num_bits: u32) -> FunctionInput<F> {
+        FunctionInput { input: ConstantOrWitnessEnum::Constant(value), num_bits }
     }
 }
 
 impl<F: std::fmt::Display> std::fmt::Display for FunctionInput<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FunctionInput::Constant(constant) => write!(f, "{constant}"),
-            FunctionInput::Witness(witness) => write!(f, "{witness}"),
+        match &self.input {
+            ConstantOrWitnessEnum::Constant(constant) => write!(f, "{constant}"),
+            ConstantOrWitnessEnum::Witness(witness) => write!(f, "{}", witness.0),
         }
     }
 }
@@ -442,7 +422,7 @@ fn get_inputs_string<F: std::fmt::Display>(inputs: &[FunctionInput<F>]) -> Strin
         let last = inputs.last().unwrap();
 
         let mut result = String::new();
-        result += &format!("({})...({})", first, last);
+        result += &format!("({})...({})", first, last,);
 
         result
     }
@@ -540,21 +520,23 @@ mod tests {
     use crate::{circuit::Opcode, native_types::Witness};
     use acir_field::{AcirField, FieldElement};
 
-    use super::{BlackBoxFuncCall, FunctionInput, WitnessInput};
+    use super::{BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput};
 
     fn keccakf1600_opcode<F: AcirField>() -> Opcode<F> {
-        let inputs: Box<[FunctionInput<F>; 25]> =
-            Box::new(std::array::from_fn(|i| FunctionInput::witness(Witness(i as u32 + 1), 8)));
+        let inputs: Box<[FunctionInput<F>; 25]> = Box::new(std::array::from_fn(|i| {
+            FunctionInput::from_witness(Witness(i as u32 + 1), 8)
+        }));
         let outputs: Box<[Witness; 25]> = Box::new(std::array::from_fn(|i| Witness(i as u32 + 26)));
 
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::Keccakf1600 { inputs, outputs })
     }
     fn schnorr_verify_opcode<F: AcirField>() -> Opcode<F> {
-        let public_key_x = FunctionInput::witness(Witness(1), FieldElement::max_num_bits());
-        let public_key_y = FunctionInput::witness(Witness(2), FieldElement::max_num_bits());
-        let signature: Box<[FunctionInput<F>; 64]> =
-            Box::new(std::array::from_fn(|i| FunctionInput::witness(Witness(i as u32 + 3), 8)));
-        let message: Vec<FunctionInput<F>> = vec![FunctionInput::witness(Witness(67), 8)];
+        let public_key_x = FunctionInput::from_witness(Witness(1), FieldElement::max_num_bits());
+        let public_key_y = FunctionInput::from_witness(Witness(2), FieldElement::max_num_bits());
+        let signature: Box<[FunctionInput<F>; 64]> = Box::new(std::array::from_fn(|i| {
+            FunctionInput::from_witness(Witness(i as u32 + 3), 8)
+        }));
+        let message: Vec<FunctionInput<F>> = vec![FunctionInput::from_witness(Witness(67), 8)];
         let output = Witness(68);
 
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::SchnorrVerify {
