@@ -347,7 +347,7 @@ void build_constraints(Builder& builder,
             // proof aggregation state are a circuit constant. The user tells us they how they want these
             // constants set by keeping the nested aggregation object attached to the proof as public inputs.
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            // LONDONTODO(AGGREGATION)
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             // for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
             //     // Set the nested aggregation object indices to witness indices from the proof
             //     nested_aggregation_object[i] =
@@ -378,7 +378,7 @@ void build_constraints(Builder& builder,
             // First add the output aggregation object as public inputs
             // Set the indices as public inputs because they are no longer being
             // created in ACIR
-            // LONDONTODO(AGGREGATION)
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             // for (const auto& idx : current_aggregation_object) {
             //     builder.set_public_input(idx);
             // }
@@ -390,7 +390,7 @@ void build_constraints(Builder& builder,
             // builder.set_recursive_proof(proof_output_witness_indices);
         }
         static_cast<void>(honk_recursion);
-        // LONDONTODO(AGGREGATION)
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
         // else if (honk_recursion &&
         //            builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
         //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted

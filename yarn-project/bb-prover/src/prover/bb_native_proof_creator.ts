@@ -430,7 +430,7 @@ export class BBNativeProofCreator implements ProofCreator {
     const fields = json.map(Fr.fromString);
     const numPublicInputs = vkData.numPublicInputs;
     // const numPublicInputs =
-    // LONDONTODO(PUBLIC INPUTS)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
     //   circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.info(

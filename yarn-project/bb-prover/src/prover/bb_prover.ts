@@ -927,6 +927,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       throw new Error(`Invalid verification key for ${circuitType}`);
     }
     const numPublicInputs = vkData.numPublicInputs;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
     // const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
     //   ? vkData.numPublicInputs
     //   : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;

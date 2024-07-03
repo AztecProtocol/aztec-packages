@@ -214,7 +214,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
 
     // Aggregate the current aggregation object with these pairing points from verify_proof
-    // LONDONTODO(AGGREGATION)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
     aggregation_state_ct cur_aggregation_object;
     cur_aggregation_object.P0 = pairing_points[0]; // * recursion_separator;
     cur_aggregation_object.P1 = pairing_points[1]; // * recursion_separator;
