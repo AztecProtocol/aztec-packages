@@ -1,6 +1,5 @@
 use crate::native_types::Witness;
 use crate::BlackBoxFunc;
-use acir_field::AcirField;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // Note: Some functions will not use all of the witness
@@ -415,7 +414,7 @@ impl<F: Copy> BlackBoxFuncCall<F> {
 
 const ABBREVIATION_LIMIT: usize = 5;
 
-fn get_inputs_string<F: AcirField>(inputs: &[FunctionInput<F>]) -> String {
+fn get_inputs_string<F: std::fmt::Display>(inputs: &[FunctionInput<F>]) -> String {
     // Once a vectors length gets above this limit,
     // instead of listing all of their elements, we use ellipses
     // to abbreviate them
@@ -465,7 +464,7 @@ fn get_outputs_string(outputs: &[Witness]) -> String {
     }
 }
 
-impl<F: AcirField> std::fmt::Display for BlackBoxFuncCall<F> {
+impl<F: std::fmt::Display + Copy> std::fmt::Display for BlackBoxFuncCall<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BlackBoxFuncCall::PedersenCommitment { .. } => {
@@ -498,7 +497,7 @@ impl<F: AcirField> std::fmt::Display for BlackBoxFuncCall<F> {
     }
 }
 
-impl<F: AcirField> std::fmt::Debug for BlackBoxFuncCall<F> {
+impl<F: std::fmt::Display + Copy> std::fmt::Debug for BlackBoxFuncCall<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self, f)
     }
