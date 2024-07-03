@@ -36,14 +36,17 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
-    use dep::types::constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__TSK_M};
+    use dep::types::constants::{
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, FIXED_AVM_STARTUP_L2_GAS
+    };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
         log_hash::{LogHash, NoteLogHash}
     },
-        address::AztecAddress, hash::{silo_note_hash, silo_nullifier},
+        address::{AztecAddress, EthAddress}, hash::{silo_note_hash, silo_nullifier},
         tests::fixture_builder::FixtureBuilder, utils::{arrays::array_eq}, grumpkin_point::GrumpkinPoint
     };
 
