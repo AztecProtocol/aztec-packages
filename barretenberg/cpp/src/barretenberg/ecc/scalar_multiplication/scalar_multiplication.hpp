@@ -179,6 +179,11 @@ template <typename Curve> struct MultipleAdditionSequences {
 template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences);
 
 template <typename Curve>
+typename Curve::AffineElement affine_add_with_denominator(const typename Curve::AffineElement&,
+                                                          const typename Curve::AffineElement&,
+                                                          const typename Curve::BaseField& denominator);
+
+template <typename Curve>
 void remove_duplicates(std::span<const typename Curve::ScalarField> polynomial,
                        std::span<typename Curve::AffineElement> base_points,
                        pippenger_runtime_state<Curve>& pippenger_runtime_state);

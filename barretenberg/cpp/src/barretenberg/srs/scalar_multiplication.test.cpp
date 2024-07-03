@@ -277,6 +277,84 @@ TYPED_TEST(ScalarMultiplicationTests, ComputePointAdditionDenominators)
     }
 }
 
+TYPED_TEST(ScalarMultiplicationTests, AffineAddWithDenominator)
+{
+    using Curve = TypeParam;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+    using Fq = typename Curve::BaseField;
+
+    AffineElement point_1 = Element::random_element();
+    AffineElement point_2 = Element::random_element();
+    Fq denominator = (point_2.x - point_1.x).invert();
+
+    AffineElement expected = point_1 + point_2;
+
+    AffineElement result = scalar_multiplication::affine_add_with_denominator<Curve>(point_1, point_2, denominator);
+
+    EXPECT_EQ(result, expected);
+}
+
+TYPED_TEST(ScalarMultiplicationTests, BatchedAffineAddInPlaceSimple)
+{
+    using Curve = TypeParam;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 2;
+    std::array<AffineElement, num_points> points;
+    for (auto& point : points) {
+        point = Element::random_element();
+    }
+    std::array<uint64_t, 1> sequence_counts{ 2 };
+
+    scalar_multiplication::MultipleAdditionSequences<Curve> addition_sequences{ sequence_counts, points, {} };
+
+    std::array<AffineElement, 1> expected_points{ points[0] + points[1] };
+
+    scalar_multiplication::batched_affine_add_in_place(addition_sequences);
+
+    for (size_t idx = 0; idx < expected_points.size(); ++idx) {
+        // info("expected = ", expected_points[idx]);
+        // info("result = ", points[idx]);
+        EXPECT_EQ(expected_points[idx], points[idx]);
+    }
+}
+
+TYPED_TEST(ScalarMultiplicationTests, BatchedAffineAddInPlace)
+{
+    using Curve = TypeParam;
+    using Element = typename Curve::Element;
+    using G1 = typename Curve::AffineElement;
+
+    const size_t num_points = 10;
+    std::array<G1, num_points> points;
+    for (auto& point : points) {
+        point = Element::random_element();
+    }
+    std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+
+    scalar_multiplication::MultipleAdditionSequences<Curve> addition_sequences{ sequence_counts, points, {} };
+
+    std::vector<G1> expected_points;
+    size_t point_idx = 0;
+    for (auto count : sequence_counts) {
+        G1 sum = points[point_idx++];
+        for (size_t i = 1; i < count; ++i) {
+            sum = sum + points[point_idx++];
+        }
+        expected_points.emplace_back(sum);
+    }
+
+    scalar_multiplication::batched_affine_add_in_place(addition_sequences);
+
+    for (size_t idx = 0; idx < expected_points.size(); ++idx) {
+        // info("expected = ", expected_points[idx]);
+        // info("result = ", points[idx]);
+        EXPECT_EQ(expected_points[idx], points[idx]);
+    }
+}
+
 TYPED_TEST(ScalarMultiplicationTests, RemoveDuplicates)
 {
     using Curve = TypeParam;
@@ -656,7 +734,8 @@ TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
 
     Element expected = Group::one * scalar;
 
-    // we want to test that we can split a scalar into two half-length components, using the same location in memory.
+    // we want to test that we can split a scalar into two half-length components, using the same location in
+    // memory.
     Fr* k1_t = &scalar;
     Fr* k2_t = (Fr*)&scalar.data[2];
 
