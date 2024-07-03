@@ -55,6 +55,7 @@ void AvmProver::execute_preamble_round()
  */
 void AvmProver::execute_wire_commitments_round()
 {
+
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();

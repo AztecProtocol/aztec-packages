@@ -536,15 +536,8 @@ class AvmFlavor {
                               lookup_div_u16_5_counts,
                               lookup_div_u16_6_counts,
                               lookup_div_u16_7_counts)
-
-        RefVector<DataType> get_wires() { return get_all(); };
     };
 
-    /**
-     * @brief Entities that are constructed by the prover.
-     *
-     * @tparam DataType
-     */
     template <typename DataType> struct DerivedWitnessEntities {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               perm_main_alu,
@@ -600,14 +593,7 @@ class AvmFlavor {
                               lookup_div_u16_4,
                               lookup_div_u16_5,
                               lookup_div_u16_6,
-                              lookup_div_u16_7);
-    };
-
-    template <typename DataType>
-    class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
-        auto get_wires() { return WireEntities<DataType>::get_all(); };
+                              lookup_div_u16_7)
     };
 
     template <typename DataType> class ShiftedEntities {
@@ -683,79 +669,88 @@ class AvmFlavor {
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
     static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
     {
-        return RefArray{ entities.alu_a_hi,
-                         entities.alu_a_lo,
-                         entities.alu_b_hi,
-                         entities.alu_b_lo,
-                         entities.alu_cmp_rng_ctr,
-                         entities.alu_div_u16_r0,
-                         entities.alu_div_u16_r1,
-                         entities.alu_div_u16_r2,
-                         entities.alu_div_u16_r3,
-                         entities.alu_div_u16_r4,
-                         entities.alu_div_u16_r5,
-                         entities.alu_div_u16_r6,
-                         entities.alu_div_u16_r7,
-                         entities.alu_op_add,
-                         entities.alu_op_cast_prev,
-                         entities.alu_op_cast,
-                         entities.alu_op_div,
-                         entities.alu_op_mul,
-                         entities.alu_op_shl,
-                         entities.alu_op_shr,
-                         entities.alu_op_sub,
-                         entities.alu_p_sub_a_hi,
-                         entities.alu_p_sub_a_lo,
-                         entities.alu_p_sub_b_hi,
-                         entities.alu_p_sub_b_lo,
-                         entities.alu_sel_alu,
-                         entities.alu_sel_cmp,
-                         entities.alu_sel_div_rng_chk,
-                         entities.alu_sel_rng_chk_lookup,
-                         entities.alu_sel_rng_chk,
-                         entities.alu_u16_r0,
-                         entities.alu_u16_r1,
-                         entities.alu_u16_r2,
-                         entities.alu_u16_r3,
-                         entities.alu_u16_r4,
-                         entities.alu_u16_r5,
-                         entities.alu_u16_r6,
-                         entities.alu_u8_r0,
-                         entities.alu_u8_r1,
-                         entities.binary_acc_ia,
-                         entities.binary_acc_ib,
-                         entities.binary_acc_ic,
-                         entities.binary_mem_tag_ctr,
-                         entities.binary_op_id,
-                         entities.kernel_emit_l2_to_l1_msg_write_offset,
-                         entities.kernel_emit_note_hash_write_offset,
-                         entities.kernel_emit_nullifier_write_offset,
-                         entities.kernel_emit_unencrypted_log_write_offset,
-                         entities.kernel_l1_to_l2_msg_exists_write_offset,
-                         entities.kernel_note_hash_exist_write_offset,
-                         entities.kernel_nullifier_exists_write_offset,
-                         entities.kernel_nullifier_non_exists_write_offset,
-                         entities.kernel_side_effect_counter,
-                         entities.kernel_sload_write_offset,
-                         entities.kernel_sstore_write_offset,
-                         entities.main_da_gas_remaining,
-                         entities.main_internal_return_ptr,
-                         entities.main_l2_gas_remaining,
-                         entities.main_pc,
-                         entities.mem_glob_addr,
-                         entities.mem_rw,
-                         entities.mem_sel_mem,
-                         entities.mem_tag,
-                         entities.mem_tsp,
-                         entities.mem_val };
+        return RefArray{
+
+            entities.alu_a_hi,
+            entities.alu_a_lo,
+            entities.alu_b_hi,
+            entities.alu_b_lo,
+            entities.alu_cmp_rng_ctr,
+            entities.alu_div_u16_r0,
+            entities.alu_div_u16_r1,
+            entities.alu_div_u16_r2,
+            entities.alu_div_u16_r3,
+            entities.alu_div_u16_r4,
+            entities.alu_div_u16_r5,
+            entities.alu_div_u16_r6,
+            entities.alu_div_u16_r7,
+            entities.alu_op_add,
+            entities.alu_op_cast_prev,
+            entities.alu_op_cast,
+            entities.alu_op_div,
+            entities.alu_op_mul,
+            entities.alu_op_shl,
+            entities.alu_op_shr,
+            entities.alu_op_sub,
+            entities.alu_p_sub_a_hi,
+            entities.alu_p_sub_a_lo,
+            entities.alu_p_sub_b_hi,
+            entities.alu_p_sub_b_lo,
+            entities.alu_sel_alu,
+            entities.alu_sel_cmp,
+            entities.alu_sel_div_rng_chk,
+            entities.alu_sel_rng_chk_lookup,
+            entities.alu_sel_rng_chk,
+            entities.alu_u16_r0,
+            entities.alu_u16_r1,
+            entities.alu_u16_r2,
+            entities.alu_u16_r3,
+            entities.alu_u16_r4,
+            entities.alu_u16_r5,
+            entities.alu_u16_r6,
+            entities.alu_u8_r0,
+            entities.alu_u8_r1,
+            entities.binary_acc_ia,
+            entities.binary_acc_ib,
+            entities.binary_acc_ic,
+            entities.binary_mem_tag_ctr,
+            entities.binary_op_id,
+            entities.kernel_emit_l2_to_l1_msg_write_offset,
+            entities.kernel_emit_note_hash_write_offset,
+            entities.kernel_emit_nullifier_write_offset,
+            entities.kernel_emit_unencrypted_log_write_offset,
+            entities.kernel_l1_to_l2_msg_exists_write_offset,
+            entities.kernel_note_hash_exist_write_offset,
+            entities.kernel_nullifier_exists_write_offset,
+            entities.kernel_nullifier_non_exists_write_offset,
+            entities.kernel_side_effect_counter,
+            entities.kernel_sload_write_offset,
+            entities.kernel_sstore_write_offset,
+            entities.main_da_gas_remaining,
+            entities.main_internal_return_ptr,
+            entities.main_l2_gas_remaining,
+            entities.main_pc,
+            entities.mem_glob_addr,
+            entities.mem_rw,
+            entities.mem_sel_mem,
+            entities.mem_tag,
+            entities.mem_tsp,
+            entities.mem_val,
+        };
     }
+
+    template <typename DataType>
+    class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
+        auto get_wires() { return WireEntities<DataType>::get_all(); };
+    };
 
     template <typename DataType>
     class AllEntities : public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Init
         AllEntities()
             : PrecomputedEntities<DataType>{}
             , WitnessEntities<DataType>{}
@@ -768,7 +763,6 @@ class AvmFlavor {
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         }
-
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
