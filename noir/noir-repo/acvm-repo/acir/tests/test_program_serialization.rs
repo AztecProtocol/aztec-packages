@@ -62,13 +62,13 @@ fn multi_scalar_mul_circuit() {
     let multi_scalar_mul: Opcode<FieldElement> =
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::MultiScalarMul {
             points: vec![
-                FunctionInput::Witness(WitnessInput { witness: Witness(1), num_bits: 128 }),
-                FunctionInput::Witness(WitnessInput { witness: Witness(2), num_bits: 128 }),
-                FunctionInput::Witness(WitnessInput { witness: Witness(3), num_bits: 1 }),
+                FunctionInput::witness(Witness(1), 128),
+                FunctionInput::witness(Witness(2), 128),
+                FunctionInput::witness(Witness(3), 1),
             ],
             scalars: vec![
-                FunctionInput::Witness(WitnessInput { witness: Witness(4), num_bits: 128 }),
-                FunctionInput::Witness(WitnessInput { witness: Witness(5), num_bits: 128 }),
+                FunctionInput::witness(Witness(4), 128),
+                FunctionInput::witness(Witness(5), 128),
             ],
             outputs: (Witness(6), Witness(7), Witness(8)),
         });
@@ -102,22 +102,15 @@ fn multi_scalar_mul_circuit() {
 
 #[test]
 fn schnorr_verify_circuit() {
-    let public_key_x = FunctionInput::Witness(WitnessInput {
-        witness: Witness(1),
-        num_bits: FieldElement::max_num_bits(),
-    });
-    let public_key_y = FunctionInput::Witness(WitnessInput {
-        witness: Witness(2),
-        num_bits: FieldElement::max_num_bits(),
-    });
+    let public_key_x = FunctionInput::witness(Witness(1), FieldElement::max_num_bits());
+    let public_key_y = FunctionInput::witness(Witness(2), FieldElement::max_num_bits());
     let signature: [FunctionInput<FieldElement>; 64] = (3..(3 + 64))
-        .map(|i| FunctionInput::Witness(WitnessInput { witness: Witness(i), num_bits: 8 }))
+        .map(|i| FunctionInput::witness(Witness(i), 8))
         .collect::<Vec<_>>()
         .try_into()
         .unwrap();
-    let message = ((3 + 64)..(3 + 64 + 10))
-        .map(|i| FunctionInput::Witness(WitnessInput { witness: Witness(i), num_bits: 8 }))
-        .collect();
+    let message =
+        ((3 + 64)..(3 + 64 + 10)).map(|i| FunctionInput::witness(Witness(i), 8)).collect();
     let output = Witness(3 + 64 + 10);
     let last_input = output.witness_index() - 1;
 

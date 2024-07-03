@@ -571,7 +571,7 @@ impl<F: AcirField> GeneratedAcir<F> {
         };
 
         let constraint = AcirOpcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-            input: FunctionInput::Witness(WitnessInput { witness, num_bits }),
+            input: FunctionInput::witness(witness, num_bits),
         });
         self.push_opcode(constraint);
 

@@ -74,7 +74,7 @@ impl<F: AcirField> RangeOptimizer<F> {
                 }
 
                 Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                    input: FunctionInput::Witness(WitnessInput { witness, num_bits }),
+                    input: FunctionInput::witness(witness, num_bits),
                 }) => Some((*witness, *num_bits)),
 
                 _ => None,
@@ -158,7 +158,7 @@ mod tests {
     fn test_circuit(ranges: Vec<(Witness, u32)>) -> Circuit<FieldElement> {
         fn test_range_constraint(witness: Witness, num_bits: u32) -> Opcode<FieldElement> {
             Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                input: FunctionInput::Witness(WitnessInput { witness, num_bits }),
+                input: FunctionInput::witness(witness, num_bits),
             })
         }
 
@@ -201,7 +201,7 @@ mod tests {
         assert_eq!(
             optimized_circuit.opcodes[0],
             Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                input: FunctionInput::Witness(WitnessInput { witness: Witness(1), num_bits: 16 })
+                input: FunctionInput::witness(Witness(1), 16)
             })
         );
     }
@@ -224,13 +224,13 @@ mod tests {
         assert_eq!(
             optimized_circuit.opcodes[0],
             Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                input: FunctionInput::Witness(WitnessInput { witness: Witness(1), num_bits: 16 })
+                input: FunctionInput::witness(Witness(1), 16)
             })
         );
         assert_eq!(
             optimized_circuit.opcodes[1],
             Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                input: FunctionInput::Witness(WitnessInput { witness: Witness(2), num_bits: 23 })
+                input: FunctionInput::witness(Witness(2), 23)
             })
         );
     }

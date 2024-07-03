@@ -1414,8 +1414,7 @@ impl<F: AcirField> AcirContext<F> {
                     _ => {
                         let witness_var = self.get_or_create_witness_var(input)?;
                         let witness = self.var_to_witness(witness_var)?;
-                        single_val_witnesses
-                            .push(FunctionInput::Witness(WitnessInput { witness, num_bits }));
+                        single_val_witnesses.push(FunctionInput::witness(witness, num_bits));
                     }
                 }
             }
