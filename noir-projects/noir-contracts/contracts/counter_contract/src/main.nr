@@ -38,10 +38,12 @@ contract Counter {
     }
     // docs:end:get_counter
 
+    // docs:start:test_imports
     use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    // docs:end:test_imports
 
     // docs:start:txe_test_increment
     #[test]
