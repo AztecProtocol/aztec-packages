@@ -33,12 +33,12 @@ export function hashVK(vkBuf: Buffer) {
 
 /**
  * Computes a note hash nonce, which will be used to create a unique note hash.
- * @param nullifierZero - The first nullifier in the tx.
+ * @param txHash - Tx hash (the first nullifier in the tx).
  * @param noteHashIndex - The index of the note hash.
  * @returns A note hash nonce.
  */
-export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Fr {
-  return pedersenHash([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
+export function computeNoteHashNonce(txHash: Fr, noteHashIndex: number): Fr {
+  return pedersenHash([txHash, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
