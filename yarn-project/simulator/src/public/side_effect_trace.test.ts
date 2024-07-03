@@ -6,8 +6,7 @@ import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { randomBytes, randomInt } from 'crypto';
 
-import { Selector } from '../../../foundation/src/abi/selector.js';
-import { AvmContractCallResults } from '../avm/avm_message_call_result.js';
+import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { initExecutionEnvironment } from '../avm/fixtures/index.js';
 import { PublicSideEffectTrace, type TracedContractInstance } from './side_effect_trace.js';
 
@@ -25,7 +24,6 @@ describe('Side Effect Trace', () => {
   const value = Fr.random();
   const recipient = Fr.random();
   const content = Fr.random();
-  const event = new Fr(randomBytes(Selector.SIZE).readUint32BE());
   const log = [Fr.random(), Fr.random(), Fr.random()];
 
   const startGasLeft = Gas.fromFields([new Fr(randomInt(10000)), new Fr(randomInt(10000))]);
@@ -41,7 +39,7 @@ describe('Side Effect Trace', () => {
     transactionFee,
   });
   const reverted = false;
-  const avmCallResults = new AvmContractCallResults(reverted, returnValues);
+  const avmCallResults = new AvmContractCallResult(reverted, returnValues);
 
   let startCounter: number;
   let startCounterFr: Fr;
@@ -117,7 +115,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    expect(pxResult.newNoteHashes).toEqual([
+    expect(pxResult.noteHashes).toEqual([
       {
         //storageAddress: contractAddress,
         value: utxo,
@@ -165,7 +163,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    expect(pxResult.newNullifiers).toEqual([
+    expect(pxResult.nullifiers).toEqual([
       {
         value: utxo,
         counter: startCounter,
@@ -199,19 +197,19 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    expect(pxResult.newL2ToL1Messages).toEqual([
+    expect(pxResult.l2ToL1Messages).toEqual([
       new L2ToL1Message(EthAddress.fromField(recipient), content, startCounter),
     ]);
   });
 
   it('Should trace new unencrypted logs', () => {
-    trace.traceUnencryptedLog(address, event, log);
+    trace.traceUnencryptedLog(address, log);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
     const expectLog = new UnencryptedL2Log(
       AztecAddress.fromField(address),
-      EventSelector.fromField(event),
+      EventSelector.fromField(new Fr(0)),
       Buffer.concat(log.map(f => f.toBuffer())),
     );
     expect(pxResult.unencryptedLogs.logs).toEqual([expectLog]);
@@ -266,7 +264,7 @@ describe('Side Effect Trace', () => {
     testCounter++;
     nestedTrace.traceNewL2ToL1Message(recipient, content);
     testCounter++;
-    nestedTrace.traceUnencryptedLog(address, event, log);
+    nestedTrace.traceUnencryptedLog(address, log);
     testCounter++;
 
     trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, endGasLeft, bytecode, avmCallResults);

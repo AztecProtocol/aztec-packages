@@ -1,5 +1,4 @@
-use crate::{traits::{Serialize, Deserialize, Hash}, hash::poseidon2_hash};
-use dep::std::cmp::Eq;
+use crate::{traits::{Serialize, Deserialize, Hash, Empty}, hash::poseidon2_hash};
 
 global GRUMPKIN_POINT_SERIALIZED_LEN: Field = 2;
 
@@ -33,6 +32,15 @@ impl Eq for GrumpkinPoint {
 impl Hash for GrumpkinPoint {
     fn hash(self) -> Field {
         poseidon2_hash(self.serialize())
+    }
+}
+
+impl Empty for GrumpkinPoint {
+    fn empty() -> Self {
+        GrumpkinPoint {
+            x: 0,
+            y: 0
+        }
     }
 }
 

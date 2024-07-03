@@ -8,7 +8,7 @@ contract Test {
         PrivateContext, PrivateImmutable, PrivateSet, SharedImmutable
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys_with_randomness;
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -247,13 +247,13 @@ contract Test {
     // Purely exists for testing
     #[aztec(public)]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // For testing non-note encrypted logs
@@ -271,7 +271,7 @@ contract Test {
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
         event.emit(
-            encode_and_encrypt_event_with_keys(
+            encode_and_encrypt_event_with_keys_with_randomness(
                 &mut context,
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
@@ -288,7 +288,7 @@ contract Test {
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
             otherEvent.emit(
-                encode_and_encrypt_event_with_keys(
+                encode_and_encrypt_event_with_keys_with_randomness(
                     &mut context,
                     // testing only - a randomness of 0 signals the kerels to not mask the address
                     0,
@@ -296,25 +296,6 @@ contract Test {
                     owner_ivpk_m
                 )
             );
-        }
-    }
-
-    #[aztec(private)]
-    fn emit_msg_sender() {
-        context.emit_unencrypted_log(context.msg_sender());
-    }
-
-    #[aztec(private)]
-    fn emit_unencrypted_logs(fields: [Field; 5], nest: bool) {
-        // Merged two fns to avoid hitting max #functions limit:
-        // nest -> emit_unencrypted_logs_nested
-        // else -> emit_array_as_unencrypted_log
-        if nest {
-            Test::at(context.this_address()).emit_msg_sender().call(&mut context);
-            Test::at(context.this_address()).emit_unencrypted_logs(fields, false).call(&mut context);
-            context.emit_unencrypted_log("test");
-        } else {
-            context.emit_unencrypted_log(fields);
         }
     }
 
