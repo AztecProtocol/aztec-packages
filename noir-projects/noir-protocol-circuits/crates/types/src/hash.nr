@@ -61,13 +61,9 @@ pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> F
 }
 
 pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_tx: u32) -> Field {
-    if note_hash.contract_address.is_zero() {
-        0
-    } else {
-        let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
-        let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
-        compute_siloed_note_hash(note_hash.contract_address, unique_note_hash)
-    }
+    let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
+    let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
+    compute_siloed_note_hash(note_hash.contract_address, unique_note_hash)
 }
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
