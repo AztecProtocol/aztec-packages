@@ -981,10 +981,12 @@ describe('Private Execution test suite', () => {
         owner,
       );
 
-      const innerNoteHash = await acirSimulator.computeInnerNoteHash(
+      const {innerNoteHash, uniqueNoteHash} = await acirSimulator.computeNoteHashAndOptionallyANullifier(
         contractAddress,
+        Fr.ZERO, // nonce
         storageSlot,
         valueNoteTypeId,
+        false,
         noteAndSlot.note,
       );
       expect(noteHash).toEqual(innerNoteHash);
@@ -997,9 +999,9 @@ describe('Private Execution test suite', () => {
       expect(encryptedLog.noteHashCounter).toEqual(result.noteEncryptedLogs[0].noteHashCounter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
 
-      // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
+      // read request should match "unique" note hash with zero nonce
       const readRequest = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests)[0];
-      expect(readRequest.value).toEqual(innerNoteHash);
+      expect(readRequest.value).toEqual(uniqueNoteHash);
 
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
@@ -1065,10 +1067,12 @@ describe('Private Execution test suite', () => {
       expect(noteHashes).toHaveLength(1);
 
       const noteHash = noteHashes[0].value;
-      const innerNoteHash = await acirSimulator.computeInnerNoteHash(
+      const {innerNoteHash, uniqueNoteHash} = await acirSimulator.computeNoteHashAndOptionallyANullifier(
         contractAddress,
-        noteAndSlot.storageSlot,
-        noteAndSlot.noteTypeId,
+        Fr.ZERO, // nonce
+        storageSlot,
+        valueNoteTypeId,
+        false,
         noteAndSlot.note,
       );
       expect(noteHash).toEqual(innerNoteHash);
@@ -1083,7 +1087,7 @@ describe('Private Execution test suite', () => {
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];
-      expect(readRequest.value).toEqual(innerNoteHash);
+      expect(readRequest.value).toEqual(uniqueNoteHash);
 
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
