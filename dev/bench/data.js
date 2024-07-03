@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720018065801,
+  "lastUpdate": 1720018243200,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -66220,6 +66220,78 @@ window.BENCHMARK_DATA = {
             "value": 164031802,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164031802 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "adf233153d02ea5d4dcaa20357138bd2e91dc8d8",
+          "message": "chore(avm): basic stat collection (#7283)\n\nColelcts and prints stats for `avm_prove` when BB is compiled with in `RelWithAssert` mode or `AVM_TRACK_STATS` is defined.\n\nHas no impact otherwise.\n\n```\n------- STATS -------\ncompute_logderivative_inverse/incl_main_tag_err_ms: 0\ncompute_logderivative_inverse/incl_mem_tag_err_ms: 0\ncompute_logderivative_inverse/kernel_output_lookup_ms: 0\ncompute_logderivative_inverse/lookup_byte_lengths_ms: 0\ncompute_logderivative_inverse/lookup_byte_operations_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_0_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_1_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_2_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_3_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_4_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_5_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_6_ms: 0\ncompute_logderivative_inverse/lookup_div_u16_7_ms: 0\ncompute_logderivative_inverse/lookup_into_kernel_ms: 0\ncompute_logderivative_inverse/lookup_mem_rng_chk_hi_ms: 0\ncompute_logderivative_inverse/lookup_mem_rng_chk_lo_ms: 0\ncompute_logderivative_inverse/lookup_mem_rng_chk_mid_ms: 0\ncompute_logderivative_inverse/lookup_opcode_gas_ms: 0\ncompute_logderivative_inverse/lookup_pow_2_0_ms: 0\ncompute_logderivative_inverse/lookup_pow_2_1_ms: 0\ncompute_logderivative_inverse/lookup_u16_0_ms: 0\ncompute_logderivative_inverse/lookup_u16_10_ms: 0\ncompute_logderivative_inverse/lookup_u16_11_ms: 0\ncompute_logderivative_inverse/lookup_u16_12_ms: 0\ncompute_logderivative_inverse/lookup_u16_13_ms: 0\ncompute_logderivative_inverse/lookup_u16_14_ms: 0\ncompute_logderivative_inverse/lookup_u16_1_ms: 0\ncompute_logderivative_inverse/lookup_u16_2_ms: 0\ncompute_logderivative_inverse/lookup_u16_3_ms: 0\ncompute_logderivative_inverse/lookup_u16_4_ms: 0\ncompute_logderivative_inverse/lookup_u16_5_ms: 0\ncompute_logderivative_inverse/lookup_u16_6_ms: 0\ncompute_logderivative_inverse/lookup_u16_7_ms: 0\ncompute_logderivative_inverse/lookup_u16_8_ms: 0\ncompute_logderivative_inverse/lookup_u16_9_ms: 0\ncompute_logderivative_inverse/lookup_u8_0_ms: 0\ncompute_logderivative_inverse/lookup_u8_1_ms: 0\ncompute_logderivative_inverse/perm_main_alu_ms: 1\ncompute_logderivative_inverse/perm_main_bin_ms: 0\ncompute_logderivative_inverse/perm_main_conv_ms: 0\ncompute_logderivative_inverse/perm_main_mem_a_ms: 0\ncompute_logderivative_inverse/perm_main_mem_b_ms: 0\ncompute_logderivative_inverse/perm_main_mem_c_ms: 0\ncompute_logderivative_inverse/perm_main_mem_d_ms: 0\ncompute_logderivative_inverse/perm_main_mem_ind_addr_a_ms: 0\ncompute_logderivative_inverse/perm_main_mem_ind_addr_b_ms: 0\ncompute_logderivative_inverse/perm_main_mem_ind_addr_c_ms: 0\ncompute_logderivative_inverse/perm_main_mem_ind_addr_d_ms: 0\ncompute_logderivative_inverse/perm_main_pedersen_ms: 0\ncompute_logderivative_inverse/perm_main_pos2_perm_ms: 0\ncompute_logderivative_inverse/range_check_da_gas_hi_ms: 0\ncompute_logderivative_inverse/range_check_da_gas_lo_ms: 0\ncompute_logderivative_inverse/range_check_l2_gas_hi_ms: 0\ncompute_logderivative_inverse/range_check_l2_gas_lo_ms: 0\nproving/log_derivative_inverse_round_ms: 82\nproving/pcs_rounds_ms: 158\nproving/relation_check_rounds_ms: 66\nproving/wire_commitments_round_ms: 193\n```",
+          "timestamp": "2024-07-03T15:34:34+01:00",
+          "tree_id": "ffa1ebe18e49279fa78701613c3ab05a600c1324",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/adf233153d02ea5d4dcaa20357138bd2e91dc8d8"
+        },
+        "date": 1720018239355,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14505.079599999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9889.595519000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5012.820357999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4514.735472000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43410.68516899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43410684000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14764.787547000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14764788000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4270537690,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4270537690 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195689649,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195689649 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3532182172,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3532182172 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161992667,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161992667 ns\nthreads: 1"
           }
         ]
       }
