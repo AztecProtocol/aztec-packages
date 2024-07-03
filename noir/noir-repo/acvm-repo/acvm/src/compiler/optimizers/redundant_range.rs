@@ -74,7 +74,7 @@ impl<F: AcirField> RangeOptimizer<F> {
                 }
 
                 Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE {
-                    input: FunctionInput::witness(witness, num_bits),
+                    input: FunctionInput::Witness(WitnessInput{witness, num_bits}),
                 }) => Some((*witness, *num_bits)),
 
                 _ => None,
