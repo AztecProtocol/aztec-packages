@@ -43,6 +43,7 @@ contract Counter {
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
 
+    // docs:start:txe_test_increment
     #[test]
     fn test_increment() {
         // Setup env, generate keys
@@ -50,16 +51,16 @@ contract Counter {
         let owner = env.create_account();
         let outgoing_viewer = env.create_account();
         let initial_value: Field = 5;
-        cheatcodes::set_contract_address(owner);
+        env.impersonate(owner);
 
         // Deploy contract and initialize 
         let initializer = Counter::interface().initialize(initial_value as u64, owner, outgoing_viewer);
         let counter_contract = env.deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer);
         let contract_address = counter_contract.to_address();
 
+        // docs:start:txe_test_read_notes
         // Read the stored value in the note
-
-        cheatcodes::set_contract_address(contract_address);
+        env.impersonate(contract_address);
         let counter_slot = Counter::storage().counters.slot;
         let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
@@ -68,6 +69,7 @@ contract Counter {
         assert(
             initial_note_value == initial_value, f"Expected {initial_value} but got {initial_note_value}"
         );
+        // docs:end:txe_test_read_notes
 
         // Increment the counter
         let increment_call_interface = Counter::at(contract_address).increment(owner, outgoing_viewer);
@@ -78,4 +80,5 @@ contract Counter {
             expected_current_value == current_value_for_owner, f"Expected {expected_current_value} but got {current_value_for_owner}"
         );
     }
+    // docs:end:txe_test_increment
 }

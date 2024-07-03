@@ -38,7 +38,7 @@ unconstrained fn public_transfer_on_behalf_of_other() {
     let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
     authwit_cheatcodes::add_public_authwit_from_call_interface(owner, recipient, public_transfer_from_call_interface);
     // Impersonate recipient to perform the call
-    cheatcodes::set_contract_address(recipient);
+    env.impersonate(recipient);
     // Transfer tokens
     env.call_public(public_transfer_from_call_interface);
     // Check balances
@@ -81,7 +81,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     let transfer_amount = mint_amount / 10;
     let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
     // Impersonate recipient to perform the call
-    cheatcodes::set_contract_address(recipient);
+    env.impersonate(recipient);
     // Try to transfer tokens
     env.assert_public_call_fails(public_transfer_from_call_interface);
     // Check balances
@@ -97,7 +97,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
     let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
     authwit_cheatcodes::add_public_authwit_from_call_interface(owner, recipient, public_transfer_from_call_interface);
     // Impersonate recipient to perform the call
-    cheatcodes::set_contract_address(recipient);
+    env.impersonate(recipient);
     // Try to transfer tokens
     env.assert_public_call_fails(public_transfer_from_call_interface);
     // Check balances
@@ -113,7 +113,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_wrong_caller() {
     let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
     authwit_cheatcodes::add_public_authwit_from_call_interface(owner, owner, public_transfer_from_call_interface);
     // Impersonate recipient to perform the call
-    cheatcodes::set_contract_address(recipient);
+    env.impersonate(recipient);
     // Try to transfer tokens
     env.assert_public_call_fails(public_transfer_from_call_interface);
     // Check balances

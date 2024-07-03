@@ -24,7 +24,7 @@ pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddres
     };
 
     // Start the test in the account contract address
-    cheatcodes::set_contract_address(owner);
+    env.impersonate(owner);
 
     // Deploy token contract
     let initializer_call_interface = PrivateToken::interface().constructor(
@@ -59,12 +59,12 @@ pub fn check_private_balance(
     address_amount: Field
 ) {
     let current_contract_address = cheatcodes::get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
+    env.impersonate(token_contract_address);
 
     let header = context.get_header();
     let owner_npk_m_hash = header.get_npk_m_hash(context, address);
 
     let balance_of_private = PrivateToken::balance_of_unconstrained(owner_npk_m_hash);
     assert(balance_of_private == address_amount, "Private balance is not correct");
-    cheatcodes::set_contract_address(current_contract_address);
+    env.impersonate(current_contract_address);
 }
