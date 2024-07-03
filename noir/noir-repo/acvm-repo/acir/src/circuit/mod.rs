@@ -372,8 +372,8 @@ mod tests {
 
     fn and_opcode<F: AcirField>() -> Opcode<F> {
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::AND {
-            lhs: FunctionInput::Witness(Witness(1), 4),
-            rhs: FunctionInput::Witness(Witness(2), 4),
+            lhs: FunctionInput::witness(Witness(1), 4),
+            rhs: FunctionInput::witness(Witness(2), 4),
             output: Witness(3),
         })
     }
