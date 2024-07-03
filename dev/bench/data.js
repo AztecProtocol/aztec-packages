@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720022649277,
+  "lastUpdate": 1720022886769,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -66500,6 +66500,78 @@ window.BENCHMARK_DATA = {
             "value": 162164494,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162164494 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d4359a34668fc389a8a5c5a8b8493f0dc8a5d4ae",
+          "message": "feat(avm): use template engine for codegen (#7299)\n\nGenerating flavor file as an example.",
+          "timestamp": "2024-07-03T16:51:08+01:00",
+          "tree_id": "0fcd022a54878cbdb005033264cab87001c37998",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d4359a34668fc389a8a5c5a8b8493f0dc8a5d4ae"
+        },
+        "date": 1720022883181,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14126.188548000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9607.802651999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4728.421381000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4378.926267 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43212.753510999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43212754000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14414.754365999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14414754000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4183918837,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4183918837 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197064622,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197064622 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3438955020,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3438955020 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161032040,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161032040 ns\nthreads: 1"
           }
         ]
       }
