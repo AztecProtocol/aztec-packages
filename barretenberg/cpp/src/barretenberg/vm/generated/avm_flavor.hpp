@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -7,20 +6,31 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
-
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+
+#include "barretenberg/vm/avm_trace/stats.hpp"
+
+// Relations
 #include "barretenberg/relations/generated/avm/alu.hpp"
 #include "barretenberg/relations/generated/avm/binary.hpp"
 #include "barretenberg/relations/generated/avm/conversion.hpp"
 #include "barretenberg/relations/generated/avm/gas.hpp"
-#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
-#include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/keccakf1600.hpp"
 #include "barretenberg/relations/generated/avm/kernel.hpp"
+#include "barretenberg/relations/generated/avm/main.hpp"
+#include "barretenberg/relations/generated/avm/mem.hpp"
+#include "barretenberg/relations/generated/avm/pedersen.hpp"
+#include "barretenberg/relations/generated/avm/poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/powers.hpp"
+#include "barretenberg/relations/generated/avm/sha256.hpp"
+
+// Lookup relations
+#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
@@ -56,9 +66,6 @@
 #include "barretenberg/relations/generated/avm/lookup_u16_9.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u8_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u8_1.hpp"
-#include "barretenberg/relations/generated/avm/main.hpp"
-#include "barretenberg/relations/generated/avm/mem.hpp"
-#include "barretenberg/relations/generated/avm/pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_bin.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_conv.hpp"
@@ -72,14 +79,11 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
-#include "barretenberg/relations/generated/avm/poseidon2.hpp"
-#include "barretenberg/relations/generated/avm/powers.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_lo.hpp"
 #include "barretenberg/relations/generated/avm/range_check_l2_gas_hi.hpp"
 #include "barretenberg/relations/generated/avm/range_check_l2_gas_lo.hpp"
-#include "barretenberg/relations/generated/avm/sha256.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 namespace bb {
 
@@ -106,72 +110,75 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 452;
 
-    using Relations = std::tuple<Avm_vm::alu<FF>,
-                                 Avm_vm::binary<FF>,
-                                 Avm_vm::conversion<FF>,
-                                 Avm_vm::gas<FF>,
-                                 Avm_vm::keccakf1600<FF>,
-                                 Avm_vm::kernel<FF>,
-                                 Avm_vm::main<FF>,
-                                 Avm_vm::mem<FF>,
-                                 Avm_vm::pedersen<FF>,
-                                 Avm_vm::poseidon2<FF>,
-                                 Avm_vm::powers<FF>,
-                                 Avm_vm::sha256<FF>,
-                                 perm_main_alu_relation<FF>,
-                                 perm_main_bin_relation<FF>,
-                                 perm_main_conv_relation<FF>,
-                                 perm_main_pos2_perm_relation<FF>,
-                                 perm_main_pedersen_relation<FF>,
-                                 perm_main_mem_a_relation<FF>,
-                                 perm_main_mem_b_relation<FF>,
-                                 perm_main_mem_c_relation<FF>,
-                                 perm_main_mem_d_relation<FF>,
-                                 perm_main_mem_ind_addr_a_relation<FF>,
-                                 perm_main_mem_ind_addr_b_relation<FF>,
-                                 perm_main_mem_ind_addr_c_relation<FF>,
-                                 perm_main_mem_ind_addr_d_relation<FF>,
-                                 lookup_byte_lengths_relation<FF>,
-                                 lookup_byte_operations_relation<FF>,
-                                 lookup_opcode_gas_relation<FF>,
-                                 range_check_l2_gas_hi_relation<FF>,
-                                 range_check_l2_gas_lo_relation<FF>,
-                                 range_check_da_gas_hi_relation<FF>,
-                                 range_check_da_gas_lo_relation<FF>,
-                                 kernel_output_lookup_relation<FF>,
-                                 lookup_into_kernel_relation<FF>,
-                                 incl_main_tag_err_relation<FF>,
-                                 incl_mem_tag_err_relation<FF>,
-                                 lookup_mem_rng_chk_lo_relation<FF>,
-                                 lookup_mem_rng_chk_mid_relation<FF>,
-                                 lookup_mem_rng_chk_hi_relation<FF>,
-                                 lookup_pow_2_0_relation<FF>,
-                                 lookup_pow_2_1_relation<FF>,
-                                 lookup_u8_0_relation<FF>,
-                                 lookup_u8_1_relation<FF>,
-                                 lookup_u16_0_relation<FF>,
-                                 lookup_u16_1_relation<FF>,
-                                 lookup_u16_2_relation<FF>,
-                                 lookup_u16_3_relation<FF>,
-                                 lookup_u16_4_relation<FF>,
-                                 lookup_u16_5_relation<FF>,
-                                 lookup_u16_6_relation<FF>,
-                                 lookup_u16_7_relation<FF>,
-                                 lookup_u16_8_relation<FF>,
-                                 lookup_u16_9_relation<FF>,
-                                 lookup_u16_10_relation<FF>,
-                                 lookup_u16_11_relation<FF>,
-                                 lookup_u16_12_relation<FF>,
-                                 lookup_u16_13_relation<FF>,
-                                 lookup_u16_14_relation<FF>,
-                                 lookup_div_u16_0_relation<FF>,
-                                 lookup_div_u16_1_relation<FF>,
-                                 lookup_div_u16_2_relation<FF>,
-                                 lookup_div_u16_3_relation<FF>,
-                                 lookup_div_u16_4_relation<FF>,
-                                 lookup_div_u16_5_relation<FF>,
-                                 lookup_div_u16_6_relation<FF>,
-                                 lookup_div_u16_7_relation<FF>>;
+    using Relations = std::tuple<
+        // Relations
+        Avm_vm::alu<FF>,
+        Avm_vm::binary<FF>,
+        Avm_vm::conversion<FF>,
+        Avm_vm::gas<FF>,
+        Avm_vm::keccakf1600<FF>,
+        Avm_vm::kernel<FF>,
+        Avm_vm::main<FF>,
+        Avm_vm::mem<FF>,
+        Avm_vm::pedersen<FF>,
+        Avm_vm::poseidon2<FF>,
+        Avm_vm::powers<FF>,
+        Avm_vm::sha256<FF>,
+        // Lookups
+        perm_main_alu_relation<FF>,
+        perm_main_bin_relation<FF>,
+        perm_main_conv_relation<FF>,
+        perm_main_pos2_perm_relation<FF>,
+        perm_main_pedersen_relation<FF>,
+        perm_main_mem_a_relation<FF>,
+        perm_main_mem_b_relation<FF>,
+        perm_main_mem_c_relation<FF>,
+        perm_main_mem_d_relation<FF>,
+        perm_main_mem_ind_addr_a_relation<FF>,
+        perm_main_mem_ind_addr_b_relation<FF>,
+        perm_main_mem_ind_addr_c_relation<FF>,
+        perm_main_mem_ind_addr_d_relation<FF>,
+        lookup_byte_lengths_relation<FF>,
+        lookup_byte_operations_relation<FF>,
+        lookup_opcode_gas_relation<FF>,
+        range_check_l2_gas_hi_relation<FF>,
+        range_check_l2_gas_lo_relation<FF>,
+        range_check_da_gas_hi_relation<FF>,
+        range_check_da_gas_lo_relation<FF>,
+        kernel_output_lookup_relation<FF>,
+        lookup_into_kernel_relation<FF>,
+        incl_main_tag_err_relation<FF>,
+        incl_mem_tag_err_relation<FF>,
+        lookup_mem_rng_chk_lo_relation<FF>,
+        lookup_mem_rng_chk_mid_relation<FF>,
+        lookup_mem_rng_chk_hi_relation<FF>,
+        lookup_pow_2_0_relation<FF>,
+        lookup_pow_2_1_relation<FF>,
+        lookup_u8_0_relation<FF>,
+        lookup_u8_1_relation<FF>,
+        lookup_u16_0_relation<FF>,
+        lookup_u16_1_relation<FF>,
+        lookup_u16_2_relation<FF>,
+        lookup_u16_3_relation<FF>,
+        lookup_u16_4_relation<FF>,
+        lookup_u16_5_relation<FF>,
+        lookup_u16_6_relation<FF>,
+        lookup_u16_7_relation<FF>,
+        lookup_u16_8_relation<FF>,
+        lookup_u16_9_relation<FF>,
+        lookup_u16_10_relation<FF>,
+        lookup_u16_11_relation<FF>,
+        lookup_u16_12_relation<FF>,
+        lookup_u16_13_relation<FF>,
+        lookup_u16_14_relation<FF>,
+        lookup_div_u16_0_relation<FF>,
+        lookup_div_u16_1_relation<FF>,
+        lookup_div_u16_2_relation<FF>,
+        lookup_div_u16_3_relation<FF>,
+        lookup_div_u16_4_relation<FF>,
+        lookup_div_u16_5_relation<FF>,
+        lookup_div_u16_6_relation<FF>,
+        lookup_div_u16_7_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -196,10 +203,10 @@ class AvmFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, main_clk, main_sel_first)
 
-        RefVector<DataType> get_selectors() { return { main_clk, main_sel_first }; };
-        RefVector<DataType> get_sigma_polynomials() { return {}; };
-        RefVector<DataType> get_id_polynomials() { return {}; };
-        RefVector<DataType> get_table_polynomials() { return {}; };
+        RefVector<DataType> get_selectors() { return { main_clk, main_sel_first }; }
+        RefVector<DataType> get_sigma_polynomials() { return {}; }
+        RefVector<DataType> get_id_polynomials() { return {}; }
+        RefVector<DataType> get_table_polynomials() { return {}; }
     };
 
     template <typename DataType> class WireEntities {
@@ -538,7 +545,8 @@ class AvmFlavor {
                               lookup_div_u16_7_counts)
     };
 
-    template <typename DataType> struct DerivedWitnessEntities {
+    template <typename DataType> class DerivedWitnessEntities {
+      public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               perm_main_alu,
                               perm_main_bin,
@@ -669,74 +677,71 @@ class AvmFlavor {
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
     static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
     {
-        return RefArray{
-
-            entities.alu_a_hi,
-            entities.alu_a_lo,
-            entities.alu_b_hi,
-            entities.alu_b_lo,
-            entities.alu_cmp_rng_ctr,
-            entities.alu_div_u16_r0,
-            entities.alu_div_u16_r1,
-            entities.alu_div_u16_r2,
-            entities.alu_div_u16_r3,
-            entities.alu_div_u16_r4,
-            entities.alu_div_u16_r5,
-            entities.alu_div_u16_r6,
-            entities.alu_div_u16_r7,
-            entities.alu_op_add,
-            entities.alu_op_cast_prev,
-            entities.alu_op_cast,
-            entities.alu_op_div,
-            entities.alu_op_mul,
-            entities.alu_op_shl,
-            entities.alu_op_shr,
-            entities.alu_op_sub,
-            entities.alu_p_sub_a_hi,
-            entities.alu_p_sub_a_lo,
-            entities.alu_p_sub_b_hi,
-            entities.alu_p_sub_b_lo,
-            entities.alu_sel_alu,
-            entities.alu_sel_cmp,
-            entities.alu_sel_div_rng_chk,
-            entities.alu_sel_rng_chk_lookup,
-            entities.alu_sel_rng_chk,
-            entities.alu_u16_r0,
-            entities.alu_u16_r1,
-            entities.alu_u16_r2,
-            entities.alu_u16_r3,
-            entities.alu_u16_r4,
-            entities.alu_u16_r5,
-            entities.alu_u16_r6,
-            entities.alu_u8_r0,
-            entities.alu_u8_r1,
-            entities.binary_acc_ia,
-            entities.binary_acc_ib,
-            entities.binary_acc_ic,
-            entities.binary_mem_tag_ctr,
-            entities.binary_op_id,
-            entities.kernel_emit_l2_to_l1_msg_write_offset,
-            entities.kernel_emit_note_hash_write_offset,
-            entities.kernel_emit_nullifier_write_offset,
-            entities.kernel_emit_unencrypted_log_write_offset,
-            entities.kernel_l1_to_l2_msg_exists_write_offset,
-            entities.kernel_note_hash_exist_write_offset,
-            entities.kernel_nullifier_exists_write_offset,
-            entities.kernel_nullifier_non_exists_write_offset,
-            entities.kernel_side_effect_counter,
-            entities.kernel_sload_write_offset,
-            entities.kernel_sstore_write_offset,
-            entities.main_da_gas_remaining,
-            entities.main_internal_return_ptr,
-            entities.main_l2_gas_remaining,
-            entities.main_pc,
-            entities.mem_glob_addr,
-            entities.mem_rw,
-            entities.mem_sel_mem,
-            entities.mem_tag,
-            entities.mem_tsp,
-            entities.mem_val,
-        };
+        return RefArray{ entities.alu_a_hi,
+                         entities.alu_a_lo,
+                         entities.alu_b_hi,
+                         entities.alu_b_lo,
+                         entities.alu_cmp_rng_ctr,
+                         entities.alu_div_u16_r0,
+                         entities.alu_div_u16_r1,
+                         entities.alu_div_u16_r2,
+                         entities.alu_div_u16_r3,
+                         entities.alu_div_u16_r4,
+                         entities.alu_div_u16_r5,
+                         entities.alu_div_u16_r6,
+                         entities.alu_div_u16_r7,
+                         entities.alu_op_add,
+                         entities.alu_op_cast_prev,
+                         entities.alu_op_cast,
+                         entities.alu_op_div,
+                         entities.alu_op_mul,
+                         entities.alu_op_shl,
+                         entities.alu_op_shr,
+                         entities.alu_op_sub,
+                         entities.alu_p_sub_a_hi,
+                         entities.alu_p_sub_a_lo,
+                         entities.alu_p_sub_b_hi,
+                         entities.alu_p_sub_b_lo,
+                         entities.alu_sel_alu,
+                         entities.alu_sel_cmp,
+                         entities.alu_sel_div_rng_chk,
+                         entities.alu_sel_rng_chk_lookup,
+                         entities.alu_sel_rng_chk,
+                         entities.alu_u16_r0,
+                         entities.alu_u16_r1,
+                         entities.alu_u16_r2,
+                         entities.alu_u16_r3,
+                         entities.alu_u16_r4,
+                         entities.alu_u16_r5,
+                         entities.alu_u16_r6,
+                         entities.alu_u8_r0,
+                         entities.alu_u8_r1,
+                         entities.binary_acc_ia,
+                         entities.binary_acc_ib,
+                         entities.binary_acc_ic,
+                         entities.binary_mem_tag_ctr,
+                         entities.binary_op_id,
+                         entities.kernel_emit_l2_to_l1_msg_write_offset,
+                         entities.kernel_emit_note_hash_write_offset,
+                         entities.kernel_emit_nullifier_write_offset,
+                         entities.kernel_emit_unencrypted_log_write_offset,
+                         entities.kernel_l1_to_l2_msg_exists_write_offset,
+                         entities.kernel_note_hash_exist_write_offset,
+                         entities.kernel_nullifier_exists_write_offset,
+                         entities.kernel_nullifier_non_exists_write_offset,
+                         entities.kernel_side_effect_counter,
+                         entities.kernel_sload_write_offset,
+                         entities.kernel_sstore_write_offset,
+                         entities.main_da_gas_remaining,
+                         entities.main_internal_return_ptr,
+                         entities.main_l2_gas_remaining,
+                         entities.main_pc,
+                         entities.mem_glob_addr,
+                         entities.mem_rw,
+                         entities.mem_sel_mem,
+                         entities.mem_tag,
+                         entities.mem_tsp,
+                         entities.mem_val };
     }
 
     template <typename DataType>
@@ -843,120 +848,174 @@ class AvmFlavor {
                      mem_tag,
                      mem_tsp,
                      mem_val };
-        };
+        }
 
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
 
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_pos2_perm_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_pedersen_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_b_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_c_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_d_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_a_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_b_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_c_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_d_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_opcode_gas_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_hi_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_lo_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_hi_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_lo_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, kernel_output_lookup_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_into_kernel_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_lo_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_mid_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_hi_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_2_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_3_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_4_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_5_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_6_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_7_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_8_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_9_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_10_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_11_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_12_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_13_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_2_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_3_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_4_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_5_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_6_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_7_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_alu_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_bin_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_conv_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_pos2_perm_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_pos2_perm_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_pedersen_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_pedersen_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_a_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_b_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_b_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_c_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_c_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_d_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_d_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_a_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_a_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_b_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_b_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_c_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_c_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_d_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_d_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_byte_lengths_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_byte_operations_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_opcode_gas_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_opcode_gas_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_l2_gas_hi_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_hi_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_l2_gas_lo_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_lo_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_da_gas_hi_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_hi_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_da_gas_lo_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_lo_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/kernel_output_lookup_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, kernel_output_lookup_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_into_kernel_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_into_kernel_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/incl_main_tag_err_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/incl_mem_tag_err_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_mem_rng_chk_lo_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_lo_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_mem_rng_chk_mid_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_mid_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_mem_rng_chk_hi_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_hi_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_pow_2_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_pow_2_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u8_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u8_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_2_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_2_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_3_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_3_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_4_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_4_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_5_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_5_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_6_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_6_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_7_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_7_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_8_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_8_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_9_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_9_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_10_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_10_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_11_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_11_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_12_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_12_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_13_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_13_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_14_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_2_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_2_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_3_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_3_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_4_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_4_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_5_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_5_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_6_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_6_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_7_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_7_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
         }
     };
 
@@ -1307,7 +1366,7 @@ class AvmFlavor {
             Base::mem_diff_mid = "MEM_DIFF_MID";
             Base::mem_glob_addr = "MEM_GLOB_ADDR";
             Base::mem_last = "MEM_LAST";
-            Base::mem_lastAccess = "MEM_LASTACCESS";
+            Base::mem_lastAccess = "MEM_LAST_ACCESS";
             Base::mem_one_min_inv = "MEM_ONE_MIN_INV";
             Base::mem_r_in_tag = "MEM_R_IN_TAG";
             Base::mem_rw = "MEM_RW";
