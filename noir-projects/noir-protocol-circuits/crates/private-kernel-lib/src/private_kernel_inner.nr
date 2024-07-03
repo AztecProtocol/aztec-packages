@@ -49,7 +49,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         if !std::runtime::is_unconstrained() {
             // verify/aggregate the private call proof
             // LONDONTODO(PUBLIC INPUTS)
-            // self.private_call.verify();
+            // self.private_call.verify(); // TODO this goes away as we aren't doing recursive verification anymore
             // verify/aggregate the previous kernel
             // self.previous_kernel.verify();
         }

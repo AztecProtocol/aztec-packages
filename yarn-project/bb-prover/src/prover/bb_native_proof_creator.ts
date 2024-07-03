@@ -1,7 +1,6 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AGGREGATION_OBJECT_LENGTH,
   Fr,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
@@ -288,12 +287,12 @@ export class BBNativeProofCreator implements ProofCreator {
     convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
     const operation = async (directory: string) => {
-      return await this.generateWitnessAndCreateProof(inputs, circuitType, directory, convertInputs, convertOutputs);
+      return await this.generateWitness(inputs, circuitType, directory, convertInputs, convertOutputs);
     };
     return await runInDirectory(this.bbWorkingDirectory, operation);
   }
 
-  private async generateWitnessAndCreateProof<
+  private async generateWitness<
     I extends { toBuffer: () => Buffer },
     O extends { toBuffer: () => Buffer },
   >(
@@ -328,10 +327,8 @@ export class BBNativeProofCreator implements ProofCreator {
     if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
       throw new Error(`Incorrect proof length`);
     }
-    const nestedProof = proofOutput.proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
     const kernelOutput: KernelProofOutput<O> = {
       publicInputs: output,
-      proof: nestedProof,
       verificationKey: proofOutput.verificationKey,
       outputWitness
     };
