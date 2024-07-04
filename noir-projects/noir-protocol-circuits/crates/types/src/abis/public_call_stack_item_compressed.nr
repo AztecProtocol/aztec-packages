@@ -4,6 +4,20 @@ use crate::constants::{GENERATOR_INDEX__CALL_STACK_ITEM, PUBLIC_CALL_STACK_ITEM_
 use crate::traits::{Hash, Empty, Serialize, Deserialize};
 use crate::utils::reader::Reader;
 
+/**
+ * A compressed version of the PublicCallStackItem struct used to compute the "hash"
+ * of a PublicCallStackItem.
+ * 
+ * Historically, we have been zeroing most values in the PublicCallStackItem struct
+ * to compute the hash involved when adding a PublicCallStackItem to the PublicCallStack.
+ * 
+ * This struct is used to store the values that we did not zero out, and allow us to hash
+ * only these, thereby skipping a lot of computation and saving us a lot of constraints
+ * 
+ * Essentially this struct exists such that we don't have a `hash` function in the 
+ * PublicCallStackItem struct that practically throws away some values of the struct
+ * without clearly indicating that it does so.
+ */
 struct PublicCallStackItemCompressed {
     contract_address: AztecAddress,
     call_context: CallContext,
