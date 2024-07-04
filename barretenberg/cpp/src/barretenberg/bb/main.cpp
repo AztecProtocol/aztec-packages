@@ -526,6 +526,10 @@ void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
+    // Padding needed for sending the right number of public inputs
+    for (size_t i = 0; i < num_unused_public_inputs; i++) {
+        builder->add_public_variable({});
+    }
     ClientIVC verifier{ builder, input };
 
     verifier.verify(proof);
@@ -533,11 +537,6 @@ void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
-
-    // Padding needed for sending the right number of public inputs
-    for (size_t i = 0; i < num_unused_public_inputs; i++) {
-        builder->add_public_variable({});
-    }
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubeProofPath = output_path + "/proof";

@@ -1,4 +1,4 @@
-import { type PrivateKernelSimulateOutput, type PrivateKernelClientIvc } from '@aztec/circuit-types';
+import { type PrivateKernelSimulateOutput, type PrivateKernelProver } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
@@ -45,7 +45,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelClientIvc) { }
+  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) { }
 
 
   /**

@@ -43,12 +43,6 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // PUBLIC KERNEL: Just following my nose here, it seems I want the line below to verify the tube proof.
         // LONDONTODO(PUBLIC INPUTS)
         // LONDONTODO we are leaving this as is however we should let everyone know that e.g. fee abstraction would break assumptions about which kind of proof this is
-        dep::std::verify_proof(
-            self.previous_kernel.vk.key.as_slice(),
-            self.previous_kernel.proof.fields.as_slice(),
-            &[],
-            self.previous_kernel.vk.hash
-        );
         // self.previous_kernel.verify();
 
         // construct the circuit outputs

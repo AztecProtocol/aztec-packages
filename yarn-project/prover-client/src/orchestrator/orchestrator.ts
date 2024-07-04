@@ -448,11 +448,7 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async prepareTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    // Pass the private kernel tail vk here as the previous one.
-    // If there are public functions then this key will be overwritten once the public tail has been proven
-    const previousKernelVerificationKey = provingState.privateKernelVerificationKeys.privateKernelCircuit;
-
-    const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
+    const txInputs = await this.prepareBaseRollupInputs(provingState, tx);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
@@ -556,8 +552,7 @@ export class ProvingOrchestrator {
   }))
   private async prepareBaseRollupInputs(
     provingState: ProvingState | undefined,
-    tx: ProcessedTx,
-    kernelVk: VerificationKeyData,
+    tx: ProcessedTx
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
     if (!provingState?.verifyState()) {
       logger.debug('Not preparing base rollup inputs, state invalid');
@@ -566,7 +561,7 @@ export class ProvingOrchestrator {
 
     // TODO(ISSUE HERE): make this tube proof actually use public inputs
     const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof, BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH))
-    const inputs = await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, kernelVk);
+    const inputs = await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };

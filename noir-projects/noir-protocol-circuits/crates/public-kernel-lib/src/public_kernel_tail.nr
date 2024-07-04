@@ -59,7 +59,6 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
-        // LONDONTODO(PUBLIC INPUTS)
         self.previous_kernel.verify();
 
         self.validate_inputs();

@@ -1,4 +1,4 @@
-import { type AppCircuitSimulateOutput, type PrivateKernelSimulateOutput, type PrivateKernelClientIvc } from '@aztec/circuit-types';
+import { type AppCircuitSimulateOutput, type PrivateKernelSimulateOutput, type PrivateKernelProver } from '@aztec/circuit-types';
 import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type PrivateCircuitPublicInputs,
@@ -26,7 +26,7 @@ import { type WitnessMap } from '@noir-lang/types';
 /**
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
-export class TestPrivateKernelClientIvc implements PrivateKernelClientIvc {
+export class TestPrivateKernelProver implements PrivateKernelProver {
   constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
 
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {

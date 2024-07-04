@@ -42,10 +42,6 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         let mut previous_public_inputs = self.previous_kernel.public_inputs;
 
-        // verify/aggregate the previous kernel
-        // LONDONTODO(PUBLIC INPUTS)
-        // self.previous_kernel.verify();
-
         previous_public_inputs.validation_requests = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
             note_hash_read_request_hints: self.hints.note_hash_read_request_hints,

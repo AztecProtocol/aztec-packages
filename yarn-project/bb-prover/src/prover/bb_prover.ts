@@ -278,10 +278,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     baseRollupInput: BaseRollupInputs, // TODO: remove tail proof from here
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
-    // logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
-    // logger.info(`in getBaseRollupProof`);
-    // logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
-    // logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
+    logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
+    logger.info(`in getBaseRollupProof`);
+    logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
+    logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
     baseRollupInput.kernelData.proof = await this.ensureValidProof(
       baseRollupInput.kernelData.proof,
       'BaseRollupArtifact',
@@ -939,7 +939,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Parses and returns a tube proof stored in the specified directory. This function is different from readProofAsFields because the tube proof doesn't have public inputs.
+   * Parses and returns a tube proof stored in the specified directory. TODO merge wih above
    * @param filePath - The directory containing the proof data
    * @param circuitType - The type of circuit proven
    * @returns The proof
@@ -965,7 +965,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     // TODO(ISSUE PENDING) is lobbing off these public inputs the right thing to do?
-    const proofFields = json.slice(vkData.numPublicInputs).map(Fr.fromString);
+    const proofFields = json
+      .slice(0, 3)
+      .map(Fr.fromString)
+      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
     logger.debug(
       `Circuit type: tube circuit, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

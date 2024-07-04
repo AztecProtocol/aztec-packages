@@ -1,5 +1,5 @@
-import { Note, type PrivateKernelClientIvc } from '@aztec/circuit-types';
-import { BBNativePrivateKernelClientIvc } from '@aztec/bb-prover';
+import { Note, type PrivateKernelProver } from '@aztec/circuit-types';
+import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 // import { createConsoleLogger } from '@aztec/foundation/log';
 // import { createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -40,7 +40,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 describe('Kernel Prover Native', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
-  let proofCreator: BBNativePrivateKernelClientIvc;
+  let proofCreator: BBNativePrivateKernelProver;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
@@ -170,7 +170,7 @@ describe('Kernel Prover Native', () => {
       BB_WORKING_DIRECTORY = '',
     } = process.env;
 
-    proofCreator = new BBNativePrivateKernelClientIvc(
+    proofCreator = new BBNativePrivateKernelProver(
       BB_BINARY_PATH!,
       BB_WORKING_DIRECTORY
     );
