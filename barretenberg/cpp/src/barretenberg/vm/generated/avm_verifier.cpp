@@ -700,6 +700,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        info("native gate challenges ", gate_challenges[idx]);
     }
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =

@@ -5,6 +5,6 @@
 #include "barretenberg/vm/recursion/avm_recursive_flavor.hpp"
 
 namespace bb {
-template class poseidon2Impl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(poseidon2Impl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
+template class Avm_vm::poseidon2Impl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(Avm_vm::poseidon2Impl, AvmRecursiveFlavor_<UltraCircuitBuilder>);
 } // namespace bb

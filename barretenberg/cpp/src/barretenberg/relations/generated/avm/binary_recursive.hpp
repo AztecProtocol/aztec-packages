@@ -5,6 +5,6 @@
 #include "barretenberg/vm/recursion/avm_recursive_flavor.hpp"
 
 namespace bb {
-template class binaryImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(binaryImpl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
+template class Avm_vm::binaryImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(Avm_vm::binaryImpl, AvmRecursiveFlavor_<UltraCircuitBuilder>);
 } // namespace bb

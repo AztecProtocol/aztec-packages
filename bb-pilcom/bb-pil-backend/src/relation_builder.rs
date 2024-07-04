@@ -594,8 +594,8 @@ fn make_recursive_definition(name: &str) -> String {
 #include \"barretenberg/stdlib/primitives/bigfield/bigfield.hpp\"
 
 namespace bb {{
-    template class {name}Impl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
-    DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS({name}Impl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
+    template class Avm_vm::{name}Impl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+    DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(Avm_vm::{name}Impl, AvmRecursiveFlavor_<UltraCircuitBuilder>);
 }} // namespace bb
         "
     )
