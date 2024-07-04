@@ -604,7 +604,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
 
-    // Get commitments to inverses
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);

@@ -7,7 +7,6 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -814,10 +813,6 @@ void AvmProver::execute_wire_commitments_round()
 void AvmProver::execute_log_derivative_inverse_round()
 {
 
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
-
     key->compute_logderivative_inverses(relation_parameters);
 
     // Commit to all logderivative inverse polynomials
@@ -937,6 +932,8 @@ void AvmProver::execute_log_derivative_inverse_round()
     transcript->send_to_verifier(commitment_labels.lookup_div_u16_7, witness_commitments.lookup_div_u16_7);
 }
 
+void AvmProver::execute_grand_products_round() {}
+
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
@@ -987,7 +984,10 @@ HonkProof AvmProver::construct_proof()
     // Compute wire commitments
     execute_wire_commitments_round();
 
-    // Compute sorted list accumulator and commitment
+    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamm;
+
     execute_log_derivative_inverse_round();
 
     // Fiat-Shamir: alpha
