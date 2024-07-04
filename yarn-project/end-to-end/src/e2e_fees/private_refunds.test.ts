@@ -47,8 +47,12 @@ describe('e2e_fees/private_refunds', () => {
   });
 
   it('can do private payments and refunds', async () => {
-    const bobKeyHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
+    // TODO(#7324): The values in complete address are currently not updated after the keys are rotated so this does
+    // not work with key rotation as the key might be the old one and then we would fetch a new one in the contract.
+    const bobNpkMHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
     const rebateNonce = new Fr(42);
+
+    // 1. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
     const tx = await privateToken.methods
       .private_get_name()
       .send({
@@ -59,7 +63,7 @@ describe('e2e_fees/private_refunds', () => {
             privateFPC.address,
             aliceWallet,
             rebateNonce,
-            bobKeyHash,
+            bobNpkMHash,
           ),
         },
       })
@@ -67,9 +71,19 @@ describe('e2e_fees/private_refunds', () => {
 
     expect(tx.transactionFee).toBeGreaterThan(0);
 
-    const refundedNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(tx.transactionFee!));
-    const aliceKeyHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const aliceRefundNote = new Note([refundedNoteValue, aliceKeyHash, rebateNonce]);
+    // 2. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
+    // the fee limit less the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
+    // the randomness.
+    const refundNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(tx.transactionFee!));
+    // TODO(#7324): The values in complete address are currently not updated after the keys are rotated so this does
+    // not work with key rotation as the key might be the old one and then we would fetch a new one in the contract.
+    const aliceNpkMHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
+    const aliceRefundNote = new Note([refundNoteValue, aliceNpkMHash, rebateNonce]);
+
+    // 3. If the refund flow worked and it added a note with the expected values, we should be able to add the note
+    // to our PXE. Just calling `pxe.addNote(...)` is enough of a check because the endpoint will compute the note
+    // hash and then it will try to find the note hash in the note hash tree. If the note hash is not found
+    // in the tree, an error is thrown.
     await t.aliceWallet.addNote(
       new ExtendedNote(
         aliceRefundNote,
@@ -81,7 +95,8 @@ describe('e2e_fees/private_refunds', () => {
       ),
     );
 
-    const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobKeyHash, rebateNonce]);
+    // 4. Check that the balances are as expected.
+    const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobNpkMHash, rebateNonce]);
     await t.bobWallet.addNote(
       new ExtendedNote(
         bobFeeNote,
@@ -125,9 +140,9 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
     private rebateNonce: Fr,
 
     /**
-     * The hash of the nullifier private key that the FPC sends notes it receives to.
+     * The hash of the master nullifier public key that the FPC sends notes it receives to.
      */
-    private feeRecipientNPKMHash: Fr,
+    private feeRecipientNpkMHash: Fr,
   ) {}
 
   /**
@@ -154,7 +169,7 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [this.feeRecipientNPKMHash, this.wallet.getCompleteAddress().address, maxFee, this.rebateNonce],
+        args: [this.feeRecipientNpkMHash, this.wallet.getCompleteAddress().address, maxFee, this.rebateNonce],
         selector: FunctionSelector.fromSignature('setup_refund(Field,(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,

@@ -117,9 +117,12 @@ impl OwnedNote for TokenNote {
 
 impl PrivatelyRefundable for TokenNote {
     fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, refund_nonce: Field) -> [EmbeddedCurvePoint; 2] {
+        // 1. To be able to multiply generators with nonce and npk_m_hash using barretneberg's blackbox function we
+        // first need to convert the fields to high and low limbs.
         let (refund_nonce_lo, refund_nonce_hi) = decompose(refund_nonce);
         let (fee_payer_lo, fee_payer_hi) = decompose(fee_payer_npk_m_hash);
 
+        // 2. Now that we have correct representationsn of fee payer and refund nonce we can compute `G ^ (fee_payer_npk + refund_nonce)`
         let fee_payer_point = multi_scalar_mul(
             [G1, G1],
             [EmbeddedCurveScalar {
@@ -132,8 +135,12 @@ impl PrivatelyRefundable for TokenNote {
             }]
         );
 
+        // 3. We do the necessary conversion for values relevant for the sponsored user point.
+        // TODO(#7324): representing user with their npk_m_hash here does not work with key rotation
         let (sponsored_user_lo, sponsored_user_hi) = decompose(sponsored_user_npk_m_hash);
         let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
+
+        // 4. We compute `G ^ (sponsored_user_npk_m_hash + funded_amount + refund_nonce)`
         let sponsored_user_point = multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
@@ -150,15 +157,16 @@ impl PrivatelyRefundable for TokenNote {
             }]
         );
 
+        // 5. At last we represent the points as EmbeddedCurvePoints and return them.
         [EmbeddedCurvePoint {
             x: fee_payer_point[0],
             y: fee_payer_point[1],
             is_infinite: fee_payer_point[2] == 1
-        },EmbeddedCurvePoint {
+        }, EmbeddedCurvePoint {
             x: sponsored_user_point[0],
             y: sponsored_user_point[1],
             is_infinite: sponsored_user_point[2] == 1
-        } ]
+        }]
     }
 
     fn complete_refund(fee_payer_point: EmbeddedCurvePoint, sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> [Field; 2] {
@@ -174,7 +182,7 @@ impl PrivatelyRefundable for TokenNote {
         let fee_point = EmbeddedCurvePoint {
             x: fee_point_raw[0],
             y: fee_point_raw[1],
-            is_infinite: fee_point_raw[2] ==1
+            is_infinite: fee_point_raw[2] == 1
         };
 
         /**
@@ -186,7 +194,7 @@ impl PrivatelyRefundable for TokenNote {
 
         So you can think of these (x,y) points as "partial notes": they encode part of the internals of the notes.
 
-        This is because the compute_note_content_hash function above defines the the content hash to be
+        This is because the compute_note_content_hash function above defines the content hash to be
         the x-coordinate of a point defined as:
 
         amount * G + npk * G + randomness * G

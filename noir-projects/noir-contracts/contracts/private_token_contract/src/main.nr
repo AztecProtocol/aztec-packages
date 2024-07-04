@@ -165,18 +165,32 @@ contract PrivateToken {
         funded_amount: Field,
         refund_nonce: Field
     ) {
+        // 1. This function is called by fee paying contract (FPC) when setting up a refund so we need to support
+        // the authwit flow here and check that the user really permitted FPC to set up a refund on their behalf.
         assert_current_call_valid_authwit(&mut context, sponsored_user);
+
+        // 2. Get all the relevant user keys
         let header = context.get_header();
         let sponsored_user_npk_m_hash = header.get_npk_m_hash(&mut context, sponsored_user);
         let sponsored_user_ovpk = header.get_ovpk_m(&mut context, sponsored_user);
         let sponsored_user_ivpk = header.get_ivpk_m(&mut context, sponsored_user);
+
+        // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
+        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
+        // to the user in the `complete_refund(...)` function.
+        // TODO(#7324): using npk_m_hash here does not work with key rotation
         storage.balances.sub(sponsored_user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, sponsored_user_ovpk, sponsored_user_ivpk));
+
+        // 4. We generate the refund points.
         let points = TokenNote::generate_refund_points(
             fee_payer_npk_m_hash,
             sponsored_user_npk_m_hash,
             funded_amount,
             refund_nonce
         );
+
+        // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_refund(Field,Field,Field,Field)"),
