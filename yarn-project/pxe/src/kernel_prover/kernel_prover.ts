@@ -41,7 +41,6 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
   verificationKey: VerificationKeyAsFields.makeEmpty(),
   outputWitness: new Map()
 };
-
 /**
  * The KernelProver class is responsible for generating kernel proofs.
  * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
@@ -174,6 +173,7 @@ export class KernelProver {
 
     // TODO(ISSUE PENDING) how do we 'bincode' encode these?
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+    ivcProof.numPublicInputs = tailOutput.verificationKey.numPublicInputs;
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }
