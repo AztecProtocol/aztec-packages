@@ -64,7 +64,7 @@ async function getNewArtifactHash(artifactPath, outputFolder, artifactName) {
       );
     }
   } catch (ignored) {
-    console.log("No previous vk found for", artifactName);
+    console.log("No on disk vk found for", artifactName);
   }
   return artifactHash;
 }
@@ -78,7 +78,7 @@ async function processArtifact(artifactPath, outputFolder) {
     artifactName
   );
   if (!artifactHash) {
-    console.log("Reusing previous vk for", artifactName);
+    console.log("Reusing on disk vk for", artifactName);
     return;
   }
 
@@ -93,7 +93,7 @@ async function processArtifact(artifactPath, outputFolder) {
     );
     await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
   } else {
-    console.log("Using VK from remote cache");
+    console.log("Using VK from remote cache for", artifactName);
   }
 
   await fs.writeFile(
@@ -191,8 +191,8 @@ async function readVKFromS3(artifactName, artifactHash) {
       Bucket: BUCKET_NAME,
       Key: `${PREFIX}/${artifactName}-${artifactHash}.json`,
     });
-    const result = JSON.parse(response.transformToString());
-    console.log({ result });
+
+    const result = JSON.parse(await response.transformToString());
     return result;
   } catch (err) {
     console.warn("Could not read VK from remote cache", err.message);
