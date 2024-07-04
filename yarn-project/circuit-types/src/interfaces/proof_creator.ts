@@ -51,6 +51,7 @@ export type AppCircuitProofOutput = {
 /**
  * ProofCreator provides functionality to create and validate proofs, and retrieve
  * siloed commitments necessary for maintaining transaction privacy and security on the network.
+ * TODO(ISSUE PENDING): these no longer create proofs, rename
  */
 export interface ProofCreator {
   /**

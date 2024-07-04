@@ -71,7 +71,6 @@ export class KernelProver {
 
     let output: KernelProofOutput<PrivateKernelCircuitPublicInputs> = {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
       // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
       outputWitness: new Map()
@@ -138,7 +137,6 @@ export class KernelProver {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
-          output.proof,
           output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
@@ -162,7 +160,6 @@ export class KernelProver {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
-      output.proof,
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
@@ -229,7 +226,6 @@ export class KernelProver {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
-      output.proof,
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),

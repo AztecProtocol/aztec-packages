@@ -1,9 +1,8 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AGGREGATION_OBJECT_LENGTH,
   Fr,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -14,7 +13,7 @@ import {
   Proof,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
-  type VerificationKeyAsFields,
+  VerificationKeyAsFields,
   type VerificationKeyData,
   ClientIvcProof,
 } from '@aztec/circuits.js';
@@ -43,7 +42,7 @@ import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import { encode } from "@msgpack/msgpack";
-import { join } from 'path';
+import path, { join } from 'path';
 
 import {
   BB_RESULT,
@@ -56,11 +55,11 @@ import {
 } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
-import path from 'path';
 
 /**
  * This proof creator implementation uses the native bb binary.
  * This is a temporary implementation until we make the WASM version work.
+ * TODO(ISSUE PENDING): these no longer create proofs, rename
  */
 export class BBNativeProofCreator implements ProofCreator {
   private simulator = new WASMSimulator();
@@ -287,10 +286,7 @@ export class BBNativeProofCreator implements ProofCreator {
     convertInputs: (inputs: I) => WitnessMap,
     convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
-    const operation = async (directory: string) => {
-      return await this.generateWitnessAndCreateProof(inputs, circuitType, directory, convertInputs, convertOutputs);
-    };
-    return await runInDirectory(this.bbWorkingDirectory, operation);
+    return await this.generateWitnessAndCreateProof(inputs, circuitType, convertInputs, convertOutputs);
   }
 
   private async generateWitnessAndCreateProof<
@@ -299,7 +295,6 @@ export class BBNativeProofCreator implements ProofCreator {
   >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
-    directory: string,
     convertInputs: (inputs: I) => WitnessMap,
     convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
@@ -319,20 +314,9 @@ export class BBNativeProofCreator implements ProofCreator {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    const proofOutput = await this.createProof(
-      directory,
-      outputWitness,
-      Buffer.from(compiledCircuit.bytecode, 'base64'),
-      circuitType,
-    );
-    if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
-      throw new Error(`Incorrect proof length`);
-    }
-    const nestedProof = proofOutput.proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
     const kernelOutput: KernelProofOutput<O> = {
       publicInputs: output,
-      proof: nestedProof,
-      verificationKey: proofOutput.verificationKey,
+      verificationKey: VerificationKeyAsFields.makeEmpty(), // TODO(ISSUE PENDING): remove entirely
       outputWitness
     };
     return kernelOutput;
