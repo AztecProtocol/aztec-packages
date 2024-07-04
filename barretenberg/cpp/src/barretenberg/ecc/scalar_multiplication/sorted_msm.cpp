@@ -18,7 +18,6 @@ SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::generate_add
                                                                                                 std::span<G1> points)
 {
     const size_t num_points = points.size();
-    std::vector<size_t> index(num_points);
     std::iota(index.begin(), index.end(), 0);
     std::sort(index.begin(), index.end(), [&](size_t idx_1, size_t idx_2) { return scalars[idx_1] < scalars[idx_2]; });
 
@@ -42,14 +41,14 @@ SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::generate_add
     }
 
     num_unique_scalars = seq_idx + 1;
+
     std::span<uint64_t> seq_counts(sequence_counts.data(), num_unique_scalars);
     std::span<G1> sorted_points(updated_points.data(), num_points);
     return AdditionSequences{ seq_counts, sorted_points, {} };
 }
 
 template <typename Curve>
-void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequences& add_sequences,
-                                                                  std::span<Fq> denominators)
+void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequences& add_sequences)
 {
     auto points = add_sequences.points;
     auto sequence_counts = add_sequences.sequence_counts;
@@ -60,7 +59,7 @@ void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequen
         total_num_pairs += count >> 1;
     }
 
-    auto scratch_space = denominators;
+    std::span<Fq> scratch_space(denominators.data(), total_num_pairs);
     std::vector<Fq> differences;
     differences.resize(total_num_pairs);
 
@@ -73,6 +72,7 @@ void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequen
             const auto& x1 = points[point_idx++].x;
             const auto& x2 = points[point_idx++].x;
 
+            // WORKTODO: what is the risk of a collision here?
             ASSERT(x1 != x2);
 
             auto diff = x2 - x1;
@@ -119,20 +119,7 @@ void SortedMsmManager<Curve>::batched_affine_add_in_place(AdditionSequences addi
         return;
     }
 
-    std::vector<Fq> denominators(num_points);
-
-    // std::vector<Fq> reserved_batch_inverse_space;
-    // std::span<Fq> denominators;
-    // if (!addition_sequences.scratch_space.has_value()) {
-    //     info("Using local scratch space.");
-    //     reserved_batch_inverse_space.resize(num_points); // WORKTODO: num_pairs
-    //     denominators = &reserved_batch_inverse_space[0];
-    // } else {
-    //     info("Using PROVIDED scratch space.");
-    //     denominators = &addition_sequences.scratch_space.value()[0];
-    // }
-
-    compute_point_addition_denominators(addition_sequences, denominators);
+    compute_point_addition_denominators(addition_sequences);
 
     auto points = addition_sequences.points;
     auto sequence_counts = addition_sequences.sequence_counts;

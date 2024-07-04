@@ -24,17 +24,21 @@ template <typename Curve> class SortedMsmManager {
     std::vector<uint64_t> sequence_counts;
     std::vector<Fr> unique_scalars;
     std::vector<G1> updated_points;
+    std::vector<size_t> index;
+    std::vector<Fq> denominators;
 
     SortedMsmManager(const size_t num_scalars = 0)
     {
         sequence_counts.resize(num_scalars);
         unique_scalars.resize(num_scalars);
         updated_points.resize(num_scalars);
+        index.resize(num_scalars);
+        denominators.resize(num_scalars);
     }
 
     G1 affine_add_with_denominator(const G1&, const G1&, const Fq& denominator);
 
-    void compute_point_addition_denominators(AdditionSequences& add_sequences, std::span<Fq> denominators);
+    void compute_point_addition_denominators(AdditionSequences& add_sequences);
 
     void batched_affine_add_in_place(AdditionSequences addition_sequences);
 

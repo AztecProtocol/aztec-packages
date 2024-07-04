@@ -33,8 +33,6 @@ TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
 
-    MsmManager msm_manager;
-
     const size_t num_points = 5;
     std::array<G1, num_points> points;
     for (auto& point : points) {
@@ -49,10 +47,12 @@ TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
     denominators_expected[0] = (points[1].x - points[0].x).invert();
     denominators_expected[1] = (points[4].x - points[3].x).invert();
 
-    std::array<Fq, num_pairs> denominators;
-    msm_manager.compute_point_addition_denominators(addition_sequences, denominators);
+    MsmManager msm_manager(num_points);
+    msm_manager.compute_point_addition_denominators(addition_sequences);
 
-    for (auto [result, expected] : zip_view(denominators, denominators_expected)) {
+    for (size_t i = 0; i < num_pairs; ++i) {
+        Fq result = msm_manager.denominators[i];
+        Fq expected = denominators_expected[i];
         EXPECT_EQ(result, expected);
     }
 }
@@ -84,8 +84,6 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlaceSimple)
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
 
-    MsmManager msm_manager;
-
     const size_t num_points = 2;
     std::array<G1, num_points> points;
     for (auto& point : points) {
@@ -97,6 +95,7 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlaceSimple)
 
     std::array<G1, 1> expected_points{ points[0] + points[1] };
 
+    MsmManager msm_manager(num_points);
     msm_manager.batched_affine_add_in_place(addition_sequences);
 
     for (size_t idx = 0; idx < expected_points.size(); ++idx) {
@@ -110,8 +109,6 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlace)
     using G1 = typename Curve::AffineElement;
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
-
-    MsmManager msm_manager;
 
     const size_t num_points = 10;
     std::array<G1, num_points> points;
@@ -132,6 +129,7 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlace)
         expected_points.emplace_back(sum);
     }
 
+    MsmManager msm_manager(num_points);
     msm_manager.batched_affine_add_in_place(addition_sequences);
 
     for (size_t idx = 0; idx < expected_points.size(); ++idx) {
