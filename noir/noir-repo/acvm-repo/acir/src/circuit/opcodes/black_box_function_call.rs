@@ -29,7 +29,7 @@ impl<F> FunctionInput<F> {
         self.num_bits
     }
 
-    pub fn from_witness(witness: Witness, num_bits: u32) -> FunctionInput<F> {
+    pub fn witness(witness: Witness, num_bits: u32) -> FunctionInput<F> {
         FunctionInput { input: ConstantOrWitnessEnum::Witness(witness), num_bits }
     }
 
@@ -523,20 +523,18 @@ mod tests {
     use super::{BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput};
 
     fn keccakf1600_opcode<F: AcirField>() -> Opcode<F> {
-        let inputs: Box<[FunctionInput<F>; 25]> = Box::new(std::array::from_fn(|i| {
-            FunctionInput::from_witness(Witness(i as u32 + 1), 8)
-        }));
+        let inputs: Box<[FunctionInput<F>; 25]> =
+            Box::new(std::array::from_fn(|i| FunctionInput::witness(Witness(i as u32 + 1), 8)));
         let outputs: Box<[Witness; 25]> = Box::new(std::array::from_fn(|i| Witness(i as u32 + 26)));
 
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::Keccakf1600 { inputs, outputs })
     }
     fn schnorr_verify_opcode<F: AcirField>() -> Opcode<F> {
-        let public_key_x = FunctionInput::from_witness(Witness(1), FieldElement::max_num_bits());
-        let public_key_y = FunctionInput::from_witness(Witness(2), FieldElement::max_num_bits());
-        let signature: Box<[FunctionInput<F>; 64]> = Box::new(std::array::from_fn(|i| {
-            FunctionInput::from_witness(Witness(i as u32 + 3), 8)
-        }));
-        let message: Vec<FunctionInput<F>> = vec![FunctionInput::from_witness(Witness(67), 8)];
+        let public_key_x = FunctionInput::witness(Witness(1), FieldElement::max_num_bits());
+        let public_key_y = FunctionInput::witness(Witness(2), FieldElement::max_num_bits());
+        let signature: Box<[FunctionInput<F>; 64]> =
+            Box::new(std::array::from_fn(|i| FunctionInput::witness(Witness(i as u32 + 3), 8)));
+        let message: Vec<FunctionInput<F>> = vec![FunctionInput::witness(Witness(67), 8)];
         let output = Witness(68);
 
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::SchnorrVerify {
