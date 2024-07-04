@@ -18,8 +18,8 @@
 
 #include <cstddef>
 #include <memory>
-#include <ranges>
 #include <string_view>
+
 namespace bb {
 
 /**
@@ -33,7 +33,6 @@ namespace bb {
 template <class Curve> class CommitmentKey {
 
     using Fr = typename Curve::ScalarField;
-    using Fq = typename Curve::BaseField;
     using Commitment = typename Curve::AffineElement;
 
   public:
@@ -76,35 +75,6 @@ template <class Curve> class CommitmentKey {
         return scalar_multiplication::pippenger_unsafe<Curve>(
             const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);
     };
-
-    using G1 = typename Curve::AffineElement;
-    struct AddGroup {
-        G1* source;
-        G1* destination_origin;
-        size_t num_points;
-    };
-
-    struct AffineAddTemporaries {
-        Fq lambda_denominator_accumulator;
-        Fq lambda_numerator;
-    };
-
-    // void parallel_add_4(
-    //     const MultipleAdditionSequences addition_sequences, Fq* scratch_space, G1* result
-    // )
-    // {
-    //    // const auto& num_independent_additions = addition_sequences.num_independent_additions;
-    //     auto& sequence_counts = addition_sequences.sequence_counts;
-
-    //     const size_t num_independent_additions = 0;
-    //     if (!addition_sequences.num_independent_additions.has_value())
-    //     {
-    //         for (auto& num : sequence_counts)
-    //         {
-    //             num_independent_additions += (num >> 1);n
-    //         }
-    //     }
-    // }
 };
 
 } // namespace bb

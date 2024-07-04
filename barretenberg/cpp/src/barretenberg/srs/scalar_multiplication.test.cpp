@@ -12,7 +12,6 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
@@ -572,8 +571,7 @@ TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
 
     Element expected = Group::one * scalar;
 
-    // we want to test that we can split a scalar into two half-length components, using the same location in
-    // memory.
+    // we want to test that we can split a scalar into two half-length components, using the same location in memory.
     Fr* k1_t = &scalar;
     Fr* k2_t = (Fr*)&scalar.data[2];
 
