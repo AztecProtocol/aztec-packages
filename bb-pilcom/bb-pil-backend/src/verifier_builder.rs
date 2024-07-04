@@ -7,7 +7,6 @@ pub trait VerifierBuilder {
     fn create_verifier_cpp(
         &mut self,
         name: &str,
-        witness: &[String],
         inverses: &[String],
         public_cols: &[(String, usize)],
     );
@@ -19,7 +18,6 @@ impl VerifierBuilder for BBFiles {
     fn create_verifier_cpp(
         &mut self,
         name: &str,
-        witness: &[String],
         inverses: &[String],
         public_cols: &[(String, usize)],
     ) {
@@ -30,8 +28,6 @@ impl VerifierBuilder for BBFiles {
             "commitments.{n} = transcript->template receive_from_prover<Commitment>(commitment_labels.{n});"
         )
         };
-        let wire_commitments = map_with_newline(witness, wire_transformation);
-
         let has_public_input_columns = !public_cols.is_empty();
         let has_inverses = !inverses.is_empty();
 
@@ -56,7 +52,7 @@ impl VerifierBuilder for BBFiles {
             |public_inputs_column_name: &String, idx: usize| {
                 format!(
                 "
-        FF {public_inputs_column_name}_evaluation = evaluate_public_input_column(public_inputs[{idx}], circuit_size, multivariate_challenge);
+        FF {public_inputs_column_name}_evaluation = evaluate_public_input_column(public_inputs[{idx}], circuit_size, mle_challenge);
         if ({public_inputs_column_name}_evaluation != claimed_evaluations.{public_inputs_column_name}) {{
             return false;
         }}
@@ -151,7 +147,9 @@ impl VerifierBuilder for BBFiles {
         }}
     
         // Get commitments to VM wires
-        {wire_commitments}
+        for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {{
+            comm = transcript->template receive_from_prover<Commitment>(label);
+        }}
 
         {get_inverse_challenges}
 
@@ -178,6 +176,8 @@ impl VerifierBuilder for BBFiles {
         }}
 
         // Public columns evaluation checks
+        std::vector<FF> mle_challenge(multivariate_challenge.begin(),
+                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
         {public_inputs_check}
     
         // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the

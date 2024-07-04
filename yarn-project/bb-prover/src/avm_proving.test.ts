@@ -3,16 +3,17 @@ import {
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  FunctionSelector,
   Gas,
   GlobalVariables,
   Header,
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -168,6 +169,7 @@ describe('AVM WitGen, proof generation and verification', () => {
       'get_fee_per_l2_gas',
       'get_fee_per_da_gas',
       'get_transaction_fee',
+      'get_function_selector',
       'get_chain_id',
       'get_version',
       'get_block_number',
@@ -201,9 +203,10 @@ const proveAndVerifyAvmTestContract = async (
   assertionErrString?: string,
 ) => {
   const startSideEffectCounter = 0;
+  const functionSelector = FunctionSelector.random();
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
-  const environment = initExecutionEnvironment({ calldata, globals });
+  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
   const contractsDb = mock<PublicContractsDB>();
   const contractInstance = new SerializableContractInstance({
@@ -285,12 +288,12 @@ const proveAndVerifyAvmTestContract = async (
 // TODO: pub somewhere more usable - copied from abstract phase manager
 const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInputs => {
   return PublicCircuitPublicInputs.from({
-    callContext: result.execution.callContext,
+    callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,
-    argsHash: computeVarArgsHash(result.execution.args),
-    newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-    newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
-    newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+    argsHash: computeVarArgsHash(result.executionRequest.args),
+    noteHashes: padArrayEnd(result.noteHashes, NoteHash.empty(), MAX_NOTE_HASHES_PER_CALL),
+    nullifiers: padArrayEnd(result.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_CALL),
+    l2ToL1Msgs: padArrayEnd(result.l2ToL1Messages, L2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_CALL),
     startSideEffectCounter: result.startSideEffectCounter,
     endSideEffectCounter: result.endSideEffectCounter,
     returnsHash: computeVarArgsHash(result.returnValues),

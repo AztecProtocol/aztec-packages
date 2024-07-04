@@ -4,21 +4,21 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { AvmContext } from '../avm/avm_context.js';
+import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
 import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
-import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
+import { type PublicExecutionRequest, type PublicExecutionResult } from './execution.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
-import { createAvmExecutionEnvironment } from './transitional_adaptors.js';
 
 /**
  * Handles execution of public functions.
  */
 export class PublicExecutor {
   constructor(
-    private readonly stateDb: PublicStateDB,
+    private readonly publicStorageDB: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
     private readonly header: Header,
@@ -38,10 +38,10 @@ export class PublicExecutor {
    * @returns The result of execution, including the results of all nested calls.
    */
   public async simulate(
-    executionRequest: PublicExecution,
+    executionRequest: PublicExecutionRequest,
     globalVariables: GlobalVariables,
     availableGas: Gas,
-    txContext: TxContext,
+    _txContext: TxContext,
     pendingSiloedNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
     startSideEffectCounter: number = 0,
@@ -53,7 +53,7 @@ export class PublicExecutor {
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();
 
-    const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
+    const hostStorage = new HostStorage(this.publicStorageDB, this.contractsDb, this.commitmentsDb);
     const trace = new PublicSideEffectTrace(startSideEffectCounter);
     const avmPersistableState = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
       hostStorage,
@@ -65,7 +65,6 @@ export class PublicExecutor {
       executionRequest,
       this.header,
       globalVariables,
-      txContext.gasSettings,
       transactionFee,
     );
 
@@ -75,7 +74,7 @@ export class PublicExecutor {
     const avmResult = await simulator.execute();
     const bytecode = simulator.getBytecode()!;
 
-    // Commit the journals state to the DBs since this is a top-level execution.
+    // Commit the public storage state to the DBs since this is a top-level execution.
     // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
     // However, the underlying DB keep a cache and will only write the latest state to disk.
     // TODO(dbanks12): this should be unnecessary here or should be exposed by state manager
@@ -105,18 +104,34 @@ export class PublicExecutor {
       // (which counts the request itself)
     );
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): is this really needed?
-    // should already be handled in simulation.
-    if (executionRequest.callContext.isStaticCall) {
-      checkValidStaticCall(
-        publicExecutionResult.newNoteHashes,
-        publicExecutionResult.newNullifiers,
-        publicExecutionResult.contractStorageUpdateRequests,
-        publicExecutionResult.newL2ToL1Messages,
-        publicExecutionResult.unencryptedLogs,
-      );
-    }
-
     return publicExecutionResult;
   }
+}
+
+/**
+ * Convert a PublicExecutionRequest object to an AvmExecutionEnvironment
+ *
+ * @param executionRequest
+ * @param globalVariables
+ * @returns
+ */
+function createAvmExecutionEnvironment(
+  executionRequest: PublicExecutionRequest,
+  header: Header,
+  globalVariables: GlobalVariables,
+  transactionFee: Fr,
+): AvmExecutionEnvironment {
+  return new AvmExecutionEnvironment(
+    executionRequest.contractAddress,
+    executionRequest.callContext.storageContractAddress,
+    executionRequest.callContext.msgSender,
+    executionRequest.functionSelector,
+    /*contractCallDepth=*/ Fr.zero(),
+    transactionFee,
+    header,
+    globalVariables,
+    executionRequest.callContext.isStaticCall,
+    executionRequest.callContext.isDelegateCall,
+    executionRequest.args,
+  );
 }
