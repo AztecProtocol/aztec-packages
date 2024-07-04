@@ -61,15 +61,7 @@ impl BaseRollupInputs {
         // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
         // LONDONTODO how could this pass in the public case, which has a honk proof that is not a 0-public-input tube?
         // LONDONTODO Adam to check if we didn't just make the final public proof a tube
-        // LONDONTODO(AD) it seems the way this will work is to just call builder.set_public() in bb main for prove_tube
-        dep::std::verify_proof(
-            self.kernel_data.vk.key.as_slice(),
-            self.kernel_data.proof.fields.as_slice(),
-            // self.kernel_data.
-            self.kernel_data.vk.hash
-        );
-        // LONDONTODO comment this back once we have tube accepting public inputs
-        self.previous_kernel.verify();
+        self.kernel_data.verify();
 
         // Verify the kernel chain_id and versions
         assert(

@@ -7,30 +7,13 @@ struct PrivateKernelData {
     // already being in the proof.
     public_inputs: PrivateKernelCircuitPublicInputs,
 
-    // TODO(David): Mentions the dichotomy between a proof created for the 
-    // circuit, which is a sequence of field elements, versus a proof
-    // created for solidity/native verification which is a collection of bytes.
-    // Kev: I've been questioning if we _need_ the sequence of field elements.
-    // It makes verification cheaper, though I have not tested how much cheaper.
-    // Removing it would also reduce complexity on the Noir side, as we have 
-    // special methods to convert "inner proofs" into sequence of field elements. 
-    proof: NestedRecursiveProof,
+    // TODO(ISSUE PENDING - public inputs) previous private kernels no longer come with their proof
+    // as we do client IVC not recursive verification. We need to ensure the public inputs here is properly constrained.
+    // TODO(ISSUE PENDING) we need to cleanup these members now that there is no recursive verification. Need to update serialization code.
     vk: VerificationKey,
 
     // TODO(Mike): left a note saying : this index and path are meant to be those of a leaf within the tree of _kernel circuit_ vks; not the tree
     // of functions within the contract tree.
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
-}
-
-impl Verifiable for PrivateKernelData {
-  fn verify(self) {
-    let inputs = PrivateKernelCircuitPublicInputs::serialize(self.public_inputs);
-    std::verify_proof(
-        self.vk.key.as_slice(),
-        self.proof.fields.as_slice(),
-        inputs.as_slice(),
-        self.vk.hash
-    );
-  }
 }
