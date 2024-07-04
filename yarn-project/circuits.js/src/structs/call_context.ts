@@ -33,10 +33,6 @@ export class CallContext {
      * Determines whether the call is modifying state.
      */
     public isStaticCall: boolean,
-    /**
-     * The start side effect counter for this call context.
-     */
-    public sideEffectCounter: number,
   ) {}
 
   /**
@@ -44,7 +40,7 @@ export class CallContext {
    * @returns A new instance of CallContext with zero msg sender, storage contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false, 0);
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false);
   }
 
   isEmpty() {
@@ -64,7 +60,6 @@ export class CallContext {
       fields.functionSelector,
       fields.isDelegateCall,
       fields.isStaticCall,
-      fields.sideEffectCounter,
     ] as const;
   }
 
@@ -99,7 +94,6 @@ export class CallContext {
       reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readNumber(),
     );
   }
 
@@ -111,7 +105,6 @@ export class CallContext {
       reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readU32(),
     );
   }
 
@@ -121,8 +114,7 @@ export class CallContext {
       callContext.storageContractAddress.equals(this.storageContractAddress) &&
       callContext.functionSelector.equals(this.functionSelector) &&
       callContext.isDelegateCall === this.isDelegateCall &&
-      callContext.isStaticCall === this.isStaticCall &&
-      callContext.sideEffectCounter === this.sideEffectCounter
+      callContext.isStaticCall === this.isStaticCall
     );
   }
 }

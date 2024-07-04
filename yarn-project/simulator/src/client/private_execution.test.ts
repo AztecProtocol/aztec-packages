@@ -888,7 +888,6 @@ describe('Private Execution test suite', () => {
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 2,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -896,8 +895,8 @@ describe('Private Execution test suite', () => {
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 1,
         }),
+        sideEffectCounter: 2,
       });
 
       const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();
