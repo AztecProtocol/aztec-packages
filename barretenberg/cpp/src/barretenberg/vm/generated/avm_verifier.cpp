@@ -79,6 +79,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.gamma = gamm;
 
     // Get commitments to inverses
+    commitments.perm_cd_mem = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_cd_mem);
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);
@@ -86,6 +87,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pos2_perm);
     commitments.perm_main_pedersen =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pedersen);
+    commitments.perm_main_cd_copy =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_cd_copy);
     commitments.perm_main_mem_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_a);
     commitments.perm_main_mem_b =
@@ -106,6 +109,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations);
+    commitments.lookup_cd_value =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_cd_value);
     commitments.lookup_opcode_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_opcode_gas);
     commitments.range_check_l2_gas_hi =
