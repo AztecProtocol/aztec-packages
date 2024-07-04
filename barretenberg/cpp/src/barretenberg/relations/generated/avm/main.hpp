@@ -56,6 +56,7 @@ template <typename FF> struct MainRow {
     FF main_rwd{};
     FF main_sel_alu{};
     FF main_sel_bin{};
+    FF main_sel_calldata_gadget{};
     FF main_sel_first{};
     FF main_sel_gas_accounting_active{};
     FF main_sel_mem_op_a{};
@@ -230,9 +231,9 @@ inline std::string get_relation_label_main(int index)
         return "SLOAD_KERNEL_OUTPUT";
     case 144:
         return "SSTORE_KERNEL_OUTPUT";
-    case 147:
-        return "BIN_SEL_1";
     case 148:
+        return "BIN_SEL_1";
+    case 149:
         return "BIN_SEL_2";
     }
     return std::to_string(index);
@@ -242,12 +243,12 @@ template <typename FF_> class mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 149> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 150> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 3, 3, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 2, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -1450,16 +1451,23 @@ template <typename FF_> class mainImpl {
         // Contribution 147
         {
             Avm_DECLARE_VIEWS(147);
-            auto tmp = (main_bin_op_id - (main_sel_op_or + (main_sel_op_xor * FF(2))));
+            auto tmp = (main_sel_calldata_gadget - (main_sel_op_calldata_copy * (-main_tag_err + FF(1))));
             tmp *= scaling_factor;
             std::get<147>(evals) += tmp;
         }
         // Contribution 148
         {
             Avm_DECLARE_VIEWS(148);
-            auto tmp = (main_sel_bin - ((main_sel_op_and + main_sel_op_or) + main_sel_op_xor));
+            auto tmp = (main_bin_op_id - (main_sel_op_or + (main_sel_op_xor * FF(2))));
             tmp *= scaling_factor;
             std::get<148>(evals) += tmp;
+        }
+        // Contribution 149
+        {
+            Avm_DECLARE_VIEWS(149);
+            auto tmp = (main_sel_bin - ((main_sel_op_and + main_sel_op_or) + main_sel_op_xor));
+            tmp *= scaling_factor;
+            std::get<149>(evals) += tmp;
         }
     }
 };

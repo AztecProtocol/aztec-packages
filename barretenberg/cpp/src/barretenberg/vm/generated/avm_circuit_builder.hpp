@@ -197,6 +197,7 @@ template <typename FF> struct AvmFullRow {
     FF main_rwd{};
     FF main_sel_alu{};
     FF main_sel_bin{};
+    FF main_sel_calldata_gadget{};
     FF main_sel_cd{};
     FF main_sel_gas_accounting_active{};
     FF main_sel_last{};
@@ -442,8 +443,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 403;
-    static constexpr size_t num_polys = 403 + 68;
+    static constexpr size_t num_fixed_columns = 404;
+    static constexpr size_t num_polys = 404 + 68;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -635,6 +636,7 @@ class AvmCircuitBuilder {
             polys.main_rwd[i] = rows[i].main_rwd;
             polys.main_sel_alu[i] = rows[i].main_sel_alu;
             polys.main_sel_bin[i] = rows[i].main_sel_bin;
+            polys.main_sel_calldata_gadget[i] = rows[i].main_sel_calldata_gadget;
             polys.main_sel_cd[i] = rows[i].main_sel_cd;
             polys.main_sel_gas_accounting_active[i] = rows[i].main_sel_gas_accounting_active;
             polys.main_sel_last[i] = rows[i].main_sel_last;

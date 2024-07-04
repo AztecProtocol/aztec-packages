@@ -193,6 +193,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_rwd",
              "main_sel_alu",
              "main_sel_bin",
+             "main_sel_calldata_gadget",
              "main_sel_cd",
              "main_sel_gas_accounting_active",
              "main_sel_last",
@@ -600,6 +601,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_rwd)                                      //
               << "," << field_to_string(row.main_sel_alu)                                  //
               << "," << field_to_string(row.main_sel_bin)                                  //
+              << "," << field_to_string(row.main_sel_calldata_gadget)                      //
               << "," << field_to_string(row.main_sel_cd)                                   //
               << "," << field_to_string(row.main_sel_gas_accounting_active)                //
               << "," << field_to_string(row.main_sel_last)                                 //

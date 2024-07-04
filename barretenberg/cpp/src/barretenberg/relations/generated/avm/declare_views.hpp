@@ -184,6 +184,7 @@
     [[maybe_unused]] auto main_rwd = View(new_term.main_rwd);                                                          \
     [[maybe_unused]] auto main_sel_alu = View(new_term.main_sel_alu);                                                  \
     [[maybe_unused]] auto main_sel_bin = View(new_term.main_sel_bin);                                                  \
+    [[maybe_unused]] auto main_sel_calldata_gadget = View(new_term.main_sel_calldata_gadget);                          \
     [[maybe_unused]] auto main_sel_cd = View(new_term.main_sel_cd);                                                    \
     [[maybe_unused]] auto main_sel_gas_accounting_active = View(new_term.main_sel_gas_accounting_active);              \
     [[maybe_unused]] auto main_sel_last = View(new_term.main_sel_last);                                                \
