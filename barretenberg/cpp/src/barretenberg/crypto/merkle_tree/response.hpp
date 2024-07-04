@@ -64,7 +64,7 @@ void ExecuteAndReport(const std::function<void(TypedResponse<ResponseType>&)>& f
 
 inline void ExecuteAndReport(const std::function<void()>& f, const std::function<void(const Response&)>& on_completion)
 {
-    Response response;
+    Response response{ true, "" };
     try {
         f();
     } catch (std::exception& e) {
