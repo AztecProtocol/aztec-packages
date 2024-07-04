@@ -20,13 +20,13 @@ trait PrivatelyRefundable {
         sponsored_user_npk_m_hash: Field,
         funded_amount: Field,
         refund_nonce: Field
-    ) -> [EmbeddedCurvePoint; 2];
+    ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
 
     fn complete_refund(
         fee_payer_point: EmbeddedCurvePoint,
         sponsored_user_point: EmbeddedCurvePoint,
         transaction_fee: Field
-    ) -> [Field; 2];
+    ) -> (Field, Field);
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
@@ -116,8 +116,8 @@ impl OwnedNote for TokenNote {
 }
 
 impl PrivatelyRefundable for TokenNote {
-    fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, refund_nonce: Field) -> [EmbeddedCurvePoint; 2] {
-        // 1. To be able to multiply generators with nonce and npk_m_hash using barretneberg's blackbox function we
+    fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, refund_nonce: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
+        // 1. To be able to multiply generators with nonce and npk_m_hash using barretneberg's (BB) blackbox function we
         // first need to convert the fields to high and low limbs.
         let (refund_nonce_lo, refund_nonce_hi) = decompose(refund_nonce);
         let (fee_payer_lo, fee_payer_hi) = decompose(fee_payer_npk_m_hash);
@@ -158,7 +158,7 @@ impl PrivatelyRefundable for TokenNote {
         );
 
         // 5. At last we represent the points as EmbeddedCurvePoints and return them.
-        [EmbeddedCurvePoint {
+        (EmbeddedCurvePoint {
             x: fee_payer_point[0],
             y: fee_payer_point[1],
             is_infinite: fee_payer_point[2] == 1
@@ -166,12 +166,14 @@ impl PrivatelyRefundable for TokenNote {
             x: sponsored_user_point[0],
             y: sponsored_user_point[1],
             is_infinite: sponsored_user_point[2] == 1
-        }]
+        })
     }
 
-    fn complete_refund(fee_payer_point: EmbeddedCurvePoint, sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> [Field; 2] {
-
+    fn complete_refund(fee_payer_point: EmbeddedCurvePoint, sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
+        // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
         let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
+
+        // 2. We compute the fee point as `G ^ transaction_fee`
         let fee_point_raw = multi_scalar_mul(
             [G1],
             [EmbeddedCurveScalar {
@@ -254,6 +256,6 @@ impl PrivatelyRefundable for TokenNote {
         let completed_user_point = sponsored_user_point - fee_point;
         assert_eq(completed_user_point.is_infinite, false);
 
-        [completed_fpc_point.x, completed_user_point.x]
+        (completed_fpc_point.x, completed_user_point.x)
     }
 }

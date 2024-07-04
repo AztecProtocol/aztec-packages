@@ -41,8 +41,8 @@ describe('e2e_fees/private_refunds', () => {
 
   beforeEach(async () => {
     [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
-      t.privateTokenBalances(aliceAddress, t.bobAddress),
-      t.gasBalances(privateFPC.address),
+      t.getPrivateTokenBalanceFn(aliceAddress, t.bobAddress),
+      t.getGasBalanceFn(privateFPC.address),
     ]);
   });
 
@@ -114,10 +114,10 @@ describe('e2e_fees/private_refunds', () => {
     );
 
     // 7. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
-    await expectMapping(t.gasBalances, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
+    await expectMapping(t.getGasBalanceFn, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
-      t.privateTokenBalances,
+      t.getPrivateTokenBalanceFn,
       [aliceAddress, t.bobAddress],
       [initialAliceBalance - tx.transactionFee!, initialBobBalance + tx.transactionFee!],
     );

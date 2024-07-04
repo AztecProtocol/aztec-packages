@@ -6,12 +6,9 @@ mod test;
 contract PrivateToken {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
-        hash::compute_secret_hash,
+        note::utils::compute_inner_note_hash_from_preimage, hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        protocol_types::{
-        abis::function_selector::FunctionSelector, hash::pedersen_hash,
-        constants::GENERATOR_INDEX__INNER_NOTE_HASH
-    },
+        protocol_types::{abis::function_selector::FunctionSelector, hash::pedersen_hash},
         oracle::unsafe_rand::unsafe_rand,
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys}
     };
@@ -182,7 +179,7 @@ contract PrivateToken {
         storage.balances.sub(sponsored_user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, sponsored_user_ovpk, sponsored_user_ivpk));
 
         // 4. We generate the refund points.
-        let points = TokenNote::generate_refund_points(
+        let (fpc_point, user_point) = TokenNote::generate_refund_points(
             fee_payer_npk_m_hash,
             sponsored_user_npk_m_hash,
             funded_amount,
@@ -194,7 +191,7 @@ contract PrivateToken {
         context.set_public_teardown_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_refund(Field,Field,Field,Field)"),
-            [points[0].x, points[0].y, points[1].x, points[1].y]
+            [fpc_point.x, fpc_point.y, user_point.x, user_point.y]
         );
     }
 
@@ -206,25 +203,20 @@ contract PrivateToken {
         user_point_x: Field,
         user_point_y: Field
     ) {
+        // 1. We get the final note content hashes by calling the `complete_refund` on the note.
         let fpc_point = EmbeddedCurvePoint { x: fpc_point_x, y: fpc_point_y, is_infinite: false };
         let user_point = EmbeddedCurvePoint { x: user_point_x, y: user_point_y, is_infinite: false };
         let tx_fee = context.transaction_fee();
-        let note_hashes = TokenNote::complete_refund(fpc_point, user_point, tx_fee);
+        let (fpc_note_content_hash, user_note_content_hash) = TokenNote::complete_refund(fpc_point, user_point, tx_fee);
 
-        // `compute_inner_note_hash` manually, without constructing the note
-        // `3` is the storage slot of the balances
-        context.push_note_hash(
-            pedersen_hash(
-                [PrivateToken::storage().balances.slot, note_hashes[0]],
-                GENERATOR_INDEX__INNER_NOTE_HASH
-            )
-        );
-        context.push_note_hash(
-            pedersen_hash(
-                [PrivateToken::storage().balances.slot, note_hashes[1]],
-                GENERATOR_INDEX__INNER_NOTE_HASH
-            )
-        );
+        // 2. Now we "manually" compute the inner note hashes.
+        let fpc_inner_note_hash = compute_inner_note_hash_from_preimage(PrivateToken::storage().balances.slot, fpc_note_content_hash);
+        let user_inner_note_hash = compute_inner_note_hash_from_preimage(PrivateToken::storage().balances.slot, user_note_content_hash);
+
+        // 3. At last we emit the note hashes.
+        context.push_note_hash(fpc_inner_note_hash);
+        context.push_note_hash(user_inner_note_hash);
+        // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
 
     /// Internal ///
