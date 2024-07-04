@@ -1,3 +1,4 @@
+#pragma once
 
 #define Avm_DECLARE_VIEWS(index)                                                                                       \
     using Accumulator = typename std::tuple_element<index, ContainerOverSubrelations>::type;                           \
@@ -211,6 +212,7 @@
     [[maybe_unused]] auto main_sel_op_fdiv = View(new_term.main_sel_op_fdiv);                                          \
     [[maybe_unused]] auto main_sel_op_fee_per_da_gas = View(new_term.main_sel_op_fee_per_da_gas);                      \
     [[maybe_unused]] auto main_sel_op_fee_per_l2_gas = View(new_term.main_sel_op_fee_per_l2_gas);                      \
+    [[maybe_unused]] auto main_sel_op_function_selector = View(new_term.main_sel_op_function_selector);                \
     [[maybe_unused]] auto main_sel_op_get_contract_instance = View(new_term.main_sel_op_get_contract_instance);        \
     [[maybe_unused]] auto main_sel_op_halt = View(new_term.main_sel_op_halt);                                          \
     [[maybe_unused]] auto main_sel_op_internal_call = View(new_term.main_sel_op_internal_call);                        \

@@ -50,6 +50,8 @@ pub enum ResolverError {
     NoSuchNumericTypeVariable { path: crate::ast::Path },
     #[error("Closures cannot capture mutable variables")]
     CapturedMutableVariable { span: Span },
+    #[error("Test functions are not allowed to have any parameters")]
+    TestFunctionHasParameters { span: Span },
     #[error("Only struct types can be used in constructor expressions")]
     NonStructUsedInConstructor { typ: Type, span: Span },
     #[error("Only struct types can have generics")]
@@ -96,6 +98,12 @@ pub enum ResolverError {
     NoPredicatesAttributeOnUnconstrained { ident: Ident },
     #[error("#[fold] attribute is only allowed on constrained functions")]
     FoldAttributeOnUnconstrained { ident: Ident },
+    #[error("The only supported types of numeric generics are integers, fields, and booleans")]
+    UnsupportedNumericGenericType { ident: Ident, typ: Type },
+    #[error("Numeric generics should be explicit")]
+    UseExplicitNumericGeneric { ident: Ident },
+    #[error("expected type, found numeric generic parameter")]
+    NumericGenericUsedForType { name: String, span: Span },
     #[error("Invalid array length construction")]
     ArrayLengthInterpreter { error: InterpreterError },
     #[error("The unquote operator '$' can only be used within a quote expression")]
@@ -253,6 +261,11 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 "Mutable variable".into(),
                 *span,
             ),
+            ResolverError::TestFunctionHasParameters { span } => Diagnostic::simple_error(
+                "Test functions cannot have any parameters".into(),
+                "Try removing the parameters or moving the test into a wrapper function".into(),
+                *span,
+            ),
             ResolverError::NonStructUsedInConstructor { typ, span } => Diagnostic::simple_error(
                 "Only struct types can be used in constructor expressions".into(),
                 format!("{typ} has no fields to construct it with"),
@@ -392,6 +405,31 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
 
                 diag.add_note("The `#[fold]` attribute specifies whether a constrained function should be treated as a separate circuit rather than inlined into the program entry point".to_owned());
                 diag
+            }
+            ResolverError::UnsupportedNumericGenericType { ident , typ } => {
+                let name = &ident.0.contents;
+
+                Diagnostic::simple_error(
+                    format!("{name} has a type of {typ}. The only supported types of numeric generics are integers, fields, and booleans."),
+                    "Unsupported numeric generic type".to_string(),
+                    ident.0.span(),
+                )
+            }
+            ResolverError::UseExplicitNumericGeneric { ident } => {
+                let name = &ident.0.contents;
+
+                Diagnostic::simple_warning(
+                    String::from("Noir now supports explicit numeric generics. Support for implicit numeric generics will be removed in the following release."), 
+                format!("Numeric generic `{name}` should now be specified with `let {name}: <annotated type>`"), 
+                ident.0.span(),
+                )
+            }
+            ResolverError::NumericGenericUsedForType { name, span } => {
+                Diagnostic::simple_error(
+                    format!("expected type, found numeric generic parameter {name}"),
+                    String::from("not a type"),
+                    *span,
+                )
             }
             ResolverError::ArrayLengthInterpreter { error } => Diagnostic::from(error),
             ResolverError::UnquoteUsedOutsideQuote { span } => {

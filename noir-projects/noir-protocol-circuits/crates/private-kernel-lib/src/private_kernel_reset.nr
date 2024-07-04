@@ -1,32 +1,16 @@
+use crate::components::reset_output_composer::{PrivateKernelResetOutputs, ResetOutputComposer};
 use dep::reset_kernel_lib::{
-    NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor,
-    verify_squashed_transient_note_hashes_and_nullifiers, reset::key_validation_hint::KeyValidationHint
+    get_transient_or_propagated_note_hash_indexes_for_logs, KeyValidationHint, NoteHashReadRequestHints,
+    NullifierReadRequestHints, PrivateValidationRequestProcessor, verify_squashed_transient_data
 };
 use dep::types::{
-    abis::{
-    private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash
-},
-    constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
-},
-    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty,
-    PrivateKernelCircuitPublicInputs
+    abis::private_kernel_data::PrivateKernelData,
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, PrivateKernelCircuitPublicInputs
 };
 
-// Can just be KernelCircuitPublicInputs.
-struct PrivateKernelResetOutputs {
-    note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-    note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-}
-
 struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
-    transient_nullifier_indexes_for_note_hashes: [u32; MAX_NEW_NOTE_HASHES_PER_TX],
-    transient_note_hash_indexes_for_nullifiers: [u32; MAX_NEW_NULLIFIERS_PER_TX],
-    transient_note_hash_indexes_for_logs: [u32; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
+    transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
@@ -34,64 +18,86 @@ struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL
 
 struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     previous_kernel: PrivateKernelData,
-    outputs: PrivateKernelResetOutputs,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
 }
 
 impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+    unconstrained fn generate_output(self) -> PrivateKernelResetOutputs {
+        ResetOutputComposer::new(
+            self.previous_kernel.public_inputs,
+            self.hints.transient_nullifier_indexes_for_note_hashes,
+            self.hints.transient_note_hash_indexes_for_nullifiers
+        ).finish()
+    }
+
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        let mut previous_public_inputs = self.previous_kernel.public_inputs;
+        // Generate output.
+        let output = self.generate_output();
 
-        // verify/aggregate the previous kernel
-        self.previous_kernel.verify();
+        // Validate inputs.
+        if !std::runtime::is_unconstrained() {
+            // verify/aggregate the previous kernel
+            self.previous_kernel.verify();
+        }
 
-        previous_public_inputs.validation_requests = PrivateValidationRequestProcessor {
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+        let updated_validation_requests = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
             note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
-            pending_note_hashes: previous_public_inputs.end.new_note_hashes,
+            pending_note_hashes: previous_public_inputs.end.note_hashes,
             note_hash_tree_root: previous_public_inputs.constants.historical_header.state.partial.note_hash_tree.root,
             nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
-            pending_nullifiers: previous_public_inputs.end.new_nullifiers,
+            pending_nullifiers: previous_public_inputs.end.nullifiers,
             nullifier_tree_root: previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root,
-            key_validation_hints: self.hints.key_validation_hints,
+            key_validation_hints: self.hints.key_validation_hints
         }.validate();
 
-        verify_squashed_transient_note_hashes_and_nullifiers(
-            previous_public_inputs.end.new_note_hashes,
-            previous_public_inputs.end.new_nullifiers,
-            previous_public_inputs.end.note_encrypted_logs_hashes,
-            self.outputs.note_hashes,
-            self.outputs.nullifiers,
-            self.outputs.note_encrypted_log_hashes,
-            self.hints.transient_nullifier_indexes_for_note_hashes,
-            self.hints.transient_note_hash_indexes_for_nullifiers,
-            self.hints.transient_note_hash_indexes_for_logs
-        );
+        // Validate output.
+        if !dep::std::runtime::is_unconstrained() {
+            let transient_or_propagated_note_hash_indexes_for_logs = get_transient_or_propagated_note_hash_indexes_for_logs(
+                previous_public_inputs.end.note_encrypted_logs_hashes,
+                previous_public_inputs.end.note_hashes,
+                output.note_hashes
+            );
+            verify_squashed_transient_data(
+                previous_public_inputs.end.note_hashes,
+                previous_public_inputs.end.nullifiers,
+                previous_public_inputs.end.note_encrypted_logs_hashes,
+                output.note_hashes,
+                output.nullifiers,
+                output.note_encrypted_log_hashes,
+                self.hints.transient_nullifier_indexes_for_note_hashes,
+                self.hints.transient_note_hash_indexes_for_nullifiers,
+                transient_or_propagated_note_hash_indexes_for_logs
+            );
+        }
 
-        previous_public_inputs.end.new_note_hashes = self.outputs.note_hashes;
-        previous_public_inputs.end.new_nullifiers = self.outputs.nullifiers;
-        previous_public_inputs.end.note_encrypted_logs_hashes = self.outputs.note_encrypted_log_hashes;
+        // Generate output.
+        let mut updated_output = self.previous_kernel.public_inputs;
+        updated_output.validation_requests = updated_validation_requests;
+        updated_output.end.note_hashes = output.note_hashes;
+        updated_output.end.nullifiers = output.nullifiers;
+        updated_output.end.note_encrypted_logs_hashes = output.note_encrypted_log_hashes;
 
-        previous_public_inputs
+        updated_output
     }
 }
 
 mod tests {
-    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, PrivateKernelResetOutputs};
+    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints};
     use dep::reset_kernel_lib::{
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers, squash_transient_logs}
+        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder
     },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
-        reset::key_validation_hint::KeyValidationHint
+        reset::{
+        read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+        key_validation_hint::KeyValidationHint
+    }
     };
     use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__OVSK_M
     };
     use dep::types::{
         abis::{
@@ -106,9 +112,8 @@ mod tests {
 
     struct PrivateKernelResetInputsBuilder {
         previous_kernel: FixtureBuilder,
-        transient_nullifier_indexes_for_note_hashes: [u32; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u32; MAX_NEW_NULLIFIERS_PER_TX],
-        transient_note_hash_indexes_for_logs: [u32; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+        transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
+        transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
     }
@@ -116,13 +121,12 @@ mod tests {
     impl PrivateKernelResetInputsBuilder {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new();
-            previous_kernel.append_new_nullifiers(1);
+            previous_kernel.append_nullifiers(1);
 
             PrivateKernelResetInputsBuilder {
                 previous_kernel,
-                transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
-                transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
-                transient_note_hash_indexes_for_logs: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+                transient_nullifier_indexes_for_note_hashes: [MAX_NULLIFIERS_PER_TX; MAX_NOTE_HASHES_PER_TX],
+                transient_note_hash_indexes_for_nullifiers: [MAX_NOTE_HASHES_PER_TX; MAX_NULLIFIERS_PER_TX],
                 note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
             }
@@ -146,40 +150,22 @@ mod tests {
         }
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
-            let note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).note_hash;
-            self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter();
-            self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash.value;
+            let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).note_hash;
+            self.previous_kernel.nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash.value;
             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
             self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
-            for i in 0..self.previous_kernel.note_encrypted_logs_hashes.len() {
-                // we may have many, or no, logs per note hash, so we cycle rather than .find
-                if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash_counter
-                    == note_hash.counter {
-                    self.transient_note_hash_indexes_for_logs[i] = note_hash_index;
-                }
-            }
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
-            let outputs = PrivateKernelResetOutputs {
-                note_hashes: squash_transient_note_hashes(self.previous_kernel.new_note_hashes.storage),
-                nullifiers: squash_transient_nullifiers(self.previous_kernel.new_nullifiers.storage),
-                note_encrypted_log_hashes: squash_transient_logs(
-                    self.previous_kernel.note_encrypted_logs_hashes.storage,
-                    self.previous_kernel.new_note_hashes.storage
-                )
-            };
-
             let hints = PrivateKernelResetHints {
                 transient_nullifier_indexes_for_note_hashes: self.transient_nullifier_indexes_for_note_hashes,
                 transient_note_hash_indexes_for_nullifiers: self.transient_note_hash_indexes_for_nullifiers,
-                transient_note_hash_indexes_for_logs: self.transient_note_hash_indexes_for_logs,
                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 key_validation_hints: [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]
             };
 
-            let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), outputs, hints };
+            let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), hints };
             kernel.execute()
         }
 
@@ -193,13 +179,13 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn execution_succeeded() {
+    fn execution_succeeded() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         let _public_inputs = builder.execute();
     }
 
     #[test]
-    unconstrained fn propagate_previous_kernel_max_block_number() {
+    fn propagate_previous_kernel_max_block_number() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
         let public_inputs = builder.execute();
@@ -208,10 +194,10 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn two_pending_note_hash_read_request() {
+    fn two_pending_note_hash_read_request() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_note_hashes(3);
+        builder.previous_kernel.append_note_hashes(3);
         builder.add_pending_note_hash_read_request(1);
         builder.add_pending_note_hash_read_request(0);
 
@@ -219,10 +205,10 @@ mod tests {
     }
 
     #[test(should_fail_with="Value of the note hash does not match read request")]
-    unconstrained fn pending_note_hash_read_request_wrong_hint_fails() {
+    fn pending_note_hash_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_note_hashes(3);
+        builder.previous_kernel.append_note_hashes(3);
         builder.add_pending_note_hash_read_request(1);
         let mut hint = builder.note_hash_read_request_hints_builder.pending_read_hints.pop();
         hint.pending_value_index = 2;
@@ -232,20 +218,20 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn one_pending_nullifier_read_request() {
+    fn one_pending_nullifier_read_request() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.append_nullifiers(3);
         builder.add_pending_nullifier_read_request(1);
 
         builder.succeeded();
     }
 
     #[test]
-    unconstrained fn two_pending_nullifier_read_requests() {
+    fn two_pending_nullifier_read_requests() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.append_nullifiers(3);
         builder.add_pending_nullifier_read_request(1);
         builder.add_pending_nullifier_read_request(0);
 
@@ -253,10 +239,10 @@ mod tests {
     }
 
     #[test(should_fail_with="Value of the nullifier does not match read request")]
-    unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
+    fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.append_nullifiers(3);
         builder.add_pending_nullifier_read_request(1);
         let mut hint = builder.nullifier_read_request_hints_builder.pending_read_hints.pop();
         assert(hint.pending_value_index == 2);
@@ -267,12 +253,12 @@ mod tests {
     }
 
     #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
-    unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
+    fn pending_nullifier_read_request_reads_before_value_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.append_nullifiers(3);
         builder.add_pending_nullifier_read_request(1);
-        let nullifier_being_read = builder.previous_kernel.new_nullifiers.storage[2];
+        let nullifier_being_read = builder.previous_kernel.nullifiers.storage[2];
         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
         read_request.read_request.counter = nullifier_being_read.counter() - 1;
         builder.previous_kernel.nullifier_read_requests.push(read_request);
@@ -281,11 +267,11 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn propagates_unverified_requests() {
+    fn propagates_unverified_requests() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_note_hashes(3);
-        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.append_note_hashes(3);
+        builder.previous_kernel.append_nullifiers(3);
 
         builder.add_pending_note_hash_read_request(0);
         builder.add_pending_nullifier_read_request(1);
@@ -309,95 +295,80 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn native_squash_one_of_one_transient_matches_works() {
+    fn native_squash_one_of_one_transient_matches_works() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes_with_logs(1);
-        builder.previous_kernel.append_new_nullifiers(2);
+        builder.previous_kernel.append_note_hashes_with_logs(1);
+        builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage;
         let public_inputs = builder.execute();
 
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_empty_array(public_inputs.end.note_hashes));
 
         // The nullifier at index 1 is chopped.
-        assert(
-            array_eq(
-                public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
-            )
-        );
+        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]));
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
     #[test]
-    unconstrained fn native_squash_one_of_two_transient_matches_works() {
+    fn native_squash_one_of_two_transient_matches_works() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes_with_logs(2);
-        builder.previous_kernel.append_new_nullifiers(2);
+        builder.previous_kernel.append_note_hashes_with_logs(2);
+        builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
-        let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-        let new_note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
+        let note_hashes = builder.previous_kernel.note_hashes.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage;
+        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
         let public_inputs = builder.execute();
 
         // The 0th hash is chopped.
-        assert(array_eq(public_inputs.end.new_note_hashes, [new_note_hashes[1]]));
+        assert(array_eq(public_inputs.end.note_hashes, [note_hashes[1]]));
 
         // The nullifier at index 1 is chopped.
-        assert(
-            array_eq(
-                public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
-            )
-        );
+        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]));
 
         // The 0th note log is chopped.
-        assert(
-            array_eq(
-                public_inputs.end.note_encrypted_logs_hashes,
-                [new_note_logs[1]]
-            )
-        );
+        assert(array_eq(public_inputs.end.note_encrypted_logs_hashes, [note_logs[1]]));
     }
 
     #[test]
-    unconstrained fn native_squash_two_of_two_transient_matches_works() {
+    fn native_squash_two_of_two_transient_matches_works() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes_with_logs(2);
-        builder.previous_kernel.append_new_nullifiers(2);
+        builder.previous_kernel.append_note_hashes_with_logs(2);
+        builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 1;
         builder.nullify_pending_note_hash(1, 1);
         // The nullifier at index 2 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(2, 0);
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage;
         let public_inputs = builder.execute();
 
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_empty_array(public_inputs.end.note_hashes));
 
         // Only the first nullifier is left after squashing.
-        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0]]));
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
     #[test]
-    unconstrained fn squash_unordered_transient_notes_works() {
+    fn squash_unordered_transient_notes_works() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.previous_kernel.append_new_note_hashes_with_logs(3);
+        builder.previous_kernel.append_note_hashes_with_logs(3);
         // Shuffle the note hashes so they will have to be re-ordered.
-        let tmp = builder.previous_kernel.new_note_hashes.storage[0];
-        builder.previous_kernel.new_note_hashes.storage[0] = builder.previous_kernel.new_note_hashes.storage[1];
-        builder.previous_kernel.new_note_hashes.storage[1] = builder.previous_kernel.new_note_hashes.storage[2];
-        builder.previous_kernel.new_note_hashes.storage[2] = tmp;
+        let tmp = builder.previous_kernel.note_hashes.storage[0];
+        builder.previous_kernel.note_hashes.storage[0] = builder.previous_kernel.note_hashes.storage[1];
+        builder.previous_kernel.note_hashes.storage[1] = builder.previous_kernel.note_hashes.storage[2];
+        builder.previous_kernel.note_hashes.storage[2] = tmp;
 
-        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.append_nullifiers(3);
         // Shuffle the nullifers so they will have to be re-ordered.
-        let tmp = builder.previous_kernel.new_nullifiers.storage[1];
-        builder.previous_kernel.new_nullifiers.storage[1] = builder.previous_kernel.new_nullifiers.storage[3];
-        builder.previous_kernel.new_nullifiers.storage[3] = builder.previous_kernel.new_nullifiers.storage[2];
-        builder.previous_kernel.new_nullifiers.storage[2] = tmp;
+        let tmp = builder.previous_kernel.nullifiers.storage[1];
+        builder.previous_kernel.nullifiers.storage[1] = builder.previous_kernel.nullifiers.storage[3];
+        builder.previous_kernel.nullifiers.storage[3] = builder.previous_kernel.nullifiers.storage[2];
+        builder.previous_kernel.nullifiers.storage[2] = tmp;
 
         // The nullifier at index 1 is nullifying the note hash at index 1;
         builder.nullify_pending_note_hash(1, 1);
@@ -406,21 +377,21 @@ mod tests {
         // The nullifier at index 3 is nullifying the note hash at index 0;
         builder.nullify_pending_note_hash(3, 0);
 
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage;
         let public_inputs = builder.execute();
 
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_empty_array(public_inputs.end.note_hashes));
 
         // Only the first nullifier is left after squashing.
-        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0]]));
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
     #[test(should_fail_with="Value of the hinted transient note hash does not match")]
-    unconstrained fn wrong_transient_nullifier_index_for_note_hash_fails() {
+    fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(1);
-        builder.previous_kernel.append_new_nullifiers(1);
+        builder.previous_kernel.append_note_hashes(1);
+        builder.previous_kernel.append_nullifiers(1);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
         // Change the hint to be out of bounds.
@@ -429,10 +400,10 @@ mod tests {
     }
 
     #[test(should_fail_with="Invalid transient nullifier index hint")]
-    unconstrained fn wrong_transient_nullifier_index_hint_fails() {
+    fn wrong_transient_nullifier_index_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(2);
-        builder.previous_kernel.append_new_nullifiers(2);
+        builder.previous_kernel.append_note_hashes(2);
+        builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 1;
         builder.nullify_pending_note_hash(1, 1);
         // The nullifier at index 2 is nullifying the hash at index 0;
@@ -443,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn propagate_fee_payer() {
+    fn propagate_fee_payer() {
         // Check that we carry forward if the fee payer is already set
         let mut builder = PrivateKernelResetInputsBuilder::new();
         let fee_payer = AztecAddress::from_field(123);

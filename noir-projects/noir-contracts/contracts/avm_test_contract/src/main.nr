@@ -273,13 +273,8 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn get_fee_per_l2_gas() -> Field {
-        context.fee_per_l2_gas()
-    }
-
-    #[aztec(public)]
-    fn get_fee_per_da_gas() -> Field {
-        context.fee_per_da_gas()
+    fn get_function_selector() -> FunctionSelector {
+        context.selector()
     }
 
     #[aztec(public)]
@@ -305,6 +300,16 @@ contract AvmTest {
     #[aztec(public)]
     fn get_timestamp() -> u64 {
         context.timestamp()
+    }
+
+    #[aztec(public)]
+    fn get_fee_per_l2_gas() -> Field {
+        context.fee_per_l2_gas()
+    }
+
+    #[aztec(public)]
+    fn get_fee_per_da_gas() -> Field {
+        context.fee_per_da_gas()
     }
 
     #[aztec(public)]
@@ -351,13 +356,13 @@ contract AvmTest {
     // Use the standard context interface to emit a new note hash
     #[aztec(public)]
     fn new_note_hash(note_hash: Field) {
-        context.push_new_note_hash(note_hash);
+        context.push_note_hash(note_hash);
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn new_nullifier(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // Use the standard context interface to check for a nullifier
@@ -374,7 +379,7 @@ contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn emit_nullifier_and_check(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         let exists = context.nullifier_exists(nullifier, context.storage_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
@@ -382,9 +387,9 @@ contract AvmTest {
     // Create the same nullifier twice (shouldn't work!)
     #[aztec(public)]
     fn nullifier_collision(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         // Can't do this twice!
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     #[aztec(public)]
@@ -430,13 +435,13 @@ contract AvmTest {
 
     #[aztec(public)]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
     #[aztec(public)]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 
