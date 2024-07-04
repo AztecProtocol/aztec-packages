@@ -33,6 +33,8 @@ TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
 
+    MsmManager msm_manager;
+
     const size_t num_points = 5;
     std::array<G1, num_points> points;
     for (auto& point : points) {
@@ -48,7 +50,7 @@ TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
     denominators_expected[1] = (points[4].x - points[3].x).invert();
 
     std::array<Fq, num_pairs> denominators;
-    MsmManager::compute_point_addition_denominators(addition_sequences, denominators);
+    msm_manager.compute_point_addition_denominators(addition_sequences, denominators);
 
     for (auto [result, expected] : zip_view(denominators, denominators_expected)) {
         EXPECT_EQ(result, expected);
@@ -62,13 +64,15 @@ TYPED_TEST(SortedMsmTests, AffineAddWithDenominator)
     using Fq = typename Curve::BaseField;
     using MsmManager = SortedMsmManager<Curve>;
 
+    MsmManager msm_manager;
+
     G1 point_1 = G1::random_element();
     G1 point_2 = G1::random_element();
     Fq denominator = (point_2.x - point_1.x).invert();
 
     G1 expected = point_1 + point_2;
 
-    G1 result = MsmManager::affine_add_with_denominator(point_1, point_2, denominator);
+    G1 result = msm_manager.affine_add_with_denominator(point_1, point_2, denominator);
 
     EXPECT_EQ(result, expected);
 }
@@ -79,6 +83,8 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlaceSimple)
     using G1 = typename Curve::AffineElement;
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
+
+    MsmManager msm_manager;
 
     const size_t num_points = 2;
     std::array<G1, num_points> points;
@@ -91,7 +97,7 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlaceSimple)
 
     std::array<G1, 1> expected_points{ points[0] + points[1] };
 
-    MsmManager::batched_affine_add_in_place(addition_sequences);
+    msm_manager.batched_affine_add_in_place(addition_sequences);
 
     for (size_t idx = 0; idx < expected_points.size(); ++idx) {
         EXPECT_EQ(expected_points[idx], points[idx]);
@@ -104,6 +110,8 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlace)
     using G1 = typename Curve::AffineElement;
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
+
+    MsmManager msm_manager;
 
     const size_t num_points = 10;
     std::array<G1, num_points> points;
@@ -124,11 +132,115 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlace)
         expected_points.emplace_back(sum);
     }
 
-    MsmManager::batched_affine_add_in_place(addition_sequences);
+    msm_manager.batched_affine_add_in_place(addition_sequences);
 
     for (size_t idx = 0; idx < expected_points.size(); ++idx) {
         EXPECT_EQ(expected_points[idx], points[idx]);
     }
+}
+
+TYPED_TEST(SortedMsmTests, GenerateAdditionSequences)
+{
+    using Curve = TypeParam;
+    using G1 = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
+    using MsmManager = SortedMsmManager<Curve>;
+    using AdditionSequences = typename MsmManager::AdditionSequences;
+
+    const size_t num_points = 10;
+    std::array<G1, num_points> points;
+    for (auto& point : points) {
+        point = G1::random_element();
+    }
+    std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+    std::vector<Fr> scalars;
+    std::vector<Fr> unique_scalars;
+    for (auto& count : sequence_counts) {
+        Fr repeated_scalar = Fr::random_element();
+        for (size_t i = 0; i < count; ++i) {
+            scalars.emplace_back(repeated_scalar);
+        }
+        unique_scalars.emplace_back(repeated_scalar);
+    }
+
+    // Randomly shuffle the scalars so duplicates are no longer grouped together
+    std::random_device rd;
+    std::shuffle(scalars.begin(), scalars.end(), std::default_random_engine(rd()));
+
+    MsmManager msm_manager{ num_points };
+    AdditionSequences result = msm_manager.generate_addition_sequences(scalars, points);
+
+    // The resulting sequence counts should match expectation but only as multisets
+    std::multiset<Fr> expected_sequence_counts(sequence_counts.begin(), sequence_counts.end());
+    std::multiset<Fr> result_sequence_counts(result.sequence_counts.begin(), result.sequence_counts.end());
+    EXPECT_EQ(expected_sequence_counts, result_sequence_counts);
+
+    // The result points will be sorted but should match the original as multisets
+    std::multiset<G1> expected_points(points.begin(), points.end());
+    std::multiset<G1> result_points(result.points.begin(), result.points.end());
+    EXPECT_EQ(expected_points, result_points);
+
+    G1 expected_msm_result = points[0] * scalars[0];
+    for (size_t i = 1; i < num_points; ++i) {
+        expected_msm_result = expected_msm_result + points[i] * scalars[i];
+    }
+
+    G1 msm_result;
+    msm_result.self_set_infinity();
+    size_t scalar_idx = 0;
+    size_t point_idx = 0;
+    for (auto count : result.sequence_counts) {
+        for (size_t i = 0; i < count; ++i) {
+            msm_result = msm_result + result.points[point_idx] * msm_manager.unique_scalars[scalar_idx];
+            point_idx++;
+        }
+        scalar_idx++;
+    }
+
+    EXPECT_EQ(msm_result, expected_msm_result);
+}
+
+TYPED_TEST(SortedMsmTests, ReduceMsmInputsSimple)
+{
+    using Curve = TypeParam;
+    using G1 = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
+    using MsmManager = SortedMsmManager<Curve>;
+
+    const size_t num_points = 10;
+    std::array<G1, num_points> points;
+    for (auto& point : points) {
+        point = G1::random_element();
+    }
+    std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+    std::vector<Fr> scalars;
+    for (auto& count : sequence_counts) {
+        Fr repeated_scalar = Fr::random_element();
+        for (size_t i = 0; i < count; ++i) {
+            scalars.emplace_back(repeated_scalar);
+        }
+    }
+
+    // Randomly shuffle the scalars so duplicates are no longer grouped together
+    std::random_device rd;
+    std::shuffle(scalars.begin(), scalars.end(), std::default_random_engine(rd()));
+
+    MsmManager msm_manager{ num_points };
+    msm_manager.reduce_msm_inputs(scalars, points);
+
+    G1 expected_msm_result = points[0] * scalars[0];
+    for (size_t i = 1; i < num_points; ++i) {
+        expected_msm_result = expected_msm_result + points[i] * scalars[i];
+    }
+
+    auto& updated_points = msm_manager.updated_points;
+    auto& unique_scalars = msm_manager.unique_scalars;
+    G1 msm_result = updated_points[0] * unique_scalars[0];
+    for (size_t i = 1; i < msm_manager.num_unique_scalars; ++i) {
+        msm_result = msm_result + updated_points[i] * unique_scalars[i];
+    }
+
+    EXPECT_EQ(msm_result, expected_msm_result);
 }
 
 // TYPED_TEST(ScalarMultiplicationTests, RemoveDuplicates)

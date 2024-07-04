@@ -2,6 +2,51 @@
 
 namespace bb {
 
+template <typename Curve> void SortedMsmManager<Curve>::reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points)
+{
+    // generate the addition sequences
+    AdditionSequences addition_sequences = generate_addition_sequences(scalars, points);
+
+    // call batched affine add in place until the sequences have been fully reduced
+    batched_affine_add_in_place(addition_sequences);
+
+    // the reduced inputs are the unique scalrs and the reduced points
+}
+
+template <typename Curve>
+SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::generate_addition_sequences(std::span<Fr> scalars,
+                                                                                                std::span<G1> points)
+{
+    const size_t num_points = points.size();
+    std::vector<size_t> index(num_points);
+    std::iota(index.begin(), index.end(), 0);
+    std::sort(index.begin(), index.end(), [&](size_t idx_1, size_t idx_2) { return scalars[idx_1] < scalars[idx_2]; });
+
+    unique_scalars[0] = scalars[index[0]];
+    updated_points[0] = points[index[0]];
+    size_t seq_idx = 0;
+    sequence_counts[seq_idx] = 1;
+    for (size_t i = 1; i < scalars.size(); ++i) {
+        const Fr& current_scalar = scalars[index[i]];
+        const Fr& prev_scalar = scalars[index[i - 1]];
+
+        if (current_scalar == prev_scalar) {
+            sequence_counts[seq_idx]++;
+        } else {
+            seq_idx++;
+            sequence_counts[seq_idx]++;
+            unique_scalars[seq_idx] = current_scalar;
+        }
+
+        updated_points[i] = points[index[i]];
+    }
+
+    num_unique_scalars = seq_idx + 1;
+    std::span<uint64_t> seq_counts(sequence_counts.data(), num_unique_scalars);
+    std::span<G1> sorted_points(updated_points.data(), num_points);
+    return AdditionSequences{ seq_counts, sorted_points, {} };
+}
+
 template <typename Curve>
 void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequences& add_sequences,
                                                                   std::span<Fq> denominators)
