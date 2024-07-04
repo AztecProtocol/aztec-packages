@@ -193,6 +193,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_rwd",
              "main_sel_alu",
              "main_sel_bin",
+             "main_sel_cd",
              "main_sel_gas_accounting_active",
              "main_sel_last",
              "main_sel_mem_op_a",
@@ -206,6 +207,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_sel_op_address",
              "main_sel_op_and",
              "main_sel_op_block_number",
+             "main_sel_op_calldata_copy",
              "main_sel_op_cast",
              "main_sel_op_chain_id",
              "main_sel_op_cmov",
@@ -282,6 +284,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "mem_sel_op_a",
              "mem_sel_op_b",
              "mem_sel_op_c",
+             "mem_sel_op_cd",
              "mem_sel_op_cmov",
              "mem_sel_op_d",
              "mem_sel_resolve_ind_addr_a",
@@ -310,11 +313,22 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "sha256_output",
              "sha256_sel_sha256_compression",
              "sha256_state",
+             "slice_addr",
+             "slice_cd_offset",
+             "slice_clk",
+             "slice_cnt",
+             "slice_one_min_inv",
+             "slice_sel_cd",
+             "slice_sel_start_cd",
+             "slice_space_id",
+             "slice_val",
+             "perm_cd_mem",
              "perm_main_alu",
              "perm_main_bin",
              "perm_main_conv",
              "perm_main_pos2_perm",
              "perm_main_pedersen",
+             "perm_main_cd_copy",
              "perm_main_mem_a",
              "perm_main_mem_b",
              "perm_main_mem_c",
@@ -325,6 +339,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "perm_main_mem_ind_addr_d",
              "lookup_byte_lengths",
              "lookup_byte_operations",
+             "lookup_cd_value",
              "lookup_opcode_gas",
              "range_check_l2_gas_hi",
              "range_check_l2_gas_lo",
@@ -366,6 +381,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "lookup_div_u16_7",
              "lookup_byte_lengths_counts",
              "lookup_byte_operations_counts",
+             "lookup_cd_value_counts",
              "lookup_opcode_gas_counts",
              "range_check_l2_gas_hi_counts",
              "range_check_l2_gas_lo_counts",
@@ -584,6 +600,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_rwd)                                      //
               << "," << field_to_string(row.main_sel_alu)                                  //
               << "," << field_to_string(row.main_sel_bin)                                  //
+              << "," << field_to_string(row.main_sel_cd)                                   //
               << "," << field_to_string(row.main_sel_gas_accounting_active)                //
               << "," << field_to_string(row.main_sel_last)                                 //
               << "," << field_to_string(row.main_sel_mem_op_a)                             //
@@ -597,6 +614,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_sel_op_address)                           //
               << "," << field_to_string(row.main_sel_op_and)                               //
               << "," << field_to_string(row.main_sel_op_block_number)                      //
+              << "," << field_to_string(row.main_sel_op_calldata_copy)                     //
               << "," << field_to_string(row.main_sel_op_cast)                              //
               << "," << field_to_string(row.main_sel_op_chain_id)                          //
               << "," << field_to_string(row.main_sel_op_cmov)                              //
@@ -673,6 +691,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.mem_sel_op_a)                                  //
               << "," << field_to_string(row.mem_sel_op_b)                                  //
               << "," << field_to_string(row.mem_sel_op_c)                                  //
+              << "," << field_to_string(row.mem_sel_op_cd)                                 //
               << "," << field_to_string(row.mem_sel_op_cmov)                               //
               << "," << field_to_string(row.mem_sel_op_d)                                  //
               << "," << field_to_string(row.mem_sel_resolve_ind_addr_a)                    //
@@ -701,11 +720,22 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.sha256_output)                                 //
               << "," << field_to_string(row.sha256_sel_sha256_compression)                 //
               << "," << field_to_string(row.sha256_state)                                  //
+              << "," << field_to_string(row.slice_addr)                                    //
+              << "," << field_to_string(row.slice_cd_offset)                               //
+              << "," << field_to_string(row.slice_clk)                                     //
+              << "," << field_to_string(row.slice_cnt)                                     //
+              << "," << field_to_string(row.slice_one_min_inv)                             //
+              << "," << field_to_string(row.slice_sel_cd)                                  //
+              << "," << field_to_string(row.slice_sel_start_cd)                            //
+              << "," << field_to_string(row.slice_space_id)                                //
+              << "," << field_to_string(row.slice_val)                                     //
+              << "," << field_to_string(row.perm_cd_mem)                                   //
               << "," << field_to_string(row.perm_main_alu)                                 //
               << "," << field_to_string(row.perm_main_bin)                                 //
               << "," << field_to_string(row.perm_main_conv)                                //
               << "," << field_to_string(row.perm_main_pos2_perm)                           //
               << "," << field_to_string(row.perm_main_pedersen)                            //
+              << "," << field_to_string(row.perm_main_cd_copy)                             //
               << "," << field_to_string(row.perm_main_mem_a)                               //
               << "," << field_to_string(row.perm_main_mem_b)                               //
               << "," << field_to_string(row.perm_main_mem_c)                               //
@@ -716,6 +746,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.perm_main_mem_ind_addr_d)                      //
               << "," << field_to_string(row.lookup_byte_lengths)                           //
               << "," << field_to_string(row.lookup_byte_operations)                        //
+              << "," << field_to_string(row.lookup_cd_value)                               //
               << "," << field_to_string(row.lookup_opcode_gas)                             //
               << "," << field_to_string(row.range_check_l2_gas_hi)                         //
               << "," << field_to_string(row.range_check_l2_gas_lo)                         //
@@ -757,6 +788,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.lookup_div_u16_7)                              //
               << "," << field_to_string(row.lookup_byte_lengths_counts)                    //
               << "," << field_to_string(row.lookup_byte_operations_counts)                 //
+              << "," << field_to_string(row.lookup_cd_value_counts)                        //
               << "," << field_to_string(row.lookup_opcode_gas_counts)                      //
               << "," << field_to_string(row.range_check_l2_gas_hi_counts)                  //
               << "," << field_to_string(row.range_check_l2_gas_lo_counts)                  //
