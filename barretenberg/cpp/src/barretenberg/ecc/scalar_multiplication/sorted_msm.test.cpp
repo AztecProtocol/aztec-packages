@@ -223,19 +223,17 @@ TYPED_TEST(SortedMsmTests, ReduceMsmInputsSimple)
     std::random_device rd;
     std::shuffle(scalars.begin(), scalars.end(), std::default_random_engine(rd()));
 
-    MsmManager msm_manager{ num_points };
-    msm_manager.reduce_msm_inputs(scalars, points);
-
     G1 expected_msm_result = points[0] * scalars[0];
     for (size_t i = 1; i < num_points; ++i) {
         expected_msm_result = expected_msm_result + points[i] * scalars[i];
     }
 
-    auto& updated_points = msm_manager.updated_points;
-    auto& unique_scalars = msm_manager.unique_scalars;
-    G1 msm_result = updated_points[0] * unique_scalars[0];
-    for (size_t i = 1; i < msm_manager.num_unique_scalars; ++i) {
-        msm_result = msm_result + updated_points[i] * unique_scalars[i];
+    MsmManager msm_manager{ num_points };
+    auto [result_scalars, result_points] = msm_manager.reduce_msm_inputs(scalars, points);
+
+    G1 msm_result = result_points[0] * result_scalars[0];
+    for (size_t i = 1; i < result_points.size(); ++i) {
+        msm_result = msm_result + result_points[i] * result_scalars[i];
     }
 
     EXPECT_EQ(msm_result, expected_msm_result);

@@ -20,6 +20,11 @@ template <typename Curve> class SortedMsmManager {
         std::optional<std::span<Fq>> scratch_space;
     };
 
+    struct ReducedMsmInputs {
+        std::span<Fr> scalars;
+        std::span<G1> points;
+    };
+
     size_t num_unique_scalars = 0;
     std::vector<uint64_t> sequence_counts;
     std::vector<Fr> unique_scalars;
@@ -44,7 +49,7 @@ template <typename Curve> class SortedMsmManager {
 
     AdditionSequences generate_addition_sequences(std::span<Fr> scalars, std::span<G1> points);
 
-    void reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points);
+    ReducedMsmInputs reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points);
 };
 
 } // namespace bb

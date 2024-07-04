@@ -170,28 +170,6 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(typename Cur
                                                                     size_t num_initial_points,
                                                                     pippenger_runtime_state<Curve>& state);
 
-template <typename Curve> struct MultipleAdditionSequences {
-    std::span<uint64_t> sequence_counts;
-    std::span<typename Curve::AffineElement> points;
-    std::optional<std::span<typename Curve::BaseField>> scratch_space;
-};
-
-template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences);
-
-template <typename Curve>
-typename Curve::AffineElement affine_add_with_denominator(const typename Curve::AffineElement&,
-                                                          const typename Curve::AffineElement&,
-                                                          const typename Curve::BaseField& denominator);
-
-template <typename Curve>
-void remove_duplicates(std::span<const typename Curve::ScalarField> polynomial,
-                       std::span<typename Curve::AffineElement> base_points,
-                       pippenger_runtime_state<Curve>& pippenger_runtime_state);
-
-template <typename Curve>
-void compute_point_addition_denominators(MultipleAdditionSequences<Curve>& add_sequences,
-                                         std::span<typename Curve::BaseField> denominators);
-
 // Explicit instantiation
 // BN254
 

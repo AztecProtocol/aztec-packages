@@ -2,7 +2,9 @@
 
 namespace bb {
 
-template <typename Curve> void SortedMsmManager<Curve>::reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points)
+template <typename Curve>
+SortedMsmManager<Curve>::ReducedMsmInputs SortedMsmManager<Curve>::reduce_msm_inputs(std::span<Fr> scalars,
+                                                                                     std::span<G1> points)
 {
     // generate the addition sequences
     AdditionSequences addition_sequences = generate_addition_sequences(scalars, points);
@@ -11,6 +13,9 @@ template <typename Curve> void SortedMsmManager<Curve>::reduce_msm_inputs(std::s
     batched_affine_add_in_place(addition_sequences);
 
     // the reduced inputs are the unique scalrs and the reduced points
+    std::span<Fr> output_scalars(unique_scalars.data(), num_unique_scalars);
+    std::span<G1> output_points(updated_points.data(), num_unique_scalars);
+    return { output_scalars, output_points };
 }
 
 template <typename Curve>
