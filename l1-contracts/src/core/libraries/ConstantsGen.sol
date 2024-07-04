@@ -160,7 +160,7 @@ library Constants {
   uint256 internal constant SCOPED_ENCRYPTED_LOG_HASH_LENGTH = 5;
   uint256 internal constant NOTE_LOG_HASH_LENGTH = 4;
   uint256 internal constant NOTE_HASH_LENGTH = 2;
-  uint256 internal constant SCOPED_NOTE_HASH_LENGTH = 4;
+  uint256 internal constant SCOPED_NOTE_HASH_LENGTH = 3;
   uint256 internal constant NULLIFIER_LENGTH = 3;
   uint256 internal constant SCOPED_NULLIFIER_LENGTH = 4;
   uint256 internal constant CALLER_CONTEXT_LENGTH = 3;
@@ -184,8 +184,8 @@ library Constants {
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 333;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 41;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1152;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2228;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1088;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2164;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
   uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3259;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 384;
