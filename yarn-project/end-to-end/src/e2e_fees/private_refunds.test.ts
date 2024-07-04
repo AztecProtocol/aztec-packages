@@ -20,6 +20,7 @@ describe('e2e_fees/private_refunds', () => {
   let privateFPC: PrivateFPCContract;
 
   let initialAliceBalance: bigint;
+  // Bob is the admin of the fee paying contract
   let initialBobBalance: bigint;
   let initialFPCGasBalance: bigint;
 
