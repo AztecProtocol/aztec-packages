@@ -23,8 +23,8 @@ trait PrivatelyRefundable {
     ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
 
     fn complete_refund(
-        fee_payer_point: EmbeddedCurvePoint,
-        sponsored_user_point: EmbeddedCurvePoint,
+        Incomplete_fee_payer_point: EmbeddedCurvePoint,
+        incomplete_sponsored_user_point: EmbeddedCurvePoint,
         transaction_fee: Field
     ) -> (Field, Field);
 }
@@ -123,7 +123,7 @@ impl PrivatelyRefundable for TokenNote {
         let (fee_payer_npk_m_hash_lo, fee_payer_npk_m_hash_hi) = decompose(fee_payer_npk_m_hash);
 
         // 2. Now that we have correct representationsn of fee payer and randomness we can compute `G ^ (fee_payer_npk + randomness)`
-        let fee_payer_point = multi_scalar_mul(
+        let Incomplete_fee_payer_point = multi_scalar_mul(
             [G1, G1],
             [EmbeddedCurveScalar {
                 lo: fee_payer_npk_m_hash_lo,
@@ -141,7 +141,7 @@ impl PrivatelyRefundable for TokenNote {
         let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
 
         // 4. We compute `G ^ (sponsored_user_npk_m_hash + funded_amount + randomness)`
-        let sponsored_user_point = multi_scalar_mul(
+        let incomplete_sponsored_user_point = multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
                 lo: sponsored_user_lo,
@@ -159,17 +159,17 @@ impl PrivatelyRefundable for TokenNote {
 
         // 5. At last we represent the points as EmbeddedCurvePoints and return them.
         (EmbeddedCurvePoint {
-            x: fee_payer_point[0],
-            y: fee_payer_point[1],
-            is_infinite: fee_payer_point[2] == 1
+            x: Incomplete_fee_payer_point[0],
+            y: Incomplete_fee_payer_point[1],
+            is_infinite: Incomplete_fee_payer_point[2] == 1
         }, EmbeddedCurvePoint {
-            x: sponsored_user_point[0],
-            y: sponsored_user_point[1],
-            is_infinite: sponsored_user_point[2] == 1
+            x: incomplete_sponsored_user_point[0],
+            y: incomplete_sponsored_user_point[1],
+            is_infinite: incomplete_sponsored_user_point[2] == 1
         })
     }
 
-    fn complete_refund(fee_payer_point: EmbeddedCurvePoint, sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
+    fn complete_refund(Incomplete_fee_payer_point: EmbeddedCurvePoint, incomplete_sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
         // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
         let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
 
@@ -224,8 +224,8 @@ impl PrivatelyRefundable for TokenNote {
         deduce what n is. This is the discrete log problem.
 
         However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
-        fee_payer_point := (fee_payer_npk + randomness) * G
-        sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
+        Incomplete_fee_payer_point := (fee_payer_npk + randomness) * G
+        incomplete_sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
 
         where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
 
@@ -235,11 +235,11 @@ impl PrivatelyRefundable for TokenNote {
 
         Then we arrive at the final points via addition/subtraction of that transaction fee point:
 
-        completed_fpc_point := fee_payer_point + fee_point
+        fee_payer_point := Incomplete_fee_payer_point + fee_point
                              = (fee_payer_npk + randomness) * G + transaction_fee * G
                              = (fee_payer_npk + randomness + transaction_fee) * G
 
-        completed_user_point := sponsored_user_point - fee_point
+        sponsored_user_point := incomplete_sponsored_user_point - fee_point
                               = (sponsored_user_npk + funded_amount + randomness) * G - transaction_fee * G
                               = (sponsored_user_npk + randomness + (funded_amount - transaction_fee)) * G
         
@@ -251,11 +251,14 @@ impl PrivatelyRefundable for TokenNote {
         }
         */
 
-        let completed_fpc_point = fee_payer_point + fee_point;
+        // 3. Now we leverage homomorphism to privately add the fee to fee payer point and subtract it from
+        // the sponsored user point in public.
+        let fee_payer_point = Incomplete_fee_payer_point + fee_point;
+        let sponsored_user_point = incomplete_sponsored_user_point - fee_point;
 
-        let completed_user_point = sponsored_user_point - fee_point;
-        assert_eq(completed_user_point.is_infinite, false);
+        assert_eq(sponsored_user_point.is_infinite, false);
 
-        (completed_fpc_point.x, completed_user_point.x)
+        // Finally we return the x-coordinates of the points which are the note content hashes.
+        (fee_payer_point.x, sponsored_user_point.x)
     }
 }

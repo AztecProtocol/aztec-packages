@@ -162,8 +162,8 @@ contract PrivateToken {
         funded_amount: Field,
         randomness: Field // A randomness to mix in with the generated notes.
     ) {
-        // 1. This function is called by fee paying contract (FPC) when setting up a refund so we need to support
-        // the authwit flow here and check that the user really permitted FPC to set up a refund on their behalf.
+        // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
+        // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
         assert_current_call_valid_authwit(&mut context, sponsored_user);
 
         // 2. Get all the relevant user keys
@@ -179,7 +179,7 @@ contract PrivateToken {
         storage.balances.sub(sponsored_user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, sponsored_user_ovpk, sponsored_user_ivpk));
 
         // 4. We generate the refund points.
-        let (fpc_point, user_point) = TokenNote::generate_refund_points(
+        let (fee_payer_point, user_point) = TokenNote::generate_refund_points(
             fee_payer_npk_m_hash,
             sponsored_user_npk_m_hash,
             funded_amount,
@@ -191,30 +191,33 @@ contract PrivateToken {
         context.set_public_teardown_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_refund(Field,Field,Field,Field)"),
-            [fpc_point.x, fpc_point.y, user_point.x, user_point.y]
+            [fee_payer_point.x, fee_payer_point.y, user_point.x, user_point.y]
         );
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(
-        fpc_point_x: Field,
-        fpc_point_y: Field,
+        fee_payer_point_x: Field,
+        fee_payer_point_y: Field,
         user_point_x: Field,
         user_point_y: Field
     ) {
         // 1. We get the final note content hashes by calling the `complete_refund` on the note.
-        let fpc_point = EmbeddedCurvePoint { x: fpc_point_x, y: fpc_point_y, is_infinite: false };
+        let fee_payer_point = EmbeddedCurvePoint { x: fee_payer_point_x, y: fee_payer_point_y, is_infinite: false };
         let user_point = EmbeddedCurvePoint { x: user_point_x, y: user_point_y, is_infinite: false };
         let tx_fee = context.transaction_fee();
-        let (fpc_note_content_hash, user_note_content_hash) = TokenNote::complete_refund(fpc_point, user_point, tx_fee);
+        let (fee_payer_note_content_hash, user_note_content_hash) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
 
         // 2. Now we "manually" compute the inner note hashes.
-        let fpc_inner_note_hash = compute_inner_note_hash_from_preimage(PrivateToken::storage().balances.slot, fpc_note_content_hash);
+        let fee_payer_inner_note_hash = compute_inner_note_hash_from_preimage(
+            PrivateToken::storage().balances.slot,
+            fee_payer_note_content_hash
+        );
         let user_inner_note_hash = compute_inner_note_hash_from_preimage(PrivateToken::storage().balances.slot, user_note_content_hash);
 
         // 3. At last we emit the note hashes.
-        context.push_note_hash(fpc_inner_note_hash);
+        context.push_note_hash(fee_payer_inner_note_hash);
         context.push_note_hash(user_inner_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
