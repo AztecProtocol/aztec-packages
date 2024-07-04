@@ -94,6 +94,7 @@ jobs:
             const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
             const fileChanged = changedFiles.includes('l1-contracts/REDEPLOY');
             return fileChanged
+
       - name: Deploy L1 Contracts
         if: steps.check_changes_release.outputs.result == 'true'
         run: |
