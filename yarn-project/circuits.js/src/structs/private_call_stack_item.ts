@@ -89,15 +89,6 @@ export class PrivateCallStackItem {
    * @returns Hash.
    */
   public hash(): Fr {
-    const fields = [
-      this.contractAddress.toField(),
-      this.publicInputs.callContext.hash(),
-      this.functionData.hash(),
-      this.publicInputs.argsHash,
-      this.publicInputs.returnsHash,
-      this.publicInputs.startSideEffectCounter,
-      this.publicInputs.endSideEffectCounter,
-    ];
-    return pedersenHash(fields, GeneratorIndex.CALL_STACK_ITEM);
+    return pedersenHash(this.toFields(), GeneratorIndex.CALL_STACK_ITEM);
   }
 }
