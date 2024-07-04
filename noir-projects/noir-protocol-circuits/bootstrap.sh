@@ -43,14 +43,14 @@ if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_VK_GENERATION_MEMORY ]]; then
   echo "System does not have enough memory for parallel vk generation, falling back to sequential"
 
   for pathname in "./target"/*.json; do    
-      node ./generate_vk_json.js "$pathname" "./target/keys"
+      node ./scripts/generate_vk_json.js "$pathname" "./target/keys"
   done
 
 else
 
   echo "Generating vks in parallel..."
   for pathname in "./target"/*.json; do    
-      node ./generate_vk_json.js "$pathname" "./target/keys" &
+      node ./scripts/generate_vk_json.js "$pathname" "./target/keys" &
   done
 
   for job in $(jobs -p); do
