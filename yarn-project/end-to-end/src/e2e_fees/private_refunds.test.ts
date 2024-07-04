@@ -52,9 +52,9 @@ describe('e2e_fees/private_refunds', () => {
     // TODO(#7324): The values in complete address are currently not updated after the keys are rotated so this does
     // not work with key rotation as the key might be the old one and then we would fetch a new one in the contract.
     const bobNpkMHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const rebateNonce = new Fr(42);
+    const randomness = Fr.random();
 
-    // 1. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
+    // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
     const tx = await privateToken.methods
       .private_get_name()
       .send({
@@ -64,7 +64,7 @@ describe('e2e_fees/private_refunds', () => {
             privateToken.address,
             privateFPC.address,
             aliceWallet,
-            rebateNonce,
+            randomness,
             bobNpkMHash, // We use Bob's npk_m_hash in the notes that contain the transaction fee.
           ),
         },
@@ -73,16 +73,16 @@ describe('e2e_fees/private_refunds', () => {
 
     expect(tx.transactionFee).toBeGreaterThan(0);
 
-    // 2. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
+    // 3. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
     // the fee limit less the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
     // the randomness.
     const refundNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(tx.transactionFee!));
     // TODO(#7324): The values in complete address are currently not updated after the keys are rotated so this does
     // not work with key rotation as the key might be the old one and then we would fetch a new one in the contract.
     const aliceNpkMHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const aliceRefundNote = new Note([refundNoteValue, aliceNpkMHash, rebateNonce]);
+    const aliceRefundNote = new Note([refundNoteValue, aliceNpkMHash, randomness]);
 
-    // 3. If the refund flow worked it should have added emitted a note hash of the note we constructed above and we
+    // 4. If the refund flow worked it should have added emitted a note hash of the note we constructed above and we
     // should be able to add the note to our PXE. Just calling `pxe.addNote(...)` is enough of a check that the note
     // hash was emitted because the endpoint will compute the hash and then it will try to find it in the note hash
     // tree. If the note hash is not found in the tree, an error is thrown.
@@ -97,11 +97,11 @@ describe('e2e_fees/private_refunds', () => {
       ),
     );
 
-    // 4. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
+    // 5. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
     // npk_m_hash (set in the paymentMethod above) and the randomness.
-    const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobNpkMHash, rebateNonce]);
+    const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobNpkMHash, randomness]);
 
-    // 5. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
+    // 6. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
     await t.bobWallet.addNote(
       new ExtendedNote(
         bobFeeNote,
@@ -113,7 +113,7 @@ describe('e2e_fees/private_refunds', () => {
       ),
     );
 
-    // 6. At last we check that the gas balance of FPC has decreased exactly by the transaction fee...
+    // 7. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
     await expectMapping(t.gasBalances, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
