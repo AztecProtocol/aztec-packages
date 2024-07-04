@@ -19,7 +19,7 @@ trait PrivatelyRefundable {
         fee_payer_npk_m_hash: Field,
         sponsored_user_npk_m_hash: Field,
         funded_amount: Field,
-        refund_nonce: Field
+        randomness: Field
     ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
 
     fn complete_refund(
@@ -116,22 +116,22 @@ impl OwnedNote for TokenNote {
 }
 
 impl PrivatelyRefundable for TokenNote {
-    fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, refund_nonce: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
-        // 1. To be able to multiply generators with nonce and npk_m_hash using barretneberg's (BB) blackbox function we
+    fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
+        // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox function we
         // first need to convert the fields to high and low limbs.
-        let (refund_nonce_lo, refund_nonce_hi) = decompose(refund_nonce);
-        let (fee_payer_lo, fee_payer_hi) = decompose(fee_payer_npk_m_hash);
+        let (randomness_lo, randomness_hi) = decompose(randomness);
+        let (fee_payer_npk_m_hash_lo, fee_payer_npk_m_hash_hi) = decompose(fee_payer_npk_m_hash);
 
-        // 2. Now that we have correct representationsn of fee payer and refund nonce we can compute `G ^ (fee_payer_npk + refund_nonce)`
+        // 2. Now that we have correct representationsn of fee payer and randomness we can compute `G ^ (fee_payer_npk + randomness)`
         let fee_payer_point = multi_scalar_mul(
             [G1, G1],
             [EmbeddedCurveScalar {
-                lo: fee_payer_lo,
-                hi: fee_payer_hi
+                lo: fee_payer_npk_m_hash_lo,
+                hi: fee_payer_npk_m_hash_hi
             },
             EmbeddedCurveScalar {
-                lo: refund_nonce_lo,
-                hi: refund_nonce_hi
+                lo: randomness_lo,
+                hi: randomness_hi
             }]
         );
 
@@ -140,7 +140,7 @@ impl PrivatelyRefundable for TokenNote {
         let (sponsored_user_lo, sponsored_user_hi) = decompose(sponsored_user_npk_m_hash);
         let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
 
-        // 4. We compute `G ^ (sponsored_user_npk_m_hash + funded_amount + refund_nonce)`
+        // 4. We compute `G ^ (sponsored_user_npk_m_hash + funded_amount + randomness)`
         let sponsored_user_point = multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
@@ -152,8 +152,8 @@ impl PrivatelyRefundable for TokenNote {
                 hi: funded_amount_hi
             },
             EmbeddedCurveScalar {
-                lo: refund_nonce_lo,
-                hi: refund_nonce_hi
+                lo: randomness_lo,
+                hi: randomness_hi
             }]
         );
 
@@ -224,8 +224,8 @@ impl PrivatelyRefundable for TokenNote {
         deduce what n is. This is the discrete log problem.
 
         However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
-        fee_payer_point := (fee_payer_npk + nonce) * G
-        sponsored_user_point := (sponsored_user_npk + funded_amount + nonce) * G
+        fee_payer_point := (fee_payer_npk + randomness) * G
+        sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
 
         where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
 
@@ -236,18 +236,18 @@ impl PrivatelyRefundable for TokenNote {
         Then we arrive at the final points via addition/subtraction of that transaction fee point:
 
         completed_fpc_point := fee_payer_point + fee_point
-                             = (fee_payer_npk + nonce) * G + transaction_fee * G
-                             = (fee_payer_npk + nonce + transaction_fee) * G
+                             = (fee_payer_npk + randomness) * G + transaction_fee * G
+                             = (fee_payer_npk + randomness + transaction_fee) * G
 
         completed_user_point := sponsored_user_point - fee_point
-                              = (sponsored_user_npk + funded_amount + nonce) * G - transaction_fee * G
-                              = (sponsored_user_npk + nonce + (funded_amount - transaction_fee)) * G
+                              = (sponsored_user_npk + funded_amount + randomness) * G - transaction_fee * G
+                              = (sponsored_user_npk + randomness + (funded_amount - transaction_fee)) * G
         
         When we return the x-coordinate of those points, it identically matches the note_content_hash of (and therefore *is*) notes like:
         {
             amount: (funded_amount - transaction_fee),
             npk_m_hash: sponsored_user_npk,
-            randomness: nonce
+            randomness: randomness
         }
         */
 

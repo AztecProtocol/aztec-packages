@@ -160,7 +160,7 @@ contract PrivateToken {
         fee_payer_npk_m_hash: Field,
         sponsored_user: AztecAddress,
         funded_amount: Field,
-        refund_nonce: Field
+        randomness: Field // A randomness to mix in with the generated notes.
     ) {
         // 1. This function is called by fee paying contract (FPC) when setting up a refund so we need to support
         // the authwit flow here and check that the user really permitted FPC to set up a refund on their behalf.
@@ -183,7 +183,7 @@ contract PrivateToken {
             fee_payer_npk_m_hash,
             sponsored_user_npk_m_hash,
             funded_amount,
-            refund_nonce
+            randomness
         );
 
         // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public

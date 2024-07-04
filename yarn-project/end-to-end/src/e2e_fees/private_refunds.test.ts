@@ -141,10 +141,10 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
     private wallet: Wallet,
 
     /**
-     * A nonce to mix in with the generated notes.
+     * A randomness to mix in with the generated notes.
      * Use this to reconstruct note preimages for the PXE.
      */
-    private rebateNonce: Fr,
+    private randomness: Fr,
 
     /**
      * The hash of the master nullifier public key that the FPC sends notes it receives to.
@@ -176,7 +176,7 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [this.feeRecipientNpkMHash, this.wallet.getCompleteAddress().address, maxFee, this.rebateNonce],
+        args: [this.feeRecipientNpkMHash, this.wallet.getCompleteAddress().address, maxFee, this.randomness],
         selector: FunctionSelector.fromSignature('setup_refund(Field,(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
@@ -192,7 +192,7 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
         selector: FunctionSelector.fromSignature('fund_transaction_privately(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset, this.rebateNonce],
+        args: [maxFee, this.asset, this.randomness],
         returnTypes: [],
       },
     ];
