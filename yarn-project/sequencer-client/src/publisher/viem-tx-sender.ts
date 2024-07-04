@@ -157,12 +157,7 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [
-      `0x${encodedData.header.toString('hex')}`,
-      `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.aggregationObject.toString('hex')}`,
-      `0x${encodedData.proof.toString('hex')}`,
-    ] as const;
+    const args = [`0x${encodedData.header.toString('hex')}`, `0x${encodedData.archive.toString('hex')}`] as const;
 
     const gas = await this.rollupContract.estimateGas.process(args, {
       account: this.account,
