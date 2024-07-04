@@ -36,6 +36,12 @@ import {
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
+const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
+  publicInputs: PrivateKernelCircuitPublicInputs.empty(),
+  verificationKey: VerificationKeyAsFields.makeEmpty(),
+  outputWitness: new Map()
+};
+
 /**
  * The KernelProver class is responsible for generating kernel proofs.
  * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
@@ -46,7 +52,6 @@ export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) { }
-
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -65,12 +70,7 @@ export class KernelProver {
     const executionStack = [executionResult];
     let firstIteration = true;
 
-    let output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
-      publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
-      // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
-      outputWitness: new Map()
-    };
+    let output = NULL_PROVE_OUTPUT;
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
@@ -172,7 +172,7 @@ export class KernelProver {
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
-    // TODO how do we 'bincode' encode these?
+    // TODO(ISSUE PENDING) how do we 'bincode' encode these?
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
@@ -212,7 +212,6 @@ export class KernelProver {
     );
   }
 
-  // LONDONTODO(AD): not a great distinction between this and buildPrivateKernelResetInputs
   private async getPrivateKernelResetInputs(
     executionStack: ExecutionResult[],
     output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
