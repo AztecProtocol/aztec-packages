@@ -960,11 +960,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const json = JSON.parse(proofString);
 
     const numPublicInputs = vkData.numPublicInputs;
-    if (numPublicInputs != 0) {
-      throw new Error(`Tube proof should not have public inputs`);
+    if (numPublicInputs === 0) {
+      throw new Error(`Tube proof should have public inputs (e.g. the number of public inputs from PrivateKernelTail)`);
     }
 
-    const proofFields = json.map(Fr.fromString);
+    // TODO(ISSUE PENDING) is lobbing off these public inputs the right thing to do?
+    const proofFields = json.slice(vkData.numPublicInputs).map(Fr.fromString);
     logger.debug(
       `Circuit type: tube circuit, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

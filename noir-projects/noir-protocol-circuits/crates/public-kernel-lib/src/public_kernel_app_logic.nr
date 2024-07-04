@@ -41,13 +41,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
         // LONDONTODO(PUBLIC INPUTS)
-        dep::std::verify_proof(
-            self.previous_kernel.vk.key.as_slice(),
-            self.previous_kernel.proof.fields.as_slice(),
-            &[],
-            self.previous_kernel.vk.hash
-        );
-        // self.previous_kernel.verify();
+        self.previous_kernel.verify();
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
@@ -83,7 +77,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
             let reverted_call_request = remaining_calls.pop();
             // even though we reverted, we still need to make sure the correct call was made
-            // but don't do the full `validate_call_against_request` because 
+            // but don't do the full `validate_call_against_request` because
             // that makes a bunch of assertions that we don't want to make
             // e.g. that msg_sender is self in the case of internal.
             // We don't want to make those checks because we already know we reverted,
@@ -205,7 +199,7 @@ mod tests {
 
         // the key difference in this test versus those that use builder.execute()
         // is that we do not add a public call request to the previous kernel.
-        // this means that when we call `to_public_kernel_data` below, 
+        // this means that when we call `to_public_kernel_data` below,
         // it will say needs_app_logic is false
 
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(true);
@@ -299,7 +293,7 @@ mod tests {
         builder.public_call.public_inputs.new_nullifiers.extend_from_array(current);
 
         let siloed = current.map(
-            |current: Nullifier| 
+            |current: Nullifier|
         Nullifier { value: compute_siloed_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
         );
 
