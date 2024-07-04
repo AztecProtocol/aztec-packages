@@ -15,14 +15,13 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
     private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths
 },
-    constants::{MAX_NOTE_HASHES_PER_CALL, PRIVATE_KERNEL_INIT_INDEX},
-    tests::{fixture_builder::FixtureBuilder, fixtures}, transaction::tx_request::TxRequest
+    tests::{fixture_builder::FixtureBuilder}, transaction::tx_request::TxRequest,
+    constants::PRIVATE_KERNEL_INIT_INDEX
 };
 
 struct PrivateKernelCircuitOutputValidatorBuilder {
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
-    note_hash_nullifier_counters: [u32; MAX_NOTE_HASHES_PER_CALL],
     output: FixtureBuilder,
     tx_request: TxRequest,
 }
@@ -31,18 +30,18 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
     pub fn new() -> Self {
         let mut previous_kernel = FixtureBuilder::new();
         let private_call = FixtureBuilder::new();
-        let note_hash_nullifier_counters = [0; MAX_NOTE_HASHES_PER_CALL];
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
         let first_nullifier = create_first_nullifier(tx_request);
         output.nullifiers.push(first_nullifier);
         previous_kernel.nullifiers.push(first_nullifier);
-        previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
-        PrivateKernelCircuitOutputValidatorBuilder { previous_kernel, private_call, note_hash_nullifier_counters, output, tx_request }
+        previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
+
+        PrivateKernelCircuitOutputValidatorBuilder { previous_kernel, private_call, output, tx_request }
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
-        self.previous_kernel.in_vk_tree(vk_index);
+        self.previous_kernel = self.previous_kernel.in_vk_tree(vk_index);
     }
 
     pub fn offset_values(&mut self, num_prepended_items: Field) {
@@ -62,7 +61,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call.call_stack_item.public_inputs,
             array_lengths,
             private_call.call_stack_item.contract_address,
-            self.note_hash_nullifier_counters,
             private_call.public_call_stack,
             private_call.public_teardown_call_request,
             FixtureBuilder::vk_tree_root()
@@ -86,7 +84,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call.call_stack_item.public_inputs,
             private_call_array_lengths,
             private_call.call_stack_item.contract_address,
-            self.note_hash_nullifier_counters,
             private_call.public_call_stack,
             private_call.public_teardown_call_request
         );
