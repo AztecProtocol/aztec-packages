@@ -15,7 +15,82 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
+// Include relation files
+#include "barretenberg/relations/generated/avm/alu.hpp"
+#include "barretenberg/relations/generated/avm/binary.hpp"
+#include "barretenberg/relations/generated/avm/conversion.hpp"
+#include "barretenberg/relations/generated/avm/gas.hpp"
+#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/keccakf1600.hpp"
+#include "barretenberg/relations/generated/avm/kernel.hpp"
+#include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
+#include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
+#include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_2.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_3.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_4.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_5.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_6.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_7.hpp"
+#include "barretenberg/relations/generated/avm/lookup_into_kernel.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_hi.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_lo.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_mid.hpp"
+#include "barretenberg/relations/generated/avm/lookup_opcode_gas.hpp"
+#include "barretenberg/relations/generated/avm/lookup_pow_2_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_pow_2_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_10.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_11.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_12.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_13.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_14.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_2.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_3.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_4.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_5.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_6.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_7.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_8.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_9.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u8_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u8_1.hpp"
+#include "barretenberg/relations/generated/avm/main.hpp"
+#include "barretenberg/relations/generated/avm/mem.hpp"
+#include "barretenberg/relations/generated/avm/pedersen.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_bin.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_conv.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_a.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_b.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_c.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_d.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_a.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_b.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_c.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_d.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
+#include "barretenberg/relations/generated/avm/poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/powers.hpp"
+#include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
+#include "barretenberg/relations/generated/avm/range_check_da_gas_lo.hpp"
+#include "barretenberg/relations/generated/avm/range_check_l2_gas_hi.hpp"
+#include "barretenberg/relations/generated/avm/range_check_l2_gas_lo.hpp"
+#include "barretenberg/relations/generated/avm/sha256.hpp"
+
 #include "barretenberg/vm/generated/avm_flavor.hpp"
+
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 
 namespace bb {
 
@@ -55,8 +130,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    // static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using RelationSeparator = FF;
 
     // TODO(md): inherited?
     // define the containers for storing the contributions from each relation in Sumcheck

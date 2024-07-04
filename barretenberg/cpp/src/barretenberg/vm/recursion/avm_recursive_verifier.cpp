@@ -1,10 +1,9 @@
-#include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
+#include "./avm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
 
 namespace bb {
 
@@ -24,12 +23,12 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
 template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     // TODO(md): enable zeromorph
-    using Curve = typename Flavor::Curve;
-    using Zeromorph = ZeroMorphVerifier_<Curve>;
+    // using Curve = typename Flavor::Curve;
+    // using Zeromorph = ZeroMorphVerifier_<Curve>;
+    // using PCS = typename Flavor::PCS;
 
-    // Questionable assignments
+    // TODO(md): Questionable assignments
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
-    using PCS = typename Flavor::PCS;
     // using Curve = typename Flavor::Curve;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -37,13 +36,17 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     using Transcript = typename Flavor::Transcript;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    info("converted proof to witness");
     transcript = std::make_shared<Transcript>(stdlib_proof);
+
+    info("made transcript");
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover</*BaseField*/ BF>("circuit_size");
+    info("got circuit size from prover");
 
     // TODO(md): emply the same updates on a new branch when doing the normal avm verifier!!!
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
@@ -57,11 +60,14 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
             comm.set_point_at_infinity(true);
         }
     }
+    info("got commitments from prover");
 
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
+
+    info("got challeneges from prover");
 
     // TODO(md): Get commitments to the lookup inverses - WONT PASS WITHOUT THESE PULLED
     // TODO: maybe include these as a field in the flavor to make life easier? same as the trick above?
@@ -152,16 +158,17 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     commitments.lookup_div_u16_7 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_div_u16_7);
 
+    info("got inverse commitments");
+
     // TODO(md): do we not need to hash the counts columns until the sumcheck rounds?
 
     // unconstrained
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
-    RelationSeparator alpha;
-    for (size_t idx = 0; idx < alpha.size(); idx++) {
-        alpha[idx] = transcript->template get_challenge<FF>("alpha_" + std::to_string(idx));
-    }
+    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    info("got sumcheck alpha");
 
     // TODO(md): do we want this to be an unrolled for loop?
     auto gate_challenges = std::vector<FF>(log_circuit_size);
@@ -172,23 +179,25 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     auto [multivatiate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
+    info("verified sumcheck: ", sumcheck_verified.value());
+
     // TODO(md): when calling `get_commitments` do the values get constrained in their origin? check that the zip_view
     // does in fact use the verifier type to get it?
     // TODO: will probably need to disable zeromorph for the meantime as we are not able to verify it natively at the
     // moment
 
     // info()
-    auto multivariate_to_univariate_opening_claim = Zeromorph::verify(commitments.get_unshifted(),
-                                                                      commitments.get_to_be_shifted(),
-                                                                      claimed_evaluations.get_unshifted(),
-                                                                      claimed_evaluations.get_shifted(),
-                                                                      multivatiate_challenge,
-                                                                      key->pcs_verification_key->get_g1_identity(),
-                                                                      transcript);
+    // auto multivariate_to_univariate_opening_claim = Zeromorph::verify(commitments.get_unshifted(),
+    //                                                                   commitments.get_to_be_shifted(),
+    //                                                                   claimed_evaluations.get_unshifted(),
+    //                                                                   claimed_evaluations.get_shifted(),
+    //                                                                   multivatiate_challenge,
+    //                                                                   key->pcs_verification_key->get_g1_identity(),
+    //                                                                   transcript);
 
-    auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
+    // auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
 
-    info("pairing points size ", pairing_points.size());
+    // info("pairing points size ", pairing_points.size());
 
     // TODO(md): call assert true on the builder type to lay down the positive boolean constraint?
 }

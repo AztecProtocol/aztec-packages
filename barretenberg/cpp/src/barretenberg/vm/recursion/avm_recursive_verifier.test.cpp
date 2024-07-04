@@ -1,4 +1,5 @@
-
+// As this adds the honk_stdlib_recursion module to the cmake lists, we probably
+// want to make vm recursion its own module
 
 #include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -93,12 +94,17 @@ TEST_F(AvmRecursiveTests, recursion)
     // Verification key contains the commitments to things listed in the verifiercommitments class
     // info((*verification_key).main_clk);
 
+    info("got verification key");
+
     OuterBuilder outer_circuit;
     RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
+
+    info("make recursive verifier");
 
     // Note(md): no inputs are provided here - so the verifier is under-constrained in respect to public inputs
     // If we return the pairing points then potentially they can be recursively verified nicely?? - but it is not clear
     // how aggregation will work unless we make sure the avm has the same circuit size as other things
     recursive_verifier.verify_proof(proof);
+    info("verified proof");
 }
 } // namespace tests_avm

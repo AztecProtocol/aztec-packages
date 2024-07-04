@@ -312,10 +312,12 @@ class UltraFlavor;
 class ECCVMFlavor;
 class MegaFlavor;
 class TranslatorFlavor;
+class AvmFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
+template <typename BuilderType> class AvmRecursiveFlavor_;
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -364,7 +366,8 @@ MegaRecursiveFlavor_<CircuitSimulatorBN254>,
 TranslatorRecursiveFlavor_<UltraCircuitBuilder>, 
 TranslatorRecursiveFlavor_<MegaCircuitBuilder>, 
 TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
-ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+ECCVMRecursiveFlavor_<UltraCircuitBuilder>, 
+AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
