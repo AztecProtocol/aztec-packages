@@ -125,7 +125,7 @@ class CopyCircuitBuilder {
             .lookup_grand_product_delta = 0,
             .beta_sqr = 0,
             .beta_cube = 0,
-            .Avm_set_permutation_delta = 0,
+            .eccvm_set_permutation_delta = 0,
         };
 
         auto polys = compute_polynomials();
