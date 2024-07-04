@@ -7,7 +7,6 @@ import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
-import { ClientIvcProof } from '../client_ivc_proof.js';
 
 // TODO: bad name
 export class KernelData {

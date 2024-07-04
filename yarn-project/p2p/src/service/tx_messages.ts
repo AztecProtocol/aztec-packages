@@ -67,7 +67,6 @@ export function toTxMessage(tx: Tx): Buffer {
   };
   const messageBuffer = Buffer.concat([
     createMessageComponent(tx.data),
-    createMessageComponent(tx.proof),
     createMessageComponent(tx.clientIvcProof),
     createMessageComponent(tx.noteEncryptedLogs),
     createMessageComponent(tx.encryptedLogs),
@@ -135,7 +134,6 @@ export function fromTxMessage(buffer: Buffer): Tx {
   const publicTeardownCall = toObject(publicCalls.remainingData, PublicCallRequest);
   return new Tx(
     publicInputs.obj!,
-    proof.obj!,
     clientIvcProof.obj!,
     noteEncryptedLogs.obj,
     encryptedLogs.obj,

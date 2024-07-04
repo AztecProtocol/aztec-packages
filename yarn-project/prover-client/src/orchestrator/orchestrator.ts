@@ -48,6 +48,7 @@ import {
   VerificationKeyData,
   type VerificationKeys,
   makeEmptyProof,
+  BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -562,7 +563,10 @@ export class ProvingOrchestrator {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
-    const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db, kernelVk);
+
+    // TODO(ISSUE HERE): make this tube proof actually use public inputs
+    const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof, BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH))
+    const inputs = await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, kernelVk);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };
@@ -663,7 +667,6 @@ export class ProvingOrchestrator {
         signal =>
           this.prover.getBaseRollupProof(
             tx.baseRollupInputs,
-            new TubeInputs(tx.processedTx.clientIvcProof),
             signal,
           ),
       ),

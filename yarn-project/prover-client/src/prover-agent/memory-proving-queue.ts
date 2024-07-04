@@ -21,11 +21,13 @@ import type {
   PrivateKernelEmptyInputData,
   PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
+  RecursiveProof,
   RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
+  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
@@ -247,6 +249,10 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.enqueue({ type: ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs }, signal);
   }
 
+  getTubeProof(inputs: TubeInputs, signal?: AbortSignal | undefined): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>; }> {
+    return this.enqueue({ type: ProvingRequestType.TUBE_PROOF, inputs }, signal);
+  }
+
   getEmptyTubeProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
@@ -294,14 +300,12 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
    */
   getBaseRollupProof(
     baseRollupInput: BaseRollupInputs,
-    tubeInput: TubeInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     return this.enqueue(
       {
         type: ProvingRequestType.BASE_ROLLUP,
         inputs: baseRollupInput,
-        tubeInputs: tubeInput,
       },
       signal,
     );

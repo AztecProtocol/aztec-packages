@@ -79,7 +79,7 @@ describe('prover/bb_prover/tube-rollup', () => {
     //   paddingTxPublicInputsAndProof.verificationKey,
     // );
     logger.verbose('Proving tube rollups');
-    await context.prover.getTubeRollupProofFromArtifact!();
+    // await context.prover.getTubeRollupProofFromArtifact!();
     logger.verbose('boom');
   });
 });

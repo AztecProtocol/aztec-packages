@@ -13,7 +13,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -40,8 +40,7 @@ import {
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-  TUBE_PROOF_LENGTH,
+  type TUBE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -68,6 +67,7 @@ export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
 export async function buildBaseRollupInput(
   tx: ProcessedTx,
+  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
   kernelVk: VerificationKeyData,
@@ -166,7 +166,7 @@ export async function buildBaseRollupInput(
   );
 
   return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, kernelVk),
+    kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
     stateDiffHints,
     feePayerGasTokenBalanceReadHint,
@@ -302,15 +302,12 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
-  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, TUBE_PROOF_LENGTH);
+export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData, proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>): KernelData {
   return new KernelData(
     tx.data,
-    recursiveProof,
-
+    proof,
     // VK for the kernel circuit
     vk,
-
     // MembershipWitness for a VK tree to be implemented in the future
     FUTURE_NUM,
     assertLength(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),

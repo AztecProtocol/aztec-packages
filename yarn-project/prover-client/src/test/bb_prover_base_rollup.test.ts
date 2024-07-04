@@ -1,6 +1,6 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
-import { TubeInputs } from '@aztec/circuits.js';
+import { NESTED_RECURSIVE_PROOF_LENGTH, TubeInputs, makeEmptyRecursiveProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -42,12 +42,13 @@ describe('prover/bb_prover/base-rollup', () => {
     logger.verbose('Building base rollup inputs');
     const baseRollupInputs = await buildBaseRollupInput(
       tx,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       context.globalVariables,
       context.actualDb,
       paddingTxPublicInputsAndProof.verificationKey,
     );
     logger.verbose('Proving base rollups');
-    const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs, TubeInputs.empty());
+    const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
     await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
   });

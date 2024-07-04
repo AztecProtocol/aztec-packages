@@ -24,12 +24,14 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  TubeInputs,
+  type TubeInputs,
   VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
+  RecursiveProof,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -204,8 +206,6 @@ export class TestCircuitProver implements ServerCircuitProver {
     return Promise.resolve(rootParityInput);
   }
 
-  public async getTubeRollupProofFromArtifact(): Promise<void> {}
-
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -214,7 +214,6 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getBaseRollupProof')
   public async getBaseRollupProof(
     input: BaseRollupInputs,
-    _tubeInput: TubeInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // LONDONTODO(TESTING) this is a test function that should be updated to use the tube, not entirely sure where this is used and whether it's relevant to make thee full e2e test working, we shall see
     const timer = new Timer();
@@ -239,6 +238,11 @@ export class TestCircuitProver implements ServerCircuitProver {
       VerificationKeyData.makeFake(),
     );
   }
+
+  public getTubeProof(_tubeInput: TubeInputs): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH>; }> {
+    return Promise.resolve({ tubeVK: VerificationKeyData.makeFake(), tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH) });
+  }
+
   /**
    * Simulates the merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.

@@ -137,8 +137,7 @@ export class ProverAgent {
       }
 
       case ProvingRequestType.BASE_ROLLUP: {
-        const tubeInputs = request.tubeInputs;
-        return this.circuitProver.getBaseRollupProof(inputs, tubeInputs);
+        return this.circuitProver.getBaseRollupProof(inputs);
       }
 
       case ProvingRequestType.MERGE_ROLLUP: {
@@ -159,6 +158,10 @@ export class ProverAgent {
 
       case ProvingRequestType.PRIVATE_KERNEL_EMPTY: {
         return this.circuitProver.getEmptyPrivateKernelProof(inputs);
+      }
+
+      case ProvingRequestType.TUBE_PROOF: {
+        return this.circuitProver.getTubeProof(inputs);
       }
 
       default: {

@@ -760,7 +760,7 @@ export class PXEService implements PXE {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
-    const { proof, clientIvcProof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    const { clientIvcProof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
@@ -770,8 +770,7 @@ export class PXEService implements PXE {
 
     const tx = new Tx(
       publicInputs,
-      proof.binaryProof,
-      clientIvcProof ? clientIvcProof : ClientIvcProof.empty(), // LONDONTODO we need to dedupe this proof
+      clientIvcProof!,
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,

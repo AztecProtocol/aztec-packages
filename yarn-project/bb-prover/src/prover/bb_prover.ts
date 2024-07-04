@@ -34,6 +34,7 @@ import {
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
+  PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -62,7 +63,6 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
-import { info } from 'console';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -219,8 +219,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving but it is not
     console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
+    // TODO(ISSUE HERE): We should properly enqueue this in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.createTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
+      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }
@@ -275,7 +276,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getBaseRollupProof(
     baseRollupInput: BaseRollupInputs, // TODO: remove tail proof from here
-    tubeInput: TubeInputs, // TODO: remove tail proof from here
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
     // logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
@@ -288,14 +288,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       baseRollupInput.kernelData.vk,
     );
 
-    // PUBLIC KERNEL: Trying to mirror this for the setup public kernel
-    // LONDONTODO this should get an issue to first sequence the tube proof then request the base rollup
-    console.log(`tubeInput.clientIVCData.isEmpty(): ${tubeInput.clientIVCData.isEmpty()}`);
-    if (!tubeInput.clientIVCData.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
-      baseRollupInput.kernelData.vk = tubeVK;
-      baseRollupInput.kernelData.proof = tubeProof;
-    }
     const { circuitOutput, proof } = await this.createRecursiveProof(
       baseRollupInput, // BaseRollupInputs
       'BaseRollupArtifact',
@@ -590,7 +582,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       await fs.mkdir(tubeResultPath, { recursive: true });
 
       await input.clientIVCData.writeToOutputDirectory(tubeResultPath);
-      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose)
+      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose, input.requestedNumFakePublicInputs)
 
       await fs.writeFile(path.join(tubeResultPath, 'success.txt'), 'success');
       if (provingResult.status === BB_RESULT.FAILURE) {
@@ -642,7 +634,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await runInDirectory(this.config.bbWorkingDirectory, operation, cleanupDir);
   }
 
-  private async createTubeProof(
+  public async getTubeProof(
     input: TubeInputs,
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
     // this probably is gonna need to call client ivc
@@ -650,24 +642,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
       const provingResult = await this.generateTubeProofWithBB(input);
 
-      // We don't want this to be a ServerProtocolArtifact because that refers to NoirCompiledCircuit
-      // const circuitType: ServerProtocolArtifact = 'TubeArtifact';
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
       const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
 
+      // TODO(ISSUE PENDING): properly time tube construction
       logger.info(
         `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
           tubeProof.proof.length
         } fields`,
-        // TODO: make this for tube
-        // {
-        //   circuitSize: tubeVK.circuitSize,
-        //   duration: provingResult.duration,
-        //   proofSize: tubeProof.binaryProof.buffer.length,
-        //   eventName: 'circuit-proving',
-        //   numPublicInputs: tubeVK.numPublicInputs,
-        // } satisfies CircuitProvingStats,
       );
 
       return { tubeVK, tubeProof };
