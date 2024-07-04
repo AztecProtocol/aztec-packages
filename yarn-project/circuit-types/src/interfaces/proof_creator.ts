@@ -16,21 +16,10 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type WitnessMap } from '@noir-lang/acvm_js';
 
 /**
- * Represents the output of simulating a private kernel.
- * We use these outputs as a witness stack for proving over a client IVC program stack.
+ * Represents the output of the proof creation process for init and inner private kernel circuit.
+ * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
  */
-export interface KernelSimulateOutput<PublicInputsType> {
-  /**
-   * The public inputs required for the proof generation process.
-   */
-  publicInputs: PublicInputsType;
-  verificationKey: VerificationKeyAsFields;
-
-  // LONDONTODO(AD): should this exist in the future?
-  outputWitness: WitnessMap
-};
-
-export interface KernelProofOutput<PublicInputsType> {
+export type KernelProofOutput<PublicInputsType> = {
   /**
    * The public inputs required for the proof generation process.
    */
@@ -39,6 +28,7 @@ export interface KernelProofOutput<PublicInputsType> {
   // TODO we want ACIR bytecode to be output here
   // LONDONTODO(KERNEL PROVING): this is not used for public kernel stack
   clientIvcProof?: ClientIvcProof;
+
   verificationKey: VerificationKeyAsFields;
 
   // LONDONTODO(AD): should this exist in the future?

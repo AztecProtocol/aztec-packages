@@ -9,6 +9,7 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -22,6 +23,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
   getNonEmptyItems,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -69,6 +71,7 @@ export class KernelProver {
 
     let output: KernelProofOutput<PrivateKernelCircuitPublicInputs> = {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
       // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
       outputWitness: new Map()
@@ -135,6 +138,7 @@ export class KernelProver {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
+          output.proof,
           output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
@@ -158,6 +162,7 @@ export class KernelProver {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
+      output.proof,
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
@@ -224,6 +229,7 @@ export class KernelProver {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
+      output.proof,
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
