@@ -10,7 +10,7 @@ use dep::protocol_types::{
     utils::reader::Reader,
     constants::{
     MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_NOTE_HASHES_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
@@ -79,6 +79,7 @@ pub fn parse_public_call_stack_item_from_oracle(fields: [Field; ENQUEUE_PUBLIC_F
 
     // Note: Not using PublicCirclePublicInputs::deserialize here, because everything below args_hash is 0 and
     // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
+    // WARNING: if updating, see comment in public_call_stack_item.ts's PublicCallStackItem.hash()
     let item = PublicCallStackItem {
         contract_address: AztecAddress::from_field(reader.read()),
         function_data: FunctionData { selector: FunctionSelector::from_field(reader.read()), is_private: false },
@@ -93,9 +94,9 @@ pub fn parse_public_call_stack_item_from_oracle(fields: [Field; ENQUEUE_PUBLIC_F
             contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
             public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-            new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
-            new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
-            new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+            note_hashes: [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL],
+            nullifiers: [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL],
+            l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
             unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],

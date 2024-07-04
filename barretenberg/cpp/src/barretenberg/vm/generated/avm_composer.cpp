@@ -1,6 +1,5 @@
+#include "barretenberg/vm/generated/avm_composer.hpp"
 
-
-#include "./avm_composer.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"

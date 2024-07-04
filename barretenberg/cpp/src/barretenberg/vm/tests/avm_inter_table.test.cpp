@@ -14,20 +14,15 @@ using namespace bb::avm_trace;
 
 class AvmInterTableTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
-
-  protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+    AvmInterTableTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
 };
 
 /******************************************************************************
@@ -62,7 +57,7 @@ class AvmPermMainAluNegativeTests : public AvmInterTableTests {
         trace_builder.op_add(0, 0, 1, 1, AvmMemoryTag::U64); // 19 + 15 = 34
         trace_builder.op_add(0, 0, 1, 1, AvmMemoryTag::U64); // 19 + 34 = 53
         trace_builder.op_mul(0, 0, 1, 2, AvmMemoryTag::U64); // 19 * 53 = 1007
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
 
         trace = trace_builder.finalize();
 
@@ -157,7 +152,7 @@ class AvmRangeCheckNegativeTests : public AvmInterTableTests {
         trace_builder.op_set(0, a, 0, tag);
         trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_add(0, 0, 1, 2, tag); // 7 + 8 = 15
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
         trace = trace_builder.finalize(min_trace_size);
 
         // Find the row with addition operation and retrieve clk.
@@ -406,7 +401,7 @@ class AvmPermMainMemNegativeTests : public AvmInterTableTests {
         trace_builder.op_set(0, a, 52, AvmMemoryTag::U8);
         trace_builder.op_set(0, b, 11, AvmMemoryTag::U8);
         trace_builder.op_sub(0, 52, 11, 55, AvmMemoryTag::U8);
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
 
         trace = trace_builder.finalize();
 

@@ -27,6 +27,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -115,6 +116,7 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
+      new NoopTelemetryClient(),
     );
   });
 
@@ -212,7 +214,7 @@ describe('sequencer', () => {
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
-    const doubleSpendNullifier = doubleSpendTx.data.forRollup!.end.newNullifiers[0].toBuffer();
+    const doubleSpendNullifier = doubleSpendTx.data.forRollup!.end.nullifiers[0].toBuffer();
     merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: any) => {
       return Promise.resolve(
         treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,

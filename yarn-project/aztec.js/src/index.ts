@@ -46,12 +46,13 @@ export {
   FunctionSelectorLike,
   WrappedFieldLike,
   computeAuthWitMessageHash,
+  computeInnerAuthWitHashFromAction,
   computeInnerAuthWitHash,
-  computeOuterAuthWitHash,
   generatePublicKey,
   waitForAccountSynch,
   waitForPXE,
 } from './utils/index.js';
+export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createPXEClient } from './rpc_clients/index.js';
 
@@ -98,6 +99,7 @@ export {
   EncryptedLogHeader,
   EncryptedNoteLogIncomingBody,
   EncryptedLogOutgoingBody,
+  EventType,
   ExtendedNote,
   FunctionCall,
   GrumpkinPrivateKey,
