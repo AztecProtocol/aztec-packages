@@ -275,7 +275,6 @@ impl FixtureBuilder {
             call_stack_item: self.to_private_call_stack_item(),
             public_call_stack: subarray(self.public_call_requests.storage),
             public_teardown_call_request: self.public_teardown_call_stack.storage[0],
-            proof: RecursiveProof::empty(),
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,

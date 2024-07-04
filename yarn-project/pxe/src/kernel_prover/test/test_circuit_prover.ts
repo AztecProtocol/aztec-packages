@@ -1,7 +1,6 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
-  NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,

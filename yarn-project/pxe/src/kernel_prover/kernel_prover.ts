@@ -9,7 +9,6 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -17,13 +16,10 @@ import {
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
   getNonEmptyItems,
-  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -108,6 +104,8 @@ export class KernelProver {
         currentExecution.acir,
         functionName,
       );
+      // TODO(ISSUE PENDING): This used to be associated with getDebugFunctionName
+      // TODO(ISSUE PENDING): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
       witnessStack.push(currentExecution.partialWitness);
 
@@ -115,7 +113,6 @@ export class KernelProver {
         currentExecution,
         publicCallRequests,
         publicTeardownCallRequest,
-        proofOutput.proof,
         proofOutput.verificationKey,
       );
 
@@ -244,7 +241,6 @@ export class KernelProver {
     { callStackItem }: ExecutionResult,
     publicCallRequests: CallRequest[],
     publicTeardownCallRequest: CallRequest,
-    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
     vk: VerificationKeyAsFields,
   ) {
     const { contractAddress, functionData } = callStackItem;
@@ -269,7 +265,6 @@ export class KernelProver {
       callStackItem,
       publicCallStack,
       publicTeardownCallRequest,
-      proof,
       vk,
       publicKeysHash,
       contractClassArtifactHash,
