@@ -19,9 +19,9 @@ describe('e2e_fees/private_refunds', () => {
   let privateToken: PrivateTokenContract;
   let privateFPC: PrivateFPCContract;
 
-  let InitialAlicePrivateTokens: bigint;
-  let InitialBobPrivateTokens: bigint;
-  let InitialPrivateFPCGas: bigint;
+  let initialAliceBalance: bigint;
+  let initialBobBalance: bigint;
+  let initialFPCGasBalance: bigint;
 
   const t = new FeesTest('private_refunds');
 
@@ -40,13 +40,15 @@ describe('e2e_fees/private_refunds', () => {
   });
 
   beforeEach(async () => {
-    [[InitialAlicePrivateTokens, InitialBobPrivateTokens], [InitialPrivateFPCGas]] = await Promise.all([
+    [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
       t.privateTokenBalances(aliceAddress, t.bobAddress),
       t.gasBalances(privateFPC.address),
     ]);
   });
 
   it('can do private payments and refunds', async () => {
+    // 1. We get the hash of Bob's master nullifier public key. The corresponding nullifier secret key can later on
+    // be used to nullify/spend the note that contains the npk_m_hash.
     // TODO(#7324): The values in complete address are currently not updated after the keys are rotated so this does
     // not work with key rotation as the key might be the old one and then we would fetch a new one in the contract.
     const bobNpkMHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
@@ -63,7 +65,7 @@ describe('e2e_fees/private_refunds', () => {
             privateFPC.address,
             aliceWallet,
             rebateNonce,
-            bobNpkMHash,
+            bobNpkMHash, // We use Bob's npk_m_hash in the notes that contain the transaction fee.
           ),
         },
       })
@@ -80,10 +82,10 @@ describe('e2e_fees/private_refunds', () => {
     const aliceNpkMHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
     const aliceRefundNote = new Note([refundNoteValue, aliceNpkMHash, rebateNonce]);
 
-    // 3. If the refund flow worked and it added a note with the expected values, we should be able to add the note
-    // to our PXE. Just calling `pxe.addNote(...)` is enough of a check because the endpoint will compute the note
-    // hash and then it will try to find the note hash in the note hash tree. If the note hash is not found
-    // in the tree, an error is thrown.
+    // 3. If the refund flow worked it should have added emitted a note hash of the note we constructed above and we
+    // should be able to add the note to our PXE. Just calling `pxe.addNote(...)` is enough of a check that the note
+    // hash was emitted because the endpoint will compute the hash and then it will try to find it in the note hash
+    // tree. If the note hash is not found in the tree, an error is thrown.
     await t.aliceWallet.addNote(
       new ExtendedNote(
         aliceRefundNote,
@@ -95,8 +97,11 @@ describe('e2e_fees/private_refunds', () => {
       ),
     );
 
-    // 4. Check that the balances are as expected.
+    // 4. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
+    // npk_m_hash (set in the paymentMethod above) and the randomness.
     const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobNpkMHash, rebateNonce]);
+
+    // 5. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
     await t.bobWallet.addNote(
       new ExtendedNote(
         bobFeeNote,
@@ -108,11 +113,13 @@ describe('e2e_fees/private_refunds', () => {
       ),
     );
 
-    await expectMapping(t.gasBalances, [privateFPC.address], [InitialPrivateFPCGas - tx.transactionFee!]);
+    // 6. At last we check that the gas balance of FPC has decreased exactly by the transaction fee...
+    await expectMapping(t.gasBalances, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
+    // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
       t.privateTokenBalances,
       [aliceAddress, t.bobAddress],
-      [InitialAlicePrivateTokens - tx.transactionFee!, InitialBobPrivateTokens + tx.transactionFee!],
+      [initialAliceBalance - tx.transactionFee!, initialBobBalance + tx.transactionFee!],
     );
   });
 });
