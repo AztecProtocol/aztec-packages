@@ -1,4 +1,4 @@
-import { type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
+import { type PrivateKernelSimulateOutput, type PrivateKernelClientIvc } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
@@ -45,7 +45,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) { }
+  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelClientIvc) { }
 
 
   /**
@@ -61,11 +61,11 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: ExecutionResult,
-  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
 
-    let output: KernelProofOutput<PrivateKernelCircuitPublicInputs> = {
+    let output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
       // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
@@ -81,7 +81,7 @@ export class KernelProver {
     while (executionStack.length) {
       if (!firstIteration && this.needsReset(executionStack, output)) {
         const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
-        output = await this.proofCreator.createProofReset(resetInputs);
+        output = await this.proofCreator.simulateProofReset(resetInputs);
         // LONDONTODO(CLIENT IVC) consider refactoring this
         acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
@@ -99,8 +99,7 @@ export class KernelProver {
         currentExecution.callStackItem.functionData.selector,
       );
 
-      const proofOutput = await this.proofCreator.createAppCircuitProof(
-        currentExecution.partialWitness,
+      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
         currentExecution.acir,
         functionName,
       );
@@ -113,7 +112,7 @@ export class KernelProver {
         currentExecution,
         publicCallRequests,
         publicTeardownCallRequest,
-        proofOutput.verificationKey,
+        appVk.verificationKey,
       );
 
       if (firstIteration) {
@@ -123,7 +122,7 @@ export class KernelProver {
         );
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
         pushTestData('private-kernel-inputs-init', proofInput);
-        output = await this.proofCreator.createProofInit(proofInput);
+        output = await this.proofCreator.simulateProofInit(proofInput);
         acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInitArtifact.bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       } else {
@@ -140,7 +139,7 @@ export class KernelProver {
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData, hints);
         pushTestData('private-kernel-inputs-inner', proofInput);
-        output = await this.proofCreator.createProofInner(proofInput);
+        output = await this.proofCreator.simulateProofInner(proofInput);
         acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInnerArtifact.bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       }
@@ -149,7 +148,7 @@ export class KernelProver {
 
     if (this.somethingToReset(output)) {
       const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
-      output = await this.proofCreator.createProofReset(resetInputs);
+      output = await this.proofCreator.simulateProofReset(resetInputs);
       // LONDONTODO(ClIENT IVC) consider refactoring this
       acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
       witnessStack.push(output.outputWitness);
@@ -169,7 +168,7 @@ export class KernelProver {
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    const tailOutput = await this.proofCreator.createProofTail(privateInputs);
+    const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
@@ -179,7 +178,7 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private needsReset(executionStack: ExecutionResult[], output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {
+  private needsReset(executionStack: ExecutionResult[], output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
     const nextIteration = executionStack[executionStack.length - 1];
     return (
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNoteHashes).length +
@@ -203,7 +202,7 @@ export class KernelProver {
     );
   }
 
-  private somethingToReset(output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {
+  private somethingToReset(output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
     return (
       getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length > 0 ||
       getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length > 0 ||
@@ -216,7 +215,7 @@ export class KernelProver {
   // LONDONTODO(AD): not a great distinction between this and buildPrivateKernelResetInputs
   private async getPrivateKernelResetInputs(
     executionStack: ExecutionResult[],
-    output: KernelProofOutput<PrivateKernelCircuitPublicInputs>,
+    output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
     noteHashNullifierCounterMap: Map<number, number>,
   ) {

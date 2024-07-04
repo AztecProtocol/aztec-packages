@@ -1,5 +1,5 @@
-import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { type AppCircuitSimulateOutput, type PrivateKernelSimulateOutput, type PrivateKernelClientIvc } from '@aztec/circuit-types';
+import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   Fr,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -11,7 +11,6 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
-  RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   VerificationKeyAsFields,
   type VerificationKeyData,
@@ -42,16 +41,16 @@ import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import { encode } from "@msgpack/msgpack";
-import path, { join } from 'path';
+import path from 'path';
 
 import {
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
   generateKeyForNoirCircuit,
-  generateProof,
   verifyProof,
   executeBbClientIvcProof,
+  computeVerificationKey,
 } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
@@ -59,9 +58,9 @@ import { extractVkData } from '../verification_key/verification_key_data.js';
 /**
  * This proof creator implementation uses the native bb binary.
  * This is a temporary implementation until we make the WASM version work.
- * TODO(ISSUE PENDING): these no longer create proofs, rename
+ * TODO(ISSUE PENDING): this class grew 'organically' aka it could use a look at its resposibilities
  */
-export class BBNativeProofCreator implements ProofCreator {
+export class BBNativePrivateKernelClientIvc implements PrivateKernelClientIvc {
   private simulator = new WASMSimulator();
 
   private verificationKeys: Map<ClientProtocolArtifact, Promise<VerificationKeyData>> = new Map<
@@ -125,10 +124,10 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  public async createProofInit(
+  public async simulateProofInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
-  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.createSafeProof(
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulate(
       inputs,
       'PrivateKernelInitArtifact',
       convertPrivateKernelInitInputsToWitnessMap,
@@ -136,10 +135,10 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  public async createProofInner(
+  public async simulateProofInner(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
-  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.createSafeProof(
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulate(
       inputs,
       'PrivateKernelInnerArtifact',
       convertPrivateKernelInnerInputsToWitnessMap,
@@ -147,10 +146,10 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  public async createProofReset(
+  public async simulateProofReset(
     inputs: PrivateKernelResetCircuitPrivateInputsVariants,
-  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.createSafeProof(
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulate(
       inputs,
       PrivateResetTagToArtifactName[inputs.sizeTag],
       convertPrivateKernelResetInputsToWitnessMap,
@@ -158,18 +157,18 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  public async createProofTail(
+  public async simulateProofTail(
     inputs: PrivateKernelTailCircuitPrivateInputs,
-  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (!inputs.isForPublic()) {
-      return await this.createSafeProof(
+      return await this.simulate(
         inputs,
         'PrivateKernelTailArtifact',
         convertPrivateKernelTailInputsToWitnessMap,
         convertPrivateKernelTailOutputsFromWitnessMap,
       );
     }
-    return await this.createSafeProof(
+    return await this.simulate(
       inputs,
       'PrivateKernelTailToPublicArtifact',
       convertPrivateKernelTailToPublicInputsToWitnessMap,
@@ -177,23 +176,13 @@ export class BBNativeProofCreator implements ProofCreator {
     );
   }
 
-  public async createAppCircuitProof(
-    partialWitness: WitnessMap, // from simulation
+  public async computeAppCircuitVerificationKey(
     bytecode: Buffer,
     appCircuitName?: string,
-  ): Promise<AppCircuitProofOutput> {
+  ): Promise<AppCircuitSimulateOutput> {
     const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
-      const proofOutput = await this.createProof(directory, partialWitness, bytecode, 'App', appCircuitName);
-      if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
-        throw new Error(`Incorrect proof length ${proofOutput.proof.proof.length} vs ${RECURSIVE_PROOF_LENGTH}`);
-      }
-      const proof = proofOutput.proof;
-      const output: AppCircuitProofOutput = {
-        proof,
-        verificationKey: proofOutput.verificationKey,
-      };
-      return output;
+      return await this.computeVerificationKey(directory, bytecode, 'App', appCircuitName);
     };
 
     return await runInDirectory(this.bbWorkingDirectory, operation);
@@ -270,7 +259,7 @@ export class BBNativeProofCreator implements ProofCreator {
    * @param filePath - The directory containing the verification key data files
    * @param circuitType - The type of circuit to which the verification key corresponds
    */
-  private async updateVerificationKeyAfterProof(filePath: string, circuitType: ClientProtocolArtifact) {
+  private async updateVerificationKeyAfterSimulation(filePath: string, circuitType: ClientProtocolArtifact) {
     let promise = this.verificationKeys.get(circuitType);
     if (!promise) {
       promise = extractVkData(filePath);
@@ -280,16 +269,7 @@ export class BBNativeProofCreator implements ProofCreator {
     return await promise;
   }
 
-  private async createSafeProof<I extends { toBuffer: () => Buffer }, O extends { toBuffer: () => Buffer }>(
-    inputs: I,
-    circuitType: ClientProtocolArtifact,
-    convertInputs: (inputs: I) => WitnessMap,
-    convertOutputs: (outputs: WitnessMap) => O,
-  ): Promise<KernelProofOutput<O>> {
-    return await this.generateWitnessAndCreateProof(inputs, circuitType, convertInputs, convertOutputs);
-  }
-
-  private async generateWitnessAndCreateProof<
+  private async simulate<
     I extends { toBuffer: () => Buffer },
     O extends { toBuffer: () => Buffer },
   >(
@@ -297,7 +277,7 @@ export class BBNativeProofCreator implements ProofCreator {
     circuitType: ClientProtocolArtifact,
     convertInputs: (inputs: I) => WitnessMap,
     convertOutputs: (outputs: WitnessMap) => O,
-  ): Promise<KernelProofOutput<O>> {
+  ): Promise<PrivateKernelSimulateOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
     const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
 
@@ -314,7 +294,7 @@ export class BBNativeProofCreator implements ProofCreator {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    const kernelOutput: KernelProofOutput<O> = {
+    const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
       verificationKey: VerificationKeyAsFields.makeEmpty(), // TODO(ISSUE PENDING): remove entirely
       outputWitness
@@ -322,81 +302,144 @@ export class BBNativeProofCreator implements ProofCreator {
     return kernelOutput;
   }
 
-  private async createProof(
+  private async computeVerificationKey(
     directory: string,
-    partialWitness: WitnessMap,
     bytecode: Buffer,
     circuitType: ClientProtocolArtifact | 'App',
     appCircuitName?: string,
   ): Promise<{
-    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> | RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
     verificationKey: VerificationKeyAsFields;
   }> {
-    const compressedBincodedWitness = serializeWitness(partialWitness);
-
-    const inputsWitnessFile = join(directory, 'witness.gz');
-
-    await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
-
-    this.log.debug(`Written ${inputsWitnessFile}`);
-
     const dbgCircuitName = appCircuitName ? `(${appCircuitName})` : '';
-    this.log.info(`Proving ${circuitType}${dbgCircuitName} circuit...`);
+    this.log.info(`Computing VK of ${circuitType}${dbgCircuitName} circuit...`);
 
     const timer = new Timer();
 
-    const provingResult = await generateProof(
+    const vkResult = await computeVerificationKey(
       this.bbBinaryPath,
       directory,
       circuitType,
       bytecode,
-      inputsWitnessFile,
       this.log.debug,
     );
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+    if (vkResult.status === BB_RESULT.FAILURE) {
+      this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
+      throw new Error(vkResult.reason);
     }
 
-    this.log.info(`Generated ${circuitType}${dbgCircuitName} circuit proof in ${Math.ceil(timer.ms())} ms`);
+    this.log.info(`Generated ${circuitType}${dbgCircuitName} VK in ${Math.ceil(timer.ms())} ms`);
 
     if (circuitType === 'App') {
       const vkData = await extractVkData(directory);
-      const proof = await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
 
-      this.log.debug(`Generated proof`, {
-        eventName: 'circuit-proving',
+      this.log.debug(`Computed verification key`, {
         circuitName: 'app-circuit',
-        duration: provingResult.durationMs,
-        inputSize: compressedBincodedWitness.length,
-        proofSize: proof.binaryProof.buffer.length,
-        appCircuitName,
+        duration: vkResult.durationMs,
+        eventName: 'circuit-simulation',
+        inputSize: bytecode.length,
+        outputSize: vkData.keyAsBytes.length,
         circuitSize: vkData.circuitSize,
         numPublicInputs: vkData.numPublicInputs,
-      } as CircuitProvingStats);
+      } as CircuitSimulationStats);
 
-      return { proof, verificationKey: vkData.keyAsFields };
+      return { verificationKey: vkData.keyAsFields };
     }
 
-    const vkData = await this.updateVerificationKeyAfterProof(directory, circuitType);
+    const vkData = await this.updateVerificationKeyAfterSimulation(directory, circuitType);
 
     const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
 
     await this.verifyProofForProtocolCircuit(circuitType, proof.binaryProof);
 
-    this.log.debug(`Generated proof`, {
+    this.log.debug(`Computed verification key`, {
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-      duration: provingResult.durationMs,
-      eventName: 'circuit-proving',
-      inputSize: compressedBincodedWitness.length,
-      proofSize: proof.binaryProof.buffer.length,
+      duration: vkResult.durationMs,
+      eventName: 'circuit-simulation',
+      inputSize: bytecode.length,
+      outputSize: vkData.keyAsBytes.length,
       circuitSize: vkData.circuitSize,
       numPublicInputs: vkData.numPublicInputs,
-    } as CircuitProvingStats);
+    } as CircuitSimulationStats);
 
-    return { proof, verificationKey: vkData.keyAsFields };
+    return { verificationKey: vkData.keyAsFields };
   }
+
+  // private async createProof(
+  //   directory: string,
+  //   partialWitness: WitnessMap,
+  //   bytecode: Buffer,
+  //   circuitType: ClientProtocolArtifact | 'App',
+  //   appCircuitName?: string,
+  // ): Promise<{
+  //   proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> | RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  //   verificationKey: VerificationKeyAsFields;
+  // }> {
+  //   const compressedBincodedWitness = serializeWitness(partialWitness);
+
+  //   const inputsWitnessFile = join(directory, 'witness.gz');
+
+  //   await fs.writeFile(inputsWitnessFile, compressedBincodedWitness); // FOLDINGSTACK: witness is written to a file here
+
+  //   this.log.debug(`Written ${inputsWitnessFile}`);
+
+  //   const dbgCircuitName = appCircuitName ? `(${appCircuitName})` : '';
+  //   this.log.info(`Proving ${circuitType}${dbgCircuitName} circuit...`);
+
+  //   const timer = new Timer();
+
+  //   const provingResult = await generateProof(
+  //     this.bbBinaryPath,
+  //     directory,
+  //     circuitType,
+  //     bytecode,
+  //     inputsWitnessFile,
+  //     this.log.debug,
+  //   );
+
+  //   if (provingResult.status === BB_RESULT.FAILURE) {
+  //     this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${provingResult.reason}`);
+  //     throw new Error(provingResult.reason);
+  //   }
+
+  //   this.log.info(`Generated ${circuitType}${dbgCircuitName} circuit proof in ${Math.ceil(timer.ms())} ms`);
+
+  //   if (circuitType === 'App') {
+  //     const vkData = await extractVkData(directory);
+  //     const proof = await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
+
+  //     this.log.debug(`Generated proof`, {
+  //       eventName: 'circuit-proving',
+  //       circuitName: 'app-circuit',
+  //       duration: provingResult.durationMs,
+  //       inputSize: compressedBincodedWitness.length,
+  //       proofSize: proof.binaryProof.buffer.length,
+  //       appCircuitName,
+  //       circuitSize: vkData.circuitSize,
+  //       numPublicInputs: vkData.numPublicInputs,
+  //     } as CircuitProvingStats);
+
+  //     return { proof, verificationKey: vkData.keyAsFields };
+  //   }
+
+  //   const vkData = await this.updateVerificationKeyAfterSimulation(directory, circuitType);
+
+  //   const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
+
+  //   await this.verifyProofForProtocolCircuit(circuitType, proof.binaryProof);
+
+  //   this.log.debug(`Generated proof`, {
+  //     circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
+  //     duration: provingResult.durationMs,
+  //     eventName: 'circuit-proving',
+  //     inputSize: compressedBincodedWitness.length,
+  //     proofSize: proof.binaryProof.buffer.length,
+  //     circuitSize: vkData.circuitSize,
+  //     numPublicInputs: vkData.numPublicInputs,
+  //   } as CircuitProvingStats);
+
+  //   return { proof, verificationKey: vkData.keyAsFields };
+  // }
 
   /**
    * Parses and returns the proof data stored at the specified directory

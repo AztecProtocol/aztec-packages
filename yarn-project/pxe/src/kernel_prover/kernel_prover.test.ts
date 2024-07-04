@@ -1,5 +1,5 @@
-import { Note, type ProofCreator } from '@aztec/circuit-types';
-import { BBNativeProofCreator } from '@aztec/bb-prover';
+import { Note, type PrivateKernelClientIvc } from '@aztec/circuit-types';
+import { BBNativePrivateKernelClientIvc } from '@aztec/bb-prover';
 // import { createConsoleLogger } from '@aztec/foundation/log';
 // import { createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -40,7 +40,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 describe('Kernel Prover Native', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
-  let proofCreator: BBNativeProofCreator;
+  let proofCreator: BBNativePrivateKernelClientIvc;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
@@ -121,7 +121,7 @@ describe('Kernel Prover Native', () => {
   //   };
   // };
 
-  // const createAppCircuitProofOutput = () => {
+  // const computeAppCircuitVerificationKeyOutput = () => {
   //   return {
   //     proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
   //     verificationKey: VerificationKeyAsFields.makeEmpty(),
@@ -129,18 +129,18 @@ describe('Kernel Prover Native', () => {
   // };
 
   // const expectExecution = (fns: string[]) => {
-  //   const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(args =>
+  //   const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
   //     String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
   //   );
-  //   const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(args =>
+  //   const callStackItemsInner = proofCreator.simulateProofInner.mock.calls.map(args =>
   //     String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
   //   );
 
-  //   expect(proofCreator.createProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
-  //   expect(proofCreator.createProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
+  //   expect(proofCreator.simulateProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
+  //   expect(proofCreator.simulateProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
   //   expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
-  //   proofCreator.createProofInner.mockClear();
-  //   proofCreator.createProofInit.mockClear();
+  //   proofCreator.simulateProofInner.mockClear();
+  //   proofCreator.simulateProofInit.mockClear();
   // };
 
   const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
@@ -170,18 +170,18 @@ describe('Kernel Prover Native', () => {
       BB_WORKING_DIRECTORY = '',
     } = process.env;
 
-    proofCreator = new BBNativeProofCreator(
+    proofCreator = new BBNativePrivateKernelClientIvc(
       BB_BINARY_PATH!,
       BB_WORKING_DIRECTORY
     );
     // proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
     //   Promise.resolve(publicInputs.newNoteHashes.map(com => createFakeSiloedCommitment(com.value))),
     // );
-    // proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
-    // proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
-    // proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
-    // proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
-    // proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
+    // proofCreator.simulateProofInit.mockResolvedValue(createProofOutput([]));
+    // proofCreator.simulateProofInner.mockResolvedValue(createProofOutput([]));
+    // proofCreator.simulateProofReset.mockResolvedValue(createProofOutput([]));
+    // proofCreator.simulateProofTail.mockResolvedValue(createProofOutputFinal([]));
+    // proofCreator.computeAppCircuitVerificationKey.mockResolvedValue(computeAppCircuitVerificationKeyOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });

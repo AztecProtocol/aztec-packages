@@ -1,4 +1,4 @@
-import { type AvmCircuitInputs, TubeInputs } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn, currentLevel as currentLogLevel } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -244,6 +244,80 @@ export async function executeBbClientIvcProof(
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
   }
 }
+
+
+/**
+ * Used for generating verification keys of noir circuits.
+ * It is assumed that the working directory is a temporary and/or random directory used solely for generating this VK.
+ * @param pathToBB - The full path to the bb binary
+ * @param workingDirectory - A working directory for use by bb
+ * @param circuitName - An identifier for the circuit
+ * @param bytecode - The compiled circuit bytecode
+ * @param inputWitnessFile - The circuit input witness
+ * @param log - A logging function
+ * @returns An object containing a result indication, the location of the VK and the duration taken
+ */
+export async function computeVerificationKey(
+  pathToBB: string,
+  workingDirectory: string,
+  circuitName: string,
+  bytecode: Buffer,
+  log: LogFn,
+): Promise<BBFailure | BBSuccess> {
+  // Check that the working directory exists
+  try {
+    await fs.access(workingDirectory);
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
+
+  // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
+  const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+
+  // The verification key is written to this path
+  const outputPath = `${workingDirectory}/vk`;
+
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+  }
+
+  try {
+    // Write the bytecode to the working directory
+    await fs.writeFile(bytecodePath, bytecode);
+    const timer = new Timer();
+    const logFunction = (message: string) => {
+      log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
+    };
+    let result = await executeBB(pathToBB, 'write_vk_ultra_honk', ['-o', outputPath, '-b', bytecodePath, '-v'], logFunction);
+    if (result.status == BB_RESULT.FAILURE) {
+      return { status: BB_RESULT.FAILURE, reason: "Failed writing VK." };
+    }
+    result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', ['-o', outputPath + "_fields.json", '-k', outputPath, '-v'], logFunction);
+    const duration = timer.ms();
+
+    if (result.status == BB_RESULT.SUCCESS) {
+      return {
+        status: BB_RESULT.SUCCESS,
+        durationMs: duration,
+        proofPath: `${outputPath}`,
+        pkPath: undefined,
+        vkPath: `${outputPath}`,
+      };
+    }
+    // Not a great error message here but it is difficult to decipher what comes from bb
+    return {
+      status: BB_RESULT.FAILURE,
+      reason: `Failed to write VK. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+    };
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
+}
+
 /**
  * Used for generating proofs of noir circuits.
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
