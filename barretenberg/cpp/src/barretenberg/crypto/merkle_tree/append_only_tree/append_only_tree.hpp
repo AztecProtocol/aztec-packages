@@ -111,9 +111,9 @@ AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& w
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion)
 {
-    auto job = [=]() {
+    auto job = [=, this]() {
         ExecuteAndReport<TreeMetaResponse>(
-            [=](TypedResponse<TreeMetaResponse>& response) {
+            [=, this](TypedResponse<TreeMetaResponse>& response) {
                 ReadTransactionPtr tx = store_.createReadTransaction();
                 store_.get_meta(response.inner.size, response.inner.root, *tx, includeUncommitted);
             },
@@ -127,9 +127,9 @@ void AppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index
                                                             const HashPathCallback& on_completion,
                                                             bool includeUncommitted) const
 {
-    auto job = [=]() {
+    auto job = [=, this]() {
         ExecuteAndReport<GetSiblingPathResponse>(
-            [=](TypedResponse<GetSiblingPathResponse>& response) {
+            [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 index_t current_index = index;
                 ReadTransactionPtr tx = store_.createReadTransaction();
                 for (uint32_t level = depth_; level > 0; --level) {
@@ -156,9 +156,9 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& val
                                                       const AppendCompletionCallback& on_completion)
 {
     std::shared_ptr<std::vector<fr>> hashes = std::make_shared<std::vector<fr>>(values);
-    auto append_op = [=]() -> void {
+    auto append_op = [=, this]() -> void {
         ExecuteAndReport<AddDataResponse>(
-            [=](TypedResponse<AddDataResponse>& response) {
+            [=, this](TypedResponse<AddDataResponse>& response) {
                 add_values_internal(hashes, response.inner.root, response.inner.size);
             },
             on_completion);
@@ -258,14 +258,14 @@ std::pair<bool, fr> AppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t lev
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
 {
-    auto job = [=]() { ExecuteAndReport([=]() { store_.commit(); }, on_completion); };
+    auto job = [=, this]() { ExecuteAndReport([=, this]() { store_.commit(); }, on_completion); };
     workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
-    auto job = [=]() { ExecuteAndReport([=]() { store_.rollback(); }, on_completion); };
+    auto job = [=, this]() { ExecuteAndReport([=, this]() { store_.rollback(); }, on_completion); };
     workers_.enqueue(job);
 }
 
