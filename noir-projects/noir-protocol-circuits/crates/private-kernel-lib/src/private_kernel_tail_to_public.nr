@@ -60,6 +60,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new();
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_first_nullifier();
+            previous_kernel.end_setup();
             previous_kernel.push_public_call_request(1, false);
 
             PrivateKernelTailToPublicInputsBuilder { previous_kernel }
