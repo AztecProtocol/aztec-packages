@@ -111,11 +111,11 @@ class AvmFlavor {
     using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 401;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 402;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 471;
+    static constexpr size_t NUM_ALL_ENTITIES = 472;
 
     using MainRelations = std::tuple<
         // Relations
@@ -400,6 +400,7 @@ class AvmFlavor {
                               main_rwd,
                               main_sel_alu,
                               main_sel_bin,
+                              main_sel_calldata_gadget,
                               main_sel_cd,
                               main_sel_gas_accounting_active,
                               main_sel_last,
@@ -2694,6 +2695,7 @@ class AvmFlavor {
             Base::main_rwd = "MAIN_RWD";
             Base::main_sel_alu = "MAIN_SEL_ALU";
             Base::main_sel_bin = "MAIN_SEL_BIN";
+            Base::main_sel_calldata_gadget = "MAIN_SEL_CALLDATA_GADGET";
             Base::main_sel_cd = "MAIN_SEL_CD";
             Base::main_sel_gas_accounting_active = "MAIN_SEL_GAS_ACCOUNTING_ACTIVE";
             Base::main_sel_last = "MAIN_SEL_LAST";
@@ -3117,6 +3119,7 @@ class AvmFlavor {
         Commitment main_rwd;
         Commitment main_sel_alu;
         Commitment main_sel_bin;
+        Commitment main_sel_calldata_gadget;
         Commitment main_sel_cd;
         Commitment main_sel_gas_accounting_active;
         Commitment main_sel_last;
@@ -3553,6 +3556,7 @@ class AvmFlavor {
             main_rwd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_calldata_gadget = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_cd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_gas_accounting_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3985,6 +3989,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(main_rwd, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_bin, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_calldata_gadget, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_cd, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_gas_accounting_active, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_last, Transcript::proof_data);
