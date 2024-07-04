@@ -380,7 +380,7 @@ jobs:
       - name: "Format noir-projects"
         working-directory: ./noir-projects/
         timeout-minutes: 40
-        run: earthly-ci --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \ 
             --no-output ./+format
 
@@ -628,7 +628,7 @@ jobs:
         working-directory: ./noir-projects/
         timeout-minutes: 40
         run: |
-          earthly-ci --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+          earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \ 
             --artifact +gates-report/gates_report.json
           mv gates_report.json ../protocol_circuits_report.json
