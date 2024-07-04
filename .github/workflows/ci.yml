@@ -628,9 +628,8 @@ jobs:
         working-directory: ./noir-projects/
         timeout-minutes: 40
         run: |
-          earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \ 
-            --artifact +gates-report/gates_report.json
+          earthly-ci --artifact +gates-report/gates_report.json -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} 
           mv gates_report.json ../protocol_circuits_report.json
 
       - name: Compare gates reports
