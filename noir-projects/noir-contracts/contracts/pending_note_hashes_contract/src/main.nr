@@ -154,8 +154,6 @@ contract PendingNoteHashes {
         let options = NoteGetterOptions::new();
         let notes = owner_balance.get_notes(options);
 
-        // TODO https://github.com/AztecProtocol/aztec-packages/issues/7059: review what this test aimed to test, as 
-        // it's now superfluous: get_notes never returns 0 notes.
         assert(notes.len() == 0);
     }
 

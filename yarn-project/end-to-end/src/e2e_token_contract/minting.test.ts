@@ -101,7 +101,7 @@ describe('e2e_token_contract minting', () => {
           'The note has been destroyed.',
         );
         await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
-          "Cannot satisfy constraint 'index < self.len'",
+          "Assertion failed: No pending shield found 'notes.len() == 1'",
         );
       });
 
