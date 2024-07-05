@@ -201,15 +201,7 @@ template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& values,
                                                       const AppendCompletionCallback& on_completion)
 {
-    std::shared_ptr<std::vector<fr>> hashes = std::make_shared<std::vector<fr>>(values);
-    auto append_op = [=, this]() -> void {
-        ExecuteAndReport<AddDataResponse>(
-            [=](TypedResponse<AddDataResponse>& response) {
-                add_values_internal(hashes, response.inner.root, response.inner.size, true);
-            },
-            on_completion);
-    };
-    workers_.enqueue(append_op);
+    add_values_internal(values, on_completion, true);
 }
 
 template <typename Store, typename HashingPolicy>
