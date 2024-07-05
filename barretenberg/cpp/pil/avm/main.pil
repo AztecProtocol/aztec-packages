@@ -21,7 +21,7 @@ namespace main(256);
 
     //===== PUBLIC COLUMNS=========================================================
     pol public calldata;
-    pol commit sel_cd; // Selector used for lookup in calldata. TODO: Might be removed or made constant.
+    pol commit sel_calldata; // Selector used for lookup in calldata. TODO: Might be removed or made constant.
 
     //===== KERNEL INPUTS =========================================================
     // Kernel lookup selector opcodes
@@ -665,10 +665,10 @@ namespace main(256);
     KERNEL_OUTPUT_SELECTORS * (kernel.side_effect_counter' - (kernel.side_effect_counter + 1)) = 0;
 
     //===== Memory Slice Constraints ============================================
-    pol commit sel_calldata_gadget; // Selector to activate the calldatacopy operation in the gadget (#[PERM_MAIN_CD_COPY]).
+    pol commit sel_cd_cpy_gadget; // Selector to activate the calldatacopy operation in the gadget (#[PERM_MAIN_CD_COPY]).
 
     // Activate only if tag_err is disabled
-    sel_calldata_gadget = sel_op_calldata_copy * (1 - tag_err);
+    sel_cd_cpy_gadget = sel_op_calldata_copy * (1 - tag_err);
 
     //====== Inter-table Constraints ============================================
 
@@ -739,9 +739,9 @@ namespace main(256);
     pedersen.sel_pedersen {pedersen.clk, pedersen.input};
 
     #[PERM_MAIN_CD_COPY]
-    sel_calldata_gadget {ia, ib, mem_addr_c}
+    sel_cd_cpy_gadget {ia, ib, mem_addr_c}
     is
-    slice.sel_start_cd {slice.cd_offset, slice.cnt, slice.addr};
+    slice.sel_start_cd_cpy {slice.cd_offset, slice.cnt, slice.addr};
 
     #[PERM_MAIN_MEM_A]
     sel_mem_op_a {clk, space_id, mem_addr_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_ia_to_ic, sel_op_cmov}

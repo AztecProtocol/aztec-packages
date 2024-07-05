@@ -184,8 +184,8 @@
     [[maybe_unused]] auto main_rwd = View(new_term.main_rwd);                                                          \
     [[maybe_unused]] auto main_sel_alu = View(new_term.main_sel_alu);                                                  \
     [[maybe_unused]] auto main_sel_bin = View(new_term.main_sel_bin);                                                  \
-    [[maybe_unused]] auto main_sel_calldata_gadget = View(new_term.main_sel_calldata_gadget);                          \
-    [[maybe_unused]] auto main_sel_cd = View(new_term.main_sel_cd);                                                    \
+    [[maybe_unused]] auto main_sel_calldata = View(new_term.main_sel_calldata);                                        \
+    [[maybe_unused]] auto main_sel_cd_cpy_gadget = View(new_term.main_sel_cd_cpy_gadget);                              \
     [[maybe_unused]] auto main_sel_gas_accounting_active = View(new_term.main_sel_gas_accounting_active);              \
     [[maybe_unused]] auto main_sel_last = View(new_term.main_sel_last);                                                \
     [[maybe_unused]] auto main_sel_mem_op_a = View(new_term.main_sel_mem_op_a);                                        \
@@ -276,7 +276,7 @@
     [[maybe_unused]] auto mem_sel_op_a = View(new_term.mem_sel_op_a);                                                  \
     [[maybe_unused]] auto mem_sel_op_b = View(new_term.mem_sel_op_b);                                                  \
     [[maybe_unused]] auto mem_sel_op_c = View(new_term.mem_sel_op_c);                                                  \
-    [[maybe_unused]] auto mem_sel_op_cd = View(new_term.mem_sel_op_cd);                                                \
+    [[maybe_unused]] auto mem_sel_op_cd_cpy = View(new_term.mem_sel_op_cd_cpy);                                        \
     [[maybe_unused]] auto mem_sel_op_cmov = View(new_term.mem_sel_op_cmov);                                            \
     [[maybe_unused]] auto mem_sel_op_d = View(new_term.mem_sel_op_d);                                                  \
     [[maybe_unused]] auto mem_sel_resolve_ind_addr_a = View(new_term.mem_sel_resolve_ind_addr_a);                      \
@@ -310,8 +310,8 @@
     [[maybe_unused]] auto slice_clk = View(new_term.slice_clk);                                                        \
     [[maybe_unused]] auto slice_cnt = View(new_term.slice_cnt);                                                        \
     [[maybe_unused]] auto slice_one_min_inv = View(new_term.slice_one_min_inv);                                        \
-    [[maybe_unused]] auto slice_sel_cd = View(new_term.slice_sel_cd);                                                  \
-    [[maybe_unused]] auto slice_sel_start_cd = View(new_term.slice_sel_start_cd);                                      \
+    [[maybe_unused]] auto slice_sel_cd_cpy = View(new_term.slice_sel_cd_cpy);                                          \
+    [[maybe_unused]] auto slice_sel_start_cd_cpy = View(new_term.slice_sel_start_cd_cpy);                              \
     [[maybe_unused]] auto slice_space_id = View(new_term.slice_space_id);                                              \
     [[maybe_unused]] auto slice_val = View(new_term.slice_val);                                                        \
     [[maybe_unused]] auto perm_cd_mem = View(new_term.perm_cd_mem);                                                    \

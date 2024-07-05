@@ -23,7 +23,7 @@ class perm_main_cd_copy_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_calldata_gadget == 1 || in.slice_sel_start_cd == 1);
+        return (in.main_sel_cd_cpy_gadget == 1 || in.slice_sel_start_cd_cpy == 1);
     }
 
     /**
@@ -47,9 +47,9 @@ class perm_main_cd_copy_permutation_settings {
     {
 
         return std::forward_as_tuple(in.perm_main_cd_copy,
-                                     in.main_sel_calldata_gadget,
-                                     in.main_sel_calldata_gadget,
-                                     in.slice_sel_start_cd,
+                                     in.main_sel_cd_cpy_gadget,
+                                     in.main_sel_cd_cpy_gadget,
+                                     in.slice_sel_start_cd_cpy,
                                      in.main_ia,
                                      in.main_ib,
                                      in.main_mem_addr_c,
@@ -79,9 +79,9 @@ class perm_main_cd_copy_permutation_settings {
     {
 
         return std::forward_as_tuple(in.perm_main_cd_copy,
-                                     in.main_sel_calldata_gadget,
-                                     in.main_sel_calldata_gadget,
-                                     in.slice_sel_start_cd,
+                                     in.main_sel_cd_cpy_gadget,
+                                     in.main_sel_cd_cpy_gadget,
+                                     in.slice_sel_start_cd_cpy,
                                      in.main_ia,
                                      in.main_ib,
                                      in.main_mem_addr_c,

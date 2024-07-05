@@ -56,7 +56,7 @@ template <typename FF> struct MainRow {
     FF main_rwd{};
     FF main_sel_alu{};
     FF main_sel_bin{};
-    FF main_sel_calldata_gadget{};
+    FF main_sel_cd_cpy_gadget{};
     FF main_sel_first{};
     FF main_sel_gas_accounting_active{};
     FF main_sel_mem_op_a{};
@@ -1451,7 +1451,7 @@ template <typename FF_> class mainImpl {
         // Contribution 147
         {
             Avm_DECLARE_VIEWS(147);
-            auto tmp = (main_sel_calldata_gadget - (main_sel_op_calldata_copy * (-main_tag_err + FF(1))));
+            auto tmp = (main_sel_cd_cpy_gadget - (main_sel_op_calldata_copy * (-main_tag_err + FF(1))));
             tmp *= scaling_factor;
             std::get<147>(evals) += tmp;
         }

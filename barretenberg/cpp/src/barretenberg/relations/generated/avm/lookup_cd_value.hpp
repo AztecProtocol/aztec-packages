@@ -87,7 +87,7 @@ class lookup_cd_value_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.slice_sel_cd == 1 || in.main_sel_cd == 1);
+        return (in.slice_sel_cd_cpy == 1 || in.main_sel_calldata == 1);
     }
 
     /**
@@ -104,8 +104,8 @@ class lookup_cd_value_lookup_settings {
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.slice_sel_cd);
-        const auto is_table_entry = View(in.main_sel_cd);
+        const auto is_operation = View(in.slice_sel_cd_cpy);
+        const auto is_table_entry = View(in.main_sel_calldata);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -135,8 +135,8 @@ class lookup_cd_value_lookup_settings {
 
         return std::forward_as_tuple(in.lookup_cd_value,
                                      in.lookup_cd_value_counts,
-                                     in.slice_sel_cd,
-                                     in.main_sel_cd,
+                                     in.slice_sel_cd_cpy,
+                                     in.main_sel_calldata,
                                      in.slice_cd_offset,
                                      in.slice_val,
                                      in.main_clk,
@@ -155,8 +155,8 @@ class lookup_cd_value_lookup_settings {
 
         return std::forward_as_tuple(in.lookup_cd_value,
                                      in.lookup_cd_value_counts,
-                                     in.slice_sel_cd,
-                                     in.main_sel_cd,
+                                     in.slice_sel_cd_cpy,
+                                     in.main_sel_calldata,
                                      in.slice_cd_offset,
                                      in.slice_val,
                                      in.main_clk,
