@@ -157,31 +157,31 @@ contract PrivateToken {
 
     #[aztec(private)]
     fn setup_refund(
-        fee_payer_npk_m_hash: Field,
-        sponsored_user: AztecAddress,
-        funded_amount: Field,
+        fee_payer_npk_m_hash: Field, // NpkMHash of the entity which will receive the fee note.
+        user: AztecAddress, // A user for which we are setting up the fee refund.
+        funded_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
         randomness: Field // A randomness to mix in with the generated notes.
     ) {
         // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
         // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
-        assert_current_call_valid_authwit(&mut context, sponsored_user);
+        assert_current_call_valid_authwit(&mut context, user);
 
         // 2. Get all the relevant user keys
         let header = context.get_header();
-        let sponsored_user_npk_m_hash = header.get_npk_m_hash(&mut context, sponsored_user);
-        let sponsored_user_ovpk = header.get_ovpk_m(&mut context, sponsored_user);
-        let sponsored_user_ivpk = header.get_ivpk_m(&mut context, sponsored_user);
+        let user_npk_m_hash = header.get_npk_m_hash(&mut context, user);
+        let user_ovpk = header.get_ovpk_m(&mut context, user);
+        let user_ivpk = header.get_ivpk_m(&mut context, user);
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
         // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
         // to the user in the `complete_refund(...)` function.
         // TODO(#7324): using npk_m_hash here does not work with key rotation
-        storage.balances.sub(sponsored_user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, sponsored_user_ovpk, sponsored_user_ivpk));
+        storage.balances.sub(user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk));
 
         // 4. We generate the refund points.
         let (fee_payer_point, user_point) = TokenNote::generate_refund_points(
             fee_payer_npk_m_hash,
-            sponsored_user_npk_m_hash,
+            user_npk_m_hash,
             funded_amount,
             randomness
         );

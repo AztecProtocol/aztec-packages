@@ -17,14 +17,14 @@ trait OwnedNote {
 trait PrivatelyRefundable {
     fn generate_refund_points(
         fee_payer_npk_m_hash: Field,
-        sponsored_user_npk_m_hash: Field,
+        user_npk_m_hash: Field,
         funded_amount: Field,
         randomness: Field
     ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
 
     fn complete_refund(
         incomplete_fee_payer_point: EmbeddedCurvePoint,
-        incomplete_sponsored_user_point: EmbeddedCurvePoint,
+        incomplete_user_point: EmbeddedCurvePoint,
         transaction_fee: Field
     ) -> (Field, Field);
 }
@@ -156,7 +156,7 @@ impl OwnedNote for TokenNote {
  *
  * However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
  * incomplete_fee_payer_point := (fee_payer_npk + randomness) * G
- * incomplete_sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
+ * incomplete_user_point := (user_npk + funded_amount + randomness) * G
  *
  * where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
  *
@@ -170,19 +170,19 @@ impl OwnedNote for TokenNote {
  *                      = (fee_payer_npk + randomness) * G + transaction_fee * G
  *                      = (fee_payer_npk + randomness + transaction_fee) * G
  *
- * sponsored_user_point := incomplete_sponsored_user_point - fee_point
- *                       = (sponsored_user_npk + funded_amount + randomness) * G - transaction_fee * G
- *                       = (sponsored_user_npk + randomness + (funded_amount - transaction_fee)) * G
+ * user_point := incomplete_user_point - fee_point
+ *                       = (user_npk + funded_amount + randomness) * G - transaction_fee * G
+ *                       = (user_npk + randomness + (funded_amount - transaction_fee)) * G
  * 
  * When we return the x-coordinate of those points, it identically matches the note_content_hash of (and therefore *is*) notes like:
  * {
  *     amount: (funded_amount - transaction_fee),
- *     npk_m_hash: sponsored_user_npk,
+ *     npk_m_hash: user_npk,
  *     randomness: randomness
  * }
  */
 impl PrivatelyRefundable for TokenNote {
-    fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
+    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
         // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox function we
         // first need to convert the fields to high and low limbs.
         let (randomness_lo, randomness_hi) = decompose(randomness);
@@ -203,15 +203,15 @@ impl PrivatelyRefundable for TokenNote {
 
         // 3. We do the necessary conversion for values relevant for the sponsored user point.
         // TODO(#7324): representing user with their npk_m_hash here does not work with key rotation
-        let (sponsored_user_lo, sponsored_user_hi) = decompose(sponsored_user_npk_m_hash);
+        let (user_lo, user_hi) = decompose(user_npk_m_hash);
         let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
 
-        // 4. We compute `G ^ (sponsored_user_npk_m_hash + funded_amount + randomness)`
-        let incomplete_sponsored_user_point = multi_scalar_mul(
+        // 4. We compute `G ^ (user_npk_m_hash + funded_amount + randomness)`
+        let incomplete_user_point = multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
-                lo: sponsored_user_lo,
-                hi: sponsored_user_hi
+                lo: user_lo,
+                hi: user_hi
             },
             EmbeddedCurveScalar {
                 lo: funded_amount_lo,
@@ -229,13 +229,13 @@ impl PrivatelyRefundable for TokenNote {
             y: incomplete_fee_payer_point[1],
             is_infinite: incomplete_fee_payer_point[2] == 1
         }, EmbeddedCurvePoint {
-            x: incomplete_sponsored_user_point[0],
-            y: incomplete_sponsored_user_point[1],
-            is_infinite: incomplete_sponsored_user_point[2] == 1
+            x: incomplete_user_point[0],
+            y: incomplete_user_point[1],
+            is_infinite: incomplete_user_point[2] == 1
         })
     }
 
-    fn complete_refund(incomplete_fee_payer_point: EmbeddedCurvePoint, incomplete_sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
+    fn complete_refund(incomplete_fee_payer_point: EmbeddedCurvePoint, incomplete_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
         // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
         let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
 
@@ -256,11 +256,11 @@ impl PrivatelyRefundable for TokenNote {
         // 3. Now we leverage homomorphism to privately add the fee to fee payer point and subtract it from
         // the sponsored user point in public.
         let fee_payer_point = incomplete_fee_payer_point + fee_point;
-        let sponsored_user_point = incomplete_sponsored_user_point - fee_point;
+        let user_point = incomplete_user_point - fee_point;
 
-        assert_eq(sponsored_user_point.is_infinite, false);
+        assert_eq(user_point.is_infinite, false);
 
         // Finally we return the x-coordinates of the points which are the note content hashes.
-        (fee_payer_point.x, sponsored_user_point.x)
+        (fee_payer_point.x, user_point.x)
     }
 }
