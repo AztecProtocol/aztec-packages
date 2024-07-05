@@ -528,7 +528,8 @@ void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
     auto builder = std::make_shared<Builder>();
     // Padding needed for sending the right number of public inputs
     for (size_t i = 0; i < num_unused_public_inputs; i++) {
-        builder->add_public_variable({});
+        // We offset 3
+        builder->add_public_variable(proof.folding_proof[i + 3]);
     }
     ClientIVC verifier{ builder, input };
 
