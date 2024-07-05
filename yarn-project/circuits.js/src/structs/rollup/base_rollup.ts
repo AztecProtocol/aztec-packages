@@ -228,8 +228,8 @@ export class BaseRollupInputs {
 export class TubeInputs {
   constructor(
     public clientIVCData: ClientIvcProof,
-    // TODO(ISSUE HERE) public inputs are not actually checked by the tube
-    public publicInputs: Buffer,
+    // TODO(ISSUE HERE) fake public inputs
+    public requestedNumFakePublicInputs: number,
   ) {
   }
 
@@ -238,7 +238,7 @@ export class TubeInputs {
   }
 
   static getFields(fields: FieldsOf<TubeInputs>) {
-    return [fields.clientIVCData, fields.publicInputs] as const;
+    return [fields.clientIVCData, fields.requestedNumFakePublicInputs] as const;
   }
 
   /**
@@ -264,11 +264,11 @@ export class TubeInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TubeInputs {
     const reader = BufferReader.asReader(buffer);
-    return new TubeInputs(reader.readObject(ClientIvcProof), reader.readBuffer());
+    return new TubeInputs(reader.readObject(ClientIvcProof), reader.readNumber());
   }
 
   isEmpty(): boolean {
-    return this.publicInputs.length === 0;
+    return this.requestedNumFakePublicInputs <= 0;
   }
   /**
    * Deserializes the inputs from a hex string.
@@ -280,6 +280,6 @@ export class TubeInputs {
   }
 
   static empty() {
-    return new TubeInputs(ClientIvcProof.empty(), Buffer.from(''));
+    return new TubeInputs(ClientIvcProof.empty(), 0);
   }
 }

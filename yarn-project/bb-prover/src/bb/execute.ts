@@ -403,7 +403,7 @@ export async function generateTubeProof(
   workingDirectory: string,
   log: LogFn,
   // TODO(PENDING ISSUE):
-  publicInputs: Buffer
+  numUnusedPublicInputs: number
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -418,7 +418,6 @@ export async function generateTubeProof(
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
   const translatorVkPath = join(workingDirectory, 'translator_vk.bin');
   const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
-  const publicInputsPath = join(workingDirectory, 'witnesses.gz');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -443,9 +442,7 @@ export async function generateTubeProof(
     ) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
-
-    await fs.writeFile(publicInputsPath, publicInputs);
-    const args = ['-o', outputPath, '-v', '-w', publicInputsPath];
+    const args = ['-o', outputPath, '-v', '-pi', numUnusedPublicInputs.toString()];
 
     const timer = new Timer();
     const logFunction = (message: string) => {

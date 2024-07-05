@@ -215,6 +215,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   public async getBaseRollupProof(
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    // LONDONTODO(TESTING) this is a test function that should be updated to use the tube, not entirely sure where this is used and whether it's relevant to make thee full e2e test working, we shall see
     const timer = new Timer();
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 

@@ -33,8 +33,8 @@ import {
   TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   makeRecursiveProofFromBinary,
+  PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -221,7 +221,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
     // TODO(ISSUE HERE): We should properly enqueue this in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof, kernelRequest.inputs.previousKernel.clientIvcProof.publicInputs));
+      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof, kernelRequest.inputs.previousKernel.clientIvcProof.numPublicInputs));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }
@@ -582,7 +582,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       await fs.mkdir(tubeResultPath, { recursive: true });
 
       await input.clientIVCData.writeToOutputDirectory(tubeResultPath);
-      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose, input.clientIVCData.publicInputs)
+      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose, input.requestedNumFakePublicInputs)
 
       await fs.writeFile(path.join(tubeResultPath, 'success.txt'), 'success');
       if (provingResult.status === BB_RESULT.FAILURE) {
@@ -639,7 +639,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
-      logger.debug(`getTubeProof: ${bbWorkingDirectory}`);
+      logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
       const provingResult = await this.generateTubeProofWithBB(input);
 
       // Read the proof as fields
