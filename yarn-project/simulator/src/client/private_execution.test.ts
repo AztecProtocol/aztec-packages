@@ -50,7 +50,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, INITIAL_LEAF, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, INITIAL_LEAF, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -140,8 +140,8 @@ describe('Private Execution test suite', () => {
     }
     if (!trees[name]) {
       const db = openTmpStore();
-      const pedersen = new Pedersen();
-      trees[name] = await newTree(StandardTree, db, pedersen, name, Fr, treeHeights[name]);
+      const poseidon = new Poseidon();
+      trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name]);
     }
     const tree = trees[name];
 
@@ -259,7 +259,7 @@ describe('Private Execution test suite', () => {
       new PublicDataWitness(
         0n,
         PublicDataTreeLeafPreimage.empty(),
-        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Pedersen()),
+        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Poseidon()),
       ),
     );
 
