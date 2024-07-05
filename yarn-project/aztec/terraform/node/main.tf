@@ -117,14 +117,12 @@ resource "aws_efs_file_system" "node_data_store" {
 }
 
 resource "aws_efs_mount_target" "public_az1" {
-  count           = local.node_count
   file_system_id  = aws_efs_file_system.node_data_store.id
   subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az1_id
   security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_public_id]
 }
 
 resource "aws_efs_mount_target" "public_az2" {
-  count           = local.node_count
   file_system_id  = aws_efs_file_system.node_data_store.id
   subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az2_id
   security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_public_id]
