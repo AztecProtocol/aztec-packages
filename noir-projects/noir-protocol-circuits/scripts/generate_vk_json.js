@@ -49,7 +49,7 @@ function getBarretenbergHash() {
 async function getNewArtifactHash(artifactPath, outputFolder, artifactName) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
-  const artifactHash = `${barretenbergHash} - ${bytecodeHash}`;
+  const artifactHash = `${barretenbergHash}-${bytecodeHash}`;
 
   const vkDataPath = vkDataFileNameForArtifactName(outputFolder, artifactName);
   try {
