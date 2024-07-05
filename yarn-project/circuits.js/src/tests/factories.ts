@@ -635,7 +635,16 @@ export function makeCallRequest(seed = 1): CallRequest {
 }
 
 function makePrivateCallRequest(seed = 1): PrivateCallRequest {
-  return new PrivateCallRequest(fr(seed), makeCallerContext(seed + 0x2), seed + 0x10, seed + 0x11);
+  return new PrivateCallRequest(
+    makeAztecAddress(seed),
+    makeCallContext(seed + 0x1),
+    new FunctionData(makeSelector(seed + 0x2), /*isPrivate=*/ true),
+    fr(seed + 0x3),
+    fr(seed + 0x4),
+    makeCallerContext(seed + 0x5),
+    seed + 0x10,
+    seed + 0x11,
+  );
 }
 
 /**
@@ -738,7 +747,7 @@ export function makePublicKernelInputsWithTweak(
   // Set the call stack item for this circuit iteration at the top of the call stack
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
     new CallRequest(
-      publicCall.callStackItem.hash(),
+      publicCall.callStackItem.getCompressed().hash(),
       publicCall.callStackItem.publicInputs.callContext.msgSender,
       makeCallerContext(seed + 0x100),
       Fr.ZERO,

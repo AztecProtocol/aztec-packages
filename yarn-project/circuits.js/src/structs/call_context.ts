@@ -1,10 +1,11 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
+import { CALL_CONTEXT_LENGTH, GeneratorIndex } from '../constants.gen.js';
 
 /**
  * Call context.
@@ -116,5 +117,9 @@ export class CallContext {
       callContext.isDelegateCall === this.isDelegateCall &&
       callContext.isStaticCall === this.isStaticCall
     );
+  }
+
+  hash(): Fr {
+    return pedersenHash(this.toFields(), GeneratorIndex.CALL_CONTEXT);
   }
 }

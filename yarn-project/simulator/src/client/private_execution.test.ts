@@ -564,8 +564,11 @@ describe('Private Execution test suite', () => {
       expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
-      const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
-      expect(result.callStackItem.publicInputs.privateCallRequests[0].hash).toEqual(expectedCallStackItemHash);
+      expect(
+        result.callStackItem.publicInputs.privateCallRequests[0].matchesStackItem(
+          result.nestedExecutions[0].callStackItem,
+        ),
+      ).toBeTruthy();
     });
   });
 
@@ -899,7 +902,7 @@ describe('Private Execution test suite', () => {
         sideEffectCounter: 2,
       });
 
-      const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();
+      const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().getCompressed().hash();
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(publicCallRequest);

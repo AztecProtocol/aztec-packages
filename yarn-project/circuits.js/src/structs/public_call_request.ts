@@ -139,7 +139,7 @@ export class PublicCallRequest {
         )
       : CallerContext.empty();
     return new CallRequest(
-      item.hash(),
+      item.getCompressed().hash(),
       this.parentCallContext.storageContractAddress,
       callerContext,
       new Fr(this.sideEffectCounter),
