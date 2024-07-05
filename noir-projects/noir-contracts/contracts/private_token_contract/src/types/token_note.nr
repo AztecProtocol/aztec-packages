@@ -19,7 +19,8 @@ trait PrivatelyRefundable {
         fee_payer_npk_m_hash: Field,
         user_npk_m_hash: Field,
         funded_amount: Field,
-        randomness: Field
+        user_randomness: Field,
+        fee_payer_randomness: Field
     ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
 
     fn complete_refund(
@@ -182,10 +183,10 @@ impl OwnedNote for TokenNote {
  * }
  */
 impl PrivatelyRefundable for TokenNote {
-    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
+    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, user_randomness: Field, fee_payer_randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
         // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox function we
         // first need to convert the fields to high and low limbs.
-        let (randomness_lo, randomness_hi) = decompose(randomness);
+        let (fee_payer_randomness_lo, fee_payer_randomness_hi) = decompose(fee_payer_randomness);
         let (fee_payer_npk_m_hash_lo, fee_payer_npk_m_hash_hi) = decompose(fee_payer_npk_m_hash);
 
         // 2. Now that we have correct representationsn of fee payer and randomness we can compute `G ^ (fee_payer_npk + randomness)`
@@ -196,12 +197,13 @@ impl PrivatelyRefundable for TokenNote {
                 hi: fee_payer_npk_m_hash_hi
             },
             EmbeddedCurveScalar {
-                lo: randomness_lo,
-                hi: randomness_hi
+                lo: fee_payer_randomness_lo,
+                hi: fee_payer_randomness_hi
             }]
         );
 
         // 3. We do the necessary conversion for values relevant for the sponsored user point.
+        let (user_randomness_lo, user_randomness_hi) = decompose(user_randomness);
         // TODO(#7324): representing user with their npk_m_hash here does not work with key rotation
         let (user_lo, user_hi) = decompose(user_npk_m_hash);
         let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
@@ -218,8 +220,8 @@ impl PrivatelyRefundable for TokenNote {
                 hi: funded_amount_hi
             },
             EmbeddedCurveScalar {
-                lo: randomness_lo,
-                hi: randomness_hi
+                lo: user_randomness_lo,
+                hi: user_randomness_hi
             }]
         );
 
