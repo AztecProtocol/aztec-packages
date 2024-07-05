@@ -27,7 +27,6 @@ export type BlockResult = {
   block: L2Block;
   proof: Proof;
   aggregationObject: Fr[];
-  vkTreeRoot: Fr;
 };
 
 /**

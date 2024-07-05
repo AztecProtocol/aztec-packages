@@ -99,8 +99,6 @@ export type L1ProcessArgs = {
   body: Buffer;
   /** Aggregation object needed to verify the proof */
   aggregationObject: Buffer;
-  /** The root of the protocol circuits vk tree used to prove this tx */
-  vkTreeRoot: Buffer;
   /** Root rollup proof of the L2 block. */
   proof: Buffer;
 };
@@ -134,7 +132,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, vkTreeRoot: Fr, aggregationObject: Fr[], proof: Proof): Promise<boolean> {
+  public async processL2Block(block: L2Block, aggregationObject: Fr[], proof: Proof): Promise<boolean> {
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
     if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
@@ -182,7 +180,6 @@ export class L1Publisher implements L2BlockReceiver {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       body: encodedBody,
-      vkTreeRoot: vkTreeRoot.toBuffer(),
       aggregationObject: serializeToBuffer(aggregationObject),
       proof: proof.withoutPublicInputs(),
     };

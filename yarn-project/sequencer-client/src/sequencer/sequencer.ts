@@ -294,7 +294,7 @@ export class Sequencer {
     await assertBlockHeight();
 
     // Block is proven, now finalise and publish!
-    const { block, aggregationObject, proof, vkTreeRoot } = await this.prover.finaliseBlock();
+    const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
 
     await assertBlockHeight();
 
@@ -306,7 +306,7 @@ export class Sequencer {
       ...block.getStats(),
     } satisfies L2BlockBuiltStats);
 
-    await this.publishL2Block(block, aggregationObject, proof, vkTreeRoot);
+    await this.publishL2Block(block, aggregationObject, proof);
     this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
   }
 
@@ -317,10 +317,10 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, aggregationObject: Fr[], proof: Proof, vkTreeRoot: Fr) {
+  protected async publishL2Block(block: L2Block, aggregationObject: Fr[], proof: Proof) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
-    const publishedL2Block = await this.publisher.processL2Block(block, vkTreeRoot, aggregationObject, proof);
+    const publishedL2Block = await this.publisher.processL2Block(block, aggregationObject, proof);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

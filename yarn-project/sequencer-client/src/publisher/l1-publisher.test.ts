@@ -1,5 +1,5 @@
 import { L2Block } from '@aztec/circuit-types';
-import { Fr, makeEmptyProof } from '@aztec/circuits.js';
+import { makeEmptyProof } from '@aztec/circuits.js';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -56,7 +56,7 @@ describe('L1Publisher', () => {
   });
 
   it('publishes l2 block to l1', async () => {
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(true);
     expect(txSender.sendProcessTx).toHaveBeenCalledWith({
@@ -65,14 +65,13 @@ describe('L1Publisher', () => {
       body,
       aggregationObject,
       proof,
-      vkTreeRoot: Fr.ZERO.toBuffer(),
     });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(processTxHash);
   });
 
   it('does not publish if last archive root is different to expected', async () => {
     txSender.getCurrentArchive.mockResolvedValueOnce(L2Block.random(43).archive.root.toBuffer());
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
     expect(result).toBe(false);
     expect(txSender.sendPublishTx).not.toHaveBeenCalled();
     expect(txSender.sendProcessTx).not.toHaveBeenCalled();
@@ -81,7 +80,7 @@ describe('L1Publisher', () => {
   it('does not retry if sending a publish tx fails', async () => {
     txSender.sendPublishTx.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(publishTxHash);
 
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(false);
     expect(txSender.sendPublishTx).toHaveBeenCalledTimes(1);
@@ -91,7 +90,7 @@ describe('L1Publisher', () => {
   it('does not retry if sending a process tx fails', async () => {
     txSender.sendProcessTx.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(processTxHash);
 
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(false);
     expect(txSender.sendPublishTx).toHaveBeenCalledTimes(1);
@@ -106,7 +105,7 @@ describe('L1Publisher', () => {
       .mockRejectedValueOnce(new Error())
       .mockResolvedValueOnce(processTxReceipt);
 
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(true);
     expect(txSender.getTransactionReceipt).toHaveBeenCalledTimes(4);
@@ -115,7 +114,7 @@ describe('L1Publisher', () => {
   it('returns false if publish tx reverts', async () => {
     txSender.getTransactionReceipt.mockReset().mockResolvedValueOnce({ ...publishTxReceipt, status: false });
 
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(false);
   });
@@ -126,7 +125,7 @@ describe('L1Publisher', () => {
       .mockResolvedValueOnce(publishTxReceipt)
       .mockResolvedValueOnce({ ...publishTxReceipt, status: false });
 
-    const result = await publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(false);
   });
@@ -134,7 +133,7 @@ describe('L1Publisher', () => {
   it('returns false if sending publish tx is interrupted', async () => {
     txSender.sendPublishTx.mockReset().mockImplementationOnce(() => sleep(10, publishTxHash));
 
-    const resultPromise = publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const resultPromise = publisher.processL2Block(l2Block, [], makeEmptyProof());
     publisher.interrupt();
     const result = await resultPromise;
 
@@ -145,7 +144,7 @@ describe('L1Publisher', () => {
   it('returns false if sending process tx is interrupted', async () => {
     txSender.sendProcessTx.mockReset().mockImplementationOnce(() => sleep(10, processTxHash));
 
-    const resultPromise = publisher.processL2Block(l2Block, Fr.ZERO, [], makeEmptyProof());
+    const resultPromise = publisher.processL2Block(l2Block, [], makeEmptyProof());
     publisher.interrupt();
     const result = await resultPromise;
 

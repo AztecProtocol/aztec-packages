@@ -253,7 +253,7 @@ function makeRollupTx(l2Block: L2Block) {
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'process',
-    args: [header, archive, toHex(Buffer.alloc(32)), aggregationObject, proof],
+    args: [header, archive, aggregationObject, proof],
   });
   return { input } as Transaction<bigint, number>;
 }

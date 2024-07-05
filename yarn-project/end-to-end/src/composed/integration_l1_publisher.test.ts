@@ -411,7 +411,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block, getVKTreeRoot(), [], l2Proof);
+      await publisher.processL2Block(block, [], l2Proof);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -434,7 +434,6 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${getVKTreeRoot().toBuffer().toString('hex')}`,
           `0x`, // empty aggregation object
           `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
         ],
@@ -502,7 +501,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block, getVKTreeRoot(), [], l2Proof);
+      await publisher.processL2Block(block, [], l2Proof);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -525,7 +524,6 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${getVKTreeRoot().toBuffer().toString('hex')}`,
           `0x`, // empty aggregation object
           `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
         ],

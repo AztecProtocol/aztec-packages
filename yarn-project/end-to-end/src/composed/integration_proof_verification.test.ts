@@ -5,7 +5,6 @@ import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
 import { type Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
@@ -184,7 +183,6 @@ describe('proof_verification', () => {
       const args = [
         `0x${block.header.toBuffer().toString('hex')}`,
         `0x${block.archive.root.toBuffer().toString('hex')}`,
-        `0x${getVKTreeRoot().toBuffer().toString('hex')}`,
         `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
         `0x${proof.withoutPublicInputs().toString('hex')}`,
       ] as const;

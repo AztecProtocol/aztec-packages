@@ -106,7 +106,6 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes32 _vkTreeRoot,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
@@ -125,10 +124,6 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidSequencer(msg.sender);
     }
 
-    if (_vkTreeRoot != vkTreeRoot) {
-      revert Errors.Rollup__InvalidVkTreeRoot(vkTreeRoot, _vkTreeRoot);
-    }
-
     bytes32[] memory publicInputs =
       new bytes32[](3 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
     // the archive tree root
@@ -138,7 +133,7 @@ contract Rollup is IRollup {
     // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
-    publicInputs[2] = _vkTreeRoot;
+    publicInputs[2] = vkTreeRoot;
 
     bytes32[] memory headerFields = HeaderLib.toFields(header);
     for (uint256 i = 0; i < headerFields.length; i++) {
