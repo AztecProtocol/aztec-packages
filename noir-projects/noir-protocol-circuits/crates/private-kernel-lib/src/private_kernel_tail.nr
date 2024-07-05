@@ -416,16 +416,15 @@ mod tests {
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 
-    // TODO looks like the builder doesn't provide valid hints in constrained mode, so we cannot currently run this test that needs to be in constrained mode
-    // #[test]
-    // fn valid_previous_kernel() {
-    //     for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
-    //         let mut builder = PrivateKernelTailInputsBuilder::new();
-    //         builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PrivateKernelTailInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
 
-    //         let _res = builder.execute();
-    //     }
-    // }
+            let _res = builder.execute();
+        }
+    }
 
     #[test(should_fail_with="Invalid vk index")]
     fn invalid_previous_kernel() {
