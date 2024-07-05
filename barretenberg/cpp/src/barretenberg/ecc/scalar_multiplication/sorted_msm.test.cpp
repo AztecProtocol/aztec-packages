@@ -48,7 +48,7 @@ TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
     denominators_expected[1] = (points[4].x - points[3].x).invert();
 
     MsmManager msm_manager(num_points);
-    msm_manager.compute_point_addition_denominators(addition_sequences);
+    msm_manager.batch_compute_point_addition_slope_inverses(addition_sequences);
 
     for (size_t i = 0; i < num_pairs; ++i) {
         Fq result = msm_manager.denominators[i];
@@ -166,7 +166,7 @@ TYPED_TEST(SortedMsmTests, GenerateAdditionSequences)
     std::shuffle(scalars.begin(), scalars.end(), std::default_random_engine(rd()));
 
     MsmManager msm_manager{ num_points };
-    AdditionSequences result = msm_manager.generate_addition_sequences(scalars, points);
+    AdditionSequences result = msm_manager.construct_addition_sequences(scalars, points);
 
     // The resulting sequence counts should match expectation but only as multisets
     std::multiset<Fr> expected_sequence_counts(sequence_counts.begin(), sequence_counts.end());

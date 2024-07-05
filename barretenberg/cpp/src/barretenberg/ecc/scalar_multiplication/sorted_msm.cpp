@@ -7,7 +7,7 @@ SortedMsmManager<Curve>::ReducedMsmInputs SortedMsmManager<Curve>::reduce_msm_in
                                                                                      std::span<G1> points)
 {
     // generate the addition sequences
-    AdditionSequences addition_sequences = generate_addition_sequences(scalars, points);
+    AdditionSequences addition_sequences = construct_addition_sequences(scalars, points);
 
     // call batched affine add in place until the sequences have been fully reduced
     batched_affine_add_in_place(addition_sequences);
@@ -18,14 +18,25 @@ SortedMsmManager<Curve>::ReducedMsmInputs SortedMsmManager<Curve>::reduce_msm_in
     return { output_scalars, output_points };
 }
 
+/**
+ * @brief Sort the MSM points by scalar so that points sharing a scalar can be summed prior to performing MSM
+ *
+ * @tparam Curve
+ * @param scalars
+ * @param points
+ * @return SortedMsmManager<Curve>::AdditionSequences
+ */
 template <typename Curve>
-SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::generate_addition_sequences(std::span<Fr> scalars,
-                                                                                                std::span<G1> points)
+SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::construct_addition_sequences(std::span<Fr> scalars,
+                                                                                                 std::span<G1> points)
 {
+    // Create the array containing the indices of the scalars and points sorted by scalar value
     const size_t num_points = points.size();
     std::iota(index.begin(), index.end(), 0);
     std::sort(index.begin(), index.end(), [&](size_t idx_1, size_t idx_2) { return scalars[idx_1] < scalars[idx_2]; });
 
+    // Store the unique scalar values, the input points sorted by scalar value, and the number of occurences of each
+    // unique scalar (i.e. the size of each addition sequence)
     unique_scalars[0] = scalars[index[0]];
     updated_points[0] = points[index[0]];
     size_t seq_idx = 0;
@@ -34,9 +45,10 @@ SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::generate_add
         const Fr& current_scalar = scalars[index[i]];
         const Fr& prev_scalar = scalars[index[i - 1]];
 
+        // if the current scalar matches the previous, increment the count for this sequence
         if (current_scalar == prev_scalar) {
             sequence_counts[seq_idx]++;
-        } else {
+        } else { // otherwise, a new sequence begins
             seq_idx++;
             sequence_counts[seq_idx]++;
             unique_scalars[seq_idx] = current_scalar;
@@ -47,18 +59,27 @@ SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::generate_add
 
     num_unique_scalars = seq_idx + 1;
 
+    // Return the sorted points and the counts for each addition sequence
     std::span<uint64_t> seq_counts(sequence_counts.data(), num_unique_scalars);
     std::span<G1> sorted_points(updated_points.data(), num_points);
     return AdditionSequences{ seq_counts, sorted_points, {} };
 }
 
+/**
+ * @brief Batch compute inverses needed for a set of point addition sequences
+ * @details Addition of points P_1, P_2 requires computation of a term of the form 1/(P_2.x - P_1.x). For efficiency,
+ * these terms are computed all at once for a full set of addition sequences using batch inversion.
+ *
+ * @tparam Curve
+ * @param add_sequences
+ */
 template <typename Curve>
-void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequences& add_sequences)
+void SortedMsmManager<Curve>::batch_compute_point_addition_slope_inverses(AdditionSequences& add_sequences)
 {
     auto points = add_sequences.points;
     auto sequence_counts = add_sequences.sequence_counts;
 
-    // Count the total number of pairs across all addition sequences
+    // Count the total number of point pairs to be added across all addition sequences
     size_t total_num_pairs{ 0 };
     for (auto& count : sequence_counts) {
         total_num_pairs += count >> 1;
@@ -68,6 +89,7 @@ void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequen
     std::vector<Fq> differences;
     differences.resize(total_num_pairs);
 
+    // Compute and store successive products of differences (x_2 - x_1)
     Fq accumulator = 1;
     size_t point_idx = 0;
     size_t pair_idx = 0;
@@ -90,9 +112,10 @@ void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequen
         point_idx += (count & 0x01ULL);
     }
 
+    // Invert the full product of differences
     Fq inverse = accumulator.invert();
 
-    // Compute the point addition denominators 1/(x2 - x1) in place
+    // Compute the individual point-pair addition denominators 1/(x2 - x1)
     for (size_t i = 0; i < total_num_pairs; ++i) {
         size_t idx = total_num_pairs - 1 - i;
         scratch_space[idx] *= inverse;
@@ -100,6 +123,18 @@ void SortedMsmManager<Curve>::compute_point_addition_denominators(AdditionSequen
     }
 }
 
+/**
+ * @brief Add two affine elements with the inverse in the slope term \lambda provided as input
+ * @details The sum of two points (x1, y1), (x2, y2) is given by x3 = \lambda^2 - x1 - x2, y3 = \lambda*(x1 - x3) - y1,
+ * where \lambda  = (y2 - y1)/(x2 - x1). When performing many additions at once, it is more efficient to batch compute
+ * the inverse component of \lambda for each pair of points. This gives rise to the need for a method like this one.
+ *
+ * @tparam Curve
+ * @param point_1 (x1, y1)
+ * @param point_2 (x2, y2)
+ * @param denominator 1/(x2 - x1)
+ * @return Curve::AffineElement
+ */
 template <typename Curve>
 typename Curve::AffineElement SortedMsmManager<Curve>::affine_add_with_denominator(const G1& point_1,
                                                                                    const G1& point_2,
@@ -116,6 +151,17 @@ typename Curve::AffineElement SortedMsmManager<Curve>::affine_add_with_denominat
     return { x3, y3 };
 }
 
+/**
+ * @brief In-place summation to reduce a set of addition sequences to a single point for each sequence
+ * @details At each round, the set of points in each addition sequence is roughly halved by performing pairwise
+ * additions. For sequences with odd length, the unpaired point is simply carried over to the next round. For
+ * efficiency, the inverses needed in the point addition slope \lambda are batch computed for the full set of pairwise
+ * additions in each round. The method is called recursively until the sequences have all been reduced to a single
+ * point.
+ *
+ * @tparam Curve
+ * @param addition_sequences Set of points and counts indicating number of points in each addition chain
+ */
 template <typename Curve>
 void SortedMsmManager<Curve>::batched_affine_add_in_place(AdditionSequences addition_sequences)
 {
@@ -124,14 +170,15 @@ void SortedMsmManager<Curve>::batched_affine_add_in_place(AdditionSequences addi
         return;
     }
 
-    compute_point_addition_denominators(addition_sequences);
+    // Batch compute terms of the form 1/(x2 -x1) for each pair to be added in this round
+    batch_compute_point_addition_slope_inverses(addition_sequences);
 
     auto points = addition_sequences.points;
     auto sequence_counts = addition_sequences.sequence_counts;
 
-    size_t point_idx = 0;
-    size_t result_point_idx = 0;
-    size_t pair_idx = 0;
+    size_t point_idx = 0;        // index for points to be summed
+    size_t result_point_idx = 0; // index for result points
+    size_t pair_idx = 0;         // index into array of denominators for each pair
     bool more_additions = false;
     for (auto& count : sequence_counts) {
         const size_t num_pairs = count >> 1;
@@ -145,15 +192,20 @@ void SortedMsmManager<Curve>::batched_affine_add_in_place(AdditionSequences addi
 
             result = affine_add_with_denominator(point_1, point_2, denominator);
         }
+        // If the sequence had an odd number of points, simply maintain the unpaired point in the sequence
         if (overflow) {
             points[result_point_idx++] = points[point_idx++];
         }
+
+        // Update the sequence counts in place for the next round
         const uint64_t updated_sequence_count = static_cast<uint64_t>(num_pairs) + static_cast<uint64_t>(overflow);
         count = updated_sequence_count;
 
+        // More additions are required if any sequence has not yet been reduced to a single point
         more_additions = more_additions || (updated_sequence_count > 1);
     }
 
+    // Recursively perform additions until all sequences have been reduced to a single point
     if (more_additions) {
         const size_t updated_point_count = result_point_idx;
         std::span<G1> updated_points(&points[0], updated_point_count);

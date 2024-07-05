@@ -43,11 +43,11 @@ template <typename Curve> class SortedMsmManager {
 
     G1 affine_add_with_denominator(const G1&, const G1&, const Fq& denominator);
 
-    void compute_point_addition_denominators(AdditionSequences& add_sequences);
+    void batch_compute_point_addition_slope_inverses(AdditionSequences& add_sequences);
 
     void batched_affine_add_in_place(AdditionSequences addition_sequences);
 
-    AdditionSequences generate_addition_sequences(std::span<Fr> scalars, std::span<G1> points);
+    AdditionSequences construct_addition_sequences(std::span<Fr> scalars, std::span<G1> points);
 
     ReducedMsmInputs reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points);
 };
