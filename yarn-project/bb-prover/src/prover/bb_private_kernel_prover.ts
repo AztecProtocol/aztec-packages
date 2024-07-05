@@ -82,7 +82,8 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     // LONDONTODO(CLIENT IVC): Longer term we won't use this hacked together msgpack format
     // and instead properly create the bincode serialization from rust
     await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
-    await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
+    const gzipWitnesses = witnessStack.map((map) => serializeWitness(map));
+    await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(gzipWitnesses));
     const provingResult = await executeBbClientIvcProof(
       this.bbBinaryPath,
       directory,
@@ -96,7 +97,8 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       throw new Error(provingResult.reason);
     }
 
-    const proof = await ClientIvcProof.readFromOutputDirectory(directory, 0); // place-holder 0
+    // TODO(ISSUE PENDING) we need real public inputs handling overall not sticking stuff onto client ivc to be used later
+    const proof = await ClientIvcProof.readFromOutputDirectory(directory, Buffer.from(gzipWitnesses[gzipWitnesses.length - 1]));
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.durationMs,

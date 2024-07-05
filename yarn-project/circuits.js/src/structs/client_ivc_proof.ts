@@ -20,8 +20,8 @@ export class ClientIvcProof {
     public clientIvcProofBuffer: Buffer,
     public translatorVkBuffer: Buffer,
     public eccVkBuffer: Buffer,
-    // TODO(ISSUE PENDING): This is a hack to tell the tube how many fake public inputs to add
-    public numPublicInputs: number
+    // TODO(ISSUE PENDING): This is a hack to tell the tube which public inputs to add to the circuit
+    public publicInputs: Buffer
   ) { }
 
   public isEmpty() {
@@ -29,7 +29,7 @@ export class ClientIvcProof {
   }
 
   static empty() {
-    return new ClientIvcProof(Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), 0)
+    return new ClientIvcProof(Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''))
   }
 
   /**
@@ -38,11 +38,11 @@ export class ClientIvcProof {
    * @param directory the directory of results
    * @returns the encapsulated client ivc proof
    */
-  static async readFromOutputDirectory(directory: string, numPublicInputs: number) {
+  static async readFromOutputDirectory(directory: string, publicInputs: Buffer) {
     const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
       ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName => fs.readFile(path.join(directory, fileName)))
     );
-    return new ClientIvcProof(instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer, numPublicInputs);
+    return new ClientIvcProof(instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer, publicInputs);
   }
 
   /**
@@ -73,7 +73,7 @@ export class ClientIvcProof {
     buffer: Buffer | BufferReader,
   ): ClientIvcProof {
     const reader = BufferReader.asReader(buffer);
-    return new ClientIvcProof(reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readNumber());
+    return new ClientIvcProof(reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer());
   }
 
   public toBuffer() {
@@ -83,7 +83,7 @@ export class ClientIvcProof {
       this.clientIvcProofBuffer.length, this.clientIvcProofBuffer,
       this.translatorVkBuffer.length, this.translatorVkBuffer,
       this.eccVkBuffer.length, this.eccVkBuffer,
-      this.numPublicInputs
+      this.publicInputs.length, this.publicInputs
     );
 
   }

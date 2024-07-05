@@ -485,7 +485,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
  * @param output_path the working directory from which the proof and verification data are read
  * @param num_unused_public_inputs
  */
-void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
+void prove_tube(const std::string& output_path, const std::string& witness_path)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
@@ -527,8 +527,9 @@ void prove_tube(const std::string& output_path, size_t num_unused_public_inputs)
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
     // Padding needed for sending the right number of public inputs
-    for (size_t i = 0; i < num_unused_public_inputs; i++) {
-        builder->add_public_variable({});
+    // TODO(ISSUE PENDING): make these public inputs real
+    for (auto& public_input : get_witness(witness_path)) {
+        builder->add_public_variable(public_input);
     }
     ClientIVC verifier{ builder, input };
 
@@ -1289,8 +1290,7 @@ int main(int argc, char* argv[])
             client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
-            std::string num_unused_public_inputs = get_option(args, "-pi", "0");
-            prove_tube(output_path, static_cast<size_t>(std::stoi(num_unused_public_inputs)));
+            prove_tube(output_path, witness_path);
         } else if (command == "verify_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
             auto tube_proof_path = output_path + "/proof";
