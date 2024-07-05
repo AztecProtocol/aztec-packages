@@ -19,43 +19,46 @@ auto& engine = numeric::get_debug_randomness();
 
 template <typename Curve> class SortedMsmTests : public ::testing::Test {
   public:
+    using G1 = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
+    // using Fq = typename Curve::BaseField;
+
+    struct TestData {
+        size_t num_points;
+        std::vector<G1> points;
+        std::vector<Fr> scalars;
+        G1 msm_result;
+    };
+
+    TestData generate_test_data_from_sequence_counts(std::span<uint64_t> sequence_counts)
+    {
+        size_t num_points{ 0 };
+        std::vector<Fr> scalars;
+        for (auto& count : sequence_counts) {
+            Fr repeated_scalar = Fr::random_element();
+            for (size_t i = 0; i < count; ++i) {
+                scalars.emplace_back(repeated_scalar);
+                num_points++;
+            }
+        }
+
+        std::vector<G1> points;
+        for (size_t i = 0; i < num_points; ++i) {
+            points.emplace_back(G1::random_element());
+        }
+
+        G1 msm_result = points[0] * scalars[0];
+        for (size_t i = 1; i < num_points; ++i) {
+            msm_result = msm_result + points[i] * scalars[i];
+        }
+
+        return { num_points, points, scalars, msm_result };
+    }
 };
 
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 
 TYPED_TEST_SUITE(SortedMsmTests, Curves);
-
-TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
-{
-    using Curve = TypeParam;
-    using G1 = typename Curve::AffineElement;
-    using Fq = typename Curve::BaseField;
-    using MsmManager = SortedMsmManager<Curve>;
-    using AdditionSequences = typename MsmManager::AdditionSequences;
-
-    const size_t num_points = 5;
-    std::array<G1, num_points> points;
-    for (auto& point : points) {
-        point = G1::random_element();
-    }
-    std::array<uint64_t, 2> sequence_counts{ 3, 2 };
-
-    AdditionSequences addition_sequences{ sequence_counts, points, {} };
-
-    const size_t num_pairs = 2;
-    std::array<Fq, num_pairs> denominators_expected;
-    denominators_expected[0] = (points[1].x - points[0].x).invert();
-    denominators_expected[1] = (points[4].x - points[3].x).invert();
-
-    MsmManager msm_manager(num_points);
-    msm_manager.batch_compute_point_addition_slope_inverses(addition_sequences);
-
-    for (size_t i = 0; i < num_pairs; ++i) {
-        Fq result = msm_manager.denominators[i];
-        Fq expected = denominators_expected[i];
-        EXPECT_EQ(result, expected);
-    }
-}
 
 TYPED_TEST(SortedMsmTests, AffineAddWithDenominator)
 {
@@ -77,6 +80,36 @@ TYPED_TEST(SortedMsmTests, AffineAddWithDenominator)
     EXPECT_EQ(result, expected);
 }
 
+TYPED_TEST(SortedMsmTests, ComputePointAdditionDenominators)
+{
+    using Curve = TypeParam;
+    using Fq = typename Curve::BaseField;
+    using MsmManager = SortedMsmManager<Curve>;
+    using AdditionSequences = typename MsmManager::AdditionSequences;
+
+    // Generate random MSM inputs based on a set of sequence counts
+    std::array<uint64_t, 2> sequence_counts{ 3, 2 };
+    auto test_data = TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
+    size_t num_points = test_data.num_points;
+    auto& points = test_data.points;
+
+    AdditionSequences addition_sequences{ sequence_counts, test_data.points, {} };
+
+    const size_t num_pairs = 2;
+    std::array<Fq, num_pairs> denominators_expected;
+    denominators_expected[0] = (points[1].x - points[0].x).invert();
+    denominators_expected[1] = (points[4].x - points[3].x).invert();
+
+    MsmManager msm_manager(num_points);
+    msm_manager.batch_compute_point_addition_slope_inverses(addition_sequences);
+
+    for (size_t i = 0; i < num_pairs; ++i) {
+        Fq result = msm_manager.denominators[i];
+        Fq expected = denominators_expected[i];
+        EXPECT_EQ(result, expected);
+    }
+}
+
 TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlaceSimple)
 {
     using Curve = TypeParam;
@@ -84,12 +117,10 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlaceSimple)
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
 
-    const size_t num_points = 2;
-    std::array<G1, num_points> points;
-    for (auto& point : points) {
-        point = G1::random_element();
-    }
+    // Generate random MSM inputs based on a set of sequence counts
     std::array<uint64_t, 1> sequence_counts{ 2 };
+    auto [num_points, points, scalars, msm_result] =
+        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
 
     AdditionSequences addition_sequences{ sequence_counts, points, {} };
 
@@ -110,12 +141,10 @@ TYPED_TEST(SortedMsmTests, BatchedAffineAddInPlace)
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
 
-    const size_t num_points = 10;
-    std::array<G1, num_points> points;
-    for (auto& point : points) {
-        point = G1::random_element();
-    }
+    // Generate random MSM inputs based on a set of sequence counts
     std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+    auto [num_points, points, scalars, msm_result] =
+        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
 
     AdditionSequences addition_sequences{ sequence_counts, points, {} };
 
@@ -145,21 +174,10 @@ TYPED_TEST(SortedMsmTests, GenerateAdditionSequences)
     using MsmManager = SortedMsmManager<Curve>;
     using AdditionSequences = typename MsmManager::AdditionSequences;
 
-    const size_t num_points = 10;
-    std::array<G1, num_points> points;
-    for (auto& point : points) {
-        point = G1::random_element();
-    }
+    // Generate random MSM inputs based on a set of sequence counts
     std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
-    std::vector<Fr> scalars;
-    std::vector<Fr> unique_scalars;
-    for (auto& count : sequence_counts) {
-        Fr repeated_scalar = Fr::random_element();
-        for (size_t i = 0; i < count; ++i) {
-            scalars.emplace_back(repeated_scalar);
-        }
-        unique_scalars.emplace_back(repeated_scalar);
-    }
+    auto [num_points, points, scalars, expected_msm_result] =
+        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
 
     // Randomly shuffle the scalars so duplicates are no longer grouped together
     std::random_device rd;
@@ -177,11 +195,6 @@ TYPED_TEST(SortedMsmTests, GenerateAdditionSequences)
     std::multiset<G1> expected_points(points.begin(), points.end());
     std::multiset<G1> result_points(result.points.begin(), result.points.end());
     EXPECT_EQ(expected_points, result_points);
-
-    G1 expected_msm_result = points[0] * scalars[0];
-    for (size_t i = 1; i < num_points; ++i) {
-        expected_msm_result = expected_msm_result + points[i] * scalars[i];
-    }
 
     G1 msm_result;
     msm_result.self_set_infinity();
@@ -202,31 +215,16 @@ TYPED_TEST(SortedMsmTests, ReduceMsmInputsSimple)
 {
     using Curve = TypeParam;
     using G1 = typename Curve::AffineElement;
-    using Fr = typename Curve::ScalarField;
     using MsmManager = SortedMsmManager<Curve>;
 
-    const size_t num_points = 10;
-    std::array<G1, num_points> points;
-    for (auto& point : points) {
-        point = G1::random_element();
-    }
+    // Generate random MSM inputs based on a set of sequence counts
     std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
-    std::vector<Fr> scalars;
-    for (auto& count : sequence_counts) {
-        Fr repeated_scalar = Fr::random_element();
-        for (size_t i = 0; i < count; ++i) {
-            scalars.emplace_back(repeated_scalar);
-        }
-    }
+    auto [num_points, points, scalars, expected_msm_result] =
+        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
 
     // Randomly shuffle the scalars so duplicates are no longer grouped together
     std::random_device rd;
     std::shuffle(scalars.begin(), scalars.end(), std::default_random_engine(rd()));
-
-    G1 expected_msm_result = points[0] * scalars[0];
-    for (size_t i = 1; i < num_points; ++i) {
-        expected_msm_result = expected_msm_result + points[i] * scalars[i];
-    }
 
     MsmManager msm_manager{ num_points };
     auto [result_scalars, result_points] = msm_manager.reduce_msm_inputs(scalars, points);
