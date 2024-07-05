@@ -96,7 +96,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       throw new Error(provingResult.reason);
     }
 
-    const proof = await ClientIvcProof.readFromOutputDirectory(directory, 0); // place-holder 0
+    const proof = await ClientIvcProof.readFromOutputDirectory(directory);
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.durationMs,

@@ -171,9 +171,8 @@ export class KernelProver {
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
-    // TODO(ISSUE PENDING) how do we 'bincode' encode these?
+    // TODO(ISSUE PENDING) how do we 'bincode' encode these inputs?
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-    ivcProof.numPublicInputs = tailOutput.verificationKey.numPublicInputs;
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }

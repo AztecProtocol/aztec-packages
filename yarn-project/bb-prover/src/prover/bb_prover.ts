@@ -221,7 +221,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
     // TODO(ISSUE HERE): We should properly enqueue this in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof, kernelRequest.inputs.previousKernel.clientIvcProof.numPublicInputs));
+      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }
@@ -582,7 +582,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       await fs.mkdir(tubeResultPath, { recursive: true });
 
       await input.clientIVCData.writeToOutputDirectory(tubeResultPath);
-      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose, input.requestedNumFakePublicInputs)
+      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose)
 
       await fs.writeFile(path.join(tubeResultPath, 'success.txt'), 'success');
       if (provingResult.status === BB_RESULT.FAILURE) {

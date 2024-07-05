@@ -402,8 +402,6 @@ export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
   log: LogFn,
-  // TODO(PENDING ISSUE):
-  numUnusedPublicInputs: number
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -442,7 +440,7 @@ export async function generateTubeProof(
     ) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
-    const args = ['-o', outputPath, '-v', '-pi', numUnusedPublicInputs.toString()];
+    const args = ['-o', outputPath, '-v'];
 
     const timer = new Timer();
     const logFunction = (message: string) => {
