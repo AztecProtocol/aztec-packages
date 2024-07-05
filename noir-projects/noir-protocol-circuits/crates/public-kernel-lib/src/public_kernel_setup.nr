@@ -43,7 +43,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // PUBLIC KERNEL: Just following my nose here, it seems I want the line below to verify the tube proof.
         // LONDONTODO(PUBLIC INPUTS)
         // LONDONTODO we are leaving this as is however we should let everyone know that e.g. fee abstraction would break assumptions about which kind of proof this is
-        // self.previous_kernel.verify();
+        self.previous_kernel.verify();
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

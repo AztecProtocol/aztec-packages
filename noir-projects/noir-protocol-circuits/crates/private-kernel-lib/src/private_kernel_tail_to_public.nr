@@ -23,7 +23,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         if !std::runtime::is_unconstrained() {
             // verify/aggregate the previous kernel
             // LONDONTODO(PUBLIC INPUTS)
-            // self.previous_kernel.verify();
+            self.previous_kernel.verify();
         }
 
         // Validate output.

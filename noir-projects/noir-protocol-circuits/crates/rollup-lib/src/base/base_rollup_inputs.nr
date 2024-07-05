@@ -61,7 +61,7 @@ impl BaseRollupInputs {
         // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
         // LONDONTODO how could this pass in the public case, which has a honk proof that is not a 0-public-input tube?
         // LONDONTODO Adam to check if we didn't just make the final public proof a tube
-        // self.kernel_data.verify();
+        self.kernel_data.verify();
 
         // Verify the kernel chain_id and versions
         assert(

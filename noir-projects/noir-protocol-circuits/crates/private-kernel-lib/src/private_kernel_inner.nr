@@ -46,13 +46,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
         private_call_data_validator.validate(output.end.new_note_hashes);
-        if !std::runtime::is_unconstrained() {
-            // verify/aggregate the private call proof
-            // LONDONTODO(PUBLIC INPUTS)
-            // self.private_call.verify();
-            // verify/aggregate the previous kernel
-            // self.previous_kernel.verify();
-        }
+
 
         // Validate output.
         if !std::runtime::is_unconstrained() {
