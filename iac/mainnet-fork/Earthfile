@@ -26,4 +26,4 @@ export-mainnet-fork:
     FROM +build
     ARG DIST_TAG="aztec-dev"
     ARG ARCH
-    SAVE IMAGE --push spypsy/mainnet-fork:${DIST_TAG}${ARCH:+-$ARCH}
+    SAVE IMAGE --push aztecprotocol/mainnet-fork:${DIST_TAG}${ARCH:+-$ARCH}
