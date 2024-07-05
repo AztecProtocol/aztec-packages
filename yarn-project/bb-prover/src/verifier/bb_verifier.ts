@@ -134,10 +134,10 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       : 'PrivateKernelTailArtifact';
 
     try {
-      // TODO(https://github.com/AztecProtocol/barretenberg/issues/new) we need a proper verify flow for clientIvcProof
-      // tx.clientIvcProof.verify();
+      // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a proper verify flow for clientIvcProof
+      // For now we handle only the trivial blank data case
       // await this.verifyProofForCircuit(expectedCircuit, proof);
-      return Promise.resolve(true);
+      return Promise.resolve(!tx.clientIvcProof.isEmpty());
     } catch (err) {
       this.logger.warn(`Failed to verify ${expectedCircuit} proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
       return Promise.resolve(false);
