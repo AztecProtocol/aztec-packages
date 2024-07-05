@@ -37,7 +37,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it.skip(
+  it(
     'makes both public and private transfers',
     async () => {
       logger.info(
