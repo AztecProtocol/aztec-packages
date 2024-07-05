@@ -47,7 +47,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
         private_call_data_validator.validate(output.end.new_note_hashes);
 
-
         // Validate output.
         if !std::runtime::is_unconstrained() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(

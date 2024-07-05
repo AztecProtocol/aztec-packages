@@ -1,8 +1,8 @@
 use crate::{
     abis::{
-        constant_rollup_data::ConstantRollupData,
-        base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
-    },
+    constant_rollup_data::ConstantRollupData,
+    base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
+},
     base::state_diff_hints::StateDiffHints,
     components::{compute_tx_effects_hash, compute_kernel_out_hash}
 };
