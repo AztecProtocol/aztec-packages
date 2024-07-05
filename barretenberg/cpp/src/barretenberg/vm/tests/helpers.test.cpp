@@ -37,7 +37,8 @@ void validate_trace_check_circuit(std::vector<Row>&& trace)
 void validate_trace(std::vector<Row>&& trace,
                     VmPublicInputs const& public_inputs,
                     std::vector<FF> const& calldata,
-                    bool with_proof)
+                    bool with_proof,
+                    bool expect_proof_failure)
 {
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
@@ -55,7 +56,11 @@ void validate_trace(std::vector<Row>&& trace,
 
         bool verified = verifier.verify_proof(proof, { public_inputs_as_vec });
 
-        EXPECT_TRUE(verified);
+        if (expect_proof_failure) {
+            EXPECT_FALSE(verified);
+        } else {
+            EXPECT_TRUE(verified);
+        }
     }
 };
 
