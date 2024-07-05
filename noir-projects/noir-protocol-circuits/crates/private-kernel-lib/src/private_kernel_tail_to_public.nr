@@ -154,6 +154,13 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with="min_revertible_side_effect_counter must not be 0")]
+    fn zero_min_revertible_side_effect_counter_fails() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel.min_revertible_side_effect_counter = 0;
+        builder.failed();
+    }
+
     #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
     fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
