@@ -23,7 +23,7 @@ trait PrivatelyRefundable {
     ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
 
     fn complete_refund(
-        Incomplete_fee_payer_point: EmbeddedCurvePoint,
+        incomplete_fee_payer_point: EmbeddedCurvePoint,
         incomplete_sponsored_user_point: EmbeddedCurvePoint,
         transaction_fee: Field
     ) -> (Field, Field);
@@ -74,6 +74,9 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     fn compute_note_content_hash(self) -> Field {
         let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
         let (random_lo, random_hi) = decompose(self.randomness);
+        // We compute the note content hash as `G ^ (amount + npk_m_hash + randomness)` instead of using pedersen
+        // or poseidon2 because it allows us to privately add and subtract from amount in public by leveraging
+        // homomorphism.
         multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
@@ -123,7 +126,7 @@ impl PrivatelyRefundable for TokenNote {
         let (fee_payer_npk_m_hash_lo, fee_payer_npk_m_hash_hi) = decompose(fee_payer_npk_m_hash);
 
         // 2. Now that we have correct representationsn of fee payer and randomness we can compute `G ^ (fee_payer_npk + randomness)`
-        let Incomplete_fee_payer_point = multi_scalar_mul(
+        let incomplete_fee_payer_point = multi_scalar_mul(
             [G1, G1],
             [EmbeddedCurveScalar {
                 lo: fee_payer_npk_m_hash_lo,
@@ -159,9 +162,9 @@ impl PrivatelyRefundable for TokenNote {
 
         // 5. At last we represent the points as EmbeddedCurvePoints and return them.
         (EmbeddedCurvePoint {
-            x: Incomplete_fee_payer_point[0],
-            y: Incomplete_fee_payer_point[1],
-            is_infinite: Incomplete_fee_payer_point[2] == 1
+            x: incomplete_fee_payer_point[0],
+            y: incomplete_fee_payer_point[1],
+            is_infinite: incomplete_fee_payer_point[2] == 1
         }, EmbeddedCurvePoint {
             x: incomplete_sponsored_user_point[0],
             y: incomplete_sponsored_user_point[1],
@@ -169,7 +172,7 @@ impl PrivatelyRefundable for TokenNote {
         })
     }
 
-    fn complete_refund(Incomplete_fee_payer_point: EmbeddedCurvePoint, incomplete_sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
+    fn complete_refund(incomplete_fee_payer_point: EmbeddedCurvePoint, incomplete_sponsored_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
         // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
         let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
 
@@ -224,7 +227,7 @@ impl PrivatelyRefundable for TokenNote {
         deduce what n is. This is the discrete log problem.
 
         However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
-        Incomplete_fee_payer_point := (fee_payer_npk + randomness) * G
+        incomplete_fee_payer_point := (fee_payer_npk + randomness) * G
         incomplete_sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
 
         where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
@@ -235,7 +238,7 @@ impl PrivatelyRefundable for TokenNote {
 
         Then we arrive at the final points via addition/subtraction of that transaction fee point:
 
-        fee_payer_point := Incomplete_fee_payer_point + fee_point
+        fee_payer_point := incomplete_fee_payer_point + fee_point
                              = (fee_payer_npk + randomness) * G + transaction_fee * G
                              = (fee_payer_npk + randomness + transaction_fee) * G
 
@@ -253,7 +256,7 @@ impl PrivatelyRefundable for TokenNote {
 
         // 3. Now we leverage homomorphism to privately add the fee to fee payer point and subtract it from
         // the sponsored user point in public.
-        let fee_payer_point = Incomplete_fee_payer_point + fee_point;
+        let fee_payer_point = incomplete_fee_payer_point + fee_point;
         let sponsored_user_point = incomplete_sponsored_user_point - fee_point;
 
         assert_eq(sponsored_user_point.is_infinite, false);
