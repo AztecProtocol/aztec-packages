@@ -1109,13 +1109,13 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
       const args = [amountToTransfer, owner];
-      await expect(() =>
-        runSimulator({
-          args: args,
-          artifact: artifact,
-          contractAddress,
-        }),
-      ).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
+
+      // This will throw if we can read the note before it was inserted.
+      await runSimulator({
+        args: args,
+        artifact: artifact,
+        contractAddress,
+      });
     });
   });
 
@@ -1143,7 +1143,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue([]);
 
       await expect(() => runSimulator({ artifact, args })).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes`,
+        "Cannot satisfy constraint 'index < self.len'",
       );
     });
   });

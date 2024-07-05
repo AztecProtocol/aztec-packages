@@ -182,7 +182,7 @@ describe('e2e_note_getter', () => {
         'index < self.len', // from BoundedVec::get
       );
       await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes`,
+        "Cannot satisfy constraint 'index < self.len'",
       );
     }
 

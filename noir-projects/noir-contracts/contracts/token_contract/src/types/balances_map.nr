@@ -123,7 +123,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend).set_limit(limit);
         let notes = self.map.at(owner).get_notes(options);
 
-        assert(notes.len() > 0, "No notes found");
+        assert(notes.len() > 0, "Balance too low");
 
         let mut minuend: U128 = U128::from_integer(0);
         for i in 0..options.limit {

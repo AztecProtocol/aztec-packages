@@ -59,11 +59,6 @@ contract PendingNoteHashes {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note (note inserted at bottom of function shouldn't exist yet)
         let notes = owner_balance.get_notes(options);
-
-        // TODO https://github.com/AztecProtocol/aztec-packages/issues/7059: clean this test up - we won't actually hit 
-        // this assert because the same one exists in get_notes (we always return at least one note), so all lines after 
-        // this one are effectively dead code. We should find a different way to test what this function attempts to 
-        // test.
         assert(notes.len() == 0);
 
         let header = context.get_header();
@@ -71,7 +66,7 @@ contract PendingNoteHashes {
 
         // Insert note
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
+        owner_balance.insert(&mut note).discard();
 
         0
     }

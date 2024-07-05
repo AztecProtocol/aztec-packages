@@ -215,18 +215,14 @@ describe('guides/dapp/testing', () => {
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
         const call = token.methods.transfer(recipient.getAddress(), 200n);
-        await expect(call.prove()).rejects.toThrow(
-          "Assertion failed: Cannot return zero notes 'returned_notes.len() != 0'",
-        );
+        await expect(call.prove()).rejects.toThrow('Assertion failed: Balance too low');
         // docs:end:local-tx-fails
       });
 
       it('asserts a local transaction simulation fails by calling send', async () => {
         // docs:start:local-tx-fails-send
         const call = token.methods.transfer(recipient.getAddress(), 200n);
-        await expect(call.send().wait()).rejects.toThrow(
-          "Assertion failed: Cannot return zero notes 'returned_notes.len() != 0'",
-        );
+        await expect(call.send().wait()).rejects.toThrow('Assertion failed: Balance too low');
         // docs:end:local-tx-fails-send
       });
 

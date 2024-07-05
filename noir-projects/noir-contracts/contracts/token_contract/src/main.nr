@@ -295,7 +295,8 @@ contract Token {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes.get_unchecked(0);
+        assert(notes.len() == 1, "No pending shield found");
+        let note = notes.get(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
@@ -354,7 +355,6 @@ contract Token {
      * Accumulate value by spending notes until we hit the missing amount
      * If not enough notes are available, recurse to do it again.
      * Will use MORE notes than the transfer directly since there are much smaller usual overhead on this function.
-     * Will fail with `Cannot return zero notes` if there are not enough notes to cover the amount.
      */
     #[aztec(private)]
     #[aztec(internal)]

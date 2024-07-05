@@ -72,7 +72,7 @@ describe('e2e_token_contract transfer private', () => {
       const amount = balance0 + 1n;
       expect(amount).toBeGreaterThan(0n);
       await expect(asset.methods.transfer(accounts[1].address, amount).simulate()).rejects.toThrow(
-        "Assertion failed: Cannot return zero notes 'returned_notes.len() != 0'",
+        'Assertion failed: Balance too low',
       );
     });
   });
