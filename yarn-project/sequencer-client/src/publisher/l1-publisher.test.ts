@@ -1,5 +1,4 @@
 import { L2Block } from '@aztec/circuit-types';
-import { makeEmptyProof } from '@aztec/circuits.js';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -28,8 +27,6 @@ describe('L1Publisher', () => {
     archive = l2Block.archive.root.toBuffer();
     txsEffectsHash = l2Block.body.getTxsEffectsHash();
     body = l2Block.body.toBuffer();
-    aggregationObject = Buffer.alloc(0);
-    proof = makeEmptyProof().withoutPublicInputs();
 
     txSender = mock<L1PublisherTxSender>();
 
