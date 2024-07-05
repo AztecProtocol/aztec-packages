@@ -100,6 +100,8 @@ describe('e2e_fees/private_refunds', () => {
 
     // 5. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
     // npk_m_hash (set in the paymentMethod above) and the randomness.
+    // Note that FPC emits randomness as unencrypted log and the tx fee is publicly know so Bob is able to reconstruct
+    // his note just from on-chain data.
     const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobNpkMHash, randomness]);
 
     // 6. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.

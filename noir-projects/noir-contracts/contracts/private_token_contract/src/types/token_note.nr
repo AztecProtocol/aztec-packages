@@ -74,9 +74,9 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     fn compute_note_content_hash(self) -> Field {
         let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
         let (random_lo, random_hi) = decompose(self.randomness);
-        // We compute the note content hash as `G ^ (amount + npk_m_hash + randomness)` instead of using pedersen
-        // or poseidon2 because it allows us to privately add and subtract from amount in public by leveraging
-        // homomorphism.
+        // We compute the note content hash as an x-coordinate of `G ^ (amount + npk_m_hash + randomness)` instead
+        // of using pedersen or poseidon2 because it allows us to privately add and subtract from amount in public
+        // by leveraging homomorphism.
         multi_scalar_mul(
             [G1, G1, G1],
             [EmbeddedCurveScalar {
@@ -118,6 +118,69 @@ impl OwnedNote for TokenNote {
     }
 }
 
+/**
+ * What is happening below?
+ *
+ * First in generate_refund_points, we create two points on the grumpkin curve;
+ * these are going to be eventually turned into notes:
+ * one for the user, and one for the fee payer.
+ *
+ * So you can think of these (x,y) points as "partial notes": they encode part of the internals of the notes.
+ *
+ * This is because the compute_note_content_hash function above defines the content hash to be
+ * the x-coordinate of a point defined as:
+ *
+ * amount * G + npk * G + randomness * G
+ *   = (amount + npk + randomness) * G
+ * 
+ * where G is a generator point. Interesting point here is that we actually need to convert
+ * - amount
+ * - npk
+ * - randomness
+ * from grumpkin Field elements
+ * (which have a modulus of 21888242871839275222246405745257275088548364400416034343698204186575808495617)
+ * into a grumpkin scalar
+ * (which have a modulus of 21888242871839275222246405745257275088696311157297823662689037894645226208583)
+ *
+ * The intuition for this is that the Field elements define the domain of the x,y coordinates for points on the curves,
+ * but the number of points on the curve is actually greater than the size of that domain.
+ *
+ * (Consider, e.g. if the curve were defined over a field of 10 elements, and each x coord had two corresponding y for +/-)
+ *
+ * For a bit more info, see
+ * https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations
+ *
+ *
+ * Anyway, if we have a secret scalar n := amount + npk + randomness, and then we reveal a point n * G, there is no efficient way to
+ * deduce what n is. This is the discrete log problem.
+ *
+ * However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
+ * incomplete_fee_payer_point := (fee_payer_npk + randomness) * G
+ * incomplete_sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
+ *
+ * where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
+ *
+ * So we pass those points into the teardown function (here) and compute a third point corresponding to the transaction fee as just
+ *
+ * fee_point := transaction_fee * G
+ *
+ * Then we arrive at the final points via addition/subtraction of that transaction fee point:
+ *
+ * fee_payer_point := incomplete_fee_payer_point + fee_point
+ *                      = (fee_payer_npk + randomness) * G + transaction_fee * G
+ *                      = (fee_payer_npk + randomness + transaction_fee) * G
+ *
+ * sponsored_user_point := incomplete_sponsored_user_point - fee_point
+ *                       = (sponsored_user_npk + funded_amount + randomness) * G - transaction_fee * G
+ *                       = (sponsored_user_npk + randomness + (funded_amount - transaction_fee)) * G
+ * 
+ * When we return the x-coordinate of those points, it identically matches the note_content_hash of (and therefore *is*) notes like:
+ * {
+ *     amount: (funded_amount - transaction_fee),
+ *     npk_m_hash: sponsored_user_npk,
+ *     randomness: randomness
+ * }
+ */
 impl PrivatelyRefundable for TokenNote {
     fn generate_refund_points(fee_payer_npk_m_hash: Field, sponsored_user_npk_m_hash: Field, funded_amount: Field, randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
         // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox function we
@@ -189,70 +252,6 @@ impl PrivatelyRefundable for TokenNote {
             y: fee_point_raw[1],
             is_infinite: fee_point_raw[2] == 1
         };
-
-        /**
-        What is happening here?
-
-        Back up in generate_refund_points, we created two points on the grumpkin curve;
-        these are going to be eventually turned into notes:
-        one for the user, and one for the FPC.
-
-        So you can think of these (x,y) points as "partial notes": they encode part of the internals of the notes.
-
-        This is because the compute_note_content_hash function above defines the content hash to be
-        the x-coordinate of a point defined as:
-
-        amount * G + npk * G + randomness * G
-          = (amount + npk + randomness) * G
-        
-        where G is a generator point. Interesting point here is that we actually need to convert
-        - amount
-        - npk
-        - randomness
-        from grumpkin Field elements
-        (which have a modulus of 21888242871839275222246405745257275088548364400416034343698204186575808495617)
-        into a grumpkin scalar
-        (which have a modulus of 21888242871839275222246405745257275088696311157297823662689037894645226208583)
-
-        The intuition for this is that the Field elements define the domain of the x,y coordinates for points on the curves,
-        but the number of points on the curve is actually greater than the size of that domain.
-
-        (Consider, e.g. if the curve were defined over a field of 10 elements, and each x coord had two corresponding y for +/-)
-
-        For a bit more info, see
-        https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations
-
-
-        Anyway, if we have a secret scalar n := amount + npk + randomness, and then we reveal a point n * G, there is no efficient way to
-        deduce what n is. This is the discrete log problem.
-
-        However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
-        incomplete_fee_payer_point := (fee_payer_npk + randomness) * G
-        incomplete_sponsored_user_point := (sponsored_user_npk + funded_amount + randomness) * G
-
-        where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which the transaction fee will be subtracted.
-
-        So we pass those points into the teardown function (here) and compute a third point corresponding to the transaction fee as just
-
-        fee_point := transaction_fee * G
-
-        Then we arrive at the final points via addition/subtraction of that transaction fee point:
-
-        fee_payer_point := incomplete_fee_payer_point + fee_point
-                             = (fee_payer_npk + randomness) * G + transaction_fee * G
-                             = (fee_payer_npk + randomness + transaction_fee) * G
-
-        sponsored_user_point := incomplete_sponsored_user_point - fee_point
-                              = (sponsored_user_npk + funded_amount + randomness) * G - transaction_fee * G
-                              = (sponsored_user_npk + randomness + (funded_amount - transaction_fee)) * G
-        
-        When we return the x-coordinate of those points, it identically matches the note_content_hash of (and therefore *is*) notes like:
-        {
-            amount: (funded_amount - transaction_fee),
-            npk_m_hash: sponsored_user_npk,
-            randomness: randomness
-        }
-        */
 
         // 3. Now we leverage homomorphism to privately add the fee to fee payer point and subtract it from
         // the sponsored user point in public.
