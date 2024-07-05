@@ -645,6 +645,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
       const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
+      // Sanity check the tube proof (can be removed later)
+      await this.verifyWithKey(tubeVK, tubeProof.binaryProof);
 
       // TODO(ISSUE PENDING): properly time tube construction
       logger.info(

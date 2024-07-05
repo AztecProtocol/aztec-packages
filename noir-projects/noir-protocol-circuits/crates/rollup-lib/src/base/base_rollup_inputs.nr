@@ -1,8 +1,8 @@
 use crate::{
     abis::{
-    constant_rollup_data::ConstantRollupData,
-    base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
-},
+        constant_rollup_data::ConstantRollupData,
+        base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
+    },
     base::state_diff_hints::StateDiffHints,
     components::{compute_tx_effects_hash, compute_kernel_out_hash}
 };
@@ -25,7 +25,7 @@ use dep::types::{
     MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
     NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -57,11 +57,16 @@ struct BaseRollupInputs {
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        // LONDONTODO(PUBLIC INPUTS)
-        // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
-        // LONDONTODO how could this pass in the public case, which has a honk proof that is not a 0-public-input tube?
-        // LONDONTODO Adam to check if we didn't just make the final public proof a tube
-        self.kernel_data.verify();
+        // // LONDONTODO(PUBLIC INPUTS)
+        // // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
+        // // LONDONTODO how could this pass in the public case, which has a honk proof that is not a 0-public-input tube?
+        // // LONDONTODO Adam to check if we didn't just make the final public proof a tube
+        std::verify_proof(
+            self.kernel_data.vk.key.as_slice(),
+            self.kernel_data.proof.fields.as_slice(),
+            &[0; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
+            self.kernel_data.vk.hash
+        );
 
         // Verify the kernel chain_id and versions
         assert(
