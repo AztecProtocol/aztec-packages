@@ -198,9 +198,9 @@ void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
                                                  bool includeUncommitted,
                                                  const LeafCallback& completion)
 {
-    auto job = [=]() {
+    auto job = [=, this]() {
         ExecuteAndReport<GetIndexedLeafResponse<LeafValueType>>(
-            [=](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
+            [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
                 ReadTransactionPtr tx = store_.createReadTransaction();
                 response.inner.indexed_leaf = store_.get_leaf(index, *tx, includeUncommitted);
             },
@@ -291,7 +291,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
 
     // This signals the completion of the appended hash generation
     // If the low leaf updates are also completed then we will append the leaves
-    HashGenerationCallback hash_completion = [=](const TypedResponse<HashGenerationResponse>& hashes_response) {
+    HashGenerationCallback hash_completion = [=, this](const TypedResponse<HashGenerationResponse>& hashes_response) {
         if (!hashes_response.success) {
             results->status.set_failure(hashes_response.message);
         } else {
@@ -310,7 +310,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
     // This signals the completion of the low leaf updates
     // If the append hash generation has also copleted then the hashes can be appended
     InsertionCompletionCallback insertion_completion =
-        [=](const TypedResponse<InsertionCompletionResponse>& insertion_response) {
+        [=, this](const TypedResponse<InsertionCompletionResponse>& insertion_response) {
             if (!insertion_response.success) {
                 results->status.set_failure(insertion_response.message);
             } else {
@@ -329,18 +329,19 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
     // This signals the completion of the insertion data generation
     // Here we will enqueue both the generation of the appended hashes and the low leaf updates (insertions)
     InsertionGenerationCallback insertion_generation_completed =
-        [=](const TypedResponse<InsertionGenerationResponse>& insertion_response) {
+        [=, this](const TypedResponse<InsertionGenerationResponse>& insertion_response) {
             if (!insertion_response.success) {
                 on_error(insertion_response.message);
                 return;
             }
-            workers_.enqueue(
-                [=]() { generate_hashes_for_appending(insertion_response.inner.indexed_leaves, hash_completion); });
+            workers_.enqueue([=, this]() {
+                generate_hashes_for_appending(insertion_response.inner.indexed_leaves, hash_completion);
+            });
             perform_insertions(insertion_response.inner.insertions, insertion_completion);
         };
 
     // We start by enqueueing the insertion data generation
-    workers_.enqueue([=]() { generate_insertions(values_to_be_sorted, insertion_generation_completed); });
+    workers_.enqueue([=, this]() { generate_insertions(values_to_be_sorted, insertion_generation_completed); });
 }
 
 template <typename Store, typename HashingPolicy>
@@ -361,7 +362,7 @@ void IndexedTree<Store, HashingPolicy>::perform_insertions(std::shared_ptr<std::
     }
 
     for (uint32_t i = 0; i < insertions->size(); ++i) {
-        auto op = [=]() {
+        auto op = [=, this]() {
             LeafInsertion& insertion = (*insertions)[i];
             Signal& leaderSignal = (*signals)[i];
             Signal& followerSignal = (*signals)[i + 1];
@@ -409,7 +410,7 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
     const InsertionGenerationCallback& on_completion)
 {
     ExecuteAndReport<InsertionGenerationResponse>(
-        [=](TypedResponse<InsertionGenerationResponse>& response) {
+        [=, this](TypedResponse<InsertionGenerationResponse>& response) {
             // The first thing we do is sort the values into descending order but maintain knowledge of their orignal
             // order
             struct {
