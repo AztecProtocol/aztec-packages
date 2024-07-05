@@ -17,7 +17,7 @@ struct PublicCallStackItem {
 
 impl PublicCallStackItem {
     fn as_execution_request(self) -> Self {
-        // WARNING: if updating, see comment in public_call_stack_item.ts's `PublicCallStackItem.hash()`
+        // WARNING: if updating, see comment in public_call_stack_item.ts's `PublicCallStackItem.getCompressed()`
         let public_inputs = self.public_inputs;
         let mut request_public_inputs = PublicCircuitPublicInputs::empty();
         request_public_inputs.call_context = public_inputs.call_context;
@@ -33,11 +33,21 @@ impl PublicCallStackItem {
     }
 
     fn get_compressed(self) -> PublicCallStackItemCompressed {
+        let item = if self.is_execution_request {
+            self.as_execution_request()
+        } else {
+            self
+        };
+
         PublicCallStackItemCompressed {
-            contract_address: self.contract_address,
-            call_context: self.public_inputs.call_context,
-            function_data: self.function_data,
-            args_hash: self.public_inputs.args_hash
+            contract_address: item.contract_address,
+            call_context: item.public_inputs.call_context,
+            function_data: item.function_data,
+            args_hash: item.public_inputs.args_hash,
+            returns_hash: item.public_inputs.returns_hash,
+            revert_code: item.public_inputs.revert_code,
+            start_gas_left: item.public_inputs.start_gas_left,
+            end_gas_left: item.public_inputs.end_gas_left
         }
     }
 }
@@ -66,7 +76,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x00ae3637b279ce8be67fd283808915bce72cb2943cb9bdbcb19d35cf8ca8fe9e;
+        let test_data_call_stack_item_request_hash = 0x1331fdec4ec7bd6bb23447c47753659b68e3a285d812ab6eaf9258a902d16e8e;
         assert_eq(call_stack_item.get_compressed().hash(), test_data_call_stack_item_request_hash);
     }
 
@@ -84,7 +94,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x00ae3637b279ce8be67fd283808915bce72cb2943cb9bdbcb19d35cf8ca8fe9e;
+        let test_data_call_stack_item_hash = 0x1331fdec4ec7bd6bb23447c47753659b68e3a285d812ab6eaf9258a902d16e8e;
         assert_eq(call_stack_item.get_compressed().hash(), test_data_call_stack_item_hash);
     }
 }

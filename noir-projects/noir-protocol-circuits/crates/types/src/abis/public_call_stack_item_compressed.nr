@@ -1,4 +1,4 @@
-use crate::abis::{call_context::CallContext, function_data::FunctionData};
+use crate::abis::{call_context::CallContext, function_data::FunctionData, gas::Gas};
 use crate::address::AztecAddress;
 use crate::constants::{GENERATOR_INDEX__CALL_STACK_ITEM, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH};
 use crate::traits::{Hash, Empty, Serialize, Deserialize};
@@ -23,6 +23,10 @@ struct PublicCallStackItemCompressed {
     call_context: CallContext,
     function_data: FunctionData,
     args_hash: Field,
+    returns_hash: Field,
+    revert_code: u8,
+    start_gas_left: Gas,
+    end_gas_left: Gas,
 }
 
 impl Eq for PublicCallStackItemCompressed {
@@ -31,29 +35,30 @@ impl Eq for PublicCallStackItemCompressed {
             & (self.call_context == other.call_context)
             & (self.function_data == other.function_data)
             & (self.args_hash == other.args_hash)
+            & (self.returns_hash == other.returns_hash)
+            & (self.revert_code == other.revert_code)
+            & (self.start_gas_left == other.start_gas_left)
+            & (self.end_gas_left == other.end_gas_left)
     }
 }
 
 impl Hash for PublicCallStackItemCompressed {
     fn hash(self) -> Field {
-        let item = self;
-        std::hash::pedersen_hash_with_separator([
-            item.contract_address.to_field(),
-            item.call_context.hash(),
-            item.function_data.hash(),
-            item.args_hash,
-        ], GENERATOR_INDEX__CALL_STACK_ITEM)
+        std::hash::pedersen_hash_with_separator(self.serialize(), GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 }
 
 impl Empty for PublicCallStackItemCompressed {
-
     fn empty() -> Self {
         PublicCallStackItemCompressed {
             contract_address: AztecAddress::empty(),
             call_context: CallContext::empty(),
             function_data: FunctionData::empty(),
             args_hash: 0,
+            returns_hash: 0,
+            revert_code: 0,
+            start_gas_left: Gas::empty(),
+            end_gas_left: Gas::empty(),
         }
     }
 }
@@ -66,6 +71,10 @@ impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItem
         fields.extend_from_array(self.call_context.serialize());
         fields.extend_from_array(self.function_data.serialize());
         fields.push(self.args_hash);
+        fields.push(self.returns_hash);
+        fields.push(self.revert_code as Field);
+        fields.extend_from_array(self.start_gas_left.serialize());
+        fields.extend_from_array(self.end_gas_left.serialize());
 
         assert_eq(fields.len(), PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH);
 
@@ -82,6 +91,10 @@ impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackIt
       call_context: reader.read_struct(CallContext::deserialize),
       function_data: reader.read_struct(FunctionData::deserialize),
       args_hash: reader.read(),
+      returns_hash: reader.read(),
+      revert_code: reader.read() as u8,
+      start_gas_left: reader.read_struct(Gas::deserialize),
+      end_gas_left: reader.read_struct(Gas::deserialize),
     };
     reader.finish();
     item

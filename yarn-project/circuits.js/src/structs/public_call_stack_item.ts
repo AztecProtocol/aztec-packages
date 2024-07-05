@@ -85,11 +85,31 @@ export class PublicCallStackItem {
   }
 
   getCompressed(): PublicCallStackItemCompressed {
+    let publicInputsToHash = this.publicInputs;
+    if (this.isExecutionRequest) {
+      // An execution request (such as an enqueued call from private) is hashed with
+      // only the publicInput members present in a PublicCallRequest.
+      // This allows us to check that the request (which is created/hashed before
+      // side-effects and output info are unknown for public calls) matches the call
+      // being processed by a kernel iteration.
+      // WARNING: This subset of publicInputs that is set here must align with
+      // `parse_public_call_stack_item_from_oracle` in enqueue_public_function_call.nr
+      // and `PublicCallStackItem::as_execution_request()` in public_call_stack_item.ts
+      const { callContext, argsHash } = this.publicInputs;
+      publicInputsToHash = PublicCircuitPublicInputs.empty();
+      publicInputsToHash.callContext = callContext;
+      publicInputsToHash.argsHash = argsHash;
+    }
+
     return new PublicCallStackItemCompressed(
       this.contractAddress,
-      this.publicInputs.callContext,
+      publicInputsToHash.callContext,
       this.functionData,
-      this.publicInputs.argsHash,
+      publicInputsToHash.argsHash,
+      publicInputsToHash.returnsHash,
+      publicInputsToHash.revertCode,
+      publicInputsToHash.startGasLeft,
+      publicInputsToHash.endGasLeft,
     );
   }
 
