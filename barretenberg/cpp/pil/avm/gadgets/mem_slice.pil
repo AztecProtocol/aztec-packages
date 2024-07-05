@@ -4,8 +4,8 @@ namespace slice(256);
 
     pol commit clk;
 
-    pol commit sel_start_cd; // Selector to indicate the start of calldatacopy. Used in permutation with the main trace.
-    pol commit sel_cd; // Selector for any row involved in a callatacopy operation.
+    pol commit sel_start_cd_cpy; // Selector to indicate the start of calldatacopy. Used in permutation with the main trace.
+    pol commit sel_cd_cpy; // Selector for any row involved in a callatacopy operation.
     pol commit cnt; // Decreasing counter to track the number of memory operations.
     pol commit space_id; // Copied from main trace.
     pol commit addr; // Address pertaining to the memory operation.
@@ -13,26 +13,27 @@ namespace slice(256);
     pol commit cd_offset; // Offset of the calldata element. It is used to get the correct value from calldata.
     pol commit one_min_inv; // Helper column to assert zero/non-zero equality of cnt;
 
-    sel_cd * (1 - sel_cd) = 0;
+    sel_cd_cpy * (1 - sel_cd_cpy) = 0;
     // TODO: might not be required
-    sel_start_cd * (1 - sel_start_cd) = 0;
+    sel_start_cd_cpy * (1 - sel_start_cd_cpy) = 0;
 
-    // Show that cnt != 0 <==> sel_cd == 1
+    // Show that cnt != 0 <==> sel_cd_cpy == 1
     // one_min_inv == 1 - cnt^(-1) if cnt != 0 else == 0
     #[SLICE_CNT_ZERO_TEST1]
-    cnt * (1 - one_min_inv) - sel_cd = 0;
+    cnt * (1 - one_min_inv) - sel_cd_cpy = 0;
     #[SLICE_CNT_ZERO_TEST2]
-    (1 - sel_cd) * one_min_inv = 0;
+    (1 - sel_cd_cpy) * one_min_inv = 0;
 
     #[SLICE_CNT_DECREMENT]
-    sel_cd * (cnt - 1 - cnt') = 0;
+    sel_cd_cpy * (cnt - 1 - cnt') = 0;
+
     #[ADDR_CNT_INCREMENT]
-    sel_cd * (addr + 1 - addr') = 0;
+    sel_cd_cpy * (addr + 1 - addr') = 0;
     #[CD_OFFSET_INCREMENT]
-    sel_cd * (cd_offset + 1 - cd_offset') = 0;
+    sel_cd_cpy * (cd_offset + 1 - cd_offset') = 0;
    
     #[LOOKUP_CD_VALUE]
-    sel_cd {cd_offset, val} in main.sel_cd {main.clk, main.calldata};
+    sel_cd_cpy {cd_offset, val} in main.sel_calldata {main.clk, main.calldata};
 
     #[PERM_CD_MEM]
-    sel_cd {clk, space_id, addr, val} is mem.sel_op_cd {mem.clk, mem.space_id, mem.addr, mem.val};
+    sel_cd_cpy {clk, space_id, addr, val} is mem.sel_op_cd_cpy {mem.clk, mem.space_id, mem.addr, mem.val};

@@ -16,14 +16,15 @@ class AvmSliceTraceBuilder {
     struct SliceTraceEntry {
         uint32_t clk = 0;
         uint8_t space_id = 0;
-        uint32_t addr = 0;
+        FF addr_ff = 0; // Should normally be uint32_t but the last witness addr of a calldatacopy operation row might
+                        // be FF(2^32).
         FF val{};
         uint32_t cd_offset = 0;
         uint32_t cnt = 0;
         FF one_min_inv{};
 
-        bool sel_start_cd = false;
-        bool sel_cd = false;
+        bool sel_start_cd_cpy = false;
+        bool sel_cd_cpy = false;
     };
 
     AvmSliceTraceBuilder() = default;
@@ -46,13 +47,13 @@ template <typename DestRow> void merge_into(DestRow& dest, AvmSliceTraceBuilder:
 {
     dest.slice_clk = src.clk;
     dest.slice_space_id = src.space_id;
-    dest.slice_addr = src.addr;
+    dest.slice_addr = src.addr_ff;
     dest.slice_val = src.val;
     dest.slice_cd_offset = src.cd_offset;
     dest.slice_cnt = src.cnt;
     dest.slice_one_min_inv = src.one_min_inv;
-    dest.slice_sel_start_cd = src.sel_start_cd;
-    dest.slice_sel_cd = src.sel_cd;
+    dest.slice_sel_start_cd_cpy = src.sel_start_cd_cpy;
+    dest.slice_sel_cd_cpy = src.sel_cd_cpy;
 }
 
 } // namespace bb::avm_trace

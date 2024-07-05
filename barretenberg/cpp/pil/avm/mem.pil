@@ -33,7 +33,7 @@ namespace mem(256);
     pol commit sel_resolve_ind_addr_d;
 
     // Selector for calldata_copy memory operations triggered from memory slice gadget.
-    pol commit sel_op_cd;
+    pol commit sel_op_cd_cpy;
 
     // Selectors related to MOV/CMOV opcodes (copied from main trace for loading operation on intermediated register ia/ib)
     // Boolean constraint is performed in main trace.
@@ -60,7 +60,7 @@ namespace mem(256);
     sel_op_b * (1 - sel_op_b) = 0;
     sel_op_c * (1 - sel_op_c) = 0;
     sel_op_d * (1 - sel_op_d) = 0;
-    sel_op_cd * (1 - sel_op_cd) = 0;
+    sel_op_cd_cpy * (1 - sel_op_cd_cpy) = 0;
     sel_resolve_ind_addr_a * (1 - sel_resolve_ind_addr_a) = 0;
     sel_resolve_ind_addr_b * (1 - sel_resolve_ind_addr_b) = 0;
     sel_resolve_ind_addr_c * (1 - sel_resolve_ind_addr_c) = 0;
@@ -72,7 +72,7 @@ namespace mem(256);
     // Definition of sel_mem
     sel_mem = sel_op_a + sel_op_b + sel_op_c + sel_op_d
             + sel_resolve_ind_addr_a + sel_resolve_ind_addr_b + sel_resolve_ind_addr_c + sel_resolve_ind_addr_d
-            + sel_op_cd;
+            + sel_op_cd_cpy;
     // Maximum one memory operation enabled per row
     sel_mem * (sel_mem - 1) = 0; // TODO: might be infered by the main trace
 
@@ -219,8 +219,8 @@ namespace mem(256);
     sel_resolve_ind_addr_d * rw = 0;
 
     //====== CALLDATACOPY specific constraints ==================================
-    sel_op_cd * (rw - 1) = 0;
-    sel_op_cd * (w_in_tag - 6) = 0;
+    sel_op_cd_cpy * (rw - 1) = 0;
+    sel_op_cd_cpy * (w_in_tag - 6) = 0;
 
     //====== MOV/CMOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for

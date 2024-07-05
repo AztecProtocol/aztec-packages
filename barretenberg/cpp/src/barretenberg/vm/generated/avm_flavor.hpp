@@ -400,8 +400,8 @@ class AvmFlavor {
                               main_rwd,
                               main_sel_alu,
                               main_sel_bin,
-                              main_sel_calldata_gadget,
-                              main_sel_cd,
+                              main_sel_calldata,
+                              main_sel_cd_cpy_gadget,
                               main_sel_gas_accounting_active,
                               main_sel_last,
                               main_sel_mem_op_a,
@@ -492,7 +492,7 @@ class AvmFlavor {
                               mem_sel_op_a,
                               mem_sel_op_b,
                               mem_sel_op_c,
-                              mem_sel_op_cd,
+                              mem_sel_op_cd_cpy,
                               mem_sel_op_cmov,
                               mem_sel_op_d,
                               mem_sel_resolve_ind_addr_a,
@@ -526,8 +526,8 @@ class AvmFlavor {
                               slice_clk,
                               slice_cnt,
                               slice_one_min_inv,
-                              slice_sel_cd,
-                              slice_sel_start_cd,
+                              slice_sel_cd_cpy,
+                              slice_sel_start_cd_cpy,
                               slice_space_id,
                               slice_val,
                               lookup_byte_lengths_counts,
@@ -2695,8 +2695,8 @@ class AvmFlavor {
             Base::main_rwd = "MAIN_RWD";
             Base::main_sel_alu = "MAIN_SEL_ALU";
             Base::main_sel_bin = "MAIN_SEL_BIN";
-            Base::main_sel_calldata_gadget = "MAIN_SEL_CALLDATA_GADGET";
-            Base::main_sel_cd = "MAIN_SEL_CD";
+            Base::main_sel_calldata = "MAIN_SEL_CALLDATA";
+            Base::main_sel_cd_cpy_gadget = "MAIN_SEL_CD_CPY_GADGET";
             Base::main_sel_gas_accounting_active = "MAIN_SEL_GAS_ACCOUNTING_ACTIVE";
             Base::main_sel_last = "MAIN_SEL_LAST";
             Base::main_sel_mem_op_a = "MAIN_SEL_MEM_OP_A";
@@ -2787,7 +2787,7 @@ class AvmFlavor {
             Base::mem_sel_op_a = "MEM_SEL_OP_A";
             Base::mem_sel_op_b = "MEM_SEL_OP_B";
             Base::mem_sel_op_c = "MEM_SEL_OP_C";
-            Base::mem_sel_op_cd = "MEM_SEL_OP_CD";
+            Base::mem_sel_op_cd_cpy = "MEM_SEL_OP_CD_CPY";
             Base::mem_sel_op_cmov = "MEM_SEL_OP_CMOV";
             Base::mem_sel_op_d = "MEM_SEL_OP_D";
             Base::mem_sel_resolve_ind_addr_a = "MEM_SEL_RESOLVE_IND_ADDR_A";
@@ -2821,8 +2821,8 @@ class AvmFlavor {
             Base::slice_clk = "SLICE_CLK";
             Base::slice_cnt = "SLICE_CNT";
             Base::slice_one_min_inv = "SLICE_ONE_MIN_INV";
-            Base::slice_sel_cd = "SLICE_SEL_CD";
-            Base::slice_sel_start_cd = "SLICE_SEL_START_CD";
+            Base::slice_sel_cd_cpy = "SLICE_SEL_CD_CPY";
+            Base::slice_sel_start_cd_cpy = "SLICE_SEL_START_CD_CPY";
             Base::slice_space_id = "SLICE_SPACE_ID";
             Base::slice_val = "SLICE_VAL";
             Base::perm_cd_mem = "PERM_CD_MEM";
@@ -3119,8 +3119,8 @@ class AvmFlavor {
         Commitment main_rwd;
         Commitment main_sel_alu;
         Commitment main_sel_bin;
-        Commitment main_sel_calldata_gadget;
-        Commitment main_sel_cd;
+        Commitment main_sel_calldata;
+        Commitment main_sel_cd_cpy_gadget;
         Commitment main_sel_gas_accounting_active;
         Commitment main_sel_last;
         Commitment main_sel_mem_op_a;
@@ -3211,7 +3211,7 @@ class AvmFlavor {
         Commitment mem_sel_op_a;
         Commitment mem_sel_op_b;
         Commitment mem_sel_op_c;
-        Commitment mem_sel_op_cd;
+        Commitment mem_sel_op_cd_cpy;
         Commitment mem_sel_op_cmov;
         Commitment mem_sel_op_d;
         Commitment mem_sel_resolve_ind_addr_a;
@@ -3245,8 +3245,8 @@ class AvmFlavor {
         Commitment slice_clk;
         Commitment slice_cnt;
         Commitment slice_one_min_inv;
-        Commitment slice_sel_cd;
-        Commitment slice_sel_start_cd;
+        Commitment slice_sel_cd_cpy;
+        Commitment slice_sel_start_cd_cpy;
         Commitment slice_space_id;
         Commitment slice_val;
         Commitment perm_cd_mem;
@@ -3556,8 +3556,8 @@ class AvmFlavor {
             main_rwd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_calldata_gadget = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_cd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_calldata = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_cd_cpy_gadget = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_gas_accounting_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3650,7 +3650,7 @@ class AvmFlavor {
             mem_sel_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_cd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            mem_sel_op_cd_cpy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3684,8 +3684,8 @@ class AvmFlavor {
             slice_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_cnt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_one_min_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            slice_sel_cd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            slice_sel_start_cd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            slice_sel_cd_cpy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            slice_sel_start_cd_cpy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_cd_mem = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3989,8 +3989,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(main_rwd, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_calldata_gadget, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_cd, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_calldata, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_cd_cpy_gadget, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_gas_accounting_active, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_last, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_mem_op_a, Transcript::proof_data);
@@ -4081,7 +4081,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(mem_sel_op_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_cd, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(mem_sel_op_cd_cpy, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_cmov, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_a, Transcript::proof_data);
@@ -4115,8 +4115,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(slice_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_cnt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_one_min_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(slice_sel_cd, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(slice_sel_start_cd, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(slice_sel_cd_cpy, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(slice_sel_start_cd_cpy, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_space_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_val, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_cd_mem, Transcript::proof_data);

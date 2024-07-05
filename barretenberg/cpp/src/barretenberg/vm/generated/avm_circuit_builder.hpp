@@ -197,8 +197,8 @@ template <typename FF> struct AvmFullRow {
     FF main_rwd{};
     FF main_sel_alu{};
     FF main_sel_bin{};
-    FF main_sel_calldata_gadget{};
-    FF main_sel_cd{};
+    FF main_sel_calldata{};
+    FF main_sel_cd_cpy_gadget{};
     FF main_sel_gas_accounting_active{};
     FF main_sel_last{};
     FF main_sel_mem_op_a{};
@@ -289,7 +289,7 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cd{};
+    FF mem_sel_op_cd_cpy{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
     FF mem_sel_resolve_ind_addr_a{};
@@ -323,8 +323,8 @@ template <typename FF> struct AvmFullRow {
     FF slice_clk{};
     FF slice_cnt{};
     FF slice_one_min_inv{};
-    FF slice_sel_cd{};
-    FF slice_sel_start_cd{};
+    FF slice_sel_cd_cpy{};
+    FF slice_sel_start_cd_cpy{};
     FF slice_space_id{};
     FF slice_val{};
     FF perm_cd_mem{};
@@ -636,8 +636,8 @@ class AvmCircuitBuilder {
             polys.main_rwd[i] = rows[i].main_rwd;
             polys.main_sel_alu[i] = rows[i].main_sel_alu;
             polys.main_sel_bin[i] = rows[i].main_sel_bin;
-            polys.main_sel_calldata_gadget[i] = rows[i].main_sel_calldata_gadget;
-            polys.main_sel_cd[i] = rows[i].main_sel_cd;
+            polys.main_sel_calldata[i] = rows[i].main_sel_calldata;
+            polys.main_sel_cd_cpy_gadget[i] = rows[i].main_sel_cd_cpy_gadget;
             polys.main_sel_gas_accounting_active[i] = rows[i].main_sel_gas_accounting_active;
             polys.main_sel_last[i] = rows[i].main_sel_last;
             polys.main_sel_mem_op_a[i] = rows[i].main_sel_mem_op_a;
@@ -728,7 +728,7 @@ class AvmCircuitBuilder {
             polys.mem_sel_op_a[i] = rows[i].mem_sel_op_a;
             polys.mem_sel_op_b[i] = rows[i].mem_sel_op_b;
             polys.mem_sel_op_c[i] = rows[i].mem_sel_op_c;
-            polys.mem_sel_op_cd[i] = rows[i].mem_sel_op_cd;
+            polys.mem_sel_op_cd_cpy[i] = rows[i].mem_sel_op_cd_cpy;
             polys.mem_sel_op_cmov[i] = rows[i].mem_sel_op_cmov;
             polys.mem_sel_op_d[i] = rows[i].mem_sel_op_d;
             polys.mem_sel_resolve_ind_addr_a[i] = rows[i].mem_sel_resolve_ind_addr_a;
@@ -762,8 +762,8 @@ class AvmCircuitBuilder {
             polys.slice_clk[i] = rows[i].slice_clk;
             polys.slice_cnt[i] = rows[i].slice_cnt;
             polys.slice_one_min_inv[i] = rows[i].slice_one_min_inv;
-            polys.slice_sel_cd[i] = rows[i].slice_sel_cd;
-            polys.slice_sel_start_cd[i] = rows[i].slice_sel_start_cd;
+            polys.slice_sel_cd_cpy[i] = rows[i].slice_sel_cd_cpy;
+            polys.slice_sel_start_cd_cpy[i] = rows[i].slice_sel_start_cd_cpy;
             polys.slice_space_id[i] = rows[i].slice_space_id;
             polys.slice_val[i] = rows[i].slice_val;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;

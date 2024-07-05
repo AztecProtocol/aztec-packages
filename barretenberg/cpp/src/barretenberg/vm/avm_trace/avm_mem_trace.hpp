@@ -43,7 +43,7 @@ class AvmMemTraceBuilder {
         bool m_sel_mov_ib_to_ic = false;
         bool m_sel_cmov = false;
         bool m_tag_err_count_relevant = false;
-        bool m_sel_op_cd = false;
+        bool m_sel_op_cd_cpy = false;
 
         /**
          * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm. We sort first by
@@ -111,7 +111,7 @@ class AvmMemTraceBuilder {
                              AvmMemoryTag r_in_tag,
                              AvmMemoryTag w_in_tag,
                              bool m_rw,
-                             bool sel_op_cd = false);
+                             bool m_sel_op_cd_cpy = false);
 
     void load_mismatch_tag_in_mem_trace(uint8_t space_id,
                                         uint32_t m_clk,
@@ -136,5 +136,6 @@ class AvmMemTraceBuilder {
                             FF const& val,
                             AvmMemoryTag r_in_tag,
                             AvmMemoryTag w_in_tag);
+    void write_in_simulated_mem_table(uint8_t space_id, uint32_t addr, FF const& val, AvmMemoryTag w_in_tag);
 };
 } // namespace bb::avm_trace

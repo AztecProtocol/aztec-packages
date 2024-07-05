@@ -23,7 +23,7 @@ class perm_cd_mem_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.slice_sel_cd == 1 || in.mem_sel_op_cd == 1);
+        return (in.slice_sel_cd_cpy == 1 || in.mem_sel_op_cd_cpy == 1);
     }
 
     /**
@@ -47,9 +47,9 @@ class perm_cd_mem_permutation_settings {
     {
 
         return std::forward_as_tuple(in.perm_cd_mem,
-                                     in.slice_sel_cd,
-                                     in.slice_sel_cd,
-                                     in.mem_sel_op_cd,
+                                     in.slice_sel_cd_cpy,
+                                     in.slice_sel_cd_cpy,
+                                     in.mem_sel_op_cd_cpy,
                                      in.slice_clk,
                                      in.slice_space_id,
                                      in.slice_addr,
@@ -81,9 +81,9 @@ class perm_cd_mem_permutation_settings {
     {
 
         return std::forward_as_tuple(in.perm_cd_mem,
-                                     in.slice_sel_cd,
-                                     in.slice_sel_cd,
-                                     in.mem_sel_op_cd,
+                                     in.slice_sel_cd_cpy,
+                                     in.slice_sel_cd_cpy,
+                                     in.mem_sel_op_cd_cpy,
                                      in.slice_clk,
                                      in.slice_space_id,
                                      in.slice_addr,

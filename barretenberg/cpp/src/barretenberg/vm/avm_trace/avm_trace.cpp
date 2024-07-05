@@ -1676,7 +1676,7 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect, uint32_t cd_offset, uin
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = direct_dst_offset,
         .main_pc = pc++,
-        .main_sel_calldata_gadget = static_cast<uint32_t>(tag_match),
+        .main_sel_cd_cpy_gadget = static_cast<uint32_t>(tag_match),
         .main_sel_op_calldata_copy = 1,
         .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_flag),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
@@ -3870,12 +3870,12 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         dest.mem_sel_mov_ia_to_ic = FF(static_cast<uint32_t>(src.m_sel_mov_ia_to_ic));
         dest.mem_sel_mov_ib_to_ic = FF(static_cast<uint32_t>(src.m_sel_mov_ib_to_ic));
         dest.mem_sel_op_cmov = FF(static_cast<uint32_t>(src.m_sel_cmov));
-        dest.mem_sel_op_cd = FF(static_cast<uint32_t>(src.m_sel_op_cd));
+        dest.mem_sel_op_cd_cpy = FF(static_cast<uint32_t>(src.m_sel_op_cd_cpy));
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
 
         // Calldatacopy memory operations are handled differently and are activated by m_sel_op_cd.
-        if (!src.m_sel_op_cd) {
+        if (!src.m_sel_op_cd_cpy) {
             switch (src.m_sub_clk) {
             case AvmMemTraceBuilder::SUB_CLK_LOAD_A:
             case AvmMemTraceBuilder::SUB_CLK_STORE_A:
@@ -4604,9 +4604,10 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             std::get<KERNEL_OUTPUTS_METADATA>(kernel_trace_builder.public_inputs).at(i);
     }
 
-    // calldata column inclusion
+    // calldata column inclusion and selector
     for (size_t i = 0; i < calldata.size(); i++) {
         main_trace.at(i).main_calldata = calldata.at(i);
+        main_trace.at(i).main_sel_calldata = 1;
     }
 
     // calldata loookup counts for calldatacopy operations

@@ -193,8 +193,8 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_rwd",
              "main_sel_alu",
              "main_sel_bin",
-             "main_sel_calldata_gadget",
-             "main_sel_cd",
+             "main_sel_calldata",
+             "main_sel_cd_cpy_gadget",
              "main_sel_gas_accounting_active",
              "main_sel_last",
              "main_sel_mem_op_a",
@@ -285,7 +285,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "mem_sel_op_a",
              "mem_sel_op_b",
              "mem_sel_op_c",
-             "mem_sel_op_cd",
+             "mem_sel_op_cd_cpy",
              "mem_sel_op_cmov",
              "mem_sel_op_d",
              "mem_sel_resolve_ind_addr_a",
@@ -319,8 +319,8 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "slice_clk",
              "slice_cnt",
              "slice_one_min_inv",
-             "slice_sel_cd",
-             "slice_sel_start_cd",
+             "slice_sel_cd_cpy",
+             "slice_sel_start_cd_cpy",
              "slice_space_id",
              "slice_val",
              "perm_cd_mem",
@@ -601,8 +601,8 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_rwd)                                      //
               << "," << field_to_string(row.main_sel_alu)                                  //
               << "," << field_to_string(row.main_sel_bin)                                  //
-              << "," << field_to_string(row.main_sel_calldata_gadget)                      //
-              << "," << field_to_string(row.main_sel_cd)                                   //
+              << "," << field_to_string(row.main_sel_calldata)                             //
+              << "," << field_to_string(row.main_sel_cd_cpy_gadget)                        //
               << "," << field_to_string(row.main_sel_gas_accounting_active)                //
               << "," << field_to_string(row.main_sel_last)                                 //
               << "," << field_to_string(row.main_sel_mem_op_a)                             //
@@ -693,7 +693,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.mem_sel_op_a)                                  //
               << "," << field_to_string(row.mem_sel_op_b)                                  //
               << "," << field_to_string(row.mem_sel_op_c)                                  //
-              << "," << field_to_string(row.mem_sel_op_cd)                                 //
+              << "," << field_to_string(row.mem_sel_op_cd_cpy)                             //
               << "," << field_to_string(row.mem_sel_op_cmov)                               //
               << "," << field_to_string(row.mem_sel_op_d)                                  //
               << "," << field_to_string(row.mem_sel_resolve_ind_addr_a)                    //
@@ -727,8 +727,8 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.slice_clk)                                     //
               << "," << field_to_string(row.slice_cnt)                                     //
               << "," << field_to_string(row.slice_one_min_inv)                             //
-              << "," << field_to_string(row.slice_sel_cd)                                  //
-              << "," << field_to_string(row.slice_sel_start_cd)                            //
+              << "," << field_to_string(row.slice_sel_cd_cpy)                              //
+              << "," << field_to_string(row.slice_sel_start_cd_cpy)                        //
               << "," << field_to_string(row.slice_space_id)                                //
               << "," << field_to_string(row.slice_val)                                     //
               << "," << field_to_string(row.perm_cd_mem)                                   //
