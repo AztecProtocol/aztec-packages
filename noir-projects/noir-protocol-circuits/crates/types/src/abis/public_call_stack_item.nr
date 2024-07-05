@@ -3,6 +3,8 @@ use crate::address::AztecAddress;
 use crate::constants::GENERATOR_INDEX__CALL_STACK_ITEM;
 use crate::traits::Hash;
 
+// Dummy change
+
 struct PublicCallStackItem {
     contract_address: AztecAddress,
     public_inputs: PublicCircuitPublicInputs,
