@@ -17,3 +17,7 @@ variable "DOCKERHUB_ACCOUNT" {
 variable "DEPLOY_TAG" {
   type = string
 }
+
+variable "CHAIN_ID" {
+  type = string
+}

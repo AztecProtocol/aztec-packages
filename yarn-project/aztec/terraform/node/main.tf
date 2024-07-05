@@ -103,7 +103,6 @@ resource "aws_service_discovery_service" "aztec-node" {
 
 # Configure an EFS filesystem.
 resource "aws_efs_file_system" "node_data_store" {
-  count                           = local.node_count
   creation_token                  = "${var.DEPLOY_TAG}-node-${count.index + 1}-data"
   throughput_mode                 = "provisioned"
   provisioned_throughput_in_mibps = 20
@@ -119,14 +118,14 @@ resource "aws_efs_file_system" "node_data_store" {
 
 resource "aws_efs_mount_target" "public_az1" {
   count           = local.node_count
-  file_system_id  = aws_efs_file_system.node_data_store[count.index].id
+  file_system_id  = aws_efs_file_system.node_data_store.id
   subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az1_id
   security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_public_id]
 }
 
 resource "aws_efs_mount_target" "public_az2" {
   count           = local.node_count
-  file_system_id  = aws_efs_file_system.node_data_store[count.index].id
+  file_system_id  = aws_efs_file_system.node_data_store.id
   subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az2_id
   security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_public_id]
 }
@@ -145,7 +144,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
   volume {
     name = "efs-data-store"
     efs_volume_configuration {
-      file_system_id = aws_efs_file_system.node_data_store[count.index].id
+      file_system_id = aws_efs_file_system.node_data_store.id
     }
   }
 
@@ -254,7 +253,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
+        "value": "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}"
       },
       {
         "name": "P2P_TCP_LISTEN_ADDR",
@@ -382,7 +381,7 @@ resource "aws_alb_target_group" "aztec-node-http" {
   deregistration_delay = 5
 
   health_check {
-    path                = "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/status"
+    path                = "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}/status"
     matcher             = "200"
     interval            = 10
     healthy_threshold   = 2
@@ -407,7 +406,7 @@ resource "aws_lb_listener_rule" "api" {
 
   condition {
     path_pattern {
-      values = ["/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}*"]
+      values = ["/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}*"]
     }
   }
 }

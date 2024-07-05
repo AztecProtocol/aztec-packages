@@ -117,7 +117,7 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
 [
   {
     "name": "${var.DEPLOY_TAG}-mainnet-fork",
-    "image": "${var.DOCKERHUB_ACCOUNT}/mainnet-fork:aztec-dev",
+    "image": "${var.DOCKERHUB_ACCOUNT}/mainnet-fork:${var.DEPLOY_TAG}",
     "essential": true,
     "environment": [
       {
@@ -134,7 +134,7 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
       },
       {
         "name": "CHAIN_ID",
-        "value": "31337"
+        "value": "${var.CHAIN_ID}"
       },
       {
         "name": "SNAPSHOT_FREQUENCY",
