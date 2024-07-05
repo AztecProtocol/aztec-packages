@@ -230,7 +230,8 @@ export class TubeInputs {
     public clientIVCData: ClientIvcProof,
     // TODO(ISSUE HERE) fake public inputs
     public requestedNumFakePublicInputs: number,
-  ) {}
+  ) {
+  }
 
   static from(fields: FieldsOf<TubeInputs>): TubeInputs {
     return new TubeInputs(...TubeInputs.getFields(fields));

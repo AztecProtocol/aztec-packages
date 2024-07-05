@@ -221,7 +221,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
     // TODO(ISSUE HERE): We should properly enqueue this in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof, kernelRequest.inputs.previousKernel.vk.numPublicInputs));
+      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof, kernelRequest.inputs.previousKernel.clientIvcProof.numPublicInputs));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }

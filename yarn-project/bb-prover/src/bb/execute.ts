@@ -303,7 +303,6 @@ export async function computeVerificationKey(
       return {
         status: BB_RESULT.SUCCESS,
         durationMs: duration,
-        proofPath: `${outputPath}`,
         pkPath: undefined,
         vkPath: `${outputPath}`,
       };
