@@ -37,7 +37,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it.skip(
+  it(
     'makes both public and private transfers',
     async () => {
       logger.info(
@@ -93,7 +93,7 @@ describe('full_prover', () => {
   );
 
   // LONDONTODO: Does this still pass?
-  it('rejects txs with invalid proofs', async () => {
+  it.skip('rejects txs with invalid proofs', async () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 

@@ -58,7 +58,7 @@ struct BaseRollupInputs {
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
         // // Recursively verify the tube proof if straight from private, or the public kernel tail
-        self.kernel_data.verify()
+        self.kernel_data.verify();
 
         // Verify the kernel chain_id and versions
         assert(

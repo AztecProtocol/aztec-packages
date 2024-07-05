@@ -527,8 +527,7 @@ void prove_tube(const std::string& output_path)
     auto builder = std::make_shared<Builder>();
     // Padding needed for sending the right number of public inputs
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
-    // public inputs
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): we should turn proof into witnesses and call
+    // these public inputs by turning proof into witnesses and call
     // set_public on each witness
     auto num_public_inputs = (size_t)proof.folding_proof[1];
     for (size_t i = 0; i < num_public_inputs; i++) {
