@@ -140,21 +140,17 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         format!("{}, {}>", return_type_hint, arg_types)
     };
 
-    let args_hash = if !parameters.is_empty() {
-        format!(
-            "let mut args_acc: [Field] = &[];
-                {}
-                let args_hash = aztec::hash::hash_args(args_acc);
-                assert(args_hash == aztec::oracle::arguments::pack_arguments(args_acc));",
-            call_args
-        )
-    } else {
-        "
-            let mut args_acc: [Field] = &[];
-            let args_hash = 0;
-            "
-        .to_string()
-    };
+    let args = format!(
+        "let mut args_acc: [Field] = &[];
+        {}
+        {}",
+        call_args,
+        if aztec_visibility == "Private" {
+            "let args_hash = aztec::hash::hash_args(args_acc);"
+        } else {
+            ""
+        }
+    );
 
     let gas_opts = if aztec_visibility == "Public" {
         "gas_opts: dep::aztec::context::gas::GasOpts::default()"
@@ -169,18 +165,19 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 target_contract: self.target_contract,
                 selector,
                 name: \"{}\",
-                args_hash,
+                {}
                 args: args_acc,
                 original: {},
                 is_static: {},
                 {}
             }}",
-        args_hash,
+        args,
         fn_selector,
         aztec_visibility,
         is_static,
         is_void,
         fn_name,
+        if aztec_visibility == "Private" { "args_hash," } else { "" },
         original,
         is_static_call,
         gas_opts
