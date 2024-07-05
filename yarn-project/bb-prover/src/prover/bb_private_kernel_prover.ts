@@ -2,7 +2,6 @@ import { type AppCircuitSimulateOutput, type PrivateKernelSimulateOutput, type P
 import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   Fr,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -12,7 +11,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
   RecursiveProof,
-  VerificationKeyAsFields,
+  type VerificationKeyAsFields,
   type VerificationKeyData,
   ClientIvcProof,
 } from '@aztec/circuits.js';
@@ -58,7 +57,7 @@ import { extractVkData } from '../verification_key/verification_key_data.js';
 /**
  * This proof creator implementation uses the native bb binary.
  * This is a temporary implementation until we make the WASM version work.
- * TODO(ISSUE PENDING): this class grew 'organically' aka it could use a look at its resposibilities
+ * TODO(#7368): this class grew 'organically' aka it could use a look at its resposibilities
  */
 export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private simulator = new WASMSimulator();
@@ -79,7 +78,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     acirs: Buffer[],
     witnessStack: WitnessMap[],
   ): Promise<ClientIvcProof> {
-    // LONDONTODO(CLIENT IVC): Longer term we won't use this hacked together msgpack format
+    // TODO(#7371): Longer term we won't use this hacked together msgpack format
     // and instead properly create the bincode serialization from rust
     await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
     await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
@@ -103,7 +102,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       eventName: 'circuit-proving',
     });
 
-    return proof; // LONDONTODO(CLIENT IVC): What is this vk now?
+    return proof;
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {

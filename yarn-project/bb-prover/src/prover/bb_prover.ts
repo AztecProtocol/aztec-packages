@@ -34,7 +34,6 @@ import {
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
-  PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -65,7 +64,6 @@ import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 
 import {
   type BBSuccess,
@@ -187,8 +185,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
     const proofAndVk = await this.createAvmProof(inputs);
-    // LONDONTODO(AVM): reinstate AVM proof verification here
-    // await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
     return proofAndVk;
   }
 
@@ -218,8 +215,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving but it is not
-    console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
-    // TODO(ISSUE HERE): We should properly enqueue this in the public kernel lifetime
+    // TODO(#7369): We should properly enqueue the tube in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
       const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
@@ -556,41 +552,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
-  // async checkResultCache(hash: string) {
-  //   try {
-  //     await fs.mkdir("~/.aztec/cache", { recursive: true });
-  //     await fs.access(path.join("~/.aztec/cache", hash));
-  //     // fs.copyFile
-  //     console.log('Cache entry exists');
-  //   } catch (error) {
-  //     console.log('Cache entry does not exist');
-  //   }
-  // }
-
-  private async generateTubeProofWithBB(input: TubeInputs): Promise<BBSuccess> {
+  private async generateTubeProofWithBB(bbWorkingDirectory: string, input: TubeInputs): Promise<BBSuccess> {
     logger.debug(`Proving tube...`);
 
     const hasher = crypto.createHash("sha256");
     hasher.update(input.toBuffer());
-    const hash = hasher.digest("hex");
 
-    const tubeResultPath = path.join(os.homedir(), '.aztec', 'cache', hash);
-    try {
-      await fs.access(path.join(tubeResultPath, 'success.txt'));
-      return { status: BB_RESULT.SUCCESS, durationMs: 0, proofPath: tubeResultPath, vkPath: tubeResultPath };
-    } catch {
-      await fs.mkdir(tubeResultPath, { recursive: true });
+    await input.clientIVCData.writeToOutputDirectory(bbWorkingDirectory);
+    const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose)
 
-      await input.clientIVCData.writeToOutputDirectory(tubeResultPath);
-      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose)
-
-      await fs.writeFile(path.join(tubeResultPath, 'success.txt'), 'success');
-      if (provingResult.status === BB_RESULT.FAILURE) {
-        logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
-        throw new Error(provingResult.reason);
-      }
-      return provingResult;
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
+      throw new Error(provingResult.reason);
     }
+    return provingResult;
   }
 
   private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
@@ -640,7 +615,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
-      const provingResult = await this.generateTubeProofWithBB(input);
+      const provingResult = await this.generateTubeProofWithBB(bbWorkingDirectory, input);
 
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
@@ -648,7 +623,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Sanity check the tube proof (can be removed later)
       await this.verifyWithKey(tubeVK, tubeProof.binaryProof);
 
-      // TODO(ISSUE PENDING): properly time tube construction
+      // TODO(#7369): properly time tube construction
       logger.info(
         `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
           tubeProof.proof.length
@@ -832,7 +807,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         encoding: 'utf-8',
       });
       const json = JSON.parse(proofString);
-      // LONDONTODO revert this to master
       const fields = json
         .slice(0, 3)
         .map(Fr.fromString)
@@ -945,6 +919,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param filePath - The directory containing the proof data
    * @param circuitType - The type of circuit proven
    * @returns The proof
+   * TODO(#7369) This is entirely redundant now with the above method, deduplicate
    */
   private async readTubeProofAsFields<PROOF_LENGTH extends number>(
     filePath: string,
@@ -966,7 +941,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       throw new Error(`Tube proof should have public inputs (e.g. the number of public inputs from PrivateKernelTail)`);
     }
 
-    // TODO(ISSUE PENDING) is lobbing off these public inputs the right thing to do?
     const proofFields = json
       .slice(0, 3)
       .map(Fr.fromString)

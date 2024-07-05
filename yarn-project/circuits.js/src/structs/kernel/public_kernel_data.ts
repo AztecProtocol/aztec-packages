@@ -34,7 +34,10 @@ export class PublicKernelData {
      * Sibling path of the previous kernel's vk in a tree of vks.
      */
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
-    // LONDONTODO(CLIENT IVC) better model
+
+    /**
+     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/7369) this should be tube-proved for the first iteration and replace proof above
+     */
     public clientIvcProof: ClientIvcProof = ClientIvcProof.empty(),
   ) {}
 

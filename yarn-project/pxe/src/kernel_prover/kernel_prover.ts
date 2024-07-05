@@ -61,6 +61,7 @@ export class KernelProver {
    * @param txRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
+   * TODO(#7368) this should be refactored to not recreate the ACIR bytecode now that it operates on a program stack
    */
   async prove(
     txRequest: TxRequest,
@@ -81,7 +82,7 @@ export class KernelProver {
       if (!firstIteration && this.needsReset(executionStack, output)) {
         const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
         output = await this.proofCreator.simulateProofReset(resetInputs);
-        // LONDONTODO(CLIENT IVC) consider refactoring this
+        // TODO(#7368) consider refactoring this redundant bytecode pushing
         acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       }
@@ -102,8 +103,8 @@ export class KernelProver {
         currentExecution.acir,
         functionName,
       );
-      // TODO(ISSUE PENDING): This used to be associated with getDebugFunctionName
-      // TODO(ISSUE PENDING): Is there any way to use this with client IVC proving?
+      // TODO(#7368): This used to be associated with getDebugFunctionName
+      // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
       witnessStack.push(currentExecution.partialWitness);
 
@@ -148,7 +149,7 @@ export class KernelProver {
     if (this.somethingToReset(output)) {
       const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
       output = await this.proofCreator.simulateProofReset(resetInputs);
-      // LONDONTODO(ClIENT IVC) consider refactoring this
+      // TODO(#7368) consider refactoring this redundant bytecode pushing
       acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
       witnessStack.push(output.outputWitness);
     }
@@ -171,7 +172,7 @@ export class KernelProver {
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
-    // TODO(ISSUE PENDING) how do we 'bincode' encode these inputs?
+    // TODO(#7368) how do we 'bincode' encode these inputs?
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;

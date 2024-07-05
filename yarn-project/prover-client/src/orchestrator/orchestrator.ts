@@ -559,8 +559,8 @@ export class ProvingOrchestrator {
       return;
     }
 
-    // TODO(ISSUE HERE): make this tube proof actually use public inputs
-    const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof, tx.clientIvcProof.numPublicInputs))
+    // TODO(#7372): make sure that if we did a public kernel that we use that proof and not the tube proof
+    const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof))
     const inputs = await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {

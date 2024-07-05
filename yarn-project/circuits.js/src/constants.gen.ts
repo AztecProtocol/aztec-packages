@@ -164,7 +164,7 @@ export const L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP = 256;
 export const LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
 export const NUM_MSGS_PER_BASE_PARITY = 4;
 export const NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-// LONDONTODO(AGGREGATION)
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1044) aggregation reinstate
 export const RECURSIVE_PROOF_LENGTH = 393;
 export const NESTED_RECURSIVE_PROOF_LENGTH = 393;
 export const TUBE_PROOF_LENGTH = 393;

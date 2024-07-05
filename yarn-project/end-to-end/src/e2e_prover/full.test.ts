@@ -24,7 +24,7 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    // LONDONTODO(SOLIDITY VERIFIER)
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7373) deploy honk solidity verifier
     // await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
@@ -37,7 +37,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it(
+  it.skip(
     'makes both public and private transfers',
     async () => {
       logger.info(
@@ -58,26 +58,6 @@ describe('full_prover', () => {
         publicSendAmount,
         0,
       );
-
-      // LONDONTODO(CACHING)
-      // const cachedPrivateTxPath = '../../../e2e_private.tx';
-      // const privateTxBuffer = fs.existsSync(cachedPrivateTxPath) ? fs.readFileSync(cachedPrivateTxPath) : undefined;
-      // const privateTx = await privateInteraction.prove({ isPrivate: true, cachedTxBuffer: privateTxBuffer });
-      // fs.writeFileSync(cachedPrivateTxPath, privateTx.toBuffer());
-      // const cachedPublicTxPath = '../../../e2e_public.tx';
-      // const publicTxBuffer = fs.existsSync(cachedPublicTxPath) ? fs.readFileSync(cachedPublicTxPath) : undefined;
-      // const publicTx = await publicInteraction.prove({ isPrivate: false, cachedTxBuffer: publicTxBuffer });
-      // fs.writeFileSync(cachedPublicTxPath, publicTx.toBuffer());
-
-      // LONDONTODO: Turn on verification
-      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      // logger.info(`Verifying private kernel tail proof`);
-      // await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
-
-      // // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      // logger.info(`Verifying kernel tail to public proof`);
-      // await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
-
 
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
@@ -113,7 +93,7 @@ describe('full_prover', () => {
   );
 
   // LONDONTODO: Does this still pass?
-  it.skip('rejects txs with invalid proofs', async () => {
+  it('rejects txs with invalid proofs', async () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 

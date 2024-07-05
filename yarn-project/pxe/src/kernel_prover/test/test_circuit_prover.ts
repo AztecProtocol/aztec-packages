@@ -111,7 +111,6 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
       verificationKey: VerificationKeyAsFields.makeEmpty(),
-      // LONDONTODO reconsider jamming this everywhere
       outputWitness: new Map()
     };
     return kernelProofOutput;

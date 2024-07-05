@@ -1,4 +1,4 @@
-import { Note, type PrivateKernelProver } from '@aztec/circuit-types';
+import { Note } from '@aztec/circuit-types';
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 // import { createConsoleLogger } from '@aztec/foundation/log';
 // import { createDebugLogger } from '@aztec/foundation/log';
@@ -6,22 +6,14 @@ import {
   FunctionData,
   FunctionSelector,
   MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_TX,
   MembershipWitness,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
-  RECURSIVE_PROOF_LENGTH,
-  ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  VerificationKeyAsFields,
-  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { NoteSelector } from '@aztec/foundation/abi';
@@ -35,7 +27,7 @@ import { mock } from 'jest-mock-extended';
 import { KernelProver } from './kernel_prover.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
-// LONDONTODO(KERNEL PROVER TETSTS): Probably completely rever this? I think this was an attempt to make a smaller test of the kernel. Turned out to not be possible, but perhaps it is possible now using the TXE?
+// TODO(#7374) should we revive this?
 
 describe('Kernel Prover Native', () => {
   let txRequest: TxRequest;
@@ -72,7 +64,7 @@ describe('Kernel Prover Native', () => {
     functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
       callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
-      nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)), // LONDONTODO(Client): recursive call
+      nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
       nullifiedNoteHashCounters: new Map(),

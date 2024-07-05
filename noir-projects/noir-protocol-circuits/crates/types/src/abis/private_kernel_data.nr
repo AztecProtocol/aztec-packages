@@ -3,13 +3,8 @@ use crate::constants::VK_TREE_HEIGHT;
 use crate::abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs;
 
 struct PrivateKernelData {
-    // TODO(David): Left a note asking if we need this due to it
-    // already being in the proof.
     public_inputs: PrivateKernelCircuitPublicInputs,
 
-    // TODO(ISSUE PENDING - public inputs) previous private kernels no longer come with their proof
-    // as we do client IVC not recursive verification. We need to ensure the public inputs here is properly constrained.
-    // TODO(ISSUE PENDING) we need to cleanup these members now that there is no recursive verification. Need to update serialization code.
     vk: VerificationKey,
 
     // TODO(Mike): left a note saying : this index and path are meant to be those of a leaf within the tree of _kernel circuit_ vks; not the tree

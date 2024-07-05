@@ -162,7 +162,6 @@ export function makeProcessedTx(
   return {
     hash: tx.getTxHash(),
     data: kernelOutput,
-    // LONDONTODO(AD) deal with this client proof
     clientIvcProof: tx.clientIvcProof,
     // TODO(4712): deal with non-revertible logs here
     noteEncryptedLogs: tx.noteEncryptedLogs,
@@ -186,7 +185,6 @@ export type PaddingProcessedTxFromTube = ProcessedTx & {
   recursiveProof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
 };
 
-// LONDONTODO: double check that this is still in use
 /**
  * Makes a padding empty tx with a valid proof.
  * @returns A valid padding processed tx.

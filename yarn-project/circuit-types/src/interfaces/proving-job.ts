@@ -130,7 +130,7 @@ export type ProvingRequestPublicInputs = {
 
   [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  // TODO(ISSUE PENDING) clean this up with proper tube proof integration
+  // TODO(#7369) properly structure tube proof flow
   [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<393>; }
 };
 

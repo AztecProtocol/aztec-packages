@@ -25,7 +25,7 @@ export class Tx {
     public readonly data: PrivateKernelTailCircuitPublicInputs,
     /**
      * Proof from the private kernel circuit.
-     * TODO(ISSUE HERE): Temporarily adding a ClientIVC proof member to avoid refactoring the proof object.
+     * TODO(#7368): This client IVC object currently contains various VKs that will eventually be more like static data.
      *
      */
     public readonly clientIvcProof: ClientIvcProof,

@@ -187,7 +187,7 @@ export async function generateKeyForNoirCircuit(
   return res;
 }
 
-// LONDONTODO(CLIENT IVC) comment this etc (really just take inspiration from this and rewrite it all O:))
+// TODO(#7369) comment this etc (really just take inspiration from this and rewrite it all O:))
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,

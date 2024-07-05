@@ -23,20 +23,15 @@ export type PrivateKernelSimulateOutput<PublicInputsType> = {
    */
   publicInputs: PublicInputsType;
 
-  // TODO we want ACIR bytecode to be output here
-  // LONDONTODO(KERNEL PROVING): this is not used for public kernel stack
   clientIvcProof?: ClientIvcProof;
 
   verificationKey: VerificationKeyAsFields;
 
-  // LONDONTODO(AD): should this exist in the future?
   outputWitness: WitnessMap
 };
 
 /**
  * Represents the output of the circuit simulation process for init and inner private kernel circuit.
- * LONDONTODO do they?
- * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
  */
 export type AppCircuitSimulateOutput = {
   verificationKey: VerificationKeyAsFields;

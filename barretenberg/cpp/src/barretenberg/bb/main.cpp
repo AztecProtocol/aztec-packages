@@ -249,7 +249,7 @@ struct VectorOfAcirAndWitnesses {
     std::vector<std::map<uint8_t, std::string>> witnessMaps;
 };
 
-// LONDONTODO(AD): this could probably be more idiomatic
+// TODO(#7371): this could probably be more idiomatic
 template <typename T> T unpack_from_file(const std::string& filename)
 {
     std::ifstream fin;
@@ -271,7 +271,7 @@ template <typename T> T unpack_from_file(const std::string& filename)
     return result;
 }
 
-// LONDONTODO find a home for this
+// TODO(#7371) find a home for this
 acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
     acir_format::WitnessVector wv;
@@ -334,14 +334,14 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
     std::vector<Program> folding_stack;
     for (size_t i = 0; i < gzippedBincodes.size(); i++) {
-        // LONDONTODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
+        // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
         // the future
         std::vector<uint8_t> buffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
         std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
             buffer,
-            false); // LONDONTODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                     // this assumes that folding is never done with ultrahonk.
         std::vector<uint8_t> witnessBuffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
@@ -349,7 +349,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
         folding_stack.push_back(program_stack.back());
     }
-    // LONDONTODO(AD) dedupe this with the rest of the similar code
+    // TODO(#7371) dedupe this with the rest of the similar code
     ClientIVC ivc;
     ivc.structured_flag = true;
     // Accumulate the entire program stack into the IVC
@@ -375,7 +375,6 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
-    // LONDONTODO(AD): this can eventually be dropped
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
@@ -527,7 +526,10 @@ void prove_tube(const std::string& output_path)
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
     // Padding needed for sending the right number of public inputs
-    // TODO(ISSUE PENDING) we should turn proof into witnesses and call set_public on each witness
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
+    // public inputs
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): we should turn proof into witnesses and call
+    // set_public on each witness
     auto num_public_inputs = (size_t)proof.folding_proof[1];
     for (size_t i = 0; i < num_public_inputs; i++) {
         // We offset 3
@@ -1262,10 +1264,8 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
-        // LONDONTOD(AD): We will eventually want to get rid of this version when we correctly
-        // create the bincode that client_ivc_prove_output_all expects
-        // LONDONTODO we need a verify_client_ivc bb cli command
-        // LONDONTODO talk to Maxim about getting rid of the msgpack endpoint
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a verify_client_ivc bb cli command
+        // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_path);
