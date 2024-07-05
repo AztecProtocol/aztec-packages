@@ -405,7 +405,16 @@ impl PrivateContext {
             caller_context.storage_contract_address = self.inputs.call_context.storage_contract_address;
         }
         self.private_call_requests.push(
-            PrivateCallRequest { hash: item.hash(), caller_context, start_side_effect_counter, end_side_effect_counter }
+            PrivateCallRequest {
+            target: item.contract_address,
+            call_context: item.public_inputs.call_context,
+            function_data: item.function_data,
+            args_hash: item.public_inputs.args_hash,
+            returns_hash: item.public_inputs.returns_hash,
+            caller_context,
+            start_side_effect_counter,
+            end_side_effect_counter
+        }
         );
 
         PackedReturns::new(item.public_inputs.returns_hash)
@@ -497,7 +506,7 @@ impl PrivateContext {
         );
 
         self.side_effect_counter = self.side_effect_counter + 1;
-        self.public_call_stack_hashes.push(item.hash());
+        self.public_call_stack_hashes.push(item.get_compressed().hash());
     }
 
     pub fn set_public_teardown_function<ARGS_COUNT>(
@@ -540,7 +549,7 @@ impl PrivateContext {
         );
 
         self.side_effect_counter = self.side_effect_counter + 1;
-        self.public_teardown_function_hash = item.hash();
+        self.public_teardown_function_hash = item.get_compressed().hash();
     }
 
     fn validate_call_stack_item_from_oracle(
