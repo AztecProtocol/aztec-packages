@@ -108,7 +108,7 @@ jobs:
 
       - name: Deploy mainnet fork
         if: needs.build.outputs.mainnet_fork_changed == 'true'
-        working-directory: ./iac/mainnet-fork
+        working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
           terraform apply -input=false -auto-approve

@@ -19,7 +19,7 @@ build:
     # Expose port 80
     EXPOSE 80
 
-    # Set entrypoint
+    # Set entrypoint.
     ENTRYPOINT ["sh", "-c", "./scripts/run_nginx_anvil.sh"]
 
 export-mainnet-fork:
