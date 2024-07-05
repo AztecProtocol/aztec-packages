@@ -66,7 +66,7 @@ export interface ServerCircuitProver {
   getTubeProof(
     tubeInput: TubeInputs,
     signal?: AbortSignal,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }>
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>
 
   /**
    * Creates a proof for the given input.

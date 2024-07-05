@@ -287,56 +287,58 @@ export class FullProverTest {
     );
   }
 
-  async deployVerifier() {
+  deployVerifier() {
     if (!this.circuitProofVerifier) {
       throw new Error('No verifier');
     }
 
-    const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
+    // TODO(#7373): Deploy honk solidity verifier
+    return Promise.resolve();
+    // const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
 
-    const contract = await this.circuitProofVerifier.generateSolidityContract(
-      'RootRollupArtifact',
-      'UltraVerifier.sol',
-    );
+    // const contract = await this.circuitProofVerifier.generateSolidityContract(
+    //   'RootRollupArtifact',
+    //   'UltraVerifier.sol',
+    // );
 
-    const input = {
-      language: 'Solidity',
-      sources: {
-        'UltraVerifier.sol': {
-          content: contract,
-        },
-      },
-      settings: {
-        // we require the optimizer
-        optimizer: {
-          enabled: true,
-          runs: 200,
-        },
-        evmVersion: 'paris',
-        outputSelection: {
-          '*': {
-            '*': ['evm.bytecode.object', 'abi'],
-          },
-        },
-      },
-    };
+    // const input = {
+    //   language: 'Solidity',
+    //   sources: {
+    //     'UltraVerifier.sol': {
+    //       content: contract,
+    //     },
+    //   },
+    //   settings: {
+    //     // we require the optimizer
+    //     optimizer: {
+    //       enabled: true,
+    //       runs: 200,
+    //     },
+    //     evmVersion: 'paris',
+    //     outputSelection: {
+    //       '*': {
+    //         '*': ['evm.bytecode.object', 'abi'],
+    //       },
+    //     },
+    //   },
+    // };
 
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
+    // const output = JSON.parse(solc.compile(JSON.stringify(input)));
 
-    const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
-    const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
+    // const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
+    // const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
 
-    const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+    // const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
 
-    this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
+    // this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
 
-    const rollup = getContract({
-      abi: RollupAbi,
-      address: l1ContractAddresses.rollupAddress.toString(),
-      client: walletClient,
-    });
+    // const rollup = getContract({
+    //   abi: RollupAbi,
+    //   address: l1ContractAddresses.rollupAddress.toString(),
+    //   client: walletClient,
+    // });
 
-    await rollup.write.setVerifier([verifierAddress.toString()]);
-    this.logger.info('Rollup only accepts valid proofs now');
+    // await rollup.write.setVerifier([verifierAddress.toString()]);
+    // this.logger.info('Rollup only accepts valid proofs now');
   }
 }

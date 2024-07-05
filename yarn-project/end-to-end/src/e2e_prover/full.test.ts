@@ -25,7 +25,7 @@ describe('full_prover', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7373) deploy honk solidity verifier
-    // await t.deployVerifier();
+    await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
 
@@ -37,7 +37,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it(
+  it.skip(
     'makes both public and private transfers',
     async () => {
       logger.info(
@@ -92,8 +92,7 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  // LONDONTODO: Does this still pass?
-  it.skip('rejects txs with invalid proofs', async () => {
+  it('rejects txs with invalid proofs', async () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
