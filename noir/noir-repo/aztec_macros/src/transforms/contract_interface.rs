@@ -35,7 +35,15 @@ use crate::utils::{
 //   PublicCallInterface {
 //     target_contract: self.target_contract,
 //     selector: FunctionSelector::from_signature("SELECTOR_PLACEHOLDER"),
-//     args_hash
+//     args_hash,
+//     name: "a_function",
+//     args_hash,
+//     args: args_acc,
+//     original: | inputs: dep::aztec::context::inputs::PublicContextInputs | -> Field {
+//         a_function(inputs, first_arg, second_arg, third_arg)
+//     },
+//     is_static: false,
+//     gas_opts: dep::aztec::context::gas::GasOpts::default()
 //   }
 // }
 //
@@ -132,25 +140,30 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         format!("{}, {}>", return_type_hint, arg_types)
     };
 
-    let fn_body = if aztec_visibility != "Public" {
-        let args_hash = if !parameters.is_empty() {
-            format!(
-                "let mut args_acc: [Field] = &[];
+    let args_hash = if !parameters.is_empty() {
+        format!(
+            "let mut args_acc: [Field] = &[];
                 {}
                 let args_hash = aztec::hash::hash_args(args_acc);
                 assert(args_hash == aztec::oracle::arguments::pack_arguments(args_acc));",
-                call_args
-            )
-        } else {
-            "
+            call_args
+        )
+    } else {
+        "
             let mut args_acc: [Field] = &[];
             let args_hash = 0;
             "
-            .to_string()
-        };
+        .to_string()
+    };
 
-        format!(
-            "{}
+    let gas_opts = if aztec_visibility == "Public" {
+        "gas_opts: dep::aztec::context::gas::GasOpts::default()"
+    } else {
+        ""
+    };
+
+    let fn_body = format!(
+        "{}
             let selector = {};
             dep::aztec::context::{}{}{}CallInterface {{
                 target_contract: self.target_contract,
@@ -159,46 +172,19 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 args_hash,
                 args: args_acc,
                 original: {},
-                is_static: {}
+                is_static: {},
+                {}
             }}",
-            args_hash,
-            fn_selector,
-            aztec_visibility,
-            is_static,
-            is_void,
-            fn_name,
-            original,
-            is_static_call
-        )
-    } else {
-        let args = format!(
-            "let mut args_acc: [Field] = &[];
-            {}
-            ",
-            call_args
-        );
-        format!(
-            "{}
-            let selector = {};
-            dep::aztec::context::{}{}{}CallInterface {{
-                target_contract: self.target_contract,
-                selector,
-                name: \"{}\",
-                args: args_acc,
-                gas_opts: dep::aztec::context::gas::GasOpts::default(),
-                original: {},
-                is_static: {}
-            }}",
-            args,
-            fn_selector,
-            aztec_visibility,
-            is_static,
-            is_void,
-            fn_name,
-            original,
-            is_static_call
-        )
-    };
+        args_hash,
+        fn_selector,
+        aztec_visibility,
+        is_static,
+        is_void,
+        fn_name,
+        original,
+        is_static_call,
+        gas_opts
+    );
 
     format!(
         "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface<{},{} {{
