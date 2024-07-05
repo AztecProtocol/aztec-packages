@@ -13,7 +13,7 @@ import {
   PROVING_STATUS,
 } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress, type GlobalVariables, type Header, type Proof } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
