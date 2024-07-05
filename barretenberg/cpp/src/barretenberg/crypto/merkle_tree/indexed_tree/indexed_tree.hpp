@@ -58,9 +58,14 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
 
     void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion);
 
+    void find_leaf_index(const LeafValueType& leaf,
+                         bool includeUncommitted,
+                         const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
+
     using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
 
   private:
+    using AppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from;
     using typename AppendOnlyTree<Store, HashingPolicy>::AppendCompletionCallback;
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;
@@ -120,6 +125,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
 
     using AppendOnlyTree<Store, HashingPolicy>::add_value;
     using AppendOnlyTree<Store, HashingPolicy>::add_values;
+    using AppendOnlyTree<Store, HashingPolicy>::add_values_internal;
 
     using AppendOnlyTree<Store, HashingPolicy>::store_;
     using AppendOnlyTree<Store, HashingPolicy>::zero_hashes_;
@@ -179,7 +185,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
         success = result.success;
         signal.signal_level(0);
     };
-    AppendOnlyTree<Store, HashingPolicy>::add_values(appended_hashes, completion);
+    AppendOnlyTree<Store, HashingPolicy>::add_values_internal(appended_hashes, completion, false);
     signal.wait_for_level(0);
     if (!success) {
         throw std::runtime_error("Failed to initialise tree");
@@ -199,6 +205,27 @@ void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
                 response.inner.indexed_leaf = store_.get_leaf(index, *tx, includeUncommitted);
             },
             completion);
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void IndexedTree<Store, HashingPolicy>::find_leaf_index(
+    const LeafValueType& leaf,
+    bool includeUncommitted,
+    const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
+{
+    auto job = [=]() -> void {
+        ExecuteAndReport<FindLeafIndexResponse>(
+            [=](TypedResponse<FindLeafIndexResponse>& response) {
+                typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+                std::optional<index_t> leaf_index = store_.find_leaf_index(leaf, *tx, includeUncommitted);
+                response.success = leaf_index.has_value();
+                if (response.success) {
+                    response.inner.leaf_index = leaf_index.value();
+                }
+            },
+            on_completion);
     };
     workers_.enqueue(job);
 }
@@ -275,7 +302,8 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
                 on_error(results->status.message);
                 return;
             }
-            AppendOnlyTree<Store, HashingPolicy>::add_values((*results->hashes_to_append), final_completion);
+            AppendOnlyTree<Store, HashingPolicy>::add_values_internal(
+                (*results->hashes_to_append), final_completion, false);
         }
     };
 
@@ -293,7 +321,8 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
                     on_error(results->status.message);
                     return;
                 }
-                AppendOnlyTree<Store, HashingPolicy>::add_values((*results->hashes_to_append), final_completion);
+                AppendOnlyTree<Store, HashingPolicy>::add_values_internal(
+                    (*results->hashes_to_append), final_completion, false);
             }
         };
 
@@ -447,7 +476,8 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
                             IndexedLeafValueType(value_pair.first, current_leaf.nextIndex, current_leaf.nextValue);
                         store_.set_at_index(current, replacement_leaf, false);
                         IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
-                        store_.set_at_index(index_of_new_leaf, empty_leaf, true);
+                        // don't update the index for this empty leaf
+                        store_.set_at_index(index_of_new_leaf, empty_leaf, false);
                         // The set of appended leaves already has an empty leaf in the slot at index
                         // 'index_into_appended_leaves'
                     }
@@ -501,8 +531,7 @@ void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index
         if (level > 1) {
             // Level is > 1. Therefore we need to wait for our leader to have written to the level above meaning we can
             // read from it
-            uint32_t level_to_read = level - 1;
-            leader_level = level_to_read;
+            leader_level = level - 1;
             leader.wait_for_level(leader_level);
 
             // Now read the node and it's sibling

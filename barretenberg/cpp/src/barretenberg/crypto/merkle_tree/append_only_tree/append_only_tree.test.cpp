@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "gtest/gtest.h"
 #include <cstdint>
@@ -124,6 +125,42 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     };
 
     tree.add_values(values, completion);
+    signal.wait_for_level();
+}
+
+void check_find_leaf_index(
+    TreeType& tree, const fr& leaf, index_t expected_index, bool expected_success, bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_find_leaf_index_from(TreeType& tree,
+                                const fr& leaf,
+                                index_t start_index,
+                                index_t expected_index,
+                                bool expected_success,
+                                bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, start_index, includeUncommitted, completion);
     signal.wait_for_level();
 }
 
@@ -379,6 +416,92 @@ TEST_F(PersistedAppendOnlyTreeTest, test_size)
     // Add forth but with same value.
     add_value(tree, 40);
     check_size(tree, 4);
+}
+
+TEST_F(PersistedAppendOnlyTreeTest, test_find_leaf_index)
+{
+    constexpr size_t depth = 10;
+    std::string name = randomString();
+    LMDBStore db(*_environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+
+    add_value(tree, 30);
+    add_value(tree, 10);
+    add_value(tree, 20);
+    add_value(tree, 40);
+
+    // check the committed state and that the uncommitted state is empty
+    check_find_leaf_index(tree, 10, 1, true, true);
+    check_find_leaf_index(tree, 10, 0, false, false);
+
+    check_find_leaf_index(tree, 15, 0, false, true);
+    check_find_leaf_index(tree, 15, 0, false, false);
+
+    check_find_leaf_index(tree, 40, 3, true, true);
+    check_find_leaf_index(tree, 30, 0, true, true);
+    check_find_leaf_index(tree, 20, 2, true, true);
+
+    check_find_leaf_index(tree, 40, 0, false, false);
+    check_find_leaf_index(tree, 30, 0, false, false);
+    check_find_leaf_index(tree, 20, 0, false, false);
+
+    commit_tree(tree);
+
+    std::vector<fr> values{ 15, 18, 26, 2, 48 };
+    add_values(tree, values);
+
+    // check the now committed state
+    check_find_leaf_index(tree, 40, 3, true, false);
+    check_find_leaf_index(tree, 30, 0, true, false);
+    check_find_leaf_index(tree, 20, 2, true, false);
+
+    // check the new uncommitted state
+    check_find_leaf_index(tree, 18, 5, true, true);
+    check_find_leaf_index(tree, 18, 0, false, false);
+
+    commit_tree(tree);
+
+    values = { 16, 4, 18, 22, 101 };
+    add_values(tree, values);
+
+    // we now have duplicate leaf 18, one committed the other not
+    check_find_leaf_index(tree, 18, 5, true, true);
+    check_find_leaf_index(tree, 18, 5, true, false);
+
+    // verify the find index from api
+    check_find_leaf_index_from(tree, 18, 0, 5, true, true);
+    check_find_leaf_index_from(tree, 18, 6, 11, true, true);
+    check_find_leaf_index_from(tree, 18, 6, 0, false, false);
+
+    commit_tree(tree);
+
+    // add another leaf 18
+    add_value(tree, 18);
+
+    // should return the first index
+    check_find_leaf_index_from(tree, 18, 0, 5, true, false);
+    check_find_leaf_index_from(tree, 18, 0, 5, true, true);
+
+    add_value(tree, 88);
+    // and another uncommitted 18
+    add_value(tree, 18);
+
+    add_value(tree, 32);
+
+    // should return the first uncommitted
+    check_find_leaf_index_from(tree, 18, 12, 14, true, true);
+    check_find_leaf_index_from(tree, 18, 15, 16, true, true);
+
+    // look past the last instance of this leaf
+    check_find_leaf_index_from(tree, 18, 17, 0, false, true);
+
+    // look beyond the end of uncommitted
+    check_find_leaf_index_from(tree, 18, 18, 0, false, true);
+
+    // look beyond the end of committed and don't include uncomitted
+    check_find_leaf_index_from(tree, 18, 14, 0, false, false);
 }
 
 TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values)

@@ -30,6 +30,10 @@ struct AddIndexedDataResponse {
     std::shared_ptr<std::vector<fr_sibling_path>> paths;
 };
 
+struct FindLeafIndexResponse {
+    index_t leaf_index;
+};
+
 template <typename LeafValueType> struct GetIndexedLeafResponse {
     IndexedLeaf<LeafValueType> indexed_leaf;
 };

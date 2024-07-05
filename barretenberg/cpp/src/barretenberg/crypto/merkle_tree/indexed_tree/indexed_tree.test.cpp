@@ -124,6 +124,26 @@ IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafV
 }
 
 template <typename LeafValueType>
+void check_find_leaf_index(TreeType& tree,
+                           const LeafValueType& leaf,
+                           index_t expected_index,
+                           bool expected_success,
+                           bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType>
 void check_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
                         index_t index,
                         fr_sibling_path expected_sibling_path,
@@ -252,7 +272,7 @@ TEST_F(PersistedIndexedTreeTest, reports_an_error_if_tree_is_overfilled)
 TEST_F(PersistedIndexedTreeTest, test_get_sibling_path)
 {
     index_t current_size = 2;
-    NullifierMemoryTree<HashPolicy> memdb(10);
+    NullifierMemoryTree<HashPolicy> memdb(10, current_size);
 
     ThreadPool workers(1);
     constexpr size_t depth = 10;
@@ -268,6 +288,12 @@ TEST_F(PersistedIndexedTreeTest, test_get_sibling_path)
     memdb.update_element(VALUES[512]);
     add_value(tree, NullifierLeafValue(VALUES[512]));
 
+    // std::cout << memdb.get_sibling_path(0) << std::endl;
+    // std::cout << memdb.get_hash_path(0) << std::endl;
+
+    // std::cout << get_sibling_path(tree, 0, true) << std::endl;
+    // std::cout << get_sibling_path(tree, 1, true) << std::endl;
+
     check_size(tree, ++current_size);
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 1, memdb.get_sibling_path(1));
@@ -281,6 +307,64 @@ TEST_F(PersistedIndexedTreeTest, test_get_sibling_path)
     check_size(tree, num_to_append + current_size);
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 512, memdb.get_sibling_path(512));
+}
+
+TEST_F(PersistedIndexedTreeTest, test_find_leaf_index)
+{
+    index_t initial_size = 2;
+    ThreadPool workers(1);
+    constexpr size_t depth = 10;
+    std::string name = randomString();
+    LMDBStore db(*_environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+    auto tree = TreeType(store, workers, initial_size);
+
+    add_value(tree, NullifierLeafValue(30));
+    add_value(tree, NullifierLeafValue(10));
+    add_value(tree, NullifierLeafValue(20));
+    add_value(tree, NullifierLeafValue(40));
+
+    // check the committed state and that the uncommitted state is empty
+    check_find_leaf_index(tree, NullifierLeafValue(10), 1 + initial_size, true, true);
+    check_find_leaf_index(tree, NullifierLeafValue(10), 0, false, false);
+
+    check_find_leaf_index(tree, NullifierLeafValue(15), 0, false, true);
+    check_find_leaf_index(tree, NullifierLeafValue(15), 0, false, false);
+
+    check_find_leaf_index(tree, NullifierLeafValue(40), 3 + initial_size, true, true);
+    check_find_leaf_index(tree, NullifierLeafValue(30), 0 + initial_size, true, true);
+    check_find_leaf_index(tree, NullifierLeafValue(20), 2 + initial_size, true, true);
+
+    check_find_leaf_index(tree, NullifierLeafValue(40), 0, false, false);
+    check_find_leaf_index(tree, NullifierLeafValue(30), 0, false, false);
+    check_find_leaf_index(tree, NullifierLeafValue(20), 0, false, false);
+
+    commit_tree(tree);
+
+    std::vector<NullifierLeafValue> values{ NullifierLeafValue(15),
+                                            NullifierLeafValue(18),
+                                            NullifierLeafValue(26),
+                                            NullifierLeafValue(2),
+                                            NullifierLeafValue(48) };
+    add_values(tree, values);
+
+    // check the now committed state
+    check_find_leaf_index(tree, NullifierLeafValue(40), 3 + initial_size, true, false);
+    check_find_leaf_index(tree, NullifierLeafValue(30), 0 + initial_size, true, false);
+    check_find_leaf_index(tree, NullifierLeafValue(20), 2 + initial_size, true, false);
+
+    // check the new uncommitted state
+    check_find_leaf_index(tree, NullifierLeafValue(18), 5 + initial_size, true, true);
+    check_find_leaf_index(tree, NullifierLeafValue(18), 0, false, false);
+
+    commit_tree(tree);
+
+    values = { NullifierLeafValue(16), NullifierLeafValue(4), NullifierLeafValue(22), NullifierLeafValue(101) };
+    add_values(tree, values);
+
+    // we now have duplicate leaf 18, one committed the other not
+    check_find_leaf_index(tree, NullifierLeafValue(18), 5 + initial_size, true, true);
+    check_find_leaf_index(tree, NullifierLeafValue(18), 5 + initial_size, true, false);
 }
 
 TEST_F(PersistedIndexedTreeTest, can_commit_and_restore)

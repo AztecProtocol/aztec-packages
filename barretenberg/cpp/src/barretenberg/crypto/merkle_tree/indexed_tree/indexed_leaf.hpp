@@ -46,6 +46,8 @@ struct NullifierLeafValue {
 
     bool is_empty() const { return value == fr::zero(); }
 
+    operator uint256_t() const { return get_key(); }
+
     static NullifierLeafValue empty() { return { fr::zero() }; }
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
@@ -94,6 +96,8 @@ struct PublicDataLeafValue {
     fr get_key() const { return slot; }
 
     bool is_empty() const { return value == fr::zero() && slot == fr::zero(); }
+
+    operator uint256_t() const { return get_key(); }
 
     static PublicDataLeafValue empty() { return { fr::zero(), fr::zero() }; }
 
