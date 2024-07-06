@@ -1,19 +1,7 @@
-import { NoopTelemetryClient } from './noop.js';
-import { OpenTelemetryClient } from './otel.js';
-import { type TelemetryClient } from './telemetry.js';
-
 export interface TelemetryClientConfig {
   collectorBaseUrl?: URL;
   serviceName: string;
   serviceVersion: string;
-}
-
-export function createAndStartTelemetryClient(config: TelemetryClientConfig): TelemetryClient {
-  if (config.collectorBaseUrl) {
-    return OpenTelemetryClient.createAndStart(config.serviceName, config.serviceVersion, config.collectorBaseUrl);
-  } else {
-    return new NoopTelemetryClient();
-  }
 }
 
 export function getConfigEnvVars(): TelemetryClientConfig {

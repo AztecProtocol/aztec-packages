@@ -45,7 +45,6 @@ import {
   WASMSimulator,
   computeFeePayerBalanceLeafSlot,
 } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -96,7 +95,6 @@ describe('public_processor', () => {
         Header.empty(),
         publicContractsDB,
         publicWorldStateDB,
-        new NoopTelemetryClient(),
       );
     });
 
@@ -221,7 +219,6 @@ describe('public_processor', () => {
         header,
         publicContractsDB,
         publicWorldStateDB,
-        new NoopTelemetryClient(),
       );
     });
 

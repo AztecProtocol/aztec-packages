@@ -2,14 +2,13 @@ import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { getProverEnvVars } from '@aztec/prover-client';
 import { ProverAgent, createProvingJobSourceClient } from '@aztec/prover-client/prover-agent';
-import {
-  createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
-} from '@aztec/telemetry-client/start';
 
+import { initTelemetryClient } from '../telemetry.js';
 import { type ServiceStarter, parseModuleOptions } from '../util.js';
 
 export const startProver: ServiceStarter = async (options, signalHandlers, logger) => {
+  initTelemetryClient();
+
   const proverOptions = {
     ...getProverEnvVars(),
     ...parseModuleOptions(options.prover),
@@ -34,24 +33,20 @@ export const startProver: ServiceStarter = async (options, signalHandlers, logge
       ? parseInt(proverOptions.proverAgentPollInterval, 10)
       : proverOptions.proverAgentPollInterval;
 
-  const telemetry = createAndStartTelemetryClient(getTelemetryClientConfig());
   let circuitProver: ServerCircuitProver;
   if (proverOptions.realProofs) {
     if (!proverOptions.acvmBinaryPath || !proverOptions.bbBinaryPath) {
       throw new Error('Cannot start prover without simulation or native prover options');
     }
 
-    circuitProver = await BBNativeRollupProver.new(
-      {
-        acvmBinaryPath: proverOptions.acvmBinaryPath,
-        bbBinaryPath: proverOptions.bbBinaryPath,
-        acvmWorkingDirectory: proverOptions.acvmWorkingDirectory,
-        bbWorkingDirectory: proverOptions.bbWorkingDirectory,
-      },
-      telemetry,
-    );
+    circuitProver = await BBNativeRollupProver.new({
+      acvmBinaryPath: proverOptions.acvmBinaryPath,
+      bbBinaryPath: proverOptions.bbBinaryPath,
+      acvmWorkingDirectory: proverOptions.acvmWorkingDirectory,
+      bbWorkingDirectory: proverOptions.bbWorkingDirectory,
+    });
   } else {
-    circuitProver = new TestCircuitProver(telemetry);
+    circuitProver = new TestCircuitProver();
   }
 
   const agent = new ProverAgent(circuitProver, agentConcurrency, pollInterval);

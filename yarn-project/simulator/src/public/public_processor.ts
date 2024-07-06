@@ -30,7 +30,8 @@ import {
   computeFeePayerBalanceLeafSlot,
   computeFeePayerBalanceStorageSlot,
 } from '@aztec/simulator';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/global';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -48,7 +49,6 @@ export class PublicProcessorFactory {
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private simulator: SimulationProvider,
-    private telemetryClient: TelemetryClient,
   ) {}
 
   /**
@@ -76,7 +76,6 @@ export class PublicProcessorFactory {
       historicalHeader,
       publicContractsDB,
       worldStatePublicDB,
-      this.telemetryClient,
     );
   }
 }
@@ -95,10 +94,9 @@ export class PublicProcessor {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
-    this.tracer = telemetryClient.getTracer('PublicProcessor');
+    this.tracer = getTelemetryClient().getTracer('PublicProcessor');
   }
 
   /**

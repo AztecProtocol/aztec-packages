@@ -29,7 +29,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/global';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -89,10 +89,9 @@ export class Archiver implements ArchiveSource {
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
-    telemetry: TelemetryClient,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {
-    this.instrumentation = new ArchiverInstrumentation(telemetry);
+    this.instrumentation = new ArchiverInstrumentation(getTelemetryClient());
   }
 
   /**
@@ -105,7 +104,6 @@ export class Archiver implements ArchiveSource {
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
-    telemetry: TelemetryClient,
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.rpcUrl, config.apiKey);
@@ -123,7 +121,6 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS,
-      telemetry,
     );
     await archiver.start(blockUntilSynced);
     return archiver;
