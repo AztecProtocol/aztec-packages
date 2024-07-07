@@ -25,7 +25,7 @@ The `Aztec` blockchain contains two environments [public and private](../../stat
 - Private, for private transactions taking place on user's devices.
 - Public, for public transactions taking place on the network's sequencers.
 
-As there are two distinct execution environments, they both require slightly differing execution contexts. Despite their differences; the API's for interacting with each are unified. Leading to minimal context switch when working between the two environments.
+As there are two distinct execution environments, they both require slightly differing execution contexts. Despite their differences; the API's for interacting with each are unified. Leading to minimal context switches when working between the two environments.
 
 The following section will cover both contexts.
 
