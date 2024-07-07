@@ -1,5 +1,6 @@
 [package]
-name = "verify_honk_proof"
+name = "bench_poseidon2_hash_30"
+version = "0.1.0"
 type = "bin"
 authors = [""]
 
