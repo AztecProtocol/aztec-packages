@@ -7,7 +7,7 @@
 #include <cstdint>
 
 namespace bb {
-template <typename Curve> class SortedMsmManager {
+template <typename Curve> class MsmSorter {
   public:
     using G1 = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
@@ -32,7 +32,7 @@ template <typename Curve> class SortedMsmManager {
     std::vector<size_t> index;
     std::vector<Fq> denominators;
 
-    SortedMsmManager(const size_t num_scalars = 0)
+    MsmSorter(const size_t num_scalars = 0)
     {
         sequence_counts.resize(num_scalars);
         unique_scalars.resize(num_scalars);

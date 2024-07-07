@@ -3,8 +3,7 @@
 namespace bb {
 
 template <typename Curve>
-SortedMsmManager<Curve>::ReducedMsmInputs SortedMsmManager<Curve>::reduce_msm_inputs(std::span<Fr> scalars,
-                                                                                     std::span<G1> points)
+MsmSorter<Curve>::ReducedMsmInputs MsmSorter<Curve>::reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points)
 {
     // generate the addition sequences
     AdditionSequences addition_sequences = construct_addition_sequences(scalars, points);
@@ -24,11 +23,11 @@ SortedMsmManager<Curve>::ReducedMsmInputs SortedMsmManager<Curve>::reduce_msm_in
  * @tparam Curve
  * @param scalars
  * @param points
- * @return SortedMsmManager<Curve>::AdditionSequences
+ * @return MsmSorter<Curve>::AdditionSequences
  */
 template <typename Curve>
-SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::construct_addition_sequences(std::span<Fr> scalars,
-                                                                                                 std::span<G1> points)
+MsmSorter<Curve>::AdditionSequences MsmSorter<Curve>::construct_addition_sequences(std::span<Fr> scalars,
+                                                                                   std::span<G1> points)
 {
     // Create the array containing the indices of the scalars and points sorted by scalar value
     const size_t num_points = points.size();
@@ -74,7 +73,7 @@ SortedMsmManager<Curve>::AdditionSequences SortedMsmManager<Curve>::construct_ad
  * @param add_sequences
  */
 template <typename Curve>
-void SortedMsmManager<Curve>::batch_compute_point_addition_slope_inverses(AdditionSequences& add_sequences)
+void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSequences& add_sequences)
 {
     auto points = add_sequences.points;
     auto sequence_counts = add_sequences.sequence_counts;
@@ -136,9 +135,9 @@ void SortedMsmManager<Curve>::batch_compute_point_addition_slope_inverses(Additi
  * @return Curve::AffineElement
  */
 template <typename Curve>
-typename Curve::AffineElement SortedMsmManager<Curve>::affine_add_with_denominator(const G1& point_1,
-                                                                                   const G1& point_2,
-                                                                                   const Fq& denominator)
+typename Curve::AffineElement MsmSorter<Curve>::affine_add_with_denominator(const G1& point_1,
+                                                                            const G1& point_2,
+                                                                            const Fq& denominator)
 {
     const auto& x1 = point_1.x;
     const auto& y1 = point_1.y;
@@ -162,8 +161,7 @@ typename Curve::AffineElement SortedMsmManager<Curve>::affine_add_with_denominat
  * @tparam Curve
  * @param addition_sequences Set of points and counts indicating number of points in each addition chain
  */
-template <typename Curve>
-void SortedMsmManager<Curve>::batched_affine_add_in_place(AdditionSequences addition_sequences)
+template <typename Curve> void MsmSorter<Curve>::batched_affine_add_in_place(AdditionSequences addition_sequences)
 {
     const size_t num_points = addition_sequences.points.size();
     if (num_points == 0 || num_points == 1) { // nothing to do
@@ -214,6 +212,6 @@ void SortedMsmManager<Curve>::batched_affine_add_in_place(AdditionSequences addi
     }
 }
 
-template class SortedMsmManager<curve::Grumpkin>;
-template class SortedMsmManager<curve::BN254>;
+template class MsmSorter<curve::Grumpkin>;
+template class MsmSorter<curve::BN254>;
 } // namespace bb
