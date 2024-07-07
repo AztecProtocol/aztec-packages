@@ -11,13 +11,14 @@
 #include <cstddef>
 #include <vector>
 
-using namespace bb;
+namespace bb {
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Curve> class SortedMsmTests : public ::testing::Test {
+
   public:
     using G1 = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
@@ -245,3 +246,4 @@ TYPED_TEST(SortedMsmTests, ReduceMsmInputs)
 
     EXPECT_EQ(msm_result, expected_msm_result);
 }
+} // namespace bb
