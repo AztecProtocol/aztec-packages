@@ -15,10 +15,10 @@ impl AuthWitness {
         }
         Self {
             keys: PublicKeys {
-                npk_m: EmbeddedCurvePoint::new(values[0], values[1]),
-                ivpk_m: EmbeddedCurvePoint::new(values[2], values[3]),
-                ovpk_m: EmbeddedCurvePoint::new(values[4], values[5]),
-                tpk_m: EmbeddedCurvePoint::new(values[6], values[7])
+                npk_m: EmbeddedCurvePoint::new(values[0], values[1], false),
+                ivpk_m: EmbeddedCurvePoint::new(values[2], values[3], false),
+                ovpk_m: EmbeddedCurvePoint::new(values[4], values[5], false),
+                tpk_m: EmbeddedCurvePoint::new(values[6], values[7], false)
             },
             signature,
             partial_address: PartialAddress::from_field(values[72])
