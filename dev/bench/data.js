@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720452329412,
+  "lastUpdate": 1720454093663,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -71772,6 +71772,78 @@ window.BENCHMARK_DATA = {
             "value": 161037997,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161037997 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "819f37002a253cdba8c46daac5d68f64fa11f19c",
+          "message": "refactor: counters (#7342)\n\n- Check `min_revertible_side_effect_counter` against private call\r\nrequests emitted from any private function.\r\n- Enforce `min_revertible_side_effect_counter` to be set when running\r\n`private_tail_to_public`.\r\n- Remove `side_efffect_counter` from `call_context` and simply refer to\r\nthe `start_side_effect_counter` in the private circuit public inputs.",
+          "timestamp": "2024-07-08T15:44:50Z",
+          "tree_id": "a57eaf322eaede3eb528a648ecceb9eca6ef656e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/819f37002a253cdba8c46daac5d68f64fa11f19c"
+        },
+        "date": 1720454089311,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14111.447486999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9634.362821000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4744.227811000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4330.867716000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42532.196441,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42532197000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14463.351777000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14463353000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4245676448,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4245676448 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195134465,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195134465 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3506550261,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3506550261 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161424791,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161424791 ns\nthreads: 1"
           }
         ]
       }
