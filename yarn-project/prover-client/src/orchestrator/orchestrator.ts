@@ -559,8 +559,25 @@ export class ProvingOrchestrator {
       return;
     }
 
-    const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
-    const inputs = await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
+    const getBaseInputsEmptyTx = async () => {
+      const header = await this.db.buildInitialHeader();
+      const chainId = tx.data.constants.globalVariables.chainId;
+      const version = tx.data.constants.globalVariables.version;
+
+      const inputs = {
+        header,
+        chainId,
+        version,
+      };
+
+      const proof = await this.prover.getEmptyTubeProof(inputs);
+      return await buildBaseRollupInput(tx, proof.proof, provingState.globalVariables, this.db, proof.verificationKey);
+    };
+    const getBaseInputsNonEmptyTx = async () => {
+      const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
+      return await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
+    }
+    const inputs = tx.isEmpty ? await getBaseInputsEmptyTx() : await getBaseInputsNonEmptyTx();
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };
