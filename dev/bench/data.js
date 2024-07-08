@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720473589414,
+  "lastUpdate": 1720474139801,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -72800,6 +72800,74 @@ window.BENCHMARK_DATA = {
             "value": 161235826,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161235826 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "6a4274be4ab040f0ec7b1a6f64171dd40be1e52d",
+          "message": "feat: Integrate new proving systems in e2e",
+          "timestamp": "2024-07-08T17:49:03Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/6971/commits/6a4274be4ab040f0ec7b1a6f64171dd40be1e52d"
+        },
+        "date": 1720474134708,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14168.385053999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9458.991963 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4762.822142000019,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4364.263178 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42871.830408,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42871831000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14523.873771000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14523874000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4221916179,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4221916179 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194726660,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194726660 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3511934089,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3511934089 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160173081,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160173081 ns\nthreads: 1"
           }
         ]
       }
