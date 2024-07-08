@@ -6,6 +6,14 @@ Aztec contracts can be tested in a variety of ways depending on the needs of a p
 
 To test individual contract functions, you can use the Testing eXecution Environment (TXE) described below. For more complex interactions that require checking that the protocol rules are enforced, you should [write end-to-end tests using TypeScript](../../js_apps/test.md).
 
+## End-to-end tests
+
+End-to-end tests use compiled Aztec contracts and generated Typescript interfaces, a private execution environment (PXE) and a simulated execution environment to process transactions, create blocks and apply state updates. This allows for advanced checks on state updates like generation the of logs and checking transaction statuses.
+
+If you need the rules of the protocol to be enforce or require complex interactions (such as with L1 contracts), please refer to [Testing Aztec.nr contracts with Typescript](../../js_apps/test.md).
+
+End-to-end tests are written in Typescript and are similar to writing tests for Ethereum with mocha + ethers.js. Using the Testing eXecution Environment (TXE) described below is analogous to writing Solidity tests in Foundry.
+
 ## Pure Noir tests
 
 Noir supports the `#[test]` annotation which can be used to write simple logic tests on isolated utility functions. These tests only make assertions on algorithms and cannot interact with protocol-specific constructs such as `storage` or `context`, but are extremely fast and can be useful in certain scenarios.
@@ -14,7 +22,7 @@ Noir supports the `#[test]` annotation which can be used to write simple logic t
 
 To learn more about Noir testing, please refer to [the Noir docs](https://Noir-lang.org/docs/tooling/testing/).
 
-## TXE
+## TXE (pronounced "trixie")
 
 In order to interact with the protocol, Aztec contracts leverage the power of oracles: functions that reach out to the outside world and are able to query and manipulate data outside of itself. The values returned by oracles are then constrained inside Noir and modifications to the blockchain state are later verified to adhere to the protocol rules by our kernel circuits.
 
@@ -178,7 +186,3 @@ For example:
 You can also use the `assert_public_call_fails` or `assert_private_call_fails` methods on the `TestEnvironment` to check that a call fails.
 
 #include_code assert_public_fail /noir-projects/noir-contracts/contracts/token_contract/src/test/transfer_public.nr rust
-
-## End-to-end
-
-If you need the rules of the protocol to be enforce or require more complex interactions (such as with L1 contracts), please refer to [Testing Aztec.nr contracts with TypeScript](../../js_apps/test.md)
