@@ -8,9 +8,7 @@ export class Grumpkin {
   private wasm = BarretenbergSync.getSingleton().getWasm();
 
   // TODO(#7386): correctly handle point at infinity in our BB API and nuke Grumpkin.notAPointAtInfinityBuf
-  static notAPointAtInfinityBuf = Buffer.from([
-    0x00
-  ]);
+  static notAPointAtInfinityBuf = Buffer.from([0x00]);
 
   // prettier-ignore
   static generator = Point.fromBuffer(Buffer.concat([Buffer.from([
@@ -69,7 +67,9 @@ export class Grumpkin {
    */
   public batchMul(points: Point[], scalar: GrumpkinScalar) {
     // TODO(#7386): remove the ugly subarray hack below
-    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2)));
+    const concatenatedPoints: Buffer = Buffer.concat(
+      points.map(point => point.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2)),
+    );
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
     const mem = this.wasm.call('bbmalloc', pointsByteLength * 2);

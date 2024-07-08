@@ -18,7 +18,7 @@ impl Eq for KeyValidationRequest {
 impl Empty for KeyValidationRequest {
     fn empty() -> Self {
         KeyValidationRequest {
-            pk_m: EmbeddedCurvePoint::point_at_infinity(),
+            pk_m: EmbeddedCurvePoint::empty(),
             sk_app: 0,
         }
     }

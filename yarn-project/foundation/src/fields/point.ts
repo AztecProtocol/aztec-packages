@@ -8,7 +8,7 @@ import { Fr } from './fields.js';
  * converting instances to various output formats, and checking the equality of points.
  */
 export class Point {
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO, true);
+  static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2 + 1; // + 1 for isInfinite
 
   /** Used to differentiate this class from AztecAddress */
@@ -153,7 +153,7 @@ export class Point {
    * Check this is consistent with how bb is encoding the point at infinity
    */
   public get inf() {
-    return this.x == Fr.ZERO;
+    return this.x.isZero() && this.y.isZero() && this.isInfinite;
   }
 
   isOnGrumpkin() {

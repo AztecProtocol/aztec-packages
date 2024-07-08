@@ -16,10 +16,10 @@ struct PublicKeys {
 impl Empty for PublicKeys {
     fn empty() -> Self {
         PublicKeys {
-            npk_m : EmbeddedCurvePoint::point_at_infinity(),
-            ivpk_m : EmbeddedCurvePoint::point_at_infinity(),
-            ovpk_m : EmbeddedCurvePoint::point_at_infinity(),
-            tpk_m : EmbeddedCurvePoint::point_at_infinity()
+            npk_m : EmbeddedCurvePoint::empty(),
+            ivpk_m : EmbeddedCurvePoint::empty(),
+            ovpk_m : EmbeddedCurvePoint::empty(),
+            tpk_m : EmbeddedCurvePoint::empty()
         }
     }
 }
