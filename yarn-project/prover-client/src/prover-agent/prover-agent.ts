@@ -45,6 +45,7 @@ export class ProverAgent {
   }
 
   start(jobSource: ProvingJobSource): void {
+    console.error("STACK")
     if (this.runningPromise) {
       throw new Error('Agent is already running');
     }

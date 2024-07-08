@@ -152,7 +152,7 @@ jobs:
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
-        timeout-minutes: 40
+        timeout-minutes: 45
         with:
           runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
           builder_type: builder-x86
@@ -161,6 +161,7 @@ jobs:
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
+          tester_ttl: 40
           run: |
             set -eux
             cd ./yarn-project/end-to-end/

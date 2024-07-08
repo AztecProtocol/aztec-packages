@@ -67,6 +67,7 @@ export function executeBB(
   logger: LogFn,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
+  const stack = new Error().stack
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
@@ -77,11 +78,11 @@ export function executeBB(
     });
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      console.log(message);
+      console.error(stack, message);
     });
     bb.stderr.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      console.log(message);
+      console.error(stack, message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (resultParser(exitCode)) {
