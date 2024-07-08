@@ -202,7 +202,7 @@ template <typename Curve> void MsmSorter<Curve>::batched_affine_add_in_place(Add
     size_t pair_idx = 0;         // index into array of denominators for each pair
     bool more_additions = false;
     for (auto& count : sequence_counts) {
-        const size_t num_pairs = count >> 1;
+        const auto num_pairs = count >> 1;
         const bool overflow = static_cast<bool>(count & 0x01ULL);
         // Compute the sum of all pairs in the sequence and store the result in the same points array
         for (size_t j = 0; j < num_pairs; ++j) {
