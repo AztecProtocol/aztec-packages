@@ -51,17 +51,13 @@ export class TxProvingState {
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
     privateKernelVk: VerificationKeyData,
   ) {
-    let previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined =
-      makeRecursiveProofFromBinary(processedTx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
     let previousProofType = PublicKernelType.NON_PUBLIC;
     for (let i = 0; i < processedTx.publicProvingRequests.length; i++) {
       const provingRequest = processedTx.publicProvingRequests[i];
       const kernelRequest = provingRequest.type === AVM_REQUEST ? provingRequest.kernelRequest : provingRequest;
       // the first circuit has a valid previous proof, it came from private
-      if (previousKernelProof) {
-        kernelRequest.inputs.previousKernel.proof = previousKernelProof;
+      if (i === 0) {
         kernelRequest.inputs.previousKernel.vk = privateKernelVk;
-        // LONDOTODO WARNING: there is also kernelRequest.inputs.clientIvcProof, and this had us very confused!
         kernelRequest.inputs.previousKernel.clientIvcProof = processedTx.clientIvcProof;
       }
       const vmRequest = provingRequest.type === AVM_REQUEST ? provingRequest : undefined;
@@ -73,7 +69,6 @@ export class TxProvingState {
         publicKernelRequest: kernelRequest,
       };
       this.publicFunctions.push(publicFunction);
-      previousKernelProof = undefined;
       previousProofType = kernelRequest.type;
     }
   }

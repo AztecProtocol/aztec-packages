@@ -25,7 +25,7 @@ use dep::types::{
     MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
     NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -57,15 +57,8 @@ struct BaseRollupInputs {
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        // LONDONTODO(PUBLIC INPUTS)
-        // Recursively verify the tube proof which has no public inputs (also the vk hash is unused)
-        dep::std::verify_proof(
-            self.kernel_data.vk.key.as_slice(),
-            self.kernel_data.proof.fields.as_slice(),
-            &[],
-            self.kernel_data.vk.hash
-        );
-        // self.previous_kernel.verify();
+        // // Recursively verify the tube proof if straight from private, or the public kernel tail
+        self.kernel_data.verify();
 
         // Verify the kernel chain_id and versions
         assert(
@@ -254,7 +247,7 @@ impl BaseRollupInputs {
     }
 
     // Deducts the tx_fee from the GasToken balance of the fee_payer. If there is already a PublicDataUpdateRequest
-    // in this tx for their balance (because they issued a 'claim' to increase their balance by bridging from L1), 
+    // in this tx for their balance (because they issued a 'claim' to increase their balance by bridging from L1),
     // update it by subtracting the tx_fee. Otherwise, build a new PublicDataUpdateRequest to subtract the tx_fee
     // from the balance of the fee_payer, using the fee_payer_gas_token_balance_read_hint to read the current balance.
     // Returns the data update request that subtracts the tx_fee from the fee_payer's balance, and the index where it

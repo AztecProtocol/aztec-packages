@@ -1,4 +1,4 @@
-import { type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
+import { type PrivateKernelSimulateOutput, type PrivateKernelProver } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
@@ -9,7 +9,6 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -17,13 +16,10 @@ import {
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
   getNonEmptyItems,
-  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -40,6 +36,11 @@ import {
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
+const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
+  publicInputs: PrivateKernelCircuitPublicInputs.empty(),
+  verificationKey: VerificationKeyAsFields.makeEmpty(),
+  outputWitness: new Map()
+};
 /**
  * The KernelProver class is responsible for generating kernel proofs.
  * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
@@ -49,8 +50,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) { }
-
+  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) { }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -61,21 +61,16 @@ export class KernelProver {
    * @param txRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
+   * TODO(#7368) this should be refactored to not recreate the ACIR bytecode now that it operates on a program stack
    */
   async prove(
     txRequest: TxRequest,
     executionResult: ExecutionResult,
-  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
 
-    let output: KernelProofOutput<PrivateKernelCircuitPublicInputs> = {
-      publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
-      // LONDONTODO(KERNEL PROVING) this is inelegant as we don't use this - we should revisit KernelProofOutput
-      outputWitness: new Map()
-    };
+    let output = NULL_PROVE_OUTPUT;
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
@@ -86,8 +81,8 @@ export class KernelProver {
     while (executionStack.length) {
       if (!firstIteration && this.needsReset(executionStack, output)) {
         const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
-        output = await this.proofCreator.createProofReset(resetInputs);
-        // LONDONTODO(CLIENT IVC) consider refactoring this
+        output = await this.proofCreator.simulateProofReset(resetInputs);
+        // TODO(#7368) consider refactoring this redundant bytecode pushing
         acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       }
@@ -104,11 +99,12 @@ export class KernelProver {
         currentExecution.callStackItem.functionData.selector,
       );
 
-      const proofOutput = await this.proofCreator.createAppCircuitProof(
-        currentExecution.partialWitness,
+      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
         currentExecution.acir,
         functionName,
       );
+      // TODO(#7368): This used to be associated with getDebugFunctionName
+      // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
       witnessStack.push(currentExecution.partialWitness);
 
@@ -116,8 +112,7 @@ export class KernelProver {
         currentExecution,
         publicCallRequests,
         publicTeardownCallRequest,
-        proofOutput.proof,
-        proofOutput.verificationKey,
+        appVk.verificationKey,
       );
 
       if (firstIteration) {
@@ -127,7 +122,7 @@ export class KernelProver {
         );
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
         pushTestData('private-kernel-inputs-init', proofInput);
-        output = await this.proofCreator.createProofInit(proofInput);
+        output = await this.proofCreator.simulateProofInit(proofInput);
         acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInitArtifact.bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       } else {
@@ -138,14 +133,13 @@ export class KernelProver {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
-          output.proof,
           output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData, hints);
         pushTestData('private-kernel-inputs-inner', proofInput);
-        output = await this.proofCreator.createProofInner(proofInput);
+        output = await this.proofCreator.simulateProofInner(proofInput);
         acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInnerArtifact.bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       }
@@ -154,15 +148,14 @@ export class KernelProver {
 
     if (this.somethingToReset(output)) {
       const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
-      output = await this.proofCreator.createProofReset(resetInputs);
-      // LONDONTODO(ClIENT IVC) consider refactoring this
+      output = await this.proofCreator.simulateProofReset(resetInputs);
+      // TODO(#7368) consider refactoring this redundant bytecode pushing
       acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
       witnessStack.push(output.outputWitness);
     }
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
-      output.proof,
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
@@ -175,16 +168,17 @@ export class KernelProver {
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    const tailOutput = await this.proofCreator.createProofTail(privateInputs);
+    const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
     acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
     witnessStack.push(tailOutput.outputWitness);
 
+    // TODO(#7368) how do we 'bincode' encode these inputs?
     const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }
 
-  private needsReset(executionStack: ExecutionResult[], output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {
+  private needsReset(executionStack: ExecutionResult[], output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
     const nextIteration = executionStack[executionStack.length - 1];
     return (
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNoteHashes).length +
@@ -208,7 +202,7 @@ export class KernelProver {
     );
   }
 
-  private somethingToReset(output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {
+  private somethingToReset(output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
     return (
       getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length > 0 ||
       getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length > 0 ||
@@ -218,17 +212,15 @@ export class KernelProver {
     );
   }
 
-  // LONDONTODO(AD): not a great distinction between this and buildPrivateKernelResetInputs
   private async getPrivateKernelResetInputs(
     executionStack: ExecutionResult[],
-    output: KernelProofOutput<PrivateKernelCircuitPublicInputs>,
+    output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
     noteHashNullifierCounterMap: Map<number, number>,
   ) {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
-      output.proof,
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
@@ -247,7 +239,6 @@ export class KernelProver {
     { callStackItem }: ExecutionResult,
     publicCallRequests: CallRequest[],
     publicTeardownCallRequest: CallRequest,
-    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
     vk: VerificationKeyAsFields,
   ) {
     const { contractAddress, functionData } = callStackItem;
@@ -272,7 +263,6 @@ export class KernelProver {
       callStackItem,
       publicCallStack,
       publicTeardownCallRequest,
-      proof,
       vk,
       publicKeysHash,
       contractClassArtifactHash,

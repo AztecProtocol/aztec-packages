@@ -1,28 +1,21 @@
-import { runInDirectory } from '@aztec/foundation/fs';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import * as fs from "fs/promises";
 import path from 'path';
 
-
-
-// LONDONTODO(CLIENT IVC)
-
-
-
 /**
- * LONDONTODO(AD): this will eventually replace RecursiveProof as the primary proof
- * attached to a transaction. This was created as a means to isolate just what we need from the
- *
- * LONDONTODO think about this type harder
- * LONDONTODO eventually we will read all these VKs from the data tree instead of passing them
+ * TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370) refactory this to
+ * eventually we read all these VKs from the data tree instead of passing them
  */
 export class ClientIvcProof {
   constructor(
+    // produced by the sequencer when making the tube proof
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370): Need to precompute private kernel tail VK so we can verify this immediately in the tx pool
+    // which parts of these are needed to quickly verify that we have a correct IVC proof
     public instVkBuffer: Buffer,
     public pgAccBuffer: Buffer,
     public clientIvcProofBuffer: Buffer,
     public translatorVkBuffer: Buffer,
-    public eccVkBuffer: Buffer
+    public eccVkBuffer: Buffer,
   ) { }
 
   public isEmpty() {
@@ -34,7 +27,7 @@ export class ClientIvcProof {
   }
 
   /**
-   * LONDONTODO(AD): eventually remove client_ivc_prove_output_all_msgpack and properly handle these accumulators and VKs
+   * TODO(#7371): eventually remove client_ivc_prove_output_all_msgpack and properly handle these accumulators and VKs
    * Create a ClientIvcProof from the result of client_ivc_prove_output_all or client_ivc_prove_output_all_msgpack
    * @param directory the directory of results
    * @returns the encapsulated client ivc proof
@@ -47,7 +40,7 @@ export class ClientIvcProof {
   }
 
   /**
-   * LONDONTODO(AD): eventually remove client_ivc_prove_output_all_msgpack and properly handle these accumulators and VKs
+   * TODO(#7371): eventually remove client_ivc_prove_output_all_msgpack and properly handle these accumulators and VKs
    * Serialize a ClientIvcProof to the files expected by prove_tube
    *
    * Example usage:
@@ -83,7 +76,7 @@ export class ClientIvcProof {
       this.pgAccBuffer.length, this.pgAccBuffer,
       this.clientIvcProofBuffer.length, this.clientIvcProofBuffer,
       this.translatorVkBuffer.length, this.translatorVkBuffer,
-      this.eccVkBuffer.length, this.eccVkBuffer
+      this.eccVkBuffer.length, this.eccVkBuffer,
     );
 
   }

@@ -228,7 +228,8 @@ export class BaseRollupInputs {
 export class TubeInputs {
   constructor(
     public clientIVCData: ClientIvcProof,
-  ) {}
+  ) {
+  }
 
   static from(fields: FieldsOf<TubeInputs>): TubeInputs {
     return new TubeInputs(...TubeInputs.getFields(fields));
@@ -264,6 +265,9 @@ export class TubeInputs {
     return new TubeInputs(reader.readObject(ClientIvcProof));
   }
 
+  isEmpty(): boolean {
+    return this.clientIVCData.isEmpty()
+  }
   /**
    * Deserializes the inputs from a hex string.
    * @param str - A hex string to deserialize from.

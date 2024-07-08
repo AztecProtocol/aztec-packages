@@ -249,7 +249,7 @@ struct VectorOfAcirAndWitnesses {
     std::vector<std::map<uint8_t, std::string>> witnessMaps;
 };
 
-// LONDONTODO(AD): this could probably be more idiomatic
+// TODO(#7371): this could probably be more idiomatic
 template <typename T> T unpack_from_file(const std::string& filename)
 {
     std::ifstream fin;
@@ -271,7 +271,7 @@ template <typename T> T unpack_from_file(const std::string& filename)
     return result;
 }
 
-// LONDONTODO find a home for this
+// TODO(#7371) find a home for this
 acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
     acir_format::WitnessVector wv;
@@ -334,14 +334,14 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
     std::vector<Program> folding_stack;
     for (size_t i = 0; i < gzippedBincodes.size(); i++) {
-        // LONDONTODO(AD) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
+        // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
         // the future
         std::vector<uint8_t> buffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
         std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
             buffer,
-            false); // LONDONTODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                     // this assumes that folding is never done with ultrahonk.
         std::vector<uint8_t> witnessBuffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
@@ -349,7 +349,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
         folding_stack.push_back(program_stack.back());
     }
-    // LONDONTODO(AD) dedupe this with the rest of the similar code
+    // TODO(#7371) dedupe this with the rest of the similar code
     ClientIVC ivc;
     ivc.structured_flag = true;
     // Accumulate the entire program stack into the IVC
@@ -375,7 +375,6 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
-    // LONDONTODO(AD): this can eventually be dropped
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
@@ -482,9 +481,10 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 /**
  * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
  *
- * @param outputPath the working directory from which the proof and verification data are read
+ * @param output_path the working directory from which the proof and verification data are read
+ * @param num_unused_public_inputs
  */
-void prove_tube(const std::string& outputPath)
+void prove_tube(const std::string& output_path)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
@@ -497,11 +497,11 @@ void prove_tube(const std::string& outputPath)
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-    std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
+    std::string vkPath = output_path + "/inst_vk"; // the vk of the last instance
+    std::string accPath = output_path + "/pg_acc";
+    std::string proofPath = output_path + "/client_ivc_proof";
+    std::string translatorVkPath = output_path + "/translator_vk";
+    std::string eccVkPath = output_path + "/ecc_vk";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
     init_bn254_crs(1 << 25);
@@ -525,6 +525,15 @@ void prove_tube(const std::string& outputPath)
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
+    // Padding needed for sending the right number of public inputs
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
+    // these public inputs by turning proof into witnesses and call
+    // set_public on each witness
+    auto num_public_inputs = (size_t)proof.folding_proof[1];
+    for (size_t i = 0; i < num_public_inputs; i++) {
+        // We offset 3
+        builder->add_public_variable(proof.folding_proof[i + 3]);
+    }
     ClientIVC verifier{ builder, input };
 
     verifier.verify(proof);
@@ -532,22 +541,21 @@ void prove_tube(const std::string& outputPath)
     info("generating proof");
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
-
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
-    std::string tubeProofPath = outputPath + "/proof";
+    std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
-    std::string tubeProofAsFieldsPath = outputPath + "/proof_fields.json";
+    std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
     auto proof_data = to_json(tube_proof);
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
-    std::string tubeVkPath = outputPath + "/vk";
+    std::string tubeVkPath = output_path + "/vk";
     auto tube_verification_key =
         std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
-    std::string tubeAsFieldsVkPath = outputPath + "/vk_fields.json";
+    std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
     auto field_els = tube_verification_key->to_field_elements();
     info("verificaton key length in fields:", field_els.size());
     auto data = to_json(field_els);
@@ -1255,8 +1263,8 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
-        // LONDONTOD(AD): We will eventually want to get rid of this version when we correctly
-        // create the bincode that client_ivc_prove_output_all expects
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a verify_client_ivc bb cli command
+        // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_path);

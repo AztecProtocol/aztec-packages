@@ -55,7 +55,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    // LONDONTODO(AGGREGATION)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044) reinstate aggregation
     static_cast<void>(input_aggregation_object);
     static_cast<void>(nested_aggregation_object);
     // Construct aggregation points from the nested aggregation witness indices

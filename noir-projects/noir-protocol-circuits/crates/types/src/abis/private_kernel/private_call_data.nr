@@ -14,7 +14,6 @@ struct PrivateCallData {
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     public_teardown_call_request: CallRequest,
 
-    proof: RecursiveProof,
     vk: VerificationKey,
 
     salted_initialization_hash: SaltedInitializationHash,
@@ -24,16 +23,4 @@ struct PrivateCallData {
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 
     acir_hash: Field,
-}
-
-impl Verifiable for PrivateCallData {
-  fn verify(self) {
-    let inputs = PrivateCircuitPublicInputs::serialize(self.call_stack_item.public_inputs);
-    std::verify_proof(
-        self.vk.key.as_slice(),
-        self.proof.fields.as_slice(),
-        inputs.as_slice(),
-        self.vk.hash
-    );
-  }
 }

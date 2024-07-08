@@ -69,7 +69,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
-  // LONDONTODO(CLIENT IVC): Re the comment on ExecutionResult interface definition, I'm confused because here we have an array of these.
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
   private publicTeardownFunctionCall: PublicCallRequest = PublicCallRequest.empty();

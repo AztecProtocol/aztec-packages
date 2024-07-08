@@ -114,7 +114,6 @@ describe('public_processor', () => {
       const expected: ProcessedTx = {
         hash,
         data: tx.data.toKernelCircuitPublicInputs(),
-        proof: tx.proof,
         noteEncryptedLogs: tx.noteEncryptedLogs,
         encryptedLogs: tx.encryptedLogs,
         unencryptedLogs: tx.unencryptedLogs,

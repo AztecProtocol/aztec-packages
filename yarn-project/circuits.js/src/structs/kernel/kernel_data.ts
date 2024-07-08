@@ -7,9 +7,8 @@ import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
-import { ClientIvcProof } from '../client_ivc_proof.js';
 
-// TODO: bad name
+// TODO: less ambiguous name
 export class KernelData {
   constructor(
     /**
@@ -17,7 +16,7 @@ export class KernelData {
      */
     public publicInputs: KernelCircuitPublicInputs,
     /**
-     * LONDONTODO: Proof of the ClientIVC recursive verifier. Reused for other structures?
+     * The previous kernel's proof (may be a tube proof or public kernel proof).
      */
     public proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
     /**

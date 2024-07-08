@@ -62,10 +62,8 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
-import { info } from 'console';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 
 import {
   type BBSuccess,
@@ -187,8 +185,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
     const proofAndVk = await this.createAvmProof(inputs);
-    // LONDONTODO(AVM): reinstate AVM proof verification here
-    // await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
     return proofAndVk;
   }
 
@@ -218,9 +215,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving but it is not
-    console.log(`PUBLIC KERNEL: kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty(): ${kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()}`);
+    // TODO(#7369): We should properly enqueue the tube in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.createTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
+      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }
@@ -275,26 +272,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getBaseRollupProof(
     baseRollupInput: BaseRollupInputs, // TODO: remove tail proof from here
-    tubeInput: TubeInputs, // TODO: remove tail proof from here
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
-    // logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
-    // logger.info(`in getBaseRollupProof`);
-    // logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
-    // logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
+    logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
+    logger.info(`in getBaseRollupProof`);
+    logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
+    logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
     baseRollupInput.kernelData.proof = await this.ensureValidProof(
       baseRollupInput.kernelData.proof,
       'BaseRollupArtifact',
       baseRollupInput.kernelData.vk,
     );
 
-    // PUBLIC KERNEL: Trying to mirror this for the setup public kernel
-    console.log(`tubeInput.clientIVCData.isEmpty(): ${tubeInput.clientIVCData.isEmpty()}`);
-    if (!tubeInput.clientIVCData.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.createTubeProof(tubeInput);
-      baseRollupInput.kernelData.vk = tubeVK;
-      baseRollupInput.kernelData.proof = tubeProof;
-    }
     const { circuitOutput, proof } = await this.createRecursiveProof(
       baseRollupInput, // BaseRollupInputs
       'BaseRollupArtifact',
@@ -563,41 +552,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
-  // async checkResultCache(hash: string) {
-  //   try {
-  //     await fs.mkdir("~/.aztec/cache", { recursive: true });
-  //     await fs.access(path.join("~/.aztec/cache", hash));
-  //     // fs.copyFile
-  //     console.log('Cache entry exists');
-  //   } catch (error) {
-  //     console.log('Cache entry does not exist');
-  //   }
-  // }
-
-  private async generateTubeProofWithBB(input: TubeInputs): Promise<BBSuccess> {
+  private async generateTubeProofWithBB(bbWorkingDirectory: string, input: TubeInputs): Promise<BBSuccess> {
     logger.debug(`Proving tube...`);
 
     const hasher = crypto.createHash("sha256");
     hasher.update(input.toBuffer());
-    const hash = hasher.digest("hex");
 
-    const tubeResultPath = path.join(os.homedir(), '.aztec', 'cache', hash);
-    try {
-      await fs.access(path.join(tubeResultPath, 'success.txt'));
-      return { status: BB_RESULT.SUCCESS, durationMs: 0, proofPath: tubeResultPath, vkPath: tubeResultPath };
-    } catch {
-      await fs.mkdir(tubeResultPath, { recursive: true });
+    await input.clientIVCData.writeToOutputDirectory(bbWorkingDirectory);
+    const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose)
 
-      await input.clientIVCData.writeToOutputDirectory(tubeResultPath);
-      const provingResult = await generateTubeProof(this.config.bbBinaryPath, tubeResultPath, logger.verbose)
-
-      await fs.writeFile(path.join(tubeResultPath, 'success.txt'), 'success');
-      if (provingResult.status === BB_RESULT.FAILURE) {
-        logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
-        throw new Error(provingResult.reason);
-      }
-      return provingResult;
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);
+      throw new Error(provingResult.reason);
     }
+    return provingResult;
   }
 
   private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
@@ -641,32 +609,25 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await runInDirectory(this.config.bbWorkingDirectory, operation, cleanupDir);
   }
 
-  private async createTubeProof(
+  public async getTubeProof(
     input: TubeInputs,
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
-      const provingResult = await this.generateTubeProofWithBB(input);
+      const provingResult = await this.generateTubeProofWithBB(bbWorkingDirectory, input);
 
-      // We don't want this to be a ServerProtocolArtifact because that refers to NoirCompiledCircuit
-      // const circuitType: ServerProtocolArtifact = 'TubeArtifact';
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
       const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
+      // Sanity check the tube proof (can be removed later)
+      await this.verifyWithKey(tubeVK, tubeProof.binaryProof);
 
+      // TODO(#7369): properly time tube construction
       logger.info(
         `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
           tubeProof.proof.length
         } fields`,
-        // TODO: make this for tube
-        // {
-        //   circuitSize: tubeVK.circuitSize,
-        //   duration: provingResult.duration,
-        //   proofSize: tubeProof.binaryProof.buffer.length,
-        //   eventName: 'circuit-proving',
-        //   numPublicInputs: tubeVK.numPublicInputs,
-        // } satisfies CircuitProvingStats,
       );
 
       return { tubeVK, tubeProof };
@@ -954,10 +915,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Parses and returns a tube proof stored in the specified directory. This function is different from readProofAsFields because the tube proof doesn't have public inputs.
+   * Parses and returns a tube proof stored in the specified directory. TODO merge wih above
    * @param filePath - The directory containing the proof data
    * @param circuitType - The type of circuit proven
    * @returns The proof
+   * TODO(#7369) This is entirely redundant now with the above method, deduplicate
    */
   private async readTubeProofAsFields<PROOF_LENGTH extends number>(
     filePath: string,
@@ -975,11 +937,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const json = JSON.parse(proofString);
 
     const numPublicInputs = vkData.numPublicInputs;
-    if (numPublicInputs != 0) {
-      throw new Error(`Tube proof should not have public inputs`);
+    if (numPublicInputs === 0) {
+      throw new Error(`Tube proof should have public inputs (e.g. the number of public inputs from PrivateKernelTail)`);
     }
 
-    const proofFields = json.map(Fr.fromString);
+    const proofFields = json
+      .slice(0, 3)
+      .map(Fr.fromString)
+      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
     logger.debug(
       `Circuit type: tube circuit, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

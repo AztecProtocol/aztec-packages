@@ -163,7 +163,6 @@ export const mockTx = (
 
   const tx = new Tx(
     data,
-    makeEmptyProof(),
     ClientIvcProof.empty(),
     noteEncryptedLogs,
     encryptedLogs,

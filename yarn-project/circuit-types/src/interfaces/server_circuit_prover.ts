@@ -7,6 +7,9 @@ import {
   type Tx,
 } from '@aztec/circuit-types';
 import {
+  type RecursiveProof,
+  type TUBE_PROOF_LENGTH,
+  type VerificationKeyData,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -53,11 +56,17 @@ export interface ServerCircuitProver {
    */
   getBaseRollupProof(
     baseRollupInput: BaseRollupInputs,
-    tubeInput: TubeInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
-  getTubeRollupProofFromArtifact?(): Promise<void>;
+  /**
+   * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
+   * @param input - Input to the circuit.
+   */
+  getTubeProof(
+    tubeInput: TubeInputs,
+    signal?: AbortSignal,
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>
 
   /**
    * Creates a proof for the given input.

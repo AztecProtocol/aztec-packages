@@ -125,7 +125,7 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof, [])]
+          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), [])]
           : await this.processTxWithPublicCalls(tx);
 
         // Set fee payment update request into the processed tx
@@ -262,7 +262,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicProvingRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }
 }
