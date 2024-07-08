@@ -116,6 +116,16 @@ fn compute_public_keys_hash() {
 }
 
 #[test]
+fn compute_empty_hash() {
+    let keys = PublicKeys::empty();
+
+    let actual = keys.hash();
+    let test_data_empty_hash = 0x0000000000000000000000000000000000000000000000000000000000000000;
+
+    assert(actual.to_field() == test_data_empty_hash);
+}
+
+#[test]
 fn test_public_keys_serialization() {
     let keys = PublicKeys {
         npk_m: EmbeddedCurvePoint { x: 1, y: 2, is_infinite: false },
