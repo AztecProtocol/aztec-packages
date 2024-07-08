@@ -559,11 +559,6 @@ export class ProvingOrchestrator {
       return;
     }
 
-    // TODO(#7372): make sure that if we did a public kernel that we use that proof and not the tube proof
-    if (!tx.clientIvcProof.isEmpty()) {
-      logger.debug(`Discarding proving job, no client IVC proof attached`);
-      return;
-    }
     const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
     const inputs = await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
