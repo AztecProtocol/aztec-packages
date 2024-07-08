@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720461644836,
+  "lastUpdate": 1720461668282,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -72184,6 +72184,78 @@ window.BENCHMARK_DATA = {
             "value": 161064498,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161064498 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f9ded2b99980b3b40fce9b55e72c91df1dc3d72",
+          "message": "feat!: constant inputs for blackbox (#7222)\n\nThis PR allows to use constant values for blackbox inputs.\r\nOnly MultiScalarMul is currently handling constant input, so it will\r\nfail if constant inputs are used for any other blackboxes. Noir does\r\nensure that other blackboxes functions do not use constant inputs in\r\nthis PR.\r\nI will make a follow-up PR once this one is merged to have more blackbox\r\nfunctions using constant inputs.\r\n\r\n---------\r\n\r\nCo-authored-by: TomAFrench <tom@tomfren.ch>\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2024-07-08T17:48:58Z",
+          "tree_id": "3732d8833e5978a3310d33b1c9a1d8f36bdcc2d4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9f9ded2b99980b3b40fce9b55e72c91df1dc3d72"
+        },
+        "date": 1720461662747,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14093.263249999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9560.637854999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4766.522887999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4347.9773700000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42458.086953,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42458088000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14563.097724999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14563098000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4223728084,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4223728084 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 193846643,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 193846643 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3499640819,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3499640819 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161844865,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161844865 ns\nthreads: 1"
           }
         ]
       }
