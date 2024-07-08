@@ -1,5 +1,5 @@
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Tx, UnencryptedTxL2Logs } from '@aztec/circuit-types';
-import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs, PublicCallRequest } from '@aztec/circuits.js';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { type SemVer } from 'semver';
