@@ -113,8 +113,7 @@ export function fromTxMessage(buffer: Buffer): Tx {
   // this is the opposite of the 'toMessage' function
   // so the first 4 bytes is the complete length, skip it
   const publicInputs = toObject(buffer.subarray(4), PrivateKernelTailCircuitPublicInputs);
-  const proof = toObject(publicInputs.remainingData, Proof);
-  const clientIvcProof = toObject(proof.remainingData, ClientIvcProof);
+  const clientIvcProof = toObject(publicInputs.remainingData, ClientIvcProof);
 
   const noteEncryptedLogs = toObject(clientIvcProof.remainingData, EncryptedNoteTxL2Logs);
   if (!noteEncryptedLogs.obj) {
