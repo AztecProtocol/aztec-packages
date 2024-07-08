@@ -4,7 +4,6 @@ import {
   PublicDataWrite,
   PublicKernelType,
   SimulationError,
-  type Tx,
   type TxValidator,
   mockTx,
   toTxEffect,
@@ -12,6 +11,7 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
+  ClientIvcProof,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -24,14 +24,12 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  type Proof,
   PublicAccumulatedDataBuilder,
   PublicCallRequest,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   RevertCode,
   StateReference,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeAztecAddress, makePublicCallRequest, makeSelector } from '@aztec/circuits.js/testing';
@@ -64,7 +62,7 @@ describe('public_processor', () => {
   let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
   let prover: MockProxy<BlockProver>;
 
-  let proof: Proof;
+  let proof: ClientIvcProof;
   let root: Buffer;
 
   let processor: PublicProcessor;
@@ -76,7 +74,8 @@ describe('public_processor', () => {
     publicWorldStateDB = mock<WorldStatePublicDB>();
     prover = mock<BlockProver>();
 
-    proof = makeEmptyProof();
+
+    proof = ClientIvcProof.empty();
     root = Buffer.alloc(32, 5);
 
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
@@ -225,12 +224,6 @@ describe('public_processor', () => {
       );
     });
 
-    const expectedTxByHash = (tx: Tx) =>
-      expect.objectContaining({
-        hash: tx.getTxHash(),
-        proof,
-      });
-
     it('runs a tx with enqueued public calls', async function () {
       const tx = mockTxWithPartialState({
         hasLogs: true,
@@ -252,7 +245,8 @@ describe('public_processor', () => {
 
       expect(failed.map(f => f.error)).toEqual([]);
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
@@ -283,7 +277,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
       // we only call checkpoint after successful "setup"
@@ -318,7 +313,10 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process(txs, 2, prover);
 
       expect(processed).toHaveLength(2);
-      expect(processed).toEqual([expectedTxByHash(txs[0]), expectedTxByHash(txs[1])]);
+      expect(processed[0].hash).toEqual(txs[0].getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
+      expect(processed[1].hash).toEqual(txs[1].getTxHash());
+      expect(processed[1].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
@@ -449,7 +447,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
       expect(setupSpy).toHaveBeenCalledTimes(1);
@@ -681,7 +680,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
       expect(setupSpy).toHaveBeenCalledTimes(2);
@@ -807,7 +807,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
       expect(setupSpy).toHaveBeenCalledTimes(2);
@@ -965,7 +966,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
       expect(setupSpy).toHaveBeenCalledTimes(1);
@@ -1081,7 +1083,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([expectedTxByHash(tx)]);
+      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
       expect(setupSpy).toHaveBeenCalledTimes(0);
@@ -1165,7 +1168,8 @@ describe('public_processor', () => {
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
-        expect(processed).toEqual([expectedTxByHash(tx)]);
+        expect(processed[0].hash).toEqual(tx.getTxHash());
+        expect(processed[0].clientIvcProof).toEqual(proof);
         expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
         expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
         expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
@@ -1222,7 +1226,8 @@ describe('public_processor', () => {
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
-        expect(processed).toEqual([expectedTxByHash(tx)]);
+        expect(processed[0].hash).toEqual(tx.getTxHash());
+        expect(processed[0].clientIvcProof).toEqual(proof);
         expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
         expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
         expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
