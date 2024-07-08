@@ -157,7 +157,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     // EXPR [ (1, _4, _6) (-1, _4) 0 ]
     // EXPR [ (-1, _6) 1 ]
 
-
     AcirFormat constraint_system{
         .varnum = 6,
         .recursive = false,

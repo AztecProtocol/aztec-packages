@@ -118,7 +118,6 @@ Builder create_inner_circuit()
     };
     mock_opcode_indices(constraint_system);
 
-
     uint256_t inverse_of_five = fr(5).invert();
     WitnessVector witness{
         5, 10, 15, 5, inverse_of_five, 1,
