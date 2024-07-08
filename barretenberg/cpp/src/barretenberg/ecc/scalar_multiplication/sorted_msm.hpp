@@ -10,18 +10,6 @@ namespace bb {
 
 /**
  * @brief Reduce MSM inputs such that the set of scalars contains no duplicates by summing points which share a scalar.
- * @details Since point addition is substantially cheaper than scalar multiplication, it is more efficient in some cases
- * to first sum all points which share a scalar then perform the MSM on the reduced set of inputs. This is achieved via
- * the following procedure:
- *
- * 1) Sort the input {points, scalars} by scalar in order to group points into 'addition sequences' i.e. sets of points
- * to be added together prior to performing the MSM.
- *
- * 2) For each sequence, perform pairwise addition on all points. (If the length of the sequence is odd, the unpaired
- * point is simply carried over to the next round). The inverses needed in the addition formula are batch computed in a
- * single go for all additions to be performed across all sequences in a given round.
- *
- * 3) Perform rounds of pair-wise addition until each sequence is reduced to a single point.
  *
  * @warning This class is intended to reduce MSMs with EC points that are fully random, e.g. those from an SRS. It does
  * not necessarily handle the case where two adjacent points are equal or the inverse of one another (i.e. where x_i ==
@@ -43,6 +31,7 @@ template <typename Curve> class MsmSorter {
         std::optional<std::span<Fq>> scratch_space;
     };
 
+    // Set of reduced MSM inputs where all scalars are unique
     struct ReducedMsmInputs {
         std::span<Fr> scalars;
         std::span<G1> points;

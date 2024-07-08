@@ -2,16 +2,36 @@
 
 namespace bb {
 
+/**
+ * @brief Reduce MSM inputs such that the set of scalars contains no duplicates by summing points which share a scalar.
+ * @details Since point addition is substantially cheaper than scalar multiplication, it is more efficient in some cases
+ * to first sum all points which share a scalar then perform the MSM on the reduced set of inputs. This is achieved via
+ * the following procedure:
+ *
+ * 1) Sort the input {points, scalars} by scalar in order to group points into 'addition sequences' i.e. sets of points
+ * to be added together prior to performing the MSM.
+ *
+ * 2) For each sequence, perform pairwise addition on all points. (If the length of the sequence is odd, the unpaired
+ * point is simply carried over to the next round). The inverses needed in the addition formula are batch computed in a
+ * single go for all additions to be performed across all sequences in a given round.
+ *
+ * 3) Perform rounds of pair-wise addition until each sequence is reduced to a single point.
+ *
+ * @tparam Curve
+ * @param scalars
+ * @param points
+ * @return MsmSorter<Curve>::ReducedMsmInputs
+ */
 template <typename Curve>
 MsmSorter<Curve>::ReducedMsmInputs MsmSorter<Curve>::reduce_msm_inputs(std::span<Fr> scalars, std::span<G1> points)
 {
-    // generate the addition sequences
+    // Generate the addition sequences (sets of points sharing a scalar)
     AdditionSequences addition_sequences = construct_addition_sequences(scalars, points);
 
-    // call batched affine add in place until the sequences have been fully reduced
+    // Perform rounds of pairwise addition until all sets of points sharing a scalar have been reduced to a single point
     batched_affine_add_in_place(addition_sequences);
 
-    // the reduced inputs are the unique scalrs and the reduced points
+    // The reduced MSM inputs are the unique scalars and the reduced points
     std::span<Fr> output_scalars(unique_scalars.data(), num_unique_scalars);
     std::span<G1> output_points(updated_points.data(), num_unique_scalars);
     return { output_scalars, output_points };
@@ -84,6 +104,7 @@ void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSeque
         total_num_pairs += count >> 1;
     }
 
+    // Define scratch space for batched inverse computations and eventual storage of denominators
     std::span<Fq> scratch_space(denominators.data(), total_num_pairs);
     std::vector<Fq> differences;
     differences.resize(total_num_pairs);
@@ -175,6 +196,7 @@ template <typename Curve> void MsmSorter<Curve>::batched_affine_add_in_place(Add
     auto points = addition_sequences.points;
     auto sequence_counts = addition_sequences.sequence_counts;
 
+    // Compute pairwise in-place additions for all sequences with more than 1 point
     size_t point_idx = 0;        // index for points to be summed
     size_t result_point_idx = 0; // index for result points
     size_t pair_idx = 0;         // index into array of denominators for each pair
@@ -182,7 +204,7 @@ template <typename Curve> void MsmSorter<Curve>::batched_affine_add_in_place(Add
     for (auto& count : sequence_counts) {
         const size_t num_pairs = count >> 1;
         const bool overflow = static_cast<bool>(count & 0x01ULL);
-        // Compute the sum of all pairs in the sequence and store the result in the points array
+        // Compute the sum of all pairs in the sequence and store the result in the same points array
         for (size_t j = 0; j < num_pairs; ++j) {
             const auto& point_1 = points[point_idx++];          // first summand
             const auto& point_2 = points[point_idx++];          // second summand
@@ -191,7 +213,7 @@ template <typename Curve> void MsmSorter<Curve>::batched_affine_add_in_place(Add
 
             result = affine_add_with_denominator(point_1, point_2, denominator);
         }
-        // If the sequence had an odd number of points, simply maintain the unpaired point in the sequence
+        // If the sequence had an odd number of points, simply carry the unpaired point over to the next round
         if (overflow) {
             points[result_point_idx++] = points[point_idx++];
         }
@@ -201,10 +223,10 @@ template <typename Curve> void MsmSorter<Curve>::batched_affine_add_in_place(Add
         count = updated_sequence_count;
 
         // More additions are required if any sequence has not yet been reduced to a single point
-        more_additions = more_additions || (updated_sequence_count > 1);
+        more_additions = more_additions || updated_sequence_count > 1;
     }
 
-    // Recursively perform additions until all sequences have been reduced to a single point
+    // Recursively perform pairwise additions until all sequences have been reduced to a single point
     if (more_additions) {
         const size_t updated_point_count = result_point_idx;
         std::span<G1> updated_points(&points[0], updated_point_count);
