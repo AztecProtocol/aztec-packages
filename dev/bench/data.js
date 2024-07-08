@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720445061834,
+  "lastUpdate": 1720446266214,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -71360,6 +71360,78 @@ window.BENCHMARK_DATA = {
             "value": 161180168,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161180168 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d9cbf4c289d3b3952f84540dadf35e0b410eef2a",
+          "message": "chore(bb): do not instantiate Relation (#7389)\n\nThe called methods are static.",
+          "timestamp": "2024-07-08T14:35:27+01:00",
+          "tree_id": "bda2c2e7553c43006cae719af0b87b21e28c1d58",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d9cbf4c289d3b3952f84540dadf35e0b410eef2a"
+        },
+        "date": 1720446261753,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14118.976290000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9532.300204000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4755.762707000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4382.050467000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42533.787775,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42533787000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14420.004950999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14420005000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4275461320,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4275461320 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196327792,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 196327792 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3506657160,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3506657160 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161524528,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161524528 ns\nthreads: 1"
           }
         ]
       }
