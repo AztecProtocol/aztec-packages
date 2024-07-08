@@ -165,6 +165,7 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 333;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 40;
+  uint256 internal constant PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH = 16;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1168;
   uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2243;
