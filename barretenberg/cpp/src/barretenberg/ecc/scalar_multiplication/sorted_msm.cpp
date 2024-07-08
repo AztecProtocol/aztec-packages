@@ -98,12 +98,13 @@ void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSeque
             const auto& x1 = points[point_idx++].x;
             const auto& x2 = points[point_idx++].x;
 
-            // WORKTODO: what is the risk of a collision here?
+            // It is assumed that the input points are random and thus w/h/p do not share an x-coordinate
             ASSERT(x1 != x2);
 
             auto diff = x2 - x1;
             differences[pair_idx] = diff;
 
+            // Store and update the running product of differences at each stage
             scratch_space[pair_idx++] = accumulator;
             accumulator *= diff;
         }

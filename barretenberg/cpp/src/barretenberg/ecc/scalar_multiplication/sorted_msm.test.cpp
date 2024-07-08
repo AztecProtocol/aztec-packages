@@ -32,7 +32,7 @@ template <typename Curve> class SortedMsmTests : public ::testing::Test {
 
     /**
      * @brief Generate a set of random points and scalars based on an input sequence_counts
-     * @details E.g. given sequence counts {7, 2, 9}, generate a set of random points an scalars with only 3 unique
+     * @details E.g. given sequence counts {7, 2, 9}, generate a set of random points and scalars with only 3 unique
      * scalar values repeated according to the sequence counts. Also compute the result of the corresponding MSM for
      * test comparisons.
      *
@@ -232,18 +232,23 @@ TYPED_TEST(SortedMsmTests, ReduceMsmInputs)
     using Sorter = MsmSorter<Curve>;
 
     // Generate random MSM inputs based on a set of sequence counts
-    std::array<uint64_t, 5> sequence_counts{ 75, 1, 28, 382, 3 };
+    const size_t num_unique_scalars = 5;
+    std::array<uint64_t, num_unique_scalars> sequence_counts{ 75, 1, 28, 382, 3 };
     auto [num_points, points, scalars, expected_msm_result] =
         TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
 
     Sorter msm_sorter{ num_points };
     auto [result_scalars, result_points] = msm_sorter.reduce_msm_inputs(scalars, points);
 
+    // Points and scalars should both be reduced to the number of unique scalars
+    EXPECT_EQ(result_scalars.size(), num_unique_scalars);
+    EXPECT_EQ(result_points.size(), num_unique_scalars);
+
+    // Performing the MSM over the reduced inputs should yield the same result as the original
     G1 msm_result = result_points[0] * result_scalars[0];
     for (size_t i = 1; i < result_points.size(); ++i) {
         msm_result = msm_result + result_points[i] * result_scalars[i];
     }
-
     EXPECT_EQ(msm_result, expected_msm_result);
 }
 } // namespace bb

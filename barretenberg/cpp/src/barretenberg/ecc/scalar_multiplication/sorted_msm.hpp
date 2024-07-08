@@ -23,6 +23,10 @@ namespace bb {
  *
  * 3) Perform rounds of pair-wise addition until each sequence is reduced to a single point.
  *
+ * @warning This class is intended to reduce MSMs with EC points that are fully random, e.g. those from an SRS. It does
+ * not necessarily handle the case where two adjacent points are equal or the inverse of one another (i.e. where x_i ==
+ * x_{i+1})
+ *
  * @tparam Curve
  */
 template <typename Curve> class MsmSorter {
