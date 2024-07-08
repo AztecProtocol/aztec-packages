@@ -1,11 +1,14 @@
 use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash},
+    protocol_types::{
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER, embedded_curve_point::EmbeddedCurvePoint,
+    hash::poseidon2_hash
+},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
 };
 use dep::std::field::bn254::decompose;
-use dep::std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul, fixed_base_scalar_mul};
+use dep::std::embedded_curve_ops::{EmbeddedCurveScalar, multi_scalar_mul, fixed_base_scalar_mul};
 
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;

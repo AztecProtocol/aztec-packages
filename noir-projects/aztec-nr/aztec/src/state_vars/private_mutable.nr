@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-    grumpkin_point::GrumpkinPoint, hash::pedersen_hash
+    embedded_curve_point::EmbeddedCurvePoint, hash::pedersen_hash
 };
 
 use crate::context::{PrivateContext, UnconstrainedContext};

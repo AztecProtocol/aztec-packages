@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, grumpkin_point::GrumpkinPoint,
+    address::AztecAddress, embedded_curve_point::EmbeddedCurvePoint,
     constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash
 };
 

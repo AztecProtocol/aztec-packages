@@ -8,14 +8,15 @@ contract PrivateToken {
     use dep::aztec::{
         note::utils::compute_inner_note_hash_from_preimage, hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        protocol_types::{abis::function_selector::FunctionSelector, hash::pedersen_hash},
+        protocol_types::{
+        abis::function_selector::FunctionSelector, embedded_curve_point::EmbeddedCurvePoint,
+        hash::pedersen_hash
+    },
         oracle::unsafe_rand::unsafe_rand,
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys}
     };
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
     use crate::types::{token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
-    use dep::std::embedded_curve_ops::EmbeddedCurvePoint;
-    use dep::std::ec::tecurve::affine::Point;
 
     #[aztec(storage)]
     struct Storage {

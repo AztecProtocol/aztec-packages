@@ -1,6 +1,7 @@
 use dep::protocol_types::{
-    address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint,
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash
+    address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
+    embedded_curve_point::EmbeddedCurvePoint, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
+    hash::poseidon2_hash
 };
 
 use std::aes128::aes128_encrypt;
@@ -10,19 +11,23 @@ use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 struct EncryptedLogOutgoingBody {
     eph_sk: GrumpkinPrivateKey,
     recipient: AztecAddress,
-    recipient_ivpk_app: GrumpkinPoint,
+    recipient_ivpk_app: EmbeddedCurvePoint,
 }
 
 impl EncryptedLogOutgoingBody {
     pub fn new(
         eph_sk: GrumpkinPrivateKey,
         recipient: AztecAddress,
-        recipient_ivpk_app: GrumpkinPoint
+        recipient_ivpk_app: EmbeddedCurvePoint
     ) -> Self {
         Self { eph_sk, recipient, recipient_ivpk_app }
     }
 
-    pub fn compute_ciphertext(self, ovsk_app: GrumpkinPrivateKey, eph_pk: GrumpkinPoint) -> [u8; 176] {
+    pub fn compute_ciphertext(
+        self,
+        ovsk_app: GrumpkinPrivateKey,
+        eph_pk: EmbeddedCurvePoint
+    ) -> [u8; 176] {
         // Again, we could compute `eph_pk` here, but we keep the interface more similar
         // and also make it easier to optimise it later as we just pass it along
 
@@ -68,7 +73,8 @@ mod test {
     use crate::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash
+        grumpkin_private_key::GrumpkinPrivateKey, embedded_curve_point::EmbeddedCurvePoint,
+        hash::poseidon2_hash
     };
 
     use crate::context::PrivateContext;

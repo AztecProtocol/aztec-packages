@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis::read_request::ReadRequest,
-    grumpkin_point::GrumpkinPoint
+    embedded_curve_point::EmbeddedCurvePoint
 };
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::note::{

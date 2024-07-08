@@ -4,7 +4,7 @@ contract Child {
 
     use dep::aztec::{
         context::gas::GasOpts,
-        protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
+        protocol_types::{abis::call_context::CallContext, embedded_curve_point::EmbeddedCurvePoint},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
     };

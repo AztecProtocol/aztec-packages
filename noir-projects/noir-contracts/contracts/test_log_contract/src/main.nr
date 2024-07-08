@@ -1,8 +1,8 @@
 contract TestLog {
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{
-        traits::Serialize, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
-        address::AztecAddress
+        traits::Serialize, embedded_curve_point::EmbeddedCurvePoint,
+        grumpkin_private_key::GrumpkinPrivateKey, address::AztecAddress
     };
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
@@ -33,7 +33,7 @@ contract TestLog {
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
         secret: GrumpkinPrivateKey,
-        point: GrumpkinPoint,
+        point: EmbeddedCurvePoint,
         randomness: Field,
         event_type_id: Field,
         preimage: [Field; 2]

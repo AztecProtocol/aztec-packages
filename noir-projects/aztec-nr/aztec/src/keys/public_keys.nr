@@ -1,25 +1,25 @@
 use dep::protocol_types::{
     address::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH, hash::poseidon2_hash,
-    grumpkin_point::GrumpkinPoint, traits::{Deserialize, Serialize, Empty, is_empty}
+    embedded_curve_point::EmbeddedCurvePoint, traits::{Deserialize, Serialize, Empty, is_empty}
 };
 use crate::keys::constants::{NUM_KEY_TYPES, NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
 global PUBLIC_KEYS_LENGTH = 8;
 
 struct PublicKeys {
-    npk_m: GrumpkinPoint,
-    ivpk_m: GrumpkinPoint,
-    ovpk_m: GrumpkinPoint,
-    tpk_m: GrumpkinPoint,
+    npk_m: EmbeddedCurvePoint,
+    ivpk_m: EmbeddedCurvePoint,
+    ovpk_m: EmbeddedCurvePoint,
+    tpk_m: EmbeddedCurvePoint,
 }
 
 impl Empty for PublicKeys {
     fn empty() -> Self {
         PublicKeys {
-            npk_m : GrumpkinPoint::empty(),
-            ivpk_m : GrumpkinPoint::empty(),
-            ovpk_m : GrumpkinPoint::empty(),
-            tpk_m : GrumpkinPoint::empty()
+            npk_m : EmbeddedCurvePoint::point_at_infinity(),
+            ivpk_m : EmbeddedCurvePoint::point_at_infinity(),
+            ovpk_m : EmbeddedCurvePoint::point_at_infinity(),
+            tpk_m : EmbeddedCurvePoint::point_at_infinity()
         }
     }
 }
@@ -56,7 +56,7 @@ impl PublicKeys {
         )
     }
 
-    pub fn get_key_by_index(self, index: Field) -> GrumpkinPoint {
+    pub fn get_key_by_index(self, index: Field) -> EmbeddedCurvePoint {
         assert(index as u8 < NUM_KEY_TYPES, "Invalid key index");
         if index == NULLIFIER_INDEX {
             self.npk_m
@@ -88,10 +88,10 @@ impl Serialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
     fn deserialize(serialized: [Field; PUBLIC_KEYS_LENGTH]) -> PublicKeys {
         PublicKeys {
-            npk_m: GrumpkinPoint { x: serialized[0], y: serialized[1] },
-            ivpk_m: GrumpkinPoint { x: serialized[2], y: serialized[3] },
-            ovpk_m: GrumpkinPoint { x: serialized[4], y: serialized[5] },
-            tpk_m: GrumpkinPoint { x: serialized[6], y: serialized[7] },
+            npk_m: EmbeddedCurvePoint { x: serialized[0], y: serialized[1], is_infinite: false },
+            ivpk_m: EmbeddedCurvePoint { x: serialized[2], y: serialized[3], is_infinite: false },
+            ovpk_m: EmbeddedCurvePoint { x: serialized[4], y: serialized[5], is_infinite: false },
+            tpk_m: EmbeddedCurvePoint { x: serialized[6], y: serialized[7], is_infinite: false },
         }
     }
 }
@@ -99,10 +99,10 @@ impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 #[test]
 fn compute_public_keys_hash() {
     let keys = PublicKeys {
-        npk_m: GrumpkinPoint { x: 1, y: 2 },
-        ivpk_m: GrumpkinPoint { x: 3, y: 4 },
-        ovpk_m: GrumpkinPoint { x: 5, y: 6 },
-        tpk_m: GrumpkinPoint { x: 7, y: 8 }
+        npk_m: EmbeddedCurvePoint { x: 1, y: 2, is_infinite: false },
+        ivpk_m: EmbeddedCurvePoint { x: 3, y: 4, is_infinite: false },
+        ovpk_m: EmbeddedCurvePoint { x: 5, y: 6, is_infinite: false },
+        tpk_m: EmbeddedCurvePoint { x: 7, y: 8, is_infinite: false }
     };
 
     let actual = keys.hash();
@@ -114,10 +114,10 @@ fn compute_public_keys_hash() {
 #[test]
 fn test_public_keys_serialization() {
     let keys = PublicKeys {
-        npk_m: GrumpkinPoint { x: 1, y: 2 },
-        ivpk_m: GrumpkinPoint { x: 3, y: 4 },
-        ovpk_m: GrumpkinPoint { x: 5, y: 6 },
-        tpk_m: GrumpkinPoint { x: 7, y: 8 }
+        npk_m: EmbeddedCurvePoint { x: 1, y: 2, is_infinite: false },
+        ivpk_m: EmbeddedCurvePoint { x: 3, y: 4, is_infinite: false },
+        ovpk_m: EmbeddedCurvePoint { x: 5, y: 6, is_infinite: false },
+        tpk_m: EmbeddedCurvePoint { x: 7, y: 8, is_infinite: false }
     };
 
     let serialized = keys.serialize();

@@ -13,7 +13,7 @@ contract Test {
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
-        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
+        traits::{Serialize, ToField, FromField}, embedded_curve_point::EmbeddedCurvePoint,
         grumpkin_private_key::GrumpkinPrivateKey, storage::map::derive_storage_slot_in_map
     };
 
@@ -404,7 +404,10 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
+    fn compute_note_header_ciphertext(
+        secret: GrumpkinPrivateKey,
+        point: EmbeddedCurvePoint
+    ) -> [u8; 48] {
         EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
     }
 
@@ -412,7 +415,7 @@ contract Test {
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
         secret: GrumpkinPrivateKey,
-        point: GrumpkinPoint,
+        point: EmbeddedCurvePoint,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
@@ -424,7 +427,7 @@ contract Test {
     fn compute_outgoing_log_body_ciphertext(
         eph_sk: GrumpkinPrivateKey,
         recipient: AztecAddress,
-        recipient_ivpk_app: GrumpkinPoint,
+        recipient_ivpk_app: EmbeddedCurvePoint,
         ovsk_app: GrumpkinPrivateKey
     ) -> [u8; 176] {
         let eph_pk = eph_sk.derive_public_key();
@@ -519,7 +522,10 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
+    fn test_nullifier_key_freshness(
+        address: AztecAddress,
+        public_nullifying_key: EmbeddedCurvePoint
+    ) {
         assert_eq(context.get_header().get_npk_m(&mut context, address), public_nullifying_key);
     }
 

@@ -1,5 +1,5 @@
 use std::{cmp::Eq, embedded_curve_ops::fixed_base_scalar_mul};
-use crate::{grumpkin_point::GrumpkinPoint, traits::Empty};
+use crate::{embedded_curve_point::EmbeddedCurvePoint, traits::Empty};
 
 global GRUMPKIN_PRIVATE_KEY_SERIALIZED_LEN: Field = 2;
 
@@ -37,8 +37,8 @@ impl GrumpkinPrivateKey {
         [self.high, self.low]
     }
 
-    pub fn derive_public_key(self) -> GrumpkinPoint {
+    pub fn derive_public_key(self) -> EmbeddedCurvePoint {
         let public_key = fixed_base_scalar_mul(self.low, self.high);
-        GrumpkinPoint { x: public_key[0], y: public_key[1] }
+        EmbeddedCurvePoint { x: public_key[0], y: public_key[1], is_infinite: false }
     }
 }

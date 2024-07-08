@@ -2,7 +2,7 @@ use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContex
 use dep::aztec::{
     note::{utils::compute_note_hash_for_consumption}, keys::getters::get_nsk_app,
     protocol_types::{
-    traits::{Empty, Serialize}, grumpkin_point::GrumpkinPoint,
+    traits::{Empty, Serialize}, embedded_curve_point::EmbeddedCurvePoint,
     constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash
 }
 };

@@ -1,5 +1,5 @@
 use dep::authwit::auth_witness;
-use dep::aztec::{protocol_types::{address::PartialAddress, grumpkin_point::GrumpkinPoint}, keys::PublicKeys};
+use dep::aztec::{protocol_types::{address::PartialAddress, embedded_curve_point::EmbeddedCurvePoint}, keys::PublicKeys};
 
 struct AuthWitness {
     keys: PublicKeys,
@@ -15,10 +15,10 @@ impl AuthWitness {
         }
         Self {
             keys: PublicKeys {
-                npk_m: GrumpkinPoint::new(values[0], values[1]),
-                ivpk_m: GrumpkinPoint::new(values[2], values[3]),
-                ovpk_m: GrumpkinPoint::new(values[4], values[5]),
-                tpk_m: GrumpkinPoint::new(values[6], values[7])
+                npk_m: EmbeddedCurvePoint::new(values[0], values[1]),
+                ivpk_m: EmbeddedCurvePoint::new(values[2], values[3]),
+                ovpk_m: EmbeddedCurvePoint::new(values[4], values[5]),
+                tpk_m: EmbeddedCurvePoint::new(values[6], values[7])
             },
             signature,
             partial_address: PartialAddress::from_field(values[72])

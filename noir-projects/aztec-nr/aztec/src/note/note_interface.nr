@@ -1,6 +1,6 @@
 use crate::context::PrivateContext;
 use crate::note::note_header::NoteHeader;
-use dep::protocol_types::grumpkin_point::GrumpkinPoint;
+use dep::protocol_types::embedded_curve_point::EmbeddedCurvePoint;
 
 // docs:start:note_interface
 trait NoteInterface<N, M> {

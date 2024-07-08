@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint,
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, embedded_curve_point::EmbeddedCurvePoint,
     storage::map::derive_storage_slot_in_map
 };
 use crate::{
@@ -14,27 +14,27 @@ global DELAY = 5;
 
 // docs:start:key-getters
 trait KeyGetters {
-  fn get_npk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
-  fn get_ivpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
-  fn get_ovpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
-  fn get_tpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
+  fn get_npk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint;
+  fn get_ivpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint;
+  fn get_ovpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint;
+  fn get_tpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint;
   fn get_npk_m_hash(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Field;
 }
 
 impl KeyGetters for Header {
-    fn get_npk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+    fn get_npk_m(self, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint {
         get_master_key(context, address, NULLIFIER_INDEX, self)
     }
 
-    fn get_ivpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+    fn get_ivpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint {
         get_master_key(context, address, INCOMING_INDEX, self)
     }
 
-    fn get_ovpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+    fn get_ovpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint {
         get_master_key(context, address, OUTGOING_INDEX, self)
     }
 
-    fn get_tpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+    fn get_tpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> EmbeddedCurvePoint {
         get_master_key(context, address, TAGGING_INDEX, self)
     }
 
@@ -49,9 +49,10 @@ fn get_master_key(
     address: AztecAddress,
     key_index: Field,
     header: Header
-) -> GrumpkinPoint {
+) -> EmbeddedCurvePoint {
     let key = fetch_key_from_registry(context, key_index, address, header);
-    if key.is_zero() {
+    // TODO(benesjan): re-introduce is-zero?
+    if (key.x == 0) & (key.y == 0) {
         // Keys were not registered in registry yet --> fetch key from PXE
         let keys = fetch_and_constrain_keys(address);
         // Return the corresponding to index
@@ -67,7 +68,7 @@ fn fetch_key_from_registry(
     key_index: Field,
     address: AztecAddress,
     header: Header
-) -> GrumpkinPoint {
+) -> EmbeddedCurvePoint {
     let x_coordinate_map_slot = key_index * 2 + 1;
     let y_coordinate_map_slot = x_coordinate_map_slot + 1;
     let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
@@ -86,7 +87,7 @@ fn fetch_key_from_registry(
     let x_coordinate = x_coordinate_registry.get_value_in_private(header);
     let y_coordinate = y_coordinate_registry.get_value_in_private(header);
 
-    GrumpkinPoint::new(x_coordinate, y_coordinate)
+    EmbeddedCurvePoint::new(x_coordinate, y_coordinate, false)
 }
 
 // Passes only when keys were not rotated - is expected to be called only when keys were not registered yet

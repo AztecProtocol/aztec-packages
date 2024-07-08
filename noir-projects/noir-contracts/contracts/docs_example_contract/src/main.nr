@@ -20,7 +20,7 @@ contract DocsExample {
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
     use dep::aztec::note::note_getter_options::Comparator;
-    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
+    use dep::aztec::protocol_types::embedded_curve_point::EmbeddedCurvePoint;
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 

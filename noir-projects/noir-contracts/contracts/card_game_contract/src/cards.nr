@@ -3,7 +3,7 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHe
 use dep::aztec::{
     context::UnconstrainedContext,
     protocol_types::{
-    traits::{ToField, Serialize, FromField}, grumpkin_point::GrumpkinPoint,
+    traits::{ToField, Serialize, FromField}, embedded_curve_point::EmbeddedCurvePoint,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
 },
     encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
