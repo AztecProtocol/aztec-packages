@@ -113,7 +113,7 @@ mod tests {
         max_block_number::MaxBlockNumber, note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier}, log_hash::NoteLogHash, read_request::ScopedReadRequest
     },
-        address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
+        address::AztecAddress, embedded_curve_scalar::EmbeddedCurveScalar,
         tests::{fixture_builder::FixtureBuilder}, utils::{arrays::{array_eq, array_length}},
         traits::{Empty, is_empty, is_empty_array}, point::Point
     };

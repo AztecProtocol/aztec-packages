@@ -1,4 +1,4 @@
-import { type GrumpkinPrivateKey, type PublicKey } from '@aztec/circuits.js';
+import { type EmbeddedCurveScalar, type PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 
@@ -19,7 +19,7 @@ import { deriveAESSecret } from './encryption_utils.js';
  */
 export function encryptBuffer(
   data: Buffer,
-  ephSecretKey: GrumpkinPrivateKey,
+  ephSecretKey: EmbeddedCurveScalar,
   incomingViewingPublicKey: PublicKey,
 ): Buffer {
   const aesSecret = deriveAESSecret(ephSecretKey, incomingViewingPublicKey);
@@ -40,7 +40,7 @@ export function encryptBuffer(
  * @param incomingViewingSecretKey - The secret key used for decryption.
  * @returns The decrypted plaintext as a Buffer or undefined if decryption fails.
  */
-export function decryptBuffer(data: Buffer, incomingViewingSecretKey: GrumpkinPrivateKey): Buffer | undefined {
+export function decryptBuffer(data: Buffer, incomingViewingSecretKey: EmbeddedCurveScalar): Buffer | undefined {
   // Extract the ephemeral public key from the end of the data
   const ephPubKey = Point.fromBuffer(data.subarray(-Point.SIZE_IN_BYTES));
   // Derive the AES secret key using the secret key and the ephemeral public key

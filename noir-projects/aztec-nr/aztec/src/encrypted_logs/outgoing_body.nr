@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, point::Point,
+    address::AztecAddress, embedded_curve_scalar::EmbeddedCurveScalar, point::Point,
     constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash
 };
 
@@ -8,17 +8,17 @@ use std::aes128::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
 struct EncryptedLogOutgoingBody {
-    eph_sk: GrumpkinPrivateKey,
+    eph_sk: EmbeddedCurveScalar,
     recipient: AztecAddress,
     recipient_ivpk_app: Point,
 }
 
 impl EncryptedLogOutgoingBody {
-    pub fn new(eph_sk: GrumpkinPrivateKey, recipient: AztecAddress, recipient_ivpk_app: Point) -> Self {
+    pub fn new(eph_sk: EmbeddedCurveScalar, recipient: AztecAddress, recipient_ivpk_app: Point) -> Self {
         Self { eph_sk, recipient, recipient_ivpk_app }
     }
 
-    pub fn compute_ciphertext(self, ovsk_app: GrumpkinPrivateKey, eph_pk: Point) -> [u8; 176] {
+    pub fn compute_ciphertext(self, ovsk_app: EmbeddedCurveScalar, eph_pk: Point) -> [u8; 176] {
         // Again, we could compute `eph_pk` here, but we keep the interface more similar
         // and also make it easier to optimise it later as we just pass it along
 
@@ -64,22 +64,22 @@ mod test {
     use crate::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, point::Point, hash::poseidon2_hash
+        embedded_curve_scalar::EmbeddedCurveScalar, point::Point, hash::poseidon2_hash
     };
 
     use crate::context::PrivateContext;
 
     #[test]
     fn test_encrypted_log_outgoing_body() {
-        let eph_sk = GrumpkinPrivateKey::new(
+        let eph_sk = EmbeddedCurveScalar::new(
             0x000000000000000000000000000000000f096b423017226a18461115fa8d34bb,
             0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fe
         );
-        let recipient_ivsk_app = GrumpkinPrivateKey::new(
+        let recipient_ivsk_app = EmbeddedCurveScalar::new(
             0x000000000000000000000000000000000f4d97c25d578f9348251a71ca17ae31,
             0x000000000000000000000000000000004828f8f95676ebb481df163f87fd4022
         );
-        let sender_ovsk_app = GrumpkinPrivateKey::new(
+        let sender_ovsk_app = EmbeddedCurveScalar::new(
             0x00000000000000000000000000000000089c6887cb1446d86c64e81afc78048b,
             0x0000000000000000000000000000000074d2e28c6bc5176ac02cf7c7d36a444e
         );

@@ -5,7 +5,7 @@ import {
   Fq,
   Fr,
   GeneratorIndex,
-  type GrumpkinPrivateKey,
+  type EmbeddedCurveScalar,
   GrumpkinScalar,
   KEY_PREFIXES,
   type KeyPrefix,
@@ -139,7 +139,7 @@ export class KeyStore {
     }
 
     // Now we find the secret key for the public key
-    let skM: GrumpkinPrivateKey | undefined;
+    let skM: EmbeddedCurveScalar | undefined;
     {
       const skMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
       if (!skMsBuffer) {
@@ -274,7 +274,7 @@ export class KeyStore {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinPrivateKey> {
+  public getMasterSecretKey(pkM: PublicKey): Promise<EmbeddedCurveScalar> {
     const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkM);
 
     // We get the secret keys buffer and iterate over the values in the buffer to find the one that matches pkM

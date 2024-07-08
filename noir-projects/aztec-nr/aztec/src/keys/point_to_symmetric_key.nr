@@ -1,12 +1,12 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY, grumpkin_private_key::GrumpkinPrivateKey,
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, embedded_curve_scalar::EmbeddedCurveScalar,
     point::{Point, pub_key_to_bytes}, utils::arr_copy_slice
 };
 use std::{hash::sha256, embedded_curve_ops::{EmbeddedCurveScalar, multi_scalar_mul}};
 
 // TODO(#5726): This function is called deriveAESSecret in TS. I don't like point_to_symmetric_key name much since
 // point is not the only input of the function. Unify naming with TS once we have a better name.
-pub fn point_to_symmetric_key(secret: GrumpkinPrivateKey, point: Point) -> [u8; 32] {
+pub fn point_to_symmetric_key(secret: EmbeddedCurveScalar, point: Point) -> [u8; 32] {
     let shared_secret_fields = multi_scalar_mul(
         [Point { x: point.x, y: point.y, is_infinite: false }],
         [EmbeddedCurveScalar { lo: secret.low, hi: secret.high }]
@@ -22,7 +22,7 @@ pub fn point_to_symmetric_key(secret: GrumpkinPrivateKey, point: Point) -> [u8; 
 #[test]
 fn check_point_to_symmetric_key() {
     // Value taken from "derive shared secret" test in encrypt_buffer.test.ts
-    let secret = GrumpkinPrivateKey::new(
+    let secret = EmbeddedCurveScalar::new(
         0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
         0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
     );

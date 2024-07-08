@@ -20,10 +20,10 @@ npm install @aztec/accounts
 
 ```typescript
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { GrumpkinPrivateKey } from '@aztec/circuit-types';
+import { EmbeddedCurveScalar } from '@aztec/circuit-types';
 
-const encryptionPrivateKey = GrumpkinPrivateKey.random();
-const signingPrivateKey = GrumpkinPrivateKey.random();
+const encryptionPrivateKey = EmbeddedCurveScalar.random();
+const signingPrivateKey = EmbeddedCurveScalar.random();
 const wallet = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey).waitDeploy();
 console.log(`New account deployed at ${wallet.getAddress()}`);
 ```

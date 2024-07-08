@@ -37,7 +37,7 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  type GrumpkinPrivateKey,
+  type EmbeddedCurveScalar,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -578,9 +578,9 @@ export function makePoint(seed = 1): Point {
 /**
  * Creates an arbitrary grumpkin private key.
  * @param seed - Seed to generate the values.
- * @returns A GrumpkinPrivateKey.
+ * @returns A EmbeddedCurveScalar.
  */
-export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+export function makeEmbeddedCurveScalar(seed = 1): EmbeddedCurveScalar {
   return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 

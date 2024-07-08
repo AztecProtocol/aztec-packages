@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, point::{Point, pub_key_to_bytes},
+    address::AztecAddress, embedded_curve_scalar::EmbeddedCurveScalar, point::{Point, pub_key_to_bytes},
     constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash
 };
 
@@ -24,7 +24,7 @@ pub fn compute_encrypted_event_log<Event, NB, MB, OB>(
     event: Event
 ) -> [u8; OB] where Event: EventInterface<NB, MB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    let eph_sk: GrumpkinPrivateKey = fr_to_private_key(unsafe_rand());
+    let eph_sk: EmbeddedCurveScalar = fr_to_private_key(unsafe_rand());
     let eph_pk = eph_sk.derive_public_key();
 
     // TODO: (#7177) This value needs to be populated!
@@ -81,7 +81,7 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     note: Note
 ) -> [u8; M] where Note: NoteInterface<N, NB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    let eph_sk: GrumpkinPrivateKey = fr_to_private_key(unsafe_rand());
+    let eph_sk: EmbeddedCurveScalar = fr_to_private_key(unsafe_rand());
     let eph_pk = eph_sk.derive_public_key();
 
     // TODO: (#7177) This value needs to be populated!
@@ -129,7 +129,7 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     encrypted_bytes
 }
 
-fn fr_to_private_key(r: Field) -> GrumpkinPrivateKey {
+fn fr_to_private_key(r: Field) -> EmbeddedCurveScalar {
     let r_bytes = r.to_be_bytes(32);
 
     let mut high_bytes = [0; 32];
@@ -143,7 +143,7 @@ fn fr_to_private_key(r: Field) -> GrumpkinPrivateKey {
     let low = bytes32_to_field(low_bytes);
     let high = bytes32_to_field(high_bytes);
 
-    GrumpkinPrivateKey::new(high, low)
+    EmbeddedCurveScalar::new(high, low)
 }
 
 fn compute_ivpk_app(ivpk: Point, contract_address: AztecAddress) -> Point {

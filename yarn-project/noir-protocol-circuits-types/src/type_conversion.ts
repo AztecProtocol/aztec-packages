@@ -24,7 +24,7 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  type GrumpkinPrivateKey,
+  type EmbeddedCurveScalar,
   GrumpkinScalar,
   Header,
   KernelCircuitPublicInputs,
@@ -152,7 +152,7 @@ import type {
   Gas as GasNoir,
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
-  GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
+  EmbeddedCurveScalar as EmbeddedCurveScalarNoir,
   Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KernelData as KernelDataNoir,
@@ -303,11 +303,11 @@ export function mapPointFromNoir(point: NoirPoint): Point {
 }
 
 /**
- * Maps a GrumpkinPrivateKey to a noir GrumpkinPrivateKey.
- * @param privateKey - The GrumpkinPrivateKey.
- * @returns The noir GrumpkinPrivateKey.
+ * Maps a EmbeddedCurveScalar to a noir EmbeddedCurveScalar.
+ * @param privateKey - The EmbeddedCurveScalar.
+ * @returns The noir EmbeddedCurveScalar.
  */
-export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): GrumpkinPrivateKeyNoir {
+export function mapEmbeddedCurveScalarToNoir(privateKey: EmbeddedCurveScalar): EmbeddedCurveScalarNoir {
   return {
     high: mapFieldToNoir(privateKey.high),
     low: mapFieldToNoir(privateKey.low),
@@ -321,17 +321,17 @@ export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): Gru
  */
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
-    sk_m: mapGrumpkinPrivateKeyToNoir(hint.skM),
+    sk_m: mapEmbeddedCurveScalarToNoir(hint.skM),
     request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
 
 /**
- * Maps a noir GrumpkinPrivateKey to a GrumpkinPrivateKey.
- * @param privateKey - The noir GrumpkinPrivateKey.
- * @returns The GrumpkinPrivateKey.
+ * Maps a noir EmbeddedCurveScalar to a EmbeddedCurveScalar.
+ * @param privateKey - The noir EmbeddedCurveScalar.
+ * @returns The EmbeddedCurveScalar.
  */
-export function mapGrumpkinPrivateKeyFromNoir(privateKey: GrumpkinPrivateKeyNoir): GrumpkinPrivateKey {
+export function mapEmbeddedCurveScalarFromNoir(privateKey: EmbeddedCurveScalarNoir): EmbeddedCurveScalar {
   return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.high), mapFieldFromNoir(privateKey.low));
 }
 

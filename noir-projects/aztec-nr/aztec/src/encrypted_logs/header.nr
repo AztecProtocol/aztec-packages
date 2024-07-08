@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, point::Point};
+use dep::protocol_types::{address::AztecAddress, embedded_curve_scalar::EmbeddedCurveScalar, point::Point};
 
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
@@ -13,7 +13,7 @@ impl EncryptedLogHeader {
         EncryptedLogHeader { address }
     }
 
-    fn compute_ciphertext(self, secret: GrumpkinPrivateKey, point: Point) -> [u8; 48] {
+    fn compute_ciphertext(self, secret: EmbeddedCurveScalar, point: Point) -> [u8; 48] {
         let full_key = point_to_symmetric_key(secret, point);
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -32,7 +32,7 @@ impl EncryptedLogHeader {
 fn test_encrypted_log_header() {
     let address = AztecAddress::from_field(0xdeadbeef);
     let header = EncryptedLogHeader::new(address);
-    let secret = GrumpkinPrivateKey::new(
+    let secret = EmbeddedCurveScalar::new(
         0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
         0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
     );
