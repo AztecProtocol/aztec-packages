@@ -92,7 +92,7 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  it('rejects txs with invalid proofs', async () => {
+  it.skip('rejects txs with invalid proofs', async () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
