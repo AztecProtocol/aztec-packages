@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720438971838,
+  "lastUpdate": 1720438974087,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -70944,6 +70944,78 @@ window.BENCHMARK_DATA = {
             "value": 161092661,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161092661 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "63298337162b80c8d9b82c94760a0fb7be0fe940",
+          "message": "chore(avm): better log_derivative_inverse_round (#7360)\n\nMoved it to the prover cpp and used metaprogramming to cycle through relations.\n\nI'm expecting the compiler to be smart enough to remove recursion. I think this is quite common in metaprogramming.",
+          "timestamp": "2024-07-08T12:31:34+01:00",
+          "tree_id": "650f2b28c5088e5b6031731b493d045873ee769f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/63298337162b80c8d9b82c94760a0fb7be0fe940"
+        },
+        "date": 1720438969906,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14211.111154999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9601.173945 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4736.897369000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4361.419423000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42951.63655699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42951637000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14509.329603,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14509329000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4181714562,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4181714562 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195315278,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195315278 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3425114357,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3425114357 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160734330,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160734330 ns\nthreads: 1"
           }
         ]
       }
