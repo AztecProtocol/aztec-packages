@@ -269,14 +269,14 @@ template <typename FF_> class UltraArith {
  *
  * @tparam FF_
  */
-template <typename FF_> class UltraHonkArith {
+template <typename FF_> class MegaArith {
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
 
     using FF = FF_;
 
-    class UltraHonkTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+    class MegaTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
       public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -337,16 +337,16 @@ template <typename FF_> class UltraHonkArith {
     };
 
     struct TraceBlocks {
-        UltraHonkTraceBlock ecc_op;
-        UltraHonkTraceBlock pub_inputs;
-        UltraHonkTraceBlock arithmetic;
-        UltraHonkTraceBlock delta_range;
-        UltraHonkTraceBlock elliptic;
-        UltraHonkTraceBlock aux;
-        UltraHonkTraceBlock lookup;
-        UltraHonkTraceBlock busread;
-        UltraHonkTraceBlock poseidon_external;
-        UltraHonkTraceBlock poseidon_internal;
+        MegaTraceBlock ecc_op;
+        MegaTraceBlock pub_inputs;
+        MegaTraceBlock arithmetic;
+        MegaTraceBlock delta_range;
+        MegaTraceBlock elliptic;
+        MegaTraceBlock aux;
+        MegaTraceBlock lookup;
+        MegaTraceBlock busread;
+        MegaTraceBlock poseidon_external;
+        MegaTraceBlock poseidon_internal;
 
         // This is a set of fixed block sizes that accomodates the circuits currently processed in the ClientIvc bench.
         // Note 1: The individual block sizes do NOT need to be powers of 2, this is just for conciseness.
@@ -432,5 +432,5 @@ class TranslatorArith {
 };
 
 template <typename T>
-concept HasAdditionalSelectors = IsAnyOf<T, UltraHonkArith<bb::fr>>;
+concept HasAdditionalSelectors = IsAnyOf<T, MegaArith<bb::fr>>;
 } // namespace bb
