@@ -73,7 +73,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.rotate_npk_m(wallets[1].getAddress(), Point.random(), Fr.ZERO)
+          .methods.rotate_npk_m(wallets[1].getAddress(), Point.random().toNoirStruct(), Fr.ZERO)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -85,7 +85,10 @@ describe('Key Registry', () => {
       const randomMasterNullifierPublicKey = Point.random();
 
       await expect(
-        testContract.methods.test_nullifier_key_freshness(randomAddress, randomMasterNullifierPublicKey).send().wait(),
+        testContract.methods
+          .test_nullifier_key_freshness(randomAddress, randomMasterNullifierPublicKey.toNoirStruct())
+          .send()
+          .wait(),
       ).rejects.toThrow(/No public key registered for address/);
     });
   });
@@ -98,7 +101,7 @@ describe('Key Registry', () => {
     await testContract.methods
       .test_nullifier_key_freshness(
         newAccountCompleteAddress.address,
-        newAccountCompleteAddress.publicKeys.masterNullifierPublicKey,
+        newAccountCompleteAddress.publicKeys.masterNullifierPublicKey.toNoirStruct(),
       )
       .send()
       .wait();
@@ -150,7 +153,7 @@ describe('Key Registry', () => {
     it('key lib succeeds for registered account', async () => {
       // Should succeed as the account is registered in key registry from tests before
       await testContract.methods
-        .test_nullifier_key_freshness(account, account.publicKeys.masterNullifierPublicKey)
+        .test_nullifier_key_freshness(account, account.publicKeys.masterNullifierPublicKey.toNoirStruct())
         .send()
         .wait();
     });
@@ -164,7 +167,7 @@ describe('Key Registry', () => {
       // docs:start:key-rotation
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey, Fr.ZERO)
+        .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey.toNoirStruct(), Fr.ZERO)
         .send()
         .wait();
       // docs:end:key-rotation
@@ -190,7 +193,7 @@ describe('Key Registry', () => {
     it(`rotates npk_m with authwit`, async () => {
       const action = keyRegistry
         .withWallet(wallets[1])
-        .methods.rotate_npk_m(wallets[0].getAddress(), secondNewMasterNullifierPublicKey, Fr.ZERO);
+        .methods.rotate_npk_m(wallets[0].getAddress(), secondNewMasterNullifierPublicKey.toNoirStruct(), Fr.ZERO);
 
       await wallets[0]
         .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
@@ -219,7 +222,7 @@ describe('Key Registry', () => {
     it('fresh key lib gets new key after rotation', async () => {
       // Change has been applied hence should succeed now
       await testContract.methods
-        .test_nullifier_key_freshness(wallets[0].getAddress(), secondNewMasterNullifierPublicKey)
+        .test_nullifier_key_freshness(wallets[0].getAddress(), secondNewMasterNullifierPublicKey.toNoirStruct())
         .send()
         .wait();
     });

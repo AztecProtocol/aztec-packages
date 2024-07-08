@@ -7,13 +7,18 @@ import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 export class Grumpkin {
   private wasm = BarretenbergSync.getSingleton().getWasm();
 
+  static notAPointAtInfinityBuf = Buffer.from([
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  ]);
+
   // prettier-ignore
-  static generator = Point.fromBuffer(Buffer.from([
+  static generator = Point.fromBuffer(Buffer.concat([Buffer.from([
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xcf, 0x13, 0x5e, 0x75, 0x06, 0xa4, 0x5d, 0x63,
     0x2d, 0x27, 0x0d, 0x45, 0xf1, 0x18, 0x12, 0x94, 0x83, 0x3f, 0xc4, 0x8d, 0x82, 0x3f, 0x27, 0x2c,
-  ]));
+  ]), Grumpkin.notAPointAtInfinityBuf]));
 
   /**
    * Point generator
@@ -33,7 +38,9 @@ export class Grumpkin {
     this.wasm.writeMemory(0, point.toBuffer());
     this.wasm.writeMemory(64, scalar.toBuffer());
     this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
-    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(96, 160)));
+    // TODO: handle point at infinity
+    const buf = Buffer.from(this.wasm.getMemorySlice(96, 160));
+    return Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf]));
   }
 
   /**
@@ -46,7 +53,9 @@ export class Grumpkin {
     this.wasm.writeMemory(0, a.toBuffer());
     this.wasm.writeMemory(64, b.toBuffer());
     this.wasm.call('ecc_grumpkin__add', 0, 64, 128);
-    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(128, 192)));
+    // TODO: handle point at infinity
+    const buf = Buffer.from(this.wasm.getMemorySlice(128, 192));
+    return Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf]));
   }
 
   /**
@@ -72,7 +81,9 @@ export class Grumpkin {
 
     const parsedResult: Point[] = [];
     for (let i = 0; i < pointsByteLength; i += 64) {
-      parsedResult.push(Point.fromBuffer(result.slice(i, i + 64)));
+      // TODO: handle point at infinity
+      const buf = result.subarray(i, i + 64);
+      parsedResult.push(Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf])));
     }
     return parsedResult;
   }

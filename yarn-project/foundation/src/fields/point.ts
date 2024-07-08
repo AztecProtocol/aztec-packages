@@ -8,7 +8,7 @@ import { Fr } from './fields.js';
  * converting instances to various output formats, and checking the equality of points.
  */
 export class Point {
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO);
+  static ZERO = new Point(Fr.ZERO, Fr.ZERO, true);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
 
   /** Used to differentiate this class from AztecAddress */
@@ -23,8 +23,11 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-  ) // TODO: handle infinity point
-  {
+    /**
+     * Whether the point is at infinity
+     */
+    public readonly isInfinite: boolean,
+  ) {
     // TODO: Do we want to check if the point is on the curve here?
   }
 
@@ -34,8 +37,8 @@ export class Point {
    * @returns A randomly generated Point instance.
    */
   static random() {
-    // TODO is this a random point on the curve?
-    return new Point(Fr.random(), Fr.random());
+    // TODO make this return an actual point on curve.
+    return new Point(Fr.random(), Fr.random(), false);
   }
 
   /**
@@ -47,7 +50,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readBoolean());
   }
 
   /**
@@ -72,7 +75,7 @@ export class Point {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new this(reader.readField(), reader.readField());
+    return new this(reader.readField(), reader.readField(), reader.readBoolean());
   }
 
   /**
@@ -83,6 +86,7 @@ export class Point {
     return {
       x: this.x.toBigInt(),
       y: this.y.toBigInt(),
+      isInfinite: this.isInfinite ? 1n : 0n,
     };
   }
 
@@ -92,7 +96,7 @@ export class Point {
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {
-    return serializeToBuffer([this.x, this.y]);
+    return serializeToBuffer([this.x, this.y, this.isInfinite]);
   }
 
   /**
@@ -117,6 +121,12 @@ export class Point {
   toShortString() {
     const str = this.toString();
     return `${str.slice(0, 10)}...${str.slice(-4)}`;
+  }
+
+  toNoirStruct() {
+    /* eslint-disable camelcase */
+    return { x: this.x, y: this.y, is_infinite: this.isInfinite };
+    /* eslint-enable camelcase */
   }
 
   /**

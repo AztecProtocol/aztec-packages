@@ -336,13 +336,15 @@ export class Oracle {
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
+    [ovpkMIsInfinite]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ivpkMIsInfinite]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedEventLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(randomness),
@@ -365,13 +367,15 @@ export class Oracle {
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
+    [ovpkMIsInfinite]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ivpkMIsInfinite]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedNoteLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),

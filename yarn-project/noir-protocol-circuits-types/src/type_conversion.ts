@@ -289,7 +289,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
   return {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
-    is_infinite: false, // Our TS Point impl is currently very messed up and does not handle infinity point
+    is_infinite: point.isInfinite,
   };
 }
 
@@ -299,7 +299,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
  * @returns The point.
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
-  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
+  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y), point.is_infinite);
 }
 
 /**
