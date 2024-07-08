@@ -38,7 +38,7 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  EmptyNestedArtifact,
+  ProtocolCircuitVkIndexes,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -55,6 +55,7 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -145,7 +146,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     await this.verifyProof('BaseParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(proof, verificationKey.keyAsFields, circuitOutput);
+    return new RootParityInput(
+      proof,
+      verificationKey.keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
+      circuitOutput,
+    );
   }
 
   /**
@@ -169,7 +175,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     await this.verifyProof('RootParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(proof, verificationKey.keyAsFields, circuitOutput);
+    return new RootParityInput(
+      proof,
+      verificationKey.keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes.RootParityArtifact),
+      circuitOutput,
+    );
   }
 
   /**
@@ -351,7 +362,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       inputs,
       'EmptyNestedArtifact',
       RECURSIVE_PROOF_LENGTH,
-      (nothing: any) => abiEncode(EmptyNestedArtifact.abi as Abi, { _inputs: nothing as any }),
+      (nothing: any) => abiEncode(ServerCircuitArtifacts.EmptyNestedArtifact.abi as Abi, { _inputs: nothing as any }),
       () => new EmptyNestedCircuitInputs(),
     );
 
@@ -632,7 +643,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
       const logFunction = (message: string) => {
-        logger.debug(`BB out - ${message}`);
+        logger.verbose(`BB out - ${message}`);
       };
 
       const result = await verificationFunction(
@@ -647,7 +658,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         throw new Error(errorMessage);
       }
 
-      logger.debug(`Successfully verified proof from key in ${result.durationMs} ms`);
+      logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
     };
 
     await runInDirectory(this.config.bbWorkingDirectory, operation);

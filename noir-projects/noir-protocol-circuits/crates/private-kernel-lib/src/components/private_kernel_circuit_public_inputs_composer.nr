@@ -7,18 +7,21 @@ use dep::types::{
 },
     address::AztecAddress,
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
+    hash::{
+    silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier,
+    silo_unencrypted_log_hash
+},
     traits::is_empty, transaction::tx_request::TxRequest,
-    utils::arrays::{array_length, array_to_bounded_vec}
+    utils::arrays::{array_length, array_to_bounded_vec, sort_by_counters_asc, sort_by_counters_desc}
 };
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
-    note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     public_teardown_call_request: CallRequest,
 }
@@ -32,16 +35,21 @@ struct PrivateKernelCircuitPublicInputsComposer {
 }
 
 impl PrivateKernelCircuitPublicInputsComposer {
-    pub fn new_from_tx_request(tx_request: TxRequest, private_call_public_inputs: PrivateCircuitPublicInputs) -> Self {
+    pub fn new_from_tx_request(
+        tx_request: TxRequest,
+        private_call_public_inputs: PrivateCircuitPublicInputs,
+        vk_tree_root: Field
+    ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         public_inputs.constants = CombinedConstantData::private(
             private_call_public_inputs.historical_header,
             tx_request.tx_context,
+            vk_tree_root,
         );
 
-        // Since it's the first iteration, we need to push the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers.push(create_first_nullifier(tx_request));
+        // Since it's the first iteration, we need to push the tx hash nullifier into the `nullifiers` array
+        public_inputs.end.nullifiers.push(create_first_nullifier(tx_request));
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -65,24 +73,28 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.validation_requests.scoped_key_validation_requests_and_generators = array_to_bounded_vec(start.scoped_key_validation_requests_and_generators);
 
         let start = previous_kernel_public_inputs.end;
-        public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
-        public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
-        public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+        public_inputs.end.note_hashes = array_to_bounded_vec(start.note_hashes);
+        public_inputs.end.nullifiers = array_to_bounded_vec(start.nullifiers);
+        public_inputs.end.l2_to_l1_msgs = array_to_bounded_vec(start.l2_to_l1_msgs);
         public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
         public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
         public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
         public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-        let _call_request = public_inputs.end.private_call_stack.pop();
         public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
 
         PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
-    pub fn compose(
+    pub fn pop_top_call_request(&mut self) -> Self {
+        // Pop the top item in the call stack, which is the caller of the current call, and shouldn't be propagated to the output.
+        let _call_request = self.public_inputs.end.private_call_stack.pop();
+        *self
+    }
+
+    pub fn with_private_call(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
         contract_address: AztecAddress,
-        note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
         public_teardown_call_request: CallRequest
     ) -> Self {
@@ -91,13 +103,18 @@ impl PrivateKernelCircuitPublicInputsComposer {
             private_call_public_inputs,
             contract_address,
             storage_contract_address,
-            note_hash_nullifier_counters,
             public_call_requests,
             public_teardown_call_request
         };
+
         self.propagate_from_private_call(source);
 
         *self
+    }
+
+    pub fn sort_and_silo(&mut self) {
+        self.sort_ordered_values();
+        self.silo_scoped_values();
     }
 
     pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
@@ -166,35 +183,31 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_note_hashes(&mut self, source: DataSource) {
-        let note_hashes = source.private_call_public_inputs.new_note_hashes;
+        let note_hashes = source.private_call_public_inputs.note_hashes;
         for i in 0..note_hashes.len() {
-            let mut note_hash = note_hashes[i];
+            let note_hash = note_hashes[i];
             if note_hash.value != 0 {
-                let nullifier_counter = source.note_hash_nullifier_counters[i];
-                assert(
-                    (nullifier_counter == 0) | (nullifier_counter > note_hash.counter), "Invalid nullifier counter"
-                );
-                self.public_inputs.end.new_note_hashes.push(note_hash.scope(nullifier_counter, source.storage_contract_address));
+                self.public_inputs.end.note_hashes.push(note_hash.scope(source.storage_contract_address));
             }
         }
     }
 
     fn propagate_nullifiers(&mut self, source: DataSource) {
-        let nullifiers = source.private_call_public_inputs.new_nullifiers;
+        let nullifiers = source.private_call_public_inputs.nullifiers;
         for i in 0..nullifiers.len() {
             let nullifier = nullifiers[i];
             if nullifier.value != 0 {
-                self.public_inputs.end.new_nullifiers.push(nullifier.scope(source.storage_contract_address));
+                self.public_inputs.end.nullifiers.push(nullifier.scope(source.storage_contract_address));
             }
         }
     }
 
     fn propagate_l2_to_l1_messages(&mut self, source: DataSource) {
-        let l2_to_l1_msgs = source.private_call_public_inputs.new_l2_to_l1_msgs;
+        let l2_to_l1_msgs = source.private_call_public_inputs.l2_to_l1_msgs;
         for i in 0..l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs[i];
             if !is_empty(msg) {
-                self.public_inputs.end.new_l2_to_l1_msgs.push(msg.scope(source.storage_contract_address));
+                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(source.storage_contract_address));
             }
         }
     }
@@ -262,6 +275,69 @@ impl PrivateKernelCircuitPublicInputsComposer {
         if (source.private_call_public_inputs.is_fee_payer) {
             assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
             self.public_inputs.fee_payer = source.storage_contract_address;
+        }
+    }
+
+    fn sort_ordered_values(&mut self) {
+        self.public_inputs.end.note_hashes.storage = sort_by_counters_asc(self.public_inputs.end.note_hashes.storage);
+        self.public_inputs.end.nullifiers.storage = sort_by_counters_asc(self.public_inputs.end.nullifiers.storage);
+        self.public_inputs.end.l2_to_l1_msgs.storage = sort_by_counters_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
+        self.public_inputs.end.note_encrypted_logs_hashes.storage = sort_by_counters_asc(self.public_inputs.end.note_encrypted_logs_hashes.storage);
+        self.public_inputs.end.encrypted_logs_hashes.storage = sort_by_counters_asc(self.public_inputs.end.encrypted_logs_hashes.storage);
+        self.public_inputs.end.unencrypted_logs_hashes.storage = sort_by_counters_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);
+        self.public_inputs.end.public_call_stack.storage = sort_by_counters_desc(self.public_inputs.end.public_call_stack.storage);
+    }
+
+    fn silo_scoped_values(&mut self) {
+        self.silo_note_hashes();
+        self.silo_nullifiers();
+        self.silo_l2_to_l1_messages();
+        self.silo_encrypted_logs();
+        self.silo_unencrypted_logs();
+    }
+
+    fn silo_note_hashes(&mut self) {
+        let first_nullifier = self.public_inputs.end.nullifiers.get_unchecked(0).value();
+        let note_hashes = self.public_inputs.end.note_hashes.storage;
+        for i in 0..note_hashes.len() {
+            self.public_inputs.end.note_hashes.storage[i].note_hash.value = silo_note_hash(
+                note_hashes[i],
+                first_nullifier,
+                i
+            );
+        }
+    }
+
+    fn silo_nullifiers(&mut self) {
+        let nullifiers = self.public_inputs.end.nullifiers.storage;
+        for i in 0..nullifiers.len() {
+            self.public_inputs.end.nullifiers.storage[i].nullifier.value = silo_nullifier(nullifiers[i]);
+        }
+    }
+
+    fn silo_l2_to_l1_messages(&mut self) {
+        let l2_to_l1_msgs = self.public_inputs.end.l2_to_l1_msgs.storage;
+        let tx_context = self.public_inputs.constants.tx_context;
+        for i in 0..l2_to_l1_msgs.len() {
+            self.public_inputs.end.l2_to_l1_msgs.storage[i].message.content = silo_l2_to_l1_message(
+                l2_to_l1_msgs[i],
+                tx_context.version,
+                tx_context.chain_id,
+            );
+        }
+    }
+
+    fn silo_encrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.encrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            self.public_inputs.end.encrypted_logs_hashes.storage[i].log_hash.value = silo_encrypted_log_hash(logs[i]);
+        }
+    }
+
+    fn silo_unencrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.unencrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            self.public_inputs.end.unencrypted_logs_hashes.storage[i].log_hash.value = silo_unencrypted_log_hash(logs[i]);
         }
     }
 }

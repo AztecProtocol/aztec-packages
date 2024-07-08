@@ -18,13 +18,13 @@ describe('PublicCallStackItem', () => {
   it('computes hash', () => {
     const seed = 9870243;
     const item = makePublicCallStackItem(seed);
-    const hash = item.hash();
+    const hash = item.getCompressed().hash();
     expect(hash).toMatchSnapshot();
   });
 
   it('computes empty item hash', () => {
     const item = PublicCallStackItem.empty();
-    const hash = item.hash();
+    const hash = item.getCompressed().hash();
     expect(hash).toMatchSnapshot();
   });
 
@@ -34,9 +34,9 @@ describe('PublicCallStackItem', () => {
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
     callStack.functionData = new FunctionData(new FunctionSelector(2), /*isPrivate=*/ false);
     callStack.isExecutionRequest = true;
-    callStack.publicInputs.newNoteHashes[0] = new NoteHash(new Fr(1), 0);
+    callStack.publicInputs.noteHashes[0] = new NoteHash(new Fr(1), 0);
 
-    const hash = callStack.hash();
+    const hash = callStack.getCompressed().hash();
     expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -52,9 +52,9 @@ describe('PublicCallStackItem', () => {
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
     callStack.functionData = new FunctionData(new FunctionSelector(2), /*isPrivate=*/ false);
-    callStack.publicInputs.newNoteHashes[0] = new NoteHash(new Fr(1), 0);
+    callStack.publicInputs.noteHashes[0] = new NoteHash(new Fr(1), 0);
 
-    const hash = callStack.hash();
+    const hash = callStack.getCompressed().hash();
     expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
