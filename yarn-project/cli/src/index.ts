@@ -684,5 +684,28 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       });
     });
 
+  program
+    .command('codegen')
+    .argument('<noir-abi-path>', 'Path to the Noir ABI or project dir.')
+    .option('-o, --outdir <path>', 'Output folder for the generated code.')
+    .option('--force', 'Force code generation even when the contract has not changed.')
+    .description('Validates and generates an Aztec Contract ABI from Noir ABI.')
+    .action(async (noirAbiPath: string, { outdir, force }) => {
+      const { generateCode } = await import('./cmds/codegen.js');
+      generateCode(outdir || dirname(noirAbiPath), noirAbiPath, { force });
+    });
+
+  program
+    .command('update')
+    .description('Updates Nodejs and Noir dependencies')
+    .argument('[projectPath]', 'Path to the project directory', process.cwd())
+    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
+    .action(async (projectPath: string, options) => {
+      const { update } = await import('./cmds/update.js');
+      const { contract, aztecVersion } = options;
+      await update(projectPath, contract, aztecVersion, log);
+    });
+
   return program;
 }
