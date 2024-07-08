@@ -23,7 +23,8 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-  ) {
+  ) // TODO: handle infinity point
+  {
     // TODO: Do we want to check if the point is on the curve here?
   }
 

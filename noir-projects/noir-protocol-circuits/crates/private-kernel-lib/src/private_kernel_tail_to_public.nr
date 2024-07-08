@@ -64,7 +64,8 @@ mod tests {
     },
         address::{AztecAddress, EthAddress}, hash::{silo_note_hash, silo_nullifier},
         tests::fixture_builder::FixtureBuilder, utils::{arrays::array_eq},
-        embedded_curve_point::EmbeddedCurvePoint, constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INNER_INDEX}
+        embedded_curve_point::EmbeddedCurvePoint,
+        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INNER_INDEX}
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -324,7 +325,11 @@ mod tests {
     #[test(should_fail_with="Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_key_validation(EmbeddedCurvePoint::new(1, 2, false), 27, GENERATOR_INDEX__TSK_M);
+        let _void = builder.previous_kernel.add_request_for_key_validation(
+            EmbeddedCurvePoint::new(1, 2, false),
+            27,
+            GENERATOR_INDEX__TSK_M
+        );
         builder.failed();
     }
 
