@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720437855749,
+  "lastUpdate": 1720438971838,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -70872,6 +70872,78 @@ window.BENCHMARK_DATA = {
             "value": 161611938,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161611938 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3952a444629fc03616089c27d0e037240db7b4e9",
+          "message": "chore(avm): smaller transcript (#7357)\n\nUse array and for loop instead of naming variables.\n\n@Maddiaa0 however, if instead of doing this I just delete or comment out one of the commitments, and remove its serde, everything just works. If I look at the prover/verifier, nothing seems to be using these variables. Things are just passed through `send_to_verifier`. Could you clarify what's going on?",
+          "timestamp": "2024-07-08T12:29:21+01:00",
+          "tree_id": "351237b0d6eef69cad90a4626454ce550984455b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3952a444629fc03616089c27d0e037240db7b4e9"
+        },
+        "date": 1720438967621,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14256.905039000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9670.038919 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4770.944109999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4320.54709 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42545.908013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42545908000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14477.318990999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14477319000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4255379286,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4255379286 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195374612,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195374612 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3506483015,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3506483015 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161092661,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161092661 ns\nthreads: 1"
           }
         ]
       }
