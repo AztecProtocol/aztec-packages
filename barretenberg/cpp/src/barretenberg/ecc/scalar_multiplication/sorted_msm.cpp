@@ -114,7 +114,7 @@ void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSeque
     size_t point_idx = 0;
     size_t pair_idx = 0;
     for (auto& count : sequence_counts) {
-        const size_t num_pairs = count >> 1;
+        const auto num_pairs = count >> 1;
         for (size_t j = 0; j < num_pairs; ++j) {
             const auto& x1 = points[point_idx++].x;
             const auto& x2 = points[point_idx++].x;
