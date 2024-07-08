@@ -1,7 +1,9 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { type L1PublishStats } from '@aztec/circuit-types/stats';
-import { type EthAddress } from '@aztec/circuits.js';
+import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
+import { type EthAddress, type Header, type Proof } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
 import pick from 'lodash.pick';
@@ -41,8 +43,10 @@ export type MinimalTransactionReceipt = {
  * Pushes txs to the L1 chain and waits for their completion.
  */
 export interface L1PublisherTxSender {
+  /** Returns the EOA used for sending txs to L1.  */
   getSenderAddress(): Promise<EthAddress>;
 
+  /** Returns the address elected for submitting a given block number or zero if anyone can submit. */
   getSubmitterAddressForBlock(blockNumber: number): Promise<EthAddress>;
 
   /**
@@ -58,6 +62,13 @@ export interface L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
+
+  /**
+   * Sends a tx to the L1 rollup contract with a proof. Returns once the tx has been mined.
+   * @param encodedData - Serialized data for processing the new L2 block.
+   * @returns The hash of the mined tx.
+   */
+  sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined>;
 
   /**
    * Returns a tx receipt if the tx has been mined.
@@ -86,9 +97,7 @@ export interface L1PublisherTxSender {
   checkIfTxsAreAvailable(block: L2Block): Promise<boolean>;
 }
 
-/**
- * Encoded block and proof ready to be pushed to the L1 contract.
- */
+/** Arguments to the process method of the rollup contract */
 export type L1ProcessArgs = {
   /** The L2 block header. */
   header: Buffer;
@@ -96,6 +105,18 @@ export type L1ProcessArgs = {
   archive: Buffer;
   /** L2 block body. */
   body: Buffer;
+};
+
+/** Arguments to the submitProof method of the rollup contract */
+export type L1SubmitProofArgs = {
+  /** The L2 block header. */
+  header: Buffer;
+  /** A root of the archive tree after the L2 block is applied. */
+  archive: Buffer;
+  /** The proof for the block. */
+  proof: Buffer;
+  /** The aggregation object for the block's proof. */
+  aggregationObject: Buffer;
 };
 
 /**
@@ -192,7 +213,7 @@ export class L1Publisher implements L2BlockReceiver {
       // Tx was mined successfully
       if (receipt.status) {
         const tx = await this.txSender.getTransactionStats(txHash);
-        const stats: L1PublishStats = {
+        const stats: L1PublishBlockStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
           ...block.getStats(),
@@ -209,6 +230,46 @@ export class L1Publisher implements L2BlockReceiver {
       }
 
       this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`);
+      await this.sleepOrInterrupted();
+    }
+
+    this.log.verbose('L2 block data syncing interrupted while processing blocks.');
+    return false;
+  }
+
+  public async submitProof(header: Header, archiveRoot: Fr, aggregationObject: Fr[], proof: Proof): Promise<boolean> {
+    const txArgs: L1SubmitProofArgs = {
+      header: header.toBuffer(),
+      archive: archiveRoot.toBuffer(),
+      aggregationObject: serializeToBuffer(aggregationObject),
+      proof: proof.withoutPublicInputs(),
+    };
+
+    // Process block
+    while (!this.interrupted) {
+      const txHash = await this.sendSubmitProofTx(txArgs);
+      if (!txHash) {
+        break;
+      }
+
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        break;
+      }
+
+      // Tx was mined successfully
+      if (receipt.status) {
+        const tx = await this.txSender.getTransactionStats(txHash);
+        const stats: L1PublishProofStats = {
+          ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
+          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          eventName: 'proof-published-to-l1',
+        };
+        this.log.info(`Published L2 block to L1 rollup contract`, stats);
+        return true;
+      }
+
+      this.log.error(`Rollup.submitProof tx status failed: ${receipt.transactionHash}`);
       await this.sleepOrInterrupted();
     }
 
@@ -245,6 +306,17 @@ export class L1Publisher implements L2BlockReceiver {
       this.log.debug(`New block last archive: ${lastArchive.toString('hex')}`);
     }
     return areSame;
+  }
+
+  private async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
+    try {
+      const size = Object.values(submitProofArgs).reduce((acc, arg) => acc + arg.length, 0);
+      this.log.info(`SubmitProof size=${size} bytes`);
+      return await this.txSender.sendSubmitProofTx(submitProofArgs);
+    } catch (err) {
+      this.log.error(`Rollup submit proof failed`, err);
+      return undefined;
+    }
   }
 
   private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {

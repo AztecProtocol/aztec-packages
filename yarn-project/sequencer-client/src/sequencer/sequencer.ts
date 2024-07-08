@@ -294,7 +294,7 @@ export class Sequencer {
     await assertBlockHeight();
 
     // Block is proven, now finalise and publish!
-    const { block } = await this.prover.finaliseBlock();
+    const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
 
     await assertBlockHeight();
 
@@ -308,6 +308,14 @@ export class Sequencer {
 
     await this.publishL2Block(block);
     this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
+
+    // Submit the proof if we have configured this sequencer to run with a prover.
+    // This is temporary while we submit one proof per block, but will have to change once we
+    // move onto proving batches of multiple blocks at a time.
+    if (aggregationObject && proof) {
+      await this.publisher.submitProof(block.header, block.archive.root, aggregationObject, proof);
+      this.log.info(`Submitted proof for block ${block.number}`);
+    }
   }
 
   /**

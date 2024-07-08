@@ -3,7 +3,7 @@ import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { AGGREGATION_OBJECT_LENGTH, Fr, HEADER_LENGTH, Proof } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
@@ -157,7 +157,7 @@ describe('proof_verification', () => {
     });
   });
 
-  describe.skip('Rollup', () => {
+  describe('Rollup', () => {
     let availabilityContract: GetContractReturnType<typeof AvailabilityOracleAbi, typeof walletClient>;
     let rollupContract: GetContractReturnType<typeof RollupAbi, typeof walletClient>;
 
@@ -183,9 +183,11 @@ describe('proof_verification', () => {
       const args = [
         `0x${block.header.toBuffer().toString('hex')}`,
         `0x${block.archive.root.toBuffer().toString('hex')}`,
+        `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
+        `0x${proof.withoutPublicInputs().toString('hex')}`,
       ] as const;
 
-      await expect(rollupContract.write.process(args)).resolves.toBeDefined();
+      await expect(rollupContract.write.submitProof(args)).resolves.toBeDefined();
     });
   });
 });

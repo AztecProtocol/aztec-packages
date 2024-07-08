@@ -23,6 +23,7 @@ import * as chains from 'viem/chains';
 import { type TxSenderConfig } from './config.js';
 import {
   type L1PublisherTxSender,
+  type L1SubmitProofArgs,
   type MinimalTransactionReceipt,
   type L1ProcessArgs as ProcessTxArgs,
   type TransactionStats,
@@ -166,6 +167,31 @@ export class ViemTxSender implements L1PublisherTxSender {
       gas,
       account: this.account,
     });
+    return hash;
+  }
+
+  /**
+   * Sends a tx to the L1 rollup contract with a proof. Returns once the tx has been mined.
+   * @param encodedData - Serialized data for the proof.
+   * @returns The hash of the mined tx.
+   */
+  async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
+    const { header, archive, aggregationObject, proof } = submitProofArgs;
+    const args = [
+      `0x${header.toString('hex')}`,
+      `0x${archive.toString('hex')}`,
+      `0x${aggregationObject.toString('hex')}`,
+      `0x${proof.toString('hex')}`,
+    ] as const;
+
+    const gas = await this.rollupContract.estimateGas.submitProof(args, {
+      account: this.account,
+    });
+    const hash = await this.rollupContract.write.submitProof(args, {
+      gas,
+      account: this.account,
+    });
+
     return hash;
   }
 
