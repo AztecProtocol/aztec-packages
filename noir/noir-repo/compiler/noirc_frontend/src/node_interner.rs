@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
+use std::hash::Hash;
 use std::ops::Deref;
 
 use fm::FileId;
@@ -63,6 +64,15 @@ pub struct NodeInterner {
 
     // Contains the source module each function was defined in
     function_modules: HashMap<FuncId, ModuleId>,
+
+    // The location of each module
+    module_locations: HashMap<ModuleId, Location>,
+
+    // The location of each struct name
+    struct_name_locations: HashMap<StructId, Location>,
+
+    // The location of each trait name
+    trait_name_locations: HashMap<TraitId, Location>,
 
     /// This graph tracks dependencies between different global definitions.
     /// This is used to ensure the absence of dependency cycles for globals and types.
@@ -184,11 +194,29 @@ pub struct NodeInterner {
     /// the actual type since types do not implement Send or Sync.
     quoted_types: noirc_arena::Arena<Type>,
 
-    /// Store the location of the references in the graph
-    pub(crate) reference_graph: DiGraph<DependencyId, ()>,
+    /// Whether to track references. In regular compilations this is false, but tools set it to true.
+    pub(crate) track_references: bool,
+
+    /// Store the location of the references in the graph.
+    /// Edges are directed from reference nodes to referenced nodes.
+    /// For example:
+    ///
+    /// ```
+    /// let foo = 3;
+    /// //  referenced
+    /// //   ^
+    /// //   |
+    /// //   +------------+
+    /// let bar = foo;    |
+    /// //      reference |
+    /// //         v      |
+    /// //         |      |
+    /// //         +------+
+    /// ```
+    pub(crate) reference_graph: DiGraph<ReferenceId, ()>,
 
     /// Tracks the index of the references in the graph
-    pub(crate) reference_graph_indices: HashMap<DependencyId, PetGraphIndex>,
+    pub(crate) reference_graph_indices: HashMap<ReferenceId, PetGraphIndex>,
 
     /// Store the location of the references in the graph
     pub(crate) location_indices: LocationIndices,
@@ -207,6 +235,19 @@ pub struct NodeInterner {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum DependencyId {
     Struct(StructId),
+    Global(GlobalId),
+    Function(FuncId),
+    Alias(TypeAliasId),
+    Variable(Location),
+}
+
+/// A reference to a module, struct, trait, etc., mainly used by the LSP code
+/// to keep track of how symbols reference each other.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum ReferenceId {
+    Module(ModuleId),
+    Struct(StructId),
+    Trait(TraitId),
     Global(GlobalId),
     Function(FuncId),
     Alias(TypeAliasId),
@@ -438,6 +479,7 @@ pub(crate) enum Node {
 pub struct DefinitionInfo {
     pub name: String,
     pub mutable: bool,
+    pub comptime: bool,
     pub kind: DefinitionKind,
     pub location: Location,
 }
@@ -504,6 +546,9 @@ impl Default for NodeInterner {
             function_definition_ids: HashMap::new(),
             function_modifiers: HashMap::new(),
             function_modules: HashMap::new(),
+            module_locations: HashMap::new(),
+            struct_name_locations: HashMap::new(),
+            trait_name_locations: HashMap::new(),
             func_id_to_trait: HashMap::new(),
             dependency_graph: petgraph::graph::DiGraph::new(),
             dependency_graph_indices: HashMap::new(),
@@ -531,6 +576,7 @@ impl Default for NodeInterner {
             type_alias_ref: Vec::new(),
             type_ref_locations: Vec::new(),
             quoted_types: Default::default(),
+            track_references: false,
             location_indices: LocationIndices::default(),
             reference_graph: petgraph::graph::DiGraph::new(),
             reference_graph_indices: HashMap::new(),
@@ -697,6 +743,7 @@ impl NodeInterner {
         self.type_ref_locations.push((typ, location));
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn push_global(
         &mut self,
         ident: Ident,
@@ -705,12 +752,13 @@ impl NodeInterner {
         file: FileId,
         attributes: Vec<SecondaryAttribute>,
         mutable: bool,
+        comptime: bool,
     ) -> GlobalId {
         let id = GlobalId(self.globals.len());
         let location = Location::new(ident.span(), file);
         let name = ident.to_string();
         let definition_id =
-            self.push_definition(name, mutable, DefinitionKind::Global(id), location);
+            self.push_definition(name, mutable, comptime, DefinitionKind::Global(id), location);
 
         self.globals.push(GlobalInfo {
             id,
@@ -737,10 +785,11 @@ impl NodeInterner {
         file: FileId,
         attributes: Vec<SecondaryAttribute>,
         mutable: bool,
+        comptime: bool,
     ) -> GlobalId {
         let statement = self.push_stmt(HirStatement::Error);
         let span = name.span();
-        let id = self.push_global(name, local_id, statement, file, attributes, mutable);
+        let id = self.push_global(name, local_id, statement, file, attributes, mutable, comptime);
         self.push_stmt_location(statement, span, file);
         id
     }
@@ -784,6 +833,7 @@ impl NodeInterner {
         &mut self,
         name: String,
         mutable: bool,
+        comptime: bool,
         definition: DefinitionKind,
         location: Location,
     ) -> DefinitionId {
@@ -792,7 +842,8 @@ impl NodeInterner {
             self.function_definition_ids.insert(func_id, id);
         }
 
-        self.definitions.push(DefinitionInfo { name, mutable, kind: definition, location });
+        let kind = definition;
+        self.definitions.push(DefinitionInfo { name, mutable, comptime, kind, location });
         id
     }
 
@@ -828,7 +879,7 @@ impl NodeInterner {
 
         // This needs to be done after pushing the definition since it will reference the
         // location that was stored
-        self.add_definition_location(DependencyId::Function(id));
+        self.add_definition_location(ReferenceId::Function(id));
         definition_id
     }
 
@@ -840,9 +891,10 @@ impl NodeInterner {
         location: Location,
     ) -> DefinitionId {
         let name = modifiers.name.clone();
+        let comptime = modifiers.is_comptime;
         self.function_modifiers.insert(func, modifiers);
         self.function_modules.insert(func, module);
-        self.push_definition(name, false, DefinitionKind::Function(func), location)
+        self.push_definition(name, false, comptime, DefinitionKind::Function(func), location)
     }
 
     pub fn set_function_trait(&mut self, func: FuncId, self_type: Type, trait_id: TraitId) {
@@ -926,6 +978,30 @@ impl NodeInterner {
 
     pub fn struct_attributes(&self, struct_id: &StructId) -> &StructAttributes {
         &self.struct_attributes[struct_id]
+    }
+
+    pub fn add_struct_location(&mut self, struct_id: StructId, location: Location) {
+        self.struct_name_locations.insert(struct_id, location);
+    }
+
+    pub fn struct_location(&self, struct_id: &StructId) -> Location {
+        self.struct_name_locations[struct_id]
+    }
+
+    pub fn add_trait_location(&mut self, trait_id: TraitId, location: Location) {
+        self.trait_name_locations.insert(trait_id, location);
+    }
+
+    pub fn trait_location(&self, trait_id: &TraitId) -> Location {
+        self.trait_name_locations[trait_id]
+    }
+
+    pub fn add_module_location(&mut self, module_id: ModuleId, location: Location) {
+        self.module_locations.insert(module_id, location);
+    }
+
+    pub fn module_location(&self, module_id: &ModuleId) -> Location {
+        self.module_locations[module_id]
     }
 
     pub fn global_attributes(&self, global_id: &GlobalId) -> &[SecondaryAttribute] {

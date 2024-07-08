@@ -12,12 +12,12 @@ fi
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PROFILER="$SCRIPT_DIR/../../../noir/noir-repo/target/debug/noir-profiler"
+PROFILER="$SCRIPT_DIR/../../../noir/noir-repo/target/release/noir-profiler"
 
 if [ ! -f $PROFILER ]; then
     echo "Profiler not found, building profiler"
     cd "$SCRIPT_DIR/../../../noir/noir-repo/tooling/profiler"
-    cargo build
+    cargo build --release
     cd "$SCRIPT_DIR"
 fi
 
@@ -55,5 +55,5 @@ mkdir -p "$SCRIPT_DIR/../dest"
 $PROFILER gates-flamegraph --artifact-path "$SCRIPT_DIR/../target/$FUNCTION_ARTIFACT" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$SCRIPT_DIR/../dest"
 
 # serve the file over http
-echo "Serving flamegraph at http://0.0.0.0:8000/main.svg"
+echo "Serving flamegraph at http://0.0.0.0:8000/main_gates.svg"
 python3 -m http.server --directory "$SCRIPT_DIR/../dest" 8000

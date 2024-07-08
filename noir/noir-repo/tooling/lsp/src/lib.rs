@@ -21,7 +21,7 @@ use async_lsp::{
 use fm::{codespan_files as files, FileManager};
 use fxhash::FxHashSet;
 use lsp_types::{
-    request::{PrepareRenameRequest, Rename},
+    request::{PrepareRenameRequest, References, Rename},
     CodeLens,
 };
 use nargo::{
@@ -47,7 +47,8 @@ use notifications::{
 use requests::{
     on_code_lens_request, on_formatting, on_goto_declaration_request, on_goto_definition_request,
     on_goto_type_definition_request, on_initialize, on_prepare_rename_request,
-    on_profile_run_request, on_rename_request, on_shutdown, on_test_run_request, on_tests_request,
+    on_profile_run_request, on_references_request, on_rename_request, on_shutdown,
+    on_test_run_request, on_tests_request,
 };
 use serde_json::Value as JsonValue;
 use thiserror::Error;
@@ -125,6 +126,7 @@ impl NargoLspService {
             .request::<request::GotoDefinition, _>(on_goto_definition_request)
             .request::<request::GotoDeclaration, _>(on_goto_declaration_request)
             .request::<request::GotoTypeDefinition, _>(on_goto_type_definition_request)
+            .request::<References, _>(on_references_request)
             .request::<PrepareRenameRequest, _>(on_prepare_rename_request)
             .request::<Rename, _>(on_rename_request)
             .notification::<notification::Initialized>(on_initialized)
@@ -266,6 +268,16 @@ pub(crate) fn resolve_workspace_for_source_path(file_path: &Path) -> Result<Work
     }
 }
 
+pub(crate) fn prepare_package<'file_manager, 'parsed_files>(
+    file_manager: &'file_manager FileManager,
+    parsed_files: &'parsed_files ParsedFiles,
+    package: &Package,
+) -> (Context<'file_manager, 'parsed_files>, CrateId) {
+    let (mut context, crate_id) = nargo::prepare_package(file_manager, parsed_files, package);
+    context.track_references();
+    (context, crate_id)
+}
+
 /// Prepares a package from a source string
 /// This is useful for situations when we don't need dependencies
 /// and just need to operate on single file.
@@ -283,6 +295,8 @@ fn prepare_source(source: String, state: &mut LspState) -> (Context<'static, 'st
     let parsed_files = parse_diff(&file_manager, state);
 
     let mut context = Context::new(file_manager, parsed_files);
+    context.track_references();
+
     let root_crate_id = prepare_crate(&mut context, file_name);
 
     (context, root_crate_id)
