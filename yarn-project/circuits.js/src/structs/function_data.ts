@@ -1,5 +1,5 @@
 import { type FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { pedersenHash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
