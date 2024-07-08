@@ -252,6 +252,7 @@ pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
+#[no_predicates]
 pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
