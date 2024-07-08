@@ -220,7 +220,7 @@ namespace mem(256);
 
     //====== CALLDATACOPY specific constraints ==================================
     sel_op_cd_cpy * (rw - 1) = 0;
-    sel_op_cd_cpy * (w_in_tag - 6) = 0;
+    sel_op_cd_cpy * (w_in_tag - 6) = 0; // Only write elements of type FF
 
     //====== MOV/CMOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for
