@@ -1,8 +1,8 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
-    constants::{CALL_CONTEXT_LENGTH, GENERATOR_INDEX__CALL_CONTEXT}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered,
-    abis::{gas_settings::GasSettings, gas::Gas}, utils::reader::Reader
+    constants::{CALL_CONTEXT_LENGTH, GENERATOR_INDEX__CALL_CONTEXT},
+    hash::poseidon2_hash_with_separator, traits::{Deserialize, Hash, Serialize, Empty},
+    abis::side_effect::Ordered, abis::{gas_settings::GasSettings, gas::Gas}, utils::reader::Reader
 };
 
 // docs:start:call-context
@@ -36,7 +36,7 @@ impl Eq for CallContext {
 
 impl Hash for CallContext {
     fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)
     }
 }
 

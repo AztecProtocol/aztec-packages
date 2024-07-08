@@ -44,7 +44,7 @@ impl Eq for PublicCallStackItemCompressed {
 
 impl Hash for PublicCallStackItemCompressed {
     fn hash(self) -> Field {
-        std::hash::pedersen_hash_with_separator(self.serialize(), GENERATOR_INDEX__CALL_STACK_ITEM)
+        crate::hash::poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 }
 
