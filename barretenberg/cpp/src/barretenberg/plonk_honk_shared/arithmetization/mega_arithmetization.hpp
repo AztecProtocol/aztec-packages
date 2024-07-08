@@ -4,6 +4,77 @@
 
 namespace bb {
 
+template <typename T> struct MegaTraceBlocks {
+    T ecc_op;
+    T pub_inputs;
+    T arithmetic;
+    T delta_range;
+    T elliptic;
+    T aux;
+    T lookup;
+    T busread;
+    T poseidon_external;
+    T poseidon_internal;
+
+    auto get()
+    {
+        return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
+                         aux,    lookup,     busread,    poseidon_external, poseidon_internal };
+    }
+
+    bool operator==(const MegaTraceBlocks& other) const = default;
+};
+
+enum StructuredTraceSettings { SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
+
+struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+    SmallTestStructuredBlockSizes()
+    {
+        this->ecc_op = 1 << 10;
+        this->pub_inputs = 1 << 7;
+        this->arithmetic = 1 << 16;
+        this->delta_range = 1 << 15;
+        this->elliptic = 1 << 14;
+        this->aux = 1 << 16;
+        this->lookup = 1 << 15;
+        this->busread = 1 << 7;
+        this->poseidon_external = 1 << 11;
+        this->poseidon_internal = 1 << 14;
+    }
+};
+
+struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+    ClientIvcBenchStructuredBlockSizes()
+    {
+        this->ecc_op = 1 << 10;
+        this->pub_inputs = 1 << 7;
+        this->arithmetic = 1 << 16;
+        this->delta_range = 1 << 15;
+        this->elliptic = 1 << 14;
+        this->aux = 1 << 16;
+        this->lookup = 1 << 15;
+        this->busread = 1 << 7;
+        this->poseidon_external = 1 << 11;
+        this->poseidon_internal = 1 << 14;
+    }
+};
+
+struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+    E2eStructuredBlockSizes()
+    {
+        this->ecc_op = 1 << 10;
+        this->pub_inputs = 1 << 7;
+        this->arithmetic = 1 << 16;
+        this->delta_range = 1 << 15;
+        this->elliptic = 1 << 14;
+        this->aux = 1 << 16;
+        this->lookup = 1 << 15;
+        this->busread = 1 << 7;
+        this->poseidon_external = 1 << 11;
+        this->poseidon_internal = 1 << 14;
+    }
+};
+
 /**
  * @brief Mega arithmetization
  *
@@ -76,80 +147,66 @@ template <typename FF_> class MegaArith {
         };
     };
 
-    // template <typename T> struct CircuitTraceBlocks {
-    //     T ecc_op;
-    //     T pub_inputs;
-    //     T arithmetic;
-    //     T delta_range;
-    //     T elliptic;
-    //     T aux;
-    //     T lookup;
-    //     T busread;
-    //     T poseidon_external;
-    //     T poseidon_internal;
-    // };
-
-    // template <typename T> struct TraceBlocks : public CircuitTraceBlocks<T> {};
-
-    struct TraceBlocks {
-        MegaTraceBlock ecc_op;
-        MegaTraceBlock pub_inputs;
-        MegaTraceBlock arithmetic;
-        MegaTraceBlock delta_range;
-        MegaTraceBlock elliptic;
-        MegaTraceBlock aux;
-        MegaTraceBlock lookup;
-        MegaTraceBlock busread;
-        MegaTraceBlock poseidon_external;
-        MegaTraceBlock poseidon_internal;
+    struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
 
         // This is a set of fixed block sizes that accomodates the circuits currently processed in the ClientIvc bench.
         // Note 1: The individual block sizes do NOT need to be powers of 2, this is just for conciseness.
         // Note 2: Current sizes result in a full trace size of 2^18. It's not possible to define a fixed structure
         // that accomdates both the kernel and the function circuit while remaining under 2^17. This is because the
         // circuits differ in structure but are also both designed to be "full" within the 2^17 size.
-        std::array<uint32_t, 10> fixed_block_sizes{
-            1 << 10, // ecc_op;
-            1 << 7,  // pub_inputs;
-            1 << 16, // arithmetic;
-            1 << 15, // delta_range;
-            1 << 14, // elliptic;
-            1 << 16, // aux;
-            1 << 15, // lookup;
-            1 << 7,  // busread;
-            1 << 11, // poseidon_external;
-            1 << 14  // poseidon_internal;
-        };
+        // std::array<uint32_t, 10> fixed_block_sizes{
+        //     1 << 10, // ecc_op;
+        //     1 << 7,  // pub_inputs;
+        //     1 << 16, // arithmetic;
+        //     1 << 15, // delta_range;
+        //     1 << 14, // elliptic;
+        //     1 << 16, // aux;
+        //     1 << 15, // lookup;
+        //     1 << 7,  // busread;
+        //     1 << 11, // poseidon_external;
+        //     1 << 14  // poseidon_internal;
+        // };
 
-        TraceBlocks()
+        E2eStructuredBlockSizes fixed_block_sizes;
+
+        // Set fixed block sizes for use in structured trace
+        void set_fixed_block_sizes(StructuredTraceSettings setting)
         {
-            aux.has_ram_rom = true;
-            pub_inputs.is_pub_inputs = true;
-            // Set fixed block sizes for use in structured trace
-            for (auto [block, size] : zip_view(this->get(), fixed_block_sizes)) {
+            MegaTraceBlocks<uint32_t> fixed_block_sizes;
+            switch (setting) {
+            case SMALL_TEST:
+                fixed_block_sizes = SmallTestStructuredBlockSizes();
+            case CLIENT_IVC_BENCH:
+                fixed_block_sizes = ClientIvcBenchStructuredBlockSizes();
+            case E2E_FULL_TEST:
+                fixed_block_sizes = E2eStructuredBlockSizes();
+            }
+            for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
         }
 
-        auto get()
+        TraceBlocks()
         {
-            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
-                             aux,    lookup,     busread,    poseidon_external, poseidon_internal };
+            this->aux.has_ram_rom = true;
+            this->pub_inputs.is_pub_inputs = true;
+            // Set fixed block sizes for use in structured trace
+            set_fixed_block_sizes(CLIENT_IVC_BENCH);
         }
 
         void summarize() const
         {
             info("Gate blocks summary: (actual gates / fixed capacity)");
-            info("goblin ecc op :\t", ecc_op.size(), "/", ecc_op.get_fixed_size());
-            info("pub inputs    :\t", pub_inputs.size(), "/", pub_inputs.get_fixed_size());
-            info("arithmetic    :\t", arithmetic.size(), "/", arithmetic.get_fixed_size());
-            info("delta range   :\t", delta_range.size(), "/", delta_range.get_fixed_size());
-            info("elliptic      :\t", elliptic.size(), "/", elliptic.get_fixed_size());
-            info("auxiliary     :\t", aux.size(), "/", aux.get_fixed_size());
-            info("lookups       :\t", lookup.size(), "/", lookup.get_fixed_size());
-            info("busread       :\t", busread.size(), "/", busread.get_fixed_size());
-            info("poseidon ext  :\t", poseidon_external.size(), "/", poseidon_external.get_fixed_size());
-            info("poseidon int  :\t", poseidon_internal.size(), "/", poseidon_internal.get_fixed_size());
+            info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
+            info("pub inputs    :\t", this->pub_inputs.size(), "/", this->pub_inputs.get_fixed_size());
+            info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
+            info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
+            info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
+            info("auxiliary     :\t", this->aux.size(), "/", this->aux.get_fixed_size());
+            info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
+            info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
+            info("poseidon ext  :\t", this->poseidon_external.size(), "/", this->poseidon_external.get_fixed_size());
+            info("poseidon int  :\t", this->poseidon_internal.size(), "/", this->poseidon_internal.get_fixed_size());
             info("");
         }
 
