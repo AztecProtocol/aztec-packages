@@ -19,7 +19,7 @@ ITER="1"
 for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do    
     ARTIFACT_NAME=$(basename -s .json "$pathname")
 
-    GATES_INFO=$($BB_BIN gates -b "./target/$ARTIFACT_NAME.json")
+    GATES_INFO=$($BB_BIN gates -h -b "./target/$ARTIFACT_NAME.json")
     MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r '.functions[0] | .name = "main"')
     echo "{\"package_name\": \"$ARTIFACT_NAME\", \"functions\": [$MAIN_FUNCTION_INFO]" >> gates_report.json
 
