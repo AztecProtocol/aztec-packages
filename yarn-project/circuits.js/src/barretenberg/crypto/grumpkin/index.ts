@@ -7,9 +7,9 @@ import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 export class Grumpkin {
   private wasm = BarretenbergSync.getSingleton().getWasm();
 
+  // TODO(#7386): correctly handle point at infinity in our BB API and nuke Grumpkin.notAPointAtInfinityBuf
   static notAPointAtInfinityBuf = Buffer.from([
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00
   ]);
 
   // prettier-ignore
@@ -35,10 +35,11 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public mul(point: Point, scalar: GrumpkinScalar): Point {
-    this.wasm.writeMemory(0, point.toBuffer());
+    // TODO(#7386): remove the ugly subarray hack below
+    this.wasm.writeMemory(0, point.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2));
     this.wasm.writeMemory(64, scalar.toBuffer());
     this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
-    // TODO: handle point at infinity
+    // TODO(#7386): handle point at infinity
     const buf = Buffer.from(this.wasm.getMemorySlice(96, 160));
     return Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf]));
   }
@@ -50,10 +51,12 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public add(a: Point, b: Point): Point {
-    this.wasm.writeMemory(0, a.toBuffer());
-    this.wasm.writeMemory(64, b.toBuffer());
+    // TODO(#7386): remove the ugly subarray hack below
+    this.wasm.writeMemory(0, a.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2));
+    // TODO(#7386): remove the ugly subarray hack below
+    this.wasm.writeMemory(64, b.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2));
     this.wasm.call('ecc_grumpkin__add', 0, 64, 128);
-    // TODO: handle point at infinity
+    // TODO(#7386): handle point at infinity
     const buf = Buffer.from(this.wasm.getMemorySlice(128, 192));
     return Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf]));
   }
@@ -65,7 +68,8 @@ export class Grumpkin {
    * @returns Points multiplied by the scalar.
    */
   public batchMul(points: Point[], scalar: GrumpkinScalar) {
-    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
+    // TODO(#7386): remove the ugly subarray hack below
+    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2)));
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
     const mem = this.wasm.call('bbmalloc', pointsByteLength * 2);

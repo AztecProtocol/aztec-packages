@@ -43,12 +43,16 @@ impl PublicKeys {
                 [
                 self.npk_m.x,
                 self.npk_m.y,
+                self.npk_m.is_infinite as Field,
                 self.ivpk_m.x,
                 self.ivpk_m.y,
+                self.ivpk_m.is_infinite as Field,
                 self.ovpk_m.x,
                 self.ovpk_m.y,
+                self.ovpk_m.is_infinite as Field,
                 self.tpk_m.x,
                 self.tpk_m.y,
+                self.tpk_m.is_infinite as Field,
                 GENERATOR_INDEX__PUBLIC_KEYS_HASH
             ]
             )
@@ -106,7 +110,7 @@ fn compute_public_keys_hash() {
     };
 
     let actual = keys.hash();
-    let expected_public_keys_hash = 0x2406c1c88b7afc13052335bb9af43fd35034b5ba0a9caab76eda2833cf8ec717;
+    let expected_public_keys_hash = 0x146f68c0e0ba4067d61a3304bbfdec0797d5df1357db6c01247c48bfb345c7d7;
 
     assert(actual.to_field() == expected_public_keys_hash);
 }

@@ -60,7 +60,7 @@ export class Oracle {
   async getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
     const { pkM, skApp } = await this.typedOracle.getKeyValidationRequest(fromACVMField(pkMHash));
 
-    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(skApp)];
+    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(pkM.isInfinite), toACVMField(skApp)];
   }
 
   async getContractInstance([address]: ACVMField[]) {

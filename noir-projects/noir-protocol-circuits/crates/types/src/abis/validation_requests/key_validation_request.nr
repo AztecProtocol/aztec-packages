@@ -29,6 +29,7 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
         [
             self.pk_m.x,
             self.pk_m.y,
+            self.pk_m.is_infinite as Field,
             self.sk_app,
         ]
     }
@@ -37,8 +38,8 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
         Self {
-            pk_m: EmbeddedCurvePoint::new(fields[0], fields[1], false),
-            sk_app: fields[2],
+            pk_m: EmbeddedCurvePoint::new(fields[0], fields[1], fields[2] as bool),
+            sk_app: fields[3],
         }
     }
 }

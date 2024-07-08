@@ -104,7 +104,7 @@ export class MultiScalarMul extends Instruction {
       (acc, curr) => grumpkin.add(acc, grumpkin.mul(curr[0], curr[1])),
       grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]),
     );
-    const output = outputPoint.toFieldsWithInf().map(f => new Field(f));
+    const output = outputPoint.toFields().map(f => new Field(f));
 
     memory.setSlice(outputOffset, output);
 

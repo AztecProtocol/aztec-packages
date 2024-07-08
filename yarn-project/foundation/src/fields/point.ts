@@ -9,7 +9,7 @@ import { Fr } from './fields.js';
  */
 export class Point {
   static ZERO = new Point(Fr.ZERO, Fr.ZERO, true);
-  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
+  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2 + 1; // + 1 for isInfinite
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -28,7 +28,7 @@ export class Point {
      */
     public readonly isInfinite: boolean,
   ) {
-    // TODO: Do we want to check if the point is on the curve here?
+    // TODO(#7386): check if on curve
   }
 
   /**
@@ -70,7 +70,7 @@ export class Point {
    * @returns The point as an array of 2 fields
    */
   toFields() {
-    return [this.x, this.y];
+    return [this.x, this.y, new Fr(this.isInfinite)];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -154,9 +154,6 @@ export class Point {
    */
   public get inf() {
     return this.x == Fr.ZERO;
-  }
-  public toFieldsWithInf() {
-    return [this.x, this.y, new Fr(this.inf)];
   }
 
   isOnGrumpkin() {

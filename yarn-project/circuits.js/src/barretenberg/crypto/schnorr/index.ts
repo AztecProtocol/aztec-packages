@@ -5,6 +5,7 @@ import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { type GrumpkinPrivateKey } from '../../../types/grumpkin_private_key.js';
 import { type PublicKey } from '../../../types/public_key.js';
 import { SchnorrSignature } from './signature.js';
+import { Grumpkin } from '../grumpkin/index.js';
 
 export * from './signature.js';
 
@@ -22,7 +23,8 @@ export class Schnorr {
   public computePublicKey(privateKey: GrumpkinPrivateKey): PublicKey {
     this.wasm.writeMemory(0, privateKey.toBuffer());
     this.wasm.call('schnorr_compute_public_key', 0, 32);
-    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(32, 96)));
+    // TODO(#7386): correctly handle point at infinity in our API and nuke Grumpkin.notAPointAtInfinityBuf
+    return Point.fromBuffer(Buffer.concat([Buffer.from(this.wasm.getMemorySlice(32, 96)), Grumpkin.notAPointAtInfinityBuf]));
   }
 
   /**
