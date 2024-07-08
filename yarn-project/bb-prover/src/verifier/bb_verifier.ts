@@ -1,5 +1,5 @@
 import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
-import { type Proof, type VerificationKeyData, type VerificationKeys } from '@aztec/circuits.js';
+import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -129,9 +129,10 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   }
 
   async verifyProof(tx: Tx): Promise<boolean> {
-    const { proof, enqueuedPublicFunctionCalls } = tx;
-    const expectedCircuit: ClientProtocolArtifact =
-      enqueuedPublicFunctionCalls.length > 0 ? 'PrivateKernelTailToPublicArtifact' : 'PrivateKernelTailArtifact';
+    const { proof, data } = tx;
+    const expectedCircuit: ClientProtocolArtifact = data.forPublic
+      ? 'PrivateKernelTailToPublicArtifact'
+      : 'PrivateKernelTailArtifact';
 
     try {
       await this.verifyProofForCircuit(expectedCircuit, proof);
@@ -140,17 +141,5 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       this.logger.warn(`Failed to verify ${expectedCircuit} proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
       return false;
     }
-  }
-
-  async getVerificationKeys(): Promise<VerificationKeys> {
-    const [privateKernelCircuit, privateKernelToPublicCircuit] = await Promise.all([
-      this.getVerificationKeyData('PrivateKernelTailArtifact'),
-      this.getVerificationKeyData('PrivateKernelTailToPublicArtifact'),
-    ]);
-
-    return {
-      privateKernelCircuit,
-      privateKernelToPublicCircuit,
-    };
   }
 }

@@ -173,7 +173,8 @@ void TranslatorProver::execute_pcs_rounds()
     using Curve = typename Flavor::Curve;
     using ZeroMorph = ZeroMorphProver_<Curve>;
     auto prover_opening_claim =
-        ZeroMorph::prove(key->polynomials.get_unshifted_without_concatenated(),
+        ZeroMorph::prove(key->circuit_size,
+                         key->polynomials.get_unshifted_without_concatenated(),
                          key->polynomials.get_to_be_shifted(),
                          sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
                          sumcheck_output.claimed_evaluations.get_shifted(),
@@ -183,8 +184,7 @@ void TranslatorProver::execute_pcs_rounds()
                          key->polynomials.get_concatenated_constraints(),
                          sumcheck_output.claimed_evaluations.get_concatenated_constraints(),
                          key->polynomials.get_concatenation_groups());
-    PCS::compute_opening_proof(
-        commitment_key, prover_opening_claim.opening_pair, prover_opening_claim.polynomial, transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof TranslatorProver::export_proof()

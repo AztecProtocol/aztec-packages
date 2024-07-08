@@ -17,12 +17,11 @@ path = "src/main.rs"
 [dependencies]
 color-eyre.workspace = true
 clap.workspace = true
-nargo.workspace = true
+noirc_artifacts.workspace = true
 const_format.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 fm.workspace = true
-codespan-reporting.workspace = true
 inferno = "0.11.19"
 im.workspace = true
 acir.workspace = true

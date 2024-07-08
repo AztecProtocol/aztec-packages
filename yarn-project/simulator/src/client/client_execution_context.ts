@@ -22,7 +22,13 @@ import {
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import {
+  EventSelector,
+  type FunctionAbi,
+  type FunctionArtifact,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
@@ -288,7 +294,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override notifyCreatedNote(
     storageSlot: Fr,
-    noteTypeId: Fr,
+    noteTypeId: NoteSelector,
     noteItems: Fr[],
     innerNoteHash: Fr,
     counter: number,
@@ -382,7 +388,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     preimage: Fr[],
   ) {
     const event = new Event(preimage);
-    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, eventTypeId);
+    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, EventSelector.fromField(eventTypeId));
     const taggedEvent = new TaggedLog(l1EventPayload);
 
     const ephSk = GrumpkinScalar.random();
@@ -404,7 +410,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public override computeEncryptedNoteLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    noteTypeId: Fr,
+    noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
     preimage: Fr[],
@@ -453,9 +459,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
     if (
-      childExecutionResult.callStackItem.publicInputs.newNoteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
     ) {
@@ -494,7 +500,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideEffectCounter,
       isDelegateCall,
       isStaticCall,
     );
@@ -553,7 +558,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideEffectCounter,
       isDelegateCall,
       isStaticCall,
     );
@@ -573,6 +577,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       parentCallContext: this.callContext,
       functionSelector,
       contractAddress: targetContractAddress,
+      sideEffectCounter,
     });
   }
 
@@ -648,7 +653,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Derives the call context for a nested execution.
    * @param targetContractAddress - The address of the contract being called.
    * @param targetArtifact - The artifact of the function being called.
-   * @param startSideEffectCounter - The side effect counter at the start of the call.
    * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
@@ -656,7 +660,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   private deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
-    startSideEffectCounter: number,
     isDelegateCall = false,
     isStaticCall = false,
   ) {
@@ -666,22 +669,30 @@ export class ClientExecutionContext extends ViewDataOracle {
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isDelegateCall,
       isStaticCall,
-      startSideEffectCounter,
     );
   }
 
   /**
    * Read the public storage data.
+   * @param contractAddress - The address to read storage from.
    * @param startStorageSlot - The starting storage slot.
+   * @param blockNumber - The block number to read storage at.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public override async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
+  public override async storageRead(
+    contractAddress: Fr,
+    startStorageSlot: Fr,
+    blockNumber: number,
+    numberOfElements: number,
+  ): Promise<Fr[]> {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
 
-      const value = await this.aztecNode.getPublicStorageAt(this.callContext.storageContractAddress, storageSlot);
-      this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      const value = await this.aztecNode.getPublicStorageAt(contractAddress, storageSlot, blockNumber);
+      this.log.debug(
+        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
+      );
 
       values.push(value);
     }

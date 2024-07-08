@@ -14,6 +14,7 @@ fold_numeric_generic_poseidon
 slice_init_with_complex_type
 hashmap
 is_unconstrained
+macros
 modulus
 references
 regression_4709

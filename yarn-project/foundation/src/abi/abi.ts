@@ -2,6 +2,7 @@ import { inflate } from 'pako';
 
 import { type Fr } from '../fields/fields.js';
 import { type FunctionSelector } from './function_selector.js';
+import { type NoteSelector } from './note_selector.js';
 
 /**
  * A basic value.
@@ -58,10 +59,7 @@ export interface ABIVariable {
 /**
  * Indicates whether a parameter is public or secret/private.
  */
-export enum ABIParameterVisibility {
-  PUBLIC = 'public',
-  SECRET = 'secret',
-}
+export type ABIParameterVisibility = 'public' | 'private' | 'databus';
 
 /**
  * A function parameter.
@@ -88,6 +86,8 @@ export interface BasicType<T extends string> {
  */
 export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
 
+type Sign = 'unsigned' | 'signed';
+
 /**
  * An integer type.
  */
@@ -95,7 +95,7 @@ export interface IntegerType extends BasicType<'integer'> {
   /**
    * The sign of the integer.
    */
-  sign: string;
+  sign: Sign;
   /**
    * The width of the integer in bits.
    */
@@ -275,7 +275,7 @@ export type ContractNote = {
   /**
    * Note identifier
    */
-  id: Fr;
+  id: NoteSelector;
   /**
    * Type of the note (e.g., 'TransparentNote')
    */

@@ -1,9 +1,14 @@
 contract TestLog {
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{traits::Serialize, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
+    use dep::aztec::protocol_types::{
+        traits::Serialize, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
+        address::AztecAddress
+    };
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::aztec::event::event_interface::EventInterface;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
+    use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
 
     #[aztec(event)]
     struct ExampleEvent0 {
@@ -13,8 +18,8 @@ contract TestLog {
 
     #[aztec(event)]
     struct ExampleEvent1 {
-        value2: Field,
-        value3: Field,
+        value2: AztecAddress,
+        value3: u8,
     }
 
     #[aztec(storage)]
@@ -40,44 +45,51 @@ contract TestLog {
     }
 
     #[aztec(private)]
-    fn emit_encrypted_log(randomness: Field, event_type_id: Field, preimage: [Field; 6]) {
-        let header = context.get_header();
-        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
-        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+    fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {
+        let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        context.encrypt_and_emit_event(
-            randomness,
-            event_type_id,
-            msg_sender_ovpk_m,
-            msg_sender_ivpk_m,
-            preimage
+        event0.emit(
+            encode_and_encrypt_event_with_randomness(
+                &mut context,
+                randomness[0],
+                // outgoing is set to other, incoming is set to msg sender
+                other,
+                context.msg_sender()
+            )
+        );
+
+        // We duplicate the emission, but specifying different incoming and outgoing parties
+        event0.emit(
+            encode_and_encrypt_event_with_randomness(
+                &mut context,
+                randomness[0],
+                // outgoing is set to msg sender, incoming is set to other
+                context.msg_sender(),
+                other
+            )
+        );
+
+        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
+
+        event1.emit(
+            encode_and_encrypt_event_with_randomness(
+                &mut context,
+                randomness[1],
+                // outgoing is set to other, incoming is set to msg sender
+                other,
+                context.msg_sender()
+            )
         );
     }
 
-    #[aztec(private)]
-    fn emit_encrypted_events(randomness: [Field; 2], preimages: [Field; 4]) {
-        let header = context.get_header();
-        let msg_sender_ivpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
-        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
-
+    #[aztec(public)]
+    fn emit_unencrypted_events(preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        context.encrypt_and_emit_event(
-            randomness[0],
-            ExampleEvent0::get_event_type_id().to_field(),
-            msg_sender_ovpk_m,
-            msg_sender_ivpk_m,
-            event0.serialize()
-        );
+        event0.emit(encode_event(&mut context));
 
-        let event1 = ExampleEvent1 { value2: preimages[2], value3: preimages[3] };
+        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
-        context.encrypt_and_emit_event(
-            randomness[1],
-            ExampleEvent1::get_event_type_id().to_field(),
-            msg_sender_ovpk_m,
-            msg_sender_ivpk_m,
-            event1.serialize()
-        );
+        event1.emit(encode_event(&mut context));
     }
 }

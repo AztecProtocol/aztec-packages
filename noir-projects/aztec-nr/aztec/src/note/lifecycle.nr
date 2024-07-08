@@ -15,12 +15,10 @@ pub fn create_note<Note, N, M>(
     let note_hash_counter = context.side_effect_counter;
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
-    // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
-    Note::set_header(note, header);
+    note.set_header(header);
     let inner_note_hash = compute_inner_note_hash(*note);
 
-    // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
-    let serialized_note: [Field; N] = Note::serialize_content(*note);
+    let serialized_note = Note::serialize_content(*note);
     assert(
         notify_created_note(
         storage_slot,
@@ -32,7 +30,7 @@ pub fn create_note<Note, N, M>(
         == 0
     );
 
-    context.push_new_note_hash(inner_note_hash);
+    context.push_note_hash(inner_note_hash);
 
     NoteEmission::new(*note)
 }
@@ -48,7 +46,7 @@ pub fn create_note_hash_from_public<Note, N, M>(
     note.set_header(header);
     let inner_note_hash = compute_inner_note_hash(*note);
 
-    context.push_new_note_hash(inner_note_hash);
+    context.push_note_hash(inner_note_hash);
 }
 
 pub fn destroy_note<Note, N, M>(
@@ -73,5 +71,5 @@ pub fn destroy_note<Note, N, M>(
     let nullifier_counter = context.side_effect_counter;
     assert(notify_nullified_note(nullifier, note_hash_for_consumption, nullifier_counter) == 0);
 
-    context.push_new_nullifier(nullifier, note_hash_for_consumption)
+    context.push_nullifier(nullifier, note_hash_for_consumption)
 }

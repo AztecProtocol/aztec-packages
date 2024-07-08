@@ -32,10 +32,13 @@ import {
 } from '@aztec/l1-artifacts';
 import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -124,6 +127,7 @@ export async function deployContractsToL1(
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
     deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
       l2GasTokenAddress: GasTokenAddress,
+      vkTreeRoot: getVKTreeRoot(),
     }),
   );
 
@@ -252,7 +256,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await deployContractsToL1(aztecNodeConfig, hdAccount);
   }
 
-  const node = await createAztecNode(aztecNodeConfig);
+  const node = await createAztecNode(new NoopTelemetryClient(), aztecNodeConfig);
   const pxe = await createAztecPXE(node);
 
   await deployCanonicalKeyRegistry(
@@ -281,9 +285,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  * Create and start a new Aztec RPC HTTP Server
  * @param config - Optional Aztec node settings.
  */
-export async function createAztecNode(config: Partial<AztecNodeConfig> = {}) {
+export async function createAztecNode(telemetryClient: TelemetryClient, config: Partial<AztecNodeConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
   return node;
 }
 

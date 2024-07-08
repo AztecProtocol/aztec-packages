@@ -116,6 +116,10 @@ pub fn analyzed_to_cpp<F: FieldElement>(
 
     bb_files.create_declare_views(file_name, &all_cols_with_shifts);
 
+    // ----------------------- Create the full row files -----------------------
+    bb_files.create_full_row_hpp(file_name, &all_cols);
+    bb_files.create_full_row_cpp(file_name, &all_cols);
+
     // ----------------------- Create the circuit builder file -----------------------
     bb_files.create_circuit_builder_hpp(
         file_name,
@@ -124,10 +128,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &all_cols_without_inverses,
         &all_cols,
         &to_be_shifted,
-        &all_cols_with_shifts,
     );
-
-    bb_files.create_circuit_builder_cpp(file_name, &all_cols);
 
     // ----------------------- Create the flavor file -----------------------
     bb_files.create_flavor_hpp(
@@ -136,27 +137,25 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &inverses,
         &fixed,
         &witness,
+        &witnesses_without_inverses,
         &all_cols,
         &to_be_shifted,
         &shifted,
         &all_cols_with_shifts,
     );
 
+    bb_files.create_flavor_settings_hpp(file_name);
+
     // ----------------------- Create the composer files -----------------------
     bb_files.create_composer_cpp(file_name);
     bb_files.create_composer_hpp(file_name);
 
     // ----------------------- Create the Verifier files -----------------------
-    bb_files.create_verifier_cpp(
-        file_name,
-        &witnesses_without_inverses,
-        &inverses,
-        &public_inputs,
-    );
+    bb_files.create_verifier_cpp(file_name, &inverses, &public_inputs);
     bb_files.create_verifier_hpp(file_name, &public_inputs);
 
     // ----------------------- Create the Prover files -----------------------
-    bb_files.create_prover_cpp(file_name, &witnesses_without_inverses, &inverses);
+    bb_files.create_prover_cpp(file_name, &inverses);
     bb_files.create_prover_hpp(file_name);
 }
 

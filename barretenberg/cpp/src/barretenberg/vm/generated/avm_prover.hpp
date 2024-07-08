@@ -1,6 +1,5 @@
-
-
 #pragma once
+
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -12,10 +11,11 @@
 namespace bb {
 
 class AvmProver {
-
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
     using PCS = Flavor::PCS;
+    using Curve = Flavor::Curve;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
     using PCSCommitmentKey = Flavor::CommitmentKey;
     using ProvingKey = Flavor::ProvingKey;
     using Polynomial = Flavor::Polynomial;

@@ -101,33 +101,6 @@ fn multi_scalar_mul_circuit() {
 }
 
 #[test]
-fn pedersen_circuit() {
-    let pedersen = Opcode::BlackBoxFuncCall(BlackBoxFuncCall::PedersenCommitment {
-        inputs: vec![FunctionInput { witness: Witness(1), num_bits: FieldElement::max_num_bits() }],
-        outputs: (Witness(2), Witness(3)),
-        domain_separator: 0,
-    });
-
-    let circuit: Circuit<FieldElement> = Circuit {
-        current_witness_index: 4,
-        opcodes: vec![pedersen],
-        private_parameters: BTreeSet::from([Witness(1)]),
-        return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(2), Witness(3)])),
-        ..Circuit::default()
-    };
-    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
-
-    let bytes = Program::serialize_program(&program);
-
-    let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 93, 74, 9, 10, 0, 0, 4, 115, 149, 255, 127, 88, 8, 133,
-        213, 218, 137, 80, 144, 32, 182, 79, 213, 151, 173, 61, 5, 121, 245, 91, 103, 255, 191, 3,
-        7, 16, 26, 112, 158, 113, 0, 0, 0,
-    ];
-    assert_eq!(bytes, expected_serialization)
-}
-
-#[test]
 fn schnorr_verify_circuit() {
     let public_key_x =
         FunctionInput { witness: Witness(1), num_bits: FieldElement::max_num_bits() };

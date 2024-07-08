@@ -1,3 +1,4 @@
+#pragma once
 
 #define Avm_DECLARE_VIEWS(index)                                                                                       \
     using Accumulator = typename std::tuple_element<index, ContainerOverSubrelations>::type;                           \
@@ -8,6 +9,7 @@
     [[maybe_unused]] auto kernel_kernel_value_out = View(new_term.kernel_kernel_value_out);                            \
     [[maybe_unused]] auto kernel_kernel_side_effect_out = View(new_term.kernel_kernel_side_effect_out);                \
     [[maybe_unused]] auto kernel_kernel_metadata_out = View(new_term.kernel_kernel_metadata_out);                      \
+    [[maybe_unused]] auto main_calldata = View(new_term.main_calldata);                                                \
     [[maybe_unused]] auto alu_a_hi = View(new_term.alu_a_hi);                                                          \
     [[maybe_unused]] auto alu_a_lo = View(new_term.alu_a_lo);                                                          \
     [[maybe_unused]] auto alu_b_hi = View(new_term.alu_b_hi);                                                          \
@@ -210,6 +212,7 @@
     [[maybe_unused]] auto main_sel_op_fdiv = View(new_term.main_sel_op_fdiv);                                          \
     [[maybe_unused]] auto main_sel_op_fee_per_da_gas = View(new_term.main_sel_op_fee_per_da_gas);                      \
     [[maybe_unused]] auto main_sel_op_fee_per_l2_gas = View(new_term.main_sel_op_fee_per_l2_gas);                      \
+    [[maybe_unused]] auto main_sel_op_function_selector = View(new_term.main_sel_op_function_selector);                \
     [[maybe_unused]] auto main_sel_op_get_contract_instance = View(new_term.main_sel_op_get_contract_instance);        \
     [[maybe_unused]] auto main_sel_op_halt = View(new_term.main_sel_op_halt);                                          \
     [[maybe_unused]] auto main_sel_op_internal_call = View(new_term.main_sel_op_internal_call);                        \
@@ -251,7 +254,6 @@
     [[maybe_unused]] auto main_sel_rng_16 = View(new_term.main_sel_rng_16);                                            \
     [[maybe_unused]] auto main_sel_rng_8 = View(new_term.main_sel_rng_8);                                              \
     [[maybe_unused]] auto main_space_id = View(new_term.main_space_id);                                                \
-    [[maybe_unused]] auto main_table_pow_2 = View(new_term.main_table_pow_2);                                          \
     [[maybe_unused]] auto main_tag_err = View(new_term.main_tag_err);                                                  \
     [[maybe_unused]] auto main_w_in_tag = View(new_term.main_w_in_tag);                                                \
     [[maybe_unused]] auto mem_addr = View(new_term.mem_addr);                                                          \
@@ -293,6 +295,7 @@
     [[maybe_unused]] auto poseidon2_input = View(new_term.poseidon2_input);                                            \
     [[maybe_unused]] auto poseidon2_output = View(new_term.poseidon2_output);                                          \
     [[maybe_unused]] auto poseidon2_sel_poseidon_perm = View(new_term.poseidon2_sel_poseidon_perm);                    \
+    [[maybe_unused]] auto powers_power_of_2 = View(new_term.powers_power_of_2);                                        \
     [[maybe_unused]] auto sha256_clk = View(new_term.sha256_clk);                                                      \
     [[maybe_unused]] auto sha256_input = View(new_term.sha256_input);                                                  \
     [[maybe_unused]] auto sha256_output = View(new_term.sha256_output);                                                \

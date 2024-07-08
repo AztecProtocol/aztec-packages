@@ -67,6 +67,9 @@ pub fn generate_event_impls(module: &mut SortedModule) -> Result<(), AztecMacroE
             event_interface_trait_impl.items.push(TraitImplItem::Function(
                 generate_fn_to_be_bytes(event_type.as_str(), event_byte_len)?,
             ));
+            event_interface_trait_impl
+                .items
+                .push(TraitImplItem::Function(generate_fn_emit(event_type.as_str())?));
             submodule.contents.trait_impls.push(event_interface_trait_impl);
 
             let serialize_trait_impl =
@@ -114,8 +117,19 @@ fn generate_trait_impl_serialize(
     event_len: u32,
     event_fields: &[(String, String)],
 ) -> Result<NoirTraitImpl, AztecMacroError> {
-    let field_names =
-        event_fields.iter().map(|field| format!("self.{}", field.0)).collect::<Vec<String>>();
+    let field_names = event_fields
+        .iter()
+        .map(|field| {
+            let field_type = field.1.as_str();
+            match field_type {
+                "Field" => format!("self.{}", field.0),
+                "bool" | "u8" | "u32" | "u64" | "i8" | "i32" | "i64" => {
+                    format!("self.{} as Field", field.0)
+                }
+                _ => format!("self.{}.to_field()", field.0),
+            }
+        })
+        .collect::<Vec<String>>();
     let field_input = field_names.join(",");
 
     let trait_impl_source = format!(
@@ -151,7 +165,16 @@ fn generate_trait_impl_deserialize(
     let field_names: Vec<String> = event_fields
         .iter()
         .enumerate()
-        .map(|(index, field)| format!("{}: fields[{}]", field.0, index))
+        .map(|(index, field)| {
+            let field_type = field.1.as_str();
+            match field_type {
+                "Field" => format!("{}: fields[{}]", field.0, index),
+                "bool" | "u8" | "u32" | "u64" | "i8" | "i32" | "i64" => {
+                    format!("{}: fields[{}] as {}", field.0, index, field_type)
+                }
+                _ => format!("{}: {}::from_field(fields[{}])", field.0, field.1, index),
+            }
+        })
         .collect::<Vec<String>>();
     let field_input = field_names.join(",");
 
@@ -290,6 +313,30 @@ fn generate_fn_to_be_bytes(
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
             secondary_message: Some(format!("Failed to parse Noir macro code (fn to_be_bytes, implemented for EventInterface of {event_type}). This is either a bug in the compiler or the Noir macro code")),
+        });
+    }
+
+    let mut function_ast = function_ast.into_sorted();
+    let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.visibility = ItemVisibility::Public;
+    Ok(noir_fn)
+}
+
+fn generate_fn_emit(event_type: &str) -> Result<NoirFunction, AztecMacroError> {
+    let function_source = format!(
+        "
+        fn emit<Env>(self: {event_type}, _emit: fn[Env](Self) -> ()) {{
+            _emit(self);
+        }}
+    "
+    )
+    .to_string();
+
+    let (function_ast, errors) = parse_program(&function_source);
+    if !errors.is_empty() {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementEventInterface {
+            secondary_message: Some(format!("Failed to parse Noir macro code (fn emit, implemented for EventInterface of {event_type}). This is either a bug in the compiler or the Noir macro code")),
         });
     }
 
