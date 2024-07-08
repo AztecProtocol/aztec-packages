@@ -12,7 +12,7 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';

@@ -2,7 +2,7 @@ import { FunctionCall, PackedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type FeePaymentMethod } from '../fee/fee_payment_method.js';

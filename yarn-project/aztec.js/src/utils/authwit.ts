@@ -1,6 +1,6 @@
 import { type FunctionCall, PackedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenHash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
