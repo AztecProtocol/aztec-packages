@@ -34,7 +34,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> logic_constraints;
     std::vector<size_t> range_constraints;
     std::vector<size_t> aes128_constraints;
-    std::vector<size_t> sha256_constraints;
     std::vector<size_t> sha256_compression;
     std::vector<size_t> schnorr_constraints;
     std::vector<size_t> ecdsa_k1_constraints;
