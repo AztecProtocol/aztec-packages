@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fq, type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
@@ -18,14 +18,16 @@ export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinP
 
 export function computeAppSecretKey(skM: GrumpkinPrivateKey, app: AztecAddress, keyPrefix: KeyPrefix): Fr {
   const generator = getKeyGenerator(keyPrefix);
-  return poseidon2Hash([skM.high, skM.low, app, generator]);
+  return poseidon2HashWithSeparator([skM.high, skM.low, app], generator);
 }
 
 export function computeIvpkApp(ivpk: PublicKey, address: AztecAddress) {
   return ivpk;
   // Computing the siloed key is actually useless because we can derive the master key from it
   // Issue(#6955)
-  const I = Fq.fromBuffer(poseidon2Hash([address.toField(), ivpk.x, ivpk.y, GeneratorIndex.IVSK_M]).toBuffer());
+  const I = Fq.fromBuffer(
+    poseidon2HashWithSeparator([address.toField(), ivpk.x, ivpk.y], GeneratorIndex.IVSK_M).toBuffer(),
+  );
   return curve.add(curve.mul(Grumpkin.generator, I), ivpk);
 }
 
@@ -36,7 +38,9 @@ export function computeIvskApp(ivsk: GrumpkinPrivateKey, address: AztecAddress) 
   const ivpk = curve.mul(Grumpkin.generator, ivsk);
   // Here we are intentionally converting Fr (output of poseidon) to Fq. This is fine even though a distribution of
   // P = s * G will not be uniform because 2 * (q - r) / q is small.
-  const I = Fq.fromBuffer(poseidon2Hash([address.toField(), ivpk.x, ivpk.y, GeneratorIndex.IVSK_M]).toBuffer());
+  const I = Fq.fromBuffer(
+    poseidon2HashWithSeparator([address.toField(), ivpk.x, ivpk.y], GeneratorIndex.IVSK_M).toBuffer(),
+  );
   return new Fq((I.toBigInt() + ivsk.toBigInt()) % Fq.MODULUS);
 }
 
@@ -65,7 +69,7 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
 }
 
 export function computeAddress(publicKeysHash: Fr, partialAddress: Fr) {
-  const addressFr = poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
+  const addressFr = poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
   return AztecAddress.fromField(addressFr);
 }
 

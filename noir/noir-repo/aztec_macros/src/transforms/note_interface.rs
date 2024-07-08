@@ -493,7 +493,7 @@ fn generate_note_properties_fn(
 
 // Automatically generate the method to compute the note's content hash as:
 // fn compute_note_content_hash(self: NoteType) -> Field {
-//    aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
+//    aztec::protocol_types::hash::poseidon2_hash_with_separator(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
 // }
 //
 fn generate_compute_note_content_hash(
@@ -503,7 +503,7 @@ fn generate_compute_note_content_hash(
     let function_source = format!(
         "
         fn compute_note_content_hash(self: {}) -> Field {{
-            aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
+            aztec::protocol_types::hash::poseidon2_hash_with_separator(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
         }}
         ",
         note_type

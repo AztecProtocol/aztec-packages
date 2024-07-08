@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint,
-    constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash
+    constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash_with_separator
 };
 
 use std::{embedded_curve_ops::{embedded_curve_add, EmbeddedCurvePoint}, field::bytes32_to_field};
@@ -155,7 +155,7 @@ fn compute_ivpk_app(ivpk: GrumpkinPoint, contract_address: AztecAddress) -> Grum
     // for example user could define ivpk = infinity using the registry
     assert((ivpk.x != 0) & (ivpk.y != 0), "ivpk is infinite");
 
-    let i = fr_to_private_key(poseidon2_hash([contract_address.to_field(), ivpk.x, ivpk.y, GENERATOR_INDEX__IVSK_M]));
+    let i = fr_to_private_key(poseidon2_hash_with_separator([contract_address.to_field(), ivpk.x, ivpk.y], GENERATOR_INDEX__IVSK_M));
     let I = i.derive_public_key();
 
     let embed_I = EmbeddedCurvePoint { x: I.x, y: I.y, is_infinite: false };

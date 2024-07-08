@@ -1,6 +1,6 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { pedersenHash, pedersenHashBuffer, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
@@ -37,7 +37,7 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A note hash nonce.
  */
 export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Fr {
-  return pedersenHash([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
+  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
@@ -48,7 +48,7 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
-  return pedersenHash([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
+  return poseidon2HashWithSeparator([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
@@ -57,7 +57,7 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
  * @returns A note content hash.
  */
 export function computeNoteContentHash(noteContent: Fr[]): Fr {
-  return pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+  return poseidon2HashWithSeparator(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
 }
 
 /**
@@ -67,7 +67,7 @@ export function computeNoteContentHash(noteContent: Fr[]): Fr {
  * @returns An inner note hash.
  */
 export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
-  return pedersenHash([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
+  return poseidon2HashWithSeparator([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
 }
 
 /**
@@ -78,7 +78,7 @@ export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
  * @returns A unique note hash.
  */
 export function computeUniqueNoteHash(nonce: Fr, innerNoteHash: Fr): Fr {
-  return pedersenHash([nonce, innerNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+  return poseidon2HashWithSeparator([nonce, innerNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -89,7 +89,7 @@ export function computeUniqueNoteHash(nonce: Fr, innerNoteHash: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return pedersenHash([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
 /**
@@ -110,7 +110,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return pedersenHash([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
 /**
@@ -147,7 +147,7 @@ export function computeVarArgsHash(args: Fr[]) {
  * @returns The hash
  */
 export function computeSecretHash(secret: Fr) {
-  return pedersenHash([secret], GeneratorIndex.SECRET_HASH);
+  return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
 export function computeL1ToL2MessageNullifier(
@@ -156,6 +156,9 @@ export function computeL1ToL2MessageNullifier(
   secret: Fr,
   messageIndex: bigint,
 ) {
-  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.MESSAGE_NULLIFIER);
+  const innerMessageNullifier = poseidon2HashWithSeparator(
+    [messageHash, secret, messageIndex],
+    GeneratorIndex.MESSAGE_NULLIFIER,
+  );
   return siloNullifier(contract, innerMessageNullifier);
 }

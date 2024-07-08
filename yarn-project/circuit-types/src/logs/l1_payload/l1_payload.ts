@@ -8,7 +8,7 @@ import {
   computeOvskApp,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
@@ -160,7 +160,7 @@ export abstract class L1Payload {
     randomness: Fr,
     maskedContractAddress: Fr,
   ) {
-    if (!pedersenHash([contractAddress, randomness], 0).equals(maskedContractAddress)) {
+    if (!poseidon2HashWithSeparator([contractAddress, randomness], 0).equals(maskedContractAddress)) {
       throw new Error(
         'The provided masked contract address does not match with the incoming address from header and randomness from body',
       );

@@ -44,7 +44,7 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash, poseidon2Hash, randomInt } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -292,7 +292,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // 5 is hardcoded in the test contract
       expect(encryptedLog.randomness).toEqual(new Fr(5));
-      const expectedMaskedAddress = pedersenHash([result.callStackItem.contractAddress, new Fr(5)], 0);
+      const expectedMaskedAddress = poseidon2HashWithSeparator([result.callStackItem.contractAddress, new Fr(5)], 0);
       expect(expectedMaskedAddress).toEqual(functionLogs.logs[0].maskedContractAddress);
     });
   });
@@ -1007,11 +1007,10 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.callStackItem.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2Hash([
-        innerNoteHash,
-        computeAppNullifierSecretKey(ownerNskM, contractAddress),
+      const expectedNullifier = poseidon2HashWithSeparator(
+        [innerNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
-      ]);
+      );
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 
@@ -1091,11 +1090,10 @@ describe('Private Execution test suite', () => {
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2Hash([
-        innerNoteHash,
-        computeAppNullifierSecretKey(ownerNskM, contractAddress),
+      const expectedNullifier = poseidon2HashWithSeparator(
+        [innerNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
-      ]);
+      );
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 

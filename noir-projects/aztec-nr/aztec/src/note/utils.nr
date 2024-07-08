@@ -3,14 +3,15 @@ use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interf
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__INNER_NOTE_HASH,
     hash::{
-    pedersen_hash, compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
+    poseidon2_hash_with_separator, compute_unique_note_hash,
+    compute_siloed_note_hash as compute_siloed_note_hash,
     compute_siloed_nullifier as compute_siloed_nullifier_from_preimage
 },
     utils::arr_copy_slice
 };
 
 pub fn compute_inner_note_hash_from_preimage(storage_slot: Field, note_content_hash: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [storage_slot, note_content_hash],
         GENERATOR_INDEX__INNER_NOTE_HASH
     )

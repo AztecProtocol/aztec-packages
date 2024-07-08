@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint,
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash_with_separator
 };
 
 use std::aes128::aes128_encrypt;
@@ -46,11 +46,9 @@ impl EncryptedLogOutgoingBody {
         }
 
         // We compute the symmetric key using poseidon.
-        let full_key: [u8; 32] = poseidon2_hash(
-            [
-            ovsk_app.high, ovsk_app.low, eph_pk.x, eph_pk.y,
+        let full_key: [u8; 32] = poseidon2_hash_with_separator(
+            [ovsk_app.high, ovsk_app.low, eph_pk.x, eph_pk.y],
             GENERATOR_INDEX__SYMMETRIC_KEY as Field
-        ]
         ).to_be_bytes(32).as_array();
 
         let mut sym_key = [0; 16];
@@ -68,7 +66,8 @@ mod test {
     use crate::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash
+        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint,
+        hash::poseidon2_hash_with_separator
     };
 
     use crate::context::PrivateContext;
@@ -97,9 +96,7 @@ mod test {
 
         let ciphertext = body.compute_ciphertext(sender_ovsk_app, eph_pk);
 
-        let expected_outgoing_body_ciphertext = [
-            127, 84, 96, 176, 101, 107, 236, 57, 68, 8, 53, 202, 138, 74, 186, 54, 74, 193, 245, 7, 109, 59, 218, 33, 1, 31, 205, 225, 241, 209, 64, 222, 94, 245, 4, 150, 47, 241, 187, 64, 152, 20, 102, 158, 200, 217, 213, 82, 1, 240, 170, 185, 51, 80, 27, 109, 63, 231, 235, 120, 174, 44, 133, 248, 10, 97, 60, 40, 222, 190, 147, 76, 187, 48, 91, 206, 48, 106, 56, 118, 38, 127, 82, 4, 182, 188, 44, 224, 31, 129, 47, 107, 134, 252, 20, 25, 122, 191, 158, 69, 35, 255, 215, 171, 196, 45, 91, 184, 83, 80, 238, 201, 1, 233, 235, 159, 171, 130, 158, 64, 176, 165, 132, 30, 84, 81, 71, 195, 145, 47, 82, 247, 210, 192, 23, 4, 220, 90, 56, 109, 46, 105, 79, 251, 165, 141, 185, 233, 191, 118, 219, 153, 191, 162, 99, 238, 241, 249, 9, 74, 210, 241, 54, 28, 126, 226, 85, 235, 174, 75, 239, 207, 100, 184, 248, 194
-        ];
+        let expected_outgoing_body_ciphertext = [0,83,142,191,122,69,20,74,15,113,176,1,204,14,162,77,147,137,225,52,110,197,153,143,90,148,44,107,83,148,151,57,124,137,136,9,80,218,119,233,93,170,3,100,96,59,93,92,141,6,240,245,23,216,120,49,224,214,83,87,45,102,125,231,253,215,89,189,159,28,64,83,237,40,78,237,65,252,187,4,86,126,50,47,199,227,110,103,22,112,10,182,185,123,237,175,14,212,233,12,231,41,121,28,61,82,235,118,142,22,13,119,89,194,119,154,222,26,159,100,199,62,236,26,16,247,202,151,83,24,186,221,98,198,46,198,112,189,4,252,2,111,196,134,38,86,218,13,28,163,41,60,48,181,243,49,254,8,99,62,254,209,66,98,40,2,111,95,216,246,127,242,115,46,229,176];
 
         for i in 0..expected_outgoing_body_ciphertext.len() {
             assert_eq(ciphertext[i], expected_outgoing_body_ciphertext[i]);

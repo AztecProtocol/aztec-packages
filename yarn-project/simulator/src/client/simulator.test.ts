@@ -8,7 +8,7 @@ import {
 } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -66,7 +66,10 @@ describe('Simulator', () => {
       const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHash);
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
-      const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
+      const innerNullifier = poseidon2HashWithSeparator(
+        [siloedNoteHash, appNullifierSecretKey],
+        GeneratorIndex.NOTE_NULLIFIER,
+      );
 
       const result = await simulator.computeNoteHashAndOptionallyANullifier(
         contractAddress,
