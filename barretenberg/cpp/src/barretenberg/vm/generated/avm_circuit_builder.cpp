@@ -24,6 +24,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "kernel_kernel_side_effect_out",
              "kernel_kernel_metadata_out",
              "main_calldata",
+             "main_returndata",
              "alu_a_hi",
              "alu_a_lo",
              "alu_b_hi",
@@ -432,6 +433,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.kernel_kernel_side_effect_out)                 //
               << "," << field_to_string(row.kernel_kernel_metadata_out)                    //
               << "," << field_to_string(row.main_calldata)                                 //
+              << "," << field_to_string(row.main_returndata)                               //
               << "," << field_to_string(row.alu_a_hi)                                      //
               << "," << field_to_string(row.alu_a_lo)                                      //
               << "," << field_to_string(row.alu_b_hi)                                      //

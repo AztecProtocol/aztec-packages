@@ -216,6 +216,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
         return false;
     }
+    FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], circuit_size, mle_challenge);
+    if (main_returndata_evaluation != claimed_evaluations.main_returndata) {
+        return false;
+    }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.

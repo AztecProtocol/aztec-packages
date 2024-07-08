@@ -136,7 +136,8 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
 }
 
 std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& public_inputs,
-                                                        std::vector<FF> const& calldata)
+                                                        std::vector<FF> const& calldata,
+                                                        std::vector<FF> const& returndata)
 {
     // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
     // For each of the public input vectors
@@ -155,11 +156,14 @@ std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& pu
     assert(public_inputs_kernel_side_effect_outputs.size() == KERNEL_OUTPUTS_LENGTH);
     assert(public_inputs_kernel_metadata_outputs.size() == KERNEL_OUTPUTS_LENGTH);
 
-    return { std::move(public_inputs_kernel_inputs),
-             std::move(public_inputs_kernel_value_outputs),
-             std::move(public_inputs_kernel_side_effect_outputs),
-             std::move(public_inputs_kernel_metadata_outputs),
-             calldata };
+    return {
+        std::move(public_inputs_kernel_inputs),
+        std::move(public_inputs_kernel_value_outputs),
+        std::move(public_inputs_kernel_side_effect_outputs),
+        std::move(public_inputs_kernel_metadata_outputs),
+        calldata,
+        returndata,
+    };
 }
 
 } // namespace bb::avm_trace

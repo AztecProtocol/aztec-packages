@@ -32,6 +32,7 @@ void validate_trace_check_circuit(std::vector<Row>&& trace);
 void validate_trace(std::vector<Row>&& trace,
                     VmPublicInputs const& public_inputs = {},
                     std::vector<FF> const& calldata = {},
+                    std::vector<FF> const& returndata = {},
                     bool with_proof = bb::avm_trace::ENABLE_PROVING,
                     bool expect_proof_failure = false);
 void mutate_ic_in_trace(std::vector<Row>& trace,

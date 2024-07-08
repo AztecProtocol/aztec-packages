@@ -2789,7 +2789,6 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     // In indirect mode, ret_offset is first resolved by the first indirect load.
 
     uint32_t pos = 0;
-    std::vector<FF> returnMem;
     uint32_t direct_ret_offset = ret_offset; // Will be overwritten in indirect mode.
 
     while (pos < ret_size) {
@@ -2821,7 +2820,7 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         tag_match = tag_match && read_a.tag_match;
 
         FF ia = read_a.val;
-        returnMem.push_back(ia);
+        returndata.push_back(ia);
 
         if (ret_size - pos > 1) {
             mem_op_b = 1;
@@ -2832,7 +2831,7 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
                 call_ptr, clk, IntermRegister::IB, mem_addr_b, AvmMemoryTag::FF, AvmMemoryTag::FF);
             tag_match = tag_match && read_b.tag_match;
             ib = read_b.val;
-            returnMem.push_back(ib);
+            returndata.push_back(ib);
         }
 
         if (ret_size - pos > 2) {
@@ -2844,7 +2843,7 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
                 call_ptr, clk, IntermRegister::IC, mem_addr_c, AvmMemoryTag::FF, AvmMemoryTag::FF);
             tag_match = tag_match && read_c.tag_match;
             ic = read_c.val;
-            returnMem.push_back(ic);
+            returndata.push_back(ic);
         }
 
         // Constrain gas cost on the first row
@@ -2883,7 +2882,7 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         }
     }
     pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
-    return returnMem;
+    return returndata;
 }
 
 std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
@@ -4613,6 +4612,11 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // calldata loookup counts for calldatacopy operations
     for (auto const& [cd_offset, count] : slice_trace_builder.cd_lookup_counts) {
         main_trace.at(cd_offset).lookup_cd_value_counts = count;
+    }
+
+    // returndata column inclusion
+    for (size_t i = 0; i < returndata.size(); i++) {
+        main_trace.at(i).main_returndata = returndata.at(i);
     }
 
     // Get tag_err counts from the mem_trace_builder

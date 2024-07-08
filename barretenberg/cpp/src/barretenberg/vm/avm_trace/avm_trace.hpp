@@ -189,6 +189,7 @@ class AvmTraceBuilder {
     AvmSliceTraceBuilder slice_trace_builder;
 
     std::vector<FF> calldata{};
+    std::vector<FF> returndata{};
 
     Row create_kernel_lookup_opcode(
         uint8_t indirect, uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);

@@ -109,7 +109,7 @@ class AvmSliceTests : public ::testing::Test {
                           SLICE_ROW_FIELD_EQ(sel_start_cd_cpy, 0)));
 
         if (proof_verif) {
-            validate_trace(std::move(trace), public_inputs, calldata, true);
+            validate_trace(std::move(trace), public_inputs, calldata, {}, true);
         } else {
             validate_trace(std::move(trace), public_inputs, calldata);
         }
@@ -315,7 +315,7 @@ TEST_F(AvmSliceNegativeTests, wrongCDValueInCalldataVerifier)
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_trace(std::move(trace), public_inputs, { 2, 3, 4, 5, 7 }, true, true);
+    validate_trace(std::move(trace), public_inputs, { 2, 3, 4, 5, 7 }, {}, true, true);
 }
 
 TEST_F(AvmSliceNegativeTests, disableMemWriteEntry)

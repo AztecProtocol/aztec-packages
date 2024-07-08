@@ -22,6 +22,7 @@ namespace main(256);
     //===== PUBLIC COLUMNS=========================================================
     pol public calldata;
     pol commit sel_calldata; // Selector used for lookup in calldata. TODO: Might be removed or made constant.
+    pol public returndata;
 
     //===== KERNEL INPUTS =========================================================
     // Kernel lookup selector opcodes
