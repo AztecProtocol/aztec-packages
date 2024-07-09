@@ -25,17 +25,16 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
-  MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   Nullifier,
@@ -48,8 +47,6 @@ import {
   PublicKernelData,
   ReadRequest,
   RevertCode,
-  VK_TREE_HEIGHT,
-  VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
   ClientIvcProof,
@@ -57,6 +54,13 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import {
+  type ProtocolArtifact,
+  ProtocolCircuitVkIndexes,
+  ProtocolCircuitVks,
+  getVKIndex,
+  getVKSiblingPath,
+} from '@aztec/noir-protocol-circuits-types';
 import {
   type PublicExecutionRequest,
   type PublicExecutionResult,
@@ -107,6 +111,8 @@ export type TxPublicCallsResult = {
   publicProvingInformation: PublicProvingInformation[];
   /** The public kernel output at the end of the Tx */
   kernelOutput: PublicKernelCircuitPublicInputs;
+  /** The last circuit ran by this phase */
+  lastKernelArtifact: ProtocolArtifact;
   /** Unencrypted logs generated during the execution of this Tx */
   newUnencryptedLogs: UnencryptedFunctionL2Logs[];
   /** Revert reason, if any */
@@ -122,6 +128,8 @@ export type PhaseResult = {
   publicProvingRequests: PublicProvingRequest[];
   /** The output of the public kernel circuit simulation for this phase */
   publicKernelOutput: PublicKernelCircuitPublicInputs;
+  /** The last circuit ran by this phase */
+  lastKernelArtifact: ProtocolArtifact;
   /** The final output of the public kernel circuit for this phase */
   finalKernelOutput?: KernelCircuitPublicInputs;
   /** Revert reason, if any */
@@ -151,7 +159,11 @@ export abstract class AbstractPhaseManager {
    * @param tx - the tx to be processed
    * @param publicKernelPublicInputs - the output of the public kernel circuit for the previous phase
    */
-  abstract handle(tx: Tx, publicKernelPublicInputs: PublicKernelCircuitPublicInputs): Promise<PhaseResult>;
+  abstract handle(
+    tx: Tx,
+    publicKernelPublicInputs: PublicKernelCircuitPublicInputs,
+    previousKernelArtifact: ProtocolArtifact,
+  ): Promise<PhaseResult>;
 
   public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelType, PublicCallRequest[]> {
     const data = tx.data.forPublic;
@@ -231,6 +243,7 @@ export abstract class AbstractPhaseManager {
   protected async processEnqueuedPublicCalls(
     tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    previousKernelArtifact: ProtocolArtifact,
   ): Promise<TxPublicCallsResult> {
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 
@@ -238,6 +251,7 @@ export abstract class AbstractPhaseManager {
       return {
         publicProvingInformation: [],
         kernelOutput: previousPublicKernelOutput,
+        lastKernelArtifact: previousKernelArtifact,
         newUnencryptedLogs: [],
         returnValues: [],
         gasUsed: Gas.empty(),
@@ -254,6 +268,7 @@ export abstract class AbstractPhaseManager {
     const transactionFee = this.getTransactionFee(tx, previousPublicKernelOutput);
     let gasUsed = Gas.empty();
     let kernelPublicOutput: PublicKernelCircuitPublicInputs = previousPublicKernelOutput;
+
     const enqueuedCallResults = [];
 
     for (const enqueuedCall of enqueuedCalls) {
@@ -314,8 +329,13 @@ export abstract class AbstractPhaseManager {
           })`,
         );
         const callData = await this.getPublicCallData(result, isExecutionRequest);
-        const [privateInputs, publicInputs] = await this.runKernelCircuit(kernelPublicOutput, callData);
+        const [privateInputs, publicInputs, artifact] = await this.runKernelCircuit(
+          kernelPublicOutput,
+          previousKernelArtifact,
+          callData,
+        );
         kernelPublicOutput = publicInputs;
+        previousKernelArtifact = artifact;
 
         // Capture the inputs for later proving in the AVM and kernel.
         const publicProvingInformation: PublicProvingInformation = {
@@ -350,6 +370,7 @@ export abstract class AbstractPhaseManager {
           return {
             publicProvingInformation: [],
             kernelOutput: kernelPublicOutput,
+            lastKernelArtifact: previousKernelArtifact,
             newUnencryptedLogs: [],
             revertReason: result.revertReason,
             returnValues: [],
@@ -368,6 +389,7 @@ export abstract class AbstractPhaseManager {
     return {
       publicProvingInformation: provingInformationList,
       kernelOutput: kernelPublicOutput,
+      lastKernelArtifact: previousKernelArtifact,
       newUnencryptedLogs: newUnencryptedFunctionLogs,
       returnValues: enqueuedCallResults,
       gasUsed,
@@ -376,7 +398,7 @@ export abstract class AbstractPhaseManager {
 
   /** Returns all pending private and public nullifiers. */
   private getSiloedPendingNullifiers(ko: PublicKernelCircuitPublicInputs) {
-    return [...ko.end.newNullifiers, ...ko.endNonRevertibleData.newNullifiers].filter(n => !n.isEmpty());
+    return [...ko.end.nullifiers, ...ko.endNonRevertibleData.nullifiers].filter(n => !n.isEmpty());
   }
 
   protected getAvailableGas(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
@@ -392,31 +414,46 @@ export abstract class AbstractPhaseManager {
 
   private async runKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
+    previousCircuit: ProtocolArtifact,
     callData: PublicCallData,
-  ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
-    const previousKernel = this.getPreviousKernelData(previousOutput);
+  ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs, ProtocolArtifact]> {
+    const previousKernel = this.getPreviousKernelData(previousOutput, previousCircuit);
 
     // We take a deep copy (clone) of these inputs to be passed to the prover
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, ClientIvcProof.empty(), callData);
     switch (this.phase) {
       case PublicKernelType.SETUP:
-        return [inputs.clone(), await this.publicKernel.publicKernelCircuitSetup(inputs)];
+        return [inputs.clone(), await this.publicKernel.publicKernelCircuitSetup(inputs), 'PublicKernelSetupArtifact'];
       case PublicKernelType.APP_LOGIC:
-        return [inputs.clone(), await this.publicKernel.publicKernelCircuitAppLogic(inputs)];
+        return [
+          inputs.clone(),
+          await this.publicKernel.publicKernelCircuitAppLogic(inputs),
+          'PublicKernelAppLogicArtifact',
+        ];
       case PublicKernelType.TEARDOWN:
-        return [inputs.clone(), await this.publicKernel.publicKernelCircuitTeardown(inputs)];
+        return [
+          inputs.clone(),
+          await this.publicKernel.publicKernelCircuitTeardown(inputs),
+          'PublicKernelTeardownArtifact',
+        ];
       default:
         throw new Error(`No public kernel circuit for inputs`);
     }
   }
 
-  protected getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
-    // The proof and verification key are not used in simulation
-    const vk = VerificationKeyData.makeFake();
+  protected getPreviousKernelData(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousCircuit: ProtocolArtifact,
+  ): PublicKernelData {
+    // The proof is not used in simulation
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    const vkIndex = 0;
-    const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
-    return new PublicKernelData(previousOutput, proof, vk, vkIndex, vkSiblingPath);
+
+    const vk = ProtocolCircuitVks[previousCircuit];
+    const vkIndex = ProtocolCircuitVkIndexes[previousCircuit];
+
+    const leafIndex = getVKIndex(vk);
+
+    return new PublicKernelData(previousOutput, proof, vk, vkIndex, getVKSiblingPath(leafIndex));
   }
 
   protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {
@@ -425,7 +462,7 @@ export abstract class AbstractPhaseManager {
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const publicCallStackHashes = padArrayEnd(
-      callStackPreimages.map(c => c.hash()),
+      callStackPreimages.map(c => c.getCompressed().hash()),
       Fr.ZERO,
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
@@ -434,9 +471,9 @@ export abstract class AbstractPhaseManager {
       callContext: result.executionRequest.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.executionRequest.args),
-      newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
-      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      noteHashes: padArrayEnd(result.noteHashes, NoteHash.empty(), MAX_NOTE_HASHES_PER_CALL),
+      nullifiers: padArrayEnd(result.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_CALL),
+      l2ToL1Msgs: padArrayEnd(result.l2ToL1Messages, L2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
       returnsHash: computeVarArgsHash(result.returnValues),
@@ -507,15 +544,15 @@ export abstract class AbstractPhaseManager {
    */
   static getMaxSideEffectCounter(inputs: PublicKernelCircuitPublicInputs): number {
     const sideEffectCounters = [
-      ...inputs.endNonRevertibleData.newNoteHashes,
-      ...inputs.endNonRevertibleData.newNullifiers,
+      ...inputs.endNonRevertibleData.noteHashes,
+      ...inputs.endNonRevertibleData.nullifiers,
       ...inputs.endNonRevertibleData.noteEncryptedLogsHashes,
       ...inputs.endNonRevertibleData.encryptedLogsHashes,
       ...inputs.endNonRevertibleData.unencryptedLogsHashes,
       ...inputs.endNonRevertibleData.publicCallStack,
       ...inputs.endNonRevertibleData.publicDataUpdateRequests,
-      ...inputs.end.newNoteHashes,
-      ...inputs.end.newNullifiers,
+      ...inputs.end.noteHashes,
+      ...inputs.end.nullifiers,
       ...inputs.end.noteEncryptedLogsHashes,
       ...inputs.end.encryptedLogsHashes,
       ...inputs.end.unencryptedLogsHashes,

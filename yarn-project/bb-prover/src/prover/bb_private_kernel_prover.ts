@@ -23,6 +23,7 @@ import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
   PrivateResetTagToArtifactName,
+  ProtocolCircuitVks,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -42,15 +43,7 @@ import * as fs from 'fs/promises';
 import { encode } from "@msgpack/msgpack";
 import path from 'path';
 
-import {
-  BB_RESULT,
-  PROOF_FIELDS_FILENAME,
-  PROOF_FILENAME,
-  generateKeyForNoirCircuit,
-  verifyProof,
-  executeBbClientIvcProof,
-  computeVerificationKey,
-} from '../bb/execute.js';
+import { BB_RESULT, PROOF_FIELDS_FILENAME, PROOF_FILENAME, verifyProof } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -118,9 +111,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const contractAddress = publicInputs.callContext.storageContractAddress;
 
-    return Promise.resolve(
-      publicInputs.newNoteHashes.map(commitment => siloNoteHash(contractAddress, commitment.value)),
-    );
+    return Promise.resolve(publicInputs.noteHashes.map(commitment => siloNoteHash(contractAddress, commitment.value)));
   }
 
   public async simulateProofInit(
@@ -193,7 +184,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
    * @param proof - The proof to be verified
    */
   public async verifyProofForProtocolCircuit(circuitType: ClientProtocolArtifact, proof: Proof) {
-    const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
+    const verificationKey = ProtocolCircuitVks[circuitType];
 
     this.log.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
@@ -225,32 +216,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
     };
     return await runInDirectory(this.bbWorkingDirectory, operation);
-  }
-
-  /**
-   * Returns the verification key data for a circuit, will generate and cache it if not cached internally
-   * @param circuitType - The type of circuit for which the verification key is required
-   * @returns The verification key data
-   */
-  private async getVerificationKeyDataForCircuit(circuitType: ClientProtocolArtifact): Promise<VerificationKeyData> {
-    let promise = this.verificationKeys.get(circuitType);
-    if (!promise) {
-      promise = generateKeyForNoirCircuit(
-        this.bbBinaryPath,
-        this.bbWorkingDirectory,
-        circuitType,
-        ClientCircuitArtifacts[circuitType],
-        'vk',
-        this.log.debug,
-      ).then(result => {
-        if (result.status === BB_RESULT.FAILURE) {
-          throw new Error(`Failed to generate verification key for ${circuitType}, ${result.reason}`);
-        }
-        return extractVkData(result.vkPath!);
-      });
-      this.verificationKeys.set(circuitType, promise);
-    }
-    return await promise;
   }
 
   /**

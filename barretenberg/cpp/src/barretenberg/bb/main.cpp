@@ -11,6 +11,7 @@
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#include "barretenberg/vm/avm_trace/stats.hpp"
 #endif
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
@@ -881,6 +882,12 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     vinfo("vk written to: ", vk_path);
     write_file(vk_fields_path, { vk_json.begin(), vk_json.end() });
     vinfo("vk as fields written to: ", vk_fields_path);
+
+#ifdef AVM_TRACK_STATS
+    info("------- STATS -------");
+    const auto& stats = avm_trace::Stats::get();
+    info(stats.to_string());
+#endif
 }
 
 /**

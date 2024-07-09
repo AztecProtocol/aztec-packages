@@ -240,11 +240,12 @@ export function makePaddingProcessedTxFromTubeProof(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
+export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr, vkTreeRoot: Fr): ProcessedTx {
   const emptyKernelOutput = KernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
+  emptyKernelOutput.constants.vkTreeRoot = vkTreeRoot;
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
@@ -266,9 +267,9 @@ export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
   return new TxEffect(
     tx.data.revertCode,
     tx.data.getTransactionFee(gasFees),
-    tx.data.end.newNoteHashes.filter(h => !h.isZero()),
-    tx.data.end.newNullifiers.filter(h => !h.isZero()),
-    tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
+    tx.data.end.noteHashes.filter(h => !h.isZero()),
+    tx.data.end.nullifiers.filter(h => !h.isZero()),
+    tx.data.end.l2ToL1Msgs.filter(h => !h.isZero()),
     tx.finalPublicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)).filter(h => !h.isEmpty()),
     tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,

@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -7,20 +6,31 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
-
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+
+#include "barretenberg/vm/generated/avm_flavor_settings.hpp"
+
+// Relations
 #include "barretenberg/relations/generated/avm/alu.hpp"
 #include "barretenberg/relations/generated/avm/binary.hpp"
 #include "barretenberg/relations/generated/avm/conversion.hpp"
 #include "barretenberg/relations/generated/avm/gas.hpp"
-#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
-#include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/keccakf1600.hpp"
 #include "barretenberg/relations/generated/avm/kernel.hpp"
+#include "barretenberg/relations/generated/avm/main.hpp"
+#include "barretenberg/relations/generated/avm/mem.hpp"
+#include "barretenberg/relations/generated/avm/pedersen.hpp"
+#include "barretenberg/relations/generated/avm/poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/powers.hpp"
+#include "barretenberg/relations/generated/avm/sha256.hpp"
+
+// Lookup relations
+#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
@@ -56,9 +66,6 @@
 #include "barretenberg/relations/generated/avm/lookup_u16_9.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u8_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u8_1.hpp"
-#include "barretenberg/relations/generated/avm/main.hpp"
-#include "barretenberg/relations/generated/avm/mem.hpp"
-#include "barretenberg/relations/generated/avm/pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_bin.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_conv.hpp"
@@ -72,32 +79,32 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
-#include "barretenberg/relations/generated/avm/poseidon2.hpp"
-#include "barretenberg/relations/generated/avm/powers.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_lo.hpp"
 #include "barretenberg/relations/generated/avm/range_check_l2_gas_hi.hpp"
 #include "barretenberg/relations/generated/avm/range_check_l2_gas_lo.hpp"
-#include "barretenberg/relations/generated/avm/sha256.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+
+// Metaprogramming to concatenate tuple types.
+template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
 
 namespace bb {
 
 class AvmFlavor {
   public:
-    using Curve = curve::BN254;
-    using G1 = Curve::Group;
-    using PCS = KZG<Curve>;
+    using Curve = AvmFlavorSettings::Curve;
+    using G1 = AvmFlavorSettings::G1;
+    using PCS = AvmFlavorSettings::PCS;
 
-    using FF = G1::subgroup_field;
-    using Polynomial = bb::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
-    using GroupElement = G1::element;
-    using Commitment = G1::affine_element;
-    using CommitmentHandle = G1::affine_element;
-    using CommitmentKey = bb::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using RelationSeparator = FF;
+    using FF = AvmFlavorSettings::FF;
+    using Polynomial = AvmFlavorSettings::Polynomial;
+    using PolynomialHandle = AvmFlavorSettings::PolynomialHandle;
+    using GroupElement = AvmFlavorSettings::GroupElement;
+    using Commitment = AvmFlavorSettings::Commitment;
+    using CommitmentHandle = AvmFlavorSettings::CommitmentHandle;
+    using CommitmentKey = AvmFlavorSettings::CommitmentKey;
+    using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
+    using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 385;
@@ -106,127 +113,79 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 452;
 
-    using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
-                                             perm_main_bin_relation<FF>,
-                                             perm_main_conv_relation<FF>,
-                                             perm_main_pos2_perm_relation<FF>,
-                                             perm_main_pedersen_relation<FF>,
-                                             perm_main_mem_a_relation<FF>,
-                                             perm_main_mem_b_relation<FF>,
-                                             perm_main_mem_c_relation<FF>,
-                                             perm_main_mem_d_relation<FF>,
-                                             perm_main_mem_ind_addr_a_relation<FF>,
-                                             perm_main_mem_ind_addr_b_relation<FF>,
-                                             perm_main_mem_ind_addr_c_relation<FF>,
-                                             perm_main_mem_ind_addr_d_relation<FF>,
-                                             lookup_byte_lengths_relation<FF>,
-                                             lookup_byte_operations_relation<FF>,
-                                             lookup_opcode_gas_relation<FF>,
-                                             range_check_l2_gas_hi_relation<FF>,
-                                             range_check_l2_gas_lo_relation<FF>,
-                                             range_check_da_gas_hi_relation<FF>,
-                                             range_check_da_gas_lo_relation<FF>,
-                                             kernel_output_lookup_relation<FF>,
-                                             lookup_into_kernel_relation<FF>,
-                                             incl_main_tag_err_relation<FF>,
-                                             incl_mem_tag_err_relation<FF>,
-                                             lookup_mem_rng_chk_lo_relation<FF>,
-                                             lookup_mem_rng_chk_mid_relation<FF>,
-                                             lookup_mem_rng_chk_hi_relation<FF>,
-                                             lookup_pow_2_0_relation<FF>,
-                                             lookup_pow_2_1_relation<FF>,
-                                             lookup_u8_0_relation<FF>,
-                                             lookup_u8_1_relation<FF>,
-                                             lookup_u16_0_relation<FF>,
-                                             lookup_u16_1_relation<FF>,
-                                             lookup_u16_2_relation<FF>,
-                                             lookup_u16_3_relation<FF>,
-                                             lookup_u16_4_relation<FF>,
-                                             lookup_u16_5_relation<FF>,
-                                             lookup_u16_6_relation<FF>,
-                                             lookup_u16_7_relation<FF>,
-                                             lookup_u16_8_relation<FF>,
-                                             lookup_u16_9_relation<FF>,
-                                             lookup_u16_10_relation<FF>,
-                                             lookup_u16_11_relation<FF>,
-                                             lookup_u16_12_relation<FF>,
-                                             lookup_u16_13_relation<FF>,
-                                             lookup_u16_14_relation<FF>,
-                                             lookup_div_u16_0_relation<FF>,
-                                             lookup_div_u16_1_relation<FF>,
-                                             lookup_div_u16_2_relation<FF>,
-                                             lookup_div_u16_3_relation<FF>,
-                                             lookup_div_u16_4_relation<FF>,
-                                             lookup_div_u16_5_relation<FF>,
-                                             lookup_div_u16_6_relation<FF>,
-                                             lookup_div_u16_7_relation<FF>>;
+    using MainRelations = std::tuple<
+        // Relations
+        Avm_vm::alu<FF>,
+        Avm_vm::binary<FF>,
+        Avm_vm::conversion<FF>,
+        Avm_vm::gas<FF>,
+        Avm_vm::keccakf1600<FF>,
+        Avm_vm::kernel<FF>,
+        Avm_vm::main<FF>,
+        Avm_vm::mem<FF>,
+        Avm_vm::pedersen<FF>,
+        Avm_vm::poseidon2<FF>,
+        Avm_vm::powers<FF>,
+        Avm_vm::sha256<FF>>;
 
-    using Relations = std::tuple<Avm_vm::alu<FF>,
-                                 Avm_vm::binary<FF>,
-                                 Avm_vm::conversion<FF>,
-                                 Avm_vm::gas<FF>,
-                                 Avm_vm::keccakf1600<FF>,
-                                 Avm_vm::kernel<FF>,
-                                 Avm_vm::main<FF>,
-                                 Avm_vm::mem<FF>,
-                                 Avm_vm::pedersen<FF>,
-                                 Avm_vm::poseidon2<FF>,
-                                 Avm_vm::powers<FF>,
-                                 Avm_vm::sha256<FF>,
-                                 perm_main_alu_relation<FF>,
-                                 perm_main_bin_relation<FF>,
-                                 perm_main_conv_relation<FF>,
-                                 perm_main_pos2_perm_relation<FF>,
-                                 perm_main_pedersen_relation<FF>,
-                                 perm_main_mem_a_relation<FF>,
-                                 perm_main_mem_b_relation<FF>,
-                                 perm_main_mem_c_relation<FF>,
-                                 perm_main_mem_d_relation<FF>,
-                                 perm_main_mem_ind_addr_a_relation<FF>,
-                                 perm_main_mem_ind_addr_b_relation<FF>,
-                                 perm_main_mem_ind_addr_c_relation<FF>,
-                                 perm_main_mem_ind_addr_d_relation<FF>,
-                                 lookup_byte_lengths_relation<FF>,
-                                 lookup_byte_operations_relation<FF>,
-                                 lookup_opcode_gas_relation<FF>,
-                                 range_check_l2_gas_hi_relation<FF>,
-                                 range_check_l2_gas_lo_relation<FF>,
-                                 range_check_da_gas_hi_relation<FF>,
-                                 range_check_da_gas_lo_relation<FF>,
-                                 kernel_output_lookup_relation<FF>,
-                                 lookup_into_kernel_relation<FF>,
-                                 incl_main_tag_err_relation<FF>,
-                                 incl_mem_tag_err_relation<FF>,
-                                 lookup_mem_rng_chk_lo_relation<FF>,
-                                 lookup_mem_rng_chk_mid_relation<FF>,
-                                 lookup_mem_rng_chk_hi_relation<FF>,
-                                 lookup_pow_2_0_relation<FF>,
-                                 lookup_pow_2_1_relation<FF>,
-                                 lookup_u8_0_relation<FF>,
-                                 lookup_u8_1_relation<FF>,
-                                 lookup_u16_0_relation<FF>,
-                                 lookup_u16_1_relation<FF>,
-                                 lookup_u16_2_relation<FF>,
-                                 lookup_u16_3_relation<FF>,
-                                 lookup_u16_4_relation<FF>,
-                                 lookup_u16_5_relation<FF>,
-                                 lookup_u16_6_relation<FF>,
-                                 lookup_u16_7_relation<FF>,
-                                 lookup_u16_8_relation<FF>,
-                                 lookup_u16_9_relation<FF>,
-                                 lookup_u16_10_relation<FF>,
-                                 lookup_u16_11_relation<FF>,
-                                 lookup_u16_12_relation<FF>,
-                                 lookup_u16_13_relation<FF>,
-                                 lookup_u16_14_relation<FF>,
-                                 lookup_div_u16_0_relation<FF>,
-                                 lookup_div_u16_1_relation<FF>,
-                                 lookup_div_u16_2_relation<FF>,
-                                 lookup_div_u16_3_relation<FF>,
-                                 lookup_div_u16_4_relation<FF>,
-                                 lookup_div_u16_5_relation<FF>,
-                                 lookup_div_u16_6_relation<FF>,
-                                 lookup_div_u16_7_relation<FF>>;
+    using LookupRelations = std::tuple<
+        // Lookups
+        perm_main_alu_relation<FF>,
+        perm_main_bin_relation<FF>,
+        perm_main_conv_relation<FF>,
+        perm_main_pos2_perm_relation<FF>,
+        perm_main_pedersen_relation<FF>,
+        perm_main_mem_a_relation<FF>,
+        perm_main_mem_b_relation<FF>,
+        perm_main_mem_c_relation<FF>,
+        perm_main_mem_d_relation<FF>,
+        perm_main_mem_ind_addr_a_relation<FF>,
+        perm_main_mem_ind_addr_b_relation<FF>,
+        perm_main_mem_ind_addr_c_relation<FF>,
+        perm_main_mem_ind_addr_d_relation<FF>,
+        lookup_byte_lengths_relation<FF>,
+        lookup_byte_operations_relation<FF>,
+        lookup_opcode_gas_relation<FF>,
+        range_check_l2_gas_hi_relation<FF>,
+        range_check_l2_gas_lo_relation<FF>,
+        range_check_da_gas_hi_relation<FF>,
+        range_check_da_gas_lo_relation<FF>,
+        kernel_output_lookup_relation<FF>,
+        lookup_into_kernel_relation<FF>,
+        incl_main_tag_err_relation<FF>,
+        incl_mem_tag_err_relation<FF>,
+        lookup_mem_rng_chk_lo_relation<FF>,
+        lookup_mem_rng_chk_mid_relation<FF>,
+        lookup_mem_rng_chk_hi_relation<FF>,
+        lookup_pow_2_0_relation<FF>,
+        lookup_pow_2_1_relation<FF>,
+        lookup_u8_0_relation<FF>,
+        lookup_u8_1_relation<FF>,
+        lookup_u16_0_relation<FF>,
+        lookup_u16_1_relation<FF>,
+        lookup_u16_2_relation<FF>,
+        lookup_u16_3_relation<FF>,
+        lookup_u16_4_relation<FF>,
+        lookup_u16_5_relation<FF>,
+        lookup_u16_6_relation<FF>,
+        lookup_u16_7_relation<FF>,
+        lookup_u16_8_relation<FF>,
+        lookup_u16_9_relation<FF>,
+        lookup_u16_10_relation<FF>,
+        lookup_u16_11_relation<FF>,
+        lookup_u16_12_relation<FF>,
+        lookup_u16_13_relation<FF>,
+        lookup_u16_14_relation<FF>,
+        lookup_div_u16_0_relation<FF>,
+        lookup_div_u16_1_relation<FF>,
+        lookup_div_u16_2_relation<FF>,
+        lookup_div_u16_3_relation<FF>,
+        lookup_div_u16_4_relation<FF>,
+        lookup_div_u16_5_relation<FF>,
+        lookup_div_u16_6_relation<FF>,
+        lookup_div_u16_7_relation<FF>>;
+
+    using Relations = tuple_cat_t<MainRelations, LookupRelations>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -251,13 +210,13 @@ class AvmFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, main_clk, main_sel_first)
 
-        RefVector<DataType> get_selectors() { return { main_clk, main_sel_first }; };
-        RefVector<DataType> get_sigma_polynomials() { return {}; };
-        RefVector<DataType> get_id_polynomials() { return {}; };
-        RefVector<DataType> get_table_polynomials() { return {}; };
+        RefVector<DataType> get_selectors() { return { main_clk, main_sel_first }; }
+        RefVector<DataType> get_sigma_polynomials() { return {}; }
+        RefVector<DataType> get_id_polynomials() { return {}; }
+        RefVector<DataType> get_table_polynomials() { return {}; }
     };
 
-    template <typename DataType> class WitnessEntities {
+    template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               kernel_kernel_inputs,
@@ -550,60 +509,6 @@ class AvmFlavor {
                               sha256_output,
                               sha256_sel_sha256_compression,
                               sha256_state,
-                              perm_main_alu,
-                              perm_main_bin,
-                              perm_main_conv,
-                              perm_main_pos2_perm,
-                              perm_main_pedersen,
-                              perm_main_mem_a,
-                              perm_main_mem_b,
-                              perm_main_mem_c,
-                              perm_main_mem_d,
-                              perm_main_mem_ind_addr_a,
-                              perm_main_mem_ind_addr_b,
-                              perm_main_mem_ind_addr_c,
-                              perm_main_mem_ind_addr_d,
-                              lookup_byte_lengths,
-                              lookup_byte_operations,
-                              lookup_opcode_gas,
-                              range_check_l2_gas_hi,
-                              range_check_l2_gas_lo,
-                              range_check_da_gas_hi,
-                              range_check_da_gas_lo,
-                              kernel_output_lookup,
-                              lookup_into_kernel,
-                              incl_main_tag_err,
-                              incl_mem_tag_err,
-                              lookup_mem_rng_chk_lo,
-                              lookup_mem_rng_chk_mid,
-                              lookup_mem_rng_chk_hi,
-                              lookup_pow_2_0,
-                              lookup_pow_2_1,
-                              lookup_u8_0,
-                              lookup_u8_1,
-                              lookup_u16_0,
-                              lookup_u16_1,
-                              lookup_u16_2,
-                              lookup_u16_3,
-                              lookup_u16_4,
-                              lookup_u16_5,
-                              lookup_u16_6,
-                              lookup_u16_7,
-                              lookup_u16_8,
-                              lookup_u16_9,
-                              lookup_u16_10,
-                              lookup_u16_11,
-                              lookup_u16_12,
-                              lookup_u16_13,
-                              lookup_u16_14,
-                              lookup_div_u16_0,
-                              lookup_div_u16_1,
-                              lookup_div_u16_2,
-                              lookup_div_u16_3,
-                              lookup_div_u16_4,
-                              lookup_div_u16_5,
-                              lookup_div_u16_6,
-                              lookup_div_u16_7,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
                               lookup_opcode_gas_counts,
@@ -645,692 +550,11 @@ class AvmFlavor {
                               lookup_div_u16_5_counts,
                               lookup_div_u16_6_counts,
                               lookup_div_u16_7_counts)
-
-        RefVector<DataType> get_wires()
-        {
-            return { kernel_kernel_inputs,
-                     kernel_kernel_value_out,
-                     kernel_kernel_side_effect_out,
-                     kernel_kernel_metadata_out,
-                     main_calldata,
-                     alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_borrow,
-                     alu_cf,
-                     alu_clk,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_divisor_hi,
-                     alu_divisor_lo,
-                     alu_ff_tag,
-                     alu_ia,
-                     alu_ib,
-                     alu_ic,
-                     alu_in_tag,
-                     alu_op_add,
-                     alu_op_cast,
-                     alu_op_cast_prev,
-                     alu_op_div,
-                     alu_op_div_a_lt_b,
-                     alu_op_div_std,
-                     alu_op_eq,
-                     alu_op_eq_diff_inv,
-                     alu_op_lt,
-                     alu_op_lte,
-                     alu_op_mul,
-                     alu_op_not,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_a_borrow,
-                     alu_p_b_borrow,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_partial_prod_hi,
-                     alu_partial_prod_lo,
-                     alu_quotient_hi,
-                     alu_quotient_lo,
-                     alu_remainder,
-                     alu_res_hi,
-                     alu_res_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_shift_which,
-                     alu_shift_lt_bit_len,
-                     alu_t_sub_s_bits,
-                     alu_two_pow_s,
-                     alu_two_pow_t_sub_s,
-                     alu_u128_tag,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r10,
-                     alu_u16_r11,
-                     alu_u16_r12,
-                     alu_u16_r13,
-                     alu_u16_r14,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u16_r7,
-                     alu_u16_r8,
-                     alu_u16_r9,
-                     alu_u16_tag,
-                     alu_u32_tag,
-                     alu_u64_tag,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     alu_u8_tag,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_clk,
-                     binary_ia_bytes,
-                     binary_ib_bytes,
-                     binary_ic_bytes,
-                     binary_in_tag,
-                     binary_mem_tag_ctr,
-                     binary_mem_tag_ctr_inv,
-                     binary_op_id,
-                     binary_sel_bin,
-                     binary_start,
-                     byte_lookup_sel_bin,
-                     byte_lookup_table_byte_lengths,
-                     byte_lookup_table_in_tags,
-                     byte_lookup_table_input_a,
-                     byte_lookup_table_input_b,
-                     byte_lookup_table_op_id,
-                     byte_lookup_table_output,
-                     conversion_clk,
-                     conversion_input,
-                     conversion_num_limbs,
-                     conversion_radix,
-                     conversion_sel_to_radix_le,
-                     gas_da_gas_fixed_table,
-                     gas_l2_gas_fixed_table,
-                     gas_sel_gas_cost,
-                     keccakf1600_clk,
-                     keccakf1600_input,
-                     keccakf1600_output,
-                     keccakf1600_sel_keccakf1600,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_kernel_in_offset,
-                     kernel_kernel_out_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_q_public_input_kernel_add_to_table,
-                     kernel_q_public_input_kernel_out_add_to_table,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_abs_da_rem_gas_hi,
-                     main_abs_da_rem_gas_lo,
-                     main_abs_l2_rem_gas_hi,
-                     main_abs_l2_rem_gas_lo,
-                     main_alu_in_tag,
-                     main_bin_op_id,
-                     main_call_ptr,
-                     main_da_gas_op_cost,
-                     main_da_gas_remaining,
-                     main_da_out_of_gas,
-                     main_ia,
-                     main_ib,
-                     main_ic,
-                     main_id,
-                     main_id_zero,
-                     main_ind_addr_a,
-                     main_ind_addr_b,
-                     main_ind_addr_c,
-                     main_ind_addr_d,
-                     main_internal_return_ptr,
-                     main_inv,
-                     main_l2_gas_op_cost,
-                     main_l2_gas_remaining,
-                     main_l2_out_of_gas,
-                     main_mem_addr_a,
-                     main_mem_addr_b,
-                     main_mem_addr_c,
-                     main_mem_addr_d,
-                     main_op_err,
-                     main_opcode_val,
-                     main_pc,
-                     main_r_in_tag,
-                     main_rwa,
-                     main_rwb,
-                     main_rwc,
-                     main_rwd,
-                     main_sel_alu,
-                     main_sel_bin,
-                     main_sel_gas_accounting_active,
-                     main_sel_last,
-                     main_sel_mem_op_a,
-                     main_sel_mem_op_activate_gas,
-                     main_sel_mem_op_b,
-                     main_sel_mem_op_c,
-                     main_sel_mem_op_d,
-                     main_sel_mov_ia_to_ic,
-                     main_sel_mov_ib_to_ic,
-                     main_sel_op_add,
-                     main_sel_op_address,
-                     main_sel_op_and,
-                     main_sel_op_block_number,
-                     main_sel_op_cast,
-                     main_sel_op_chain_id,
-                     main_sel_op_cmov,
-                     main_sel_op_coinbase,
-                     main_sel_op_dagasleft,
-                     main_sel_op_div,
-                     main_sel_op_emit_l2_to_l1_msg,
-                     main_sel_op_emit_note_hash,
-                     main_sel_op_emit_nullifier,
-                     main_sel_op_emit_unencrypted_log,
-                     main_sel_op_eq,
-                     main_sel_op_external_call,
-                     main_sel_op_fdiv,
-                     main_sel_op_fee_per_da_gas,
-                     main_sel_op_fee_per_l2_gas,
-                     main_sel_op_function_selector,
-                     main_sel_op_get_contract_instance,
-                     main_sel_op_halt,
-                     main_sel_op_internal_call,
-                     main_sel_op_internal_return,
-                     main_sel_op_jump,
-                     main_sel_op_jumpi,
-                     main_sel_op_keccak,
-                     main_sel_op_l1_to_l2_msg_exists,
-                     main_sel_op_l2gasleft,
-                     main_sel_op_lt,
-                     main_sel_op_lte,
-                     main_sel_op_mov,
-                     main_sel_op_mul,
-                     main_sel_op_not,
-                     main_sel_op_note_hash_exists,
-                     main_sel_op_nullifier_exists,
-                     main_sel_op_or,
-                     main_sel_op_pedersen,
-                     main_sel_op_poseidon2,
-                     main_sel_op_radix_le,
-                     main_sel_op_sender,
-                     main_sel_op_sha256,
-                     main_sel_op_shl,
-                     main_sel_op_shr,
-                     main_sel_op_sload,
-                     main_sel_op_sstore,
-                     main_sel_op_storage_address,
-                     main_sel_op_sub,
-                     main_sel_op_timestamp,
-                     main_sel_op_transaction_fee,
-                     main_sel_op_version,
-                     main_sel_op_xor,
-                     main_sel_q_kernel_lookup,
-                     main_sel_q_kernel_output_lookup,
-                     main_sel_resolve_ind_addr_a,
-                     main_sel_resolve_ind_addr_b,
-                     main_sel_resolve_ind_addr_c,
-                     main_sel_resolve_ind_addr_d,
-                     main_sel_rng_16,
-                     main_sel_rng_8,
-                     main_space_id,
-                     main_tag_err,
-                     main_w_in_tag,
-                     mem_addr,
-                     mem_clk,
-                     mem_diff_hi,
-                     mem_diff_lo,
-                     mem_diff_mid,
-                     mem_glob_addr,
-                     mem_last,
-                     mem_lastAccess,
-                     mem_one_min_inv,
-                     mem_r_in_tag,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_sel_mov_ia_to_ic,
-                     mem_sel_mov_ib_to_ic,
-                     mem_sel_op_a,
-                     mem_sel_op_b,
-                     mem_sel_op_c,
-                     mem_sel_op_cmov,
-                     mem_sel_op_d,
-                     mem_sel_resolve_ind_addr_a,
-                     mem_sel_resolve_ind_addr_b,
-                     mem_sel_resolve_ind_addr_c,
-                     mem_sel_resolve_ind_addr_d,
-                     mem_sel_rng_chk,
-                     mem_skip_check_tag,
-                     mem_space_id,
-                     mem_tag,
-                     mem_tag_err,
-                     mem_tsp,
-                     mem_val,
-                     mem_w_in_tag,
-                     pedersen_clk,
-                     pedersen_input,
-                     pedersen_output,
-                     pedersen_sel_pedersen,
-                     poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
-                     poseidon2_sel_poseidon_perm,
-                     powers_power_of_2,
-                     sha256_clk,
-                     sha256_input,
-                     sha256_output,
-                     sha256_sel_sha256_compression,
-                     sha256_state,
-                     perm_main_alu,
-                     perm_main_bin,
-                     perm_main_conv,
-                     perm_main_pos2_perm,
-                     perm_main_pedersen,
-                     perm_main_mem_a,
-                     perm_main_mem_b,
-                     perm_main_mem_c,
-                     perm_main_mem_d,
-                     perm_main_mem_ind_addr_a,
-                     perm_main_mem_ind_addr_b,
-                     perm_main_mem_ind_addr_c,
-                     perm_main_mem_ind_addr_d,
-                     lookup_byte_lengths,
-                     lookup_byte_operations,
-                     lookup_opcode_gas,
-                     range_check_l2_gas_hi,
-                     range_check_l2_gas_lo,
-                     range_check_da_gas_hi,
-                     range_check_da_gas_lo,
-                     kernel_output_lookup,
-                     lookup_into_kernel,
-                     incl_main_tag_err,
-                     incl_mem_tag_err,
-                     lookup_mem_rng_chk_lo,
-                     lookup_mem_rng_chk_mid,
-                     lookup_mem_rng_chk_hi,
-                     lookup_pow_2_0,
-                     lookup_pow_2_1,
-                     lookup_u8_0,
-                     lookup_u8_1,
-                     lookup_u16_0,
-                     lookup_u16_1,
-                     lookup_u16_2,
-                     lookup_u16_3,
-                     lookup_u16_4,
-                     lookup_u16_5,
-                     lookup_u16_6,
-                     lookup_u16_7,
-                     lookup_u16_8,
-                     lookup_u16_9,
-                     lookup_u16_10,
-                     lookup_u16_11,
-                     lookup_u16_12,
-                     lookup_u16_13,
-                     lookup_u16_14,
-                     lookup_div_u16_0,
-                     lookup_div_u16_1,
-                     lookup_div_u16_2,
-                     lookup_div_u16_3,
-                     lookup_div_u16_4,
-                     lookup_div_u16_5,
-                     lookup_div_u16_6,
-                     lookup_div_u16_7,
-                     lookup_byte_lengths_counts,
-                     lookup_byte_operations_counts,
-                     lookup_opcode_gas_counts,
-                     range_check_l2_gas_hi_counts,
-                     range_check_l2_gas_lo_counts,
-                     range_check_da_gas_hi_counts,
-                     range_check_da_gas_lo_counts,
-                     kernel_output_lookup_counts,
-                     lookup_into_kernel_counts,
-                     incl_main_tag_err_counts,
-                     incl_mem_tag_err_counts,
-                     lookup_mem_rng_chk_lo_counts,
-                     lookup_mem_rng_chk_mid_counts,
-                     lookup_mem_rng_chk_hi_counts,
-                     lookup_pow_2_0_counts,
-                     lookup_pow_2_1_counts,
-                     lookup_u8_0_counts,
-                     lookup_u8_1_counts,
-                     lookup_u16_0_counts,
-                     lookup_u16_1_counts,
-                     lookup_u16_2_counts,
-                     lookup_u16_3_counts,
-                     lookup_u16_4_counts,
-                     lookup_u16_5_counts,
-                     lookup_u16_6_counts,
-                     lookup_u16_7_counts,
-                     lookup_u16_8_counts,
-                     lookup_u16_9_counts,
-                     lookup_u16_10_counts,
-                     lookup_u16_11_counts,
-                     lookup_u16_12_counts,
-                     lookup_u16_13_counts,
-                     lookup_u16_14_counts,
-                     lookup_div_u16_0_counts,
-                     lookup_div_u16_1_counts,
-                     lookup_div_u16_2_counts,
-                     lookup_div_u16_3_counts,
-                     lookup_div_u16_4_counts,
-                     lookup_div_u16_5_counts,
-                     lookup_div_u16_6_counts,
-                     lookup_div_u16_7_counts };
-        };
     };
 
-    template <typename DataType> class AllEntities {
+    template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              main_clk,
-                              main_sel_first,
-                              kernel_kernel_inputs,
-                              kernel_kernel_value_out,
-                              kernel_kernel_side_effect_out,
-                              kernel_kernel_metadata_out,
-                              main_calldata,
-                              alu_a_hi,
-                              alu_a_lo,
-                              alu_b_hi,
-                              alu_b_lo,
-                              alu_borrow,
-                              alu_cf,
-                              alu_clk,
-                              alu_cmp_rng_ctr,
-                              alu_div_u16_r0,
-                              alu_div_u16_r1,
-                              alu_div_u16_r2,
-                              alu_div_u16_r3,
-                              alu_div_u16_r4,
-                              alu_div_u16_r5,
-                              alu_div_u16_r6,
-                              alu_div_u16_r7,
-                              alu_divisor_hi,
-                              alu_divisor_lo,
-                              alu_ff_tag,
-                              alu_ia,
-                              alu_ib,
-                              alu_ic,
-                              alu_in_tag,
-                              alu_op_add,
-                              alu_op_cast,
-                              alu_op_cast_prev,
-                              alu_op_div,
-                              alu_op_div_a_lt_b,
-                              alu_op_div_std,
-                              alu_op_eq,
-                              alu_op_eq_diff_inv,
-                              alu_op_lt,
-                              alu_op_lte,
-                              alu_op_mul,
-                              alu_op_not,
-                              alu_op_shl,
-                              alu_op_shr,
-                              alu_op_sub,
-                              alu_p_a_borrow,
-                              alu_p_b_borrow,
-                              alu_p_sub_a_hi,
-                              alu_p_sub_a_lo,
-                              alu_p_sub_b_hi,
-                              alu_p_sub_b_lo,
-                              alu_partial_prod_hi,
-                              alu_partial_prod_lo,
-                              alu_quotient_hi,
-                              alu_quotient_lo,
-                              alu_remainder,
-                              alu_res_hi,
-                              alu_res_lo,
-                              alu_sel_alu,
-                              alu_sel_cmp,
-                              alu_sel_div_rng_chk,
-                              alu_sel_rng_chk,
-                              alu_sel_rng_chk_lookup,
-                              alu_sel_shift_which,
-                              alu_shift_lt_bit_len,
-                              alu_t_sub_s_bits,
-                              alu_two_pow_s,
-                              alu_two_pow_t_sub_s,
-                              alu_u128_tag,
-                              alu_u16_r0,
-                              alu_u16_r1,
-                              alu_u16_r10,
-                              alu_u16_r11,
-                              alu_u16_r12,
-                              alu_u16_r13,
-                              alu_u16_r14,
-                              alu_u16_r2,
-                              alu_u16_r3,
-                              alu_u16_r4,
-                              alu_u16_r5,
-                              alu_u16_r6,
-                              alu_u16_r7,
-                              alu_u16_r8,
-                              alu_u16_r9,
-                              alu_u16_tag,
-                              alu_u32_tag,
-                              alu_u64_tag,
-                              alu_u8_r0,
-                              alu_u8_r1,
-                              alu_u8_tag,
-                              binary_acc_ia,
-                              binary_acc_ib,
-                              binary_acc_ic,
-                              binary_clk,
-                              binary_ia_bytes,
-                              binary_ib_bytes,
-                              binary_ic_bytes,
-                              binary_in_tag,
-                              binary_mem_tag_ctr,
-                              binary_mem_tag_ctr_inv,
-                              binary_op_id,
-                              binary_sel_bin,
-                              binary_start,
-                              byte_lookup_sel_bin,
-                              byte_lookup_table_byte_lengths,
-                              byte_lookup_table_in_tags,
-                              byte_lookup_table_input_a,
-                              byte_lookup_table_input_b,
-                              byte_lookup_table_op_id,
-                              byte_lookup_table_output,
-                              conversion_clk,
-                              conversion_input,
-                              conversion_num_limbs,
-                              conversion_radix,
-                              conversion_sel_to_radix_le,
-                              gas_da_gas_fixed_table,
-                              gas_l2_gas_fixed_table,
-                              gas_sel_gas_cost,
-                              keccakf1600_clk,
-                              keccakf1600_input,
-                              keccakf1600_output,
-                              keccakf1600_sel_keccakf1600,
-                              kernel_emit_l2_to_l1_msg_write_offset,
-                              kernel_emit_note_hash_write_offset,
-                              kernel_emit_nullifier_write_offset,
-                              kernel_emit_unencrypted_log_write_offset,
-                              kernel_kernel_in_offset,
-                              kernel_kernel_out_offset,
-                              kernel_l1_to_l2_msg_exists_write_offset,
-                              kernel_note_hash_exist_write_offset,
-                              kernel_nullifier_exists_write_offset,
-                              kernel_nullifier_non_exists_write_offset,
-                              kernel_q_public_input_kernel_add_to_table,
-                              kernel_q_public_input_kernel_out_add_to_table,
-                              kernel_side_effect_counter,
-                              kernel_sload_write_offset,
-                              kernel_sstore_write_offset,
-                              main_abs_da_rem_gas_hi,
-                              main_abs_da_rem_gas_lo,
-                              main_abs_l2_rem_gas_hi,
-                              main_abs_l2_rem_gas_lo,
-                              main_alu_in_tag,
-                              main_bin_op_id,
-                              main_call_ptr,
-                              main_da_gas_op_cost,
-                              main_da_gas_remaining,
-                              main_da_out_of_gas,
-                              main_ia,
-                              main_ib,
-                              main_ic,
-                              main_id,
-                              main_id_zero,
-                              main_ind_addr_a,
-                              main_ind_addr_b,
-                              main_ind_addr_c,
-                              main_ind_addr_d,
-                              main_internal_return_ptr,
-                              main_inv,
-                              main_l2_gas_op_cost,
-                              main_l2_gas_remaining,
-                              main_l2_out_of_gas,
-                              main_mem_addr_a,
-                              main_mem_addr_b,
-                              main_mem_addr_c,
-                              main_mem_addr_d,
-                              main_op_err,
-                              main_opcode_val,
-                              main_pc,
-                              main_r_in_tag,
-                              main_rwa,
-                              main_rwb,
-                              main_rwc,
-                              main_rwd,
-                              main_sel_alu,
-                              main_sel_bin,
-                              main_sel_gas_accounting_active,
-                              main_sel_last,
-                              main_sel_mem_op_a,
-                              main_sel_mem_op_activate_gas,
-                              main_sel_mem_op_b,
-                              main_sel_mem_op_c,
-                              main_sel_mem_op_d,
-                              main_sel_mov_ia_to_ic,
-                              main_sel_mov_ib_to_ic,
-                              main_sel_op_add,
-                              main_sel_op_address,
-                              main_sel_op_and,
-                              main_sel_op_block_number,
-                              main_sel_op_cast,
-                              main_sel_op_chain_id,
-                              main_sel_op_cmov,
-                              main_sel_op_coinbase,
-                              main_sel_op_dagasleft,
-                              main_sel_op_div,
-                              main_sel_op_emit_l2_to_l1_msg,
-                              main_sel_op_emit_note_hash,
-                              main_sel_op_emit_nullifier,
-                              main_sel_op_emit_unencrypted_log,
-                              main_sel_op_eq,
-                              main_sel_op_external_call,
-                              main_sel_op_fdiv,
-                              main_sel_op_fee_per_da_gas,
-                              main_sel_op_fee_per_l2_gas,
-                              main_sel_op_function_selector,
-                              main_sel_op_get_contract_instance,
-                              main_sel_op_halt,
-                              main_sel_op_internal_call,
-                              main_sel_op_internal_return,
-                              main_sel_op_jump,
-                              main_sel_op_jumpi,
-                              main_sel_op_keccak,
-                              main_sel_op_l1_to_l2_msg_exists,
-                              main_sel_op_l2gasleft,
-                              main_sel_op_lt,
-                              main_sel_op_lte,
-                              main_sel_op_mov,
-                              main_sel_op_mul,
-                              main_sel_op_not,
-                              main_sel_op_note_hash_exists,
-                              main_sel_op_nullifier_exists,
-                              main_sel_op_or,
-                              main_sel_op_pedersen,
-                              main_sel_op_poseidon2,
-                              main_sel_op_radix_le,
-                              main_sel_op_sender,
-                              main_sel_op_sha256,
-                              main_sel_op_shl,
-                              main_sel_op_shr,
-                              main_sel_op_sload,
-                              main_sel_op_sstore,
-                              main_sel_op_storage_address,
-                              main_sel_op_sub,
-                              main_sel_op_timestamp,
-                              main_sel_op_transaction_fee,
-                              main_sel_op_version,
-                              main_sel_op_xor,
-                              main_sel_q_kernel_lookup,
-                              main_sel_q_kernel_output_lookup,
-                              main_sel_resolve_ind_addr_a,
-                              main_sel_resolve_ind_addr_b,
-                              main_sel_resolve_ind_addr_c,
-                              main_sel_resolve_ind_addr_d,
-                              main_sel_rng_16,
-                              main_sel_rng_8,
-                              main_space_id,
-                              main_tag_err,
-                              main_w_in_tag,
-                              mem_addr,
-                              mem_clk,
-                              mem_diff_hi,
-                              mem_diff_lo,
-                              mem_diff_mid,
-                              mem_glob_addr,
-                              mem_last,
-                              mem_lastAccess,
-                              mem_one_min_inv,
-                              mem_r_in_tag,
-                              mem_rw,
-                              mem_sel_mem,
-                              mem_sel_mov_ia_to_ic,
-                              mem_sel_mov_ib_to_ic,
-                              mem_sel_op_a,
-                              mem_sel_op_b,
-                              mem_sel_op_c,
-                              mem_sel_op_cmov,
-                              mem_sel_op_d,
-                              mem_sel_resolve_ind_addr_a,
-                              mem_sel_resolve_ind_addr_b,
-                              mem_sel_resolve_ind_addr_c,
-                              mem_sel_resolve_ind_addr_d,
-                              mem_sel_rng_chk,
-                              mem_skip_check_tag,
-                              mem_space_id,
-                              mem_tag,
-                              mem_tag_err,
-                              mem_tsp,
-                              mem_val,
-                              mem_w_in_tag,
-                              pedersen_clk,
-                              pedersen_input,
-                              pedersen_output,
-                              pedersen_sel_pedersen,
-                              poseidon2_clk,
-                              poseidon2_input,
-                              poseidon2_output,
-                              poseidon2_sel_poseidon_perm,
-                              powers_power_of_2,
-                              sha256_clk,
-                              sha256_input,
-                              sha256_output,
-                              sha256_sel_sha256_compression,
-                              sha256_state,
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
@@ -1384,48 +608,12 @@ class AvmFlavor {
                               lookup_div_u16_4,
                               lookup_div_u16_5,
                               lookup_div_u16_6,
-                              lookup_div_u16_7,
-                              lookup_byte_lengths_counts,
-                              lookup_byte_operations_counts,
-                              lookup_opcode_gas_counts,
-                              range_check_l2_gas_hi_counts,
-                              range_check_l2_gas_lo_counts,
-                              range_check_da_gas_hi_counts,
-                              range_check_da_gas_lo_counts,
-                              kernel_output_lookup_counts,
-                              lookup_into_kernel_counts,
-                              incl_main_tag_err_counts,
-                              incl_mem_tag_err_counts,
-                              lookup_mem_rng_chk_lo_counts,
-                              lookup_mem_rng_chk_mid_counts,
-                              lookup_mem_rng_chk_hi_counts,
-                              lookup_pow_2_0_counts,
-                              lookup_pow_2_1_counts,
-                              lookup_u8_0_counts,
-                              lookup_u8_1_counts,
-                              lookup_u16_0_counts,
-                              lookup_u16_1_counts,
-                              lookup_u16_2_counts,
-                              lookup_u16_3_counts,
-                              lookup_u16_4_counts,
-                              lookup_u16_5_counts,
-                              lookup_u16_6_counts,
-                              lookup_u16_7_counts,
-                              lookup_u16_8_counts,
-                              lookup_u16_9_counts,
-                              lookup_u16_10_counts,
-                              lookup_u16_11_counts,
-                              lookup_u16_12_counts,
-                              lookup_u16_13_counts,
-                              lookup_u16_14_counts,
-                              lookup_div_u16_0_counts,
-                              lookup_div_u16_1_counts,
-                              lookup_div_u16_2_counts,
-                              lookup_div_u16_3_counts,
-                              lookup_div_u16_4_counts,
-                              lookup_div_u16_5_counts,
-                              lookup_div_u16_6_counts,
-                              lookup_div_u16_7_counts,
+                              lookup_div_u16_7)
+    };
+
+    template <typename DataType> class ShiftedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
                               alu_a_hi_shift,
                               alu_a_lo_shift,
                               alu_b_hi_shift,
@@ -1491,988 +679,106 @@ class AvmFlavor {
                               mem_tag_shift,
                               mem_tsp_shift,
                               mem_val_shift)
+    };
 
-        RefVector<DataType> get_wires()
+    template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
+    static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
+    {
+        return RefArray{ entities.alu_a_hi,
+                         entities.alu_a_lo,
+                         entities.alu_b_hi,
+                         entities.alu_b_lo,
+                         entities.alu_cmp_rng_ctr,
+                         entities.alu_div_u16_r0,
+                         entities.alu_div_u16_r1,
+                         entities.alu_div_u16_r2,
+                         entities.alu_div_u16_r3,
+                         entities.alu_div_u16_r4,
+                         entities.alu_div_u16_r5,
+                         entities.alu_div_u16_r6,
+                         entities.alu_div_u16_r7,
+                         entities.alu_op_add,
+                         entities.alu_op_cast_prev,
+                         entities.alu_op_cast,
+                         entities.alu_op_div,
+                         entities.alu_op_mul,
+                         entities.alu_op_shl,
+                         entities.alu_op_shr,
+                         entities.alu_op_sub,
+                         entities.alu_p_sub_a_hi,
+                         entities.alu_p_sub_a_lo,
+                         entities.alu_p_sub_b_hi,
+                         entities.alu_p_sub_b_lo,
+                         entities.alu_sel_alu,
+                         entities.alu_sel_cmp,
+                         entities.alu_sel_div_rng_chk,
+                         entities.alu_sel_rng_chk_lookup,
+                         entities.alu_sel_rng_chk,
+                         entities.alu_u16_r0,
+                         entities.alu_u16_r1,
+                         entities.alu_u16_r2,
+                         entities.alu_u16_r3,
+                         entities.alu_u16_r4,
+                         entities.alu_u16_r5,
+                         entities.alu_u16_r6,
+                         entities.alu_u8_r0,
+                         entities.alu_u8_r1,
+                         entities.binary_acc_ia,
+                         entities.binary_acc_ib,
+                         entities.binary_acc_ic,
+                         entities.binary_mem_tag_ctr,
+                         entities.binary_op_id,
+                         entities.kernel_emit_l2_to_l1_msg_write_offset,
+                         entities.kernel_emit_note_hash_write_offset,
+                         entities.kernel_emit_nullifier_write_offset,
+                         entities.kernel_emit_unencrypted_log_write_offset,
+                         entities.kernel_l1_to_l2_msg_exists_write_offset,
+                         entities.kernel_note_hash_exist_write_offset,
+                         entities.kernel_nullifier_exists_write_offset,
+                         entities.kernel_nullifier_non_exists_write_offset,
+                         entities.kernel_side_effect_counter,
+                         entities.kernel_sload_write_offset,
+                         entities.kernel_sstore_write_offset,
+                         entities.main_da_gas_remaining,
+                         entities.main_internal_return_ptr,
+                         entities.main_l2_gas_remaining,
+                         entities.main_pc,
+                         entities.mem_glob_addr,
+                         entities.mem_rw,
+                         entities.mem_sel_mem,
+                         entities.mem_tag,
+                         entities.mem_tsp,
+                         entities.mem_val };
+    }
+
+    template <typename DataType>
+    class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
+        auto get_wires() { return WireEntities<DataType>::get_all(); }
+        auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
+    };
+
+    template <typename DataType>
+    class AllEntities : public PrecomputedEntities<DataType>,
+                        public WitnessEntities<DataType>,
+                        public ShiftedEntities<DataType> {
+      public:
+        AllEntities()
+            : PrecomputedEntities<DataType>{}
+            , WitnessEntities<DataType>{}
+            , ShiftedEntities<DataType>{}
+        {}
+
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+
+        auto get_unshifted()
         {
-            return { main_clk,
-                     main_sel_first,
-                     kernel_kernel_inputs,
-                     kernel_kernel_value_out,
-                     kernel_kernel_side_effect_out,
-                     kernel_kernel_metadata_out,
-                     main_calldata,
-                     alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_borrow,
-                     alu_cf,
-                     alu_clk,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_divisor_hi,
-                     alu_divisor_lo,
-                     alu_ff_tag,
-                     alu_ia,
-                     alu_ib,
-                     alu_ic,
-                     alu_in_tag,
-                     alu_op_add,
-                     alu_op_cast,
-                     alu_op_cast_prev,
-                     alu_op_div,
-                     alu_op_div_a_lt_b,
-                     alu_op_div_std,
-                     alu_op_eq,
-                     alu_op_eq_diff_inv,
-                     alu_op_lt,
-                     alu_op_lte,
-                     alu_op_mul,
-                     alu_op_not,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_a_borrow,
-                     alu_p_b_borrow,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_partial_prod_hi,
-                     alu_partial_prod_lo,
-                     alu_quotient_hi,
-                     alu_quotient_lo,
-                     alu_remainder,
-                     alu_res_hi,
-                     alu_res_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_shift_which,
-                     alu_shift_lt_bit_len,
-                     alu_t_sub_s_bits,
-                     alu_two_pow_s,
-                     alu_two_pow_t_sub_s,
-                     alu_u128_tag,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r10,
-                     alu_u16_r11,
-                     alu_u16_r12,
-                     alu_u16_r13,
-                     alu_u16_r14,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u16_r7,
-                     alu_u16_r8,
-                     alu_u16_r9,
-                     alu_u16_tag,
-                     alu_u32_tag,
-                     alu_u64_tag,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     alu_u8_tag,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_clk,
-                     binary_ia_bytes,
-                     binary_ib_bytes,
-                     binary_ic_bytes,
-                     binary_in_tag,
-                     binary_mem_tag_ctr,
-                     binary_mem_tag_ctr_inv,
-                     binary_op_id,
-                     binary_sel_bin,
-                     binary_start,
-                     byte_lookup_sel_bin,
-                     byte_lookup_table_byte_lengths,
-                     byte_lookup_table_in_tags,
-                     byte_lookup_table_input_a,
-                     byte_lookup_table_input_b,
-                     byte_lookup_table_op_id,
-                     byte_lookup_table_output,
-                     conversion_clk,
-                     conversion_input,
-                     conversion_num_limbs,
-                     conversion_radix,
-                     conversion_sel_to_radix_le,
-                     gas_da_gas_fixed_table,
-                     gas_l2_gas_fixed_table,
-                     gas_sel_gas_cost,
-                     keccakf1600_clk,
-                     keccakf1600_input,
-                     keccakf1600_output,
-                     keccakf1600_sel_keccakf1600,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_kernel_in_offset,
-                     kernel_kernel_out_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_q_public_input_kernel_add_to_table,
-                     kernel_q_public_input_kernel_out_add_to_table,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_abs_da_rem_gas_hi,
-                     main_abs_da_rem_gas_lo,
-                     main_abs_l2_rem_gas_hi,
-                     main_abs_l2_rem_gas_lo,
-                     main_alu_in_tag,
-                     main_bin_op_id,
-                     main_call_ptr,
-                     main_da_gas_op_cost,
-                     main_da_gas_remaining,
-                     main_da_out_of_gas,
-                     main_ia,
-                     main_ib,
-                     main_ic,
-                     main_id,
-                     main_id_zero,
-                     main_ind_addr_a,
-                     main_ind_addr_b,
-                     main_ind_addr_c,
-                     main_ind_addr_d,
-                     main_internal_return_ptr,
-                     main_inv,
-                     main_l2_gas_op_cost,
-                     main_l2_gas_remaining,
-                     main_l2_out_of_gas,
-                     main_mem_addr_a,
-                     main_mem_addr_b,
-                     main_mem_addr_c,
-                     main_mem_addr_d,
-                     main_op_err,
-                     main_opcode_val,
-                     main_pc,
-                     main_r_in_tag,
-                     main_rwa,
-                     main_rwb,
-                     main_rwc,
-                     main_rwd,
-                     main_sel_alu,
-                     main_sel_bin,
-                     main_sel_gas_accounting_active,
-                     main_sel_last,
-                     main_sel_mem_op_a,
-                     main_sel_mem_op_activate_gas,
-                     main_sel_mem_op_b,
-                     main_sel_mem_op_c,
-                     main_sel_mem_op_d,
-                     main_sel_mov_ia_to_ic,
-                     main_sel_mov_ib_to_ic,
-                     main_sel_op_add,
-                     main_sel_op_address,
-                     main_sel_op_and,
-                     main_sel_op_block_number,
-                     main_sel_op_cast,
-                     main_sel_op_chain_id,
-                     main_sel_op_cmov,
-                     main_sel_op_coinbase,
-                     main_sel_op_dagasleft,
-                     main_sel_op_div,
-                     main_sel_op_emit_l2_to_l1_msg,
-                     main_sel_op_emit_note_hash,
-                     main_sel_op_emit_nullifier,
-                     main_sel_op_emit_unencrypted_log,
-                     main_sel_op_eq,
-                     main_sel_op_external_call,
-                     main_sel_op_fdiv,
-                     main_sel_op_fee_per_da_gas,
-                     main_sel_op_fee_per_l2_gas,
-                     main_sel_op_function_selector,
-                     main_sel_op_get_contract_instance,
-                     main_sel_op_halt,
-                     main_sel_op_internal_call,
-                     main_sel_op_internal_return,
-                     main_sel_op_jump,
-                     main_sel_op_jumpi,
-                     main_sel_op_keccak,
-                     main_sel_op_l1_to_l2_msg_exists,
-                     main_sel_op_l2gasleft,
-                     main_sel_op_lt,
-                     main_sel_op_lte,
-                     main_sel_op_mov,
-                     main_sel_op_mul,
-                     main_sel_op_not,
-                     main_sel_op_note_hash_exists,
-                     main_sel_op_nullifier_exists,
-                     main_sel_op_or,
-                     main_sel_op_pedersen,
-                     main_sel_op_poseidon2,
-                     main_sel_op_radix_le,
-                     main_sel_op_sender,
-                     main_sel_op_sha256,
-                     main_sel_op_shl,
-                     main_sel_op_shr,
-                     main_sel_op_sload,
-                     main_sel_op_sstore,
-                     main_sel_op_storage_address,
-                     main_sel_op_sub,
-                     main_sel_op_timestamp,
-                     main_sel_op_transaction_fee,
-                     main_sel_op_version,
-                     main_sel_op_xor,
-                     main_sel_q_kernel_lookup,
-                     main_sel_q_kernel_output_lookup,
-                     main_sel_resolve_ind_addr_a,
-                     main_sel_resolve_ind_addr_b,
-                     main_sel_resolve_ind_addr_c,
-                     main_sel_resolve_ind_addr_d,
-                     main_sel_rng_16,
-                     main_sel_rng_8,
-                     main_space_id,
-                     main_tag_err,
-                     main_w_in_tag,
-                     mem_addr,
-                     mem_clk,
-                     mem_diff_hi,
-                     mem_diff_lo,
-                     mem_diff_mid,
-                     mem_glob_addr,
-                     mem_last,
-                     mem_lastAccess,
-                     mem_one_min_inv,
-                     mem_r_in_tag,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_sel_mov_ia_to_ic,
-                     mem_sel_mov_ib_to_ic,
-                     mem_sel_op_a,
-                     mem_sel_op_b,
-                     mem_sel_op_c,
-                     mem_sel_op_cmov,
-                     mem_sel_op_d,
-                     mem_sel_resolve_ind_addr_a,
-                     mem_sel_resolve_ind_addr_b,
-                     mem_sel_resolve_ind_addr_c,
-                     mem_sel_resolve_ind_addr_d,
-                     mem_sel_rng_chk,
-                     mem_skip_check_tag,
-                     mem_space_id,
-                     mem_tag,
-                     mem_tag_err,
-                     mem_tsp,
-                     mem_val,
-                     mem_w_in_tag,
-                     pedersen_clk,
-                     pedersen_input,
-                     pedersen_output,
-                     pedersen_sel_pedersen,
-                     poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
-                     poseidon2_sel_poseidon_perm,
-                     powers_power_of_2,
-                     sha256_clk,
-                     sha256_input,
-                     sha256_output,
-                     sha256_sel_sha256_compression,
-                     sha256_state,
-                     perm_main_alu,
-                     perm_main_bin,
-                     perm_main_conv,
-                     perm_main_pos2_perm,
-                     perm_main_pedersen,
-                     perm_main_mem_a,
-                     perm_main_mem_b,
-                     perm_main_mem_c,
-                     perm_main_mem_d,
-                     perm_main_mem_ind_addr_a,
-                     perm_main_mem_ind_addr_b,
-                     perm_main_mem_ind_addr_c,
-                     perm_main_mem_ind_addr_d,
-                     lookup_byte_lengths,
-                     lookup_byte_operations,
-                     lookup_opcode_gas,
-                     range_check_l2_gas_hi,
-                     range_check_l2_gas_lo,
-                     range_check_da_gas_hi,
-                     range_check_da_gas_lo,
-                     kernel_output_lookup,
-                     lookup_into_kernel,
-                     incl_main_tag_err,
-                     incl_mem_tag_err,
-                     lookup_mem_rng_chk_lo,
-                     lookup_mem_rng_chk_mid,
-                     lookup_mem_rng_chk_hi,
-                     lookup_pow_2_0,
-                     lookup_pow_2_1,
-                     lookup_u8_0,
-                     lookup_u8_1,
-                     lookup_u16_0,
-                     lookup_u16_1,
-                     lookup_u16_2,
-                     lookup_u16_3,
-                     lookup_u16_4,
-                     lookup_u16_5,
-                     lookup_u16_6,
-                     lookup_u16_7,
-                     lookup_u16_8,
-                     lookup_u16_9,
-                     lookup_u16_10,
-                     lookup_u16_11,
-                     lookup_u16_12,
-                     lookup_u16_13,
-                     lookup_u16_14,
-                     lookup_div_u16_0,
-                     lookup_div_u16_1,
-                     lookup_div_u16_2,
-                     lookup_div_u16_3,
-                     lookup_div_u16_4,
-                     lookup_div_u16_5,
-                     lookup_div_u16_6,
-                     lookup_div_u16_7,
-                     lookup_byte_lengths_counts,
-                     lookup_byte_operations_counts,
-                     lookup_opcode_gas_counts,
-                     range_check_l2_gas_hi_counts,
-                     range_check_l2_gas_lo_counts,
-                     range_check_da_gas_hi_counts,
-                     range_check_da_gas_lo_counts,
-                     kernel_output_lookup_counts,
-                     lookup_into_kernel_counts,
-                     incl_main_tag_err_counts,
-                     incl_mem_tag_err_counts,
-                     lookup_mem_rng_chk_lo_counts,
-                     lookup_mem_rng_chk_mid_counts,
-                     lookup_mem_rng_chk_hi_counts,
-                     lookup_pow_2_0_counts,
-                     lookup_pow_2_1_counts,
-                     lookup_u8_0_counts,
-                     lookup_u8_1_counts,
-                     lookup_u16_0_counts,
-                     lookup_u16_1_counts,
-                     lookup_u16_2_counts,
-                     lookup_u16_3_counts,
-                     lookup_u16_4_counts,
-                     lookup_u16_5_counts,
-                     lookup_u16_6_counts,
-                     lookup_u16_7_counts,
-                     lookup_u16_8_counts,
-                     lookup_u16_9_counts,
-                     lookup_u16_10_counts,
-                     lookup_u16_11_counts,
-                     lookup_u16_12_counts,
-                     lookup_u16_13_counts,
-                     lookup_u16_14_counts,
-                     lookup_div_u16_0_counts,
-                     lookup_div_u16_1_counts,
-                     lookup_div_u16_2_counts,
-                     lookup_div_u16_3_counts,
-                     lookup_div_u16_4_counts,
-                     lookup_div_u16_5_counts,
-                     lookup_div_u16_6_counts,
-                     lookup_div_u16_7_counts,
-                     alu_a_hi_shift,
-                     alu_a_lo_shift,
-                     alu_b_hi_shift,
-                     alu_b_lo_shift,
-                     alu_cmp_rng_ctr_shift,
-                     alu_div_u16_r0_shift,
-                     alu_div_u16_r1_shift,
-                     alu_div_u16_r2_shift,
-                     alu_div_u16_r3_shift,
-                     alu_div_u16_r4_shift,
-                     alu_div_u16_r5_shift,
-                     alu_div_u16_r6_shift,
-                     alu_div_u16_r7_shift,
-                     alu_op_add_shift,
-                     alu_op_cast_prev_shift,
-                     alu_op_cast_shift,
-                     alu_op_div_shift,
-                     alu_op_mul_shift,
-                     alu_op_shl_shift,
-                     alu_op_shr_shift,
-                     alu_op_sub_shift,
-                     alu_p_sub_a_hi_shift,
-                     alu_p_sub_a_lo_shift,
-                     alu_p_sub_b_hi_shift,
-                     alu_p_sub_b_lo_shift,
-                     alu_sel_alu_shift,
-                     alu_sel_cmp_shift,
-                     alu_sel_div_rng_chk_shift,
-                     alu_sel_rng_chk_lookup_shift,
-                     alu_sel_rng_chk_shift,
-                     alu_u16_r0_shift,
-                     alu_u16_r1_shift,
-                     alu_u16_r2_shift,
-                     alu_u16_r3_shift,
-                     alu_u16_r4_shift,
-                     alu_u16_r5_shift,
-                     alu_u16_r6_shift,
-                     alu_u8_r0_shift,
-                     alu_u8_r1_shift,
-                     binary_acc_ia_shift,
-                     binary_acc_ib_shift,
-                     binary_acc_ic_shift,
-                     binary_mem_tag_ctr_shift,
-                     binary_op_id_shift,
-                     kernel_emit_l2_to_l1_msg_write_offset_shift,
-                     kernel_emit_note_hash_write_offset_shift,
-                     kernel_emit_nullifier_write_offset_shift,
-                     kernel_emit_unencrypted_log_write_offset_shift,
-                     kernel_l1_to_l2_msg_exists_write_offset_shift,
-                     kernel_note_hash_exist_write_offset_shift,
-                     kernel_nullifier_exists_write_offset_shift,
-                     kernel_nullifier_non_exists_write_offset_shift,
-                     kernel_side_effect_counter_shift,
-                     kernel_sload_write_offset_shift,
-                     kernel_sstore_write_offset_shift,
-                     main_da_gas_remaining_shift,
-                     main_internal_return_ptr_shift,
-                     main_l2_gas_remaining_shift,
-                     main_pc_shift,
-                     mem_glob_addr_shift,
-                     mem_rw_shift,
-                     mem_sel_mem_shift,
-                     mem_tag_shift,
-                     mem_tsp_shift,
-                     mem_val_shift };
-        };
-        RefVector<DataType> get_unshifted()
-        {
-            return { main_clk,
-                     main_sel_first,
-                     kernel_kernel_inputs,
-                     kernel_kernel_value_out,
-                     kernel_kernel_side_effect_out,
-                     kernel_kernel_metadata_out,
-                     main_calldata,
-                     alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_borrow,
-                     alu_cf,
-                     alu_clk,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_divisor_hi,
-                     alu_divisor_lo,
-                     alu_ff_tag,
-                     alu_ia,
-                     alu_ib,
-                     alu_ic,
-                     alu_in_tag,
-                     alu_op_add,
-                     alu_op_cast,
-                     alu_op_cast_prev,
-                     alu_op_div,
-                     alu_op_div_a_lt_b,
-                     alu_op_div_std,
-                     alu_op_eq,
-                     alu_op_eq_diff_inv,
-                     alu_op_lt,
-                     alu_op_lte,
-                     alu_op_mul,
-                     alu_op_not,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_a_borrow,
-                     alu_p_b_borrow,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_partial_prod_hi,
-                     alu_partial_prod_lo,
-                     alu_quotient_hi,
-                     alu_quotient_lo,
-                     alu_remainder,
-                     alu_res_hi,
-                     alu_res_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_shift_which,
-                     alu_shift_lt_bit_len,
-                     alu_t_sub_s_bits,
-                     alu_two_pow_s,
-                     alu_two_pow_t_sub_s,
-                     alu_u128_tag,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r10,
-                     alu_u16_r11,
-                     alu_u16_r12,
-                     alu_u16_r13,
-                     alu_u16_r14,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u16_r7,
-                     alu_u16_r8,
-                     alu_u16_r9,
-                     alu_u16_tag,
-                     alu_u32_tag,
-                     alu_u64_tag,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     alu_u8_tag,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_clk,
-                     binary_ia_bytes,
-                     binary_ib_bytes,
-                     binary_ic_bytes,
-                     binary_in_tag,
-                     binary_mem_tag_ctr,
-                     binary_mem_tag_ctr_inv,
-                     binary_op_id,
-                     binary_sel_bin,
-                     binary_start,
-                     byte_lookup_sel_bin,
-                     byte_lookup_table_byte_lengths,
-                     byte_lookup_table_in_tags,
-                     byte_lookup_table_input_a,
-                     byte_lookup_table_input_b,
-                     byte_lookup_table_op_id,
-                     byte_lookup_table_output,
-                     conversion_clk,
-                     conversion_input,
-                     conversion_num_limbs,
-                     conversion_radix,
-                     conversion_sel_to_radix_le,
-                     gas_da_gas_fixed_table,
-                     gas_l2_gas_fixed_table,
-                     gas_sel_gas_cost,
-                     keccakf1600_clk,
-                     keccakf1600_input,
-                     keccakf1600_output,
-                     keccakf1600_sel_keccakf1600,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_kernel_in_offset,
-                     kernel_kernel_out_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_q_public_input_kernel_add_to_table,
-                     kernel_q_public_input_kernel_out_add_to_table,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_abs_da_rem_gas_hi,
-                     main_abs_da_rem_gas_lo,
-                     main_abs_l2_rem_gas_hi,
-                     main_abs_l2_rem_gas_lo,
-                     main_alu_in_tag,
-                     main_bin_op_id,
-                     main_call_ptr,
-                     main_da_gas_op_cost,
-                     main_da_gas_remaining,
-                     main_da_out_of_gas,
-                     main_ia,
-                     main_ib,
-                     main_ic,
-                     main_id,
-                     main_id_zero,
-                     main_ind_addr_a,
-                     main_ind_addr_b,
-                     main_ind_addr_c,
-                     main_ind_addr_d,
-                     main_internal_return_ptr,
-                     main_inv,
-                     main_l2_gas_op_cost,
-                     main_l2_gas_remaining,
-                     main_l2_out_of_gas,
-                     main_mem_addr_a,
-                     main_mem_addr_b,
-                     main_mem_addr_c,
-                     main_mem_addr_d,
-                     main_op_err,
-                     main_opcode_val,
-                     main_pc,
-                     main_r_in_tag,
-                     main_rwa,
-                     main_rwb,
-                     main_rwc,
-                     main_rwd,
-                     main_sel_alu,
-                     main_sel_bin,
-                     main_sel_gas_accounting_active,
-                     main_sel_last,
-                     main_sel_mem_op_a,
-                     main_sel_mem_op_activate_gas,
-                     main_sel_mem_op_b,
-                     main_sel_mem_op_c,
-                     main_sel_mem_op_d,
-                     main_sel_mov_ia_to_ic,
-                     main_sel_mov_ib_to_ic,
-                     main_sel_op_add,
-                     main_sel_op_address,
-                     main_sel_op_and,
-                     main_sel_op_block_number,
-                     main_sel_op_cast,
-                     main_sel_op_chain_id,
-                     main_sel_op_cmov,
-                     main_sel_op_coinbase,
-                     main_sel_op_dagasleft,
-                     main_sel_op_div,
-                     main_sel_op_emit_l2_to_l1_msg,
-                     main_sel_op_emit_note_hash,
-                     main_sel_op_emit_nullifier,
-                     main_sel_op_emit_unencrypted_log,
-                     main_sel_op_eq,
-                     main_sel_op_external_call,
-                     main_sel_op_fdiv,
-                     main_sel_op_fee_per_da_gas,
-                     main_sel_op_fee_per_l2_gas,
-                     main_sel_op_function_selector,
-                     main_sel_op_get_contract_instance,
-                     main_sel_op_halt,
-                     main_sel_op_internal_call,
-                     main_sel_op_internal_return,
-                     main_sel_op_jump,
-                     main_sel_op_jumpi,
-                     main_sel_op_keccak,
-                     main_sel_op_l1_to_l2_msg_exists,
-                     main_sel_op_l2gasleft,
-                     main_sel_op_lt,
-                     main_sel_op_lte,
-                     main_sel_op_mov,
-                     main_sel_op_mul,
-                     main_sel_op_not,
-                     main_sel_op_note_hash_exists,
-                     main_sel_op_nullifier_exists,
-                     main_sel_op_or,
-                     main_sel_op_pedersen,
-                     main_sel_op_poseidon2,
-                     main_sel_op_radix_le,
-                     main_sel_op_sender,
-                     main_sel_op_sha256,
-                     main_sel_op_shl,
-                     main_sel_op_shr,
-                     main_sel_op_sload,
-                     main_sel_op_sstore,
-                     main_sel_op_storage_address,
-                     main_sel_op_sub,
-                     main_sel_op_timestamp,
-                     main_sel_op_transaction_fee,
-                     main_sel_op_version,
-                     main_sel_op_xor,
-                     main_sel_q_kernel_lookup,
-                     main_sel_q_kernel_output_lookup,
-                     main_sel_resolve_ind_addr_a,
-                     main_sel_resolve_ind_addr_b,
-                     main_sel_resolve_ind_addr_c,
-                     main_sel_resolve_ind_addr_d,
-                     main_sel_rng_16,
-                     main_sel_rng_8,
-                     main_space_id,
-                     main_tag_err,
-                     main_w_in_tag,
-                     mem_addr,
-                     mem_clk,
-                     mem_diff_hi,
-                     mem_diff_lo,
-                     mem_diff_mid,
-                     mem_glob_addr,
-                     mem_last,
-                     mem_lastAccess,
-                     mem_one_min_inv,
-                     mem_r_in_tag,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_sel_mov_ia_to_ic,
-                     mem_sel_mov_ib_to_ic,
-                     mem_sel_op_a,
-                     mem_sel_op_b,
-                     mem_sel_op_c,
-                     mem_sel_op_cmov,
-                     mem_sel_op_d,
-                     mem_sel_resolve_ind_addr_a,
-                     mem_sel_resolve_ind_addr_b,
-                     mem_sel_resolve_ind_addr_c,
-                     mem_sel_resolve_ind_addr_d,
-                     mem_sel_rng_chk,
-                     mem_skip_check_tag,
-                     mem_space_id,
-                     mem_tag,
-                     mem_tag_err,
-                     mem_tsp,
-                     mem_val,
-                     mem_w_in_tag,
-                     pedersen_clk,
-                     pedersen_input,
-                     pedersen_output,
-                     pedersen_sel_pedersen,
-                     poseidon2_clk,
-                     poseidon2_input,
-                     poseidon2_output,
-                     poseidon2_sel_poseidon_perm,
-                     powers_power_of_2,
-                     sha256_clk,
-                     sha256_input,
-                     sha256_output,
-                     sha256_sel_sha256_compression,
-                     sha256_state,
-                     perm_main_alu,
-                     perm_main_bin,
-                     perm_main_conv,
-                     perm_main_pos2_perm,
-                     perm_main_pedersen,
-                     perm_main_mem_a,
-                     perm_main_mem_b,
-                     perm_main_mem_c,
-                     perm_main_mem_d,
-                     perm_main_mem_ind_addr_a,
-                     perm_main_mem_ind_addr_b,
-                     perm_main_mem_ind_addr_c,
-                     perm_main_mem_ind_addr_d,
-                     lookup_byte_lengths,
-                     lookup_byte_operations,
-                     lookup_opcode_gas,
-                     range_check_l2_gas_hi,
-                     range_check_l2_gas_lo,
-                     range_check_da_gas_hi,
-                     range_check_da_gas_lo,
-                     kernel_output_lookup,
-                     lookup_into_kernel,
-                     incl_main_tag_err,
-                     incl_mem_tag_err,
-                     lookup_mem_rng_chk_lo,
-                     lookup_mem_rng_chk_mid,
-                     lookup_mem_rng_chk_hi,
-                     lookup_pow_2_0,
-                     lookup_pow_2_1,
-                     lookup_u8_0,
-                     lookup_u8_1,
-                     lookup_u16_0,
-                     lookup_u16_1,
-                     lookup_u16_2,
-                     lookup_u16_3,
-                     lookup_u16_4,
-                     lookup_u16_5,
-                     lookup_u16_6,
-                     lookup_u16_7,
-                     lookup_u16_8,
-                     lookup_u16_9,
-                     lookup_u16_10,
-                     lookup_u16_11,
-                     lookup_u16_12,
-                     lookup_u16_13,
-                     lookup_u16_14,
-                     lookup_div_u16_0,
-                     lookup_div_u16_1,
-                     lookup_div_u16_2,
-                     lookup_div_u16_3,
-                     lookup_div_u16_4,
-                     lookup_div_u16_5,
-                     lookup_div_u16_6,
-                     lookup_div_u16_7,
-                     lookup_byte_lengths_counts,
-                     lookup_byte_operations_counts,
-                     lookup_opcode_gas_counts,
-                     range_check_l2_gas_hi_counts,
-                     range_check_l2_gas_lo_counts,
-                     range_check_da_gas_hi_counts,
-                     range_check_da_gas_lo_counts,
-                     kernel_output_lookup_counts,
-                     lookup_into_kernel_counts,
-                     incl_main_tag_err_counts,
-                     incl_mem_tag_err_counts,
-                     lookup_mem_rng_chk_lo_counts,
-                     lookup_mem_rng_chk_mid_counts,
-                     lookup_mem_rng_chk_hi_counts,
-                     lookup_pow_2_0_counts,
-                     lookup_pow_2_1_counts,
-                     lookup_u8_0_counts,
-                     lookup_u8_1_counts,
-                     lookup_u16_0_counts,
-                     lookup_u16_1_counts,
-                     lookup_u16_2_counts,
-                     lookup_u16_3_counts,
-                     lookup_u16_4_counts,
-                     lookup_u16_5_counts,
-                     lookup_u16_6_counts,
-                     lookup_u16_7_counts,
-                     lookup_u16_8_counts,
-                     lookup_u16_9_counts,
-                     lookup_u16_10_counts,
-                     lookup_u16_11_counts,
-                     lookup_u16_12_counts,
-                     lookup_u16_13_counts,
-                     lookup_u16_14_counts,
-                     lookup_div_u16_0_counts,
-                     lookup_div_u16_1_counts,
-                     lookup_div_u16_2_counts,
-                     lookup_div_u16_3_counts,
-                     lookup_div_u16_4_counts,
-                     lookup_div_u16_5_counts,
-                     lookup_div_u16_6_counts,
-                     lookup_div_u16_7_counts };
-        };
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return { alu_a_hi,
-                     alu_a_lo,
-                     alu_b_hi,
-                     alu_b_lo,
-                     alu_cmp_rng_ctr,
-                     alu_div_u16_r0,
-                     alu_div_u16_r1,
-                     alu_div_u16_r2,
-                     alu_div_u16_r3,
-                     alu_div_u16_r4,
-                     alu_div_u16_r5,
-                     alu_div_u16_r6,
-                     alu_div_u16_r7,
-                     alu_op_add,
-                     alu_op_cast_prev,
-                     alu_op_cast,
-                     alu_op_div,
-                     alu_op_mul,
-                     alu_op_shl,
-                     alu_op_shr,
-                     alu_op_sub,
-                     alu_p_sub_a_hi,
-                     alu_p_sub_a_lo,
-                     alu_p_sub_b_hi,
-                     alu_p_sub_b_lo,
-                     alu_sel_alu,
-                     alu_sel_cmp,
-                     alu_sel_div_rng_chk,
-                     alu_sel_rng_chk_lookup,
-                     alu_sel_rng_chk,
-                     alu_u16_r0,
-                     alu_u16_r1,
-                     alu_u16_r2,
-                     alu_u16_r3,
-                     alu_u16_r4,
-                     alu_u16_r5,
-                     alu_u16_r6,
-                     alu_u8_r0,
-                     alu_u8_r1,
-                     binary_acc_ia,
-                     binary_acc_ib,
-                     binary_acc_ic,
-                     binary_mem_tag_ctr,
-                     binary_op_id,
-                     kernel_emit_l2_to_l1_msg_write_offset,
-                     kernel_emit_note_hash_write_offset,
-                     kernel_emit_nullifier_write_offset,
-                     kernel_emit_unencrypted_log_write_offset,
-                     kernel_l1_to_l2_msg_exists_write_offset,
-                     kernel_note_hash_exist_write_offset,
-                     kernel_nullifier_exists_write_offset,
-                     kernel_nullifier_non_exists_write_offset,
-                     kernel_side_effect_counter,
-                     kernel_sload_write_offset,
-                     kernel_sstore_write_offset,
-                     main_da_gas_remaining,
-                     main_internal_return_ptr,
-                     main_l2_gas_remaining,
-                     main_pc,
-                     mem_glob_addr,
-                     mem_rw,
-                     mem_sel_mem,
-                     mem_tag,
-                     mem_tsp,
-                     mem_val };
-        };
-        RefVector<DataType> get_shifted()
-        {
-            return { alu_a_hi_shift,
-                     alu_a_lo_shift,
-                     alu_b_hi_shift,
-                     alu_b_lo_shift,
-                     alu_cmp_rng_ctr_shift,
-                     alu_div_u16_r0_shift,
-                     alu_div_u16_r1_shift,
-                     alu_div_u16_r2_shift,
-                     alu_div_u16_r3_shift,
-                     alu_div_u16_r4_shift,
-                     alu_div_u16_r5_shift,
-                     alu_div_u16_r6_shift,
-                     alu_div_u16_r7_shift,
-                     alu_op_add_shift,
-                     alu_op_cast_prev_shift,
-                     alu_op_cast_shift,
-                     alu_op_div_shift,
-                     alu_op_mul_shift,
-                     alu_op_shl_shift,
-                     alu_op_shr_shift,
-                     alu_op_sub_shift,
-                     alu_p_sub_a_hi_shift,
-                     alu_p_sub_a_lo_shift,
-                     alu_p_sub_b_hi_shift,
-                     alu_p_sub_b_lo_shift,
-                     alu_sel_alu_shift,
-                     alu_sel_cmp_shift,
-                     alu_sel_div_rng_chk_shift,
-                     alu_sel_rng_chk_lookup_shift,
-                     alu_sel_rng_chk_shift,
-                     alu_u16_r0_shift,
-                     alu_u16_r1_shift,
-                     alu_u16_r2_shift,
-                     alu_u16_r3_shift,
-                     alu_u16_r4_shift,
-                     alu_u16_r5_shift,
-                     alu_u16_r6_shift,
-                     alu_u8_r0_shift,
-                     alu_u8_r1_shift,
-                     binary_acc_ia_shift,
-                     binary_acc_ib_shift,
-                     binary_acc_ic_shift,
-                     binary_mem_tag_ctr_shift,
-                     binary_op_id_shift,
-                     kernel_emit_l2_to_l1_msg_write_offset_shift,
-                     kernel_emit_note_hash_write_offset_shift,
-                     kernel_emit_nullifier_write_offset_shift,
-                     kernel_emit_unencrypted_log_write_offset_shift,
-                     kernel_l1_to_l2_msg_exists_write_offset_shift,
-                     kernel_note_hash_exist_write_offset_shift,
-                     kernel_nullifier_exists_write_offset_shift,
-                     kernel_nullifier_non_exists_write_offset_shift,
-                     kernel_side_effect_counter_shift,
-                     kernel_sload_write_offset_shift,
-                     kernel_sstore_write_offset_shift,
-                     main_da_gas_remaining_shift,
-                     main_internal_return_ptr_shift,
-                     main_l2_gas_remaining_shift,
-                     main_pc_shift,
-                     mem_glob_addr_shift,
-                     mem_rw_shift,
-                     mem_sel_mem_shift,
-                     mem_tag_shift,
-                     mem_tsp_shift,
-                     mem_val_shift };
-        };
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
+        }
+        auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
+        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
     };
 
   public:
@@ -2550,120 +856,6 @@ class AvmFlavor {
                      mem_tag,
                      mem_tsp,
                      mem_val };
-        };
-
-        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
-        {
-            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
-
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_pos2_perm_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_pedersen_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_b_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_c_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_d_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_a_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_b_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_c_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_d_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_opcode_gas_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_hi_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_lo_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_hi_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_lo_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, kernel_output_lookup_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_into_kernel_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_lo_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_mid_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_hi_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_2_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_3_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_4_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_5_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_6_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_7_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_8_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_9_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_10_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_11_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_12_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_13_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_0_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_1_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_2_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_3_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_4_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_5_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_6_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_7_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
         }
     };
 
@@ -2758,7 +950,6 @@ class AvmFlavor {
 
       public:
         CommitmentLabels()
-            : AllEntities<std::string>()
         {
             Base::main_clk = "MAIN_CLK";
             Base::main_sel_first = "MAIN_SEL_FIRST";
@@ -3014,7 +1205,7 @@ class AvmFlavor {
             Base::mem_diff_mid = "MEM_DIFF_MID";
             Base::mem_glob_addr = "MEM_GLOB_ADDR";
             Base::mem_last = "MEM_LAST";
-            Base::mem_lastAccess = "MEM_LASTACCESS";
+            Base::mem_lastAccess = "MEM_LAST_ACCESS";
             Base::mem_one_min_inv = "MEM_ONE_MIN_INV";
             Base::mem_r_in_tag = "MEM_R_IN_TAG";
             Base::mem_rw = "MEM_RW";
@@ -3166,391 +1357,7 @@ class AvmFlavor {
       public:
         uint32_t circuit_size;
 
-        Commitment kernel_kernel_inputs;
-        Commitment kernel_kernel_value_out;
-        Commitment kernel_kernel_side_effect_out;
-        Commitment kernel_kernel_metadata_out;
-        Commitment main_calldata;
-        Commitment alu_a_hi;
-        Commitment alu_a_lo;
-        Commitment alu_b_hi;
-        Commitment alu_b_lo;
-        Commitment alu_borrow;
-        Commitment alu_cf;
-        Commitment alu_clk;
-        Commitment alu_cmp_rng_ctr;
-        Commitment alu_div_u16_r0;
-        Commitment alu_div_u16_r1;
-        Commitment alu_div_u16_r2;
-        Commitment alu_div_u16_r3;
-        Commitment alu_div_u16_r4;
-        Commitment alu_div_u16_r5;
-        Commitment alu_div_u16_r6;
-        Commitment alu_div_u16_r7;
-        Commitment alu_divisor_hi;
-        Commitment alu_divisor_lo;
-        Commitment alu_ff_tag;
-        Commitment alu_ia;
-        Commitment alu_ib;
-        Commitment alu_ic;
-        Commitment alu_in_tag;
-        Commitment alu_op_add;
-        Commitment alu_op_cast;
-        Commitment alu_op_cast_prev;
-        Commitment alu_op_div;
-        Commitment alu_op_div_a_lt_b;
-        Commitment alu_op_div_std;
-        Commitment alu_op_eq;
-        Commitment alu_op_eq_diff_inv;
-        Commitment alu_op_lt;
-        Commitment alu_op_lte;
-        Commitment alu_op_mul;
-        Commitment alu_op_not;
-        Commitment alu_op_shl;
-        Commitment alu_op_shr;
-        Commitment alu_op_sub;
-        Commitment alu_p_a_borrow;
-        Commitment alu_p_b_borrow;
-        Commitment alu_p_sub_a_hi;
-        Commitment alu_p_sub_a_lo;
-        Commitment alu_p_sub_b_hi;
-        Commitment alu_p_sub_b_lo;
-        Commitment alu_partial_prod_hi;
-        Commitment alu_partial_prod_lo;
-        Commitment alu_quotient_hi;
-        Commitment alu_quotient_lo;
-        Commitment alu_remainder;
-        Commitment alu_res_hi;
-        Commitment alu_res_lo;
-        Commitment alu_sel_alu;
-        Commitment alu_sel_cmp;
-        Commitment alu_sel_div_rng_chk;
-        Commitment alu_sel_rng_chk;
-        Commitment alu_sel_rng_chk_lookup;
-        Commitment alu_sel_shift_which;
-        Commitment alu_shift_lt_bit_len;
-        Commitment alu_t_sub_s_bits;
-        Commitment alu_two_pow_s;
-        Commitment alu_two_pow_t_sub_s;
-        Commitment alu_u128_tag;
-        Commitment alu_u16_r0;
-        Commitment alu_u16_r1;
-        Commitment alu_u16_r10;
-        Commitment alu_u16_r11;
-        Commitment alu_u16_r12;
-        Commitment alu_u16_r13;
-        Commitment alu_u16_r14;
-        Commitment alu_u16_r2;
-        Commitment alu_u16_r3;
-        Commitment alu_u16_r4;
-        Commitment alu_u16_r5;
-        Commitment alu_u16_r6;
-        Commitment alu_u16_r7;
-        Commitment alu_u16_r8;
-        Commitment alu_u16_r9;
-        Commitment alu_u16_tag;
-        Commitment alu_u32_tag;
-        Commitment alu_u64_tag;
-        Commitment alu_u8_r0;
-        Commitment alu_u8_r1;
-        Commitment alu_u8_tag;
-        Commitment binary_acc_ia;
-        Commitment binary_acc_ib;
-        Commitment binary_acc_ic;
-        Commitment binary_clk;
-        Commitment binary_ia_bytes;
-        Commitment binary_ib_bytes;
-        Commitment binary_ic_bytes;
-        Commitment binary_in_tag;
-        Commitment binary_mem_tag_ctr;
-        Commitment binary_mem_tag_ctr_inv;
-        Commitment binary_op_id;
-        Commitment binary_sel_bin;
-        Commitment binary_start;
-        Commitment byte_lookup_sel_bin;
-        Commitment byte_lookup_table_byte_lengths;
-        Commitment byte_lookup_table_in_tags;
-        Commitment byte_lookup_table_input_a;
-        Commitment byte_lookup_table_input_b;
-        Commitment byte_lookup_table_op_id;
-        Commitment byte_lookup_table_output;
-        Commitment conversion_clk;
-        Commitment conversion_input;
-        Commitment conversion_num_limbs;
-        Commitment conversion_radix;
-        Commitment conversion_sel_to_radix_le;
-        Commitment gas_da_gas_fixed_table;
-        Commitment gas_l2_gas_fixed_table;
-        Commitment gas_sel_gas_cost;
-        Commitment keccakf1600_clk;
-        Commitment keccakf1600_input;
-        Commitment keccakf1600_output;
-        Commitment keccakf1600_sel_keccakf1600;
-        Commitment kernel_emit_l2_to_l1_msg_write_offset;
-        Commitment kernel_emit_note_hash_write_offset;
-        Commitment kernel_emit_nullifier_write_offset;
-        Commitment kernel_emit_unencrypted_log_write_offset;
-        Commitment kernel_kernel_in_offset;
-        Commitment kernel_kernel_out_offset;
-        Commitment kernel_l1_to_l2_msg_exists_write_offset;
-        Commitment kernel_note_hash_exist_write_offset;
-        Commitment kernel_nullifier_exists_write_offset;
-        Commitment kernel_nullifier_non_exists_write_offset;
-        Commitment kernel_q_public_input_kernel_add_to_table;
-        Commitment kernel_q_public_input_kernel_out_add_to_table;
-        Commitment kernel_side_effect_counter;
-        Commitment kernel_sload_write_offset;
-        Commitment kernel_sstore_write_offset;
-        Commitment main_abs_da_rem_gas_hi;
-        Commitment main_abs_da_rem_gas_lo;
-        Commitment main_abs_l2_rem_gas_hi;
-        Commitment main_abs_l2_rem_gas_lo;
-        Commitment main_alu_in_tag;
-        Commitment main_bin_op_id;
-        Commitment main_call_ptr;
-        Commitment main_da_gas_op_cost;
-        Commitment main_da_gas_remaining;
-        Commitment main_da_out_of_gas;
-        Commitment main_ia;
-        Commitment main_ib;
-        Commitment main_ic;
-        Commitment main_id;
-        Commitment main_id_zero;
-        Commitment main_ind_addr_a;
-        Commitment main_ind_addr_b;
-        Commitment main_ind_addr_c;
-        Commitment main_ind_addr_d;
-        Commitment main_internal_return_ptr;
-        Commitment main_inv;
-        Commitment main_l2_gas_op_cost;
-        Commitment main_l2_gas_remaining;
-        Commitment main_l2_out_of_gas;
-        Commitment main_mem_addr_a;
-        Commitment main_mem_addr_b;
-        Commitment main_mem_addr_c;
-        Commitment main_mem_addr_d;
-        Commitment main_op_err;
-        Commitment main_opcode_val;
-        Commitment main_pc;
-        Commitment main_r_in_tag;
-        Commitment main_rwa;
-        Commitment main_rwb;
-        Commitment main_rwc;
-        Commitment main_rwd;
-        Commitment main_sel_alu;
-        Commitment main_sel_bin;
-        Commitment main_sel_gas_accounting_active;
-        Commitment main_sel_last;
-        Commitment main_sel_mem_op_a;
-        Commitment main_sel_mem_op_activate_gas;
-        Commitment main_sel_mem_op_b;
-        Commitment main_sel_mem_op_c;
-        Commitment main_sel_mem_op_d;
-        Commitment main_sel_mov_ia_to_ic;
-        Commitment main_sel_mov_ib_to_ic;
-        Commitment main_sel_op_add;
-        Commitment main_sel_op_address;
-        Commitment main_sel_op_and;
-        Commitment main_sel_op_block_number;
-        Commitment main_sel_op_cast;
-        Commitment main_sel_op_chain_id;
-        Commitment main_sel_op_cmov;
-        Commitment main_sel_op_coinbase;
-        Commitment main_sel_op_dagasleft;
-        Commitment main_sel_op_div;
-        Commitment main_sel_op_emit_l2_to_l1_msg;
-        Commitment main_sel_op_emit_note_hash;
-        Commitment main_sel_op_emit_nullifier;
-        Commitment main_sel_op_emit_unencrypted_log;
-        Commitment main_sel_op_eq;
-        Commitment main_sel_op_external_call;
-        Commitment main_sel_op_fdiv;
-        Commitment main_sel_op_fee_per_da_gas;
-        Commitment main_sel_op_fee_per_l2_gas;
-        Commitment main_sel_op_function_selector;
-        Commitment main_sel_op_get_contract_instance;
-        Commitment main_sel_op_halt;
-        Commitment main_sel_op_internal_call;
-        Commitment main_sel_op_internal_return;
-        Commitment main_sel_op_jump;
-        Commitment main_sel_op_jumpi;
-        Commitment main_sel_op_keccak;
-        Commitment main_sel_op_l1_to_l2_msg_exists;
-        Commitment main_sel_op_l2gasleft;
-        Commitment main_sel_op_lt;
-        Commitment main_sel_op_lte;
-        Commitment main_sel_op_mov;
-        Commitment main_sel_op_mul;
-        Commitment main_sel_op_not;
-        Commitment main_sel_op_note_hash_exists;
-        Commitment main_sel_op_nullifier_exists;
-        Commitment main_sel_op_or;
-        Commitment main_sel_op_pedersen;
-        Commitment main_sel_op_poseidon2;
-        Commitment main_sel_op_radix_le;
-        Commitment main_sel_op_sender;
-        Commitment main_sel_op_sha256;
-        Commitment main_sel_op_shl;
-        Commitment main_sel_op_shr;
-        Commitment main_sel_op_sload;
-        Commitment main_sel_op_sstore;
-        Commitment main_sel_op_storage_address;
-        Commitment main_sel_op_sub;
-        Commitment main_sel_op_timestamp;
-        Commitment main_sel_op_transaction_fee;
-        Commitment main_sel_op_version;
-        Commitment main_sel_op_xor;
-        Commitment main_sel_q_kernel_lookup;
-        Commitment main_sel_q_kernel_output_lookup;
-        Commitment main_sel_resolve_ind_addr_a;
-        Commitment main_sel_resolve_ind_addr_b;
-        Commitment main_sel_resolve_ind_addr_c;
-        Commitment main_sel_resolve_ind_addr_d;
-        Commitment main_sel_rng_16;
-        Commitment main_sel_rng_8;
-        Commitment main_space_id;
-        Commitment main_tag_err;
-        Commitment main_w_in_tag;
-        Commitment mem_addr;
-        Commitment mem_clk;
-        Commitment mem_diff_hi;
-        Commitment mem_diff_lo;
-        Commitment mem_diff_mid;
-        Commitment mem_glob_addr;
-        Commitment mem_last;
-        Commitment mem_lastAccess;
-        Commitment mem_one_min_inv;
-        Commitment mem_r_in_tag;
-        Commitment mem_rw;
-        Commitment mem_sel_mem;
-        Commitment mem_sel_mov_ia_to_ic;
-        Commitment mem_sel_mov_ib_to_ic;
-        Commitment mem_sel_op_a;
-        Commitment mem_sel_op_b;
-        Commitment mem_sel_op_c;
-        Commitment mem_sel_op_cmov;
-        Commitment mem_sel_op_d;
-        Commitment mem_sel_resolve_ind_addr_a;
-        Commitment mem_sel_resolve_ind_addr_b;
-        Commitment mem_sel_resolve_ind_addr_c;
-        Commitment mem_sel_resolve_ind_addr_d;
-        Commitment mem_sel_rng_chk;
-        Commitment mem_skip_check_tag;
-        Commitment mem_space_id;
-        Commitment mem_tag;
-        Commitment mem_tag_err;
-        Commitment mem_tsp;
-        Commitment mem_val;
-        Commitment mem_w_in_tag;
-        Commitment pedersen_clk;
-        Commitment pedersen_input;
-        Commitment pedersen_output;
-        Commitment pedersen_sel_pedersen;
-        Commitment poseidon2_clk;
-        Commitment poseidon2_input;
-        Commitment poseidon2_output;
-        Commitment poseidon2_sel_poseidon_perm;
-        Commitment powers_power_of_2;
-        Commitment sha256_clk;
-        Commitment sha256_input;
-        Commitment sha256_output;
-        Commitment sha256_sel_sha256_compression;
-        Commitment sha256_state;
-        Commitment perm_main_alu;
-        Commitment perm_main_bin;
-        Commitment perm_main_conv;
-        Commitment perm_main_pos2_perm;
-        Commitment perm_main_pedersen;
-        Commitment perm_main_mem_a;
-        Commitment perm_main_mem_b;
-        Commitment perm_main_mem_c;
-        Commitment perm_main_mem_d;
-        Commitment perm_main_mem_ind_addr_a;
-        Commitment perm_main_mem_ind_addr_b;
-        Commitment perm_main_mem_ind_addr_c;
-        Commitment perm_main_mem_ind_addr_d;
-        Commitment lookup_byte_lengths;
-        Commitment lookup_byte_operations;
-        Commitment lookup_opcode_gas;
-        Commitment range_check_l2_gas_hi;
-        Commitment range_check_l2_gas_lo;
-        Commitment range_check_da_gas_hi;
-        Commitment range_check_da_gas_lo;
-        Commitment kernel_output_lookup;
-        Commitment lookup_into_kernel;
-        Commitment incl_main_tag_err;
-        Commitment incl_mem_tag_err;
-        Commitment lookup_mem_rng_chk_lo;
-        Commitment lookup_mem_rng_chk_mid;
-        Commitment lookup_mem_rng_chk_hi;
-        Commitment lookup_pow_2_0;
-        Commitment lookup_pow_2_1;
-        Commitment lookup_u8_0;
-        Commitment lookup_u8_1;
-        Commitment lookup_u16_0;
-        Commitment lookup_u16_1;
-        Commitment lookup_u16_2;
-        Commitment lookup_u16_3;
-        Commitment lookup_u16_4;
-        Commitment lookup_u16_5;
-        Commitment lookup_u16_6;
-        Commitment lookup_u16_7;
-        Commitment lookup_u16_8;
-        Commitment lookup_u16_9;
-        Commitment lookup_u16_10;
-        Commitment lookup_u16_11;
-        Commitment lookup_u16_12;
-        Commitment lookup_u16_13;
-        Commitment lookup_u16_14;
-        Commitment lookup_div_u16_0;
-        Commitment lookup_div_u16_1;
-        Commitment lookup_div_u16_2;
-        Commitment lookup_div_u16_3;
-        Commitment lookup_div_u16_4;
-        Commitment lookup_div_u16_5;
-        Commitment lookup_div_u16_6;
-        Commitment lookup_div_u16_7;
-        Commitment lookup_byte_lengths_counts;
-        Commitment lookup_byte_operations_counts;
-        Commitment lookup_opcode_gas_counts;
-        Commitment range_check_l2_gas_hi_counts;
-        Commitment range_check_l2_gas_lo_counts;
-        Commitment range_check_da_gas_hi_counts;
-        Commitment range_check_da_gas_lo_counts;
-        Commitment kernel_output_lookup_counts;
-        Commitment lookup_into_kernel_counts;
-        Commitment incl_main_tag_err_counts;
-        Commitment incl_mem_tag_err_counts;
-        Commitment lookup_mem_rng_chk_lo_counts;
-        Commitment lookup_mem_rng_chk_mid_counts;
-        Commitment lookup_mem_rng_chk_hi_counts;
-        Commitment lookup_pow_2_0_counts;
-        Commitment lookup_pow_2_1_counts;
-        Commitment lookup_u8_0_counts;
-        Commitment lookup_u8_1_counts;
-        Commitment lookup_u16_0_counts;
-        Commitment lookup_u16_1_counts;
-        Commitment lookup_u16_2_counts;
-        Commitment lookup_u16_3_counts;
-        Commitment lookup_u16_4_counts;
-        Commitment lookup_u16_5_counts;
-        Commitment lookup_u16_6_counts;
-        Commitment lookup_u16_7_counts;
-        Commitment lookup_u16_8_counts;
-        Commitment lookup_u16_9_counts;
-        Commitment lookup_u16_10_counts;
-        Commitment lookup_u16_11_counts;
-        Commitment lookup_u16_12_counts;
-        Commitment lookup_u16_13_counts;
-        Commitment lookup_u16_14_counts;
-        Commitment lookup_div_u16_0_counts;
-        Commitment lookup_div_u16_1_counts;
-        Commitment lookup_div_u16_2_counts;
-        Commitment lookup_div_u16_3_counts;
-        Commitment lookup_div_u16_4_counts;
-        Commitment lookup_div_u16_5_counts;
-        Commitment lookup_div_u16_6_counts;
-        Commitment lookup_div_u16_7_counts;
+        std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -3570,404 +1377,9 @@ class AvmFlavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            kernel_kernel_inputs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_value_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_side_effect_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_metadata_out = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_calldata = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_a_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_b_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_borrow = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_cf = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_cmp_rng_ctr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_div_u16_r7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_divisor_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_divisor_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ff_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_cast_prev = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_div_a_lt_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_div_std = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_eq_diff_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_not = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_a_borrow = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_b_borrow = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_a_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_p_sub_b_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_partial_prod_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_partial_prod_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_quotient_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_quotient_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_remainder = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_res_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_res_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_cmp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_div_rng_chk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_rng_chk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_rng_chk_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_sel_shift_which = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_shift_lt_bit_len = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_t_sub_s_bits = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_two_pow_s = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_two_pow_t_sub_s = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u128_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r10 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r11 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_r9 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u16_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u32_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u64_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u8_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u8_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            alu_u8_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_acc_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_acc_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_acc_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_ia_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_ib_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_ic_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_mem_tag_ctr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_mem_tag_ctr_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            binary_start = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_in_tags = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_input_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_input_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            byte_lookup_table_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_num_limbs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_radix = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            conversion_sel_to_radix_le = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            gas_sel_gas_cost = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            keccakf1600_sel_keccakf1600 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_l2_to_l1_msg_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_note_hash_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_nullifier_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_emit_unencrypted_log_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_in_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_kernel_out_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_l1_to_l2_msg_exists_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_note_hash_exist_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_nullifier_exists_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_nullifier_non_exists_write_offset =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_q_public_input_kernel_add_to_table =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_q_public_input_kernel_out_add_to_table =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_side_effect_counter = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_sload_write_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_sstore_write_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_da_rem_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_da_rem_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_l2_rem_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_abs_l2_rem_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_alu_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_bin_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_call_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_da_gas_op_cost = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_da_gas_remaining = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_da_out_of_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_id_zero = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_internal_return_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_l2_gas_op_cost = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_l2_gas_remaining = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_l2_out_of_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_mem_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_op_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_opcode_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_pc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwa = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwb = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_rwd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_gas_accounting_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_activate_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mov_ia_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_mov_ib_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_and = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_block_number = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_chain_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_coinbase = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_dagasleft = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_l2_to_l1_msg = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_note_hash = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_nullifier = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_emit_unencrypted_log =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_external_call = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_function_selector = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_get_contract_instance =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_halt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_internal_call = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_internal_return = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_jump = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_jumpi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_keccak = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_l1_to_l2_msg_exists = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_l2gasleft = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_mov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_not = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_note_hash_exists = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_nullifier_exists = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_or = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_poseidon2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_radix_le = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sender = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sha256 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sload = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sstore = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_storage_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_timestamp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_transaction_fee = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_version = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_op_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_q_kernel_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_q_kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_resolve_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_rng_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_diff_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_diff_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_diff_mid = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_glob_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_lastAccess = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_one_min_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_rw = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_mem = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_mov_ia_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_mov_ib_to_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_resolve_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_rng_chk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_skip_check_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_tsp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            pedersen_sel_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            poseidon2_sel_poseidon_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            powers_power_of_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_sel_sha256_compression = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            sha256_state = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_pos2_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_mem_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_opcode_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_into_kernel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_mid = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_9 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_10 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_11 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_opcode_gas_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_l2_gas_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            range_check_da_gas_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            kernel_output_lookup_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_into_kernel_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_mid_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_mem_rng_chk_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_pow_2_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u8_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_2_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_3_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_4_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_5_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_6_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_7_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_8_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_9_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_10_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_11_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_12_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_13_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_u16_14_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_2_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_3_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_4_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_5_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_6_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            lookup_div_u16_7_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-
+            for (auto& commitment : commitments) {
+                commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            }
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(Transcript::proof_data,
@@ -3990,392 +1402,9 @@ class AvmFlavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
-            serialize_to_buffer<Commitment>(kernel_kernel_inputs, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_value_out, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_side_effect_out, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_metadata_out, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_calldata, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_a_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_a_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_b_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_b_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_borrow, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_cf, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_cmp_rng_ctr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_div_u16_r7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_divisor_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_divisor_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ff_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ia, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ib, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_add, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_cast, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_cast_prev, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_div, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_div_a_lt_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_div_std, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_eq, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_eq_diff_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_lt, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_lte, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_mul, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_not, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_shl, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_shr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_op_sub, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_a_borrow, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_b_borrow, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_a_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_a_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_b_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_p_sub_b_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_partial_prod_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_partial_prod_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_quotient_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_quotient_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_remainder, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_res_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_res_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_alu, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_cmp, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_div_rng_chk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_rng_chk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_rng_chk_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_sel_shift_which, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_shift_lt_bit_len, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_t_sub_s_bits, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_two_pow_s, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_two_pow_t_sub_s, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u128_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r10, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r11, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r12, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r13, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r14, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_r9, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u16_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u32_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u64_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u8_r0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u8_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(alu_u8_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_acc_ia, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_acc_ib, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_acc_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_ia_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_ib_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_ic_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_mem_tag_ctr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_mem_tag_ctr_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_op_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(binary_start, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_byte_lengths, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_in_tags, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_input_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_input_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_op_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(byte_lookup_table_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_num_limbs, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_radix, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(conversion_sel_to_radix_le, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(gas_da_gas_fixed_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(gas_l2_gas_fixed_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(gas_sel_gas_cost, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(keccakf1600_sel_keccakf1600, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_note_hash_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_nullifier_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_emit_unencrypted_log_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_in_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_kernel_out_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_l1_to_l2_msg_exists_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_note_hash_exist_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_nullifier_exists_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_nullifier_non_exists_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_q_public_input_kernel_add_to_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_q_public_input_kernel_out_add_to_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_side_effect_counter, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_sload_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_sstore_write_offset, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_da_rem_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_da_rem_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_l2_rem_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_abs_l2_rem_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_alu_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_bin_op_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_call_ptr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_da_gas_op_cost, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_da_gas_remaining, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_da_out_of_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ia, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ib, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_id_zero, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_internal_return_ptr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_l2_gas_op_cost, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_l2_gas_remaining, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_l2_out_of_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_mem_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_op_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_opcode_val, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_pc, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_r_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwa, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwb, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwc, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_rwd, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_alu, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_gas_accounting_active, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_last, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_activate_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mem_op_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mov_ia_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_mov_ib_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_add, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_address, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_and, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_block_number, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_cast, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_chain_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_cmov, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_coinbase, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_dagasleft, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_div, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_l2_to_l1_msg, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_note_hash, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_nullifier, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_emit_unencrypted_log, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_eq, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_external_call, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_fdiv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_fee_per_da_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_fee_per_l2_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_function_selector, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_get_contract_instance, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_halt, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_internal_call, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_internal_return, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_jump, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_jumpi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_keccak, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_l1_to_l2_msg_exists, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_l2gasleft, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_lt, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_lte, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_mov, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_mul, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_not, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_note_hash_exists, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_nullifier_exists, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_or, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_poseidon2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_radix_le, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sender, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sha256, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_shl, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_shr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sload, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sstore, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_storage_address, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_sub, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_timestamp, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_transaction_fee, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_version, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_op_xor, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_q_kernel_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_q_kernel_output_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_rng_16, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_rng_8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_space_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_w_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_addr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_diff_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_diff_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_diff_mid, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_glob_addr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_last, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_lastAccess, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_one_min_inv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_r_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_rw, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_mem, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_mov_ia_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_mov_ib_to_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_cmov, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_rng_chk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_skip_check_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_space_id, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_tsp, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_val, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_w_in_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(pedersen_sel_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(poseidon2_sel_poseidon_perm, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(powers_power_of_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_input, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_output, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_sel_sha256_compression, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(sha256_state, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_pos2_perm, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_a, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_b, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_mem_ind_addr_d, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_lengths, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_opcode_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_output_lookup, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_into_kernel, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_main_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_mid, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_9, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_10, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_11, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_12, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_13, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_14, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_0, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_3, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_4, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_5, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_6, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_opcode_gas_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_hi_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_l2_gas_lo_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_hi_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(range_check_da_gas_lo_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(kernel_output_lookup_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_into_kernel_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_mid_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_pow_2_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u8_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_2_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_3_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_4_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_5_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_6_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_7_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_8_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_9_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_10_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_11_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_12_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_13_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_u16_14_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_0_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_1_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_2_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_3_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_4_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_5_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_6_counts, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(lookup_div_u16_7_counts, Transcript::proof_data);
-
+            for (const auto& commitment : commitments) {
+                serialize_to_buffer(commitment, Transcript::proof_data);
+            }
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
             }

@@ -25,8 +25,8 @@ use crate::{
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     constants::{
-    FUNCTION_TREE_HEIGHT, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    FUNCTION_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT,
@@ -82,9 +82,9 @@ struct FixtureBuilder {
     global_variables: GlobalVariables,
 
     // Accumulated data.
-    new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
-    new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<ScopedEncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
@@ -127,6 +127,7 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
+    vk_tree_root: Field,
 
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -176,6 +177,20 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
+        self.vk_index = vk_index;
+        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+
+        let vk_hash = vk_tree.leaves[vk_index];
+        self.vk.hash = vk_hash;
+
+        self.vk_path = vk_tree.get_sibling_path(vk_index);
+
+        self.vk_tree_root = vk_tree.get_root();
+
+        *self
+    }
+
     pub fn is_delegate_call(&mut self) -> Self {
         self.is_delegate_call = true;
         self.storage_contract_address = fixtures::contracts::parent_contract.address;
@@ -192,6 +207,7 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
             global_variables: self.global_variables
         }
     }
@@ -211,13 +227,12 @@ impl FixtureBuilder {
             storage_contract_address: self.storage_contract_address,
             function_selector: self.function_data.selector,
             is_delegate_call: self.is_delegate_call,
-            is_static_call: self.is_static_call,
-            side_effect_counter: self.counter_start
+            is_static_call: self.is_static_call
         }
     }
 
     pub fn build_private_call_request(self) -> ScopedPrivateCallRequest {
-        let hash = self.to_private_call_stack_item().hash();
+        let item = self.to_private_call_stack_item();
         let is_delegate_call = self.is_delegate_call;
         let mut caller_context = CallerContext::empty();
         caller_context.is_static_call = self.is_static_call;
@@ -226,7 +241,11 @@ impl FixtureBuilder {
             caller_context.storage_contract_address = self.storage_contract_address;
         };
         PrivateCallRequest {
-            hash,
+            target: item.contract_address,
+            call_context: item.public_inputs.call_context,
+            function_data: item.function_data,
+            args_hash: item.public_inputs.args_hash,
+            returns_hash: item.public_inputs.returns_hash,
             caller_context,
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter
@@ -246,12 +265,12 @@ impl FixtureBuilder {
             key_validation_requests_and_generators: subarray(
                 self.scoped_key_validation_requests_and_generators.storage.map(|r: ScopedKeyValidationRequestAndGenerator| r.request)
             ),
-            new_note_hashes: subarray(self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash)),
-            new_nullifiers: subarray(self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
+            note_hashes: subarray(self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash)),
+            nullifiers: subarray(self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
             private_call_requests: subarray(self.private_call_requests.storage.map(|r: ScopedPrivateCallRequest| r.call_request)),
             public_call_stack_hashes: subarray(self.public_call_requests.storage.map(|c: CallRequest| c.hash)),
             public_teardown_function_hash: self.public_teardown_call_stack.storage[0].hash,
-            new_l2_to_l1_msgs: subarray(self.new_l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
+            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             note_encrypted_logs_hashes: subarray(self.note_encrypted_logs_hashes.storage),
@@ -287,9 +306,9 @@ impl FixtureBuilder {
 
     pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
         PrivateAccumulatedDataBuilder {
-            new_note_hashes: self.new_note_hashes,
-            new_nullifiers: self.new_nullifiers,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs,
+            note_hashes: self.note_hashes,
+            nullifiers: self.nullifiers,
+            l2_to_l1_msgs: self.l2_to_l1_msgs,
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes,
             encrypted_logs_hashes: self.encrypted_logs_hashes,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes,
@@ -303,17 +322,11 @@ impl FixtureBuilder {
     }
 
     pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
-        let new_note_hashes = BoundedVec {
-            storage: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
-            len: self.new_note_hashes.len()
-        };
-        let new_nullifiers = BoundedVec {
-            storage: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
-            len: self.new_nullifiers.len()
-        };
-        let new_l2_to_l1_msgs = BoundedVec {
-            storage: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
-            len: self.new_l2_to_l1_msgs.len()
+        let note_hashes = BoundedVec { storage: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash), len: self.note_hashes.len() };
+        let nullifiers = BoundedVec { storage: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier), len: self.nullifiers.len() };
+        let l2_to_l1_msgs = BoundedVec {
+            storage: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
+            len: self.l2_to_l1_msgs.len()
         };
         let note_encrypted_logs_hashes = BoundedVec {
             storage: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
@@ -329,9 +342,9 @@ impl FixtureBuilder {
         };
 
         PublicAccumulatedDataBuilder {
-            new_note_hashes,
-            new_nullifiers,
-            new_l2_to_l1_msgs,
+            note_hashes,
+            nullifiers,
+            l2_to_l1_msgs,
             note_encrypted_logs_hashes,
             encrypted_logs_hashes,
             unencrypted_logs_hashes,
@@ -347,9 +360,9 @@ impl FixtureBuilder {
 
     pub fn to_exposed_public_accumulated_data(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.expose_to_public()),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.expose_to_public()),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
+            note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.expose_to_public()),
+            nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.expose_to_public()),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
@@ -363,9 +376,9 @@ impl FixtureBuilder {
 
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
+            note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
@@ -439,13 +452,7 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData {
-            public_inputs,
-            proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-            vk_index: self.vk_index,
-            vk_path: self.vk_path
-        }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
@@ -468,53 +475,51 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            vk: self.vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
     }
 
-    pub fn add_new_note_hash(&mut self, value: Field, nullifier_counter: u32) {
-        self.new_note_hashes.push(
-            NoteHash { value, counter: self.next_counter() }.scope(nullifier_counter, self.storage_contract_address)
-        );
+    pub fn add_new_note_hash(&mut self, value: Field) {
+        self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(self.storage_contract_address));
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
         // First nullifier is tx hash.
-        let tx_hash = self.new_nullifiers.get(0).value();
-        let index = self.new_note_hashes.len();
-        let note_hash = NoteHash { value, counter: 0 }.scope(0, self.storage_contract_address);
+        let tx_hash = self.nullifiers.get(0).value();
+        let index = self.note_hashes.len();
+        let note_hash = NoteHash { value, counter: 0 }.scope(self.storage_contract_address);
         let siloed_value = silo_note_hash(note_hash, tx_hash, index);
-        self.add_new_note_hash(siloed_value, 0);
+        self.add_new_note_hash(siloed_value);
     }
 
-    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u32) {
-        let index_offset = self.new_note_hashes.len();
-        for i in 0..self.new_note_hashes.max_len() {
-            if i < num_new_note_hashes {
+    pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                self.add_new_note_hash(value, 0);
+                self.add_new_note_hash(value);
             }
         }
     }
 
-    pub fn append_siloed_note_hashes(&mut self, num_new_note_hashes: u32) {
-        let index_offset = self.new_note_hashes.len();
-        for i in 0..self.new_note_hashes.max_len() {
-            if i < num_new_note_hashes {
+    pub fn append_siloed_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_siloed_note_hash(value);
             }
         }
     }
 
-    pub fn append_new_note_hashes_with_logs(&mut self, num_new_note_hashes: u32) {
-        let index_offset = self.new_note_hashes.len();
-        for i in 0..self.new_note_hashes.max_len() {
-            if i < num_new_note_hashes {
+    pub fn append_note_hashes_with_logs(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                self.add_new_note_hash(value, 0);
+                self.add_new_note_hash(value);
                 let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
                 self.add_note_encrypted_log_hash(log_hash, length, self.counter - 1);
             }
@@ -522,14 +527,14 @@ impl FixtureBuilder {
     }
 
     pub fn set_first_nullifier(&mut self) {
-        assert_eq(self.new_nullifiers.len(), 0, "first nullifier already set");
+        assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
         let first_nullifier = Nullifier { value, counter: 0, note_hash: 0 }.scope(AztecAddress::zero());
-        self.new_nullifiers.push(first_nullifier);
+        self.nullifiers.push(first_nullifier);
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
-        self.new_nullifiers.push(
+        self.nullifiers.push(
             Nullifier { value, counter: self.next_counter(), note_hash: 0 }.scope(self.storage_contract_address)
         );
     }
@@ -539,9 +544,9 @@ impl FixtureBuilder {
         self.add_nullifier(siloed_value);
     }
 
-    pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u32) {
-        let index_offset = self.new_nullifiers.len();
-        for i in 0..self.new_nullifiers.max_len() {
+    pub fn append_nullifiers(&mut self, num_extra_nullifier: u32) {
+        let index_offset = self.nullifiers.len();
+        for i in 0..self.nullifiers.max_len() {
             if i < num_extra_nullifier {
                 let value = self.mock_nullifier_value(index_offset + i);
                 self.add_nullifier(value);
@@ -550,8 +555,8 @@ impl FixtureBuilder {
     }
 
     pub fn append_siloed_nullifiers(&mut self, num_extra_nullifier: u32) {
-        let index_offset = self.new_nullifiers.len();
-        for i in 0..self.new_nullifiers.max_len() {
+        let index_offset = self.nullifiers.len();
+        for i in 0..self.nullifiers.max_len() {
             if i < num_extra_nullifier {
                 let value = self.mock_nullifier_value(index_offset + i);
                 self.add_siloed_nullifier(value);
@@ -560,7 +565,7 @@ impl FixtureBuilder {
     }
 
     pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.new_l2_to_l1_msgs.push(
+        self.l2_to_l1_msgs.push(
             L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(self.storage_contract_address)
         );
     }
@@ -576,9 +581,9 @@ impl FixtureBuilder {
         self.add_l2_to_l1_message(siloed_content, recipient);
     }
 
-    pub fn append_new_l2_to_l1_msgs(&mut self, num: u32) {
-        let index_offset = self.new_l2_to_l1_msgs.len();
-        for i in 0..self.new_l2_to_l1_msgs.max_len() {
+    pub fn append_l2_to_l1_msgs(&mut self, num: u32) {
+        let index_offset = self.l2_to_l1_msgs.len();
+        for i in 0..self.l2_to_l1_msgs.max_len() {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
                 self.add_l2_to_l1_message(content, recipient);
@@ -587,8 +592,8 @@ impl FixtureBuilder {
     }
 
     pub fn append_siloed_l2_to_l1_msgs(&mut self, num: u32) {
-        let index_offset = self.new_l2_to_l1_msgs.len();
-        for i in 0..self.new_l2_to_l1_msgs.max_len() {
+        let index_offset = self.l2_to_l1_msgs.len();
+        for i in 0..self.l2_to_l1_msgs.max_len() {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
                 self.add_siloed_l2_to_l1_message(content, recipient);
@@ -791,7 +796,33 @@ impl FixtureBuilder {
         self.unencrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn add_private_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+    pub fn add_private_call_from_call_stack_item(&mut self, item: PrivateCallStackItem) {
+        let mut caller_context = CallerContext::empty();
+        let is_delegate_call = item.public_inputs.call_context.is_delegate_call;
+        caller_context.is_static_call = self.is_static_call;
+        if is_delegate_call {
+            caller_context.msg_sender = self.msg_sender;
+            caller_context.storage_contract_address = self.storage_contract_address;
+        }
+        let start_counter = item.public_inputs.start_side_effect_counter;
+        let end_counter = item.public_inputs.end_side_effect_counter;
+        self.counter = end_counter + 1;
+
+        self.private_call_requests.push(
+            PrivateCallRequest {
+            target: item.contract_address,
+            call_context: item.public_inputs.call_context,
+            function_data: item.function_data,
+            args_hash: item.public_inputs.args_hash,
+            returns_hash: item.public_inputs.returns_hash,
+            caller_context,
+            start_side_effect_counter: start_counter,
+            end_side_effect_counter: end_counter
+        }.scope(self.contract_address)
+        );
+    }
+
+    pub fn add_private_call_request(&mut self, args_hash: Field, is_delegate_call: bool) {
         let mut caller_context = CallerContext::empty();
         caller_context.is_static_call = self.is_static_call;
         if is_delegate_call {
@@ -801,8 +832,23 @@ impl FixtureBuilder {
         let start_counter = self.next_counter();
         let end_counter = start_counter + 10;
         self.counter = end_counter + 1;
+
+        let target = AztecAddress::empty();
+        let call_context = CallContext::empty();
+        let function_data = FunctionData::empty();
+        let returns_hash = 0;
+
         self.private_call_requests.push(
-            PrivateCallRequest { hash, caller_context, start_side_effect_counter: start_counter, end_side_effect_counter: end_counter }.scope(self.contract_address)
+            PrivateCallRequest {
+            target,
+            call_context,
+            function_data,
+            args_hash,
+            returns_hash,
+            caller_context,
+            start_side_effect_counter: start_counter,
+            end_side_effect_counter: end_counter
+        }.scope(self.contract_address)
         );
     }
 
@@ -982,6 +1028,10 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
+
+    fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
 }
 
 impl Empty for FixtureBuilder {
@@ -997,9 +1047,9 @@ impl Empty for FixtureBuilder {
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
-            new_note_hashes: BoundedVec::new(),
-            new_nullifiers: BoundedVec::new(),
-            new_l2_to_l1_msgs: BoundedVec::new(),
+            note_hashes: BoundedVec::new(),
+            nullifiers: BoundedVec::new(),
+            l2_to_l1_msgs: BoundedVec::new(),
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
@@ -1031,6 +1081,7 @@ impl Empty for FixtureBuilder {
             vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
+            vk_tree_root: FixtureBuilder::vk_tree_root(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

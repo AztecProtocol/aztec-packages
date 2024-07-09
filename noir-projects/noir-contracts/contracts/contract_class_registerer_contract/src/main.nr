@@ -7,6 +7,8 @@ contract ContractClassRegisterer {
         contract_class_id::ContractClassId,
         constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
+        MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+        MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
         MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
     },
         traits::Serialize, abis::log_hash::LogHash
@@ -16,8 +18,8 @@ contract ContractClassRegisterer {
 
     use crate::events::{
         class_registered::ContractClassRegistered,
-        private_function_broadcasted::{ClassPrivateFunctionBroadcasted, PrivateFunction},
-        unconstrained_function_broadcasted::{ClassUnconstrainedFunctionBroadcasted, UnconstrainedFunction}
+        private_function_broadcasted::{ClassPrivateFunctionBroadcasted, PrivateFunction, InnerPrivateFunction},
+        unconstrained_function_broadcasted::{ClassUnconstrainedFunctionBroadcasted, UnconstrainedFunction, InnerUnconstrainedFunction}
     };
 
     // docs:start:import_pop_capsule
@@ -42,7 +44,7 @@ contract ContractClassRegisterer {
 
         // Emit the contract class id as a nullifier to be able to prove that this class has been (not) registered
         let event = ContractClassRegistered { contract_class_id, version: 1, artifact_hash, private_functions_root, packed_public_bytecode };
-        context.push_new_nullifier(contract_class_id.to_field(), 0);
+        context.push_nullifier(contract_class_id.to_field(), 0);
 
         // Broadcast class info including public bytecode
         dep::aztec::oracle::debug_log::debug_log_format(
@@ -66,8 +68,10 @@ contract ContractClassRegisterer {
         private_function_tree_leaf_index: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
         artifact_function_tree_leaf_index: Field,
-        function_data: PrivateFunction
+        function_data: InnerPrivateFunction
     ) {
+        let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = pop_capsule();
+
         let event = ClassPrivateFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
@@ -76,7 +80,12 @@ contract ContractClassRegisterer {
             private_function_tree_leaf_index,
             artifact_function_tree_sibling_path,
             artifact_function_tree_leaf_index,
-            function: function_data
+            function: PrivateFunction {
+                selector: function_data.selector,
+                metadata_hash: function_data.metadata_hash,
+                vk_hash: function_data.vk_hash,
+                bytecode: private_bytecode
+            }
         };
         dep::aztec::oracle::debug_log::debug_log_format(
             "ClassPrivateFunctionBroadcasted: {}",
@@ -99,15 +108,20 @@ contract ContractClassRegisterer {
         private_functions_artifact_tree_root: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
         artifact_function_tree_leaf_index: Field,
-        function_data: UnconstrainedFunction
+        function_data: InnerUnconstrainedFunction
     ) {
+        let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] = pop_capsule();
         let event = ClassUnconstrainedFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
             private_functions_artifact_tree_root,
             artifact_function_tree_sibling_path,
             artifact_function_tree_leaf_index,
-            function: function_data
+            function: UnconstrainedFunction {
+                selector: function_data.selector,
+                metadata_hash: function_data.metadata_hash,
+                bytecode: unconstrained_bytecode
+            }
         };
         dep::aztec::oracle::debug_log::debug_log_format(
             "ClassUnconstrainedFunctionBroadcasted: {}",
@@ -131,12 +145,11 @@ contract ContractClassRegisterer {
     // Ordinary logs are not protected by the above so this fn shouldn't be called by anything else
     #[contract_library_method]
     pub fn emit_contract_class_unencrypted_log<N>(context: &mut PrivateContext, log: [Field; N]) {
-        let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = context.this_address();
         let counter = context.next_counter();
-        let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, event_selector, log, counter);
-        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
-        let len = 44 + N * 32;
+        let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, log, counter);
+        // 40 = addr (32) + raw log len (4) + processed log len (4)
+        let len = 40 + N * 32;
         let side_effect = LogHash { value: log_hash, counter, length: len };
         context.unencrypted_logs_hashes.push(side_effect);
     }

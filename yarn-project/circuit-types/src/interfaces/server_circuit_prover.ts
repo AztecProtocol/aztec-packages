@@ -24,8 +24,6 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type TubeInputs,
-  type VerificationKeys,
 } from '@aztec/circuits.js';
 
 /**
@@ -131,9 +129,4 @@ export interface ClientProtocolCircuitVerifier {
    * @returns True if the proof is valid, false otherwise
    */
   verifyProof(tx: Tx): Promise<boolean>;
-
-  /**
-   * Returns the verification keys used to verify tx proofs.
-   */
-  getVerificationKeys(): Promise<VerificationKeys>;
 }

@@ -360,9 +360,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      publicCallRequests[0].callContext.sideEffectCounter = 2;
-      publicCallRequests[1].callContext.sideEffectCounter = 3;
-      publicCallRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].sideEffectCounter = 2;
+      publicCallRequests[1].sideEffectCounter = 3;
+      publicCallRequests[2].sideEffectCounter = 4;
       const teardown = publicCallRequests.pop()!; // Remove the last call request to test that the processor can handle this
 
       const tx = mockTxWithPartialState({
@@ -493,9 +493,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      publicCallRequests[0].callContext.sideEffectCounter = 2;
-      publicCallRequests[1].callContext.sideEffectCounter = 3;
-      publicCallRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].sideEffectCounter = 2;
+      publicCallRequests[1].sideEffectCounter = 3;
+      publicCallRequests[2].sideEffectCounter = 4;
       const teardown = publicCallRequests.pop()!;
 
       const tx = mockTxWithPartialState({
@@ -593,9 +593,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      publicCallRequests[0].callContext.sideEffectCounter = 2;
-      publicCallRequests[1].callContext.sideEffectCounter = 3;
-      publicCallRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].sideEffectCounter = 2;
+      publicCallRequests[1].sideEffectCounter = 3;
+      publicCallRequests[2].sideEffectCounter = 4;
       const teardown = publicCallRequests.pop()!;
 
       const tx = mockTxWithPartialState({
@@ -719,9 +719,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      publicCallRequests[0].callContext.sideEffectCounter = 2;
-      publicCallRequests[1].callContext.sideEffectCounter = 3;
-      publicCallRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].sideEffectCounter = 2;
+      publicCallRequests[1].sideEffectCounter = 3;
+      publicCallRequests[2].sideEffectCounter = 4;
       const teardown = publicCallRequests.pop()!;
 
       const tx = mockTxWithPartialState({
@@ -846,9 +846,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      publicCallRequests[0].callContext.sideEffectCounter = 2;
-      publicCallRequests[1].callContext.sideEffectCounter = 3;
-      publicCallRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].sideEffectCounter = 2;
+      publicCallRequests[1].sideEffectCounter = 3;
+      publicCallRequests[2].sideEffectCounter = 4;
       const teardown = publicCallRequests.pop(); // Remove the last call request to test that the processor can handle this
 
       const tx = mockTxWithPartialState({

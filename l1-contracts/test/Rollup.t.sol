@@ -40,7 +40,7 @@ contract RollupTest is DecoderBase {
     registry = new Registry();
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)));
+    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
@@ -170,7 +170,7 @@ contract RollupTest is DecoderBase {
         full.messages.l2ToL1Messages.length == 0 ? 0 : full.messages.l2ToL1Messages.length / numTxs
       );
       uint256 outHashTreeHeight = merkleTestUtil.calculateTreeHeightFromSize(numTxs);
-      uint256 numMessagesWithPadding = numTxs * Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX;
+      uint256 numMessagesWithPadding = numTxs * Constants.MAX_L2_TO_L1_MSGS_PER_TX;
 
       uint256 treeHeight = subTreeHeight + outHashTreeHeight;
       NaiveMerkle tree = new NaiveMerkle(treeHeight);

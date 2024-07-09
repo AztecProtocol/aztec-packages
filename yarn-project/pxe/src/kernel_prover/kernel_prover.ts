@@ -3,10 +3,10 @@ import {
   CallRequest,
   Fr,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PrivateCallData,
@@ -25,15 +25,11 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { ClientCircuitArtifacts, PrivateResetTagToArtifactName } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 import { type WitnessMap } from '@noir-lang/types';
 
-import {
-  buildPrivateKernelInitHints,
-  buildPrivateKernelInnerHints,
-  buildPrivateKernelResetInputs,
-} from './private_inputs_builders/index.js';
+import { buildPrivateKernelResetInputs } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -116,20 +112,12 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        const hints = buildPrivateKernelInitHints(
-          currentExecution.callStackItem.publicInputs,
-          noteHashNullifierCounterMap,
-        );
-        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, getVKTreeRoot(), privateCallData);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.simulateProofInit(proofInput);
         acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInitArtifact.bytecode, 'base64'));
         witnessStack.push(output.outputWitness);
       } else {
-        const hints = buildPrivateKernelInnerHints(
-          currentExecution.callStackItem.publicInputs,
-          noteHashNullifierCounterMap,
-        );
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
@@ -137,7 +125,7 @@ export class KernelProver {
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData, hints);
+        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.simulateProofInner(proofInput);
         acirs.push(Buffer.from(ClientCircuitArtifacts.PrivateKernelInnerArtifact.bytecode, 'base64'));
@@ -181,12 +169,12 @@ export class KernelProver {
   private needsReset(executionStack: ExecutionResult[], output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
     const nextIteration = executionStack[executionStack.length - 1];
     return (
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNoteHashes).length +
-      getNonEmptyItems(output.publicInputs.end.newNoteHashes).length >
-      MAX_NEW_NOTE_HASHES_PER_TX ||
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.newNullifiers).length +
-      getNonEmptyItems(output.publicInputs.end.newNullifiers).length >
-      MAX_NEW_NULLIFIERS_PER_TX ||
+      getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashes).length +
+        getNonEmptyItems(output.publicInputs.end.noteHashes).length >
+        MAX_NOTE_HASHES_PER_TX ||
+      getNonEmptyItems(nextIteration.callStackItem.publicInputs.nullifiers).length +
+        getNonEmptyItems(output.publicInputs.end.nullifiers).length >
+        MAX_NULLIFIERS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteEncryptedLogsHashes).length +
       getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
       MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
@@ -207,8 +195,7 @@ export class KernelProver {
       getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length > 0 ||
       getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length > 0 ||
       getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length > 0 ||
-      output.publicInputs.end.newNoteHashes.find(noteHash => noteHash.nullifierCounter !== 0) ||
-      output.publicInputs.end.newNullifiers.find(nullifier => !nullifier.nullifiedNoteHash.equals(Fr.zero()))
+      output.publicInputs.end.nullifiers.find(nullifier => !nullifier.nullifiedNoteHash.equals(Fr.zero()))
     );
   }
 

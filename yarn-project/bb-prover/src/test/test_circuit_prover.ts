@@ -24,25 +24,20 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type TubeInputs,
-  VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
-  RecursiveProof,
+  type RecursiveProof,
   TUBE_PROOF_LENGTH,
+  type TubeInputs,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  BaseParityArtifact,
-  MergeRollupArtifact,
-  PrivateKernelEmptyArtifact,
-  RootParityArtifact,
-  RootRollupArtifact,
+  ProtocolCircuitVkIndexes,
+  ProtocolCircuitVks,
   type ServerProtocolArtifact,
-  SimulatedBaseRollupArtifact,
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -56,8 +51,10 @@ import {
   convertRootRollupOutputsFromWitnessMap,
   convertSimulatedBaseRollupInputsToWitnessMap,
   convertSimulatedBaseRollupOutputsFromWitnessMap,
+  convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
   convertSimulatedPublicTailInputsToWitnessMap,
   convertSimulatedPublicTailOutputFromWitnessMap,
+  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -65,20 +62,6 @@ import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { SimulatedPublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapPublicKernelToCircuitName } from '../stats.js';
-
-const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields> = {
-  BaseParityArtifact: VerificationKeyAsFields.makeFake(),
-  RootParityArtifact: VerificationKeyAsFields.makeFake(),
-  PublicKernelAppLogicArtifact: VerificationKeyAsFields.makeFake(),
-  PublicKernelSetupArtifact: VerificationKeyAsFields.makeFake(),
-  PublicKernelTailArtifact: VerificationKeyAsFields.makeFake(),
-  PublicKernelTeardownArtifact: VerificationKeyAsFields.makeFake(),
-  BaseRollupArtifact: VerificationKeyAsFields.makeFake(),
-  MergeRollupArtifact: VerificationKeyAsFields.makeFake(),
-  RootRollupArtifact: VerificationKeyAsFields.makeFake(),
-  PrivateKernelEmptyArtifact: VerificationKeyAsFields.makeFake(),
-  EmptyNestedArtifact: VerificationKeyAsFields.makeFake(),
-};
 
 /**
  * A class for use in testing situations (e2e, unit test etc)
@@ -105,17 +88,26 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const emptyNested = new EmptyNestedData(
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      VERIFICATION_KEYS['EmptyNestedArtifact'],
+      ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
-    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
+    const kernelInputs = new PrivateKernelEmptyInputs(
+      emptyNested,
+      inputs.header,
+      inputs.chainId,
+      inputs.version,
+      inputs.vkTreeRoot,
+    );
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, PrivateKernelEmptyArtifact);
-    const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact,
+    );
+    const result = convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap(witness);
 
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['PrivateKernelEmptyArtifact'],
     );
   }
 
@@ -149,12 +141,16 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
     // use WASM here as it is faster for small circuits
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, BaseParityArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BaseParityArtifact,
+    );
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
     const rootParityInput = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
-      VERIFICATION_KEYS['BaseParityArtifact'],
+      ProtocolCircuitVks['BaseParityArtifact'].keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes['BaseParityArtifact']),
       result,
     );
 
@@ -184,13 +180,17 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
     // use WASM here as it is faster for small circuits
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, RootParityArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.RootParityArtifact,
+    );
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
     const rootParityInput = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VERIFICATION_KEYS['RootParityArtifact'],
+      ProtocolCircuitVks['RootParityArtifact'].keyAsFields,
+      getVKSiblingPath(ProtocolCircuitVkIndexes['RootParityArtifact']),
       result,
     );
 
@@ -219,7 +219,10 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
     const simulationProvider = this.simulationProvider ?? this.wasmSimulator;
-    const witness = await simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
+    const witness = await simulationProvider.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BaseRollupArtifact,
+    );
 
     const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
@@ -234,7 +237,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['BaseRollupArtifact'],
     );
   }
 
@@ -255,7 +258,10 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
     // use WASM here as it is faster for small circuits
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, MergeRollupArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.MergeRollupArtifact,
+    );
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
@@ -270,7 +276,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['MergeRollupArtifact'],
     );
   }
 
@@ -287,7 +293,10 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
     // use WASM here as it is faster for small circuits
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, RootRollupArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.RootRollupArtifact,
+    );
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 
@@ -302,7 +311,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['RootRollupArtifact'],
     );
   }
 
@@ -336,7 +345,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks[kernelOps.artifact],
     );
   }
 
@@ -365,7 +374,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      ProtocolCircuitVks['PublicKernelTailArtifact'],
     );
   }
 

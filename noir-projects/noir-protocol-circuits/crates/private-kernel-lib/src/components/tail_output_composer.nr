@@ -6,7 +6,7 @@ use dep::types::{
     log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
     nullifier::ScopedNullifier
 },
-    constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE},
+    constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE},
     hash::{compute_tx_logs_hash, compute_tx_note_logs_hash},
     messaging::l2_to_l1_message::ScopedL2ToL1Message
 };
@@ -36,9 +36,9 @@ impl TailOutputComposer {
     fn build_combined_accumulated_data(self) -> CombinedAccumulatedData {
         let source = self.output_composer.public_inputs.end;
         let mut data = CombinedAccumulatedData::empty();
-        data.new_note_hashes = source.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value);
-        data.new_nullifiers = source.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value);
-        data.new_l2_to_l1_msgs = source.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content);
+        data.note_hashes = source.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value);
+        data.nullifiers = source.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value);
+        data.l2_to_l1_msgs = source.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content);
         data.note_encrypted_logs_hash = compute_tx_note_logs_hash(source.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()));
         data.encrypted_logs_hash = compute_tx_logs_hash(source.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()));
         data.unencrypted_logs_hash = compute_tx_logs_hash(source.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()));
@@ -50,20 +50,32 @@ impl TailOutputComposer {
     }
 
     fn meter_gas_used(self, data: CombinedAccumulatedData) -> Gas {
-        let mut metered_bytes = 0;
+        let mut metered_da_bytes = 0;
+        let mut metered_l2_gas = 0;
 
         let data_builder = self.output_composer.public_inputs.end;
         // IMPORTANT: Must use data_builder.__.len(), which is the the number of items pushed to the BoundedVec. 
         // Do not use data.__.len(), which is the array's max length.
-        metered_bytes += data_builder.new_note_hashes.len() * DA_BYTES_PER_FIELD;
-        metered_bytes += data_builder.new_nullifiers.len() * DA_BYTES_PER_FIELD;
-        metered_bytes += data_builder.new_l2_to_l1_msgs.len() * DA_BYTES_PER_FIELD;
+        metered_da_bytes += data_builder.note_hashes.len() * DA_BYTES_PER_FIELD;
+        metered_l2_gas += data_builder.note_hashes.len() * L2_GAS_PER_NOTE_HASH;
 
-        metered_bytes += data.note_encrypted_log_preimages_length as u32;
-        metered_bytes += data.encrypted_log_preimages_length as u32;
-        metered_bytes += data.unencrypted_log_preimages_length as u32;
+        metered_da_bytes += data_builder.nullifiers.len() * DA_BYTES_PER_FIELD;
+        metered_l2_gas += data_builder.nullifiers.len() * L2_GAS_PER_NULLIFIER;
+
+        metered_da_bytes += data_builder.l2_to_l1_msgs.len() * DA_BYTES_PER_FIELD;
+
+        metered_da_bytes += data.note_encrypted_log_preimages_length as u32;
+        metered_l2_gas += data.note_encrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
+
+        metered_da_bytes += data.encrypted_log_preimages_length as u32;
+        metered_l2_gas += data.encrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
+
+        metered_da_bytes += data.unencrypted_log_preimages_length as u32;
+        metered_l2_gas += data.unencrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
         let teardown_gas = self.output_composer.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
-        Gas::new(metered_bytes * DA_GAS_PER_BYTE, 0) + Gas::tx_overhead() + teardown_gas
+        Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas)
+            + Gas::tx_overhead()
+            + teardown_gas
     }
 }

@@ -4,7 +4,7 @@ import {
   ClientIvcProof,
   GasSettings,
   LogHash,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
@@ -73,17 +73,17 @@ export const mockTx = (
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
     publicCallRequests = publicCallRequests.length
-      ? publicCallRequests.slice().sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter)
+      ? publicCallRequests.slice().sort((a, b) => b.sideEffectCounter - a.sideEffectCounter)
       : times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x100 + i));
 
     const revertibleBuilder = new PublicAccumulatedDataBuilder();
     const nonRevertibleBuilder = new PublicAccumulatedDataBuilder();
 
-    const nonRevertibleNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty);
+    const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
     nonRevertibleNullifiers[0] = firstNullifier;
 
     data.forPublic.endNonRevertibleData = nonRevertibleBuilder
-      .withNewNullifiers(nonRevertibleNullifiers)
+      .withNullifiers(nonRevertibleNullifiers)
       .withPublicCallStack(
         makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, i =>
           i < numberOfNonRevertiblePublicCallRequests
@@ -155,7 +155,7 @@ export const mockTx = (
       });
     }
   } else {
-    data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
     data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash());
     data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
     data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
