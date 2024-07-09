@@ -86,10 +86,6 @@ describe('Kernel Prover', () => {
     const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
       noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
-<<<<<<< HEAD
-        0, // nullifier count
-=======
->>>>>>> origin/master
         contractAddress,
       );
     }

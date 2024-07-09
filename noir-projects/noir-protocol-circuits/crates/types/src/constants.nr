@@ -170,10 +170,10 @@ global FIXED_L2_GAS: u32 = 512;
 global FIXED_AVM_STARTUP_L2_GAS = 1024;
 // pays for hashing/validating logs
 global L2_GAS_PER_LOG_BYTE = 4;
-// pays for tree insertions. 
+// pays for tree insertions.
 global L2_GAS_PER_NOTE_HASH = 32;
 // nullifiers are more expensive to insert/validate:
-// they are inserted into an indexed tree and must be checked for duplicates 
+// they are inserted into an indexed tree and must be checked for duplicates
 global L2_GAS_PER_NULLIFIER = 64;
 
 // CANONICAL CONTRACT ADDRESSES

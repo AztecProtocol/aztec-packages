@@ -110,19 +110,11 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     return Promise.resolve(appCircuitProofOutput);
   }
 
-<<<<<<< HEAD
-  private makeEmptyKernelProofOutput<PublicInputsType>(publicInputs: PublicInputsType) {
-    const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
-      publicInputs,
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
-      outputWitness: new Map()
-=======
   private makeEmptyKernelProofOutput<PublicInputsType>(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {
     const kernelProofOutput: KernelProofOutput<PublicInputsType> = {
       publicInputs,
       proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,
->>>>>>> origin/master
     };
     return kernelProofOutput;
   }
