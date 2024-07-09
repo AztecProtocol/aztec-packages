@@ -36,8 +36,8 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     // Under such circumstances, such application developers might wish to _not_ use this state variable type.
     // This is especially dangerous for initial assignment to elements of a `Map<AztecAddress, PrivateMutable>` type (for example), because the storage slot often also identifies an actor. e.g.
     // the initial assignment to `my_map.at(msg.sender)` will leak: `msg.sender`, the fact that an element of `my_map` was assigned-to for the first time, and the contract_address.
-    // Note: subsequent nullification of this state variable, via the `replace` method will not be leaky, if the `compute_nullifier()` method of the underlying note is designed to ensure privacy.
-    // For example, if the `compute_nullifier()` method injects the secret key of a note owner into the computed nullifier's preimage.
+    // Note: subsequent nullification of this state variable, via the `replace` method will not be leaky, if the `compute_note_hash_and_nullifier()` method of the underlying note is designed to ensure privacy.
+    // For example, if the `compute_note_hash_and_nullifier()` method injects the secret key of a note owner into the computed nullifier's preimage.
     pub fn compute_initialization_nullifier(self) -> Field {
         pedersen_hash(
             [self.storage_slot],
@@ -54,7 +54,7 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
     ) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
-        self.context.push_new_nullifier(nullifier, 0);
+        self.context.push_nullifier(nullifier, 0);
 
         create_note(self.context, self.storage_slot, note)
     }

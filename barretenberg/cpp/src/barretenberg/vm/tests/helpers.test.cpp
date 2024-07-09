@@ -5,8 +5,8 @@
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 #include <bits/utility.h>
 
-using namespace bb;
 namespace tests_avm {
+
 using namespace bb;
 
 std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands,
@@ -23,9 +23,9 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  *
  * @param trace The execution trace
  */
-void validate_trace_check_circuit(std::vector<Row>&& trace, VmPublicInputs public_inputs)
+void validate_trace_check_circuit(std::vector<Row>&& trace)
 {
-    validate_trace(std::move(trace), public_inputs, false);
+    validate_trace(std::move(trace), {}, {}, false);
 };
 
 /**
@@ -34,7 +34,10 @@ void validate_trace_check_circuit(std::vector<Row>&& trace, VmPublicInputs publi
  *
  * @param trace The execution trace
  */
-void validate_trace(std::vector<Row>&& trace, VmPublicInputs const& public_inputs, bool with_proof)
+void validate_trace(std::vector<Row>&& trace,
+                    VmPublicInputs const& public_inputs,
+                    std::vector<FF> const& calldata,
+                    bool with_proof)
 {
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
@@ -47,7 +50,8 @@ void validate_trace(std::vector<Row>&& trace, VmPublicInputs const& public_input
 
         AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
-        std::vector<std::vector<FF>> public_inputs_as_vec = bb::avm_trace::copy_public_inputs_columns(public_inputs);
+        std::vector<std::vector<FF>> public_inputs_as_vec =
+            bb::avm_trace::copy_public_inputs_columns(public_inputs, calldata);
 
         bool verified = verifier.verify_proof(proof, { public_inputs_as_vec });
 
@@ -87,7 +91,7 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
 
     // Adapt the memory trace to be consistent with the wrong result
     auto const clk = row->main_clk;
-    auto const addr = row->main_mem_idx_c;
+    auto const addr = row->main_mem_addr_c;
 
     // Find the relevant memory trace entry.
     auto mem_row = std::ranges::find_if(
@@ -239,6 +243,16 @@ void clear_range_check_counters(std::vector<Row>& trace, uint256_t previous_valu
     // Decrement the counter
     trace.at(lookup_value).lookup_u16_14_counts = trace.at(lookup_value).lookup_u16_14_counts - 1;
     previous_value >>= 16;
+}
+
+VmPublicInputs generate_base_public_inputs()
+{
+    VmPublicInputs public_inputs;
+    std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
+    kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
+    kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
+    std::get<0>(public_inputs) = kernel_inputs;
+    return public_inputs;
 }
 
 } // namespace tests_avm

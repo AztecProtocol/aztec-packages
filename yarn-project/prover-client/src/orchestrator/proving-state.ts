@@ -13,7 +13,6 @@ import {
   type RootParityInput,
   type RootRollupPublicInputs,
   type VerificationKeyAsFields,
-  type VerificationKeys,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -61,7 +60,6 @@ export class ProvingState {
     numRootParityInputs: number,
     public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    public readonly privateKernelVerificationKeys: VerificationKeys,
   ) {
     this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }
@@ -69,6 +67,32 @@ export class ProvingState {
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
     return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
+  }
+
+  // Calculates the index and level of the parent rollup circuit
+  // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
+  public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
+    const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
+      levelSize /= 2;
+      if (levelSize & 1) {
+        [levelSize, nodeToShift] = nodeToShift ? [levelSize + 1, false] : [levelSize - 1, true];
+      }
+      index >>= 1n;
+      return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
+    };
+    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
+    const maxLevel = this.numMergeLevels + 1n;
+    let placeholder = currentIndex;
+    for (let i = 0; i < maxLevel - currentLevel; i++) {
+      ({ thisLevelSize, thisIndex: placeholder, shiftUp } = moveUpMergeLevel(thisLevelSize, placeholder, shiftUp));
+    }
+    let thisIndex = currentIndex;
+    let mergeLevel = currentLevel;
+    while (thisIndex >= thisLevelSize && mergeLevel != 0n) {
+      mergeLevel -= 1n;
+      ({ thisLevelSize, thisIndex, shiftUp } = moveUpMergeLevel(thisLevelSize, thisIndex, shiftUp));
+    }
+    return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
   }
 
   // Adds a transaction to the proving state, returns it's index

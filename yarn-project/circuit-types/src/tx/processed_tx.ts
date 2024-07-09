@@ -27,6 +27,8 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 
+import { type CircuitName } from '../stats/stats.js';
+
 /**
  * Used to communicate to the prover which type of circuit to prove
  */
@@ -160,9 +162,9 @@ export function makeProcessedTx(
     data: kernelOutput,
     proof,
     // TODO(4712): deal with non-revertible logs here
-    noteEncryptedLogs: revertReason ? EncryptedNoteTxL2Logs.empty() : tx.noteEncryptedLogs,
-    encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
-    unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
+    noteEncryptedLogs: tx.noteEncryptedLogs,
+    encryptedLogs: tx.encryptedLogs,
+    unencryptedLogs: tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
     publicProvingRequests,
@@ -205,11 +207,12 @@ export function makePaddingProcessedTx(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
+export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr, vkTreeRoot: Fr): ProcessedTx {
   const emptyKernelOutput = KernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
+  emptyKernelOutput.constants.vkTreeRoot = vkTreeRoot;
   const emptyProof = makeEmptyProof();
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
@@ -232,9 +235,9 @@ export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
   return new TxEffect(
     tx.data.revertCode,
     tx.data.getTransactionFee(gasFees),
-    tx.data.end.newNoteHashes.filter(h => !h.isZero()),
-    tx.data.end.newNullifiers.filter(h => !h.isZero()),
-    tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
+    tx.data.end.noteHashes.filter(h => !h.isZero()),
+    tx.data.end.nullifiers.filter(h => !h.isZero()),
+    tx.data.end.l2ToL1Msgs.filter(h => !h.isZero()),
     tx.finalPublicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)).filter(h => !h.isEmpty()),
     tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,
@@ -303,4 +306,19 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
 export function validateProcessedTx(tx: ProcessedTx): void {
   validateProcessedTxLogs(tx);
   // TODO: validate other fields
+}
+
+export function mapPublicKernelToCircuitName(kernelType: PublicKernelRequest['type']): CircuitName {
+  switch (kernelType) {
+    case PublicKernelType.SETUP:
+      return 'public-kernel-setup';
+    case PublicKernelType.APP_LOGIC:
+      return 'public-kernel-app-logic';
+    case PublicKernelType.TEARDOWN:
+      return 'public-kernel-teardown';
+    case PublicKernelType.TAIL:
+      return 'public-kernel-tail';
+    default:
+      throw new Error(`Unknown kernel type: ${kernelType}`);
+  }
 }

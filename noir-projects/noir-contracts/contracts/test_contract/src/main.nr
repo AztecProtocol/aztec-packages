@@ -7,7 +7,8 @@ contract Test {
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, PrivateImmutable, PrivateSet, SharedImmutable
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys_with_randomness;
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -41,7 +42,11 @@ contract Test {
 
     #[aztec(event)]
     struct ExampleEvent {
-        value: Field,
+        value0: Field,
+        value1: Field,
+        value2: Field,
+        value3: Field,
+        value4: Field,
     }
 
     #[aztec(storage)]
@@ -97,7 +102,7 @@ contract Test {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt(&mut context, outgoing_viewer, owner));
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
     }
 
     #[aztec(private)]
@@ -242,13 +247,13 @@ contract Test {
     // Purely exists for testing
     #[aztec(public)]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // For testing non-note encrypted logs
@@ -262,43 +267,35 @@ contract Test {
         let header = context.get_header();
         let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
-        context.encrypt_and_emit_event(
-            5, // testing only - this should be a secret random value to salt the addr
-            1,
-            outgoing_viewer_ovpk_m,
-            owner_ivpk_m,
-            fields
+
+        let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
+
+        event.emit(
+            encode_and_encrypt_event_with_keys_with_randomness(
+                &mut context,
+                // testing only - a secret random value is passed in here to salt / mask the address
+                5,
+                outgoing_viewer_ovpk_m,
+                owner_ivpk_m
+            )
         );
+
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
             Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false).call(&mut context);
-            context.encrypt_and_emit_event(
-                0, // testing only - this signals to the kerels to not mask the address
-                1,
-                outgoing_viewer_ovpk_m,
-                owner_ivpk_m,
-                [1, 2, 3, 4, 5]
+
+            let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
+
+            otherEvent.emit(
+                encode_and_encrypt_event_with_keys_with_randomness(
+                    &mut context,
+                    // testing only - a randomness of 0 signals the kerels to not mask the address
+                    0,
+                    outgoing_viewer_ovpk_m,
+                    owner_ivpk_m
+                )
             );
-        }
-    }
-
-    #[aztec(private)]
-    fn emit_msg_sender() {
-        context.emit_unencrypted_log(context.msg_sender());
-    }
-
-    #[aztec(private)]
-    fn emit_unencrypted_logs(fields: [Field; 5], nest: bool) {
-        // Merged two fns to avoid hitting max #functions limit:
-        // nest -> emit_unencrypted_logs_nested
-        // else -> emit_array_as_unencrypted_log
-        if nest {
-            Test::at(context.this_address()).emit_msg_sender().call(&mut context);
-            Test::at(context.this_address()).emit_unencrypted_logs(fields, false).call(&mut context);
-            context.emit_unencrypted_log("test");
-        } else {
-            context.emit_unencrypted_log(fields);
         }
     }
 
@@ -312,7 +309,7 @@ contract Test {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }

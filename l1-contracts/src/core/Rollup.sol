@@ -16,6 +16,7 @@ import {HeaderLib} from "./libraries/HeaderLib.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
+import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 // Contracts
@@ -44,17 +45,25 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
+  bytes32 public vkTreeRoot;
+
   using EnumerableSet for EnumerableSet.AddressSet;
 
   EnumerableSet.AddressSet private sequencers;
 
-  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle, IERC20 _gasToken) {
+  constructor(
+    IRegistry _registry,
+    IAvailabilityOracle _availabilityOracle,
+    IERC20 _gasToken,
+    bytes32 _vkTreeRoot
+  ) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
     GAS_TOKEN = _gasToken;
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     OUTBOX = new Outbox(address(this));
+    vkTreeRoot = _vkTreeRoot;
     VERSION = 1;
   }
 
@@ -82,6 +91,10 @@ contract Rollup is IRollup {
   function setVerifier(address _verifier) external override(IRollup) {
     // TODO remove, only needed for testing
     verifier = IVerifier(_verifier);
+  }
+
+  function setVkTreeRoot(bytes32 _vkTreeRoot) external {
+    vkTreeRoot = _vkTreeRoot;
   }
 
   /**
@@ -112,7 +125,7 @@ contract Rollup is IRollup {
     }
 
     bytes32[] memory publicInputs =
-      new bytes32[](2 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
+      new bytes32[](3 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
     // the archive tree root
     publicInputs[0] = _archive;
     // this is the _next_ available leaf in the archive tree
@@ -120,9 +133,11 @@ contract Rollup is IRollup {
     // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
+    publicInputs[2] = vkTreeRoot;
+
     bytes32[] memory headerFields = HeaderLib.toFields(header);
     for (uint256 i = 0; i < headerFields.length; i++) {
-      publicInputs[i + 2] = headerFields[i];
+      publicInputs[i + 3] = headerFields[i];
     }
 
     // the block proof is recursive, which means it comes with an aggregation object
@@ -134,7 +149,7 @@ contract Rollup is IRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 2 + Constants.HEADER_LENGTH] = part;
+      publicInputs[i + 3 + Constants.HEADER_LENGTH] = part;
     }
 
     if (!verifier.verify(_proof, publicInputs)) {
@@ -149,10 +164,10 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    // Currently trying out storing each tx's L2 to L1 messages in variable height trees (smallest tree required)
-    // => path lengths will differ and we cannot provide one here
-    // We can provide a minimum which is the height of the rollup layers (txTreeHeight) and the smallest 'tree' (1 layer)
-    uint256 l2ToL1TreeMinHeight = header.contentCommitment.txTreeHeight + 1;
+    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
+    // Min size = smallest path of the rollup tree + 1
+    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+    uint256 l2ToL1TreeMinHeight = min + 1;
     OUTBOX.insert(
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
     );

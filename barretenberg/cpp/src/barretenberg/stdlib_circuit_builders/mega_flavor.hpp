@@ -13,7 +13,7 @@
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
@@ -39,24 +39,23 @@ class MegaFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 58;
+    static constexpr size_t NUM_ALL_ENTITIES = 57;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 17;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
+    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
-                                  bb::LookupRelation<FF>,
+                                  bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
@@ -65,8 +64,6 @@ class MegaFlavor {
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
-
-    using LogDerivLookupRelation = bb::DatabusLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -179,19 +176,20 @@ class MegaFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              sorted_accum,            // column 4
-                              z_perm,                  // column 5
-                              z_lookup,                // column 6
-                              ecc_op_wire_1,           // column 7
-                              ecc_op_wire_2,           // column 8
-                              ecc_op_wire_3,           // column 9
-                              ecc_op_wire_4,           // column 10
-                              calldata,                // column 11
-                              calldata_read_counts,    // column 12
-                              calldata_inverses,       // column 13
-                              return_data,             // column 14
-                              return_data_read_counts, // column 15
-                              return_data_inverses);   // column 16
+                              z_perm,                  // column 4
+                              lookup_inverses,         // column 5
+                              lookup_read_counts,      // column 6
+                              lookup_read_tags,        // column 7
+                              ecc_op_wire_1,           // column 8
+                              ecc_op_wire_2,           // column 9
+                              ecc_op_wire_3,           // column 10
+                              ecc_op_wire_4,           // column 11
+                              calldata,                // column 12
+                              calldata_read_counts,    // column 13
+                              calldata_inverses,       // column 14
+                              return_data,             // column 15
+                              return_data_read_counts, // column 16
+                              return_data_inverses);   // column 17
     };
 
     /**
@@ -214,9 +212,10 @@ class MegaFlavor {
                        this->w_r,
                        this->w_o,
                        this->w_4,
-                       this->sorted_accum,
                        this->z_perm,
-                       this->z_lookup,
+                       this->lookup_inverses,
+                       this->lookup_read_counts,
+                       this->lookup_read_tags,
                        this->ecc_op_wire_1,
                        this->ecc_op_wire_2,
                        this->ecc_op_wire_3,
@@ -232,18 +231,15 @@ class MegaFlavor {
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift,      // column 0
-                              table_2_shift,      // column 1
-                              table_3_shift,      // column 2
-                              table_4_shift,      // column 3
-                              w_l_shift,          // column 4
-                              w_r_shift,          // column 5
-                              w_o_shift,          // column 6
-                              w_4_shift,          // column 7
-                              sorted_accum_shift, // column 8
-                              z_perm_shift,       // column 9
-                              z_lookup_shift      // column 10
-        )
+                              table_1_shift, // column 0
+                              table_2_shift, // column 1
+                              table_3_shift, // column 2
+                              table_4_shift, // column 3
+                              w_l_shift,     // column 4
+                              w_r_shift,     // column 5
+                              w_o_shift,     // column 6
+                              w_4_shift,     // column 7
+                              z_perm_shift)  // column 8
     };
 
   public:
@@ -281,8 +277,8 @@ class MegaFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+            return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4, this->w_l,
+                             this->w_r,     this->w_o,     this->w_4,     this->z_perm };
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
@@ -351,43 +347,7 @@ class MegaFlavor {
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
-        std::array<Polynomial, 4> sorted_polynomials;
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            // Compute sorted witness-table accumulator
-            compute_sorted_list_accumulator(eta, eta_two, eta_three);
-
-            // Finalize fourth wire polynomial by adding lookup memory records
-            add_plookup_memory_records_to_wire_4(eta, eta_two, eta_three);
-        }
-
-        /**
-         * @brief Construct sorted list accumulator polynomial 's'.
-         *
-         * @details Compute s = s_1 + η*s_2 + η²*s_3 + η³*s_4 (via Horner) where s_i are the
-         * sorted concatenated witness/table polynomials
-         *
-         * @param key proving key
-         * @param sorted_list_polynomials sorted concatenated witness/table polynomials
-         * @param eta random challenge
-         * @return Polynomial
-         */
-        void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-
-            auto& sorted_list_accumulator = polynomials.sorted_accum;
-
-            // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
-            for (size_t i = 0; i < this->circuit_size; ++i) {
-                FF T0 = sorted_polynomials[3][i] * eta_three;
-                T0 += sorted_polynomials[2][i] * eta_two;
-                T0 += sorted_polynomials[1][i] * eta;
-                T0 += sorted_polynomials[0][i];
-                sorted_list_accumulator[i] = T0;
-            }
-        }
 
         /**
          * @brief Add plookup memory records to the fourth wire polynomial
@@ -398,7 +358,7 @@ class MegaFlavor {
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
          */
-        void add_plookup_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
+        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
@@ -422,14 +382,18 @@ class MegaFlavor {
         }
 
         /**
-         * @brief Compute the inverse polynomial used in the databus log derivative lookup argument
+         * @brief Compute the inverse polynomials used in the log derivative lookup relations
          *
          * @tparam Flavor
          * @param beta
          * @param gamma
          */
-        void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
+            // Compute inverses for conventional lookups
+            compute_logderivative_inverse<MegaFlavor, LogDerivLookupRelation<FF>>(
+                this->polynomials, relation_parameters, this->circuit_size);
+
             // Compute inverses for calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
                 this->polynomials, relation_parameters, this->circuit_size);
@@ -440,7 +404,7 @@ class MegaFlavor {
         }
 
         /**
-         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup polynomials
+         * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
          */
@@ -452,9 +416,6 @@ class MegaFlavor {
                                                                              this->circuit_size,
                                                                              this->pub_inputs_offset);
             relation_parameters.public_input_delta = public_input_delta;
-            auto lookup_grand_product_delta = compute_lookup_grand_product_delta(
-                relation_parameters.beta, relation_parameters.gamma, this->circuit_size);
-            relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
             compute_grand_products<MegaFlavor>(this->polynomials, relation_parameters);
@@ -596,31 +557,6 @@ class MegaFlavor {
                        lagrange_last,
                        lagrange_ecc_op,
                        databus_id);
-
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements()
-        {
-            std::vector<FF> elements;
-            std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
-            elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
-            // do the same for the rest of the fields
-            std::vector<FF> num_public_inputs_elements =
-                bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
-            elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
-            std::vector<FF> pub_inputs_offset_elements =
-                bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
-            elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
-
-            for (Commitment& comm : this->get_all()) {
-                std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
-                elements.insert(elements.end(), comm_elements.begin(), comm_elements.end());
-            }
-            return elements;
-        }
     };
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -677,8 +613,9 @@ class MegaFlavor {
             w_o = "W_O";
             w_4 = "W_4";
             z_perm = "Z_PERM";
-            z_lookup = "Z_LOOKUP";
-            sorted_accum = "SORTED_ACCUM";
+            lookup_inverses = "LOOKUP_INVERSES";
+            lookup_read_counts = "LOOKUP_READ_COUNTS";
+            lookup_read_tags = "LOOKUP_READ_TAGS";
             ecc_op_wire_1 = "ECC_OP_WIRE_1";
             ecc_op_wire_2 = "ECC_OP_WIRE_2";
             ecc_op_wire_3 = "ECC_OP_WIRE_3";
@@ -768,9 +705,10 @@ class MegaFlavor {
                 this->w_r = commitments.w_r;
                 this->w_o = commitments.w_o;
                 this->w_4 = commitments.w_4;
-                this->sorted_accum = commitments.sorted_accum;
                 this->z_perm = commitments.z_perm;
-                this->z_lookup = commitments.z_lookup;
+                this->lookup_inverses = commitments.lookup_inverses;
+                this->lookup_read_counts = commitments.lookup_read_counts;
+                this->lookup_read_tags = commitments.lookup_read_tags;
                 this->ecc_op_wire_1 = commitments.ecc_op_wire_1;
                 this->ecc_op_wire_2 = commitments.ecc_op_wire_2;
                 this->ecc_op_wire_3 = commitments.ecc_op_wire_3;
@@ -811,10 +749,11 @@ class MegaFlavor {
         Commitment return_data_comm;
         Commitment return_data_read_counts_comm;
         Commitment return_data_inverses_comm;
-        Commitment sorted_accum_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
-        Commitment z_lookup_comm;
+        Commitment lookup_inverses_comm;
+        Commitment lookup_read_counts_comm;
+        Commitment lookup_read_tags_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
@@ -847,7 +786,6 @@ class MegaFlavor {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            size_t log_n = numeric::get_msb(circuit_size);
 
             public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
@@ -867,17 +805,18 @@ class MegaFlavor {
             return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 sumcheck_univariates.push_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
                                                                                                  num_frs_read));
             }
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -888,7 +827,6 @@ class MegaFlavor {
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear();
-            size_t log_n = numeric::get_msb(circuit_size);
             serialize_to_buffer(circuit_size, proof_data);
             serialize_to_buffer(public_input_size, proof_data);
             serialize_to_buffer(pub_inputs_offset, proof_data);
@@ -908,15 +846,16 @@ class MegaFlavor {
             serialize_to_buffer(return_data_comm, proof_data);
             serialize_to_buffer(return_data_read_counts_comm, proof_data);
             serialize_to_buffer(return_data_inverses_comm, proof_data);
-            serialize_to_buffer(sorted_accum_comm, proof_data);
+            serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            serialize_to_buffer(lookup_read_tags_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
-            serialize_to_buffer(z_lookup_comm, proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
             serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 serialize_to_buffer(zm_cq_comms[i], proof_data);
             }
             serialize_to_buffer(zm_cq_comm, proof_data);
