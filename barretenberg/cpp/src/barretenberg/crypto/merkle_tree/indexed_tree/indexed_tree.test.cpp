@@ -124,6 +124,23 @@ IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafV
 }
 
 template <typename LeafValueType>
+IndexedLeaf<LeafValueType> get_low_leaf(
+    IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
+    const LeafValueType& leaf,
+    bool includeUncommitted = true)
+{
+    std::optional<IndexedLeaf<LeafValueType>> l;
+    Signal signal;
+    auto completion = [&](const TypedResponse<GetIndexedLeafResponse<LeafValueType>>& leaf) -> void {
+        l = leaf.inner.indexed_leaf;
+        signal.signal_level();
+    };
+    tree.find_low_leaf(leaf, includeUncommitted, completion);
+    signal.wait_for_level();
+    return l.value();
+}
+
+template <typename LeafValueType>
 void check_find_leaf_index(TreeType& tree,
                            const LeafValueType& leaf,
                            index_t expected_index,
@@ -969,4 +986,30 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
         e0,
     };
     check_sibling_path(tree, 7, expected);
+}
+
+TEST_F(PersistedIndexedTreeTest, returns_low_leaves)
+{
+    // Create a depth-8 indexed merkle tree
+    constexpr uint32_t depth = 8;
+
+    ThreadPool workers(1);
+    std::string name = randomString();
+    LMDBStore db(*_environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+    auto tree = TreeType(store, workers, 2);
+
+    auto predecessor = get_low_leaf(tree, NullifierLeafValue(42));
+
+    EXPECT_EQ(predecessor.value, NullifierLeafValue(1));
+    EXPECT_EQ(predecessor.nextIndex, 0);
+    EXPECT_EQ(predecessor.nextValue, 0);
+
+    add_value(tree, NullifierLeafValue(42));
+
+    predecessor = get_low_leaf(tree, NullifierLeafValue(42));
+    // returns the current leaf since it exists already. Inserting 42 again would modify the existing leaf
+    EXPECT_EQ(predecessor.value, NullifierLeafValue(42));
+    EXPECT_EQ(predecessor.nextIndex, 0);
+    EXPECT_EQ(predecessor.nextValue, 0);
 }

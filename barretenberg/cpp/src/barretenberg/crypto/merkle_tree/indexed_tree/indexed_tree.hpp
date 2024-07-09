@@ -64,10 +64,11 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
                          bool includeUncommitted,
                          const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
+    void find_low_leaf(const LeafValueType& leaf, bool includeUncommitted, const LeafCallback& on_completion) const;
+
     using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
 
   private:
-    using AppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from;
     using typename AppendOnlyTree<Store, HashingPolicy>::AppendCompletionCallback;
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;
@@ -217,9 +218,9 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index(
     bool includeUncommitted,
     const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
-    auto job = [=]() -> void {
+    auto job = [=, this]() -> void {
         ExecuteAndReport<FindLeafIndexResponse>(
-            [=](TypedResponse<FindLeafIndexResponse>& response) {
+            [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
                 std::optional<index_t> leaf_index = store_.find_leaf_index(leaf, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
@@ -229,6 +230,20 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index(
             },
             on_completion);
     };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void IndexedTree<Store, HashingPolicy>::find_low_leaf(const LeafValueType& leaf,
+                                                      bool includeUncommitted,
+                                                      const LeafCallback& on_completion) const
+{
+    auto job = [=, &leaf, this]() {
+        typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+        auto result = store_.find_low_value(leaf, includeUncommitted, *tx);
+        get_leaf(result.second, includeUncommitted, on_completion);
+    };
+
     workers_.enqueue(job);
 }
 
