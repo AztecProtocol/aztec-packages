@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 use crate::keys::constants::{NUM_KEY_TYPES, NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
-global PUBLIC_KEYS_LENGTH = 8;
+global PUBLIC_KEYS_LENGTH = 12;
 
 struct PublicKeys {
     npk_m: Point,
@@ -79,12 +79,16 @@ impl Serialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
         [
             self.npk_m.x,
             self.npk_m.y,
+            self.npk_m.is_infinite as Field,
             self.ivpk_m.x,
             self.ivpk_m.y,
+            self.ivpk_m.is_infinite as Field,
             self.ovpk_m.x,
             self.ovpk_m.y,
+            self.ovpk_m.is_infinite as Field,
             self.tpk_m.x,
             self.tpk_m.y,
+            self.tpk_m.is_infinite as Field
         ]
     }
 }
@@ -92,10 +96,10 @@ impl Serialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
     fn deserialize(serialized: [Field; PUBLIC_KEYS_LENGTH]) -> PublicKeys {
         PublicKeys {
-            npk_m: Point { x: serialized[0], y: serialized[1], is_infinite: false },
-            ivpk_m: Point { x: serialized[2], y: serialized[3], is_infinite: false },
-            ovpk_m: Point { x: serialized[4], y: serialized[5], is_infinite: false },
-            tpk_m: Point { x: serialized[6], y: serialized[7], is_infinite: false },
+            npk_m: Point::new(serialized[0], serialized[1], serialized[2] as bool),
+            ivpk_m: Point::new(serialized[3], serialized[4], serialized[5] as bool),
+            ovpk_m: Point::new(serialized[6], serialized[7], serialized[8] as bool),
+            tpk_m: Point::new(serialized[9], serialized[10], serialized[11] as bool)
         }
     }
 }
