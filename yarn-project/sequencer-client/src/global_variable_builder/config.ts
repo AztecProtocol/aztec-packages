@@ -9,9 +9,9 @@ export interface GlobalReaderConfig {
    */
   rpcUrl: string;
   /**
-   * The API key of the ethereum host.
+   * The chain ID of the ethereum host.
    */
-  apiKey?: string;
+  chainId: number;
 
   /**
    * The deployed l1 contract addresses
