@@ -30,7 +30,7 @@ import {
   makeEmptyProof,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
-  RecursiveProof,
+  type RecursiveProof,
   TUBE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';

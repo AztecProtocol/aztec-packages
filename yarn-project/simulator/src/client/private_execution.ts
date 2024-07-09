@@ -84,7 +84,7 @@ export async function executePrivateFunction(
     newNotes,
     nullifiedNoteHashCounters,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),
-    nestedExecutions, 
+    nestedExecutions,
     enqueuedPublicFunctionCalls,
     noteEncryptedLogs,
     publicTeardownFunctionCall,
