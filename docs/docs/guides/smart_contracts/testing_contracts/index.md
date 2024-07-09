@@ -44,7 +44,7 @@ If you have [the sandbox](../../../getting_started.md) installed, you can quickl
 This will be improved in the future with a dedicated command.
 :::
 
-By default, TXE runs at `http://localhost:8080`. So you can run  contracts tests with:
+By default, TXE runs at `http://localhost:8080`. Using `aztec-nargo`, contract tests can be run tests with:
 
 `aztec-nargo test --oracle-resolver http://host.docker.internal:8080`
 
