@@ -214,7 +214,7 @@ contract Token {
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
-     // Showing an exploit
+    // Showing an exploit
     #[aztec(private)]
     fn privately_mint_private_note_to(amount: Field, to: AztecAddress) {
         storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, to, to));
