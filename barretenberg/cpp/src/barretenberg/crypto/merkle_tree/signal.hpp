@@ -51,6 +51,12 @@ class Signal {
         signal_.notify_all();
     }
 
+    void signal_decrement(uint32_t delta = 1)
+    {
+        signal_.fetch_sub(delta);
+        signal_.notify_all();
+    }
+
   private:
     std::atomic<uint32_t> signal_;
 };
