@@ -3,7 +3,6 @@ import {
   AztecAddress,
   CompleteAddress,
   Fr,
-  type EmbeddedCurveScalar,
   INITIAL_L2_BLOCK_NUM,
   KeyValidationRequest,
   MAX_NOTE_HASHES_PER_TX,
@@ -80,9 +79,9 @@ describe('Note Processor', () => {
 
   const app = AztecAddress.random();
 
-  let ownerIvskM: EmbeddedCurveScalar;
+  let ownerIvskM: GrumpkinScalar;
   let ownerIvpkM: PublicKey;
-  let ownerOvskM: EmbeddedCurveScalar;
+  let ownerOvskM: GrumpkinScalar;
   let ownerOvKeys: KeyValidationRequest;
   let account: CompleteAddress;
 

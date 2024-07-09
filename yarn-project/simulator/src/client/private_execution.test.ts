@@ -15,7 +15,7 @@ import {
   CompleteAddress,
   GasSettings,
   GeneratorIndex,
-  type EmbeddedCurveScalar,
+  type GrumpkinScalar,
   Header,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -90,10 +90,10 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  let ownerNskM: EmbeddedCurveScalar;
-  let ownerOvskM: EmbeddedCurveScalar;
-  let recipientNskM: EmbeddedCurveScalar;
-  let recipientOvskM: EmbeddedCurveScalar;
+  let ownerNskM: GrumpkinScalar;
+  let ownerOvskM: GrumpkinScalar;
+  let recipientNskM: GrumpkinScalar;
+  let recipientOvskM: GrumpkinScalar;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,

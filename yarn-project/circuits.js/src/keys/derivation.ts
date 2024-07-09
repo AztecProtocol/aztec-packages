@@ -1,10 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { Fq, type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
-import { EmbeddedCurveScalar } from '../types/grumpkin_private_key.js';
 import { type PublicKey } from '../types/public_key.js';
 import { PublicKeys } from '../types/public_keys.js';
 import { type KeyPrefix } from './key_types.js';
@@ -12,11 +11,11 @@ import { getKeyGenerator } from './utils.js';
 
 const curve = new Grumpkin();
 
-export function computeAppNullifierSecretKey(masterNullifierSecretKey: EmbeddedCurveScalar, app: AztecAddress): Fr {
+export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinScalar, app: AztecAddress): Fr {
   return computeAppSecretKey(masterNullifierSecretKey, app, 'n'); // 'n' is the key prefix for nullifier secret key
 }
 
-export function computeAppSecretKey(skM: EmbeddedCurveScalar, app: AztecAddress, keyPrefix: KeyPrefix): Fr {
+export function computeAppSecretKey(skM: GrumpkinScalar, app: AztecAddress, keyPrefix: KeyPrefix): Fr {
   const generator = getKeyGenerator(keyPrefix);
   return poseidon2Hash([skM.hi, skM.lo, app, generator]);
 }
@@ -29,7 +28,7 @@ export function computeIvpkApp(ivpk: PublicKey, address: AztecAddress) {
   return curve.add(curve.mul(Grumpkin.generator, I), ivpk);
 }
 
-export function computeIvskApp(ivsk: EmbeddedCurveScalar, address: AztecAddress) {
+export function computeIvskApp(ivsk: GrumpkinScalar, address: AztecAddress) {
   return ivsk;
   // Computing the siloed key is actually useless because we can derive the master key from it
   // Issue(#6955)
@@ -40,11 +39,11 @@ export function computeIvskApp(ivsk: EmbeddedCurveScalar, address: AztecAddress)
   return new Fq((I.toBigInt() + ivsk.toBigInt()) % Fq.MODULUS);
 }
 
-export function computeOvskApp(ovsk: EmbeddedCurveScalar, app: AztecAddress) {
+export function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress) {
   const ovskAppFr = computeAppSecretKey(ovsk, app, 'ov'); // 'ov' is the key prefix for outgoing viewing key
   // Here we are intentionally converting Fr (output of poseidon) to Fq. This is fine even though a distribution of
   // P = s * G will not be uniform because 2 * (q - r) / q is small.
-  return EmbeddedCurveScalar.fromBuffer(ovskAppFr.toBuffer());
+  return GrumpkinScalar.fromBuffer(ovskAppFr.toBuffer());
 }
 
 export function deriveMasterNullifierSecretKey(secretKey: Fr): GrumpkinScalar {

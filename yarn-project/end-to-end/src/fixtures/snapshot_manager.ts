@@ -8,7 +8,7 @@ import {
   type DeployL1Contracts,
   EthCheatCodes,
   Fr,
-  EmbeddedCurveScalar,
+  GrumpkinScalar,
   SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -376,9 +376,9 @@ export const addAccounts =
   (numberOfAccounts: number, logger: DebugLogger) =>
   async ({ pxe }: SubsystemsContext) => {
     // Generate account keys.
-    const accountKeys: [Fr, EmbeddedCurveScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
+    const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
       Fr.random(),
-      EmbeddedCurveScalar.random(),
+      GrumpkinScalar.random(),
     ]);
 
     logger.verbose('Simulating account deployment...');

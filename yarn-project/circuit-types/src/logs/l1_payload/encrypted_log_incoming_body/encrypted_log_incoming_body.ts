@@ -1,4 +1,4 @@
-import { type EmbeddedCurveScalar, type PublicKey } from '@aztec/circuits.js';
+import { type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 
 import { deriveAESSecret } from '../encryption_utils.js';
@@ -20,7 +20,7 @@ export abstract class EncryptedLogIncomingBody {
    */
   protected static fromCiphertextToBuffer(
     ciphertext: Buffer | bigint[],
-    ivskAppOrEphSk: EmbeddedCurveScalar,
+    ivskAppOrEphSk: GrumpkinScalar,
     ephPkOrIvpkApp: PublicKey,
   ): Buffer {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
@@ -41,7 +41,7 @@ export abstract class EncryptedLogIncomingBody {
    *
    * @returns The ciphertext of the encrypted log body
    */
-  public computeCiphertext(ephSk: EmbeddedCurveScalar, ivpkApp: PublicKey) {
+  public computeCiphertext(ephSk: GrumpkinScalar, ivpkApp: PublicKey) {
     const aesSecret = deriveAESSecret(ephSk, ivpkApp);
     const key = aesSecret.subarray(0, 16);
     const iv = aesSecret.subarray(16, 32);

@@ -24,7 +24,6 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  type EmbeddedCurveScalar,
   GrumpkinScalar,
   Header,
   KernelCircuitPublicInputs,
@@ -152,7 +151,7 @@ import type {
   Gas as GasNoir,
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
-  EmbeddedCurveScalar as EmbeddedCurveScalarNoir,
+  EmbeddedCurveScalar as GrumpkinScalarNoir,
   Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KernelData as KernelDataNoir,
@@ -303,11 +302,11 @@ export function mapPointFromNoir(point: NoirPoint): Point {
 }
 
 /**
- * Maps a EmbeddedCurveScalar to a noir EmbeddedCurveScalar.
- * @param privateKey - The EmbeddedCurveScalar.
- * @returns The noir EmbeddedCurveScalar.
+ * Maps a GrumpkinScalar to a noir GrumpkinScalar.
+ * @param privateKey - The GrumpkinScalar.
+ * @returns The noir GrumpkinScalar.
  */
-export function mapEmbeddedCurveScalarToNoir(privateKey: EmbeddedCurveScalar): EmbeddedCurveScalarNoir {
+export function mapGrumpkinScalarToNoir(privateKey: GrumpkinScalar): GrumpkinScalarNoir {
   return {
     hi: mapFieldToNoir(privateKey.hi),
     lo: mapFieldToNoir(privateKey.lo),
@@ -321,17 +320,17 @@ export function mapEmbeddedCurveScalarToNoir(privateKey: EmbeddedCurveScalar): E
  */
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
-    sk_m: mapEmbeddedCurveScalarToNoir(hint.skM),
+    sk_m: mapGrumpkinScalarToNoir(hint.skM),
     request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
 
 /**
- * Maps a noir EmbeddedCurveScalar to a EmbeddedCurveScalar.
- * @param privateKey - The noir EmbeddedCurveScalar.
- * @returns The EmbeddedCurveScalar.
+ * Maps a noir GrumpkinScalar to a GrumpkinScalar.
+ * @param privateKey - The noir GrumpkinScalar.
+ * @returns The GrumpkinScalar.
  */
-export function mapEmbeddedCurveScalarFromNoir(privateKey: EmbeddedCurveScalarNoir): EmbeddedCurveScalar {
+export function mapGrumpkinScalarFromNoir(privateKey: GrumpkinScalarNoir): GrumpkinScalar {
   return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.hi), mapFieldFromNoir(privateKey.lo));
 }
 

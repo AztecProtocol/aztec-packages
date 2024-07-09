@@ -102,7 +102,6 @@ export {
   EventType,
   ExtendedNote,
   FunctionCall,
-  EmbeddedCurveScalar,
   L1Actor,
   L1ToL2Message,
   L2Actor,
