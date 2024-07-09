@@ -9,7 +9,8 @@ import { Fr } from './fields.js';
  */
 export class Point {
   static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
-  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2 + 1; // + 1 for isInfinite
+  static SIZE_IN_BYTES_WITHOUT_INF = Fr.SIZE_IN_BYTES * 2;
+  static SIZE_IN_BYTES = Point.SIZE_IN_BYTES_WITHOUT_INF + 1;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -53,6 +54,11 @@ export class Point {
     return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readBoolean());
   }
 
+  static fromBufferWithoutIsInfinite(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), false);
+  }
+
   /**
    * Create a Point instance from a hex-encoded string.
    * The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates.
@@ -92,11 +98,26 @@ export class Point {
 
   /**
    * Converts the Point instance to a Buffer representation of the coordinates.
-   * The outputs buffer length will be 64, the length of both coordinates not represented as fields.
+   * The outputs buffer length will be 65, the length of both coordinates not represented as fields.
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {
-    return serializeToBuffer([this.x, this.y, this.isInfinite]);
+    const buf = serializeToBuffer([this.x, this.y, this.isInfinite]);
+    if (buf.length !== Point.SIZE_IN_BYTES) {
+      throw new Error(`Invalid buffer length for Point: ${buf.length}`);
+    }
+    return buf;
+  }
+
+  toBufferWithoutIsInfinite() {
+    if (this.isInfinite) {
+      throw new Error('Cannot serialize infinite point without isInfinite flag');
+    }
+    const buf = serializeToBuffer([this.x, this.y]);
+    if (buf.length !== Point.SIZE_IN_BYTES_WITHOUT_INF) {
+      throw new Error(`Invalid buffer length for Point: ${buf.length}`);
+    }
+    return buf;
   }
 
   /**

@@ -33,13 +33,12 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public mul(point: Point, scalar: GrumpkinScalar): Point {
-    // TODO(#7386): remove the ugly subarray hack below
-    this.wasm.writeMemory(0, point.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2));
+    // TODO(#7386): handle point at infinity
+    this.wasm.writeMemory(0, point.toBufferWithoutIsInfinite());
     this.wasm.writeMemory(64, scalar.toBuffer());
     this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
     // TODO(#7386): handle point at infinity
-    const buf = Buffer.from(this.wasm.getMemorySlice(96, 160));
-    return Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf]));
+    return Point.fromBufferWithoutIsInfinite(Buffer.from(this.wasm.getMemorySlice(96, 160)));
   }
 
   /**
@@ -49,14 +48,13 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public add(a: Point, b: Point): Point {
-    // TODO(#7386): remove the ugly subarray hack below
-    this.wasm.writeMemory(0, a.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2));
-    // TODO(#7386): remove the ugly subarray hack below
-    this.wasm.writeMemory(64, b.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2));
+    // TODO(#7386): handle point at infinity
+    this.wasm.writeMemory(0, a.toBufferWithoutIsInfinite());
+    // TODO(#7386): handle point at infinity
+    this.wasm.writeMemory(64, b.toBufferWithoutIsInfinite());
     this.wasm.call('ecc_grumpkin__add', 0, 64, 128);
     // TODO(#7386): handle point at infinity
-    const buf = Buffer.from(this.wasm.getMemorySlice(128, 192));
-    return Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf]));
+    return Point.fromBufferWithoutIsInfinite(Buffer.from(this.wasm.getMemorySlice(128, 192)));
   }
 
   /**
@@ -66,10 +64,8 @@ export class Grumpkin {
    * @returns Points multiplied by the scalar.
    */
   public batchMul(points: Point[], scalar: GrumpkinScalar) {
-    // TODO(#7386): remove the ugly subarray hack below
-    const concatenatedPoints: Buffer = Buffer.concat(
-      points.map(point => point.toBuffer().subarray(0, Fr.SIZE_IN_BYTES * 2)),
-    );
+    // TODO(#7386): handle point at infinity
+    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBufferWithoutIsInfinite()));
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
     const mem = this.wasm.call('bbmalloc', pointsByteLength * 2);
@@ -85,9 +81,8 @@ export class Grumpkin {
 
     const parsedResult: Point[] = [];
     for (let i = 0; i < pointsByteLength; i += 64) {
-      // TODO: handle point at infinity
-      const buf = result.subarray(i, i + 64);
-      parsedResult.push(Point.fromBuffer(Buffer.concat([buf, Grumpkin.notAPointAtInfinityBuf])));
+      // TODO(#7386): handle point at infinity
+      parsedResult.push(Point.fromBufferWithoutIsInfinite(result.subarray(i, i + 64)));
     }
     return parsedResult;
   }

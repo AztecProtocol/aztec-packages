@@ -39,6 +39,6 @@ impl GrumpkinPrivateKey {
 
     pub fn derive_public_key(self) -> EmbeddedCurvePoint {
         let public_key = fixed_base_scalar_mul(self.low, self.high);
-        EmbeddedCurvePoint { x: public_key[0], y: public_key[1], is_infinite: false }
+        EmbeddedCurvePoint { x: public_key[0], y: public_key[1], is_infinite: public_key[2] as bool }
     }
 }
