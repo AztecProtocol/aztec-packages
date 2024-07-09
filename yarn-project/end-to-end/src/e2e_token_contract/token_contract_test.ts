@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
+  AztecNode,
   type CompleteAddress,
   type DebugLogger,
   ExtendedNote,
@@ -9,7 +10,6 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
-  AztecNode,
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
