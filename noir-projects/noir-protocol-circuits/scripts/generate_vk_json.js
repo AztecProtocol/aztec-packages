@@ -116,7 +116,7 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} write_vk -b "${artifactPath}" -o "${binaryVkPath}"`;
+  const writeVkCommand = `${BB_BIN_PATH} write_vk_ultra_honk -b "${artifactPath}" -o "${binaryVkPath}"`;
 
   const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
