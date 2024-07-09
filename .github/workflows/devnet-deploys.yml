@@ -12,7 +12,6 @@ env:
   GIT_COMMIT: ${{ github.sha }}
   DEPLOY_TAG: devnet
   FILE_PATH: ./l1-contracts/addresses.txt
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_CHAIN_ID: 677692
