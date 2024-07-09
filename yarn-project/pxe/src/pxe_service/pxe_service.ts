@@ -34,7 +34,6 @@ import {
   type PartialAddress,
   computeContractClassId,
   getContractClassFromArtifact,
-  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {

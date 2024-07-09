@@ -1,13 +1,7 @@
-import { type Fr, Tx } from '@aztec/aztec.js';
-import { writeFile, mkdtemp } from 'fs/promises';
+import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
-import * as fs from 'fs';
 
 import { FullProverTest } from './e2e_prover_test.js';
-import { runInDirectory } from '@aztec/foundation/fs';
-import path from 'path';
-import { BB_RESULT, generateTubeProof } from '../../../bb-prover/src/bb/execute.js';
-import { tmpdir } from 'os';
 
 const TIMEOUT = 1_800_000;
 
@@ -92,7 +86,7 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  it.skip('rejects txs with invalid proofs', async () => {
+  it('rejects txs with invalid proofs', async () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
