@@ -116,11 +116,11 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const emptyNested = new EmptyNestedData(
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      VERIFICATION_KEYS['EmptyNestedArtifact'],
+      ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
-    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
+    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version, inputs.vkTreeRoot);
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, PrivateKernelEmptyArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact);
     const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
 
     return makePublicInputsAndRecursiveProof(

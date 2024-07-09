@@ -43,7 +43,7 @@ import * as fs from 'fs/promises';
 import { encode } from "@msgpack/msgpack";
 import path from 'path';
 
-import { BB_RESULT, PROOF_FIELDS_FILENAME, PROOF_FILENAME, verifyProof } from '../bb/execute.js';
+import { BB_RESULT, computeVerificationKey, executeBbClientIvcProof, PROOF_FIELDS_FILENAME, PROOF_FILENAME, verifyProof } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 

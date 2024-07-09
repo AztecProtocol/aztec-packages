@@ -691,7 +691,7 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
  */
 void write_vk_ultra_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    auto constraint_system = get_constraint_system(bytecodePath, true);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
