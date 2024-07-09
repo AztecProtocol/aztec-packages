@@ -6,14 +6,6 @@ Aztec contracts can be tested in a variety of ways depending on the needs of a p
 
 To test individual contract functions, you can use the Testing eXecution Environment (TXE) described below. For more complex interactions that require checking that the protocol rules are enforced, you should [write end-to-end tests using TypeScript](../../js_apps/test.md).
 
-## End-to-end tests
-
-End-to-end tests use compiled Aztec contracts and generated Typescript interfaces, a private execution environment (PXE) and a simulated execution environment to process transactions, create blocks and apply state updates. This allows for advanced checks on state updates like generation the of logs and checking transaction statuses.
-
-If you need the rules of the protocol to be enforce or require complex interactions (such as with L1 contracts), please refer to [Testing Aztec.nr contracts with Typescript](../../js_apps/test.md).
-
-End-to-end tests are written in Typescript and are similar to writing tests for Ethereum with mocha + ethers.js. Using the Testing eXecution Environment (TXE) described below is analogous to writing Solidity tests in Foundry.
-
 ## Pure Noir tests
 
 Noir supports the `#[test]` annotation which can be used to write simple logic tests on isolated utility functions. These tests only make assertions on algorithms and cannot interact with protocol-specific constructs such as `storage` or `context`, but are extremely fast and can be useful in certain scenarios.
@@ -30,14 +22,24 @@ However, all of this is often not necessary to ensure the contract logic itself 
 
 TXE is a JSON RPC server much like PXE, but provides an extra set of oracle functions called `cheatcodes` that allow developers to manipulate the state of the chain and simulate contract execution. Since TXE skips most of the checks, block building and other intricacies of the Aztec protocol, it is much faster to run than simulating everything in the sandbox.
 
+## TXE vs End-to-end tests
+
+End-to-end tests are written in typescripts and use compiled Aztec contracts and generated Typescript interfaces, a private execution environment (PXE) and a simulated execution environment to process transactions, create blocks and apply state updates. This allows for advanced checks on state updates like generation the of logs, cross-chain messages and checking transaction status and also enforce the rules of the protocol (e.g. checks in our rollup circuits). If you need the rules of the protocol to be enforced or require complex interactions (such as with L1 contracts), please refer to [Testing Aztec.nr contracts with Typescript](../../js_apps/test.md).
+
+The TXE is a super fast framework in Noir to quickly test your smart contract code. 
+
+So to summarize:
+* End-to-end tests are written in Typescript. TXE in Noir.
+* End-to-end tests are most similar to using mocha + ethers.js to test Solidity Contracts. TXE is like foundry (fast tests in solidity) 
+
 ### Running TXE
 
-In order to use the TXE, it must be running on a known address. Assuming the default `http://localhost:8080`, contract tests would be run with:
+In order to use the TXE, it must be running on a known address. By default, TXE runs at `http://localhost:8080`. So you can run  contracts tests with:
 
 `aztec-nargo test --oracle-resolver http://localhost:8080`
 
 :::warning
-Since TXE tests are written in Noir and executed with `nargo`, they all run in parallel. This also means every test creates their own isolated environment, so state modifications are local to each one of them.
+Since TXE tests are written in Noir and executed with `aztec-nargo`, they all run in parallel. This also means every test creates their own isolated environment, so state modifications are local to each one of them.
 
 Executing many tests in parallel might slow processing of the RPC calls down to the point of making them timeout. To control this timeout the `NARGO_FOREIGN_CALL_TIMEOUT` env variable is used.
 :::
