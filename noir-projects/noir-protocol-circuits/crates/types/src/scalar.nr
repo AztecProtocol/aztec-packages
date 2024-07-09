@@ -5,12 +5,12 @@ global SCALAR_SIZE: Field = 2;
 
 impl Empty for Scalar {
     fn empty() -> Self {
-        Self { hi: 0, lo: 0 }
+        Self { lo: 0, hi: 0 }
     }
 }
 
 impl Serialize<SCALAR_SIZE> for Scalar {
   fn serialize(self) -> [Field; SCALAR_SIZE] {
-    [self.hi, self.lo]
+    [self.lo, self.hi]
   }
 }
