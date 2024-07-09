@@ -190,22 +190,15 @@ contract PrivateToken {
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund(Field,Field,Field,Field)"),
+            FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool))"),
             [fee_payer_point.x, fee_payer_point.y, user_point.x, user_point.y]
         );
     }
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn complete_refund(
-        fee_payer_point_x: Field,
-        fee_payer_point_y: Field,
-        user_point_x: Field,
-        user_point_y: Field
-    ) {
+    fn complete_refund(fee_payer_point: Point, user_point: Point) {
         // 1. We get the final note content hashes by calling the `complete_refund` on the note.
-        let fee_payer_point = Point { x: fee_payer_point_x, y: fee_payer_point_y, is_infinite: false };
-        let user_point = Point { x: user_point_x, y: user_point_y, is_infinite: false };
         let tx_fee = context.transaction_fee();
         let (fee_payer_note_content_hash, user_note_content_hash) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
 
