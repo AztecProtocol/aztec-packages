@@ -34,7 +34,7 @@ const getLocalhost = () =>
     .catch(() => 'localhost');
 
 const LOCALHOST = await getLocalhost();
-const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
+const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, CHAIN_ID = '31337', CLI_VERSION } = process.env;
 
 class Command extends CommanderCommand {
   addOptions(options: Option[]) {
@@ -81,7 +81,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option('-c, --chain-id <number>', 'Chain ID for the ethereum host', CHAIN_ID)
     .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
@@ -90,14 +90,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async options => {
       const { deployL1Contracts } = await import('./cmds/deploy_l1_contracts.js');
-      await deployL1Contracts(
-        options.rpcUrl,
-        options.apiKey ?? '',
-        options.privateKey,
-        options.mnemonic,
-        log,
-        debugLogger,
-      );
+      await deployL1Contracts(options.rpcUrl, options.chainId, options.privateKey, options.mnemonic, log, debugLogger);
     });
 
   program
@@ -153,7 +146,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option('-c, --chain-id <number>', 'Chain ID for the ethereum host', CHAIN_ID)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
@@ -167,7 +160,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         recipient,
         options.rpcUrl,
         options.l1RpcUrl,
-        options.apiKey ?? '',
+        options.chainId,
         options.mnemonic,
         log,
         debugLogger,
@@ -183,11 +176,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option('-c, --chain-id <number>', 'Chain ID for the ethereum host', CHAIN_ID)
     .addOption(pxeOption)
     .action(async (who, options) => {
       const { getL1Balance } = await import('./cmds/get_l1_balance.js');
-      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.apiKey ?? '', log, debugLogger);
+      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.chainId, log, debugLogger);
     });
 
   program
@@ -661,7 +654,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option('-c, --chain-id <number>', 'Chain ID for the ethereum host', CHAIN_ID)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic for the sender of the tx',
@@ -677,7 +670,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         mnemonic: options.mnemonic,
         rpcUrl: options.rpcUrl,
         l1RpcUrl: options.l1RpcUrl,
-        apiKey: options.apiKey ?? '',
+        chainId: options.chainId,
         blockNumber: options.blockNumber,
         log,
         debugLogger,

@@ -51,7 +51,7 @@ export function getFunctionArtifact(artifact: ContractArtifact, fnName: string):
  */
 export async function deployAztecContracts(
   rpcUrl: string,
-  apiKey: string,
+  chainId: number,
   privateKey: string,
   mnemonic: string,
   debugLogger: DebugLogger,
@@ -72,7 +72,7 @@ export async function deployAztecContracts(
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  const chain = createEthereumChain(rpcUrl, apiKey);
+  const chain = createEthereumChain(rpcUrl, chainId);
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
       contractAbi: RegistryAbi,

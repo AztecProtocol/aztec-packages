@@ -1,7 +1,6 @@
 import { foundry } from 'viem/chains';
 
 import { type EthereumChain } from './ethereum_chain.js';
-import { createTestnetChain } from './testnet.js';
 
 export * from './testnet.js';
 export * from './deploy_l1_contracts.js';
@@ -13,15 +12,12 @@ export * from './constants.js';
  * @param rpcUrl - The rpc url of the chain or a chain identifier (e.g. 'testnet')
  * @param apiKey - An optional API key for the chain client.
  */
-export function createEthereumChain(rpcUrl: string, apiKey?: string) {
-  if (rpcUrl === 'testnet') {
-    if (apiKey === undefined || apiKey === '') {
-      throw new Error('API Key must be provided for aztec testnet');
-    }
-    return createTestnetChain(apiKey!);
-  }
+export function createEthereumChain(rpcUrl: string, chainId = 31337) {
   return {
-    chainInfo: foundry,
+    chainInfo: {
+      ...foundry,
+      id: chainId,
+    },
     rpcUrl,
   } as EthereumChain;
 }

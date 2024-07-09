@@ -7,10 +7,9 @@ describe('aztec node service', () => {
   it('fails to create Aztec Node if given incorrect chain id', async () => {
     const config: Partial<AztecNodeConfig> = {
       rpcUrl: 'testnet',
-      apiKey: '12345',
       chainId: 12345, // not the testnet chain id
     };
-    const ethereumChain = createEthereumChain(config.rpcUrl!, config.apiKey);
+    const ethereumChain = createEthereumChain(config.rpcUrl!, config.chainId);
     await expect(() =>
       AztecNodeService.createAndSync(config as AztecNodeConfig, new NoopTelemetryClient()),
     ).rejects.toThrow(

@@ -132,7 +132,7 @@ export class AztecNodeService implements AztecNode {
     storeLog = createDebugLogger('aztec:node:lmdb'),
   ): Promise<AztecNodeService> {
     telemetry ??= new NoopTelemetryClient();
-    const ethereumChain = createEthereumChain(config.rpcUrl, config.apiKey);
+    const ethereumChain = createEthereumChain(config.rpcUrl, config.chainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.chainId !== ethereumChain.chainInfo.id) {
       throw new Error(

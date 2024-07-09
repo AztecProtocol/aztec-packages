@@ -60,7 +60,7 @@ function checkThrottle(address: Hex) {
  * @param address - Address to receive some ETH
  */
 async function transferEth(address: string) {
-  const chain = createEthereumChain(rpcUrl, apiKey);
+  const chain = createEthereumChain(rpcUrl, chainId);
 
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
@@ -114,7 +114,7 @@ function createRouter(apiPrefix: string) {
 async function main() {
   logger.info(`Setting up Aztec Faucet...`);
 
-  const chain = createEthereumChain(rpcUrl, apiKey);
+  const chain = createEthereumChain(rpcUrl, chainId);
   if (chain.chainInfo.id !== chainId) {
     throw new Error(`Incorrect chain id, expected ${chain.chainInfo.id}`);
   }
