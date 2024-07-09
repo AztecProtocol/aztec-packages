@@ -132,6 +132,7 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
             [=, this](TypedResponse<TreeMetaResponse>& response) {
                 ReadTransactionPtr tx = store_.createReadTransaction();
                 store_.get_meta(response.inner.size, response.inner.root, *tx, includeUncommitted);
+                response.inner.depth = depth_;
             },
             on_completion);
     };
