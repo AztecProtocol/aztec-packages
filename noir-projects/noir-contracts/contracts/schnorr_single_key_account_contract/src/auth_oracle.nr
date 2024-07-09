@@ -1,6 +1,6 @@
 use dep::authwit::auth_witness;
 use dep::aztec::{
-    protocol_types::{address::PartialAddress, point::Point, utils::arr_copy_slice},
+    protocol_types::{address::PartialAddress, utils::arr_copy_slice},
     keys::{PublicKeys, PUBLIC_KEYS_LENGTH}
 };
 
