@@ -20,8 +20,8 @@ pub fn point_to_symmetric_key(secret: Scalar, point: Point) -> [u8; 32] {
 fn check_point_to_symmetric_key() {
     // Value taken from "derive shared secret" test in encrypt_buffer.test.ts
     let secret = Scalar::new(
-        0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
-        0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
+        0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
+        0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
     );
     let point = Point::new(
         0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,

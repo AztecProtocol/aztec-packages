@@ -33,8 +33,8 @@ fn test_encrypted_log_header() {
     let address = AztecAddress::from_field(0xdeadbeef);
     let header = EncryptedLogHeader::new(address);
     let secret = Scalar::new(
-        0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
-        0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
+        0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
+        0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
     );
     let point = Point::new(
         0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,

@@ -56,8 +56,8 @@ struct EmbeddedCurveScalar {
 }
 
 impl EmbeddedCurveScalar {
-    pub fn new(hi: Field, lo: Field) -> Self {
-        EmbeddedCurveScalar { hi, lo }
+    pub fn new(lo: Field, hi: Field) -> Self {
+        EmbeddedCurveScalar { lo, hi }
     }
 
     pub fn derive_public_key(self) -> EmbeddedCurvePoint {

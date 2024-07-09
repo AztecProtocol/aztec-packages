@@ -145,7 +145,7 @@ fn fr_to_fq(r: Field) -> Scalar {
     let low = bytes32_to_field(low_bytes);
     let high = bytes32_to_field(high_bytes);
 
-    Scalar::new(high, low)
+    Scalar::new(low, high)
 }
 
 fn compute_ivpk_app(ivpk: Point, contract_address: AztecAddress) -> Point {
