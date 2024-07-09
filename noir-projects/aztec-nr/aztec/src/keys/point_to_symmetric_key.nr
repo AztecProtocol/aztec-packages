@@ -35,7 +35,7 @@ fn check_point_to_symmetric_key() {
     let key = point_to_symmetric_key(secret, point);
     // The following value gets updated when running encrypt_buffer.test.ts with AZTEC_GENERATE_TEST_DATA=1
     let expected_key = [
-        34, 47, 73, 239, 201, 117, 244, 113, 255, 96, 117, 13, 217, 245, 66, 32, 86, 202, 135, 239, 240, 76, 236, 12, 45, 105, 159, 211, 174, 21, 51, 30
+        49, 167, 146, 222, 151, 129, 138, 184, 87, 210, 245, 249, 99, 100, 1, 59, 223, 180, 5, 99, 14, 7, 177, 236, 159, 203, 231, 72, 220, 180, 241, 23
     ];
     assert_eq(key, expected_key);
 }

@@ -74,7 +74,7 @@ export abstract class L1Payload {
     );
 
     return Buffer.concat([
-      ephPk.toBuffer(),
+      ephPk.toBufferWithoutIsInfinite(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
       outgoingBodyCiphertext,
