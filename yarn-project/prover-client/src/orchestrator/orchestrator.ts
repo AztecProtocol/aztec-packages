@@ -451,11 +451,7 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async prepareTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    // Pass the private kernel tail vk here as the previous one.
-    // If there are public functions then this key will be overwritten once the public tail has been proven
-    const previousKernelVerificationKey = ProtocolCircuitVks.PrivateKernelTailArtifact;
-
-    const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
+    const txInputs = await this.prepareBaseRollupInputs(provingState, tx);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
@@ -567,14 +563,11 @@ export class ProvingOrchestrator {
     }
 
     const getBaseInputsEmptyTx = async () => {
-      const header = await this.db.buildInitialHeader();
-      const chainId = tx.data.constants.globalVariables.chainId;
-      const version = tx.data.constants.globalVariables.version;
-
       const inputs = {
-        header,
-        chainId,
-        version,
+        header: await this.db.buildInitialHeader(),
+        chainId: tx.data.constants.globalVariables.chainId,
+        version: tx.data.constants.globalVariables.version,
+        vkTreeRoot: tx.data.constants.vkTreeRoot
       };
 
       const proof = await this.prover.getEmptyTubeProof(inputs);
