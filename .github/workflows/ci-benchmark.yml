@@ -1,0 +1,240 @@
+# The benchmark and other non-mandatory CI flows
+# Ran by CI.yml.
+name: Benchmark
+on:
+  workflow_dispatch:
+    inputs: {}
+
+concurrency:
+  # force parallelism in master
+  group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  # kludge until we move away from runners
+  WAIT_FOR_RUNNERS: false
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ github.event.pull_request.user.login || github.actor }}
+      runner_type: builder-x86
+    secrets: inherit
+
+  get-bench-e2e-names:
+    needs: [setup]
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-x86
+      # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
+      # (Note ARM uses just 2 tests as a smoketest)
+      - name: Create list of bench end-to-end jobs
+        id: bench_list
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+
+  # all the benchmarking end-to-end integration tests for aztec (not required to merge)
+  bench-e2e:
+    needs: [get-bench-e2e-names]
+    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson( needs.build.outputs.bench_list )}}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 45
+        with:
+          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: 40
+          run: |
+            set -eux
+            cd ./yarn-project/end-to-end/
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ../../scripts/earthly-ci -P \
+              --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              --no-output \
+              +${{ matrix.test }}
+
+  acir-bench:
+    runs-on: ubuntu-20.04
+    needs: [setup]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 40
+        with:
+          runner_type: 16core-tester-x86
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/barretenberg-acir-benches:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: cd noir && ../scripts/earthly-ci +export-bench-acir-bb
+          run: |
+            set -eux
+            cd ./noir/
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ../scripts/earthly-ci -P \
+              --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              --no-output \
+              +bench-publish-acir-bb
+
+  bench-summary:
+    needs:
+      - acir-bench
+      - bench-e2e
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 100 # Downloading base benchmark from master requires access to history
+          ref: "${{ github.event.pull_request.head.sha }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-x86
+      - name: "Build and upload bench aggregate file"
+        working-directory: ./yarn-project/scripts
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            +bench-aggregate
+      - name: "Download base benchmark and package into earthly"
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          # Download the base benchmark locally (requires AWS creds and .git history)
+          mkdir -p $BENCH_FOLDER
+          ./scripts/logs/download_base_benchmark_from_s3.sh
+          # Package it into an earthly artifact to read from bench-comment
+          earthly-ci -P ./scripts/logs+pack-base-benchmark
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BENCH_FOLDER: "./scripts/logs/tmp/bench"
+          PULL_REQUEST: "${{ github.event.pull_request.number }}"
+      - name: "Generate summary comment if pull request"
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: ./yarn-project/scripts
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+            +bench-comment
+
+  bb-bench:
+    runs-on: ubuntu-20.04
+    needs: [setup]
+    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Build Bench Binaries
+        uses: ./.github/ensure-builder
+        with:
+          runner_type: builder-x86
+          run: |
+            set -eux
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
+      - name: Run Bench
+        uses: ./.github/ensure-tester
+        timeout-minutes: 40
+        with:
+          runner_type: 16core-tester-x86
+          run: |
+            scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
+
+      # TODO(AD): revisit this model as it's currently fiddly to get these artifacts off of the 'tester'
+      - name: Copy Bench.json
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/barretenberg/cpp/bench.json bench.json
+      # Utilize github-action-benchmark to automatically update the plots at
+      # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
+      # This also creates an alert if benchmarks exceed the threshold specified below.
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: C++ Benchmark
+          tool: "googlecpp"
+          output-file-path: bench.json
+          # Access token to deploy GitHub Pages branch
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          # Push and deploy GitHub pages branch automatically
+          auto-push: true
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: "105%" # alert if bench result is 1.05x worse
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@ludamad @codygunton"
+
+  protocol-circuits-gates-report:
+    needs: [setup]
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: protocol-circuits-gates-report-x86
+      - name: "Noir Protocol Circuits Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: |
+          earthly-ci --artifact +gates-report/gates_report.json
+          mv gates_report.json ../protocol_circuits_report.json
+
+      - name: Compare gates reports
+        id: gates_diff
+        uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
+        with:
+          report: protocol_circuits_report.json
+          summaryQuantile: 0 # Display any diff in gate count
+
+      - name: Add gates diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.gates_diff.outputs.markdown }}
+          message: ${{ steps.gates_diff.outputs.markdown }}
