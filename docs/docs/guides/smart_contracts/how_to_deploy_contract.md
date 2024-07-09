@@ -33,7 +33,7 @@ This would create a typescript file like `Example.ts` in `./src/artifacts`. Read
 
 You can use the `Contract` class to deploy the contract:
 
-#include_code dapp_deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs typescript
+#include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs typescript
 
 Or you can use the generated contract class. See [below](#deploying-token-contract) for more details.
 
