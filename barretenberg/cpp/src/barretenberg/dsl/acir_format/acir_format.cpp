@@ -20,12 +20,10 @@ void build_constraints(Builder& builder,
                        bool honk_recursion,
                        bool collect_gates_per_opcode)
 {
-    size_t prev_gate_count = 0;
-
     if (collect_gates_per_opcode) {
-        prev_gate_count = 2; // Dumb change to change the bb hash
         constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
     }
+    size_t prev_gate_count = 0;
 
     auto compute_gate_diff = [&]() -> size_t {
         if (!collect_gates_per_opcode) {
