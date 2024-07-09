@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-    embedded_curve_point::EmbeddedCurvePoint,
+    embedded_curve_point::{EmbeddedCurvePoint, pub_key_to_bytes},
     constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash
 };
 
@@ -43,7 +43,7 @@ pub fn compute_encrypted_event_log<Event, NB, MB, OB>(
     let mut encrypted_bytes: [u8; OB] = [0; OB];
     // @todo We ignore the tags for now 
 
-    let eph_pk_bytes = eph_pk.to_be_bytes();
+    let eph_pk_bytes = pub_key_to_bytes(eph_pk);
     for i in 0..64 {
         encrypted_bytes[64 + i] = eph_pk_bytes[i];
     }
@@ -100,7 +100,7 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now 
 
-    let eph_pk_bytes = eph_pk.to_be_bytes();
+    let eph_pk_bytes = pub_key_to_bytes(eph_pk);
     for i in 0..64 {
         encrypted_bytes[64 + i] = eph_pk_bytes[i];
     }

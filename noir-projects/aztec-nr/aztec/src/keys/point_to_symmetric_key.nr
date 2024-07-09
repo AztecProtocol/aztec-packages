@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__SYMMETRIC_KEY, grumpkin_private_key::GrumpkinPrivateKey,
-    embedded_curve_point::EmbeddedCurvePoint, utils::arr_copy_slice
+    embedded_curve_point::{EmbeddedCurvePoint, pub_key_to_bytes}, utils::arr_copy_slice
 };
 use std::{hash::sha256, embedded_curve_ops::{EmbeddedCurveScalar, multi_scalar_mul}};
 
@@ -12,9 +12,9 @@ pub fn point_to_symmetric_key(secret: GrumpkinPrivateKey, point: EmbeddedCurvePo
         [EmbeddedCurveScalar { lo: secret.low, hi: secret.high }]
     );
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061): make the func return Point struct directly
-    let shared_secret = EmbeddedCurvePoint::new(shared_secret_fields[0], shared_secret_fields[1], false);
+    let shared_secret = pub_key_to_bytes(EmbeddedCurvePoint::new(shared_secret_fields[0], shared_secret_fields[1], false));
     let mut shared_secret_bytes_with_separator = [0 as u8; 65];
-    shared_secret_bytes_with_separator = arr_copy_slice(shared_secret.to_be_bytes(), shared_secret_bytes_with_separator, 0);
+    shared_secret_bytes_with_separator = arr_copy_slice(shared_secret, shared_secret_bytes_with_separator, 0);
     shared_secret_bytes_with_separator[64] = GENERATOR_INDEX__SYMMETRIC_KEY;
     sha256(shared_secret_bytes_with_separator)
 }
