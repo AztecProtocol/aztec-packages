@@ -154,8 +154,6 @@ impl<'context> Elaborator<'context> {
         };
 
         if let Some(unresolved_span) = typ.span {
-            let reference =
-                ReferenceId::Variable(Location::new(unresolved_span, self.file), is_self_type_name);
             match resolved_type {
                 Type::Struct(ref struct_type, _) => {
                     // Record the location of the type reference
