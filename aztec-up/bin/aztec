@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CALLED_FROM=$PWD
+
 function run_with_compose {
   # Favour 'docker compose', falling back on docker-compose.
   CMD="docker compose"
@@ -18,13 +20,14 @@ function run_with_compose {
   # Change working dir, so relative volume mounts are in the right place.
   cd $(dirname $0)/..
 
-  AZTEC_CMD=$2 $CMD $ARGS -f $HOME/.aztec/docker-compose.yml up --force-recreate --remove-orphans 
+  WORKING_DIR=${CALLED_FROM} NARGO_CMD="${3:-}" AZTEC_CMD=$2 $CMD $ARGS -f $HOME/.aztec/docker-compose.yml up --force-recreate --remove-orphans --abort-on-container-exit
 }
 
 if [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
   run_with_compose "-p sandbox --profile sandbox" "start --sandbox"
-elif [ $# == 1 ] && [ "$1" == "test" ]; then
-  run_with_compose "-p aztec-test --profile test" "test"
+elif [ "$1" == "test" ]; then
+  TEST_ARGS="$@ --silence-warnings --use-legacy --oracle-resolver=http://aztec:8081"
+  run_with_compose "-p aztec-test --profile test" "test" "$TEST_ARGS"
 else 
   $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
 fi

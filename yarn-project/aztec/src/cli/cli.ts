@@ -117,7 +117,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
     });
 
   program
-    .command('txe')
+    .command('test')
     .description('Starts and Aztec TXE (Testing eXecution Environment) RPC server to run noir contract tests')
     .option('-p, --port <port>', 'Port to run TXE on.', TXE_PORT)
     .action(async options => {

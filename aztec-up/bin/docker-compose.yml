@@ -43,3 +43,11 @@ services:
   nargo:
     image: "aztecprotocol/aztec-nargo"
     profiles: [test]
+    entrypoint: /usr/bin/nargo
+    command: ${NARGO_CMD}
+    working_dir: ${WORKING_DIR}
+    environment:
+      HOME: # Loaded from the user shell
+      NARGO_FOREIGN_CALL_TIMEOUT: 300000
+    volumes:
+      - ${HOME}:${HOME}
