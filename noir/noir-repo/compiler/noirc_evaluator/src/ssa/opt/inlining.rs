@@ -471,18 +471,35 @@ impl<'function> PerFunctionContext<'function> {
     /// This may recurse if it finds another function to inline if a call instruction is within this block.
     fn inline_block_instructions(&mut self, ssa: &Ssa, block_id: BasicBlockId) {
         let block = &self.source_function.dfg[block_id];
+        let mut current_side_effects_enabled_var = None;
+
         for id in block.instructions() {
             match &self.source_function.dfg[*id] {
                 Instruction::Call { func, arguments } => match self.get_function(*func) {
                     Some(func_id) => {
                         if self.should_inline_call(ssa, func_id) {
                             self.inline_function(ssa, *id, func_id, arguments);
+                            if let Some(current_side_effects_enabled_var) =
+                                current_side_effects_enabled_var
+                            {
+                                self.context.builder.insert_instruction(
+                                    Instruction::EnableSideEffects {
+                                        condition: current_side_effects_enabled_var,
+                                    },
+                                    None,
+                                );
+                            }
                         } else {
                             self.push_instruction(*id);
                         }
                     }
                     None => self.push_instruction(*id),
                 },
+                Instruction::EnableSideEffects { condition } => {
+                    let condition = self.translate_value(*condition);
+                    current_side_effects_enabled_var = Some(condition);
+                    self.push_instruction(*id);
+                }
                 _ => self.push_instruction(*id),
             }
         }
