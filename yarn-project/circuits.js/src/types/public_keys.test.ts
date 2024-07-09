@@ -24,7 +24,7 @@ describe('PublicKeys', () => {
 
     const hash = keys.hash().toString();
     expect(hash).toMatchInlineSnapshot(`"0x0000000000000000000000000000000000000000000000000000000000000000"`);
-    
+
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData('noir-projects/aztec-nr/aztec/src/keys/public_keys.nr', 'test_data_empty_hash', hash);
   });
