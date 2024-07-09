@@ -121,6 +121,9 @@ impl PrivateCallDataValidator {
         let call_context = public_inputs.call_context;
         assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
         assert(call_context.is_static_call == false, "Users cannot make a static call");
+        assert(
+            call_context.msg_sender == AztecAddress::from_field(0 - 1), "Users cannot set msg_sender in first call"
+        );
     }
 
     // Confirm that the TxRequest (user's intent) matches the private call being executed.

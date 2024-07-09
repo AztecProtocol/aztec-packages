@@ -44,7 +44,7 @@ export class AcirSimulator {
     request: TxExecutionRequest,
     entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
-    msgSender = AztecAddress.ZERO,
+    msgSender = AztecAddress.fromField(new Fr(Fr.MODULUS - 1n)),
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);

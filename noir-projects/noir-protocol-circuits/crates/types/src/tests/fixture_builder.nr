@@ -203,6 +203,11 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn is_first_call(&mut self) -> Self {
+        self.msg_sender = AztecAddress::from_field(0-1);
+        *self
+    }
+
     pub fn to_constant_data(self) -> CombinedConstantData {
         CombinedConstantData {
             historical_header: self.historical_header,
