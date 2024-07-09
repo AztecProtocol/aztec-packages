@@ -53,7 +53,7 @@ template <class Flavor> class ProverInstance_ {
 
         // If using a structured trace, ensure that no block exceeds the fixed size
         if (is_structured) {
-            // WORKTODO: set fixed sizes here
+            circuit.blocks.set_fixed_block_sizes(trace_structure);
             circuit.blocks.check_within_fixed_sizes();
         }
 

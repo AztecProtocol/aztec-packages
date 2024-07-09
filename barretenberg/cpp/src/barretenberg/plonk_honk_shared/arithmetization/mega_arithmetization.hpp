@@ -4,88 +4,94 @@
 
 namespace bb {
 
-template <typename T> struct MegaTraceBlocks {
-    T ecc_op;
-    T pub_inputs;
-    T arithmetic;
-    T delta_range;
-    T elliptic;
-    T aux;
-    T lookup;
-    T busread;
-    T poseidon_external;
-    T poseidon_internal;
-
-    auto get()
-    {
-        return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
-                         aux,    lookup,     busread,    poseidon_external, poseidon_internal };
-    }
-
-    bool operator==(const MegaTraceBlocks& other) const = default;
-};
-
-// This is a set of fixed block sizes that accomodates the circuits currently processed in the ClientIvc bench.
-// Note 1: The individual block sizes do NOT need to be powers of 2, this is just for conciseness.
-// Note 2: Current sizes result in a full trace size of 2^18. It's not possible to define a fixed structure
-// that accomdates both the kernel and the function circuit while remaining under 2^17. This is because the
-// circuits differ in structure but are also both designed to be "full" within the 2^17 size.
-enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
-
-struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
-    SmallTestStructuredBlockSizes()
-    {
-        this->ecc_op = 1 << 10;
-        this->pub_inputs = 1 << 7;
-        this->arithmetic = 1 << 16;
-        this->delta_range = 1 << 15;
-        this->elliptic = 1 << 14;
-        this->aux = 1 << 16;
-        this->lookup = 1 << 15;
-        this->busread = 1 << 7;
-        this->poseidon_external = 1 << 11;
-        this->poseidon_internal = 1 << 14;
-    }
-};
-
-struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
-    ClientIvcBenchStructuredBlockSizes()
-    {
-        this->ecc_op = 1 << 10;
-        this->pub_inputs = 1 << 7;
-        this->arithmetic = 1 << 16;
-        this->delta_range = 1 << 15;
-        this->elliptic = 1 << 14;
-        this->aux = 1 << 16;
-        this->lookup = 1 << 15;
-        this->busread = 1 << 7;
-        this->poseidon_external = 1 << 11;
-        this->poseidon_internal = 1 << 14;
-    }
-};
-
-struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
-    E2eStructuredBlockSizes()
-    {
-        this->ecc_op = 1 << 10;
-        this->pub_inputs = 1 << 7;
-        this->arithmetic = 1 << 16;
-        this->delta_range = 1 << 15;
-        this->elliptic = 1 << 14;
-        this->aux = 1 << 16;
-        this->lookup = 1 << 15;
-        this->busread = 1 << 7;
-        this->poseidon_external = 1 << 11;
-        this->poseidon_internal = 1 << 14;
-    }
-};
-
 /**
  * @brief Mega arithmetization
  *
  * @tparam FF_
  */
 template <typename FF_> class MegaArith {
+
+    /**
+     * @brief Defines the circuit block types for the Mega arithmetization
+     * @note Its useful to define this as a template since it is used to actually store gate data (T = MegaTraceBlock)
+     * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
+     * tracking in ClientIvc.
+     *
+     * @tparam T
+     */
+    template <typename T> struct MegaTraceBlocks {
+        T ecc_op;
+        T pub_inputs;
+        T arithmetic;
+        T delta_range;
+        T elliptic;
+        T aux;
+        T lookup;
+        T busread;
+        T poseidon_external;
+        T poseidon_internal;
+
+        auto get()
+        {
+            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
+                             aux,    lookup,     busread,    poseidon_external, poseidon_internal };
+        }
+
+        bool operator==(const MegaTraceBlocks& other) const = default;
+    };
+
+    // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
+    struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        SmallTestStructuredBlockSizes()
+        {
+            const uint32_t FIXED_SIZE = 1 << 15;
+            this->ecc_op = FIXED_SIZE;
+            this->pub_inputs = FIXED_SIZE;
+            this->arithmetic = FIXED_SIZE;
+            this->delta_range = FIXED_SIZE;
+            this->elliptic = FIXED_SIZE;
+            this->aux = FIXED_SIZE;
+            this->lookup = FIXED_SIZE;
+            this->busread = FIXED_SIZE;
+            this->poseidon_external = FIXED_SIZE;
+            this->poseidon_internal = FIXED_SIZE;
+        }
+    };
+
+    // A minimal structuring specificaly tailored to the medium complexity transaction in the ClientIvc benchmark
+    struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        ClientIvcBenchStructuredBlockSizes()
+        {
+            this->ecc_op = 1 << 10;
+            this->pub_inputs = 1 << 7;
+            this->arithmetic = 1 << 16;
+            this->delta_range = 1 << 15;
+            this->elliptic = 1 << 14;
+            this->aux = 1 << 16;
+            this->lookup = 1 << 15;
+            this->busread = 1 << 7;
+            this->poseidon_external = 1 << 11;
+            this->poseidon_internal = 1 << 14;
+        }
+    };
+
+    // Structuring tailored to the full e2e TS test
+    struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        E2eStructuredBlockSizes()
+        {
+            this->ecc_op = 1 << 10;
+            this->pub_inputs = 1 << 7;
+            this->arithmetic = 1 << 16;
+            this->delta_range = 1 << 15;
+            this->elliptic = 1 << 14;
+            this->aux = 1 << 16;
+            this->lookup = 1 << 15;
+            this->busread = 1 << 7;
+            this->poseidon_external = 1 << 11;
+            this->poseidon_internal = 1 << 14;
+        }
+    };
+
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
@@ -159,16 +165,20 @@ template <typename FF_> class MegaArith {
         // Set fixed block sizes for use in structured trace
         void set_fixed_block_sizes(TraceStructure setting)
         {
-            MegaTraceBlocks<uint32_t> fixed_block_sizes;
+            MegaTraceBlocks<uint32_t> fixed_block_sizes{}; // zero initialized
+
             switch (setting) {
             case TraceStructure::NONE:
-                fixed_block_sizes = MegaTraceBlocks<uint32_t>();
+                break;
             case TraceStructure::SMALL_TEST:
                 fixed_block_sizes = SmallTestStructuredBlockSizes();
+                break;
             case TraceStructure::CLIENT_IVC_BENCH:
                 fixed_block_sizes = ClientIvcBenchStructuredBlockSizes();
+                break;
             case TraceStructure::E2E_FULL_TEST:
                 fixed_block_sizes = E2eStructuredBlockSizes();
+                break;
             }
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
@@ -179,8 +189,6 @@ template <typename FF_> class MegaArith {
         {
             this->aux.has_ram_rom = true;
             this->pub_inputs.is_pub_inputs = true;
-            // Set fixed block sizes for use in structured trace
-            set_fixed_block_sizes(TraceStructure::CLIENT_IVC_BENCH);
         }
 
         void summarize() const
@@ -214,6 +222,7 @@ template <typename FF_> class MegaArith {
                 if (block.size() > block.get_fixed_size()) {
                     info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
                          "not be constructed correctly!");
+                    summarize();
                     ASSERT(false);
                 }
             }

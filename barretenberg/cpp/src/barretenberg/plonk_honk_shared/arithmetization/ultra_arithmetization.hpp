@@ -5,6 +5,42 @@
 namespace bb {
 
 template <typename FF_> class UltraArith {
+
+    /**
+     * @brief Defines the circuit block types for the Ultra arithmetization
+     * @note Its useful to define this as a template since it is used to actually store gate data (T = UltraTraceBlock)
+     * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
+     * tracking in ClientIvc.
+     *
+     * @tparam T
+     */
+    template <typename T> struct UltraTraceBlocks {
+        T pub_inputs;
+        T arithmetic;
+        T delta_range;
+        T elliptic;
+        T aux;
+        T lookup;
+
+        auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
+
+        bool operator==(const UltraTraceBlocks& other) const = default;
+    };
+
+    // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
+    struct SmallTestStructuredBlockSizes : public UltraTraceBlocks<uint32_t> {
+        SmallTestStructuredBlockSizes()
+        {
+            const uint32_t FIXED_SIZE = 1 << 10;
+            this->pub_inputs = FIXED_SIZE;
+            this->arithmetic = FIXED_SIZE;
+            this->delta_range = FIXED_SIZE;
+            this->elliptic = FIXED_SIZE;
+            this->aux = FIXED_SIZE;
+            this->lookup = FIXED_SIZE;
+        }
+    };
+
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 11;
@@ -41,45 +77,49 @@ template <typename FF_> class UltraArith {
         auto& q_lookup_type() { return this->selectors[10]; };
     };
 
-    struct TraceBlocks {
-        UltraTraceBlock pub_inputs;
-        UltraTraceBlock arithmetic;
-        UltraTraceBlock delta_range;
-        UltraTraceBlock elliptic;
-        UltraTraceBlock aux;
-        UltraTraceBlock lookup;
+    struct TraceBlocks : public UltraTraceBlocks<UltraTraceBlock> {
 
-        static constexpr uint32_t FIXED_BLOCK_SIZE = 1 << 10; // (Arbitrary for now)
-        std::array<uint32_t, 6> fixed_block_sizes{
-            1 << 3,           // pub_inputs;
-            FIXED_BLOCK_SIZE, // arithmetic;
-            FIXED_BLOCK_SIZE, // delta_range;
-            FIXED_BLOCK_SIZE, // elliptic;
-            FIXED_BLOCK_SIZE, // aux;
-            FIXED_BLOCK_SIZE  // lookup;
-        };
-
-        TraceBlocks()
+        // Set fixed block sizes for use in structured trace
+        void set_fixed_block_sizes(TraceStructure setting)
         {
-            aux.has_ram_rom = true;
-            pub_inputs.is_pub_inputs = true;
-            // Set fixed block sizes for use in structured trace
-            for (auto [block, size] : zip_view(this->get(), fixed_block_sizes)) {
+            UltraTraceBlocks<uint32_t> fixed_block_sizes{}; // zero initialized
+
+            switch (setting) {
+            case TraceStructure::NONE:
+                break;
+            // We don't use Ultra in ClientIvc so no need for anything other than sizing for simple unit tests
+            case TraceStructure::SMALL_TEST:
+            case TraceStructure::CLIENT_IVC_BENCH:
+            case TraceStructure::E2E_FULL_TEST:
+                fixed_block_sizes = SmallTestStructuredBlockSizes();
+                break;
+            }
+            for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
         }
 
-        auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
+        TraceBlocks()
+        {
+            this->aux.has_ram_rom = true;
+            this->pub_inputs.is_pub_inputs = true;
+        }
+
+        auto get()
+        {
+            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,
+                             this->elliptic,   this->aux,        this->lookup };
+        }
 
         void summarize() const
         {
             info("Gate blocks summary:");
-            info("pub inputs :\t", pub_inputs.size());
-            info("arithmetic :\t", arithmetic.size());
-            info("delta range:\t", delta_range.size());
-            info("elliptic   :\t", elliptic.size());
-            info("auxiliary  :\t", aux.size());
-            info("lookups    :\t", lookup.size());
+            info("pub inputs :\t", this->pub_inputs.size());
+            info("arithmetic :\t", this->arithmetic.size());
+            info("delta range:\t", this->delta_range.size());
+            info("elliptic   :\t", this->elliptic.size());
+            info("auxiliary  :\t", this->aux.size());
+            info("lookups    :\t", this->lookup.size());
         }
 
         size_t get_total_structured_size()
