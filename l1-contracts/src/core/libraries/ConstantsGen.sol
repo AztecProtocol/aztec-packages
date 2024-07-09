@@ -172,10 +172,10 @@ library Constants {
   uint256 internal constant TX_REQUEST_LENGTH = 13;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 23;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 449;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 482;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 452;
-  uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 444;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 481;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 447;
+  uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
@@ -185,8 +185,8 @@ library Constants {
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 41;
   uint256 internal constant PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH = 15;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1168;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2308;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1160;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2300;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
   uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3323;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 384;
