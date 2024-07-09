@@ -1,12 +1,8 @@
-use dep::protocol_types::{address::AztecAddress, embedded_curve_point::EmbeddedCurvePoint};
+use dep::protocol_types::{address::AztecAddress, point::Point};
 
 // = 480 + 32 * N bytes
 #[oracle(emitEncryptedNoteLog)]
-unconstrained fn emit_encrypted_note_log_oracle<M>(
-    _note_hash_counter: u32,
-    _encrypted_note: [u8; M],
-    _counter: u32
-) {}
+unconstrained fn emit_encrypted_note_log_oracle<M>(_note_hash_counter: u32, _encrypted_note: [u8; M], _counter: u32) {}
 
 unconstrained pub fn emit_encrypted_note_log<M>(
     note_hash_counter: u32,
@@ -40,8 +36,8 @@ unconstrained fn compute_encrypted_note_log_oracle<N, M>(
     _storage_slot: Field,
     _note_type_id: Field,
     _ovsk_app: Field,
-    _ovpk_m: EmbeddedCurvePoint,
-    _ivpk_m: EmbeddedCurvePoint,
+    _ovpk_m: Point,
+    _ivpk_m: Point,
     _preimage: [Field; N]
 ) -> [u8; M] {}
 
@@ -50,8 +46,8 @@ unconstrained pub fn compute_encrypted_note_log<N, M>(
     storage_slot: Field,
     note_type_id: Field,
     ovsk_app: Field,
-    ovpk_m: EmbeddedCurvePoint,
-    ivpk_m: EmbeddedCurvePoint,
+    ovpk_m: Point,
+    ivpk_m: Point,
     preimage: [Field; N]
 ) -> [u8; M] {
     compute_encrypted_note_log_oracle(
@@ -72,8 +68,8 @@ unconstrained fn compute_encrypted_event_log_oracle<N, M>(
     _randomness: Field,
     _event_type_id: Field,
     _ovsk_app: Field,
-    _ovpk_m: EmbeddedCurvePoint,
-    _ivpk_m: EmbeddedCurvePoint,
+    _ovpk_m: Point,
+    _ivpk_m: Point,
     _preimage: [Field; N]
 ) -> [u8; M] {}
 
@@ -82,8 +78,8 @@ unconstrained pub fn compute_encrypted_event_log<N, M>(
     randomness: Field,
     event_type_id: Field,
     ovsk_app: Field,
-    ovpk_m: EmbeddedCurvePoint,
-    ivpk_m: EmbeddedCurvePoint,
+    ovpk_m: Point,
+    ivpk_m: Point,
     preimage: [Field; N]
 ) -> [u8; M] {
     compute_encrypted_event_log_oracle(
@@ -98,11 +94,7 @@ unconstrained pub fn compute_encrypted_event_log<N, M>(
 }
 
 #[oracle(emitUnencryptedLog)]
-unconstrained fn emit_unencrypted_log_oracle_private<T>(
-    _contract_address: AztecAddress,
-    _message: T,
-    _counter: u32
-) -> Field {}
+unconstrained fn emit_unencrypted_log_oracle_private<T>(_contract_address: AztecAddress, _message: T, _counter: u32) -> Field {}
 
 unconstrained pub fn emit_unencrypted_log_private_internal<T>(
     contract_address: AztecAddress,
@@ -115,10 +107,6 @@ unconstrained pub fn emit_unencrypted_log_private_internal<T>(
 #[oracle(emitContractClassUnencryptedLog)]
 unconstrained fn emit_contract_class_unencrypted_log_private<N>(contract_address: AztecAddress, message: [Field; N], counter: u32) -> Field {}
 
-unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
-    contract_address: AztecAddress,
-    message: [Field; N],
-    counter: u32
-) -> Field {
+unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(contract_address: AztecAddress, message: [Field; N], counter: u32) -> Field {
     emit_contract_class_unencrypted_log_private(contract_address, message, counter)
 }

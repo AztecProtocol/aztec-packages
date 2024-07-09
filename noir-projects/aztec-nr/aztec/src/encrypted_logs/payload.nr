@@ -1,6 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-    embedded_curve_point::{EmbeddedCurvePoint, pub_key_to_bytes},
+    address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, point::{Point, pub_key_to_bytes},
     constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash
 };
 
@@ -20,8 +19,8 @@ pub fn compute_encrypted_event_log<Event, NB, MB, OB>(
     contract_address: AztecAddress,
     randomness: Field,
     ovsk_app: Field,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint,
+    ovpk: Point,
+    ivpk: Point,
     event: Event
 ) -> [u8; OB] where Event: EventInterface<NB, MB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
@@ -77,8 +76,8 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     contract_address: AztecAddress,
     storage_slot: Field,
     ovsk_app: Field,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint,
+    ovpk: Point,
+    ivpk: Point,
     note: Note
 ) -> [u8; M] where Note: NoteInterface<N, NB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
@@ -147,7 +146,7 @@ fn fr_to_private_key(r: Field) -> GrumpkinPrivateKey {
     GrumpkinPrivateKey::new(high, low)
 }
 
-fn compute_ivpk_app(ivpk: EmbeddedCurvePoint, contract_address: AztecAddress) -> EmbeddedCurvePoint {
+fn compute_ivpk_app(ivpk: Point, contract_address: AztecAddress) -> Point {
     // It is useless to compute this, it brings no value to derive fully.
     // Issue(#6955)
     ivpk
@@ -159,10 +158,10 @@ fn compute_ivpk_app(ivpk: EmbeddedCurvePoint, contract_address: AztecAddress) ->
     let i = fr_to_private_key(poseidon2_hash([contract_address.to_field(), ivpk.x, ivpk.y, GENERATOR_INDEX__IVSK_M]));
     let I = i.derive_public_key();
 
-    let embed_I = EmbeddedCurvePoint { x: I.x, y: I.y, is_infinite: false };
-    let embed_ivpk = EmbeddedCurvePoint { x: ivpk.x, y: ivpk.y, is_infinite: false };
+    let embed_I = Point { x: I.x, y: I.y, is_infinite: false };
+    let embed_ivpk = Point { x: ivpk.x, y: ivpk.y, is_infinite: false };
 
     let embed_result = embedded_curve_add(embed_I, embed_ivpk);
 
-    EmbeddedCurvePoint::new(embed_result.x, embed_result.y)*/
+    Point::new(embed_result.x, embed_result.y)*/
 }

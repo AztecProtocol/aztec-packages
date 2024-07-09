@@ -1,10 +1,7 @@
-use crate::{
-    constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    embedded_curve_point::EmbeddedCurvePoint
-};
+use crate::{constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize}, point::Point};
 
 struct KeyValidationRequest {
-    pk_m: EmbeddedCurvePoint,
+    pk_m: Point,
     sk_app: Field, // not a grumpkin scalar because it's output of poseidon2
 }
 
@@ -18,7 +15,7 @@ impl Eq for KeyValidationRequest {
 impl Empty for KeyValidationRequest {
     fn empty() -> Self {
         KeyValidationRequest {
-            pk_m: EmbeddedCurvePoint::empty(),
+            pk_m: Point::empty(),
             sk_app: 0,
         }
     }
@@ -38,7 +35,7 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
         Self {
-            pk_m: EmbeddedCurvePoint::new(fields[0], fields[1], fields[2] as bool),
+            pk_m: Point::new(fields[0], fields[1], fields[2] as bool),
             sk_app: fields[3],
         }
     }

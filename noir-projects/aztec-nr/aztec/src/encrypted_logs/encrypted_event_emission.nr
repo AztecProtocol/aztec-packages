@@ -3,14 +3,14 @@ use crate::{
     encrypted_logs::payload::compute_encrypted_event_log, oracle::logs_traits::LensForEncryptedEvent,
     oracle::unsafe_rand::unsafe_rand
 };
-use dep::protocol_types::{address::AztecAddress, embedded_curve_point::EmbeddedCurvePoint, hash::sha256_to_field};
+use dep::protocol_types::{address::AztecAddress, point::Point, hash::sha256_to_field};
 
 unconstrained fn compute_unconstrained<Event, NB, MB, OB>(
     contract_address: AztecAddress,
     randomness: Field,
     ovsk_app: Field,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint,
+    ovpk: Point,
+    ivpk: Point,
     event: Event
 ) -> ([u8; OB], Field) where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     compute(contract_address, randomness, ovsk_app, ovpk, ivpk, event)
@@ -20,8 +20,8 @@ fn compute<Event, NB, MB, OB>(
     contract_address: AztecAddress,
     randomness: Field,
     ovsk_app: Field,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint,
+    ovpk: Point,
+    ivpk: Point,
     event: Event
 ) -> ([u8; OB], Field) where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     let encrypted_log: [u8; OB] = compute_encrypted_event_log(contract_address, randomness, ovsk_app, ovpk, ivpk, event);
@@ -33,9 +33,9 @@ fn emit_with_keys<Event, NB, MB, OB>(
     context: &mut PrivateContext,
     randomness: Field,
     event: Event,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint,
-    inner_compute: fn(AztecAddress, Field, Field, EmbeddedCurvePoint, EmbeddedCurvePoint, Event) -> ([u8; OB], Field)
+    ovpk: Point,
+    ivpk: Point,
+    inner_compute: fn(AztecAddress, Field, Field, Point, Point, Event) -> ([u8; OB], Field)
 ) where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     let contract_address: AztecAddress = context.this_address();
     let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
@@ -101,9 +101,9 @@ pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, NB, MB, OB>
 
 pub fn encode_and_encrypt_event_with_keys<Event, NB, MB, OB>(
     context: &mut PrivateContext,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint
-) -> fn[(&mut PrivateContext, EmbeddedCurvePoint, EmbeddedCurvePoint)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+    ovpk: Point,
+    ivpk: Point
+) -> fn[(&mut PrivateContext, Point, Point)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
         let randomness = unsafe_rand();
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute);
@@ -112,9 +112,9 @@ pub fn encode_and_encrypt_event_with_keys<Event, NB, MB, OB>(
 
 pub fn encode_and_encrypt_event_with_keys_unconstrained<Event, NB, MB, OB>(
     context: &mut PrivateContext,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint
-) -> fn[(&mut PrivateContext, EmbeddedCurvePoint, EmbeddedCurvePoint)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+    ovpk: Point,
+    ivpk: Point
+) -> fn[(&mut PrivateContext, Point, Point)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
         let randomness = unsafe_rand();
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute_unconstrained);
@@ -124,9 +124,9 @@ pub fn encode_and_encrypt_event_with_keys_unconstrained<Event, NB, MB, OB>(
 pub fn encode_and_encrypt_event_with_keys_with_randomness<Event, NB, MB, OB>(
     context: &mut PrivateContext,
     randomness: Field,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint
-) -> fn[(&mut PrivateContext, Field, EmbeddedCurvePoint, EmbeddedCurvePoint)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+    ovpk: Point,
+    ivpk: Point
+) -> fn[(&mut PrivateContext, Field, Point, Point)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute);
     }
@@ -135,9 +135,9 @@ pub fn encode_and_encrypt_event_with_keys_with_randomness<Event, NB, MB, OB>(
 pub fn encode_and_encrypt_event_with_keys_with_randomness_unconstrained<Event, NB, MB, OB>(
     context: &mut PrivateContext,
     randomness: Field,
-    ovpk: EmbeddedCurvePoint,
-    ivpk: EmbeddedCurvePoint
-) -> fn[(&mut PrivateContext, Field, EmbeddedCurvePoint, EmbeddedCurvePoint)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+    ovpk: Point,
+    ivpk: Point
+) -> fn[(&mut PrivateContext, Field, Point, Point)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute_unconstrained);
     }

@@ -77,7 +77,6 @@ mod tests {
         gas::Gas, gas_fees::GasFees
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        embedded_curve_point::EmbeddedCurvePoint,
         transaction::{tx_request::TxRequest, tx_context::TxContext}
     };
 
