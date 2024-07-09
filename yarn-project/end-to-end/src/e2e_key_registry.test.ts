@@ -49,7 +49,9 @@ describe('Key Registry', () => {
       {
         // We call toBuffer and fromBuffer first to ensure that we get a deep copy
         const publicKeysFields = PublicKeys.fromBuffer(account.publicKeys.toBuffer()).toFields();
-        const randomIndex = Math.floor(Math.random() * publicKeysFields.length);
+        const nonIsInfiniteIndices = [0, 1, 3, 4, 6, 7, 9, 10];
+        const randomIndex = nonIsInfiniteIndices[Math.floor(Math.random() * nonIsInfiniteIndices.length)];
+
         publicKeysFields[randomIndex] = Fr.random();
 
         invalidPublicKeys = PublicKeys.fromFields(publicKeysFields);
