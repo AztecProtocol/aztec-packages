@@ -31,7 +31,7 @@ aztec-builder codegen ./aztec-nargo/output/target/path -o src/artifacts
 
 This would create a typescript file like `Example.ts` in `./src/artifacts`. Read more on the [compiling page](how_to_compile_contract.md).
 
-You can use the `Contract` class to deploy the contract:
+You can use the `Contract` class to deploy a contract:
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs typescript
 
@@ -51,9 +51,17 @@ Additionally the `.send()` method can have a few optional arguments too, which a
 
 To give you a more complete example we will deploy a `Token` contract whose artifacts are included in the `@aztec/noir-contracts.js` package.
 
-#include_code full_deploy yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+```ts
+#include_code create_account_imports yarn-project/end-to-end/src/composed/docs_examples.test.ts raw
+#include_code import_contract yarn-project/end-to-end/src/composed/docs_examples.test.ts raw
+#include_code import_token_contract yarn-project/end-to-end/src/composed/docs_examples.test.ts raw
 
-If everything went as expected you should see the following output (with a different address):
+async function main(){
+
+    #include_code full_deploy yarn-project/end-to-end/src/composed/docs_examples.test.ts raw
+
+}
+```
 
 :::note
 You can try running the deployment with the same salt the second time in which case the transaction will fail because the address has been already deployed to.

@@ -11,8 +11,8 @@ import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/T
 // docs:end:import_token_contract
 
 describe('docs_examples', () => {
-  // docs:start:full_deploy
   it('deploys and interacts with a token contract', async () => {
+    // docs:start:full_deploy
     // docs:start:define_account_vars
     const PXE_URL = process.env.PXE_URL || 'http://localhost:8080';
     const secretKey = Fr.random();
