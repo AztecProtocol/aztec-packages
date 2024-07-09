@@ -276,7 +276,7 @@ global RECURSIVE_PROOF_LENGTH = 393;
 global NESTED_RECURSIVE_PROOF_LENGTH = 393;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
