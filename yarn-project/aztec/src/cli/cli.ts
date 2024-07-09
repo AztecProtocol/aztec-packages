@@ -125,9 +125,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
       const app = txeServer.getApp();
       const httpServer = http.createServer(app.callback());
       httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
-      httpServer.listen(TXE_PORT);
-
-      installSignalHandlers(debugLogger.info, txeServer.stop);
+      httpServer.listen(parseInt(options.port || TXE_PORT));
     });
 
   program.configureHelp({ sortSubcommands: true });
