@@ -1,6 +1,6 @@
 use crate::note::note_interface::NoteInterface;
 use crate::event::event_interface::EventInterface;
-use dep::protocol_types::{embedded_curve_scalar::EmbeddedCurveScalar, point::Point};
+use dep::protocol_types::{scalar::Scalar, point::Point};
 
 use std::aes128::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
@@ -20,7 +20,7 @@ impl<M> EncryptedLogIncomingBody<M> {
         EncryptedLogIncomingBody { plaintext }
     }
 
-    pub fn compute_ciphertext(self, eph_sk: EmbeddedCurveScalar, ivpk_app: Point) -> [u8] {
+    pub fn compute_ciphertext(self, eph_sk: Scalar, ivpk_app: Point) -> [u8] {
         let full_key = point_to_symmetric_key(eph_sk, ivpk_app);
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -37,8 +37,7 @@ mod test {
     use crate::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        embedded_curve_scalar::EmbeddedCurveScalar, point::Point, traits::Serialize,
-        abis::event_selector::EventSelector
+        scalar::Scalar, point::Point, traits::Serialize, abis::event_selector::EventSelector
     };
 
     use crate::{
@@ -119,7 +118,7 @@ mod test {
 
         let storage_slot = 2;
 
-        let eph_sk = EmbeddedCurveScalar::new(
+        let eph_sk = Scalar::new(
             0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
             0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
         );
@@ -218,7 +217,7 @@ mod test {
     fn test_encrypted_log_event_incoming_body() {
         let test_event = TestEvent { value0: 1, value1: 2, value2: 3 };
 
-        let eph_sk = EmbeddedCurveScalar::new(
+        let eph_sk = Scalar::new(
             0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
             0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
         );

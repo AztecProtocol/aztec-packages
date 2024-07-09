@@ -13,7 +13,7 @@ export class EncryptedLogOutgoingBody {
    */
   public toBuffer(): Buffer {
     // The serialization of Fq is [high, low] check `grumpkin_private_key.nr`
-    const ephSkBytes = serializeToBuffer([this.ephSk.high, this.ephSk.low]);
+    const ephSkBytes = serializeToBuffer([this.ephSk.hi, this.ephSk.lo]);
     return serializeToBuffer(ephSkBytes, this.recipient, this.recipientIvpkApp);
   }
 
@@ -95,6 +95,6 @@ export class EncryptedLogOutgoingBody {
     // For performance reasons, we do NOT use the usual `deriveAESSecret` function here and instead we compute it using
     // poseidon. Note that we can afford to use poseidon here instead of deriving shared secret using Diffie-Hellman
     // because for outgoing we are encrypting for ourselves and hence we don't need to perform a key exchange.
-    return poseidon2Hash([ovskApp.high, ovskApp.low, ephPk.x, ephPk.y, GeneratorIndex.SYMMETRIC_KEY]).toBuffer();
+    return poseidon2Hash([ovskApp.hi, ovskApp.lo, ephPk.x, ephPk.y, GeneratorIndex.SYMMETRIC_KEY]).toBuffer();
   }
 }

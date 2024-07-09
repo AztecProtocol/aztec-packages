@@ -233,8 +233,8 @@ export class KeyStore {
 
     return Promise.resolve(
       poseidon2Hash([
-        masterIncomingViewingSecretKey.high,
-        masterIncomingViewingSecretKey.low,
+        masterIncomingViewingSecretKey.hi,
+        masterIncomingViewingSecretKey.lo,
         app,
         GeneratorIndex.IVSK_M,
       ]),
@@ -259,8 +259,8 @@ export class KeyStore {
 
     return Promise.resolve(
       poseidon2Hash([
-        masterOutgoingViewingSecretKey.high,
-        masterOutgoingViewingSecretKey.low,
+        masterOutgoingViewingSecretKey.hi,
+        masterOutgoingViewingSecretKey.lo,
         app,
         GeneratorIndex.OVSK_M,
       ]),

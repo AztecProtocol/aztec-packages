@@ -18,7 +18,7 @@ export function computeAppNullifierSecretKey(masterNullifierSecretKey: EmbeddedC
 
 export function computeAppSecretKey(skM: EmbeddedCurveScalar, app: AztecAddress, keyPrefix: KeyPrefix): Fr {
   const generator = getKeyGenerator(keyPrefix);
-  return poseidon2Hash([skM.high, skM.low, app, generator]);
+  return poseidon2Hash([skM.hi, skM.lo, app, generator]);
 }
 
 export function computeIvpkApp(ivpk: PublicKey, address: AztecAddress) {

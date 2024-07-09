@@ -309,8 +309,8 @@ export function mapPointFromNoir(point: NoirPoint): Point {
  */
 export function mapEmbeddedCurveScalarToNoir(privateKey: EmbeddedCurveScalar): EmbeddedCurveScalarNoir {
   return {
-    high: mapFieldToNoir(privateKey.high),
-    low: mapFieldToNoir(privateKey.low),
+    hi: mapFieldToNoir(privateKey.hi),
+    lo: mapFieldToNoir(privateKey.lo),
   };
 }
 
@@ -332,7 +332,7 @@ export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidati
  * @returns The EmbeddedCurveScalar.
  */
 export function mapEmbeddedCurveScalarFromNoir(privateKey: EmbeddedCurveScalarNoir): EmbeddedCurveScalar {
-  return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.high), mapFieldFromNoir(privateKey.low));
+  return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.hi), mapFieldFromNoir(privateKey.lo));
 }
 
 /**

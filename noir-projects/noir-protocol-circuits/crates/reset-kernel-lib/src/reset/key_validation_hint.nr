@@ -1,18 +1,18 @@
 use dep::types::{
     traits::{Empty, is_empty}, abis::{validation_requests::ScopedKeyValidationRequestAndGenerator},
-    constants::MAX_KEY_VALIDATION_REQUESTS_PER_TX, embedded_curve_scalar::EmbeddedCurveScalar,
-    hash::poseidon2_hash, utils::arrays::filter_array_to_bounded_vec
+    constants::MAX_KEY_VALIDATION_REQUESTS_PER_TX, scalar::Scalar, hash::poseidon2_hash,
+    utils::arrays::filter_array_to_bounded_vec
 };
 
 struct KeyValidationHint {
-  sk_m: EmbeddedCurveScalar,
+  sk_m: Scalar,
   request_index: u64,
 }
 
 impl Empty for KeyValidationHint {
     fn empty() -> Self {
         KeyValidationHint {
-            sk_m: EmbeddedCurveScalar::empty(),
+            sk_m: Scalar::empty(),
             request_index: 0,
         }
     }
