@@ -9,6 +9,7 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
+  AztecNode,
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -34,6 +35,7 @@ export class TokenContractTest {
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
   badAccount!: DocsExampleContract;
+  aztecNode!: AztecNode;
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_token_contract:${testName}`);
@@ -46,12 +48,17 @@ export class TokenContractTest {
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-    });
+    await this.snapshotManager.snapshot(
+      '3_accounts',
+      addAccounts(3, this.logger),
+      async ({ accountKeys }, { pxe, aztecNode }) => {
+        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.accounts = await pxe.getRegisteredAccounts();
+        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+        this.aztecNode = aztecNode;
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'e2e_token_contract',
