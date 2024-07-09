@@ -196,7 +196,7 @@ cli-build:
             ../barretenberg/ts/dest/browser \
             aztec.js/dest/main.js \
             end-to-end \
-            **/src \
+            **/src
     SAVE ARTIFACT /usr/src /usr/src
 
 cli:
