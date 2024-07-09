@@ -21,6 +21,7 @@ namespace bb::crypto::merkle_tree {
  */
 template <typename PersistedStore, typename LeafValueType> class CachedTreeStore {
   public:
+    using PersistedStoreType = PersistedStore;
     using LeafType = LeafValueType;
     using IndexedLeafValueType = IndexedLeaf<LeafValueType>;
     using ReadTransaction = typename PersistedStore::ReadTransaction;
@@ -49,7 +50,9 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
                                             bool includeUncommitted,
                                             ReadTransaction& tx) const;
 
-    IndexedLeafValueType get_leaf(const index_t& index, ReadTransaction& tx, bool includeUncommitted) const;
+    std::optional<IndexedLeafValueType> get_leaf(const index_t& index,
+                                                 ReadTransaction& tx,
+                                                 bool includeUncommitted) const;
 
     void set_at_index(const index_t& index, const IndexedLeafValueType& leaf, bool add_to_index);
 
@@ -163,7 +166,7 @@ std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_lo
 }
 
 template <typename PersistedStore, typename LeafValueType>
-typename CachedTreeStore<PersistedStore, LeafValueType>::IndexedLeafValueType CachedTreeStore<
+std::optional<typename CachedTreeStore<PersistedStore, LeafValueType>::IndexedLeafValueType> CachedTreeStore<
     PersistedStore,
     LeafValueType>::get_leaf(const index_t& index, ReadTransaction& tx, bool includeUncommitted) const
 {
@@ -173,14 +176,15 @@ typename CachedTreeStore<PersistedStore, LeafValueType>::IndexedLeafValueType Ca
             return it->second;
         }
     }
-    IndexedLeafValueType return_value;
     LeafIndexKeyType key = index;
     std::vector<uint8_t> data;
     bool success = tx.get_value_by_integer(key, data);
     if (success) {
+        IndexedLeafValueType return_value;
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(return_value);
+        return return_value;
     }
-    return return_value;
+    return std::nullopt;
 }
 
 template <typename PersistedStore, typename LeafValueType>

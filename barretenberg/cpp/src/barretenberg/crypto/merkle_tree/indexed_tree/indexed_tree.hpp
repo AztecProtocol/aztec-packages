@@ -15,6 +15,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <unordered_set>
 #include <vector>
@@ -29,6 +30,7 @@ namespace bb::crypto::merkle_tree {
  */
 template <typename Store, typename HashingPolicy> class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
   public:
+    using StoreType = Store;
     using LeafValueType = typename Store::LeafType;
     using IndexedLeafValueType = typename Store::IndexedLeafValueType;
     using AddCompletionCallback = std::function<void(const TypedResponse<AddIndexedDataResponse>&)>;
@@ -56,7 +58,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
      */
     void add_or_update_values(const std::vector<LeafValueType>& values, const AddCompletionCallback& completion);
 
-    void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion);
+    void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion) const;
 
     void find_leaf_index(const LeafValueType& leaf,
                          bool includeUncommitted,
@@ -196,7 +198,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
 template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
                                                  bool includeUncommitted,
-                                                 const LeafCallback& completion)
+                                                 const LeafCallback& completion) const
 {
     auto job = [=, this]() {
         ExecuteAndReport<GetIndexedLeafResponse<LeafValueType>>(
@@ -457,9 +459,9 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
                     index_t current = 0;
                     bool is_already_present = false;
                     std::tie(is_already_present, current) = store_.find_low_value(value_pair.first, true, *tx);
-                    IndexedLeafValueType current_leaf = store_.get_leaf(current, *tx, true);
+                    // .value() throws if the low leaf does not exist
+                    IndexedLeafValueType current_leaf = store_.get_leaf(current, *tx, true).value();
 
-                    // We only handle new values being added. We don't yet handle values being updated
                     if (!is_already_present) {
                         // Update the current leaf to point it to the new leaf
                         IndexedLeafValueType new_leaf =

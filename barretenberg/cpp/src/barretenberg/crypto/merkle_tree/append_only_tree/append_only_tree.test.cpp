@@ -164,6 +164,20 @@ void check_find_leaf_index_from(TreeType& tree,
     signal.wait_for_level();
 }
 
+void check_leaf(
+    TreeType& tree, const fr& leaf, index_t leaf_index, bool expected_success, bool includeUncommitted = true)
+{
+    Signal signal;
+    tree.get_leaf(leaf_index, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf, leaf);
+        }
+        signal.signal_level();
+    });
+    signal.wait_for_level();
+}
+
 TEST_F(PersistedAppendOnlyTreeTest, can_create)
 {
     constexpr size_t depth = 10;
@@ -608,4 +622,23 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
     for (auto& path : paths) {
         EXPECT_TRUE(path == initial_path || path == final_sibling_path);
     }
+}
+
+TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
+{
+    constexpr size_t depth = 10;
+    std::string name = randomString();
+    LMDBStore db(*_environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+
+    add_values(tree, { 30, 10, 20, 40 });
+
+    check_leaf(tree, 30, 0, true);
+    check_leaf(tree, 10, 1, true);
+    check_leaf(tree, 20, 2, true);
+    check_leaf(tree, 40, 3, true);
+
+    check_leaf(tree, 0, 4, false);
 }

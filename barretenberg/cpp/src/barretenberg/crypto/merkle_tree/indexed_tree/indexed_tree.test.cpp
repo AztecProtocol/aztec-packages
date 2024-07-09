@@ -112,7 +112,7 @@ IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafV
                                     index_t index,
                                     bool includeUncommitted = true)
 {
-    IndexedLeaf<LeafValueType> l;
+    std::optional<IndexedLeaf<LeafValueType>> l;
     Signal signal;
     auto completion = [&](const TypedResponse<GetIndexedLeafResponse<LeafValueType>>& leaf) -> void {
         l = leaf.inner.indexed_leaf;
@@ -120,7 +120,7 @@ IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafV
     };
     tree.get_leaf(index, includeUncommitted, completion);
     signal.wait_for_level();
-    return l;
+    return l.value();
 }
 
 template <typename LeafValueType>
