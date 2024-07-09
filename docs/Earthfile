@@ -38,9 +38,8 @@ serve:
   SAVE IMAGE aztecprotocol/docs-server
   
 test:
-  FROM +serve
-  COPY docker-compose.yml .
-  COPY Dockerfile.test .
+  COPY . .
+  FROM DOCKERFILE -f Dockerfile.test .
   WITH DOCKER \
     --compose docker-compose.yml
     RUN docker compose -f docker-compose.yml up -d && docker exec -it test yarn test

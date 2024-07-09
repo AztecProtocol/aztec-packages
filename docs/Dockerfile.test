@@ -1,20 +1,16 @@
-FROM aztecprotocol/aztec AS aztec
 FROM aztecprotocol/aztec-nargo as aztec-nargo
 FROM --platform=linux/amd64 aztecprotocol/noir-projects as noir-projects
 
 FROM node:18.19.0
 
-WORKDIR /usr/src
+WORKDIR /usr/src/docs
 COPY . .
-
-WORKDIR docs
+RUN ls -la
+RUN ls -la ..
 
 RUN yarn global add corepack && corepack enable
 RUN yarn && yarn build
 RUN yarn playwright install-deps
 RUN yarn playwright install
-
-COPY --from=aztec /usr/src /usr/src
-RUN cp -s /usr/src/yarn-project/builder/aztec-builder-dest /usr/local/aztec-builder
 
 COPY --from=aztec-nargo /usr/bin/nargo /usr/local/bin/aztec-nargo

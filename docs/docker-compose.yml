@@ -22,7 +22,5 @@ services:
     build:
       context: ../
       dockerfile: ./docs/Dockerfile.test
-    volumes:
-      - ./docs:/usr/src/docs/docs
     tty: true
     stdin_open: true
