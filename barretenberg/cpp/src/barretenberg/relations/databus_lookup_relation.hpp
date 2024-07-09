@@ -50,6 +50,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t NUM_BUS_COLUMNS = 2; // calldata, return data
 
     // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
+    // since some computaiton is shared between the two subrelations
     static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness subrelation
         LENGTH, // log-derivative lookup argument subrelation

@@ -371,6 +371,23 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
             check_fold_and_decide(builder1, builder2);
         }
+
+        // One circuit has more databus gates (Mega only)
+        if constexpr (IsMegaBuilder<Builder>) {
+            {
+                // Construct two equivalent circuits
+                Builder builder1;
+                Builder builder2;
+                construct_circuit(builder1);
+                construct_circuit(builder2);
+
+                // Add a databus lookup gate to the first circuit only
+                builder1.add_public_calldata(builder1.add_variable(22)); // add an entry to calldata
+                builder1.read_calldata(builder1.add_variable(0));        // read calldata at the 0th index
+
+                check_fold_and_decide(builder1, builder2);
+            }
+        }
     }
 
     /**
