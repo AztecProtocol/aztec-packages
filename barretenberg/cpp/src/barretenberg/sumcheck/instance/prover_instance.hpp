@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -41,14 +43,17 @@ template <class Flavor> class ProverInstance_ {
     std::vector<FF> gate_challenges;
     FF target_sum;
 
-    ProverInstance_(Circuit& circuit, bool is_structured = false)
+    ProverInstance_(Circuit& circuit, TraceStructure trace_structure = TraceStructure::NONE)
     {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
 
+        bool is_structured = (trace_structure != TraceStructure::NONE);
+
         // If using a structured trace, ensure that no block exceeds the fixed size
         if (is_structured) {
+            // WORKTODO: set fixed sizes here
             circuit.blocks.check_within_fixed_sizes();
         }
 

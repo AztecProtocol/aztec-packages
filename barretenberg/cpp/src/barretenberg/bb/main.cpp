@@ -250,7 +250,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     init_grumpkin_crs(1 << 14);
 
     ClientIVC ivc;
-    ivc.structured_flag = true;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
@@ -292,7 +292,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     init_grumpkin_crs(1 << 14);
 
     ClientIVC ivc;
-    ivc.structured_flag = true;
+    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this

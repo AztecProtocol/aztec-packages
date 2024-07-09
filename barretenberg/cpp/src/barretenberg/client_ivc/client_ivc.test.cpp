@@ -146,7 +146,7 @@ TEST_F(ClientIVCTests, BasicLarge)
 TEST_F(ClientIVCTests, BasicStructured)
 {
     ClientIVC ivc;
-    ivc.structured_flag = true;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // Construct some circuits of varying size
     Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
@@ -194,7 +194,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 {
     ClientIVC ivc;
-    ivc.structured_flag = true;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 3;
