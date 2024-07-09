@@ -2,22 +2,13 @@
 import { Command } from "commander";
 const program = new Command();
 import { chooseProject } from "./scripts/steps/chooseBox.js";
-import {
-  install,
-  update,
-  sandboxInstallOrUpdate,
-} from "./scripts/steps/sandbox/install.js";
+import { sandboxInstallOrUpdate } from "./scripts/steps/sandbox/install.js";
 import axios from "axios";
 import pino from "pino";
 import pretty from "pino-pretty";
 import ora from "ora";
 import { AZTEC_REPO } from "./scripts/config.js";
-import {
-  start,
-  stop,
-  log,
-  sandboxRunStep,
-} from "./scripts/steps/sandbox/run.js";
+import { sandboxRunStep } from "./scripts/steps/sandbox/run.js";
 import { init } from "./scripts/init.js";
 
 const getLatestStable = async () => {
@@ -97,14 +88,6 @@ program
 
     global.spinner = ora({ color: "blue" });
   });
-
-const sandbox = program.command("sandbox");
-sandbox.description("Manage the Aztec Sandbox");
-sandbox.command("start").action(start);
-sandbox.command("logs").action(log);
-sandbox.command("stop").action(stop);
-sandbox.command("install").action(install);
-sandbox.command("update").action(update);
 
 program
   .command("init")
