@@ -78,7 +78,7 @@ describe('e2e_fees/private_refunds', () => {
     expect(tx.transactionFee).toBeGreaterThan(0);
 
     // 3. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
-    // the fee limit less the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
+    // the fee limit minus the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
     // the randomness.
     const refundNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(tx.transactionFee!));
     // TODO(#7324): The values in complete address are currently not updated after the keys are rotated so this does
