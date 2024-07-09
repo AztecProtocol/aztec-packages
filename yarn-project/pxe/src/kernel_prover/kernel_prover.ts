@@ -29,13 +29,10 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
-import {
-  buildPrivateKernelInitHints,
-  buildPrivateKernelInnerHints,
-  buildPrivateKernelResetInputs,
-} from './private_inputs_builders/index.js';
+import { buildPrivateKernelResetInputs } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
@@ -107,18 +104,10 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        const hints = buildPrivateKernelInitHints(
-          currentExecution.callStackItem.publicInputs,
-          noteHashNullifierCounterMap,
-        );
-        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, getVKTreeRoot(), privateCallData);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
-        const hints = buildPrivateKernelInnerHints(
-          currentExecution.callStackItem.publicInputs,
-          noteHashNullifierCounterMap,
-        );
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
@@ -127,7 +116,7 @@ export class KernelProver {
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData, hints);
+        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.createProofInner(proofInput);
       }
@@ -185,7 +174,6 @@ export class KernelProver {
       getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length > 0 ||
       getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length > 0 ||
       getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length > 0 ||
-      output.publicInputs.end.noteHashes.find(noteHash => noteHash.nullifierCounter !== 0) ||
       output.publicInputs.end.nullifiers.find(nullifier => !nullifier.nullifiedNoteHash.equals(Fr.zero()))
     );
   }

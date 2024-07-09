@@ -8,15 +8,13 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     private_call_request::ScopedPrivateCallRequest
 },
-    constants::MAX_NOTE_HASHES_PER_CALL, tests::fixture_builder::FixtureBuilder,
-    transaction::tx_request::TxRequest
+    tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest
 };
 
 struct PrivateKernelCircuitPublicInputsComposerBuilder {
     tx_request: TxRequest,
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
-    note_hash_nullifier_counters: [u32; MAX_NOTE_HASHES_PER_CALL],
 }
 
 impl PrivateKernelCircuitPublicInputsComposerBuilder {
@@ -28,13 +26,12 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         private_call.value_offset = 9999;
 
         let tx_request = private_call.build_tx_request();
-        let note_hash_nullifier_counters = [0; MAX_NOTE_HASHES_PER_CALL];
-        PrivateKernelCircuitPublicInputsComposerBuilder { tx_request, previous_kernel, private_call, note_hash_nullifier_counters }
+        PrivateKernelCircuitPublicInputsComposerBuilder { tx_request, previous_kernel, private_call }
     }
 
     pub fn new_from_tx_request(self) -> PrivateKernelCircuitPublicInputsComposer {
         let private_call = self.private_call.to_private_circuit_public_inputs();
-        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call)
+        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call, FixtureBuilder::vk_tree_root())
     }
 
     pub fn new_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputsComposer {
@@ -47,7 +44,6 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         self.new_from_tx_request().with_private_call(
             private_call.call_stack_item.public_inputs,
             private_call.call_stack_item.contract_address,
-            self.note_hash_nullifier_counters,
             private_call.public_call_stack,
             private_call.public_teardown_call_request
         ).finish()
@@ -58,14 +54,13 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         let mut previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         let num_private_call_requests = self.previous_kernel.private_call_requests.len();
         previous_kernel.end.private_call_stack[num_private_call_requests] = ScopedPrivateCallRequest::empty();
-        previous_kernel.end.private_call_stack[num_private_call_requests].call_request.hash = 98765432;
+        previous_kernel.end.private_call_stack[num_private_call_requests].call_request.args_hash = 98765432;
 
         let private_call = self.private_call.to_private_call_data();
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel).pop_top_call_request().with_private_call(
             private_call.call_stack_item.public_inputs,
             private_call.call_stack_item.contract_address,
-            self.note_hash_nullifier_counters,
             private_call.public_call_stack,
             private_call.public_teardown_call_request
         ).finish()

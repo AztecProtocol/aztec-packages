@@ -16,7 +16,6 @@ import {
   Nullifier,
   ReadRequest,
 } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -177,14 +176,15 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // TODO(4805): check if some threshold is reached for max logs
     const ulog = new UnencryptedL2Log(
       AztecAddress.fromField(contractAddress),
-      // TODO(#7198): Remove event selector from UnencryptedL2Log
-      EventSelector.fromField(new Fr(0)),
       Buffer.concat(log.map(f => f.toBuffer())),
     );
     const basicLogHash = Fr.fromBuffer(ulog.hash());
     this.unencryptedLogs.push(ulog);
     this.allUnencryptedLogs.push(ulog);
-    // TODO(6578): explain magic number 4 here
+    // We want the length of the buffer output from function_l2_logs -> toBuffer to equal the stored log length in the kernels.
+    // The kernels store the length of the processed log as 4 bytes; thus for this length value to match the log length stored in the kernels,
+    // we need to add four to the length here.
+    // https://github.com/AztecProtocol/aztec-packages/issues/6578#issuecomment-2125003435
     this.unencryptedLogsHashes.push(new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)));
     this.logger.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
@@ -273,11 +273,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
-    /** The side effect counter of the execution request itself */
-    requestSideEffectCounter: number = this.startSideEffectCounter,
   ): PublicExecutionResult {
     return {
-      executionRequest: createPublicExecutionRequest(requestSideEffectCounter, avmEnvironment),
+      executionRequest: createPublicExecutionRequest(avmEnvironment),
 
       startSideEffectCounter: new Fr(this.startSideEffectCounter),
       endSideEffectCounter: new Fr(this.sideEffectCounter),
@@ -319,17 +317,13 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 /**
  * Helper function to create a public execution request from an AVM execution environment
  */
-function createPublicExecutionRequest(
-  requestSideEffectCounter: number,
-  avmEnvironment: AvmExecutionEnvironment,
-): PublicExecutionRequest {
+function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): PublicExecutionRequest {
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
     storageContractAddress: avmEnvironment.storageAddress,
     functionSelector: avmEnvironment.functionSelector,
     isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
-    sideEffectCounter: requestSideEffectCounter,
   });
   return {
     contractAddress: avmEnvironment.address,

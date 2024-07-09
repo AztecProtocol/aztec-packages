@@ -30,7 +30,10 @@ use crate::{
         HirExpression, HirLiteral, HirStatement, Path, PathKind, SecondaryAttribute, Signedness,
         UnaryOp, UnresolvedType, UnresolvedTypeData,
     },
-    node_interner::{DefinitionKind, ExprId, GlobalId, TraitId, TraitImplKind, TraitMethodId},
+    node_interner::{
+        DefinitionKind, DependencyId, ExprId, GlobalId, ReferenceId, TraitId, TraitImplKind,
+        TraitMethodId,
+    },
     Generics, Kind, ResolvedGeneric, Type, TypeBinding, TypeVariable, TypeVariableKind,
 };
 
@@ -144,13 +147,17 @@ impl<'context> Elaborator<'context> {
             Resolved(id) => self.interner.get_quoted_type(id).clone(),
         };
 
-        if let Type::Struct(_, _) = resolved_type {
+        if let Type::Struct(ref struct_type, _) = resolved_type {
             if let Some(unresolved_span) = typ.span {
                 // Record the location of the type reference
                 self.interner.push_type_ref_location(
                     resolved_type.clone(),
                     Location::new(unresolved_span, self.file),
                 );
+
+                let referenced = ReferenceId::Struct(struct_type.borrow().id);
+                let reference = ReferenceId::Variable(Location::new(unresolved_span, self.file));
+                self.interner.add_reference(referenced, reference);
             }
         }
 
@@ -1160,9 +1167,11 @@ impl<'context> Elaborator<'context> {
                 None
             }
             Type::NamedGeneric(_, _, _) => {
-                let func_meta = self.interner.function_meta(
-                    &self.current_function.expect("unexpected method outside a function"),
-                );
+                let func_id = match self.current_item {
+                    Some(DependencyId::Function(id)) => id,
+                    _ => panic!("unexpected method outside a function"),
+                };
+                let func_meta = self.interner.function_meta(&func_id);
 
                 for constraint in &func_meta.trait_constraints {
                     if *object_type == constraint.typ {
@@ -1233,9 +1242,8 @@ impl<'context> Elaborator<'context> {
             lints::deprecated_function(elaborator.interner, call.func).map(Into::into)
         });
 
-        let func_mod = self.current_function.map(|func| self.interner.function_modifiers(&func));
-        let is_current_func_constrained =
-            func_mod.map_or(true, |func_mod| !func_mod.is_unconstrained);
+        let is_current_func_constrained = self.in_constrained_function();
+
         let is_unconstrained_call = self.is_unconstrained_call(call.func);
         let crossing_runtime_boundary = is_current_func_constrained && is_unconstrained_call;
         if crossing_runtime_boundary {

@@ -399,8 +399,8 @@ impl<'a> Resolver<'a> {
         }
 
         let location = Location::new(name.span(), self.file);
-        let id =
-            self.interner.push_definition(name.0.contents.clone(), mutable, definition, location);
+        let var_name = name.0.contents.clone();
+        let id = self.interner.push_definition(var_name, mutable, false, definition, location);
         let ident = HirIdent::non_trait_method(id, location);
         let resolver_meta =
             ResolverMeta { num_times_used: 0, ident: ident.clone(), warn_if_unused };
@@ -445,8 +445,8 @@ impl<'a> Resolver<'a> {
             (hir_ident, resolver_meta)
         } else {
             let location = Location::new(name.span(), self.file);
-            let id =
-                self.interner.push_definition(name.0.contents.clone(), false, definition, location);
+            let var_name = name.0.contents.clone();
+            let id = self.interner.push_definition(var_name, false, false, definition, location);
             let ident = HirIdent::non_trait_method(id, location);
             let resolver_meta =
                 ResolverMeta { num_times_used: 0, ident: ident.clone(), warn_if_unused: true };
@@ -765,7 +765,7 @@ impl<'a> Resolver<'a> {
         }
 
         // If we cannot find a local generic of the same name, try to look up a global
-        match self.path_resolver.resolve(self.def_maps, path.clone()) {
+        match self.path_resolver.resolve(self.def_maps, path.clone(), &mut None) {
             Ok(PathResolution { module_def_id: ModuleDefId::GlobalId(id), error }) => {
                 if let Some(current_item) = self.current_item {
                     self.interner.add_global_dependency(current_item, id);
@@ -2017,7 +2017,7 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_path(&mut self, path: Path) -> Result<ModuleDefId, ResolverError> {
-        let path_resolution = self.path_resolver.resolve(self.def_maps, path)?;
+        let path_resolution = self.path_resolver.resolve(self.def_maps, path, &mut None)?;
 
         if let Some(error) = path_resolution.error {
             self.push_err(error.into());

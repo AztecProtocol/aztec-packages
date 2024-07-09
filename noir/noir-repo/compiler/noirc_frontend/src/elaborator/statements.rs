@@ -86,8 +86,8 @@ impl<'context> Elaborator<'context> {
                     expr_span,
                 }
             });
-            if annotated_type.is_unsigned() {
-                let errors = lints::overflowing_uint(self.interner, &expression, &annotated_type);
+            if annotated_type.is_integer() {
+                let errors = lints::overflowing_int(self.interner, &expression, &annotated_type);
                 for error in errors {
                     self.push_err(error);
                 }
@@ -206,9 +206,8 @@ impl<'context> Elaborator<'context> {
     }
 
     fn elaborate_jump(&mut self, is_break: bool, span: noirc_errors::Span) -> (HirStatement, Type) {
-        let in_constrained_function = self
-            .current_function
-            .map_or(true, |func_id| !self.interner.function_modifiers(&func_id).is_unconstrained);
+        let in_constrained_function = self.in_constrained_function();
+
         if in_constrained_function {
             self.push_err(ResolverError::JumpInConstrainedFn { is_break, span });
         }

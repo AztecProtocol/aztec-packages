@@ -10,17 +10,24 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
     private_kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData
 },
-    constants::MAX_NOTE_HASHES_PER_CALL
+    constants::{
+    PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
+    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX
+}
 };
 
-struct PrivateKernelInnerHints {
-    note_hash_nullifier_counters: [u32; MAX_NOTE_HASHES_PER_CALL],
-}
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_INIT_INDEX,
+    PRIVATE_KERNEL_INNER_INDEX,
+    PRIVATE_KERNEL_RESET_FULL_INDEX,
+    PRIVATE_KERNEL_RESET_BIG_INDEX,
+    PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
+    PRIVATE_KERNEL_RESET_SMALL_INDEX,
+];
 
 struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
     private_call: PrivateCallData,
-    hints: PrivateKernelInnerHints,
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
@@ -28,7 +35,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).pop_top_call_request().with_private_call(
             self.private_call.call_stack_item.public_inputs,
             self.private_call.call_stack_item.contract_address,
-            self.hints.note_hash_nullifier_counters,
             self.private_call.public_call_stack,
             self.private_call.public_teardown_call_request
         ).finish()
@@ -51,6 +57,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             self.private_call.verify();
             // verify/aggregate the previous kernel
             self.previous_kernel.verify();
+            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
@@ -61,7 +68,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
                 self.private_call.call_stack_item.public_inputs,
                 private_call_data_validator.array_lengths,
                 self.private_call.call_stack_item.contract_address,
-                self.hints.note_hash_nullifier_counters,
                 self.private_call.public_call_stack,
                 self.private_call.public_teardown_call_request
             );
@@ -71,40 +77,36 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernelInnerHints};
+    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
-        constants::MAX_NOTE_HASHES_PER_CALL,
+        constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
 
     struct PrivateKernelInnerInputsBuilder {
         previous_kernel: FixtureBuilder,
         private_call: FixtureBuilder,
-        hints: PrivateKernelInnerHints,
     }
 
     impl PrivateKernelInnerInputsBuilder {
         pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new_from_counter(15).as_parent_contract();
+            let mut previous_kernel = FixtureBuilder::new_from_counter(15).in_vk_tree(PRIVATE_KERNEL_INIT_INDEX).as_parent_contract();
             let private_call = FixtureBuilder::new_from_counter(200);
-            let hints = PrivateKernelInnerHints { note_hash_nullifier_counters: [0; MAX_NOTE_HASHES_PER_CALL] };
 
             // 0th nullifier must be non-zero.
             previous_kernel.append_nullifiers(1);
 
-            PrivateKernelInnerInputsBuilder { previous_kernel, private_call, hints }
+            PrivateKernelInnerInputsBuilder { previous_kernel, private_call }
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
             let private_call = self.private_call.to_private_call_data();
             // Update the previous_kernel's private_call_stack with the current call_stack_item.
-            let hash = private_call.call_stack_item.hash();
-            let is_delegate_call = private_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.add_private_call_request(hash, is_delegate_call);
+            self.previous_kernel.add_private_call_from_call_stack_item(private_call.call_stack_item);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
-            let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call, hints: self.hints };
+            let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
 
             kernel.execute()
         }
@@ -137,5 +139,24 @@ mod tests {
             public_inputs.end.encrypted_logs_hashes,
             [prev_encrypted_log_hashes[0], prev_encrypted_log_hashes[1], curr_encrypted_log_hashes[0]]
         );
+    }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PrivateKernelInnerInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }

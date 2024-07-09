@@ -20,7 +20,7 @@ use crate::hir::Context;
 
 use crate::macros_api::{MacroError, MacroProcessor};
 use crate::node_interner::{
-    DependencyId, FuncId, GlobalId, NodeInterner, StructId, TraitId, TraitImplId, TypeAliasId,
+    FuncId, GlobalId, NodeInterner, ReferenceId, StructId, TraitId, TraitImplId, TypeAliasId,
 };
 
 use crate::ast::{
@@ -330,7 +330,28 @@ impl DefCollector {
         // Resolve unresolved imports collected from the crate, one by one.
         for collected_import in std::mem::take(&mut def_collector.imports) {
             let module_id = collected_import.module_id;
-            match resolve_import(crate_id, &collected_import, &context.def_maps) {
+            let resolved_import = if context.def_interner.track_references {
+                let mut references: Vec<ReferenceId> = Vec::new();
+                let resolved_import = resolve_import(
+                    crate_id,
+                    &collected_import,
+                    &context.def_maps,
+                    &mut Some(&mut references),
+                );
+
+                let current_def_map = context.def_maps.get(&crate_id).unwrap();
+                let file_id = current_def_map.file_id(module_id);
+
+                for (referenced, ident) in references.iter().zip(&collected_import.path.segments) {
+                    let reference = ReferenceId::Variable(Location::new(ident.span(), file_id));
+                    context.def_interner.add_reference(*referenced, reference);
+                }
+
+                resolved_import
+            } else {
+                resolve_import(crate_id, &collected_import, &context.def_maps, &mut None)
+            };
+            match resolved_import {
                 Ok(resolved_import) => {
                     if let Some(error) = resolved_import.error {
                         errors.push((
@@ -348,7 +369,12 @@ impl DefCollector {
                             .import(name.clone(), ns, resolved_import.is_prelude);
 
                         let file_id = current_def_map.file_id(module_id);
-                        add_import_reference(ns, &name, &mut context.def_interner, file_id);
+                        let last_segment = collected_import.path.last_segment();
+
+                        add_import_reference(ns, &last_segment, &mut context.def_interner, file_id);
+                        if let Some(ref alias) = collected_import.alias {
+                            add_import_reference(ns, alias, &mut context.def_interner, file_id);
+                        }
 
                         if let Err((first_def, second_def)) = result {
                             let err = DefCollectorErrorKind::Duplicate {
@@ -483,9 +509,21 @@ fn add_import_reference(
         // We ignore empty spans at 0 location, this must be Stdlib
         return;
     }
-    if let crate::macros_api::ModuleDefId::FunctionId(func_id) = def_id {
-        let variable = DependencyId::Variable(Location::new(name.span(), file_id));
-        interner.add_reference_for(DependencyId::Function(func_id), variable);
+
+    match def_id {
+        crate::macros_api::ModuleDefId::FunctionId(func_id) => {
+            let variable = ReferenceId::Variable(Location::new(name.span(), file_id));
+            interner.add_reference(ReferenceId::Function(func_id), variable);
+        }
+        crate::macros_api::ModuleDefId::TypeId(struct_id) => {
+            let variable = ReferenceId::Variable(Location::new(name.span(), file_id));
+            interner.add_reference(ReferenceId::Struct(struct_id), variable);
+        }
+        crate::macros_api::ModuleDefId::TraitId(trait_id) => {
+            let variable = ReferenceId::Variable(Location::new(name.span(), file_id));
+            interner.add_reference(ReferenceId::Trait(trait_id), variable);
+        }
+        _ => (),
     }
 }
 
@@ -511,6 +549,7 @@ fn inject_prelude(
             &context.def_maps,
             ModuleId { krate: crate_id, local_id: crate_root },
             path,
+            &mut None,
         ) {
             assert!(error.is_none(), "Tried to add private item to prelude");
             let module_id = module_def_id.as_module().expect("std::prelude should be a module");
