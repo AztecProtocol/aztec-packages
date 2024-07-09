@@ -33,7 +33,7 @@ void LMDBWriteTransaction::try_abort()
 
 void LMDBWriteTransaction::put_node(uint32_t level, index_t index, std::vector<uint8_t>& data)
 {
-    NodeKeyType key = (static_cast<NodeKeyType>(1 << level) + static_cast<NodeKeyType>(index)) - 1;
+    NodeKeyType key = ((static_cast<NodeKeyType>(1) << level) + static_cast<NodeKeyType>(index)) - 1;
     put_value_by_integer(key, data);
 }
 
