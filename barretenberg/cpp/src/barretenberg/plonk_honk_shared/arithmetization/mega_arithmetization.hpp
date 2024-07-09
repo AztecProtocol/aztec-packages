@@ -44,7 +44,7 @@ template <typename FF_> class MegaArith {
     struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
         {
-            const uint32_t FIXED_SIZE = 1 << 15;
+            const uint32_t FIXED_SIZE = 1 << 14;
             this->ecc_op = FIXED_SIZE;
             this->pub_inputs = FIXED_SIZE;
             this->arithmetic = FIXED_SIZE;
