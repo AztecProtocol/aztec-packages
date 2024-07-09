@@ -7,16 +7,13 @@ import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 export class Grumpkin {
   private wasm = BarretenbergSync.getSingleton().getWasm();
 
-  // TODO(#7386): correctly handle point at infinity in our BB API and nuke Grumpkin.notAPointAtInfinityBuf
-  static notAPointAtInfinityBuf = Buffer.from([0x00]);
-
   // prettier-ignore
-  static generator = Point.fromBuffer(Buffer.concat([Buffer.from([
+  static generator = Point.fromBuffer(Buffer.from([
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xcf, 0x13, 0x5e, 0x75, 0x06, 0xa4, 0x5d, 0x63,
     0x2d, 0x27, 0x0d, 0x45, 0xf1, 0x18, 0x12, 0x94, 0x83, 0x3f, 0xc4, 0x8d, 0x82, 0x3f, 0x27, 0x2c,
-  ]), Grumpkin.notAPointAtInfinityBuf]));
+  ]));
 
   /**
    * Point generator
@@ -33,12 +30,10 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public mul(point: Point, scalar: GrumpkinScalar): Point {
-    // TODO(#7386): handle point at infinity
-    this.wasm.writeMemory(0, point.toBufferWithoutIsInfinite());
+    this.wasm.writeMemory(0, point.toBuffer());
     this.wasm.writeMemory(64, scalar.toBuffer());
     this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
-    // TODO(#7386): handle point at infinity
-    return Point.fromBufferWithoutIsInfinite(Buffer.from(this.wasm.getMemorySlice(96, 160)));
+    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(96, 160)));
   }
 
   /**
@@ -48,13 +43,10 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public add(a: Point, b: Point): Point {
-    // TODO(#7386): handle point at infinity
-    this.wasm.writeMemory(0, a.toBufferWithoutIsInfinite());
-    // TODO(#7386): handle point at infinity
-    this.wasm.writeMemory(64, b.toBufferWithoutIsInfinite());
+    this.wasm.writeMemory(0, a.toBuffer());
+    this.wasm.writeMemory(64, b.toBuffer());
     this.wasm.call('ecc_grumpkin__add', 0, 64, 128);
-    // TODO(#7386): handle point at infinity
-    return Point.fromBufferWithoutIsInfinite(Buffer.from(this.wasm.getMemorySlice(128, 192)));
+    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(128, 192)));
   }
 
   /**
@@ -64,8 +56,7 @@ export class Grumpkin {
    * @returns Points multiplied by the scalar.
    */
   public batchMul(points: Point[], scalar: GrumpkinScalar) {
-    // TODO(#7386): handle point at infinity
-    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBufferWithoutIsInfinite()));
+    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
     const mem = this.wasm.call('bbmalloc', pointsByteLength * 2);
@@ -81,8 +72,7 @@ export class Grumpkin {
 
     const parsedResult: Point[] = [];
     for (let i = 0; i < pointsByteLength; i += 64) {
-      // TODO(#7386): handle point at infinity
-      parsedResult.push(Point.fromBufferWithoutIsInfinite(result.subarray(i, i + 64)));
+      parsedResult.push(Point.fromBuffer(result.subarray(i, i + 64)));
     }
     return parsedResult;
   }

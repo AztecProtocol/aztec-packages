@@ -23,10 +23,7 @@ export class Schnorr {
   public computePublicKey(privateKey: GrumpkinPrivateKey): PublicKey {
     this.wasm.writeMemory(0, privateKey.toBuffer());
     this.wasm.call('schnorr_compute_public_key', 0, 32);
-    // TODO(#7386): correctly handle point at infinity in our API and nuke Grumpkin.notAPointAtInfinityBuf
-    return Point.fromBuffer(
-      Buffer.concat([Buffer.from(this.wasm.getMemorySlice(32, 96)), Grumpkin.notAPointAtInfinityBuf]),
-    );
+    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(32, 96)));
   }
 
   /**
@@ -53,7 +50,7 @@ export class Schnorr {
    */
   public verifySignature(msg: Uint8Array, pubKey: PublicKey, sig: SchnorrSignature) {
     const mem = this.wasm.call('bbmalloc', msg.length + 4);
-    this.wasm.writeMemory(0, pubKey.toBufferWithoutIsInfinite());
+    this.wasm.writeMemory(0, pubKey.toBuffer());
     this.wasm.writeMemory(64, sig.s);
     this.wasm.writeMemory(96, sig.e);
     this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));

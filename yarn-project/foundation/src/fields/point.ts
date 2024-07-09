@@ -9,8 +9,7 @@ import { Fr } from './fields.js';
  */
 export class Point {
   static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
-  static SIZE_IN_BYTES_WITHOUT_INF = Fr.SIZE_IN_BYTES * 2;
-  static SIZE_IN_BYTES = Point.SIZE_IN_BYTES_WITHOUT_INF + 1;
+  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -50,11 +49,6 @@ export class Point {
    * @returns A Point instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readBoolean());
-  }
-
-  static fromBufferWithoutIsInfinite(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), false);
   }
@@ -102,19 +96,11 @@ export class Point {
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {
-    const buf = serializeToBuffer([this.x, this.y, this.isInfinite]);
-    if (buf.length !== Point.SIZE_IN_BYTES) {
-      throw new Error(`Invalid buffer length for Point: ${buf.length}`);
-    }
-    return buf;
-  }
-
-  toBufferWithoutIsInfinite() {
     if (this.isInfinite) {
       throw new Error('Cannot serialize infinite point without isInfinite flag');
     }
     const buf = serializeToBuffer([this.x, this.y]);
-    if (buf.length !== Point.SIZE_IN_BYTES_WITHOUT_INF) {
+    if (buf.length !== Point.SIZE_IN_BYTES) {
       throw new Error(`Invalid buffer length for Point: ${buf.length}`);
     }
     return buf;

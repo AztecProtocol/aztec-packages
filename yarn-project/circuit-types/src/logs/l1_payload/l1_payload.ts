@@ -74,7 +74,7 @@ export abstract class L1Payload {
     );
 
     return Buffer.concat([
-      ephPk.toBufferWithoutIsInfinite(),
+      ephPk.toBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
       outgoingBodyCiphertext,
@@ -101,7 +101,7 @@ export abstract class L1Payload {
   ): [AztecAddress, T] {
     const reader = BufferReader.asReader(data);
 
-    const ephPk = Point.fromBufferWithoutIsInfinite(reader.readBytes(Point.SIZE_IN_BYTES_WITHOUT_INF));
+    const ephPk = reader.readObject(Point);
 
     const incomingHeader = EncryptedLogHeader.fromCiphertext(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
 
@@ -138,7 +138,7 @@ export abstract class L1Payload {
   ): [AztecAddress, T] {
     const reader = BufferReader.asReader(data);
 
-    const ephPk = Point.fromBufferWithoutIsInfinite(reader.readBytes(Point.SIZE_IN_BYTES_WITHOUT_INF));
+    const ephPk = reader.readObject(Point);
 
     reader.readBytes(HEADER_SIZE);
 
