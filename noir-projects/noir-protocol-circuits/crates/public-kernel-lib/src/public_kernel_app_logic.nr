@@ -40,7 +40,6 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
-        // LONDONTODO(PUBLIC INPUTS)
         self.previous_kernel.verify();
 
         // construct the circuit outputs
