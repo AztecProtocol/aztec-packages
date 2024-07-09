@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
-  AztecNode,
+  type AztecNode,
   type CompleteAddress,
   type DebugLogger,
   ExtendedNote,
