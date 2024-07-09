@@ -489,7 +489,7 @@ aztec-builder target -o src/artifacts
 
 Review the end to end tests for reference:
 
-https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/*.test.ts
+https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/
 
 ### Token Bridge Contract
 
