@@ -4,7 +4,6 @@ import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { type GrumpkinPrivateKey } from '../../../types/grumpkin_private_key.js';
 import { type PublicKey } from '../../../types/public_key.js';
-import { Grumpkin } from '../grumpkin/index.js';
 import { SchnorrSignature } from './signature.js';
 
 export * from './signature.js';

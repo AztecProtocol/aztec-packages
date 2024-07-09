@@ -29,7 +29,7 @@ export class EncryptedLogOutgoingBody {
     const low = reader.readObject(Fr);
     const ephSk = GrumpkinPrivateKey.fromHighLow(high, low);
     const recipient = reader.readObject(AztecAddress);
-    const recipientIvpkApp = reader.readObject(Point);
+    const recipientIvpkApp = reader.readObject(Point); // PublicKey = Point
 
     return new EncryptedLogOutgoingBody(ephSk, recipient, recipientIvpkApp);
   }

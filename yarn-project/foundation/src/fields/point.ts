@@ -92,8 +92,13 @@ export class Point {
 
   /**
    * Converts the Point instance to a Buffer representation of the coordinates.
-   * The outputs buffer length will be 65, the length of both coordinates not represented as fields.
    * @returns A Buffer representation of the Point instance.
+   * @dev Note that toBuffer does not include the isInfinite flag and other serialization methods do (e.g. toFields).
+   * This is because currently when we work with point as bytes we don't want to populate the extra bytes for
+   * isInfinite flag because:
+   * 1. Our Grumpkin BB API currently does not handle point at infinity,
+   * 2. we use toBuffer when serializing notes and events and there we only work with public keys and point at infinity
+   *   is not considered a valid public key and the extra byte would raise DA cost.
    */
   toBuffer() {
     if (this.isInfinite) {

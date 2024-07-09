@@ -1,6 +1,7 @@
 use dep::protocol_types::{
     header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map,
+    traits::is_empty
 };
 use crate::{
     context::PrivateContext,
@@ -50,8 +51,7 @@ fn get_master_key(
     header: Header
 ) -> Point {
     let key = fetch_key_from_registry(context, key_index, address, header);
-    // TODO(benesjan): re-introduce is-zero?
-    if (key.x == 0) & (key.y == 0) {
+    if is_empty(key) {
         // Keys were not registered in registry yet --> fetch key from PXE
         let keys = fetch_and_constrain_keys(address);
         // Return the corresponding to index
