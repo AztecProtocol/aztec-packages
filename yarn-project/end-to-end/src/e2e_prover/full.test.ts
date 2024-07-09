@@ -37,7 +37,6 @@ describe('full_prover', () => {
       logger.info(
         `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
       );
-
       const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
       const privateSendAmount = privateBalance / 2n;
       expect(privateSendAmount).toBeGreaterThan(0n);
@@ -52,6 +51,15 @@ describe('full_prover', () => {
         publicSendAmount,
         0,
       );
+      const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+
+      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      logger.info(`Verifying kernel tail to public proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
+
+      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      logger.info(`Verifying private kernel tail proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
