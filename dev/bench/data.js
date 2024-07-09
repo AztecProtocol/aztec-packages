@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720543215048,
+  "lastUpdate": 1720545364969,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -74028,6 +74028,78 @@ window.BENCHMARK_DATA = {
             "value": 159467185,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 159467185 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "046af9bb3c25d738ba5349793bc63d8512081714",
+          "message": "chore(master): Release 0.46.0 (#7345)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.46.0</summary>\r\n\r\n##\r\n[0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.1...aztec-package-v0.46.0)\r\n(2024-07-09)\r\n\r\n\r\n### Features\r\n\r\n* VK tree\r\n([#6914](https://github.com/AztecProtocol/aztec-packages/issues/6914))\r\n([8631237](https://github.com/AztecProtocol/aztec-packages/commit/863123729fed0f4a150e634f52da06ac6b581162))\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.46.0</summary>\r\n\r\n##\r\n[0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.45.1...barretenberg.js-v0.46.0)\r\n(2024-07-09)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.46.0</summary>\r\n\r\n##\r\n[0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.45.1...aztec-packages-v0.46.0)\r\n(2024-07-09)\r\n\r\n\r\n### ⚠ BREAKING CHANGES\r\n\r\n* constant inputs for blackbox\r\n([#7222](https://github.com/AztecProtocol/aztec-packages/issues/7222))\r\n\r\n### Features\r\n\r\n* Add more slice methods to the stdlib\r\n(https://github.com/noir-lang/noir/pull/5424)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Constant inputs for blackbox\r\n([#7222](https://github.com/AztecProtocol/aztec-packages/issues/7222))\r\n([9f9ded2](https://github.com/AztecProtocol/aztec-packages/commit/9f9ded2b99980b3b40fce9b55e72c91df1dc3d72))\r\n* Detect subgraphs that are completely independent from inputs or\r\noutputs (https://github.com/noir-lang/noir/pull/5402)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Lsp \"go to definition\" for modules\r\n(https://github.com/noir-lang/noir/pull/5406)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Lsp rename/find-all-references for traits\r\n(https://github.com/noir-lang/noir/pull/5409)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Lsp rename/find-all-references for type aliases\r\n(https://github.com/noir-lang/noir/pull/5414)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Sync from aztec-packages (https://github.com/noir-lang/noir/pull/5408)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Sync from aztec-packages (https://github.com/noir-lang/noir/pull/5432)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* TXE docs and usability\r\n([#7305](https://github.com/AztecProtocol/aztec-packages/issues/7305))\r\n([6b2a351](https://github.com/AztecProtocol/aztec-packages/commit/6b2a351910f4e95ade690157de0574cb9a10b4e3))\r\n* Unquote multiple items from annotations\r\n(https://github.com/noir-lang/noir/pull/5441)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* VK tree\r\n([#6914](https://github.com/AztecProtocol/aztec-packages/issues/6914))\r\n([8631237](https://github.com/AztecProtocol/aztec-packages/commit/863123729fed0f4a150e634f52da06ac6b581162))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Allow importing notes from other contracts and inject them in the\r\nmacros\r\n([#7349](https://github.com/AztecProtocol/aztec-packages/issues/7349))\r\n([586c0b0](https://github.com/AztecProtocol/aztec-packages/commit/586c0b019d0c2c462188f03c9c31d25a46e35eb6))\r\n* Change panic to error in interpreter\r\n(https://github.com/noir-lang/noir/pull/5446)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Complete call stacks with no_predicates\r\n(https://github.com/noir-lang/noir/pull/5418)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Correct range for overlfowing/underflowing integer assignment\r\n(https://github.com/noir-lang/noir/pull/5416)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Included argshash computation in public call_interfaces and cleanup\r\n([#7354](https://github.com/AztecProtocol/aztec-packages/issues/7354))\r\n([13e9b94](https://github.com/AztecProtocol/aztec-packages/commit/13e9b9435cbdab7d0ccd75e20ef6a155345bb842))\r\n* Lsp find struct reference in return locations and paths\r\n(https://github.com/noir-lang/noir/pull/5404)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Lsp struct rename/reference difference\r\n(https://github.com/noir-lang/noir/pull/5411)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Privacy leak in private refund\r\n([#7358](https://github.com/AztecProtocol/aztec-packages/issues/7358))\r\n([e05f6f0](https://github.com/AztecProtocol/aztec-packages/commit/e05f6f03263cd8760c8490389458e3c158ad24b3)),\r\ncloses\r\n[#7321](https://github.com/AztecProtocol/aztec-packages/issues/7321)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Add remaining slice methods to the interpreter\r\n(https://github.com/noir-lang/noir/pull/5422)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* Add test and benchmarks for poseidon2\r\n(https://github.com/noir-lang/noir/pull/5386)\r\n([c7b1ae4](https://github.com/AztecProtocol/aztec-packages/commit/c7b1ae40593c24530723f344111459a51ad5f0e5))\r\n* **avm:** Avoid including flavor where possible\r\n([#7361](https://github.com/AztecProtocol/aztec-packages/issues/7361))\r\n([dbdffd6](https://github.com/AztecProtocol/aztec-packages/commit/dbdffd60b12aa5152fbd2da7d20abc8550d33cef))\r\n* **avm:** Better log_derivative_inverse_round\r\n([#7360](https://github.com/AztecProtocol/aztec-packages/issues/7360))\r\n([6329833](https://github.com/AztecProtocol/aztec-packages/commit/63298337162b80c8d9b82c94760a0fb7be0fe940))\r\n* **avm:** Smaller prover\r\n([#7359](https://github.com/AztecProtocol/aztec-packages/issues/7359))\r\n([7d8c833](https://github.com/AztecProtocol/aztec-packages/commit/7d8c833f94f5c796cb146e6fb5a961e471163ec0))\r\n* **avm:** Smaller transcript\r\n([#7357](https://github.com/AztecProtocol/aztec-packages/issues/7357))\r\n([3952a44](https://github.com/AztecProtocol/aztec-packages/commit/3952a444629fc03616089c27d0e037240db7b4e9))\r\n* **bb:** Do not instantiate Relation\r\n([#7389](https://github.com/AztecProtocol/aztec-packages/issues/7389))\r\n([d9cbf4c](https://github.com/AztecProtocol/aztec-packages/commit/d9cbf4c289d3b3952f84540dadf35e0b410eef2a))\r\n* Counters\r\n([#7342](https://github.com/AztecProtocol/aztec-packages/issues/7342))\r\n([819f370](https://github.com/AztecProtocol/aztec-packages/commit/819f37002a253cdba8c46daac5d68f64fa11f19c))\r\n* **docs:** Fix link to docker\r\n([#7395](https://github.com/AztecProtocol/aztec-packages/issues/7395))\r\n([ad4a401](https://github.com/AztecProtocol/aztec-packages/commit/ad4a401ad4c56734043ddfd12bf8cf126e43988f))\r\n* **docs:** Update token tutorial\r\n([#7241](https://github.com/AztecProtocol/aztec-packages/issues/7241))\r\n([0414eb5](https://github.com/AztecProtocol/aztec-packages/commit/0414eb50fff3fbaf12a15bfc2e111b480bb750a4))\r\n* Dummy workflow (https://github.com/noir-lang/noir/pull/5438)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Extracts refactoring of reading error payloads from\r\n[#5403](https://github.com/AztecProtocol/aztec-packages/issues/5403)\r\n(https://github.com/noir-lang/noir/pull/5413)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Generate declaration files for VKs\r\n([#7391](https://github.com/AztecProtocol/aztec-packages/issues/7391))\r\n([7c96636](https://github.com/AztecProtocol/aztec-packages/commit/7c966365b93fd6cbd8827ed7c44511513e1567fc))\r\n* Merge `BarretenbergVerifierBackend` and `BarretenbergBackend`\r\n(https://github.com/noir-lang/noir/pull/5399)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Move SSA checks to a new folder\r\n(https://github.com/noir-lang/noir/pull/5434)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Notify Noir team on changes to the stdlib\r\n([#7387](https://github.com/AztecProtocol/aztec-packages/issues/7387))\r\n([061aac3](https://github.com/AztecProtocol/aztec-packages/commit/061aac33a6713f62a73c5d1920687903c5fb499f))\r\n* Optimize private call stack item hash for gate count\r\n([#7285](https://github.com/AztecProtocol/aztec-packages/issues/7285))\r\n([783d9b6](https://github.com/AztecProtocol/aztec-packages/commit/783d9b67205dcf8ba67a3eb989db8bc70a4b67f7))\r\n* Optimize public call stack item hashing\r\n([#7330](https://github.com/AztecProtocol/aztec-packages/issues/7330))\r\n([4a5093c](https://github.com/AztecProtocol/aztec-packages/commit/4a5093cd6639305a7e4c7876da94dcf7cb71ebc2))\r\n* Refactor logic around inlining `no_predicates` functions\r\n(https://github.com/noir-lang/noir/pull/5433)\r\n([6137a10](https://github.com/AztecProtocol/aztec-packages/commit/6137a10c9a1d052c1e80ba43aaa5a13f9bf08fee))\r\n* Replace relative paths to noir-protocol-circuits\r\n([8510269](https://github.com/AztecProtocol/aztec-packages/commit/8510269f007afe8136eb0d77667fbb44b8148ce1))\r\n* Replace relative paths to noir-protocol-circuits\r\n([9eb8d1c](https://github.com/AztecProtocol/aztec-packages/commit/9eb8d1c940dbda5c6efe931450264198e4e7738d))\r\n* Sync external contributions\r\n([#6984](https://github.com/AztecProtocol/aztec-packages/issues/6984))\r\n([a265b29](https://github.com/AztecProtocol/aztec-packages/commit/a265b29ff473927dbc2fb0beb5c9bf69b7ef1ca9))\r\n\r\n\r\n### Documentation\r\n\r\n* Making private refunds smooth-brain friendly\r\n([#7343](https://github.com/AztecProtocol/aztec-packages/issues/7343))\r\n([533c937](https://github.com/AztecProtocol/aztec-packages/commit/533c9378df19b3a4c3d5d2f9489e64d1fa2e4fb8))\r\n* Update overview.md (fix link text)\r\n([#7344](https://github.com/AztecProtocol/aztec-packages/issues/7344))\r\n([79e5856](https://github.com/AztecProtocol/aztec-packages/commit/79e5856bb065d0fdd9b484ab9c78c1e978d4cacb))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.46.0</summary>\r\n\r\n##\r\n[0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.45.1...barretenberg-v0.46.0)\r\n(2024-07-09)\r\n\r\n\r\n### ⚠ BREAKING CHANGES\r\n\r\n* constant inputs for blackbox\r\n([#7222](https://github.com/AztecProtocol/aztec-packages/issues/7222))\r\n\r\n### Features\r\n\r\n* Constant inputs for blackbox\r\n([#7222](https://github.com/AztecProtocol/aztec-packages/issues/7222))\r\n([9f9ded2](https://github.com/AztecProtocol/aztec-packages/commit/9f9ded2b99980b3b40fce9b55e72c91df1dc3d72))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **avm:** Avoid including flavor where possible\r\n([#7361](https://github.com/AztecProtocol/aztec-packages/issues/7361))\r\n([dbdffd6](https://github.com/AztecProtocol/aztec-packages/commit/dbdffd60b12aa5152fbd2da7d20abc8550d33cef))\r\n* **avm:** Better log_derivative_inverse_round\r\n([#7360](https://github.com/AztecProtocol/aztec-packages/issues/7360))\r\n([6329833](https://github.com/AztecProtocol/aztec-packages/commit/63298337162b80c8d9b82c94760a0fb7be0fe940))\r\n* **avm:** Smaller prover\r\n([#7359](https://github.com/AztecProtocol/aztec-packages/issues/7359))\r\n([7d8c833](https://github.com/AztecProtocol/aztec-packages/commit/7d8c833f94f5c796cb146e6fb5a961e471163ec0))\r\n* **avm:** Smaller transcript\r\n([#7357](https://github.com/AztecProtocol/aztec-packages/issues/7357))\r\n([3952a44](https://github.com/AztecProtocol/aztec-packages/commit/3952a444629fc03616089c27d0e037240db7b4e9))\r\n* **bb:** Do not instantiate Relation\r\n([#7389](https://github.com/AztecProtocol/aztec-packages/issues/7389))\r\n([d9cbf4c](https://github.com/AztecProtocol/aztec-packages/commit/d9cbf4c289d3b3952f84540dadf35e0b410eef2a))\r\n* Counters\r\n([#7342](https://github.com/AztecProtocol/aztec-packages/issues/7342))\r\n([819f370](https://github.com/AztecProtocol/aztec-packages/commit/819f37002a253cdba8c46daac5d68f64fa11f19c))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-07-09T17:04:20Z",
+          "tree_id": "c64b3166497183d031bf7f6995c61362403524b4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/046af9bb3c25d738ba5349793bc63d8512081714"
+        },
+        "date": 1720545357520,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14514.146772999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9850.546650999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4756.566403999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4295.765596 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 44772.816304,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 44772817000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14507.491665,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14507491000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4271392586,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4271392586 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196535814,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 196535814 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3521577934,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3521577934 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161760556,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161760556 ns\nthreads: 1"
           }
         ]
       }
