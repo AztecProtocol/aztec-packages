@@ -191,7 +191,9 @@ contract PrivateToken {
         context.set_public_teardown_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool))"),
-            [fee_payer_point.x, fee_payer_point.y, user_point.x, user_point.y]
+            [
+            fee_payer_point.x, fee_payer_point.y, fee_payer_point.is_infinite as Field, user_point.x, user_point.y, user_point.is_infinite as Field
+        ]
         );
     }
 
