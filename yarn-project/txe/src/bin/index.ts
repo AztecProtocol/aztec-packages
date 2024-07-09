@@ -53,20 +53,12 @@ class TXEDispatcher {
 }
 
 /**
- * Creates an http server that forwards calls to the TXE and starts it on the given port.
- * @param txeService - TXE that answers queries to the created HTTP server.
- * @param port - Port to listen in.
- * @returns A running http server.
+ * Creates an RPC server that forwards calls to the TXE.
+ * @param logger - Logger to output to
+ * @returns A TXE RPC server.
  */
-export function startTXEHttpServer(dispatcher: TXEDispatcher, port: string | number): http.Server {
-  const txeServer = new JsonRpcServer(dispatcher, { Fr }, {}, ['init']);
-
-  const app = txeServer.getApp();
-  const httpServer = http.createServer(app.callback());
-  httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
-  httpServer.listen(port);
-
-  return httpServer;
+export function createTXERpcServer(logger: Logger) {
+  return new JsonRpcServer(new TXEDispatcher(logger), { Fr }, {}, ['init']);
 }
 
 /**
@@ -75,7 +67,11 @@ export function startTXEHttpServer(dispatcher: TXEDispatcher, port: string | num
 function main() {
   logger.info(`Setting up TXE...`);
 
-  startTXEHttpServer(new TXEDispatcher(logger), TXE_PORT);
+  const txeServer = createTXERpcServer(logger);
+  const app = txeServer.getApp();
+  const httpServer = http.createServer(app.callback());
+  httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
+  httpServer.listen(TXE_PORT);
 
   logger.info(`TXE listening on port ${TXE_PORT}`);
 }

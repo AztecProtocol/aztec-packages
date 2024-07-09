@@ -1,1 +1,2 @@
-export { generateTypescriptContractInterface } from './contract-interface-gen/typescript.js';
+export { generateCode, type GenerateCodeOptions } from './contract-interface-gen/codegen.js';
+export { updateProject } from './update/update.js';

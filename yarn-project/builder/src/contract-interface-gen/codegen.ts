@@ -5,13 +5,13 @@ import crypto from 'crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { generateTypescriptContractInterface } from '../contract-interface-gen/typescript.js';
+import { generateTypescriptContractInterface } from './typescript.js';
 
 const cacheFilePath = './codegenCache.json';
 let cache: Record<string, string> = {};
 
 /** Generate code options */
-type GenerateCodeOptions = { force?: boolean };
+export type GenerateCodeOptions = { force?: boolean };
 
 /**
  * Generates Noir interface or Typescript interface for a folder or single file from a Noir compilation artifact.

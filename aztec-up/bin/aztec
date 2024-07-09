@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Call cli image if used with `aztec cli ...args`
-if [ -n "${1-}" ] && [ "$1" != "--help" ]; then
-  if [ "$1" == "cli" ]; then
-    shift
-    SKIP_PORT_ASSIGNMENT=1 $(dirname $0)/.aztec-run aztecprotocol/cli "$@"
-  elif [ "$1" == "sandbox" ]; then
-    $(dirname $0)/aztec-sandbox
-  else
-    $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
-  fi
-else
-  # TODO - display help message
-  echo
-  echo "Using 'aztec' CLI:"
-  echo "  aztec start <args>  - Start aztec infrastructure components. See 'aztec start --help' for detailed command info."
-  echo "  aztec sandbox       - Run a local sandbox network (same as aztec-sandbox)."
-  echo "  aztec cli <args>    - Run the aztec client CLI. See 'aztec cli --help' for detailed command info."
+function run_with_compose {
+  # Favour 'docker compose', falling back on docker-compose.
+  CMD="docker compose"
+  $CMD &>/dev/null || CMD="docker-compose"
+  ARGS=$1
+
+  # Function to be executed when SIGINT is received.
+  cleanup() {
+    $CMD $ARGS down
+  }
+
+  # Set trap to catch SIGINT and call the cleanup function.
+  trap cleanup SIGINT
+
+  # Change working dir, so relative volume mounts are in the right place.
+  cd $(dirname $0)/..
+
+  AZTEC_CMD=$2 $CMD $ARGS -f $HOME/.aztec/docker-compose.yml up --force-recreate --remove-orphans 
+}
+
+if [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
+  run_with_compose "-p sandbox --profile sandbox" "start --sandbox"
+elif [ $# == 1 ] && [ "$1" == "test" ]; then
+  run_with_compose "-p aztec-test --profile test" "test"
+else 
+  $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
 fi

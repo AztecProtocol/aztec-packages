@@ -691,8 +691,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--force', 'Force code generation even when the contract has not changed.')
     .description('Validates and generates an Aztec Contract ABI from Noir ABI.')
     .action(async (noirAbiPath: string, { outdir, force }) => {
-      const { generateCode } = await import('./cmds/codegen.js');
-      generateCode(outdir || dirname(noirAbiPath), noirAbiPath, { force });
+      const { codegen } = await import('./cmds/codegen.js');
+      codegen(outdir || dirname(noirAbiPath), noirAbiPath, { force });
     });
 
   program

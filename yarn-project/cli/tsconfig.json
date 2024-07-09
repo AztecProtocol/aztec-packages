@@ -16,6 +16,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../builder"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -35,9 +38,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../simulator"
     },
     {
       "path": "../types"

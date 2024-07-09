@@ -15,6 +15,7 @@ services:
       FORK_URL:
       FORK_BLOCK_NUMBER:
       ANVIL_PORT: ${ANVIL_PORT:-8545}
+    profiles: [sandbox]
 
   aztec:
     image: "aztecprotocol/aztec"
@@ -36,3 +37,9 @@ services:
       TEST_ACCOUNTS: ${TEST_ACCOUNTS:-true}
     volumes:
       - ./log:/usr/src/yarn-project/aztec/log:rw
+    command: "${AZTEC_CMD}"
+    profiles: [sandbox, test]
+
+  nargo:
+    image: "aztecprotocol/aztec-nargo"
+    profiles: [test]

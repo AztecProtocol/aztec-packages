@@ -16,7 +16,7 @@ const main = async () => {
     .option('--force', 'Force code generation even when the contract has not changed.')
     .description('Validates and generates an Aztec Contract ABI from Noir ABI.')
     .action(async (noirAbiPath: string, { outdir, force }) => {
-      const { generateCode } = await import('./cli/codegen.js');
+      const { generateCode } = await import('./contract-interface-gen/codegen.js');
       generateCode(outdir || dirname(noirAbiPath), noirAbiPath, { force });
     });
 
@@ -27,9 +27,9 @@ const main = async () => {
     .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
     .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
     .action(async (projectPath: string, options) => {
-      const { update } = await import('./cli/update/update.js');
+      const { updateProject } = await import('./update/update.js');
       const { contract, aztecVersion } = options;
-      await update(projectPath, contract, aztecVersion, log);
+      await updateProject(projectPath, contract, aztecVersion, log);
     });
 
   await program.parseAsync(process.argv);
