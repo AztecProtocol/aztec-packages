@@ -4,7 +4,7 @@
 //! be a single function remaining when the pass finishes.
 use std::collections::{BTreeSet, HashSet};
 
-use acvm::acir::AcirField;
+use acvm::{acir::AcirField, FieldElement};
 use iter_extended::{btree_map, vecmap};
 
 use crate::ssa::{
@@ -14,6 +14,7 @@ use crate::ssa::{
         dfg::{CallStack, InsertInstructionResult},
         function::{Function, FunctionId, RuntimeType},
         instruction::{Instruction, InstructionId, TerminatorInstruction},
+        types::Type,
         value::{Value, ValueId},
     },
     ssa_gen::Ssa,
@@ -479,13 +480,19 @@ impl<'function> PerFunctionContext<'function> {
                     Some(func_id) => {
                         if self.should_inline_call(ssa, func_id) {
                             self.inline_function(ssa, *id, func_id, arguments);
-                            if let Some(current_side_effects_enabled_var) =
-                                current_side_effects_enabled_var
-                            {
+                            // If we are inlining after flattening, we need to handle enable side effects
+                            if !self.context.no_predicates_is_entry_point {
+                                let condition = if let Some(current_side_effects_enabled_var) =
+                                    current_side_effects_enabled_var
+                                {
+                                    current_side_effects_enabled_var
+                                } else {
+                                    self.context
+                                        .builder
+                                        .numeric_constant(FieldElement::one(), Type::unsigned(1))
+                                };
                                 self.context.builder.insert_instruction(
-                                    Instruction::EnableSideEffects {
-                                        condition: current_side_effects_enabled_var,
-                                    },
+                                    Instruction::EnableSideEffects { condition },
                                     None,
                                 );
                             }
