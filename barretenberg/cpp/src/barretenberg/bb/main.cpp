@@ -320,7 +320,7 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
 
 void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
                                          const std::string& witnessPath,
-                                         const std::string& outputPath)
+                                         const std::string& outputDir)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -365,11 +365,17 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
-    std::string accPath = outputPath + "/pg_acc";
-    std::string proofPath = outputPath + "/client_ivc_proof";
-    std::string translatorVkPath = outputPath + "/translator_vk";
-    std::string eccVkPath = outputPath + "/ecc_vk";
+    std::string vkPath = outputDir + "/inst_vk"; // the vk of the last instance
+    std::string accPath = outputDir + "/pg_acc";
+    std::string proofPath = outputDir + "/client_ivc_proof";
+    std::string translatorVkPath = outputDir + "/translator_vk";
+    std::string eccVkPath = outputDir + "/ecc_vk";
+
+    vinfo("output vkPath: ", vkPath);
+    vinfo("output accPath: ", accPath);
+    vinfo("output proofPath: ", proofPath);
+    vinfo("output translatorVkPath: ", translatorVkPath);
+    vinfo("output eccVkPath: ", eccVkPath);
 
     auto proof = ivc.prove();
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
@@ -384,6 +390,40 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
+}
+
+/**
+ * @brief Verifies a client ivc proof and writes the result to stdout
+ *
+ * Communication:
+ * - proc_exit: A boolean value is returned indicating whether the proof is valid.
+ *   an exit code of 0 will be returned for success and 1 for failure.
+ *
+ * @param proof_path Path to the file containing the serialized proof
+ * @param vk_path Path to the file containing the serialized verification key of the final mega honk instance
+ * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
+ * @return true (resp., false) if the proof is valid (resp., invalid).
+ */
+bool verify_client_ivc(const std::filesystem::path& proof_path,
+                       const std::filesystem::path& accumulator_path,
+                       const std::filesystem::path& final_vk_path,
+                       const std::filesystem::path& eccvm_vk_path,
+                       const std::filesystem::path& translator_vk_path)
+{
+    const auto read_to_shared_ptr = []<typename T>(const std::filesystem::path& path) {
+        return std::make_shared<T>(from_buffer<T>(read_file(path)));
+    };
+
+    /* WORKTODO const */ auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
+    const auto accumulator = read_to_shared_ptr.template operator()<ClientIVC::VerifierInstance>(accumulator_path);
+    const auto final_vk = read_to_shared_ptr.template operator()<ClientIVC::VerifierInstance>(final_vk_path);
+    const auto eccvm_vk = read_to_shared_ptr.template operator()<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
+    const auto translator_vk =
+        read_to_shared_ptr.template operator()<TranslatorFlavor::VerificationKey>(translator_vk_path);
+
+    const bool verified = ClientIVC::verify(proof, accumulator, final_vk, eccvm_vk, translator_vk);
+    vinfo("verified: ", verified);
+    return verified;
 }
 
 bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
@@ -1273,14 +1313,29 @@ int main(int argc, char* argv[])
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a verify_client_ivc bb cli command
         // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_path);
+            std::filesystem::path output_dir = get_option(args, "-o", "./target");
+            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
             return 0;
         }
-        if (command == "fold_and_verify_program") {
-            return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
-        }
+        if (command == "verify_client_ivc") {
+            std::filesystem::path output_dir = get_option(args, "-o", "./target");
+            std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
+            std::filesystem::path accumulator_path = output_dir / "pg_acc";
+            std::filesystem::path final_vk_path = output_dir / "inst_vk";
+            std::filesystem::path eccvm_vk_path = output_dir / "eccvm_vk";
+            std::filesystem::path translator_vk_path = output_dir / "translator_vk";
 
+            vinfo("input client_ivc_proof_path: ", client_ivc_proof_path);
+            vinfo("input accumulator_path: ", accumulator_path);
+            vinfo("input final_vk_path: ", final_vk_path);
+            vinfo("input eccvm_vk_path: ", eccvm_vk_path);
+            vinfo("input translator_vk_path: ", translator_vk_path);
+
+            return verify_client_ivc(
+                       client_ivc_proof_path, accumulator_path, final_vk_path, eccvm_vk_path, translator_vk_path)
+                       ? 0
+                       : 1;
+        }
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path);
@@ -1294,7 +1349,7 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "client_ivc_prove_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs");
+            std::string output_path = get_option(args, "-o", "./target");
             client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./proofs");
