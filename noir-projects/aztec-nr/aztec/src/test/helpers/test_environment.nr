@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint, traits::Deserialize
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
@@ -32,6 +32,10 @@ impl TestEnvironment {
 
     fn contract_address(self) -> AztecAddress {
         cheatcodes::get_contract_address()
+    }
+
+    fn impersonate(self, address: AztecAddress) {
+        cheatcodes::set_contract_address(address)
     }
 
     fn advance_block_to(&mut self, block_number: u32) {
