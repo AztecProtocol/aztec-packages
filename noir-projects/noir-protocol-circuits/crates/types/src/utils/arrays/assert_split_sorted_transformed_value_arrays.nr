@@ -38,19 +38,17 @@ fn assert_split_sorted_transformed_value_arrays<T, S, N>(
                     sorted_transformed_value_array_gte[sorted_index], sorted_counters_gte[sorted_index], num_gte
                 )
             };
-            let prev_sorted_counter = if num == 0 {
-                0
-            } else if is_lt {
-                sorted_counters_lt[sorted_index - 1]
-            } else {
-                sorted_counters_gte[sorted_index - 1]
-            };
             assert_eq(value, sorted_value, "mismatch sorted values");
             assert_eq(original.counter(), sorted_counter, "mismatch counters");
             if num != 0 {
-                let is_incrementing = sorted_counter > prev_sorted_counter;
+                let (counter, prev_counter) = if is_lt {
+                    (sorted_counters_lt[num], sorted_counters_lt[num - 1])
+                } else {
+                    (sorted_counters_gte[num], sorted_counters_gte[num - 1])
+                };
+                let is_incrementing = counter > prev_counter;
                 assert(ascending == is_incrementing, "value array must be sorted by counter");
-                assert(sorted_counter != prev_sorted_counter, "counters must not be the same");
+                assert(counter != prev_counter, "counters must not be the same");
             }
             if is_lt {
                 num_lt += 1;
