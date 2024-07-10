@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720630925770,
+  "lastUpdate": 1720632159200,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -76500,6 +76500,78 @@ window.BENCHMARK_DATA = {
             "value": 160779285,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160779285 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7870a5815dc759aed7097dc9eb5ab8e10b3a1865",
+          "message": "chore(bb): fix double increment (#7428)\n\nThat I just introduced.",
+          "timestamp": "2024-07-10T18:13:33+01:00",
+          "tree_id": "481c7b3126706be16835ebbd926d822524db7a49",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7870a5815dc759aed7097dc9eb5ab8e10b3a1865"
+        },
+        "date": 1720632153622,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14503.443938000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9862.051631 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5233.258150999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4733.932596000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 44397.35097300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 44397351000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15139.355646,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15139356000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4264046760,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4264046760 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195668761,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195668761 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3532351417,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3532351417 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161754657,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161754657 ns\nthreads: 1"
           }
         ]
       }
