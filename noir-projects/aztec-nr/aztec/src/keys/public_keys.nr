@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH, hash::poseidon2_hash_with_separator,
-    point::Point, traits::{Deserialize, Serialize, Empty, is_empty}
+    address::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
+    hash::poseidon2_hash_with_separator, point::Point, traits::{Deserialize, Serialize, Empty, is_empty}
 };
 use crate::keys::constants::{NUM_KEY_TYPES, NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
@@ -52,7 +52,7 @@ impl PublicKeys {
                 self.ovpk_m.is_infinite as Field,
                 self.tpk_m.x,
                 self.tpk_m.y,
-                self.tpk_m.is_infinite as Field,
+                self.tpk_m.is_infinite as Field
             ],
                 GENERATOR_INDEX__PUBLIC_KEYS_HASH
             )
