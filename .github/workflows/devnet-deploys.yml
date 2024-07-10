@@ -115,8 +115,7 @@ jobs:
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform taint aws_ecs_service.aztec_mainnet_fork aws_efs_file_system.aztec_mainnet_fork_data_store
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_ecs_service.aztec_mainnet_fork" -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
 
       - name: Deploy L1 Contracts
         if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
