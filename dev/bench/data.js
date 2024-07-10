@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720624378828,
+  "lastUpdate": 1720624452729,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -75876,6 +75876,78 @@ window.BENCHMARK_DATA = {
             "value": 174691930,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 174691930 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "108fc5f92e44b027b38fa31614e14f2b7a9f650a",
+          "message": "feat(avm): make ProverPolynomials::get_row return references (#7419)\n\nThis makes the computation of logderivatives ~20x faster, and proving a\npublic token transfer goes from `60s` to `14s`.\n\nThe cost is verbosity.",
+          "timestamp": "2024-07-10T16:02:07+01:00",
+          "tree_id": "088cb1c9f8cda7c60e1ef88e1af8d48d11685598",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/108fc5f92e44b027b38fa31614e14f2b7a9f650a"
+        },
+        "date": 1720624447459,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14151.721385000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9496.975758999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4749.181696999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4343.6423780000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 43232.929865,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 43232931000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14498.447450000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14498448000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4260946690,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4260946690 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194907412,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194907412 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3480778421,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3480778421 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161045489,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161045489 ns\nthreads: 1"
           }
         ]
       }
