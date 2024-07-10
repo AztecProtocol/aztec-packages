@@ -8,7 +8,7 @@ FLAGS="-c $CRS_PATH $VFLAG"
 # Test we can perform the proof/verify flow.
 $BIN gates $FLAGS $BFLAG > /dev/null
 $BIN prove -o proof $FLAGS $BFLAG
-$BIN write_vk_ultra_honk -o vk $FLAGS $BFLAG
+$BIN write_vk -o vk $FLAGS $BFLAG
 $BIN write_pk -o pk $FLAGS $BFLAG
 $BIN verify -k vk -p proof $FLAGS
 

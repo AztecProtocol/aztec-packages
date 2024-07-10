@@ -28,7 +28,7 @@ VFLAG=${VERBOSE:+-v}
 RFLAG=${RECURSIVE:+-r}
 
 echo "Write VK to file for assert_statement..."
-$BIN write_vk_ultra_honk $VFLAG -c $CRS_PATH -o ./target/vk
+$BIN write_vk $VFLAG -c $CRS_PATH -o ./target/vk
 
 echo "Write VK as fields for recursion..."
 $BIN vk_as_fields $VFLAG -c $CRS_PATH -k ./target/vk -o ./target/vk_fields.json

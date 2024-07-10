@@ -6,7 +6,7 @@ BACKEND=${BACKEND:-bb}
 nargo compile
 
 # TODO: backend should automatically generate vk if necessary.
-$BACKEND write_vk_ultra_honk -b ./target/hello_world.json
+$BACKEND write_vk -b ./target/hello_world.json
 $BACKEND contract -o ./src/contract.sol
 
 # We now generate a proof and check whether the verifier contract will verify it.

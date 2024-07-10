@@ -689,7 +689,11 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
+<<<<<<< HEAD
 void write_vk_ultra_honk(const std::string& bytecodePath, const std::string& outputPath, bool honk_recursion)
+=======
+void write_vk(const std::string& bytecodePath, const std::string& outputPath)
+>>>>>>> parent of 64b2032944 (try write_vk_ultra_honk)
 {
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -1311,9 +1315,9 @@ int main(int argc, char* argv[])
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
-        } else if (command == "write_vk_ultra_honk") {
+        } else if (command == "write_vk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_ultra_honk(bytecode_path, output_path, honk_recursion);
+            write_vk(bytecode_path, output_path);
         } else if (command == "write_pk") {
             std::string output_path = get_option(args, "-o", "./target/pk");
             write_pk(bytecode_path, output_path);

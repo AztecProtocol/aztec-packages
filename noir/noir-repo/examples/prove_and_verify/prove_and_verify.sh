@@ -10,5 +10,5 @@ mkdir -p proofs
 $BACKEND prove -b ./target/hello_world.json -w ./target/witness.gz
 
 # TODO: backend should automatically generate vk if necessary.
-$BACKEND write_vk_ultra_honk -b ./target/hello_world.json
+$BACKEND write_vk -b ./target/hello_world.json
 $BACKEND verify -k ./target/vk -p ./proofs/proof

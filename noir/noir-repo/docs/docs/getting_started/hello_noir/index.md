@@ -134,7 +134,7 @@ Once a proof is generated, we can verify correct execution of our Noir program b
 Verify your proof by running:
 
 ```sh
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb write_vk -b ./target/hello_world.json -o ./target/vk
 bb verify -k ./target/vk -p ./proof
 ```
 

@@ -50,7 +50,7 @@ This will compile your source code into a Noir build artifact to be stored in th
 
 ```sh
 # Here we pass the path to the newly generated Noir artifact.
-bb write_vk_ultra_honk -b ./target/<noir_artifact_name>.json
+bb write_vk -b ./target/<noir_artifact_name>.json
 bb contract
 ```
 
@@ -133,7 +133,7 @@ function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) externa
 
 When using the default example in the [Hello Noir](../getting_started/hello_noir/index.md) guide, the easiest way to confirm that the verifier contract is doing its job is by calling the `verify` function via remix with the required parameters. Note that the public inputs must be passed in separately to the rest of the proof so we must split the proof as returned from `bb`.
 
-First generate a proof with `bb` at the location `./proof` using the steps in [get started](../getting_started/hello_noir/index.md), this proof is in a binary format but we want to convert it into a hex string to pass into Remix, this can be done with the
+First generate a proof with `bb` at the location `./proof` using the steps in [get started](../getting_started/hello_noir/index.md), this proof is in a binary format but we want to convert it into a hex string to pass into Remix, this can be done with the 
 
 ```bash
 # This value must be changed to match the number of public inputs (including return values!) in your program.

@@ -518,7 +518,7 @@ program
   });
 
 program
-  .command('write_vk_ultra_honk')
+  .command('write_vk')
   .description('Output verification key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-o, --output-path <path>', 'Specify the path to write the key')
