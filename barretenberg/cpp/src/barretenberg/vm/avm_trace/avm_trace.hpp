@@ -16,11 +16,7 @@
 #include "barretenberg/vm/avm_trace/gadgets/avm_pedersen.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_sha256.hpp"
-<<<<<<< HEAD
-=======
 #include "barretenberg/vm/avm_trace/gadgets/avm_slice_trace.hpp"
-#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
->>>>>>> 9e38cd0464 (7211: witness generation for calldata copy gadget)
 
 namespace bb::avm_trace {
 

@@ -182,6 +182,8 @@ template <typename FF> struct AvmFullRow {
     FF main_rwd{};
     FF main_sel_alu{};
     FF main_sel_bin{};
+    FF main_sel_calldata{};
+    FF main_sel_cd_cpy_gadget{};
     FF main_sel_gas_accounting_active{};
     FF main_sel_last{};
     FF main_sel_mem_op_a{};
@@ -195,6 +197,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_address{};
     FF main_sel_op_and{};
     FF main_sel_op_block_number{};
+    FF main_sel_op_calldata_copy{};
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
     FF main_sel_op_cmov{};
@@ -271,6 +274,7 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
+    FF mem_sel_op_cd_cpy{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
     FF mem_sel_resolve_ind_addr_a{};
@@ -299,11 +303,22 @@ template <typename FF> struct AvmFullRow {
     FF sha256_output{};
     FF sha256_sel_sha256_compression{};
     FF sha256_state{};
+    FF slice_addr{};
+    FF slice_cd_offset{};
+    FF slice_clk{};
+    FF slice_cnt{};
+    FF slice_one_min_inv{};
+    FF slice_sel_cd_cpy{};
+    FF slice_sel_start_cd_cpy{};
+    FF slice_space_id{};
+    FF slice_val{};
+    FF perm_cd_mem{};
     FF perm_main_alu{};
     FF perm_main_bin{};
     FF perm_main_conv{};
     FF perm_main_pos2_perm{};
     FF perm_main_pedersen{};
+    FF perm_main_cd_copy{};
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
     FF perm_main_mem_c{};
@@ -314,6 +329,7 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_ind_addr_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
+    FF lookup_cd_value{};
     FF lookup_opcode_gas{};
     FF range_check_l2_gas_hi{};
     FF range_check_l2_gas_lo{};
@@ -355,6 +371,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_div_u16_7{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
+    FF lookup_cd_value_counts{};
     FF lookup_opcode_gas_counts{};
     FF range_check_l2_gas_hi_counts{};
     FF range_check_l2_gas_lo_counts{};
