@@ -125,7 +125,7 @@ impl OwnedNote for TokenNote {
  * these are going to be eventually turned into notes:
  * one for the user, and one for the fee payer.
  *
- * So you can think of these (x,y) points as "partial notes": they encode part of the internals of the notes.
+ * So you can think of these (x, y) points as "partial notes": they encode part of the internals of the notes.
  *
  * This is because the compute_note_content_hash function above defines the content hash to be
  * the x-coordinate of a point defined as:
