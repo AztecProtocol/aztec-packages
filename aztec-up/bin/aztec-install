@@ -111,7 +111,8 @@ if [ -z "${SKIP_PULL:-}" ]; then
 fi
 
 # Download the Docker Compose file. Used by aztec.
-curl -fsSL http://$INSTALL_HOST/docker-compose.yml -o $AZTEC_PATH/docker-compose.yml
+curl -fsSL http://$INSTALL_HOST/docker-compose.sandbox.yml -o $AZTEC_PATH/docker-compose.sandbox.yml
+curl -fsSL http://$INSTALL_HOST/docker-compose.test.yml -o $AZTEC_PATH/docker-compose.test.yml
 
 function install_bin {
   curl -fsSL http://$INSTALL_HOST/$1 -o $BIN_PATH/$1
@@ -123,10 +124,8 @@ info "Installing scripts in $BIN_PATH..."
 rm -f $BIN_PATH/aztec*
 install_bin .aztec-run
 install_bin aztec
-install_bin aztec-sandbox
 install_bin aztec-up
 install_bin aztec-nargo
-install_bin aztec-cli
 
 function update_path_env_var {
   TARGET_DIR="${1}"

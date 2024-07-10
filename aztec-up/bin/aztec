@@ -20,14 +20,19 @@ function run_with_compose {
   # Change working dir, so relative volume mounts are in the right place.
   cd $(dirname $0)/..
 
-  WORKING_DIR=${CALLED_FROM} NARGO_CMD="${3:-}" AZTEC_CMD=$2 $CMD $ARGS -f $HOME/.aztec/docker-compose.yml up --force-recreate --remove-orphans --abort-on-container-exit
+  $CMD $ARGS
 }
 
-if [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
-  run_with_compose "-p sandbox --profile sandbox" "start --sandbox"
-elif [ "$1" == "test" ]; then
-  TEST_ARGS="$@ --silence-warnings --use-legacy --oracle-resolver=http://aztec:8081"
-  run_with_compose "-p aztec-test --profile test" "test" "$TEST_ARGS"
+if [ $# == 1 ] && [ "$1" == "test" ]; then
+  TEST_ARGS="$@ --silence-warnings --use-legacy --oracle-resolver=http://txe:8081"
+  run_with_compose "-p aztec-test -f $HOME/.aztec/docker-compose.test.yml run -e NARGO_FOREIGN_CALL_TIMEOUT=300000 --workdir $CALLED_FROM --rm -ti aztec-nargo $TEST_ARGS"
+elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
+  run_with_compose "-p sandbox -f $HOME/.aztec/docker-compose.sandbox.yml up --force-recreate --remove-orphans"
 else 
   $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
+  if [ $# == 0 ] # Show the help for the extra "test" command in the same format
+  then
+    echo "test [options]"
+  fi
 fi
+
