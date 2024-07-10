@@ -689,9 +689,9 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-void write_vk(const std::string& bytecodePath, const std::string& outputPath, bool honk_recursion)
+void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
+    auto constraint_system = get_constraint_system(bytecodePath, false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
