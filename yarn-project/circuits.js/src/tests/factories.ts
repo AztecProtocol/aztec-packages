@@ -37,7 +37,6 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -119,7 +118,6 @@ import {
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
-  ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   RevertCode,
   RollupTypes,
@@ -195,7 +193,12 @@ export function makeTxContext(seed: number = 1): TxContext {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGlobalVariables(seed + 5));
+  return new CombinedConstantData(
+    makeHeader(seed, undefined),
+    makeTxContext(seed + 4),
+    new Fr(seed + 1),
+    makeGlobalVariables(seed + 5),
+  );
 }
 
 /**
@@ -320,7 +323,12 @@ export function makeRollupValidationRequests(seed = 1) {
 }
 
 export function makeCombinedConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed), makeTxContext(seed + 0x100), makeGlobalVariables(seed + 0x200));
+  return new CombinedConstantData(
+    makeHeader(seed),
+    makeTxContext(seed + 0x100),
+    new Fr(seed + 0x200),
+    makeGlobalVariables(seed + 0x300),
+  );
 }
 
 /**
@@ -394,7 +402,6 @@ export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContex
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    sideEffectCounter: 0,
     ...overrides,
   });
 }
@@ -527,6 +534,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     makeSelector(seed + 0x1),
     childCallContext,
     parentCallContext,
+    seed + 0x4,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -563,15 +571,15 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1));
+  return new Point(fr(seed), fr(seed + 1), false);
 }
 
 /**
- * Creates an arbitrary grumpkin private key.
+ * Creates an arbitrary grumpkin scalar.
  * @param seed - Seed to generate the values.
- * @returns A GrumpkinPrivateKey.
+ * @returns A GrumpkinScalar.
  */
-export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+export function makeGrumpkinScalar(seed = 1): GrumpkinScalar {
   return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
@@ -865,11 +873,8 @@ export function makeConstantBaseRollupData(
 ): ConstantRollupData {
   return ConstantRollupData.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
-    privateKernelVkTreeRoot: fr(seed + 0x401),
-    publicKernelVkTreeRoot: fr(seed + 0x402),
-    baseRollupVkHash: fr(seed + 0x403),
-    mergeRollupVkHash: fr(seed + 0x404),
-    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x405),
+    vkTreeRoot: fr(seed + 0x401),
+    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x402),
   });
 }
 
@@ -955,8 +960,7 @@ export function makePreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
     VerificationKeyAsFields.makeFake(),
-    seed + 0x110,
-    makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
+    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }
 
@@ -985,16 +989,21 @@ export function makeRootParityInput<PROOF_LENGTH extends number>(
   return new RootParityInput<PROOF_LENGTH>(
     makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
     VerificationKeyAsFields.makeFake(seed + 0x100),
-    makeParityPublicInputs(seed + 0x200),
+    makeTuple(VK_TREE_HEIGHT, fr, 0x200),
+    makeParityPublicInputs(seed + 0x300),
   );
 }
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
-  return new ParityPublicInputs(new Fr(BigInt(seed + 0x200)), new Fr(BigInt(seed + 0x300)));
+  return new ParityPublicInputs(
+    new Fr(BigInt(seed + 0x200)),
+    new Fr(BigInt(seed + 0x300)),
+    new Fr(BigInt(seed + 0x400)),
+  );
 }
 
 export function makeBaseParityInputs(seed = 0): BaseParityInputs {
-  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000));
+  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
 }
 
 export function makeRootParityInputs(seed = 0): RootParityInputs {
@@ -1020,6 +1029,7 @@ export function makeRootRollupPublicInputs(
   return RootRollupPublicInputs.from({
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     header: makeHeader(seed + 0x200, blockNumber),
+    vkTreeRoot: fr(seed + 0x300),
   });
 }
 

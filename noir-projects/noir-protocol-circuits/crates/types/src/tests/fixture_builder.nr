@@ -41,7 +41,7 @@ use crate::{
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
     recursion::{verification_key::VerificationKey, proof::{NestedRecursiveProof, RecursiveProof}},
-    grumpkin_point::GrumpkinPoint
+    point::Point
 };
 
 fn subarray<T, N, M>(arr: [T; N]) -> [T; M] {
@@ -127,6 +127,7 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
+    vk_tree_root: Field,
     
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -176,6 +177,20 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
+        self.vk_index = vk_index;
+        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+
+        let vk_hash = vk_tree.leaves[vk_index];
+        self.vk.hash = vk_hash;
+
+        self.vk_path = vk_tree.get_sibling_path(vk_index);
+
+        self.vk_tree_root = vk_tree.get_root();
+
+        *self
+    }
+
     pub fn is_delegate_call(&mut self) -> Self {
         self.is_delegate_call = true;
         self.storage_contract_address = fixtures::contracts::parent_contract.address;
@@ -192,6 +207,7 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
             global_variables: self.global_variables
         }
     }
@@ -211,8 +227,7 @@ impl FixtureBuilder {
             storage_contract_address: self.storage_contract_address,
             function_selector: self.function_data.selector,
             is_delegate_call: self.is_delegate_call,
-            is_static_call: self.is_static_call,
-            side_effect_counter: self.counter_start
+            is_static_call: self.is_static_call
         }
     }
 
@@ -438,13 +453,7 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData {
-            public_inputs,
-            proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-            vk_index: self.vk_index,
-            vk_path: self.vk_path
-        }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
@@ -467,7 +476,7 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            vk: self.vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -669,7 +678,7 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u32 {
+    pub fn add_request_for_key_validation(&mut self, pk_m: Point, sk_app: Field, sk_app_generator: Field) -> u32 {
         let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
@@ -948,7 +957,7 @@ impl FixtureBuilder {
 
     fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndGenerator {
         let value_offset = 3030 + self.value_offset + index as Field;
-        let request = KeyValidationRequest { pk_m: GrumpkinPoint { x: value_offset, y: 1 + value_offset }, sk_app: 2 + value_offset };
+        let request = KeyValidationRequest { pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false }, sk_app: 2 + value_offset };
         KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
     }
 
@@ -1020,6 +1029,10 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
+
+    fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
 }
 
 impl Empty for FixtureBuilder {
@@ -1069,6 +1082,7 @@ impl Empty for FixtureBuilder {
             vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
+            vk_tree_root: FixtureBuilder::vk_tree_root(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

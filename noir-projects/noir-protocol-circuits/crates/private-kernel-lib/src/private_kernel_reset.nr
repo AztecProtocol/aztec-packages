@@ -5,8 +5,14 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::private_kernel_data::PrivateKernelData,
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, PrivateKernelCircuitPublicInputs
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX},
+    PrivateKernelCircuitPublicInputs
 };
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_INIT_INDEX,
+    PRIVATE_KERNEL_INNER_INDEX,
+];
 
 struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
@@ -38,6 +44,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
         if !std::runtime::is_unconstrained() {
             // verify/aggregate the previous kernel
             self.previous_kernel.verify();
+            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let previous_public_inputs = self.previous_kernel.public_inputs;
@@ -84,7 +91,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
 }
 
 mod tests {
-    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints};
+    use crate::private_kernel_reset::{PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::reset_kernel_lib::{
         tests::{
         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
@@ -97,7 +104,8 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__OVSK_M
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__OVSK_M,
+        PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
@@ -105,9 +113,9 @@ mod tests {
         max_block_number::MaxBlockNumber, note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier}, log_hash::NoteLogHash, read_request::ScopedReadRequest
     },
-        address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-        tests::{fixture_builder::FixtureBuilder}, utils::{arrays::{array_eq, array_length}},
-        traits::{Empty, is_empty, is_empty_array}, grumpkin_point::GrumpkinPoint
+        address::AztecAddress, scalar::Scalar, tests::{fixture_builder::FixtureBuilder},
+        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array},
+        point::Point
     };
 
     struct PrivateKernelResetInputsBuilder {
@@ -120,7 +128,7 @@ mod tests {
 
     impl PrivateKernelResetInputsBuilder {
         pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new();
+            let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.append_nullifiers(1);
 
             PrivateKernelResetInputsBuilder {
@@ -283,7 +291,7 @@ mod tests {
         let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
 
-        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27, GENERATOR_INDEX__OVSK_M);
+        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(Point::new(1, 2, false), 27, GENERATOR_INDEX__OVSK_M);
         let key_validation = builder.previous_kernel.scoped_key_validation_requests_and_generators.storage[key_validation_index];
 
         // Check that they have been propagated to the next kernel
@@ -426,5 +434,24 @@ mod tests {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PrivateKernelResetInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelResetInputsBuilder::new();
+
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+
+        let _res = builder.execute();
     }
 }

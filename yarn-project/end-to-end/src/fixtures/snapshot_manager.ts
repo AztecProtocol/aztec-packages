@@ -8,7 +8,7 @@ import {
   type DeployL1Contracts,
   EthCheatCodes,
   Fr,
-  GrumpkinPrivateKey,
+  GrumpkinScalar,
   SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -320,7 +320,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const ethereumHostPort = await getPort();
-  aztecNodeConfig.rpcUrl = `http://localhost:${ethereumHostPort}`;
+  aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
   const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
   await anvil.start();
   // Load anvil state.
@@ -376,9 +376,9 @@ export const addAccounts =
   (numberOfAccounts: number, logger: DebugLogger) =>
   async ({ pxe }: SubsystemsContext) => {
     // Generate account keys.
-    const accountKeys: [Fr, GrumpkinPrivateKey][] = Array.from({ length: numberOfAccounts }).map(_ => [
+    const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
       Fr.random(),
-      GrumpkinPrivateKey.random(),
+      GrumpkinScalar.random(),
     ]);
 
     logger.verbose('Simulating account deployment...');

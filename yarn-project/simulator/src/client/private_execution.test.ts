@@ -15,7 +15,7 @@ import {
   CompleteAddress,
   GasSettings,
   GeneratorIndex,
-  type GrumpkinPrivateKey,
+  type GrumpkinScalar,
   Header,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -90,10 +90,10 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  let ownerNskM: GrumpkinPrivateKey;
-  let ownerOvskM: GrumpkinPrivateKey;
-  let recipientNskM: GrumpkinPrivateKey;
-  let recipientOvskM: GrumpkinPrivateKey;
+  let ownerNskM: GrumpkinScalar;
+  let ownerOvskM: GrumpkinScalar;
+  let recipientNskM: GrumpkinScalar;
+  let recipientOvskM: GrumpkinScalar;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -891,7 +891,6 @@ describe('Private Execution test suite', () => {
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 2,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -899,8 +898,8 @@ describe('Private Execution test suite', () => {
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 1,
         }),
+        sideEffectCounter: 2,
       });
 
       const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().getCompressed().hash();
