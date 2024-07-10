@@ -149,10 +149,11 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processL2Block(block: L2Block): Promise<boolean> {
+    const ctx = { blockNumber: block.number, blockHash: block.hash().toString() };
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
     if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
-      this.log.info(`Detected different last archive prior to publishing a block, aborting publish...`);
+      this.log.info(`Detected different last archive prior to publishing a block, aborting publish...`, ctx);
       return false;
     }
 
@@ -161,7 +162,7 @@ export class L1Publisher implements L2BlockReceiver {
     // Publish block transaction effects
     while (!this.interrupted) {
       if (await this.txSender.checkIfTxsAreAvailable(block)) {
-        this.log.verbose(`Transaction effects of a block ${block.number} already published.`);
+        this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
         break;
       }
 
@@ -181,14 +182,14 @@ export class L1Publisher implements L2BlockReceiver {
           // txsEffectsHash from IAvailabilityOracle.TxsPublished event
           txsEffectsHash = receipt.logs[0].data;
         } else {
-          this.log.warn(`Expected 1 log, got ${receipt.logs.length}`);
+          this.log.warn(`Expected 1 log, got ${receipt.logs.length}`, ctx);
         }
 
-        this.log.info(`Block txs effects published, txsEffectsHash: ${txsEffectsHash}`);
+        this.log.info(`Block txs effects published`, { ...ctx, txsEffectsHash });
         break;
       }
 
-      this.log.error(`AvailabilityOracle.publish tx status failed: ${receipt.transactionHash}`);
+      this.log.error(`AvailabilityOracle.publish tx status failed: ${receipt.transactionHash}`, ctx);
       await this.sleepOrInterrupted();
     }
 
@@ -219,25 +220,27 @@ export class L1Publisher implements L2BlockReceiver {
           ...block.getStats(),
           eventName: 'rollup-published-to-l1',
         };
-        this.log.info(`Published L2 block to L1 rollup contract`, stats);
+        this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
         return true;
       }
 
       // Check if someone else incremented the block number
       if (!(await this.checkLastArchiveHash(lastArchive))) {
-        this.log.warn('Publish failed. Detected different last archive hash.');
+        this.log.warn('Publish failed. Detected different last archive hash.', ctx);
         break;
       }
 
-      this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`);
+      this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`, ctx);
       await this.sleepOrInterrupted();
     }
 
-    this.log.verbose('L2 block data syncing interrupted while processing blocks.');
+    this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
     return false;
   }
 
   public async submitProof(header: Header, archiveRoot: Fr, aggregationObject: Fr[], proof: Proof): Promise<boolean> {
+    const ctx = { blockNumber: header.globalVariables.blockNumber };
+
     const txArgs: L1SubmitProofArgs = {
       header: header.toBuffer(),
       archive: archiveRoot.toBuffer(),
@@ -265,15 +268,15 @@ export class L1Publisher implements L2BlockReceiver {
           ...pick(tx!, 'calldataGas', 'calldataSize'),
           eventName: 'proof-published-to-l1',
         };
-        this.log.info(`Published L2 block to L1 rollup contract`, stats);
+        this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
         return true;
       }
 
-      this.log.error(`Rollup.submitProof tx status failed: ${receipt.transactionHash}`);
+      this.log.error(`Rollup.submitProof tx status failed: ${receipt.transactionHash}`, ctx);
       await this.sleepOrInterrupted();
     }
 
-    this.log.verbose('L2 block data syncing interrupted while processing blocks.');
+    this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
     return false;
   }
 
