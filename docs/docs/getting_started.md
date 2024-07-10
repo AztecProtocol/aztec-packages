@@ -4,7 +4,7 @@ title: Quickstart
 
 You can get started with an Aztec development environment (A.K.A. Sandbox) in less than 5 minutes.
 
-The Sandbox is an Aztec network running fully on your machine, and interacting with an development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet.
+The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet.
 
 ### Prerequisites
 
