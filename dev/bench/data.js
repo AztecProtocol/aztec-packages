@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720640279835,
+  "lastUpdate": 1720640692597,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -76980,6 +76980,78 @@ window.BENCHMARK_DATA = {
             "value": 160945215,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160945215 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1778876eac8ef65edd06c49d1ddf2429d6583e5",
+          "message": "chore: minimize usage of get_row in inverse computation (#7431)\n\nUsing get_row in hot loops is known to be a bad plan since it amounts to\r\na copy. When I implemented log derivative table lookups, I carelessly\r\nused the method in logderiv_library.hpp which computes the inverses\r\nneeded in the log deriv relation. That method uses get_row in a loop\r\nover the entire execution trace which amounts to copying the entire set\r\nof prover polynomials one row at a time.\r\n\r\nA half-measure fix is to still use get_row, but only where we really\r\nneed to use it (i.e. where the gate in question is active). this is what\r\nI did for the databus log-deriv lookup relation. This is still less\r\nefficient than it could be because we're copying an entire row when we\r\nonly need a small subset of the data. This too could be avoided but at\r\nthe cost of some icky duplication so for now I'm leaving it as is with\r\nreference to a bberg issue.\r\n\r\nResults in a ~0.5s reduction in ClientIvc bench, essentially entirely in\r\nthe PG prep round (where the lookup inverses are computed):\r\n\r\nBefore: \r\n`ClientIVCBench/Full/6      15131 ms        10319 ms`\r\n`ProtoGalaxyProver_::preparation_round(t)           3569    52.15%`\r\n\r\nAfter: \r\n`ClientIVCBench/Full/6      14582 ms         9853 ms`\r\n`ProtoGalaxyProver_::preparation_round(t)           3055    48.72%`",
+          "timestamp": "2024-07-10T19:38:16Z",
+          "tree_id": "0c571eb8be8c3b4a50066c22ff3c4a382bbe8bbc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f1778876eac8ef65edd06c49d1ddf2429d6583e5"
+        },
+        "date": 1720640687294,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13738.332915,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9294.579042000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4847.786075000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4453.813851 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41541.483753,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41541484000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14579.385471999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14579385000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4226447655,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4226447655 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194424668,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194424668 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3492054073,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3492054073 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160260311,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160260311 ns\nthreads: 1"
           }
         ]
       }
