@@ -32,7 +32,6 @@ contract AvmTest {
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::generators::Ga1;
     use dep::compressed_string::CompressedString;
 
     #[aztec(storage)]
@@ -138,16 +137,19 @@ contract AvmTest {
 
     #[aztec(public)]
     fn elliptic_curve_add_and_double() -> Point {
-        let doubled = Ga1 + Ga1;
-        let added = Ga1 + doubled;
+        let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+
+        let doubled = g + g;
+        let added = g + doubled;
         added
     }
 
     #[aztec(public)]
     fn variable_base_msm() -> Point {
+        let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
         let scalar = Scalar { lo: 3, hi: 0 };
         let scalar2 = Scalar { lo: 20, hi: 0 };
-        let triple_g = multi_scalar_mul([Ga1, Ga1], [scalar, scalar2]);
+        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
         triple_g
     }
 
