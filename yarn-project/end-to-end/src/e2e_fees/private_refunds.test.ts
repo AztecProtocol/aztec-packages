@@ -75,12 +75,12 @@ describe('e2e_fees/private_refunds', () => {
       })
       .wait();
 
+    expect(tx.transactionFee).toBeGreaterThan(0);
+
     // 3. We check that randomness for Bob was correctly emitted as an unencrypted log (Bobs needs it to reconstruct his note).
     const resp = await aliceWallet.getUnencryptedLogs({ txHash: tx.txHash });
     const bobRandomnessFromLog = Fr.fromBuffer(resp.logs[0].log.data);
     expect(bobRandomnessFromLog).toEqual(bobRandomness);
-
-    expect(tx.transactionFee).toBeGreaterThan(0);
 
     // 4. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
     // the fee limit minus the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
