@@ -3,12 +3,15 @@ import { createTXERpcServer } from '@aztec/txe';
 
 import http from 'http';
 
-const { TXE_PORT = '8081' } = process.env;
+const { TXE_PORT = 8081 } = process.env;
 
 export const startTXE = async (options: any, debugLogger: DebugLogger) => {
+  debugLogger.info(`Setting up TXE...`);
   const txeServer = createTXERpcServer(debugLogger);
   const app = txeServer.getApp();
   const httpServer = http.createServer(app.callback());
   httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
-  httpServer.listen(parseInt(options.port || TXE_PORT));
+  const port = parseInt(options.txePort || TXE_PORT, 10);
+  httpServer.listen(port);
+  debugLogger.info(`TXE listening on port ${port}`);
 };

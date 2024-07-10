@@ -84,5 +84,5 @@ export const cliTexts = {
   txe:
     'Starts a TXE with options\n' +
     'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
-    'port:TXE_PORT - number - The port on which the TXE should listen for connections. Default: 8081\n',
+    'txePort:TXE_PORT - number - The port on which the TXE should listen for connections. Default: 8081\n',
 };

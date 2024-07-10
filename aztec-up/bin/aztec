@@ -10,7 +10,7 @@ function get_compose {
 
 CALLED_FROM=$PWD
 
-if [ "$1" == "test" ]; then
+if [ "${1:-}" == "test" ]; then
   # Change working dir, so relative volume mounts are in the right place.
   cd $(dirname $0)/..
   # Compose file to use
