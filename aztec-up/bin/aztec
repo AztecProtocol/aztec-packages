@@ -1,38 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CALLED_FROM=$PWD
-
-function run_with_compose {
+function get_compose {
   # Favour 'docker compose', falling back on docker-compose.
   CMD="docker compose"
   $CMD &>/dev/null || CMD="docker-compose"
-  ARGS=$1
+  $CMD $@
+}
 
-  # Function to be executed when SIGINT is received.
+CALLED_FROM=$PWD
+
+if [ "$1" == "test" ]; then
+  # Change working dir, so relative volume mounts are in the right place.
+  cd $(dirname $0)/..
+  # Compose file to use
+  FILE_ARG="-f $HOME/.aztec/docker-compose.test.yml"
+  # Aztec contract test args for nargo
+  TEST_ARGS="$@ --silence-warnings --use-legacy --oracle-resolver http://aztec:8081"
+  get_compose -p aztec-test $FILE_ARG run -e NARGO_FOREIGN_CALL_TIMEOUT=300000 --workdir $CALLED_FROM --rm -it aztec-nargo $TEST_ARGS
+elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
+  # Change working dir, so relative volume mounts are in the right place.
+  cd $(dirname $0)/..
+  # Compose file to use
+  FILE_ARG="-f $HOME/.aztec/docker-compose.sandbox.yml"
+
+   # Function to be executed when SIGINT is received.
   cleanup() {
-    $CMD $ARGS down
+    get_compose $FILE_ARG down
   }
 
   # Set trap to catch SIGINT and call the cleanup function.
   trap cleanup SIGINT
 
-  # Change working dir, so relative volume mounts are in the right place.
-  cd $(dirname $0)/..
-
-  $CMD $ARGS
-}
-
-if [ $# == 1 ] && [ "$1" == "test" ]; then
-  TEST_ARGS="$@ --silence-warnings --use-legacy --oracle-resolver=http://txe:8081"
-  run_with_compose "-p aztec-test -f $HOME/.aztec/docker-compose.test.yml run -e NARGO_FOREIGN_CALL_TIMEOUT=300000 --workdir $CALLED_FROM --rm -ti aztec-nargo $TEST_ARGS"
-elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
-  run_with_compose "-p sandbox -f $HOME/.aztec/docker-compose.sandbox.yml up --force-recreate --remove-orphans"
+ get_compose -p sandbox $FILE_ARG up --force-recreate --remove-orphans
 else 
   $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
-  if [ $# == 0 ] # Show the help for the extra "test" command in the same format
-  then
-    echo "test [options]"
-  fi
 fi
 

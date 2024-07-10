@@ -16,13 +16,7 @@ import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
 import { createAccountLogs, installSignalHandlers } from './util.js';
 
-const {
-  AZTEC_PORT = '8080',
-  API_PREFIX = '',
-  TEST_ACCOUNTS = 'true',
-  ENABLE_GAS = '',
-  TXE_PORT = '8081',
-} = process.env;
+const { AZTEC_PORT = '8080', API_PREFIX = '', TEST_ACCOUNTS = 'true', ENABLE_GAS = '' } = process.env;
 
 /**
  * Returns commander program that defines the 'aztec' command line interface.
@@ -51,6 +45,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
     .option('-s, --sequencer [options]', cliTexts.sequencer)
     .option('-r, --prover [options]', cliTexts.prover)
     .option('-p2p, --p2p-bootstrap [options]', cliTexts.p2pBootstrap)
+    .option('-t, --txe [options]', cliTexts.txe)
     .action(async options => {
       // list of 'stop' functions to call when process ends
       const signalHandlers: Array<() => Promise<void>> = [];
@@ -98,6 +93,9 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
         } else if (options.prover) {
           const { startProver } = await import('./cmds/start_prover.js');
           services = await startProver(options, signalHandlers, userLog);
+        } else if (options.txe) {
+          const { startTXE } = await import('./cmds/start_txe.js');
+          await startTXE(options, debugLogger);
         }
       }
       installSignalHandlers(debugLogger.info, signalHandlers);
@@ -116,19 +114,20 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
       }
     });
 
-  program
-    .command('test')
-    .description('Starts and Aztec TXE (Testing eXecution Environment) RPC server to run noir contract tests')
-    .option('-p, --port <port>', 'Port to run TXE on.', TXE_PORT)
-    .action(async options => {
-      const txeServer = createTXERpcServer(debugLogger);
-      const app = txeServer.getApp();
-      const httpServer = http.createServer(app.callback());
-      httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
-      httpServer.listen(parseInt(options.port || TXE_PORT));
-    });
-
   program.configureHelp({ sortSubcommands: true });
+
+  program.addHelpText(
+    'after',
+    `
+  
+  Additional commands:
+
+    test [options]: starts a dockerized TXE node via     
+      $ aztec start --txe
+    then runs 
+      $ aztec-nargo test --silence-warnings --use-legacy --oracle-resolver=<TXE_ADDRESS> [options]
+    `,
+  );
 
   return program;
 }
