@@ -37,7 +37,6 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -403,7 +402,6 @@ export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContex
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    sideEffectCounter: 0,
     ...overrides,
   });
 }
@@ -536,6 +534,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     makeSelector(seed + 0x1),
     childCallContext,
     parentCallContext,
+    seed + 0x4,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -572,15 +571,15 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1));
+  return new Point(fr(seed), fr(seed + 1), false);
 }
 
 /**
- * Creates an arbitrary grumpkin private key.
+ * Creates an arbitrary grumpkin scalar.
  * @param seed - Seed to generate the values.
- * @returns A GrumpkinPrivateKey.
+ * @returns A GrumpkinScalar.
  */
-export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+export function makeGrumpkinScalar(seed = 1): GrumpkinScalar {
   return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
