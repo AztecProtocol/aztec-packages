@@ -24,7 +24,7 @@ import {
   FPCContract,
   GasTokenContract,
   PrivateFPCContract,
-  PrivateTokenContract,
+  TokenWithRefundsContract,
 } from '@aztec/noir-contracts.js';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
@@ -67,7 +67,7 @@ export class FeesTest {
   public gasTokenContract!: GasTokenContract;
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
-  public privateToken!: PrivateTokenContract;
+  public tokenWithRefunds!: TokenWithRefundsContract;
   public privateFPC!: PrivateFPCContract;
   public counterContract!: CounterContract;
   public subscriptionContract!: AppSubscriptionContract;
@@ -99,11 +99,11 @@ export class FeesTest {
     await this.snapshotManager.teardown();
   }
 
-  /** Alice mints PrivateToken  */
+  /** Alice mints TokenWithRefunds  */
   async mintPrivateTokens(amount: bigint) {
-    const balanceBefore = await this.privateToken.methods.balance_of_private(this.aliceAddress).simulate();
-    await this.privateToken.methods.privately_mint_private_note(amount).send().wait();
-    const balanceAfter = await this.privateToken.methods.balance_of_private(this.aliceAddress).simulate();
+    const balanceBefore = await this.tokenWithRefunds.methods.balance_of_private(this.aliceAddress).simulate();
+    await this.tokenWithRefunds.methods.privately_mint_private_note(amount).send().wait();
+    const balanceAfter = await this.tokenWithRefunds.methods.balance_of_private(this.aliceAddress).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -250,14 +250,14 @@ export class FeesTest {
         const gasTokenContract = this.gasBridgeTestHarness.l2Token;
         expect(await context.pxe.isContractPubliclyDeployed(gasTokenContract.address)).toBe(true);
 
-        const privateToken = await PrivateTokenContract.deploy(this.aliceWallet, this.aliceAddress, 'PVT', 'PVT', 18n)
+        const tokenWithRefunds = await TokenWithRefundsContract.deploy(this.aliceWallet, this.aliceAddress, 'PVT', 'PVT', 18n)
           .send()
           .deployed();
 
-        this.logger.info(`PrivateToken deployed at ${privateToken.address}`);
+        this.logger.info(`TokenWithRefunds deployed at ${tokenWithRefunds.address}`);
         const adminKeyHash = this.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
 
-        const privateFPCSent = PrivateFPCContract.deploy(this.bobWallet, privateToken.address, adminKeyHash).send();
+        const privateFPCSent = PrivateFPCContract.deploy(this.bobWallet, tokenWithRefunds.address, adminKeyHash).send();
         const privateFPC = await privateFPCSent.deployed();
 
         this.logger.info(`PrivateFPC deployed at ${privateFPC.address}`);
@@ -268,18 +268,18 @@ export class FeesTest {
         );
 
         return {
-          privateTokenAddress: privateToken.address,
+          privateTokenAddress: tokenWithRefunds.address,
           privateFPCAddress: privateFPC.address,
         };
       },
       async data => {
         this.privateFPC = await PrivateFPCContract.at(data.privateFPCAddress, this.bobWallet);
-        this.privateToken = await PrivateTokenContract.at(data.privateTokenAddress, this.aliceWallet);
+        this.tokenWithRefunds = await TokenWithRefundsContract.at(data.privateTokenAddress, this.aliceWallet);
 
         const logger = this.logger;
         this.getPrivateTokenBalanceFn = getBalancesFn(
           '🕵️.private',
-          this.privateToken.methods.balance_of_private,
+          this.tokenWithRefunds.methods.balance_of_private,
           logger,
         );
       },

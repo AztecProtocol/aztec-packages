@@ -9,7 +9,7 @@ import {
 import { Fr, type GasSettings } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { type PrivateFPCContract, PrivateTokenContract } from '@aztec/noir-contracts.js';
+import { type PrivateFPCContract, TokenWithRefunds } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -17,7 +17,7 @@ import { FeesTest } from './fees_test.js';
 describe('e2e_fees/private_refunds', () => {
   let aliceWallet: Wallet;
   let aliceAddress: AztecAddress;
-  let privateToken: PrivateTokenContract;
+  let tokenWithRefunds: TokenWithRefunds;
   let privateFPC: PrivateFPCContract;
 
   let initialAliceBalance: bigint;
@@ -33,7 +33,7 @@ describe('e2e_fees/private_refunds', () => {
     await t.applyDeployGasTokenSnapshot();
     await t.applyPrivateTokenAndFPC();
     await t.applyFundAliceWithPrivateTokens();
-    ({ aliceWallet, aliceAddress, privateFPC, privateToken } = await t.setup());
+    ({ aliceWallet, aliceAddress, privateFPC, tokenWithRefunds } = await t.setup());
     t.logger.debug(`Alice address: ${aliceAddress}`);
   });
 
@@ -58,13 +58,13 @@ describe('e2e_fees/private_refunds', () => {
     const bobRandomness = poseidon2Hash([aliceRandomness]); // Called fee_payer_randomness in contracts
 
     // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
-    const tx = await privateToken.methods
+    const tx = await tokenWithRefunds.methods
       .private_get_name()
       .send({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateRefundPaymentMethod(
-            privateToken.address,
+            tokenWithRefunds.address,
             privateFPC.address,
             aliceWallet,
             aliceRandomness,
@@ -99,9 +99,9 @@ describe('e2e_fees/private_refunds', () => {
       new ExtendedNote(
         aliceRefundNote,
         t.aliceAddress,
-        privateToken.address,
-        PrivateTokenContract.storage.balances.slot,
-        PrivateTokenContract.notes.TokenNote.id,
+        tokenWithRefunds.address,
+        TokenWithRefunds.storage.balances.slot,
+        TokenWithRefunds.notes.TokenNote.id,
         tx.txHash,
       ),
     );
@@ -117,9 +117,9 @@ describe('e2e_fees/private_refunds', () => {
       new ExtendedNote(
         bobFeeNote,
         t.bobAddress,
-        privateToken.address,
-        PrivateTokenContract.storage.balances.slot,
-        PrivateTokenContract.notes.TokenNote.id,
+        tokenWithRefunds.address,
+        TokenWithRefunds.storage.balances.slot,
+        TokenWithRefunds.notes.TokenNote.id,
         tx.txHash,
       ),
     );
