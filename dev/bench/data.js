@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720602583968,
+  "lastUpdate": 1720606708484,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -74916,6 +74916,78 @@ window.BENCHMARK_DATA = {
             "value": 160889646,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160889646 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e44ef7042c87d3c78a14413ad7d54e4ed642ad89",
+          "message": "chore(master): Release 0.46.1 (#7409)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.46.1</summary>\r\n\r\n##\r\n[0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.0...aztec-package-v0.46.1)\r\n(2024-07-10)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **aztec-package:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.46.1</summary>\r\n\r\n##\r\n[0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.0...barretenberg.js-v0.46.1)\r\n(2024-07-10)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.46.1</summary>\r\n\r\n##\r\n[0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.46.0...aztec-packages-v0.46.1)\r\n(2024-07-10)\r\n\r\n\r\n### Features\r\n\r\n* Apply `no_predicates` in stdlib\r\n(https://github.com/noir-lang/noir/pull/5454)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n* Lsp rename/find-all-references for globals\r\n(https://github.com/noir-lang/noir/pull/5415)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n* Lsp rename/find-all-references for local variables\r\n(https://github.com/noir-lang/noir/pull/5439)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n* Remove duplicated array reads at constant indices\r\n(https://github.com/noir-lang/noir/pull/5445)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n* Remove redundant `EnableSideEffects` instructions\r\n(https://github.com/noir-lang/noir/pull/5440)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Account for the expected kind when resolving turbofish generics\r\n(https://github.com/noir-lang/noir/pull/5448)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n* Added bb to noir-projects deps\r\n([#7412](https://github.com/AztecProtocol/aztec-packages/issues/7412))\r\n([6d3ed3a](https://github.com/AztecProtocol/aztec-packages/commit/6d3ed3a5269f1354c8c722232fd6f1d46ac7a245))\r\n* Fix issue with unresolved results\r\n(https://github.com/noir-lang/noir/pull/5453)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n* Prevent `no_predicates` from removing predicates in calling function\r\n(https://github.com/noir-lang/noir/pull/5452)\r\n([6237d96](https://github.com/AztecProtocol/aztec-packages/commit/6237d96a0bc23a5ed656e7ba172fb57facd9c807))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Replace relative paths to noir-protocol-circuits\r\n([db45302](https://github.com/AztecProtocol/aztec-packages/commit/db453026efa29dddc973f507b002c1c4fd1a3676))\r\n* Replace usage of `GrumpkinPoint` with `EmbeddedCurvePoint`\r\n([#7382](https://github.com/AztecProtocol/aztec-packages/issues/7382))\r\n([5279695](https://github.com/AztecProtocol/aztec-packages/commit/52796958738f8f1eb90d9691ff489d189f9bce90))\r\n* Replace usage of `GrumpkinPrivateKey` with `EmbeddedCurveScalar`\r\n([#7384](https://github.com/AztecProtocol/aztec-packages/issues/7384))\r\n([a917198](https://github.com/AztecProtocol/aztec-packages/commit/a917198c6a17063414087419d8cb1de93e6dc21e))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.46.1</summary>\r\n\r\n##\r\n[0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.46.0...barretenberg-v0.46.1)\r\n(2024-07-10)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-07-10T12:06:33+02:00",
+          "tree_id": "3725720f50780c18190564e20e298c8f75b0a3f0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e44ef7042c87d3c78a14413ad7d54e4ed642ad89"
+        },
+        "date": 1720606700576,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14110.201090000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9567.954274 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4765.0084240000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4372.20167 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42782.413552,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42782413000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14465.520335,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14465520000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4276285316,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4276285316 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 195416949,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 195416949 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3490193161,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3490193161 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162875163,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162875163 ns\nthreads: 1"
           }
         ]
       }
