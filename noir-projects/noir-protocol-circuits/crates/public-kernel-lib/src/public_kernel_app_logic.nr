@@ -47,7 +47,8 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         if !dep::std::runtime::is_unconstrained() {
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

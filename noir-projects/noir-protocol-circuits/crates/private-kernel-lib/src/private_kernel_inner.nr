@@ -53,7 +53,8 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
         private_call_data_validator.validate(output.end.note_hashes);
         if !std::runtime::is_unconstrained() {
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.

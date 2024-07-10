@@ -118,7 +118,7 @@ async function generateVKData(
 
   const writeVkCommand = `${BB_BIN_PATH} write_vk_ultra_honk -b "${artifactPath}" -o "${binaryVkPath}"`;
 
-  const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+  const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields_ultra_honk -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {

@@ -42,7 +42,8 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
 
         // Validate inputs.
         if !std::runtime::is_unconstrained() {
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let previous_public_inputs = self.previous_kernel.public_inputs;

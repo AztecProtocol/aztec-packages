@@ -69,7 +69,8 @@ impl PublicKernelTailCircuitPrivateInputs {
         if !dep::std::runtime::is_unconstrained() {
             // Recursively verify the tube proof or a previous public kernel proof
             self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
         self.validate_inputs();
 
