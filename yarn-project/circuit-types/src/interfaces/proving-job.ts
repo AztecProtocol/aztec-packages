@@ -112,10 +112,11 @@ export type ProvingRequest =
   | {
       type: ProvingRequestType.PRIVATE_KERNEL_EMPTY;
       inputs: PrivateKernelEmptyInputData;
-  } | {
-    type: ProvingRequestType.TUBE_PROOF;
-    inputs: TubeInputs;
-  };
+    }
+  | {
+      type: ProvingRequestType.TUBE_PROOF;
+      inputs: TubeInputs;
+    };
 
 export type ProvingRequestPublicInputs = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
@@ -131,7 +132,7 @@ export type ProvingRequestPublicInputs = {
   [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   // TODO(#7369) properly structure tube proof flow
-  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<393>; }
+  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<393> };
 };
 
 export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestPublicInputs[T];

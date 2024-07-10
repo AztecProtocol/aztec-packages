@@ -2,8 +2,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
-import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
+import { VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
@@ -31,8 +30,7 @@ export class PrivateKernelData {
      * Sibling path of the previous kernel's vk in a tree of vks.
      */
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
-  ) { }
-
+  ) {}
 
   /**
    * Serialize this as a buffer.

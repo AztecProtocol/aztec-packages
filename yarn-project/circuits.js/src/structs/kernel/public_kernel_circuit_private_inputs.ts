@@ -1,8 +1,8 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { ClientIvcProof } from '../client_ivc_proof.js';
 import { PublicCallData } from './public_call_data.js';
 import { PublicKernelData } from './public_kernel_data.js';
-import { ClientIvcProof } from '../client_ivc_proof.js';
 
 /**
  * Inputs to the public kernel circuit.

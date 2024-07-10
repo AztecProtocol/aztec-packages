@@ -27,6 +27,7 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
+  ClientIvcProof,
   CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -129,6 +130,7 @@ import {
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
+  TUBE_PROOF_LENGTH,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -140,8 +142,6 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
   packBytecode,
-  TUBE_PROOF_LENGTH,
-  ClientIvcProof,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -696,7 +696,11 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), ClientIvcProof.empty(), makePublicCallData(seed + 0x1000));
+  return new PublicKernelCircuitPrivateInputs(
+    makePublicKernelData(seed),
+    ClientIvcProof.empty(),
+    makePublicCallData(seed + 0x1000),
+  );
 }
 
 export function makeCombineHints(seed = 1): CombineHints {

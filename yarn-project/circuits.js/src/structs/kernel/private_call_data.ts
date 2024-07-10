@@ -2,10 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import {
-  FUNCTION_TREE_HEIGHT,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-} from '../../constants.gen.js';
+import { FUNCTION_TREE_HEIGHT, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';

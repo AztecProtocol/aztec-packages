@@ -2,11 +2,11 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
-import { RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 
 // TODO: less ambiguous name
 export class KernelData {

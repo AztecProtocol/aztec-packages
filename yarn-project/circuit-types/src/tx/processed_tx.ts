@@ -12,22 +12,20 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AvmExecutionHints,
+  ClientIvcProof,
   Fr,
   type Gas,
   type GasFees,
   type Header,
   KernelCircuitPublicInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
-  type Proof,
   type PublicDataUpdateRequest,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
   type RecursiveProof,
-  type VerificationKeyData,
-  makeEmptyProof,
   type TUBE_PROOF_LENGTH,
-  ClientIvcProof,
+  type VerificationKeyData,
 } from '@aztec/circuits.js';
 
 import { type CircuitName } from '../stats/stats.js';
@@ -234,7 +232,6 @@ export function makePaddingProcessedTxFromTubeProof(
     recursiveProof: kernelOutput.proof,
   };
 }
-
 
 /**
  * Makes an empty tx from an empty kernel circuit public inputs.

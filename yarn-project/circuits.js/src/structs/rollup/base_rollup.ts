@@ -8,6 +8,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
+import { ClientIvcProof } from '../client_ivc_proof.js';
 import { GlobalVariables } from '../global_variables.js';
 import { KernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
@@ -17,7 +18,6 @@ import { type UInt32 } from '../shared.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { StateDiffHints } from './state_diff_hints.js';
-import { ClientIvcProof } from '../client_ivc_proof.js';
 
 /**
  * Data which is forwarded through the base rollup circuits unchanged.
@@ -197,10 +197,7 @@ export class BaseRollupInputs {
 }
 
 export class TubeInputs {
-  constructor(
-    public clientIVCData: ClientIvcProof,
-  ) {
-  }
+  constructor(public clientIVCData: ClientIvcProof) {}
 
   static from(fields: FieldsOf<TubeInputs>): TubeInputs {
     return new TubeInputs(...TubeInputs.getFields(fields));
@@ -237,7 +234,7 @@ export class TubeInputs {
   }
 
   isEmpty(): boolean {
-    return this.clientIVCData.isEmpty()
+    return this.clientIVCData.isEmpty();
   }
   /**
    * Deserializes the inputs from a hex string.

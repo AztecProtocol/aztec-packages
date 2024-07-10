@@ -13,7 +13,6 @@ import {
   PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import {
   makeCombinedAccumulatedData,

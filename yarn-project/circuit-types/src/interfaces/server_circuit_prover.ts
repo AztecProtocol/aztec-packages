@@ -7,9 +7,6 @@ import {
   type Tx,
 } from '@aztec/circuit-types';
 import {
-  type RecursiveProof,
-  type TUBE_PROOF_LENGTH,
-  type VerificationKeyData,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -20,11 +17,13 @@ import {
   type PrivateKernelEmptyInputData,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type TubeInputs,
+  type VerificationKeyData,
 } from '@aztec/circuits.js';
 
 /**
@@ -65,7 +64,7 @@ export interface ServerCircuitProver {
   getTubeProof(
     tubeInput: TubeInputs,
     signal?: AbortSignal,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>;
 
   /**
    * Creates a proof for the given input.

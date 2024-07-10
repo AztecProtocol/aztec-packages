@@ -1,5 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import * as fs from "fs/promises";
+
+import * as fs from 'fs/promises';
 import path from 'path';
 
 /**
@@ -16,14 +17,14 @@ export class ClientIvcProof {
     public clientIvcProofBuffer: Buffer,
     public translatorVkBuffer: Buffer,
     public eccVkBuffer: Buffer,
-  ) { }
+  ) {}
 
   public isEmpty() {
     return this.clientIvcProofBuffer.length === 0;
   }
 
   static empty() {
-    return new ClientIvcProof(Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''))
+    return new ClientIvcProof(Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''));
   }
 
   /**
@@ -34,7 +35,9 @@ export class ClientIvcProof {
    */
   static async readFromOutputDirectory(directory: string) {
     const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
-      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName => fs.readFile(path.join(directory, fileName)))
+      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName =>
+        fs.readFile(path.join(directory, fileName)),
+      ),
     );
     return new ClientIvcProof(instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer);
   }
@@ -53,31 +56,40 @@ export class ClientIvcProof {
    * @param directory the directory of results
    */
   async writeToOutputDirectory(directory: string) {
-    const {
-      instVkBuffer,
-      pgAccBuffer,
-      clientIvcProofBuffer,
-      translatorVkBuffer,
-      eccVkBuffer } = this;
-    const fileData = [['inst_vk', instVkBuffer], ['pg_acc', pgAccBuffer], ['client_ivc_proof', clientIvcProofBuffer], ['translator_vk', translatorVkBuffer], ['ecc_vk', eccVkBuffer]] as const;
-    await Promise.all(fileData.map(([fileName, buffer]) => fs.writeFile(path.join(directory, fileName), buffer)))
+    const { instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer } = this;
+    const fileData = [
+      ['inst_vk', instVkBuffer],
+      ['pg_acc', pgAccBuffer],
+      ['client_ivc_proof', clientIvcProofBuffer],
+      ['translator_vk', translatorVkBuffer],
+      ['ecc_vk', eccVkBuffer],
+    ] as const;
+    await Promise.all(fileData.map(([fileName, buffer]) => fs.writeFile(path.join(directory, fileName), buffer)));
   }
 
-  static fromBuffer(
-    buffer: Buffer | BufferReader,
-  ): ClientIvcProof {
+  static fromBuffer(buffer: Buffer | BufferReader): ClientIvcProof {
     const reader = BufferReader.asReader(buffer);
-    return new ClientIvcProof(reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer());
+    return new ClientIvcProof(
+      reader.readBuffer(),
+      reader.readBuffer(),
+      reader.readBuffer(),
+      reader.readBuffer(),
+      reader.readBuffer(),
+    );
   }
 
   public toBuffer() {
     return serializeToBuffer(
-      this.instVkBuffer.length, this.instVkBuffer,
-      this.pgAccBuffer.length, this.pgAccBuffer,
-      this.clientIvcProofBuffer.length, this.clientIvcProofBuffer,
-      this.translatorVkBuffer.length, this.translatorVkBuffer,
-      this.eccVkBuffer.length, this.eccVkBuffer,
+      this.instVkBuffer.length,
+      this.instVkBuffer,
+      this.pgAccBuffer.length,
+      this.pgAccBuffer,
+      this.clientIvcProofBuffer.length,
+      this.clientIvcProofBuffer,
+      this.translatorVkBuffer.length,
+      this.translatorVkBuffer,
+      this.eccVkBuffer.length,
+      this.eccVkBuffer,
     );
-
   }
 }
