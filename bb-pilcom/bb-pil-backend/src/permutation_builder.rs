@@ -82,6 +82,7 @@ pub fn get_inverses_from_permutations(permutations: &[Permutation]) -> Vec<Strin
 fn create_permutations(bb_files: &BBFiles, project_name: &str, permutations: &Vec<Permutation>) {
     for permutation in permutations {
         let perm_settings = create_permutation_settings_file(permutation);
+        let recursive_settings = make_recursive_definition(&snake_case(&permutation.attribute.clone().unwrap_or("NONAME".to_owned())));
 
         let folder = format!("{}/{}", bb_files.rel, &snake_case(project_name));
         let file_name = format!(
@@ -89,7 +90,13 @@ fn create_permutations(bb_files: &BBFiles, project_name: &str, permutations: &Ve
             permutation.attribute.clone().unwrap_or("NONAME".to_owned()),
             ".hpp".to_owned()
         );
+        let recursion_file_name = format!(
+            "{}_recursion{}",
+            permutation.attribute.clone().unwrap_or("NONAME".to_owned()),
+            ".hpp".to_owned()
+        );
         bb_files.write_file(&folder, &file_name, &perm_settings);
+        bb_files.write_file(&folder, &recursion_file_name, &recursive_settings);
     }
 }
 
@@ -250,4 +257,20 @@ fn get_perm_side<F: FieldElement>(
         selector: def.selector.as_ref().map(get_name),
         cols: def.expressions.iter().map(get_name).collect_vec(),
     }
+}
+
+fn make_recursive_definition(name: &str) -> String {
+    format!(
+        "
+#include \"barretenberg/vm/recursion/avm_recursive_flavor.hpp\"
+#include \"barretenberg/flavor/relation_definitions.hpp\"
+#include \"barretenberg/relations/generated/avm/{name}.hpp\"
+#include \"barretenberg/stdlib/primitives/bigfield/bigfield.hpp\"
+
+namespace bb {{
+    template class Avm_vm::{name}<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+    DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(Avm_vm::{name}, AvmRecursiveFlavor_<UltraCircuitBuilder>);
+}} // namespace bb
+        "
+    )
 }

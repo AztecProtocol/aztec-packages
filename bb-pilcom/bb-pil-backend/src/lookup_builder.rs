@@ -97,6 +97,7 @@ pub fn get_counts_from_lookups(lookups: &[Lookup]) -> Vec<String> {
 fn create_lookups(bb_files: &BBFiles, project_name: &str, lookups: &Vec<Lookup>) {
     for lookup in lookups {
         let lookup_settings = create_lookup_settings_file(lookup);
+        let recursive_settings = make_recursive_definition(&snake_case(&lookup.attribute.clone().unwrap_or("NONAME".to_owned())));
 
         let folder = format!("{}/{}", bb_files.rel, &snake_case(project_name));
         let file_name = format!(
@@ -104,7 +105,13 @@ fn create_lookups(bb_files: &BBFiles, project_name: &str, lookups: &Vec<Lookup>)
             lookup.attribute.clone().unwrap_or("NONAME".to_owned()),
             ".hpp".to_owned()
         );
+        let recursion_file_name = format!(
+            "{}_recursion{}",
+            lookup.attribute.clone().unwrap_or("NONAME".to_owned()),
+            ".hpp".to_owned()
+        );
         bb_files.write_file(&folder, &file_name, &lookup_settings);
+        bb_files.write_file(&folder, &recursion_file_name, &recursive_settings);
     }
 }
 
@@ -366,4 +373,21 @@ fn get_lookup_side<F: FieldElement>(
         selector: def.selector.as_ref().map(get_name),
         cols: def.expressions.iter().map(get_name).collect_vec(),
     }
+}
+
+
+fn make_recursive_definition(name: &str) -> String {
+    format!(
+        "
+#include \"barretenberg/vm/recursion/avm_recursive_flavor.hpp\"
+#include \"barretenberg/flavor/relation_definitions.hpp\"
+#include \"barretenberg/relations/generated/avm/{name}.hpp\"
+#include \"barretenberg/stdlib/primitives/bigfield/bigfield.hpp\"
+
+namespace bb {{
+    template class Avm_vm::{name}<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+    DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(Avm_vm::{name}, AvmRecursiveFlavor_<UltraCircuitBuilder>);
+}} // namespace bb
+        "
+    )
 }

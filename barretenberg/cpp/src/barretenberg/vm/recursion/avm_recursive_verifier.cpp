@@ -45,7 +45,7 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover</*BaseField*/ BF>("circuit_size");
+    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     // TODO: assert the same as the key circuit size?
     info("got circuit size from prover: ", circuit_size);
 
@@ -594,6 +594,7 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
+    info("recursive beta / gamma ", beta, " | ", gamm);
 
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
@@ -691,6 +692,7 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    info("rec: sumcheck alpha: ", alpha);
 
     info("got sumcheck alpha");
 

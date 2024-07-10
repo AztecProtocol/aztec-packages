@@ -1,7 +1,9 @@
 // As this adds the honk_stdlib_recursion module to the cmake lists, we probably
 // want to make vm recursion its own module
 
-#include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
+// TMEPTEPTMEPTMEPTETMP
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -14,6 +16,7 @@
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
 #include "barretenberg/vm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/vm/tests/helpers.test.hpp"
 #include <gtest/gtest.h>
 
@@ -105,6 +108,20 @@ TEST_F(AvmRecursiveTests, recursion)
     // If we return the pairing points then potentially they can be recursively verified nicely?? - but it is not clear
     // how aggregation will work unless we make sure the avm has the same circuit size as other things
     recursive_verifier.verify_proof(proof);
-    info("verified proof");
+
+    info("Recursive verifier: num gates = ", outer_circuit.num_gates);
+    info("Outer circuit failed? ", outer_circuit.failed());
+    CircuitChecker::check(outer_circuit);
+
+    // Make a proof of the verifiers
+    auto ultra_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+    OuterProver ultra_prover(ultra_instance);
+    auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+    OuterVerifier ultra_verifier(ultra_verification_key);
+
+    auto recursion_proof = ultra_prover.construct_proof();
+    bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);
+
+    info("verified recursive proof, ", recursion_verified);
 }
 } // namespace tests_avm
