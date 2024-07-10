@@ -1,10 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption, keys::getters::get_nsk_app,
-    protocol_types::{
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint,
-    hash::poseidon2_hash_with_separator
-}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;

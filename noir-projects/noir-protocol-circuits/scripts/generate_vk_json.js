@@ -30,6 +30,9 @@ async function getBytecodeHash(artifactPath) {
 }
 
 function getBarretenbergHash() {
+  if (process.env.BB_HASH) {
+    return Promise.resolve(process.env.BB_HASH);
+  }
   return new Promise((res, rej) => {
     const hash = crypto.createHash("md5");
 
@@ -184,18 +187,22 @@ async function readVKFromS3(artifactName, artifactHash) {
   if (process.env.DISABLE_VK_S3_CACHE) {
     return;
   }
+  const key = `${PREFIX}/${artifactName}-${artifactHash}.json`;
 
   try {
     const s3 = generateS3Client();
     const { Body: response } = await s3.getObject({
       Bucket: BUCKET_NAME,
-      Key: `${PREFIX}/${artifactName}-${artifactHash}.json`,
+      Key: key,
     });
 
     const result = JSON.parse(await response.transformToString());
     return result;
   } catch (err) {
-    console.warn("Could not read VK from remote cache", err.message);
+    console.warn(
+      `Could not read VK from remote cache at s3://${BUCKET_NAME}/${key}`,
+      err.message
+    );
     return undefined;
   }
 }

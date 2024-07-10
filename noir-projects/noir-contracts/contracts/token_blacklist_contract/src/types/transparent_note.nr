@@ -2,10 +2,7 @@
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint,
-    hash::poseidon2_hash_with_separator
-}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;

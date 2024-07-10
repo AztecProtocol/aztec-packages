@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    address::AztecAddress, grumpkin_point::GrumpkinPoint,
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator
-};
+use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{

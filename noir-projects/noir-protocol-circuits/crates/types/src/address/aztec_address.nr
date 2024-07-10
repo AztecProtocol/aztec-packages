@@ -2,7 +2,7 @@ use crate::{
     crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
     contract_class_id::ContractClassId, hash::poseidon2_hash_with_separator,
-    grumpkin_point::GrumpkinPoint, traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
+    traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
 };
 
 // Aztec address
