@@ -1,7 +1,8 @@
 # Aztec-App
 
 Aztec-App is a set of tools to ease development on Aztec. It consists of two main components:
-
+1. `npx` script
+2. boxes (starter kits)
 ## npx script
 
 NPX is a tool bundled with `npm` and other package managers. It allows you to run a binary from a cache without installing it globally.
