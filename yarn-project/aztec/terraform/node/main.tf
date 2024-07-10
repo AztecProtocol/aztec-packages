@@ -277,7 +277,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         name  = "P2P_ENABLED"
-        value = "${var.P2P_ENABLED}"
+        value = tostring(var.P2P_ENABLED)
       },
       {
         name  = "CHAIN_ID"
@@ -309,7 +309,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         name  = "PROVER_REAL_PROOFS"
-        value = "${var.PROVING_ENABLED}"
+        value = tostring(var.PROVING_ENABLED)
       }
     ]
     mountPoints = [
