@@ -143,6 +143,7 @@ include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
+include(cmake/lmdb.cmake)
 include(cmake/backward-cpp.cmake)
 
 if (WASM)

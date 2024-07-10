@@ -8,6 +8,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/world_state/service/message.hpp"
@@ -156,13 +157,13 @@ template <typename OutputStream> bool WorldStateService<OutputStream>::insertLea
     } else {
 
         // Send the response async
-        auto completion = [=](std::vector<fr_hash_path>&, fr& root, index_t size) -> void {
+        auto completion = [=, this](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& resp) -> void {
             MsgHeader header(requestId);
             InsertLeavesResponse response;
             response.message = "";
             response.success = true;
-            response.root = root;
-            response.size = size;
+            response.root = resp.inner.add_data_result.root;
+            response.size = resp.inner.add_data_result.size;
             TypedMessage<InsertLeavesResponse> insertLeavesResponse(
                 WorldStateMsgTypes::INSERT_LEAVES_RESPONSE, header, response);
             outputStream.sendPackedObject(insertLeavesResponse);
