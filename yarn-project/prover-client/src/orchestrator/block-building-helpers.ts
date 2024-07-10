@@ -30,17 +30,17 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
+  type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   RootRollupInputs,
   type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
+  type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  type TUBE_PROOF_LENGTH,
-  type RECURSIVE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -288,7 +288,11 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData, proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>): KernelData {
+export function getKernelDataFor(
+  tx: ProcessedTx,
+  vk: VerificationKeyData,
+  proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+): KernelData {
   const leafIndex = getVKIndex(vk);
 
   return new KernelData(

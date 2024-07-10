@@ -67,7 +67,6 @@ export function executeBB(
   logger: LogFn,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
-  const stack = new Error().stack
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
@@ -78,9 +77,11 @@ export function executeBB(
     });
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
+      logger(message);
     });
     bb.stderr.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
+      logger(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (resultParser(exitCode)) {
@@ -244,7 +245,6 @@ export async function executeBbClientIvcProof(
   }
 }
 
-
 /**
  * Used for generating verification keys of noir circuits.
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this VK.
@@ -291,11 +291,21 @@ export async function computeVerificationKey(
     const logFunction = (message: string) => {
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
-    let result = await executeBB(pathToBB, 'write_vk_ultra_honk', ['-o', outputPath, '-b', bytecodePath, '-v'], logFunction);
+    let result = await executeBB(
+      pathToBB,
+      'write_vk_ultra_honk',
+      ['-o', outputPath, '-b', bytecodePath, '-v'],
+      logFunction,
+    );
     if (result.status == BB_RESULT.FAILURE) {
-      return { status: BB_RESULT.FAILURE, reason: "Failed writing VK." };
+      return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }
-    result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', ['-o', outputPath + "_fields.json", '-k', outputPath, '-v'], logFunction);
+    result = await executeBB(
+      pathToBB,
+      'vk_as_fields_ultra_honk',
+      ['-o', outputPath + '_fields.json', '-k', outputPath, '-v'],
+      logFunction,
+    );
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {

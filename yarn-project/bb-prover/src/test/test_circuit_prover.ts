@@ -20,17 +20,17 @@ import {
   type Proof,
   type PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  TUBE_PROOF_LENGTH,
+  type TubeInputs,
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
-  type RecursiveProof,
-  TUBE_PROOF_LENGTH,
-  type TubeInputs,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -118,9 +118,18 @@ export class TestCircuitProver implements ServerCircuitProver {
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
       ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
-    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version, inputs.vkTreeRoot);
+    const kernelInputs = new PrivateKernelEmptyInputs(
+      emptyNested,
+      inputs.header,
+      inputs.chainId,
+      inputs.version,
+      inputs.vkTreeRoot,
+    );
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact);
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact,
+    );
     const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
 
     return makePublicInputsAndRecursiveProof(
@@ -241,8 +250,13 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getTubeProof(_tubeInput: TubeInputs): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH>; }> {
-    return Promise.resolve({ tubeVK: VerificationKeyData.makeFake(), tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH) });
+  public getTubeProof(
+    _tubeInput: TubeInputs,
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
+    return Promise.resolve({
+      tubeVK: VerificationKeyData.makeFake(),
+      tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
+    });
   }
 
   /**

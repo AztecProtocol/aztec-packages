@@ -32,13 +32,10 @@ export const getBBConfig = async (
 
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
-    const cleanup = () => {
+    const cleanup = async () => {
       if (directoryToCleanup) {
-        // LONDONTODO: revert at the end
-        // await fs.rm(directoryToCleanup, { recursive: true, force: true });
-        return Promise.resolve();
+        await fs.rm(directoryToCleanup, { recursive: true, force: true });
       }
-      return Promise.resolve();
     };
 
     return { bbBinaryPath, bbWorkingDirectory, cleanup };

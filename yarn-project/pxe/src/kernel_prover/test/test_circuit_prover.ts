@@ -1,6 +1,11 @@
-import { type AppCircuitSimulateOutput, type PrivateKernelSimulateOutput, type PrivateKernelProver } from '@aztec/circuit-types';
+import {
+  type AppCircuitSimulateOutput,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuit-types';
 import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  ClientIvcProof,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -9,9 +14,6 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   VerificationKeyAsFields,
-  ClientIvcProof,
-  makeRecursiveProof,
-  NESTED_RECURSIVE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -25,13 +27,14 @@ import {
   executeTail,
   executeTailForPublic,
 } from '@aztec/noir-protocol-circuits-types';
+
 import { type WitnessMap } from '@noir-lang/types';
 
 /**
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
 export class TestPrivateKernelProver implements PrivateKernelProver {
-  constructor(private log = createDebugLogger('aztec:test_proof_creator')) { }
+  constructor(private log = createDebugLogger('aztec:test_proof_creator')) {}
 
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());
@@ -82,7 +85,10 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
       inputSize: privateInputs.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
-    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelResetFullArtifact');
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(
+      result,
+      'PrivateKernelResetFullArtifact',
+    );
   }
 
   public async simulateProofTail(
@@ -105,18 +111,24 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  computeAppCircuitVerificationKey(_bytecode: Buffer, _appCircuitName?: string | undefined): Promise<AppCircuitSimulateOutput> {
+  computeAppCircuitVerificationKey(
+    _bytecode: Buffer,
+    _appCircuitName?: string | undefined,
+  ): Promise<AppCircuitSimulateOutput> {
     const appCircuitProofOutput: AppCircuitSimulateOutput = {
       verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
     return Promise.resolve(appCircuitProofOutput);
   }
 
-  private makeEmptyKernelSimulateOutput<PublicInputsType>(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {
+  private makeEmptyKernelSimulateOutput<PublicInputsType>(
+    publicInputs: PublicInputsType,
+    circuitType: ProtocolArtifact,
+  ) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
       verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,
-      outputWitness: new Map()
+      outputWitness: new Map(),
     };
     return kernelProofOutput;
   }

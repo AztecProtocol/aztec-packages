@@ -13,7 +13,6 @@ import {
   type Proof,
   type RecursiveProof,
   type VerificationKeyData,
-  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 
 export enum TX_PROVING_CODE {

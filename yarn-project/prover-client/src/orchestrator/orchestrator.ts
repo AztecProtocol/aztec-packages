@@ -47,7 +47,6 @@ import {
   type VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
-  BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -555,7 +554,7 @@ export class ProvingOrchestrator {
   }))
   private async prepareBaseRollupInputs(
     provingState: ProvingState | undefined,
-    tx: ProcessedTx
+    tx: ProcessedTx,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
     if (!provingState?.verifyState()) {
       logger.debug('Not preparing base rollup inputs, state invalid');
@@ -567,7 +566,7 @@ export class ProvingOrchestrator {
         header: await this.db.buildInitialHeader(),
         chainId: tx.data.constants.globalVariables.chainId,
         version: tx.data.constants.globalVariables.version,
-        vkTreeRoot: tx.data.constants.vkTreeRoot
+        vkTreeRoot: tx.data.constants.vkTreeRoot,
       };
 
       const proof = await this.prover.getEmptyTubeProof(inputs);
@@ -576,7 +575,7 @@ export class ProvingOrchestrator {
     const getBaseInputsNonEmptyTx = async () => {
       const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
       return await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
-    }
+    };
     const inputs = tx.isEmpty ? await getBaseInputsEmptyTx() : await getBaseInputsNonEmptyTx();
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
@@ -630,7 +629,8 @@ export class ProvingOrchestrator {
         .equals(tx.processedTx.noteEncryptedLogs.hash())
     ) {
       provingState.reject(
-        `Note encrypted logs hash mismatch: ${tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
+        `Note encrypted logs hash mismatch: ${
+          tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
         } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash())}`,
       );
       return;
@@ -642,7 +642,8 @@ export class ProvingOrchestrator {
     ) {
       // @todo This rejection messages is never seen. Never making it out to the logs
       provingState.reject(
-        `Encrypted logs hash mismatch: ${tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
+        `Encrypted logs hash mismatch: ${
+          tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
         } === ${Fr.fromBuffer(tx.processedTx.encryptedLogs.hash())}`,
       );
       return;
@@ -653,18 +654,19 @@ export class ProvingOrchestrator {
         .equals(tx.processedTx.unencryptedLogs.hash())
     ) {
       provingState.reject(
-        `Unencrypted logs hash mismatch: ${tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
+        `Unencrypted logs hash mismatch: ${
+          tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
         } === ${Fr.fromBuffer(tx.processedTx.unencryptedLogs.hash())}`,
       );
       return;
     }
 
     logger.debug(
-      `Enqueuing deferred proving base rollup${tx.processedTx.isEmpty ? ' with padding tx' : ''
+      `Enqueuing deferred proving base rollup${
+        tx.processedTx.isEmpty ? ' with padding tx' : ''
       } for ${tx.processedTx.hash.toString()}`,
     );
 
-    console.log(`enqueueing base rollup; tx.processedTx.clientIvcProof.isEmpty()? ${tx.processedTx.clientIvcProof.isEmpty()}`)
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -675,11 +677,7 @@ export class ProvingOrchestrator {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-rollup' as CircuitName,
         },
-        signal =>
-          this.prover.getBaseRollupProof(
-            tx.baseRollupInputs,
-            signal,
-          ),
+        signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
       ),
       result => {
         logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);

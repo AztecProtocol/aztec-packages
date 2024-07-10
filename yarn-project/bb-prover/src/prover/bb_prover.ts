@@ -63,6 +63,7 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
+import crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -86,7 +87,6 @@ import { ProverInstrumentation } from '../instrumentation.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
-import crypto from 'crypto';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -228,7 +228,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving but it is not
     // TODO(#7369): We should properly enqueue the tube in the public kernel lifetime
     if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.getTubeProof(new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof));
+      const { tubeVK, tubeProof } = await this.getTubeProof(
+        new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof),
+      );
       kernelRequest.inputs.previousKernel.vk = tubeVK;
       kernelRequest.inputs.previousKernel.proof = tubeProof;
     }
@@ -566,11 +568,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateTubeProofWithBB(bbWorkingDirectory: string, input: TubeInputs): Promise<BBSuccess> {
     logger.debug(`Proving tube...`);
 
-    const hasher = crypto.createHash("sha256");
+    const hasher = crypto.createHash('sha256');
     hasher.update(input.toBuffer());
 
     await input.clientIVCData.writeToOutputDirectory(bbWorkingDirectory);
-    const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose)
+    const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for tube proof: ${provingResult.reason}`);

@@ -1,3 +1,4 @@
+import { Note, type PrivateKernelProver } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
@@ -27,7 +28,6 @@ import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
-import { Note, type PrivateKernelProver } from '@aztec/circuit-types';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
@@ -94,7 +94,7 @@ describe('Kernel Prover', () => {
     return {
       publicInputs,
       verificationKey: VerificationKeyAsFields.makeEmpty(),
-      outputWitness: new Map()
+      outputWitness: new Map(),
     };
   };
 

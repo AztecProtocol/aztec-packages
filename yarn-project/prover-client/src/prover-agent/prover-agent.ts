@@ -104,12 +104,16 @@ export class ProverAgent {
     } catch (err) {
       if (this.isRunning()) {
         this.log.error(
-          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${(err as any).stack || err}`,
+          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${
+            (err as any).stack || err
+          }`,
         );
         await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       } else {
         this.log.debug(
-          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${(err as any).stack || err}`,
+          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${
+            (err as any).stack || err
+          }`,
         );
       }
     }

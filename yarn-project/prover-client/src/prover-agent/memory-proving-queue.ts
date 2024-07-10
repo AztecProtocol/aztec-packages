@@ -249,7 +249,10 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.enqueue({ type: ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs }, signal);
   }
 
-  getTubeProof(inputs: TubeInputs, signal?: AbortSignal | undefined): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>; }> {
+  getTubeProof(
+    inputs: TubeInputs,
+    signal?: AbortSignal | undefined,
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }> {
     return this.enqueue({ type: ProvingRequestType.TUBE_PROOF, inputs }, signal);
   }
 

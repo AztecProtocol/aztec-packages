@@ -1,6 +1,11 @@
-import { type AppCircuitSimulateOutput, type PrivateKernelSimulateOutput, type PrivateKernelProver } from '@aztec/circuit-types';
+import {
+  type AppCircuitSimulateOutput,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuit-types';
 import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  ClientIvcProof,
   Fr,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
@@ -13,7 +18,6 @@ import {
   RecursiveProof,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -37,13 +41,21 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { WASMSimulator } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
+
+import { encode } from '@msgpack/msgpack';
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
-import { encode } from "@msgpack/msgpack";
 import path from 'path';
 
-import { BB_RESULT, computeVerificationKey, executeBbClientIvcProof, PROOF_FIELDS_FILENAME, PROOF_FILENAME, verifyProof } from '../bb/execute.js';
+import {
+  BB_RESULT,
+  PROOF_FIELDS_FILENAME,
+  PROOF_FILENAME,
+  computeVerificationKey,
+  executeBbClientIvcProof,
+  verifyProof,
+} from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -64,7 +76,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private log = createDebugLogger('aztec:bb-native-prover'),
-  ) { }
+  ) {}
 
   private async _createClientIvcProof(
     directory: string,
@@ -73,14 +85,17 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   ): Promise<ClientIvcProof> {
     // TODO(#7371): Longer term we won't use this hacked together msgpack format
     // and instead properly create the bincode serialization from rust
-    await fs.writeFile(path.join(directory, "acir.msgpack"), encode(acirs));
-    await fs.writeFile(path.join(directory, "witnesses.msgpack"), encode(witnessStack.map((map) => serializeWitness(map))));
+    await fs.writeFile(path.join(directory, 'acir.msgpack'), encode(acirs));
+    await fs.writeFile(
+      path.join(directory, 'witnesses.msgpack'),
+      encode(witnessStack.map(map => serializeWitness(map))),
+    );
     const provingResult = await executeBbClientIvcProof(
       this.bbBinaryPath,
       directory,
-      path.join(directory, "acir.msgpack"),
-      path.join(directory, "witnesses.msgpack"),
-      this.log.info
+      path.join(directory, 'acir.msgpack'),
+      path.join(directory, 'witnesses.msgpack'),
+      this.log.info,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -99,9 +114,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
-    this.log.info(
-      `Generating Client IVC proof`,
-    );
+    this.log.info(`Generating Client IVC proof`);
     const operation = async (directory: string) => {
       return await this._createClientIvcProof(directory, acirs, witnessStack);
     };
@@ -205,7 +218,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private async verifyProofFromKey(
     verificationKey: Buffer,
     proof: Proof,
-    logFunction: (message: string) => void = () => { },
+    logFunction: (message: string) => void = () => {},
   ) {
     const operation = async (bbWorkingDirectory: string) => {
       const proofFileName = `${bbWorkingDirectory}/proof`;
@@ -233,10 +246,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await promise;
   }
 
-  private async simulate<
-    I extends { toBuffer: () => Buffer },
-    O extends { toBuffer: () => Buffer },
-  >(
+  private async simulate<I extends { toBuffer: () => Buffer }, O extends { toBuffer: () => Buffer }>(
     inputs: I,
     circuitType: ClientProtocolArtifact,
     convertInputs: (inputs: I) => WitnessMap,
@@ -259,11 +269,13 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     } satisfies CircuitWitnessGenerationStats);
 
     // TODO(#7410) we dont need to generate vk's for these circuits, they are in the vk tree
-    const { verificationKey } = await runInDirectory(this.bbWorkingDirectory, (dir) => this.computeVerificationKey(dir, Buffer.from(compiledCircuit.bytecode, 'base64'), circuitType));
+    const { verificationKey } = await runInDirectory(this.bbWorkingDirectory, dir =>
+      this.computeVerificationKey(dir, Buffer.from(compiledCircuit.bytecode, 'base64'), circuitType),
+    );
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
       verificationKey,
-      outputWitness
+      outputWitness,
     };
     return kernelOutput;
   }
@@ -281,13 +293,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
 
     const timer = new Timer();
 
-    const vkResult = await computeVerificationKey(
-      this.bbBinaryPath,
-      directory,
-      circuitType,
-      bytecode,
-      this.log.debug,
-    );
+    const vkResult = await computeVerificationKey(this.bbBinaryPath, directory, circuitType, bytecode, this.log.debug);
 
     if (vkResult.status === BB_RESULT.FAILURE) {
       this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);

@@ -34,7 +34,6 @@ import {
   type PartialAddress,
   computeContractClassId,
   getContractClassFromArtifact,
-  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
@@ -760,7 +759,10 @@ export class PXEService implements PXE {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
-    const { clientIvcProof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    const { clientIvcProof, publicInputs } = await kernelProver.prove(
+      txExecutionRequest.toTxRequest(),
+      executionResult,
+    );
 
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);

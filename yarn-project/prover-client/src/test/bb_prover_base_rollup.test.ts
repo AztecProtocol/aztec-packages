@@ -1,6 +1,6 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
-import { NESTED_RECURSIVE_PROOF_LENGTH, TubeInputs, makeEmptyRecursiveProof } from '@aztec/circuits.js';
+import { NESTED_RECURSIVE_PROOF_LENGTH, makeEmptyRecursiveProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';

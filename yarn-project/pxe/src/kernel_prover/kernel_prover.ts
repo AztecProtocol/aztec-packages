@@ -1,4 +1,4 @@
-import { type PrivateKernelSimulateOutput, type PrivateKernelProver } from '@aztec/circuit-types';
+import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
@@ -25,8 +25,13 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { ClientCircuitArtifacts, getVKTreeRoot, PrivateResetTagToArtifactName } from '@aztec/noir-protocol-circuits-types';
+import {
+  ClientCircuitArtifacts,
+  PrivateResetTagToArtifactName,
+  getVKTreeRoot,
+} from '@aztec/noir-protocol-circuits-types';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
+
 import { type WitnessMap } from '@noir-lang/types';
 
 import { buildPrivateKernelResetInputs } from './private_inputs_builders/index.js';
@@ -35,7 +40,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
   verificationKey: VerificationKeyAsFields.makeEmpty(),
-  outputWitness: new Map()
+  outputWitness: new Map(),
 };
 /**
  * The KernelProver class is responsible for generating kernel proofs.
@@ -46,7 +51,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) { }
+  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -76,10 +81,17 @@ export class KernelProver {
 
     while (executionStack.length) {
       if (!firstIteration && this.needsReset(executionStack, output)) {
-        const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+        const resetInputs = await this.getPrivateKernelResetInputs(
+          executionStack,
+          output,
+          noteHashLeafIndexMap,
+          noteHashNullifierCounterMap,
+        );
         output = await this.proofCreator.simulateProofReset(resetInputs);
         // TODO(#7368) consider refactoring this redundant bytecode pushing
-        acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
+        acirs.push(
+          Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'),
+        );
         witnessStack.push(output.outputWitness);
       }
       const currentExecution = executionStack.pop()!;
@@ -95,10 +107,7 @@ export class KernelProver {
         currentExecution.callStackItem.functionData.selector,
       );
 
-      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
-        currentExecution.acir,
-        functionName,
-      );
+      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
       // TODO(#7368): This used to be associated with getDebugFunctionName
       // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
@@ -135,10 +144,17 @@ export class KernelProver {
     }
 
     if (this.somethingToReset(output)) {
-      const resetInputs = await this.getPrivateKernelResetInputs(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+      const resetInputs = await this.getPrivateKernelResetInputs(
+        executionStack,
+        output,
+        noteHashLeafIndexMap,
+        noteHashNullifierCounterMap,
+      );
       output = await this.proofCreator.simulateProofReset(resetInputs);
       // TODO(#7368) consider refactoring this redundant bytecode pushing
-      acirs.push(Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'));
+      acirs.push(
+        Buffer.from(ClientCircuitArtifacts[PrivateResetTagToArtifactName[resetInputs.sizeTag]].bytecode, 'base64'),
+      );
       witnessStack.push(output.outputWitness);
     }
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
@@ -157,7 +173,14 @@ export class KernelProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
-    acirs.push(Buffer.from(privateInputs.isForPublic() ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode, 'base64'));
+    acirs.push(
+      Buffer.from(
+        privateInputs.isForPublic()
+          ? ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.bytecode
+          : ClientCircuitArtifacts.PrivateKernelTailArtifact.bytecode,
+        'base64',
+      ),
+    );
     witnessStack.push(tailOutput.outputWitness);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
@@ -166,7 +189,10 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private needsReset(executionStack: ExecutionResult[], output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
+  private needsReset(
+    executionStack: ExecutionResult[],
+    output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
+  ) {
     const nextIteration = executionStack[executionStack.length - 1];
     return (
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashes).length +
@@ -176,17 +202,17 @@ export class KernelProver {
         getNonEmptyItems(output.publicInputs.end.nullifiers).length >
         MAX_NULLIFIERS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteEncryptedLogsHashes).length +
-      getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
-      MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
+        getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashReadRequests).length +
-      getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
-      MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
+        getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.nullifierReadRequests).length +
-      getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
-      MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
+        getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.keyValidationRequestsAndGenerators).length +
-      getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
-      MAX_KEY_VALIDATION_REQUESTS_PER_TX
+        getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX
     );
   }
 

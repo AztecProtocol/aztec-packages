@@ -21,7 +21,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
