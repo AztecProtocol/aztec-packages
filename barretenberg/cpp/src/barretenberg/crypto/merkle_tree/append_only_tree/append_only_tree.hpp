@@ -85,6 +85,9 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     void add_values_internal(std::shared_ptr<std::vector<fr>> values,
                              fr& new_root,
                              index_t& new_size,
+                             fr& subtree_root,
+                             index_t& subtree_root_index,
+                             fr_sibling_path& subtree_path,
                              bool update_index);
 
     void add_values_internal(const std::vector<fr>& values,
@@ -238,7 +241,13 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(const std::vector
     auto append_op = [=, this]() -> void {
         ExecuteAndReport<AddDataResponse>(
             [=, this](TypedResponse<AddDataResponse>& response) {
-                add_values_internal(hashes, response.inner.root, response.inner.size, update_index);
+                add_values_internal(hashes,
+                                    response.inner.root,
+                                    response.inner.size,
+                                    response.inner.subtree_root,
+                                    response.inner.subtree_root_index,
+                                    response.inner.subtree_path,
+                                    update_index);
             },
             on_completion);
     };
@@ -249,6 +258,9 @@ template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<std::vector<fr>> values,
                                                                fr& new_root,
                                                                index_t& new_size,
+                                                               fr& subtree_root,
+                                                               index_t& subtree_root_index,
+                                                               fr_sibling_path& subtree_path,
                                                                bool update_index)
 {
     uint32_t start_level = depth_;
@@ -289,11 +301,26 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<s
 
     // Hash from the root of the sub-tree to the root of the overall tree
     fr new_hash = hashes_local[0];
+    subtree_root = new_hash;
+    subtree_root_index = index;
+
+    // guard against underflow, we could have filled the entire tree in one insertion
+    // in this case subtree_root will become new_root and there's no sibling path to generate
+    if (level > 0) {
+        subtree_path.reserve(level - 1); // minus the tree root
+    }
     while (level > 0) {
         bool is_right = static_cast<bool>(index & 0x01);
         fr left_hash = is_right ? get_element_or_zero(level, index - 1, *tx, true) : new_hash;
         fr right_hash = is_right ? new_hash : get_element_or_zero(level, index + 1, *tx, true);
         new_hash = HashingPolicy::hash_pair(left_hash, right_hash);
+
+        if (is_right) {
+            subtree_path.emplace_back(left_hash);
+        } else {
+            subtree_path.emplace_back(right_hash);
+        }
+
         index >>= 1;
         --level;
         if (level > 0) {

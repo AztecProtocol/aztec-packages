@@ -178,6 +178,25 @@ void check_leaf(
     signal.wait_for_level();
 }
 
+void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_path sibling_path)
+{
+    fr left, right, hash = node;
+    for (size_t i = 0; i < sibling_path.size(); ++i) {
+        if (index % 2 == 0) {
+            left = hash;
+            right = sibling_path[i];
+        } else {
+            left = sibling_path[i];
+            right = hash;
+        }
+
+        hash = Poseidon2HashPolicy::hash_pair(left, right);
+        index >>= 1;
+    }
+
+    EXPECT_EQ(hash, expected_root);
+}
+
 TEST_F(PersistedAppendOnlyTreeTest, can_create)
 {
     constexpr size_t depth = 10;
@@ -641,4 +660,27 @@ TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
     check_leaf(tree, 40, 3, true);
 
     check_leaf(tree, 0, 4, false);
+}
+
+TEST_F(PersistedAppendOnlyTreeTest, append_leaves_returns_sibling_path)
+{
+    constexpr size_t depth = 10;
+    std::string name = randomString();
+    LMDBStore db(*_environment, name, false, false, IntegerKeyCmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+
+    Signal signal;
+    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        check_sibling_path(response.inner.root,
+                           response.inner.subtree_root,
+                           response.inner.subtree_root_index,
+                           response.inner.subtree_path);
+        signal.signal_level();
+    };
+
+    tree.add_values({ 40, 30, 10, 20 }, completion);
+    signal.wait_for_level();
 }

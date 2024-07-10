@@ -19,8 +19,9 @@ struct TreeMetaResponse {
 };
 
 struct AddDataResponse {
-    index_t size;
-    fr root;
+    index_t size, subtree_root_index;
+    fr root, subtree_root;
+    fr_sibling_path subtree_path;
 };
 
 struct GetSiblingPathResponse {
