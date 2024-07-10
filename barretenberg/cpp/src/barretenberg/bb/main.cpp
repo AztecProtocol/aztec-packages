@@ -382,15 +382,22 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
-
-    vinfo("write proof and vk data to files..");
-    write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.instance_vk));
-    write_file(accPath, to_buffer(ivc.verifier_accumulator));
-    write_file(translatorVkPath, to_buffer(translator_vk));
-    write_file(eccVkPath, to_buffer(eccvm_vk));
+    bool verified = ivc.verify(proof, { ivc.verifier_accumulator, last_instance });
+    vinfo("ensure valid proof: ", verified);
+    if (verified) {
+        vinfo("write proof and vk data to files..");
+        write_file(proofPath, to_buffer(proof));
+        write_file(vkPath, to_buffer(ivc.instance_vk));
+        write_file(accPath, to_buffer(ivc.verifier_accumulator));
+        write_file(translatorVkPath, to_buffer(translator_vk));
+        write_file(eccVkPath, to_buffer(eccvm_vk));
+    }
 }
+
+template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesystem::path& path)
+{
+    return std::make_shared<T>(from_buffer<T>(read_file(path)));
+};
 
 /**
  * @brief Verifies a client ivc proof and writes the result to stdout
@@ -410,18 +417,23 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
                        const std::filesystem::path& eccvm_vk_path,
                        const std::filesystem::path& translator_vk_path)
 {
-    const auto read_to_shared_ptr = []<typename T>(const std::filesystem::path& path) {
-        return std::make_shared<T>(from_buffer<T>(read_file(path)));
-    };
+    info("CRS path is ", CRS_PATH);
+    init_bn254_crs(1 << 24);
+    init_grumpkin_crs(1 << 14);
 
+    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
+    using BN254Vk = bb::VerifierCommitmentKey<curve::BN254>;
     /* WORKTODO const */ auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto accumulator = read_to_shared_ptr.template operator()<ClientIVC::VerifierInstance>(accumulator_path);
-    const auto final_vk = read_to_shared_ptr.template operator()<ClientIVC::VerifierInstance>(final_vk_path);
-    const auto eccvm_vk = read_to_shared_ptr.template operator()<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
-    const auto translator_vk =
-        read_to_shared_ptr.template operator()<TranslatorFlavor::VerificationKey>(translator_vk_path);
+    // Read the proof  and verification data from given files
+    const auto accumulator = read_to_shared_ptr<ClientIVC::VerifierInstance>(accumulator_path);
+    accumulator->verification_key->pcs_verification_key = std::make_shared<BN254Vk>();
+    const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(final_vk_path);
+    const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
+    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
+    const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
 
-    const bool verified = ClientIVC::verify(proof, accumulator, final_vk, eccvm_vk, translator_vk);
+    const bool verified = ClientIVC::verify(
+        proof, accumulator, std::make_shared<ClientIVC::VerifierInstance>(final_vk), eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
 }
@@ -1322,14 +1334,8 @@ int main(int argc, char* argv[])
             std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
             std::filesystem::path accumulator_path = output_dir / "pg_acc";
             std::filesystem::path final_vk_path = output_dir / "inst_vk";
-            std::filesystem::path eccvm_vk_path = output_dir / "eccvm_vk";
+            std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
             std::filesystem::path translator_vk_path = output_dir / "translator_vk";
-
-            vinfo("input client_ivc_proof_path: ", client_ivc_proof_path);
-            vinfo("input accumulator_path: ", accumulator_path);
-            vinfo("input final_vk_path: ", final_vk_path);
-            vinfo("input eccvm_vk_path: ", eccvm_vk_path);
-            vinfo("input translator_vk_path: ", translator_vk_path);
 
             return verify_client_ivc(
                        client_ivc_proof_path, accumulator_path, final_vk_path, eccvm_vk_path, translator_vk_path)

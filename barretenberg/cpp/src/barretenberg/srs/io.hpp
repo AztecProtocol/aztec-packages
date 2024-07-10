@@ -3,6 +3,7 @@
 #include "../ecc/curves/grumpkin/grumpkin.hpp"
 #include <concepts>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <sys/stat.h>
@@ -307,6 +308,8 @@ template <typename Curve> class IO {
 
         const bool monomial_srs_condition = num_read < degree;
         if (monomial_srs_condition) {
+            info("path when failing to get crs: ", path);
+            info("filesystem::current_path when failing to get crs: ", std::filesystem::current_path());
             throw_or_abort(
                 format("Only read ",
                        num_read,
