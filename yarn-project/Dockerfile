@@ -41,7 +41,7 @@ ENV ACVM_WORKING_DIRECTORY=/usr/src/yarn-project/acvm
 
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY && \
   test $(arch) = "x86_64" && \
-  echo -n RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact | xargs -d ' ' -P 3 -I {} node bb-prover/dest/bb/index.js write-vk -c {} && \
+  echo -n RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact | xargs -d ' ' -P 3 -I {} node bb-prover/dest/bb/index.js write-vk-ultra-honk -c {} && \
   node bb-prover/dest/bb/index.js write-contract -c RootRollupArtifact -n UltraVerifier.sol || \
   echo "Skipping VK generation arch=$(arch)"
 
