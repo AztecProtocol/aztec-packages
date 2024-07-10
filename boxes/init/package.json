@@ -1,4 +1,9 @@
 {
     "packageManager": "yarn@4.2.2",
-    "type": "module"
+    "type": "module",
+    "dependencies": {
+        "@aztec/accounts": "latest",
+        "@aztec/aztec.js": "latest",
+        "@aztec/builder": "latest"
+    }
 }
