@@ -134,12 +134,6 @@ class {{name}}Flavor {
                     , public WitnessEntities<DataType>
                     , public ShiftedEntities<DataType> {
         public:
-          AllEntities()
-                    : PrecomputedEntities<DataType>{}
-                    , WitnessEntities<DataType>{}
-                    , ShiftedEntities<DataType>{}
-                      {}
-
           DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
           
           auto get_unshifted() {
@@ -164,12 +158,30 @@ class {{name}}Flavor {
 
       using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
+      {{!-- Used by sumcheck --}}
       class AllValues : public AllEntities<FF> {
         public:
           using Base = AllEntities<FF>;
           using Base::Base;
       };
-  
+
+      {{!-- Used by get_row, logderivs, etc --}}
+      class AllConstRefValues {
+        public:
+          using DataType = const FF&;
+
+          {{!-- 
+          We define the flavor members here again to avoid having to make this class inherit from AllEntities.
+          If we did inherit from AllEntities, we have to define a special constructor for AllEntities, and all
+          the classes that AllEntities inherits from, in cascade.
+          --}}
+          DEFINE_FLAVOR_MEMBERS(DataType, {{#each all_cols_and_shifts as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}})
+
+          AllConstRefValues({{#each all_cols_and_shifts as |item|}}{{#if @index}},{{/if}}DataType {{item}}{{/each}}) :
+            {{#each all_cols_and_shifts as |item|}}{{item}}({{item}}){{#unless @last}},{{/unless}}{{/each}}
+          {}
+      };
+
       /**
       * @brief A container for the prover polynomials handles.
       */
@@ -200,13 +212,13 @@ class {{name}}Flavor {
           * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
           * represents one row in the execution trace.
           */
-          [[nodiscard]] AllValues get_row(size_t row_idx) const
+          [[nodiscard]] AllConstRefValues get_row(size_t row_idx) const
           {
-              AllValues result;
-              for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                  result_field = polynomial[row_idx];
-              }
-            return result;
+              return AllConstRefValues(
+                  {{#each fixed as |item|}}{{#if @index}},{{/if}}{{item}}[row_idx]{{/each}},
+                  {{#each witness as |item|}}{{#if @index}},{{/if}}{{item}}[row_idx]{{/each}},
+                  {{#each shifted as |item|}}{{#if @index}},{{/if}}{{item}}[row_idx]{{/each}}
+              );
           }
       };
 
