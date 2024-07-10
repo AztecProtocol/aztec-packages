@@ -1,3 +1,4 @@
+import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 import { GasSettings } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -5,7 +6,6 @@ import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
 import { getGasLimits } from './get_gas_limits.js';
 import { SentTx } from './sent_tx.js';
-import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 
 /**
  * Represents options for calling a (constrained) function in a contract.

@@ -40,7 +40,7 @@ import {
   type VerificationKeyAsFields,
   type VerificationKeyData,
   type TUBE_PROOF_LENGTH,
-  RECURSIVE_PROOF_LENGTH,
+  type RECURSIVE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';

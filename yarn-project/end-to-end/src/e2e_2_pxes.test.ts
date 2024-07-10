@@ -45,7 +45,9 @@ describe('e2e_2_pxes', () => {
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
 
     [walletB] = await createAccounts(pxeB, 1);
-    await sleep(/*TODO(AD): We wait 5 seconds for a race condition in setting up two nodes*/ 5000);
+    /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
+     What is a more robust solution? */
+    await sleep(5000);
   });
 
   afterEach(async () => {

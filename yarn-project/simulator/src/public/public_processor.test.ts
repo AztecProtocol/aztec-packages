@@ -74,7 +74,6 @@ describe('public_processor', () => {
     publicWorldStateDB = mock<WorldStatePublicDB>();
     prover = mock<BlockProver>();
 
-
     proof = ClientIvcProof.empty();
     root = Buffer.alloc(32, 5);
 

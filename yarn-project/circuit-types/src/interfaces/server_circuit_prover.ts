@@ -24,7 +24,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  TubeInputs,
+  type TubeInputs,
 } from '@aztec/circuits.js';
 
 /**

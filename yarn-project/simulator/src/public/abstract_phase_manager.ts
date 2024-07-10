@@ -14,6 +14,7 @@ import {
   type AvmExecutionHints,
   AztecAddress,
   CallRequest,
+  ClientIvcProof,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -49,7 +50,6 @@ import {
   RevertCode,
   makeEmptyProof,
   makeEmptyRecursiveProof,
-  ClientIvcProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';

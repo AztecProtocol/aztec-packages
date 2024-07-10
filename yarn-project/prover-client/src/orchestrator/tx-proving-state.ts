@@ -9,7 +9,7 @@ import {
 import {
   type AppendOnlyTreeSnapshot,
   type BaseRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type RecursiveProof,
   type VerificationKeyData,

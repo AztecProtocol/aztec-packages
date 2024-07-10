@@ -1,13 +1,7 @@
-import { type Fr, Tx } from '@aztec/aztec.js';
-import { writeFile, mkdtemp } from 'fs/promises';
+import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
-import * as fs from 'fs';
 
 import { FullProverTest } from './e2e_prover_test.js';
-import { runInDirectory } from '@aztec/foundation/fs';
-import path from 'path';
-import { BB_RESULT, generateTubeProof } from '../../../bb-prover/src/bb/execute.js';
-import { tmpdir } from 'os';
 
 const TIMEOUT = 1_800_000;
 
@@ -24,7 +18,6 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7373) deploy honk solidity verifier
     await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
@@ -43,7 +36,6 @@ describe('full_prover', () => {
       logger.info(
         `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
       );
-
       const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
       const privateSendAmount = privateBalance / 2n;
       expect(privateSendAmount).toBeGreaterThan(0n);
@@ -58,6 +50,15 @@ describe('full_prover', () => {
         publicSendAmount,
         0,
       );
+      const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+
+      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      logger.info(`Verifying kernel tail to public proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
+
+      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      logger.info(`Verifying private kernel tail proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });

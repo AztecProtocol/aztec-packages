@@ -12,16 +12,18 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
-  deployL1Contract,
+  // TODO(#7373): Deploy honk solidity verifier
+  // deployL1Contract,
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { RollupAbi } from '@aztec/l1-artifacts';
+// import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type PXEService } from '@aztec/pxe';
 
+// TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
-import solc from 'solc';
-import { getContract } from 'viem';
+// import solc from 'solc';
+// import { getContract } from 'viem';
 
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
