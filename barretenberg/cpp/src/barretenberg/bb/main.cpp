@@ -604,7 +604,7 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  * @brief Computes the number of Barretenberg specific gates needed to create a proof for the specific ACIR circuit.
  *
  * Communication:
- * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size
+ * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size.
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
