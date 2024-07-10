@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720627497577,
+  "lastUpdate": 1720628027558,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -76152,6 +76152,78 @@ window.BENCHMARK_DATA = {
             "value": 160996869,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160996869 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec39e4e2ffecb6d6e355eb3963008b710cc11d2c",
+          "message": "feat(avm): calldatacopy and return gadget (#7415)\n\nResolves #7381\r\nResolves #7211",
+          "timestamp": "2024-07-10T16:06:08Z",
+          "tree_id": "50981b97316f2eeb4a192bdc8e9005f5d5ae0ea7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec39e4e2ffecb6d6e355eb3963008b710cc11d2c"
+        },
+        "date": 1720628022356,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14123.73372899998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9664.387511 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4768.335814000011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4306.821607000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41714.87768,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41714877000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14582.379173,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14582379000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4264099688,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4264099688 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 206457037,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 206457037 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3455815239,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3455815239 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160283976,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160283976 ns\nthreads: 1"
           }
         ]
       }
