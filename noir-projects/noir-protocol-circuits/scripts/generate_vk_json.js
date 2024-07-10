@@ -30,6 +30,9 @@ async function getBytecodeHash(artifactPath) {
 }
 
 function getBarretenbergHash() {
+  if (process.env.BB_HASH) {
+    return Promise.resolve(process.env.BB_HASH);
+  }
   return new Promise((res, rej) => {
     const hash = crypto.createHash("md5");
 
@@ -82,7 +85,7 @@ async function processArtifact(artifactPath, outputFolder) {
     return;
   }
 
-  let vkData = null// await readVKFromS3(artifactName, artifactHash);
+  let vkData = await readVKFromS3(artifactName, artifactHash);
 
   if (!vkData) {
     vkData = await generateVKData(
@@ -116,7 +119,7 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} write_vk_ultra_honk -b "${artifactPath}" -o "${binaryVkPath}"`;
+  const writeVkCommand = `${BB_BIN_PATH} write_vk_ultra_honk -h -b "${artifactPath}" -o "${binaryVkPath}"`;
 
   const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields_ultra_honk -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
