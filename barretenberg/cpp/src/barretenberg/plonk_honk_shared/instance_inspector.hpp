@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/common/log.hpp"
+#include <cstdint>
 
 namespace bb::instance_inspector {
 
@@ -13,6 +14,18 @@ bool is_non_zero(auto& polynomial)
         }
     }
     return false;
+}
+
+// Determine whether a polynomial has at least one non-zero coefficient
+void count_non_zero(auto& polynomial)
+{
+    uint32_t num_non_zero = 0;
+    for (auto& coeff : polynomial) {
+        if (!coeff.is_zero()) {
+            num_non_zero++;
+        }
+    }
+    info("Poly of size ", polynomial.size(), " has ", num_non_zero, " non-zero coefficients.");
 }
 
 /**
