@@ -3,7 +3,6 @@
 #include <cassert>
 
 #include "barretenberg/vm/avm_trace/avm_mem_trace.hpp"
-#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 
 namespace bb::avm_trace {
 
