@@ -1241,95 +1241,63 @@ template <typename FF_> class mainImpl {
         // Contribution 119
         {
             Avm_DECLARE_VIEWS(119);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_transaction_fee * (kernel_kernel_in_offset - FF(39)));
-=======
             auto tmp = (main_sel_op_function_selector * (kernel_kernel_in_offset - FF(2)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
             tmp *= scaling_factor;
             std::get<119>(evals) += tmp;
         }
         // Contribution 120
         {
             Avm_DECLARE_VIEWS(120);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_chain_id * (kernel_kernel_in_offset - FF(28)));
-=======
-            auto tmp = (main_sel_op_transaction_fee * (kernel_kernel_in_offset - FF(40)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_transaction_fee * (kernel_kernel_in_offset - FF(39)));
             tmp *= scaling_factor;
             std::get<120>(evals) += tmp;
         }
         // Contribution 121
         {
             Avm_DECLARE_VIEWS(121);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_version * (kernel_kernel_in_offset - FF(29)));
-=======
-            auto tmp = (main_sel_op_chain_id * (kernel_kernel_in_offset - FF(29)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_chain_id * (kernel_kernel_in_offset - FF(28)));
             tmp *= scaling_factor;
             std::get<121>(evals) += tmp;
         }
         // Contribution 122
         {
             Avm_DECLARE_VIEWS(122);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_block_number * (kernel_kernel_in_offset - FF(30)));
-=======
-            auto tmp = (main_sel_op_version * (kernel_kernel_in_offset - FF(30)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_version * (kernel_kernel_in_offset - FF(29)));
             tmp *= scaling_factor;
             std::get<122>(evals) += tmp;
         }
         // Contribution 123
         {
             Avm_DECLARE_VIEWS(123);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_timestamp * (kernel_kernel_in_offset - FF(31)));
-=======
-            auto tmp = (main_sel_op_block_number * (kernel_kernel_in_offset - FF(31)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_block_number * (kernel_kernel_in_offset - FF(30)));
             tmp *= scaling_factor;
             std::get<123>(evals) += tmp;
         }
         // Contribution 124
         {
             Avm_DECLARE_VIEWS(124);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_coinbase * (kernel_kernel_in_offset - FF(32)));
-=======
-            auto tmp = (main_sel_op_timestamp * (kernel_kernel_in_offset - FF(32)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_timestamp * (kernel_kernel_in_offset - FF(31)));
             tmp *= scaling_factor;
             std::get<124>(evals) += tmp;
         }
         // Contribution 125
         {
             Avm_DECLARE_VIEWS(125);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_fee_per_da_gas * (kernel_kernel_in_offset - FF(34)));
-=======
-            auto tmp = (main_sel_op_coinbase * (kernel_kernel_in_offset - FF(33)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_coinbase * (kernel_kernel_in_offset - FF(32)));
             tmp *= scaling_factor;
             std::get<125>(evals) += tmp;
         }
         // Contribution 126
         {
             Avm_DECLARE_VIEWS(126);
-<<<<<<< HEAD
-            auto tmp = (main_sel_op_fee_per_l2_gas * (kernel_kernel_in_offset - FF(35)));
-=======
-            auto tmp = (main_sel_op_fee_per_da_gas * (kernel_kernel_in_offset - FF(35)));
->>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
+            auto tmp = (main_sel_op_fee_per_da_gas * (kernel_kernel_in_offset - FF(34)));
             tmp *= scaling_factor;
             std::get<126>(evals) += tmp;
         }
         // Contribution 127
         {
             Avm_DECLARE_VIEWS(127);
-            auto tmp = (main_sel_op_fee_per_l2_gas * (kernel_kernel_in_offset - FF(36)));
+            auto tmp = (main_sel_op_fee_per_l2_gas * (kernel_kernel_in_offset - FF(35)));
             tmp *= scaling_factor;
             std::get<127>(evals) += tmp;
         }
