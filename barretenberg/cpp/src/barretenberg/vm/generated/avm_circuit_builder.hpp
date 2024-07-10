@@ -199,7 +199,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_alu{};
     FF main_sel_bin{};
     FF main_sel_calldata{};
-    FF main_sel_cd_cpy_gadget{};
     FF main_sel_gas_accounting_active{};
     FF main_sel_last{};
     FF main_sel_mem_op_a{};
@@ -226,6 +225,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_emit_unencrypted_log{};
     FF main_sel_op_eq{};
     FF main_sel_op_external_call{};
+    FF main_sel_op_external_return{};
     FF main_sel_op_fdiv{};
     FF main_sel_op_fee_per_da_gas{};
     FF main_sel_op_fee_per_l2_gas{};
@@ -268,8 +268,10 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_resolve_ind_addr_b{};
     FF main_sel_resolve_ind_addr_c{};
     FF main_sel_resolve_ind_addr_d{};
+    FF main_sel_returndata{};
     FF main_sel_rng_16{};
     FF main_sel_rng_8{};
+    FF main_sel_slice_gadget{};
     FF main_space_id{};
     FF main_tag_err{};
     FF main_w_in_tag{};
@@ -290,9 +292,9 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cd_cpy{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
+    FF mem_sel_op_slice{};
     FF mem_sel_resolve_ind_addr_a{};
     FF mem_sel_resolve_ind_addr_b{};
     FF mem_sel_resolve_ind_addr_c{};
@@ -320,21 +322,23 @@ template <typename FF> struct AvmFullRow {
     FF sha256_sel_sha256_compression{};
     FF sha256_state{};
     FF slice_addr{};
-    FF slice_cd_offset{};
     FF slice_clk{};
     FF slice_cnt{};
+    FF slice_col_offset{};
     FF slice_one_min_inv{};
     FF slice_sel_cd_cpy{};
-    FF slice_sel_start_cd_cpy{};
+    FF slice_sel_mem_active{};
+    FF slice_sel_return{};
+    FF slice_sel_start{};
     FF slice_space_id{};
     FF slice_val{};
-    FF perm_cd_mem{};
+    FF perm_slice_mem{};
     FF perm_main_alu{};
     FF perm_main_bin{};
     FF perm_main_conv{};
     FF perm_main_pos2_perm{};
     FF perm_main_pedersen{};
-    FF perm_main_cd_copy{};
+    FF perm_main_slice{};
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
     FF perm_main_mem_c{};
@@ -346,6 +350,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
     FF lookup_cd_value{};
+    FF lookup_ret_value{};
     FF lookup_opcode_gas{};
     FF range_check_l2_gas_hi{};
     FF range_check_l2_gas_lo{};
@@ -388,6 +393,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
     FF lookup_cd_value_counts{};
+    FF lookup_ret_value_counts{};
     FF lookup_opcode_gas_counts{};
     FF range_check_l2_gas_hi_counts{};
     FF range_check_l2_gas_lo_counts{};
@@ -444,8 +450,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 405;
-    static constexpr size_t num_polys = 405 + 68;
+    static constexpr size_t num_fixed_columns = 411;
+    static constexpr size_t num_polys = 411 + 73;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -639,7 +645,6 @@ class AvmCircuitBuilder {
             polys.main_sel_alu[i] = rows[i].main_sel_alu;
             polys.main_sel_bin[i] = rows[i].main_sel_bin;
             polys.main_sel_calldata[i] = rows[i].main_sel_calldata;
-            polys.main_sel_cd_cpy_gadget[i] = rows[i].main_sel_cd_cpy_gadget;
             polys.main_sel_gas_accounting_active[i] = rows[i].main_sel_gas_accounting_active;
             polys.main_sel_last[i] = rows[i].main_sel_last;
             polys.main_sel_mem_op_a[i] = rows[i].main_sel_mem_op_a;
@@ -666,6 +671,7 @@ class AvmCircuitBuilder {
             polys.main_sel_op_emit_unencrypted_log[i] = rows[i].main_sel_op_emit_unencrypted_log;
             polys.main_sel_op_eq[i] = rows[i].main_sel_op_eq;
             polys.main_sel_op_external_call[i] = rows[i].main_sel_op_external_call;
+            polys.main_sel_op_external_return[i] = rows[i].main_sel_op_external_return;
             polys.main_sel_op_fdiv[i] = rows[i].main_sel_op_fdiv;
             polys.main_sel_op_fee_per_da_gas[i] = rows[i].main_sel_op_fee_per_da_gas;
             polys.main_sel_op_fee_per_l2_gas[i] = rows[i].main_sel_op_fee_per_l2_gas;
@@ -708,8 +714,10 @@ class AvmCircuitBuilder {
             polys.main_sel_resolve_ind_addr_b[i] = rows[i].main_sel_resolve_ind_addr_b;
             polys.main_sel_resolve_ind_addr_c[i] = rows[i].main_sel_resolve_ind_addr_c;
             polys.main_sel_resolve_ind_addr_d[i] = rows[i].main_sel_resolve_ind_addr_d;
+            polys.main_sel_returndata[i] = rows[i].main_sel_returndata;
             polys.main_sel_rng_16[i] = rows[i].main_sel_rng_16;
             polys.main_sel_rng_8[i] = rows[i].main_sel_rng_8;
+            polys.main_sel_slice_gadget[i] = rows[i].main_sel_slice_gadget;
             polys.main_space_id[i] = rows[i].main_space_id;
             polys.main_tag_err[i] = rows[i].main_tag_err;
             polys.main_w_in_tag[i] = rows[i].main_w_in_tag;
@@ -730,9 +738,9 @@ class AvmCircuitBuilder {
             polys.mem_sel_op_a[i] = rows[i].mem_sel_op_a;
             polys.mem_sel_op_b[i] = rows[i].mem_sel_op_b;
             polys.mem_sel_op_c[i] = rows[i].mem_sel_op_c;
-            polys.mem_sel_op_cd_cpy[i] = rows[i].mem_sel_op_cd_cpy;
             polys.mem_sel_op_cmov[i] = rows[i].mem_sel_op_cmov;
             polys.mem_sel_op_d[i] = rows[i].mem_sel_op_d;
+            polys.mem_sel_op_slice[i] = rows[i].mem_sel_op_slice;
             polys.mem_sel_resolve_ind_addr_a[i] = rows[i].mem_sel_resolve_ind_addr_a;
             polys.mem_sel_resolve_ind_addr_b[i] = rows[i].mem_sel_resolve_ind_addr_b;
             polys.mem_sel_resolve_ind_addr_c[i] = rows[i].mem_sel_resolve_ind_addr_c;
@@ -760,17 +768,20 @@ class AvmCircuitBuilder {
             polys.sha256_sel_sha256_compression[i] = rows[i].sha256_sel_sha256_compression;
             polys.sha256_state[i] = rows[i].sha256_state;
             polys.slice_addr[i] = rows[i].slice_addr;
-            polys.slice_cd_offset[i] = rows[i].slice_cd_offset;
             polys.slice_clk[i] = rows[i].slice_clk;
             polys.slice_cnt[i] = rows[i].slice_cnt;
+            polys.slice_col_offset[i] = rows[i].slice_col_offset;
             polys.slice_one_min_inv[i] = rows[i].slice_one_min_inv;
             polys.slice_sel_cd_cpy[i] = rows[i].slice_sel_cd_cpy;
-            polys.slice_sel_start_cd_cpy[i] = rows[i].slice_sel_start_cd_cpy;
+            polys.slice_sel_mem_active[i] = rows[i].slice_sel_mem_active;
+            polys.slice_sel_return[i] = rows[i].slice_sel_return;
+            polys.slice_sel_start[i] = rows[i].slice_sel_start;
             polys.slice_space_id[i] = rows[i].slice_space_id;
             polys.slice_val[i] = rows[i].slice_val;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.lookup_cd_value_counts[i] = rows[i].lookup_cd_value_counts;
+            polys.lookup_ret_value_counts[i] = rows[i].lookup_ret_value_counts;
             polys.lookup_opcode_gas_counts[i] = rows[i].lookup_opcode_gas_counts;
             polys.range_check_l2_gas_hi_counts[i] = rows[i].range_check_l2_gas_hi_counts;
             polys.range_check_l2_gas_lo_counts[i] = rows[i].range_check_l2_gas_lo_counts;
@@ -884,8 +895,13 @@ class AvmCircuitBuilder {
         polys.mem_tsp_shift = Polynomial(polys.mem_tsp.shifted());
         polys.mem_val_shift = Polynomial(polys.mem_val.shifted());
         polys.slice_addr_shift = Polynomial(polys.slice_addr.shifted());
-        polys.slice_cd_offset_shift = Polynomial(polys.slice_cd_offset.shifted());
+        polys.slice_clk_shift = Polynomial(polys.slice_clk.shifted());
         polys.slice_cnt_shift = Polynomial(polys.slice_cnt.shifted());
+        polys.slice_col_offset_shift = Polynomial(polys.slice_col_offset.shifted());
+        polys.slice_sel_cd_cpy_shift = Polynomial(polys.slice_sel_cd_cpy.shifted());
+        polys.slice_sel_mem_active_shift = Polynomial(polys.slice_sel_mem_active.shifted());
+        polys.slice_sel_return_shift = Polynomial(polys.slice_sel_return.shifted());
+        polys.slice_space_id_shift = Polynomial(polys.slice_space_id.shifted());
 
         return polys;
     }
@@ -1007,8 +1023,8 @@ class AvmCircuitBuilder {
         };
 
         // Check lookups
-        auto perm_cd_mem = [=]() {
-            return evaluate_logderivative.template operator()<perm_cd_mem_relation<FF>>("PERM_CD_MEM");
+        auto perm_slice_mem = [=]() {
+            return evaluate_logderivative.template operator()<perm_slice_mem_relation<FF>>("PERM_SLICE_MEM");
         };
         auto perm_main_alu = [=]() {
             return evaluate_logderivative.template operator()<perm_main_alu_relation<FF>>("PERM_MAIN_ALU");
@@ -1025,8 +1041,8 @@ class AvmCircuitBuilder {
         auto perm_main_pedersen = [=]() {
             return evaluate_logderivative.template operator()<perm_main_pedersen_relation<FF>>("PERM_MAIN_PEDERSEN");
         };
-        auto perm_main_cd_copy = [=]() {
-            return evaluate_logderivative.template operator()<perm_main_cd_copy_relation<FF>>("PERM_MAIN_CD_COPY");
+        auto perm_main_slice = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_slice_relation<FF>>("PERM_MAIN_SLICE");
         };
         auto perm_main_mem_a = [=]() {
             return evaluate_logderivative.template operator()<perm_main_mem_a_relation<FF>>("PERM_MAIN_MEM_A");
@@ -1065,6 +1081,9 @@ class AvmCircuitBuilder {
         };
         auto lookup_cd_value = [=]() {
             return evaluate_logderivative.template operator()<lookup_cd_value_relation<FF>>("LOOKUP_CD_VALUE");
+        };
+        auto lookup_ret_value = [=]() {
+            return evaluate_logderivative.template operator()<lookup_ret_value_relation<FF>>("LOOKUP_RET_VALUE");
         };
         auto lookup_opcode_gas = [=]() {
             return evaluate_logderivative.template operator()<lookup_opcode_gas_relation<FF>>("LOOKUP_OPCODE_GAS");
@@ -1208,13 +1227,13 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, poseidon2));
         relation_futures.emplace_back(std::async(std::launch::async, powers));
         relation_futures.emplace_back(std::async(std::launch::async, sha256));
-        relation_futures.emplace_back(std::async(std::launch::async, perm_cd_mem));
+        relation_futures.emplace_back(std::async(std::launch::async, perm_slice_mem));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_alu));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_bin));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_conv));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_pos2_perm));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_pedersen));
-        relation_futures.emplace_back(std::async(std::launch::async, perm_main_cd_copy));
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_slice));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_a));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_b));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_c));
@@ -1226,6 +1245,7 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_lengths));
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_operations));
         relation_futures.emplace_back(std::async(std::launch::async, lookup_cd_value));
+        relation_futures.emplace_back(std::async(std::launch::async, lookup_ret_value));
         relation_futures.emplace_back(std::async(std::launch::async, lookup_opcode_gas));
         relation_futures.emplace_back(std::async(std::launch::async, range_check_l2_gas_hi));
         relation_futures.emplace_back(std::async(std::launch::async, range_check_l2_gas_lo));

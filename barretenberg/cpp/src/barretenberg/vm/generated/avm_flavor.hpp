@@ -51,6 +51,7 @@
 #include "barretenberg/relations/generated/avm/lookup_opcode_gas.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_ret_value.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_10.hpp"
@@ -68,10 +69,8 @@
 #include "barretenberg/relations/generated/avm/lookup_u16_9.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u8_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u8_1.hpp"
-#include "barretenberg/relations/generated/avm/perm_cd_mem.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_bin.hpp"
-#include "barretenberg/relations/generated/avm/perm_main_cd_copy.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_conv.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_a.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_b.hpp"
@@ -83,6 +82,8 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_addr_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_slice.hpp"
+#include "barretenberg/relations/generated/avm/perm_slice_mem.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_hi.hpp"
 #include "barretenberg/relations/generated/avm/range_check_da_gas_lo.hpp"
 #include "barretenberg/relations/generated/avm/range_check_l2_gas_hi.hpp"
@@ -111,11 +112,11 @@ class AvmFlavor {
     using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 403;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 409;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 473;
+    static constexpr size_t NUM_ALL_ENTITIES = 484;
 
     using MainRelations = std::tuple<
         // Relations
@@ -135,13 +136,13 @@ class AvmFlavor {
 
     using LookupRelations = std::tuple<
         // Lookups
-        perm_cd_mem_relation<FF>,
+        perm_slice_mem_relation<FF>,
         perm_main_alu_relation<FF>,
         perm_main_bin_relation<FF>,
         perm_main_conv_relation<FF>,
         perm_main_pos2_perm_relation<FF>,
         perm_main_pedersen_relation<FF>,
-        perm_main_cd_copy_relation<FF>,
+        perm_main_slice_relation<FF>,
         perm_main_mem_a_relation<FF>,
         perm_main_mem_b_relation<FF>,
         perm_main_mem_c_relation<FF>,
@@ -153,6 +154,7 @@ class AvmFlavor {
         lookup_byte_lengths_relation<FF>,
         lookup_byte_operations_relation<FF>,
         lookup_cd_value_relation<FF>,
+        lookup_ret_value_relation<FF>,
         lookup_opcode_gas_relation<FF>,
         range_check_l2_gas_hi_relation<FF>,
         range_check_l2_gas_lo_relation<FF>,
@@ -402,7 +404,6 @@ class AvmFlavor {
                               main_sel_alu,
                               main_sel_bin,
                               main_sel_calldata,
-                              main_sel_cd_cpy_gadget,
                               main_sel_gas_accounting_active,
                               main_sel_last,
                               main_sel_mem_op_a,
@@ -429,6 +430,7 @@ class AvmFlavor {
                               main_sel_op_emit_unencrypted_log,
                               main_sel_op_eq,
                               main_sel_op_external_call,
+                              main_sel_op_external_return,
                               main_sel_op_fdiv,
                               main_sel_op_fee_per_da_gas,
                               main_sel_op_fee_per_l2_gas,
@@ -471,8 +473,10 @@ class AvmFlavor {
                               main_sel_resolve_ind_addr_b,
                               main_sel_resolve_ind_addr_c,
                               main_sel_resolve_ind_addr_d,
+                              main_sel_returndata,
                               main_sel_rng_16,
                               main_sel_rng_8,
+                              main_sel_slice_gadget,
                               main_space_id,
                               main_tag_err,
                               main_w_in_tag,
@@ -493,9 +497,9 @@ class AvmFlavor {
                               mem_sel_op_a,
                               mem_sel_op_b,
                               mem_sel_op_c,
-                              mem_sel_op_cd_cpy,
                               mem_sel_op_cmov,
                               mem_sel_op_d,
+                              mem_sel_op_slice,
                               mem_sel_resolve_ind_addr_a,
                               mem_sel_resolve_ind_addr_b,
                               mem_sel_resolve_ind_addr_c,
@@ -523,17 +527,20 @@ class AvmFlavor {
                               sha256_sel_sha256_compression,
                               sha256_state,
                               slice_addr,
-                              slice_cd_offset,
                               slice_clk,
                               slice_cnt,
+                              slice_col_offset,
                               slice_one_min_inv,
                               slice_sel_cd_cpy,
-                              slice_sel_start_cd_cpy,
+                              slice_sel_mem_active,
+                              slice_sel_return,
+                              slice_sel_start,
                               slice_space_id,
                               slice_val,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
                               lookup_cd_value_counts,
+                              lookup_ret_value_counts,
                               lookup_opcode_gas_counts,
                               range_check_l2_gas_hi_counts,
                               range_check_l2_gas_lo_counts,
@@ -578,13 +585,13 @@ class AvmFlavor {
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              perm_cd_mem,
+                              perm_slice_mem,
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
                               perm_main_pos2_perm,
                               perm_main_pedersen,
-                              perm_main_cd_copy,
+                              perm_main_slice,
                               perm_main_mem_a,
                               perm_main_mem_b,
                               perm_main_mem_c,
@@ -596,6 +603,7 @@ class AvmFlavor {
                               lookup_byte_lengths,
                               lookup_byte_operations,
                               lookup_cd_value,
+                              lookup_ret_value,
                               lookup_opcode_gas,
                               range_check_l2_gas_hi,
                               range_check_l2_gas_lo,
@@ -706,8 +714,13 @@ class AvmFlavor {
                               mem_tsp_shift,
                               mem_val_shift,
                               slice_addr_shift,
-                              slice_cd_offset_shift,
-                              slice_cnt_shift)
+                              slice_clk_shift,
+                              slice_cnt_shift,
+                              slice_col_offset_shift,
+                              slice_sel_cd_cpy_shift,
+                              slice_sel_mem_active_shift,
+                              slice_sel_return_shift,
+                              slice_space_id_shift)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
@@ -779,8 +792,13 @@ class AvmFlavor {
                          entities.mem_tsp,
                          entities.mem_val,
                          entities.slice_addr,
-                         entities.slice_cd_offset,
-                         entities.slice_cnt };
+                         entities.slice_clk,
+                         entities.slice_cnt,
+                         entities.slice_col_offset,
+                         entities.slice_sel_cd_cpy,
+                         entities.slice_sel_mem_active,
+                         entities.slice_sel_return,
+                         entities.slice_space_id };
     }
 
     template <typename DataType>
@@ -883,9 +901,197 @@ class AvmFlavor {
                      mem_tsp,
                      mem_val,
                      slice_addr,
-                     slice_cd_offset,
-                     slice_cnt };
+                     slice_clk,
+                     slice_cnt,
+                     slice_col_offset,
+                     slice_sel_cd_cpy,
+                     slice_sel_mem_active,
+                     slice_sel_return,
+                     slice_space_id };
         }
+<<<<<<< HEAD
+=======
+
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
+
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_slice_mem_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_slice_mem_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_alu_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_bin_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_conv_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_pos2_perm_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_pos2_perm_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_pedersen_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_pedersen_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_slice_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_slice_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_a_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_b_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_b_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_c_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_c_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_d_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_d_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_a_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_a_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_b_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_b_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_c_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_c_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/perm_main_mem_ind_addr_d_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_addr_d_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_byte_lengths_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_byte_operations_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_cd_value_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_cd_value_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_ret_value_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_ret_value_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_opcode_gas_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_opcode_gas_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_l2_gas_hi_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_hi_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_l2_gas_lo_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_l2_gas_lo_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_da_gas_hi_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_hi_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/range_check_da_gas_lo_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, range_check_da_gas_lo_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/kernel_output_lookup_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, kernel_output_lookup_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_into_kernel_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_into_kernel_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/incl_main_tag_err_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/incl_mem_tag_err_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_mem_rng_chk_lo_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_lo_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_mem_rng_chk_mid_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_mid_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_mem_rng_chk_hi_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_hi_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_pow_2_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_pow_2_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u8_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u8_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_2_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_2_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_3_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_3_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_4_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_4_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_5_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_5_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_6_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_6_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_7_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_7_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_8_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_8_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_9_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_9_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_10_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_10_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_11_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_11_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_12_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_12_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_13_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_13_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_u16_14_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_0_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_0_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_1_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_1_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_2_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_2_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_3_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_3_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_4_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_4_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_5_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_5_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_6_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_6_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+            AVM_TRACK_TIME("compute_logderivative_inverse/lookup_div_u16_7_ms",
+                           (bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_7_relation<FF>>(
+                               prover_polynomials, relation_parameters, this->circuit_size)));
+        }
+>>>>>>> 517766bd15 (7381: witness generation for RETURN opcode gadget)
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
@@ -2518,7 +2724,6 @@ class AvmFlavor {
             Base::main_sel_alu = "MAIN_SEL_ALU";
             Base::main_sel_bin = "MAIN_SEL_BIN";
             Base::main_sel_calldata = "MAIN_SEL_CALLDATA";
-            Base::main_sel_cd_cpy_gadget = "MAIN_SEL_CD_CPY_GADGET";
             Base::main_sel_gas_accounting_active = "MAIN_SEL_GAS_ACCOUNTING_ACTIVE";
             Base::main_sel_last = "MAIN_SEL_LAST";
             Base::main_sel_mem_op_a = "MAIN_SEL_MEM_OP_A";
@@ -2545,6 +2750,7 @@ class AvmFlavor {
             Base::main_sel_op_emit_unencrypted_log = "MAIN_SEL_OP_EMIT_UNENCRYPTED_LOG";
             Base::main_sel_op_eq = "MAIN_SEL_OP_EQ";
             Base::main_sel_op_external_call = "MAIN_SEL_OP_EXTERNAL_CALL";
+            Base::main_sel_op_external_return = "MAIN_SEL_OP_EXTERNAL_RETURN";
             Base::main_sel_op_fdiv = "MAIN_SEL_OP_FDIV";
             Base::main_sel_op_fee_per_da_gas = "MAIN_SEL_OP_FEE_PER_DA_GAS";
             Base::main_sel_op_fee_per_l2_gas = "MAIN_SEL_OP_FEE_PER_L2_GAS";
@@ -2587,8 +2793,10 @@ class AvmFlavor {
             Base::main_sel_resolve_ind_addr_b = "MAIN_SEL_RESOLVE_IND_ADDR_B";
             Base::main_sel_resolve_ind_addr_c = "MAIN_SEL_RESOLVE_IND_ADDR_C";
             Base::main_sel_resolve_ind_addr_d = "MAIN_SEL_RESOLVE_IND_ADDR_D";
+            Base::main_sel_returndata = "MAIN_SEL_RETURNDATA";
             Base::main_sel_rng_16 = "MAIN_SEL_RNG_16";
             Base::main_sel_rng_8 = "MAIN_SEL_RNG_8";
+            Base::main_sel_slice_gadget = "MAIN_SEL_SLICE_GADGET";
             Base::main_space_id = "MAIN_SPACE_ID";
             Base::main_tag_err = "MAIN_TAG_ERR";
             Base::main_w_in_tag = "MAIN_W_IN_TAG";
@@ -2609,9 +2817,9 @@ class AvmFlavor {
             Base::mem_sel_op_a = "MEM_SEL_OP_A";
             Base::mem_sel_op_b = "MEM_SEL_OP_B";
             Base::mem_sel_op_c = "MEM_SEL_OP_C";
-            Base::mem_sel_op_cd_cpy = "MEM_SEL_OP_CD_CPY";
             Base::mem_sel_op_cmov = "MEM_SEL_OP_CMOV";
             Base::mem_sel_op_d = "MEM_SEL_OP_D";
+            Base::mem_sel_op_slice = "MEM_SEL_OP_SLICE";
             Base::mem_sel_resolve_ind_addr_a = "MEM_SEL_RESOLVE_IND_ADDR_A";
             Base::mem_sel_resolve_ind_addr_b = "MEM_SEL_RESOLVE_IND_ADDR_B";
             Base::mem_sel_resolve_ind_addr_c = "MEM_SEL_RESOLVE_IND_ADDR_C";
@@ -2639,21 +2847,23 @@ class AvmFlavor {
             Base::sha256_sel_sha256_compression = "SHA256_SEL_SHA256_COMPRESSION";
             Base::sha256_state = "SHA256_STATE";
             Base::slice_addr = "SLICE_ADDR";
-            Base::slice_cd_offset = "SLICE_CD_OFFSET";
             Base::slice_clk = "SLICE_CLK";
             Base::slice_cnt = "SLICE_CNT";
+            Base::slice_col_offset = "SLICE_COL_OFFSET";
             Base::slice_one_min_inv = "SLICE_ONE_MIN_INV";
             Base::slice_sel_cd_cpy = "SLICE_SEL_CD_CPY";
-            Base::slice_sel_start_cd_cpy = "SLICE_SEL_START_CD_CPY";
+            Base::slice_sel_mem_active = "SLICE_SEL_MEM_ACTIVE";
+            Base::slice_sel_return = "SLICE_SEL_RETURN";
+            Base::slice_sel_start = "SLICE_SEL_START";
             Base::slice_space_id = "SLICE_SPACE_ID";
             Base::slice_val = "SLICE_VAL";
-            Base::perm_cd_mem = "PERM_CD_MEM";
+            Base::perm_slice_mem = "PERM_SLICE_MEM";
             Base::perm_main_alu = "PERM_MAIN_ALU";
             Base::perm_main_bin = "PERM_MAIN_BIN";
             Base::perm_main_conv = "PERM_MAIN_CONV";
             Base::perm_main_pos2_perm = "PERM_MAIN_POS2_PERM";
             Base::perm_main_pedersen = "PERM_MAIN_PEDERSEN";
-            Base::perm_main_cd_copy = "PERM_MAIN_CD_COPY";
+            Base::perm_main_slice = "PERM_MAIN_SLICE";
             Base::perm_main_mem_a = "PERM_MAIN_MEM_A";
             Base::perm_main_mem_b = "PERM_MAIN_MEM_B";
             Base::perm_main_mem_c = "PERM_MAIN_MEM_C";
@@ -2665,6 +2875,7 @@ class AvmFlavor {
             Base::lookup_byte_lengths = "LOOKUP_BYTE_LENGTHS";
             Base::lookup_byte_operations = "LOOKUP_BYTE_OPERATIONS";
             Base::lookup_cd_value = "LOOKUP_CD_VALUE";
+            Base::lookup_ret_value = "LOOKUP_RET_VALUE";
             Base::lookup_opcode_gas = "LOOKUP_OPCODE_GAS";
             Base::range_check_l2_gas_hi = "RANGE_CHECK_L2_GAS_HI";
             Base::range_check_l2_gas_lo = "RANGE_CHECK_L2_GAS_LO";
@@ -2707,6 +2918,7 @@ class AvmFlavor {
             Base::lookup_byte_lengths_counts = "LOOKUP_BYTE_LENGTHS_COUNTS";
             Base::lookup_byte_operations_counts = "LOOKUP_BYTE_OPERATIONS_COUNTS";
             Base::lookup_cd_value_counts = "LOOKUP_CD_VALUE_COUNTS";
+            Base::lookup_ret_value_counts = "LOOKUP_RET_VALUE_COUNTS";
             Base::lookup_opcode_gas_counts = "LOOKUP_OPCODE_GAS_COUNTS";
             Base::range_check_l2_gas_hi_counts = "RANGE_CHECK_L2_GAS_HI_COUNTS";
             Base::range_check_l2_gas_lo_counts = "RANGE_CHECK_L2_GAS_LO_COUNTS";
@@ -2943,7 +3155,6 @@ class AvmFlavor {
         Commitment main_sel_alu;
         Commitment main_sel_bin;
         Commitment main_sel_calldata;
-        Commitment main_sel_cd_cpy_gadget;
         Commitment main_sel_gas_accounting_active;
         Commitment main_sel_last;
         Commitment main_sel_mem_op_a;
@@ -2970,6 +3181,7 @@ class AvmFlavor {
         Commitment main_sel_op_emit_unencrypted_log;
         Commitment main_sel_op_eq;
         Commitment main_sel_op_external_call;
+        Commitment main_sel_op_external_return;
         Commitment main_sel_op_fdiv;
         Commitment main_sel_op_fee_per_da_gas;
         Commitment main_sel_op_fee_per_l2_gas;
@@ -3012,8 +3224,10 @@ class AvmFlavor {
         Commitment main_sel_resolve_ind_addr_b;
         Commitment main_sel_resolve_ind_addr_c;
         Commitment main_sel_resolve_ind_addr_d;
+        Commitment main_sel_returndata;
         Commitment main_sel_rng_16;
         Commitment main_sel_rng_8;
+        Commitment main_sel_slice_gadget;
         Commitment main_space_id;
         Commitment main_tag_err;
         Commitment main_w_in_tag;
@@ -3034,9 +3248,9 @@ class AvmFlavor {
         Commitment mem_sel_op_a;
         Commitment mem_sel_op_b;
         Commitment mem_sel_op_c;
-        Commitment mem_sel_op_cd_cpy;
         Commitment mem_sel_op_cmov;
         Commitment mem_sel_op_d;
+        Commitment mem_sel_op_slice;
         Commitment mem_sel_resolve_ind_addr_a;
         Commitment mem_sel_resolve_ind_addr_b;
         Commitment mem_sel_resolve_ind_addr_c;
@@ -3064,21 +3278,23 @@ class AvmFlavor {
         Commitment sha256_sel_sha256_compression;
         Commitment sha256_state;
         Commitment slice_addr;
-        Commitment slice_cd_offset;
         Commitment slice_clk;
         Commitment slice_cnt;
+        Commitment slice_col_offset;
         Commitment slice_one_min_inv;
         Commitment slice_sel_cd_cpy;
-        Commitment slice_sel_start_cd_cpy;
+        Commitment slice_sel_mem_active;
+        Commitment slice_sel_return;
+        Commitment slice_sel_start;
         Commitment slice_space_id;
         Commitment slice_val;
-        Commitment perm_cd_mem;
+        Commitment perm_slice_mem;
         Commitment perm_main_alu;
         Commitment perm_main_bin;
         Commitment perm_main_conv;
         Commitment perm_main_pos2_perm;
         Commitment perm_main_pedersen;
-        Commitment perm_main_cd_copy;
+        Commitment perm_main_slice;
         Commitment perm_main_mem_a;
         Commitment perm_main_mem_b;
         Commitment perm_main_mem_c;
@@ -3090,6 +3306,7 @@ class AvmFlavor {
         Commitment lookup_byte_lengths;
         Commitment lookup_byte_operations;
         Commitment lookup_cd_value;
+        Commitment lookup_ret_value;
         Commitment lookup_opcode_gas;
         Commitment range_check_l2_gas_hi;
         Commitment range_check_l2_gas_lo;
@@ -3132,6 +3349,7 @@ class AvmFlavor {
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
         Commitment lookup_cd_value_counts;
+        Commitment lookup_ret_value_counts;
         Commitment lookup_opcode_gas_counts;
         Commitment range_check_l2_gas_hi_counts;
         Commitment range_check_l2_gas_lo_counts;
@@ -3381,7 +3599,6 @@ class AvmFlavor {
             main_sel_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_calldata = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            main_sel_cd_cpy_gadget = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_gas_accounting_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3409,6 +3626,7 @@ class AvmFlavor {
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_external_call = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_op_external_return = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3452,8 +3670,10 @@ class AvmFlavor {
             main_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_resolve_ind_addr_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_returndata = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_sel_rng_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            main_sel_slice_gadget = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             main_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3474,9 +3694,9 @@ class AvmFlavor {
             mem_sel_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            mem_sel_op_cd_cpy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            mem_sel_op_slice = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             mem_sel_resolve_ind_addr_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3504,21 +3724,23 @@ class AvmFlavor {
             sha256_sel_sha256_compression = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             sha256_state = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            slice_cd_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_cnt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            slice_col_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_one_min_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_sel_cd_cpy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            slice_sel_start_cd_cpy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            slice_sel_mem_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            slice_sel_return = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            slice_sel_start = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             slice_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_cd_mem = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_slice_mem = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_pos2_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_pedersen = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            perm_main_cd_copy = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_main_slice = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3530,6 +3752,7 @@ class AvmFlavor {
             lookup_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_cd_value = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_ret_value = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_opcode_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             range_check_l2_gas_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             range_check_l2_gas_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3572,6 +3795,7 @@ class AvmFlavor {
             lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_cd_value_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_ret_value_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_opcode_gas_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             range_check_l2_gas_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             range_check_l2_gas_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3815,7 +4039,6 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(main_sel_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_bin, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_calldata, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(main_sel_cd_cpy_gadget, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_gas_accounting_active, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_last, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_mem_op_a, Transcript::proof_data);
@@ -3842,6 +4065,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(main_sel_op_emit_unencrypted_log, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_eq, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_external_call, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_op_external_return, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_fee_per_da_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_op_fee_per_l2_gas, Transcript::proof_data);
@@ -3884,8 +4108,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_c, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_resolve_ind_addr_d, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_returndata, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_rng_16, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_sel_rng_8, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(main_sel_slice_gadget, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_space_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(main_w_in_tag, Transcript::proof_data);
@@ -3906,9 +4132,9 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(mem_sel_op_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_c, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(mem_sel_op_cd_cpy, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_cmov, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_op_d, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(mem_sel_op_slice, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(mem_sel_resolve_ind_addr_c, Transcript::proof_data);
@@ -3936,21 +4162,23 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(sha256_sel_sha256_compression, Transcript::proof_data);
             serialize_to_buffer<Commitment>(sha256_state, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_addr, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(slice_cd_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_cnt, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(slice_col_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_one_min_inv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_sel_cd_cpy, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(slice_sel_start_cd_cpy, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(slice_sel_mem_active, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(slice_sel_return, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(slice_sel_start, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_space_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(slice_val, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_cd_mem, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_slice_mem, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_pos2_perm, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_pedersen, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(perm_main_cd_copy, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_main_slice, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_c, Transcript::proof_data);
@@ -3962,6 +4190,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_byte_lengths, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_cd_value, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_ret_value, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_opcode_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(range_check_l2_gas_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(range_check_l2_gas_lo, Transcript::proof_data);
@@ -4004,6 +4233,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_cd_value_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_ret_value_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_opcode_gas_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(range_check_l2_gas_hi_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(range_check_l2_gas_lo_counts, Transcript::proof_data);

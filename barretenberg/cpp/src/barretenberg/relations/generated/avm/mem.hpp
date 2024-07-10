@@ -28,9 +28,9 @@ template <typename FF> struct MemRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cd_cpy{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
+    FF mem_sel_op_slice{};
     FF mem_sel_resolve_ind_addr_a{};
     FF mem_sel_resolve_ind_addr_b{};
     FF mem_sel_resolve_ind_addr_c{};
@@ -162,7 +162,7 @@ template <typename FF_> class memImpl {
         // Contribution 8
         {
             Avm_DECLARE_VIEWS(8);
-            auto tmp = (mem_sel_op_cd_cpy * (-mem_sel_op_cd_cpy + FF(1)));
+            auto tmp = (mem_sel_op_slice * (-mem_sel_op_slice + FF(1)));
             tmp *= scaling_factor;
             std::get<8>(evals) += tmp;
         }
@@ -203,7 +203,7 @@ template <typename FF_> class memImpl {
                      mem_sel_resolve_ind_addr_b) +
                     mem_sel_resolve_ind_addr_c) +
                    mem_sel_resolve_ind_addr_d) +
-                  mem_sel_op_cd_cpy));
+                  mem_sel_op_slice));
             tmp *= scaling_factor;
             std::get<13>(evals) += tmp;
         }
@@ -317,8 +317,9 @@ template <typename FF_> class memImpl {
         {
             Avm_DECLARE_VIEWS(27);
             auto tmp = (mem_skip_check_tag -
-                        (mem_sel_op_cmov * ((mem_sel_op_d + (mem_sel_op_a * (-mem_sel_mov_ia_to_ic + FF(1)))) +
-                                            (mem_sel_op_b * (-mem_sel_mov_ib_to_ic + FF(1))))));
+                        ((mem_sel_op_cmov * ((mem_sel_op_d + (mem_sel_op_a * (-mem_sel_mov_ia_to_ic + FF(1)))) +
+                                             (mem_sel_op_b * (-mem_sel_mov_ib_to_ic + FF(1))))) +
+                         mem_sel_op_slice));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -417,14 +418,14 @@ template <typename FF_> class memImpl {
         // Contribution 41
         {
             Avm_DECLARE_VIEWS(41);
-            auto tmp = (mem_sel_op_cd_cpy * (mem_rw - FF(1)));
+            auto tmp = (mem_sel_op_slice * (mem_w_in_tag - FF(6)));
             tmp *= scaling_factor;
             std::get<41>(evals) += tmp;
         }
         // Contribution 42
         {
             Avm_DECLARE_VIEWS(42);
-            auto tmp = (mem_sel_op_cd_cpy * (mem_w_in_tag - FF(6)));
+            auto tmp = (mem_sel_op_slice * (mem_r_in_tag - FF(6)));
             tmp *= scaling_factor;
             std::get<42>(evals) += tmp;
         }

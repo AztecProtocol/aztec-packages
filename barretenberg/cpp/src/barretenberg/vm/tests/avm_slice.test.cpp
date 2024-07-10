@@ -30,21 +30,21 @@ class AvmSliceTests : public ::testing::Test {
     }
 
     void gen_single_calldata_copy(
-        bool indirect, uint32_t cd_size, uint32_t cd_offset, uint32_t copy_size, uint32_t dst_offset)
+        bool indirect, uint32_t cd_size, uint32_t col_offset, uint32_t copy_size, uint32_t dst_offset)
     {
-        ASSERT_LE(cd_offset + copy_size, cd_size);
+        ASSERT_LE(col_offset + copy_size, cd_size);
         std::vector<FF> calldata;
         for (size_t i = 0; i < cd_size; i++) {
             calldata.emplace_back(i * i);
         }
 
         gen_trace_builder(calldata);
-        trace_builder.op_calldata_copy(static_cast<uint8_t>(indirect), cd_offset, copy_size, dst_offset);
+        trace_builder.op_calldata_copy(static_cast<uint8_t>(indirect), col_offset, copy_size, dst_offset);
         trace_builder.op_return(0, 0, 0);
         trace = trace_builder.finalize();
     }
 
-    void validate_single_calldata_copy_trace(uint32_t cd_offset,
+    void validate_single_calldata_copy_trace(uint32_t col_offset,
                                              uint32_t copy_size,
                                              uint32_t dst_offset,
                                              bool proof_verif = false)
@@ -58,7 +58,7 @@ class AvmSliceTests : public ::testing::Test {
         // Memory trace view pertaining to the calldata_copy operation.
         auto clk = row->main_clk;
         auto mem_view = std::views::filter(trace, [clk](Row r) {
-            return r.mem_clk == clk && r.mem_rw == 1 && r.mem_sel_op_cd_cpy == 1 &&
+            return r.mem_clk == clk && r.mem_rw == 1 && r.mem_sel_op_slice == 1 &&
                    r.mem_tag == static_cast<uint32_t>(AvmMemoryTag::FF);
         });
 
@@ -66,11 +66,11 @@ class AvmSliceTests : public ::testing::Test {
         size_t count = 0;
         for (auto const& mem_row : mem_view) {
             EXPECT_THAT(mem_row,
-                        AllOf(MEM_ROW_FIELD_EQ(val, (cd_offset + count) * (cd_offset + count)),
+                        AllOf(MEM_ROW_FIELD_EQ(val, (col_offset + count) * (col_offset + count)),
                               MEM_ROW_FIELD_EQ(addr, dst_offset + count),
                               MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::FF)),
                               MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(AvmMemoryTag::FF)),
-                              MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U0)),
+                              MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::FF)),
                               MEM_ROW_FIELD_EQ(tag_err, 0)));
             count++;
         }
@@ -81,32 +81,32 @@ class AvmSliceTests : public ::testing::Test {
         auto slice_view =
             std::views::filter(trace, [clk](Row r) { return r.slice_clk == clk && r.slice_sel_cd_cpy == 1; });
 
-        FF last_clk = 0;
+        FF last_row_idx = 0;
 
         // Check that the slice trace is as expected.
         count = 0;
         for (auto const& slice_row : slice_view) {
             EXPECT_THAT(slice_row,
-                        AllOf(SLICE_ROW_FIELD_EQ(val, (cd_offset + count) * (cd_offset + count)),
+                        AllOf(SLICE_ROW_FIELD_EQ(val, (col_offset + count) * (col_offset + count)),
                               SLICE_ROW_FIELD_EQ(addr, dst_offset + count),
-                              SLICE_ROW_FIELD_EQ(cd_offset, cd_offset + count),
+                              SLICE_ROW_FIELD_EQ(col_offset, col_offset + count),
                               SLICE_ROW_FIELD_EQ(cnt, copy_size - count),
-                              SLICE_ROW_FIELD_EQ(sel_start_cd_cpy, static_cast<uint32_t>(count == 0))));
+                              SLICE_ROW_FIELD_EQ(sel_start, static_cast<uint32_t>(count == 0))));
             count++;
 
             if (count == copy_size) {
-                last_clk = slice_row.main_clk;
+                last_row_idx = slice_row.main_clk;
             }
         }
 
         // Check that the extra final row is well-formed.
-        EXPECT_THAT(trace.at(static_cast<size_t>(last_clk + 1)),
+        EXPECT_THAT(trace.at(static_cast<size_t>(last_row_idx + 1)),
                     AllOf(SLICE_ROW_FIELD_EQ(addr, FF(dst_offset) + FF(copy_size)),
-                          SLICE_ROW_FIELD_EQ(cd_offset, cd_offset + copy_size),
+                          SLICE_ROW_FIELD_EQ(col_offset, col_offset + copy_size),
                           SLICE_ROW_FIELD_EQ(cnt, 0),
-                          SLICE_ROW_FIELD_EQ(clk, 0),
+                          SLICE_ROW_FIELD_EQ(clk, clk),
                           SLICE_ROW_FIELD_EQ(sel_cd_cpy, 0),
-                          SLICE_ROW_FIELD_EQ(sel_start_cd_cpy, 0)));
+                          SLICE_ROW_FIELD_EQ(sel_start, 0)));
 
         if (proof_verif) {
             validate_trace(std::move(trace), public_inputs, calldata, {}, true);
@@ -249,7 +249,7 @@ TEST_F(AvmSliceTests, indirectFailedResolution)
     auto slice_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.slice_sel_cd_cpy == 1; });
     EXPECT_EQ(slice_row, trace.end());
 
-    auto count = std::ranges::count_if(trace.begin(), trace.end(), [](Row r) { return r.mem_sel_op_cd_cpy == 1; });
+    auto count = std::ranges::count_if(trace.begin(), trace.end(), [](Row r) { return r.mem_sel_op_slice == 1; });
     // Check that MEM trace does not contain any entry related to calldata_copy write.
     EXPECT_EQ(count, 0);
 
@@ -295,7 +295,7 @@ TEST_F(AvmSliceNegativeTests, wrongCDValueInMemory)
         trace.begin(), trace.end(), [clk, addr](Row r) { return r.mem_clk == clk && r.mem_addr == addr; });
     mem_row->mem_val = 98;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_CD_MEM");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_SLICE_MEM");
 }
 
 TEST_F(AvmSliceNegativeTests, wrongCDValueInCalldataColumn)
@@ -323,14 +323,15 @@ TEST_F(AvmSliceNegativeTests, disableMemWriteEntry)
     gen_single_calldata_copy(false, 10, 0, 10, 0);
 
     // Multiple adjustements to get valid MEM trace.
-    trace.at(10).mem_sel_op_cd_cpy = 0;
+    trace.at(10).mem_sel_op_slice = 0;
+    trace.at(10).mem_skip_check_tag = 0;
     trace.at(10).mem_sel_mem = 0;
     trace.at(9).mem_last = 1;
     trace.at(10).mem_last = 0;
     trace.at(10).mem_tsp = 12;
     trace.at(9).mem_sel_rng_chk = 0;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_CD_MEM");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_SLICE_MEM");
 }
 
 } // namespace tests_avm

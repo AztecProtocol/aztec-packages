@@ -38,7 +38,7 @@ class lookup_cd_value_lookup_settings {
                                      in.lookup_cd_value_counts,
                                      in.slice_sel_cd_cpy,
                                      in.main_sel_calldata,
-                                     in.slice_cd_offset,
+                                     in.slice_col_offset,
                                      in.slice_val,
                                      in.main_clk,
                                      in.main_calldata);
@@ -50,7 +50,7 @@ class lookup_cd_value_lookup_settings {
                                      in.lookup_cd_value_counts,
                                      in.slice_sel_cd_cpy,
                                      in.main_sel_calldata,
-                                     in.slice_cd_offset,
+                                     in.slice_col_offset,
                                      in.slice_val,
                                      in.main_clk,
                                      in.main_calldata);

@@ -10,7 +10,7 @@ namespace bb {
 class perm_main_cd_copy_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 3;
+    constexpr static size_t COLUMNS_PER_SET = 5;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -23,10 +23,14 @@ class perm_main_cd_copy_permutation_settings {
                                      in.main_sel_cd_cpy_gadget,
                                      in.main_sel_cd_cpy_gadget,
                                      in.slice_sel_start_cd_cpy,
+                                     in.main_clk,
+                                     in.main_space_id,
                                      in.main_ia,
                                      in.main_ib,
                                      in.main_mem_addr_c,
-                                     in.slice_cd_offset,
+                                     in.slice_clk,
+                                     in.slice_space_id,
+                                     in.slice_col_offset,
                                      in.slice_cnt,
                                      in.slice_addr);
     }
@@ -37,10 +41,14 @@ class perm_main_cd_copy_permutation_settings {
                                      in.main_sel_cd_cpy_gadget,
                                      in.main_sel_cd_cpy_gadget,
                                      in.slice_sel_start_cd_cpy,
+                                     in.main_clk,
+                                     in.main_space_id,
                                      in.main_ia,
                                      in.main_ib,
                                      in.main_mem_addr_c,
-                                     in.slice_cd_offset,
+                                     in.slice_clk,
+                                     in.slice_space_id,
+                                     in.slice_col_offset,
                                      in.slice_cnt,
                                      in.slice_addr);
     }

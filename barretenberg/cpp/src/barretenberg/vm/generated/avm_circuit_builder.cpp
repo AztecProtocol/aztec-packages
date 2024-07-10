@@ -194,7 +194,6 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_sel_alu",
              "main_sel_bin",
              "main_sel_calldata",
-             "main_sel_cd_cpy_gadget",
              "main_sel_gas_accounting_active",
              "main_sel_last",
              "main_sel_mem_op_a",
@@ -221,6 +220,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_sel_op_emit_unencrypted_log",
              "main_sel_op_eq",
              "main_sel_op_external_call",
+             "main_sel_op_external_return",
              "main_sel_op_fdiv",
              "main_sel_op_fee_per_da_gas",
              "main_sel_op_fee_per_l2_gas",
@@ -263,8 +263,10 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "main_sel_resolve_ind_addr_b",
              "main_sel_resolve_ind_addr_c",
              "main_sel_resolve_ind_addr_d",
+             "main_sel_returndata",
              "main_sel_rng_16",
              "main_sel_rng_8",
+             "main_sel_slice_gadget",
              "main_space_id",
              "main_tag_err",
              "main_w_in_tag",
@@ -285,9 +287,9 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "mem_sel_op_a",
              "mem_sel_op_b",
              "mem_sel_op_c",
-             "mem_sel_op_cd_cpy",
              "mem_sel_op_cmov",
              "mem_sel_op_d",
+             "mem_sel_op_slice",
              "mem_sel_resolve_ind_addr_a",
              "mem_sel_resolve_ind_addr_b",
              "mem_sel_resolve_ind_addr_c",
@@ -315,21 +317,23 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "sha256_sel_sha256_compression",
              "sha256_state",
              "slice_addr",
-             "slice_cd_offset",
              "slice_clk",
              "slice_cnt",
+             "slice_col_offset",
              "slice_one_min_inv",
              "slice_sel_cd_cpy",
-             "slice_sel_start_cd_cpy",
+             "slice_sel_mem_active",
+             "slice_sel_return",
+             "slice_sel_start",
              "slice_space_id",
              "slice_val",
-             "perm_cd_mem",
+             "perm_slice_mem",
              "perm_main_alu",
              "perm_main_bin",
              "perm_main_conv",
              "perm_main_pos2_perm",
              "perm_main_pedersen",
-             "perm_main_cd_copy",
+             "perm_main_slice",
              "perm_main_mem_a",
              "perm_main_mem_b",
              "perm_main_mem_c",
@@ -341,6 +345,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "lookup_byte_lengths",
              "lookup_byte_operations",
              "lookup_cd_value",
+             "lookup_ret_value",
              "lookup_opcode_gas",
              "range_check_l2_gas_hi",
              "range_check_l2_gas_lo",
@@ -383,6 +388,7 @@ template <typename FF> std::vector<std::string> AvmFullRow<FF>::names()
              "lookup_byte_lengths_counts",
              "lookup_byte_operations_counts",
              "lookup_cd_value_counts",
+             "lookup_ret_value_counts",
              "lookup_opcode_gas_counts",
              "range_check_l2_gas_hi_counts",
              "range_check_l2_gas_lo_counts",
@@ -603,7 +609,6 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_sel_alu)                                  //
               << "," << field_to_string(row.main_sel_bin)                                  //
               << "," << field_to_string(row.main_sel_calldata)                             //
-              << "," << field_to_string(row.main_sel_cd_cpy_gadget)                        //
               << "," << field_to_string(row.main_sel_gas_accounting_active)                //
               << "," << field_to_string(row.main_sel_last)                                 //
               << "," << field_to_string(row.main_sel_mem_op_a)                             //
@@ -630,6 +635,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_sel_op_emit_unencrypted_log)              //
               << "," << field_to_string(row.main_sel_op_eq)                                //
               << "," << field_to_string(row.main_sel_op_external_call)                     //
+              << "," << field_to_string(row.main_sel_op_external_return)                   //
               << "," << field_to_string(row.main_sel_op_fdiv)                              //
               << "," << field_to_string(row.main_sel_op_fee_per_da_gas)                    //
               << "," << field_to_string(row.main_sel_op_fee_per_l2_gas)                    //
@@ -672,8 +678,10 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.main_sel_resolve_ind_addr_b)                   //
               << "," << field_to_string(row.main_sel_resolve_ind_addr_c)                   //
               << "," << field_to_string(row.main_sel_resolve_ind_addr_d)                   //
+              << "," << field_to_string(row.main_sel_returndata)                           //
               << "," << field_to_string(row.main_sel_rng_16)                               //
               << "," << field_to_string(row.main_sel_rng_8)                                //
+              << "," << field_to_string(row.main_sel_slice_gadget)                         //
               << "," << field_to_string(row.main_space_id)                                 //
               << "," << field_to_string(row.main_tag_err)                                  //
               << "," << field_to_string(row.main_w_in_tag)                                 //
@@ -694,9 +702,9 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.mem_sel_op_a)                                  //
               << "," << field_to_string(row.mem_sel_op_b)                                  //
               << "," << field_to_string(row.mem_sel_op_c)                                  //
-              << "," << field_to_string(row.mem_sel_op_cd_cpy)                             //
               << "," << field_to_string(row.mem_sel_op_cmov)                               //
               << "," << field_to_string(row.mem_sel_op_d)                                  //
+              << "," << field_to_string(row.mem_sel_op_slice)                              //
               << "," << field_to_string(row.mem_sel_resolve_ind_addr_a)                    //
               << "," << field_to_string(row.mem_sel_resolve_ind_addr_b)                    //
               << "," << field_to_string(row.mem_sel_resolve_ind_addr_c)                    //
@@ -724,21 +732,23 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.sha256_sel_sha256_compression)                 //
               << "," << field_to_string(row.sha256_state)                                  //
               << "," << field_to_string(row.slice_addr)                                    //
-              << "," << field_to_string(row.slice_cd_offset)                               //
               << "," << field_to_string(row.slice_clk)                                     //
               << "," << field_to_string(row.slice_cnt)                                     //
+              << "," << field_to_string(row.slice_col_offset)                              //
               << "," << field_to_string(row.slice_one_min_inv)                             //
               << "," << field_to_string(row.slice_sel_cd_cpy)                              //
-              << "," << field_to_string(row.slice_sel_start_cd_cpy)                        //
+              << "," << field_to_string(row.slice_sel_mem_active)                          //
+              << "," << field_to_string(row.slice_sel_return)                              //
+              << "," << field_to_string(row.slice_sel_start)                               //
               << "," << field_to_string(row.slice_space_id)                                //
               << "," << field_to_string(row.slice_val)                                     //
-              << "," << field_to_string(row.perm_cd_mem)                                   //
+              << "," << field_to_string(row.perm_slice_mem)                                //
               << "," << field_to_string(row.perm_main_alu)                                 //
               << "," << field_to_string(row.perm_main_bin)                                 //
               << "," << field_to_string(row.perm_main_conv)                                //
               << "," << field_to_string(row.perm_main_pos2_perm)                           //
               << "," << field_to_string(row.perm_main_pedersen)                            //
-              << "," << field_to_string(row.perm_main_cd_copy)                             //
+              << "," << field_to_string(row.perm_main_slice)                               //
               << "," << field_to_string(row.perm_main_mem_a)                               //
               << "," << field_to_string(row.perm_main_mem_b)                               //
               << "," << field_to_string(row.perm_main_mem_c)                               //
@@ -750,6 +760,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.lookup_byte_lengths)                           //
               << "," << field_to_string(row.lookup_byte_operations)                        //
               << "," << field_to_string(row.lookup_cd_value)                               //
+              << "," << field_to_string(row.lookup_ret_value)                              //
               << "," << field_to_string(row.lookup_opcode_gas)                             //
               << "," << field_to_string(row.range_check_l2_gas_hi)                         //
               << "," << field_to_string(row.range_check_l2_gas_lo)                         //
@@ -792,6 +803,7 @@ template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF>
               << "," << field_to_string(row.lookup_byte_lengths_counts)                    //
               << "," << field_to_string(row.lookup_byte_operations_counts)                 //
               << "," << field_to_string(row.lookup_cd_value_counts)                        //
+              << "," << field_to_string(row.lookup_ret_value_counts)                       //
               << "," << field_to_string(row.lookup_opcode_gas_counts)                      //
               << "," << field_to_string(row.range_check_l2_gas_hi_counts)                  //
               << "," << field_to_string(row.range_check_l2_gas_lo_counts)                  //
