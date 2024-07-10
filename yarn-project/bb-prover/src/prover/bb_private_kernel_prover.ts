@@ -258,6 +258,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
+    // TODO(#7410) we dont need to generate vk's for these circuits, they are in the vk tree
     const { verificationKey } = await runInDirectory(this.bbWorkingDirectory, (dir) => this.computeVerificationKey(dir, Buffer.from(compiledCircuit.bytecode, 'base64'), circuitType));
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,

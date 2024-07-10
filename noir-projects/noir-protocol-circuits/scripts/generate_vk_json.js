@@ -82,7 +82,7 @@ async function processArtifact(artifactPath, outputFolder) {
     return;
   }
 
-  let vkData = await readVKFromS3(artifactName, artifactHash);
+  let vkData = null// await readVKFromS3(artifactName, artifactHash);
 
   if (!vkData) {
     vkData = await generateVKData(

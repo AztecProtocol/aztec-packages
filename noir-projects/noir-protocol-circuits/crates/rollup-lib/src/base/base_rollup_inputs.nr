@@ -67,7 +67,8 @@ impl BaseRollupInputs {
         if !dep::std::runtime::is_unconstrained() {
             // Recursively verify the tube proof if straight from private, or the public kernel tail
             self.kernel_data.verify();
-            self.kernel_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) we need the tube vk to reinstate this
+            // self.kernel_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
         // Verify the kernel chain_id and versions
         assert(
@@ -1448,12 +1449,13 @@ mod tests {
         let _res = builder.execute();
     }
 
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = BaseRollupInputsBuilder::new();
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = BaseRollupInputsBuilder::new();
 
-        builder.kernel_data = builder.kernel_data.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     builder.kernel_data = builder.kernel_data.in_vk_tree(BASE_ROLLUP_INDEX);
 
-        let _res = builder.execute();
-    }
+    //     let _res = builder.execute();
+    // }
 }
