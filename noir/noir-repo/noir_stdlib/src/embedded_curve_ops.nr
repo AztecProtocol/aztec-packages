@@ -1,7 +1,6 @@
 use crate::ops::arith::{Add, Sub, Neg};
 use crate::cmp::Eq;
 
-// TODO(https://github.com/noir-lang/noir/issues/4931)
 struct EmbeddedCurvePoint {
     x: Field,
     y: Field,
@@ -9,6 +8,10 @@ struct EmbeddedCurvePoint {
 }
 
 impl EmbeddedCurvePoint {
+    fn new(x: Field, y: Field, is_infinite: bool) -> Self {
+        Self { x, y, is_infinite }
+    }
+
     fn double(self) -> EmbeddedCurvePoint {
         embedded_curve_add(self, self)
     }
@@ -53,10 +56,24 @@ struct EmbeddedCurveScalar {
 }
 
 impl EmbeddedCurveScalar {
+    pub fn new(lo: Field, hi: Field) -> Self {
+        EmbeddedCurveScalar { lo, hi }
+    }
+
+    pub fn derive_public_key(self) -> EmbeddedCurvePoint {
+        fixed_base_scalar_mul(self)
+    }
+
     #[field(bn254)]
     fn from_field(scalar: Field) -> EmbeddedCurveScalar {
         let (a,b) = crate::field::bn254::decompose(scalar);
         EmbeddedCurveScalar { lo: a, hi: b }
+    }
+}
+
+impl Eq for EmbeddedCurveScalar {
+    fn eq(self, key: EmbeddedCurveScalar) -> bool {
+        (key.hi == self.hi) & (key.lo == self.lo)
     }
 }
 
@@ -66,24 +83,25 @@ impl EmbeddedCurveScalar {
 //
 // The embedded curve being used is decided by the 
 // underlying proof system.
-#[foreign(multi_scalar_mul)]
 // docs:start:multi_scalar_mul
 pub fn multi_scalar_mul<let N: u32>(
     points: [EmbeddedCurvePoint; N],
     scalars: [EmbeddedCurveScalar; N]
-) -> [Field; 3]
+) -> EmbeddedCurvePoint
 // docs:end:multi_scalar_mul
-{}
+{
+    let point_array = multi_scalar_mul_array_return(points, scalars);
+    EmbeddedCurvePoint { x: point_array[0], y: point_array[1], is_infinite: point_array[2] as bool }
+}
+
+#[foreign(multi_scalar_mul)]
+fn multi_scalar_mul_array_return<let N: u32>(points: [EmbeddedCurvePoint; N], scalars: [EmbeddedCurveScalar; N]) -> [Field; 3] {}
 
 // docs:start:fixed_base_scalar_mul
-pub fn fixed_base_scalar_mul(
-    scalar_low: Field,
-    scalar_high: Field
-) -> [Field; 3]
+pub fn fixed_base_scalar_mul(scalar: EmbeddedCurveScalar) -> EmbeddedCurvePoint
 // docs:end:fixed_base_scalar_mul
 {
     let g1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
-    let scalar = EmbeddedCurveScalar { lo: scalar_low, hi: scalar_high };
     multi_scalar_mul([g1], [scalar])
 }
 

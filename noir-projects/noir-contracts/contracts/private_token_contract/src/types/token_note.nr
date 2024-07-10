@@ -1,11 +1,11 @@
 use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash},
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, scalar::Scalar, hash::poseidon2_hash},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
 };
 use dep::std::field::bn254::decompose;
-use dep::std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul, fixed_base_scalar_mul};
+use dep::std::embedded_curve_ops::multi_scalar_mul;
 
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
@@ -21,11 +21,11 @@ trait PrivatelyRefundable {
         funded_amount: Field,
         user_randomness: Field,
         fee_payer_randomness: Field
-    ) -> (EmbeddedCurvePoint, EmbeddedCurvePoint);
+    ) -> (Point, Point);
 
     fn complete_refund(
-        incomplete_fee_payer_point: EmbeddedCurvePoint,
-        incomplete_user_point: EmbeddedCurvePoint,
+        incomplete_fee_payer_point: Point,
+        incomplete_user_point: Point,
         transaction_fee: Field
     ) -> (Field, Field);
 }
@@ -33,7 +33,7 @@ trait PrivatelyRefundable {
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 // Grumpkin generator point. 
-global G1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+global G1 = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
 #[aztec(note)]
 struct TokenNote {
@@ -80,19 +80,19 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
         // by leveraging homomorphism.
         multi_scalar_mul(
             [G1, G1, G1],
-            [EmbeddedCurveScalar {
+            [Scalar {
                 lo: self.amount.to_integer(),
                 hi: 0
             },
-            EmbeddedCurveScalar {
+            Scalar {
                 lo: npk_lo,
                 hi: npk_hi
             },
-            EmbeddedCurveScalar {
+            Scalar {
                 lo: random_lo,
                 hi: random_hi,
             }]
-        )[0]
+        ).x
     }
 }
 
@@ -195,7 +195,7 @@ impl OwnedNote for TokenNote {
  *         fee payer npk values of these known contracts is a feasible attack.
  */
 impl PrivatelyRefundable for TokenNote {
-    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, user_randomness: Field, fee_payer_randomness: Field) -> (EmbeddedCurvePoint, EmbeddedCurvePoint) {
+    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, user_randomness: Field, fee_payer_randomness: Field) -> (Point, Point) {
         // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox function we
         // first need to convert the fields to high and low limbs.
         let (fee_payer_randomness_lo, fee_payer_randomness_hi) = decompose(fee_payer_randomness);
@@ -204,11 +204,11 @@ impl PrivatelyRefundable for TokenNote {
         // 2. Now that we have correct representationsn of fee payer and randomness we can compute `G ^ (fee_payer_npk + randomness)`
         let incomplete_fee_payer_point = multi_scalar_mul(
             [G1, G1],
-            [EmbeddedCurveScalar {
+            [Scalar {
                 lo: fee_payer_npk_m_hash_lo,
                 hi: fee_payer_npk_m_hash_hi
             },
-            EmbeddedCurveScalar {
+            Scalar {
                 lo: fee_payer_randomness_lo,
                 hi: fee_payer_randomness_hi
             }]
@@ -223,49 +223,36 @@ impl PrivatelyRefundable for TokenNote {
         // 4. We compute `G ^ (user_npk_m_hash + funded_amount + randomness)`
         let incomplete_user_point = multi_scalar_mul(
             [G1, G1, G1],
-            [EmbeddedCurveScalar {
+            [Scalar {
                 lo: user_lo,
                 hi: user_hi
             },
-            EmbeddedCurveScalar {
+            Scalar {
                 lo: funded_amount_lo,
                 hi: funded_amount_hi
             },
-            EmbeddedCurveScalar {
+            Scalar {
                 lo: user_randomness_lo,
                 hi: user_randomness_hi
             }]
         );
 
-        // 5. At last we represent the points as EmbeddedCurvePoints and return them.
-        (EmbeddedCurvePoint {
-            x: incomplete_fee_payer_point[0],
-            y: incomplete_fee_payer_point[1],
-            is_infinite: incomplete_fee_payer_point[2] == 1
-        }, EmbeddedCurvePoint {
-            x: incomplete_user_point[0],
-            y: incomplete_user_point[1],
-            is_infinite: incomplete_user_point[2] == 1
-        })
+        // 5. At last we represent the points as Points and return them.
+        (incomplete_fee_payer_point, incomplete_user_point)
     }
 
-    fn complete_refund(incomplete_fee_payer_point: EmbeddedCurvePoint, incomplete_user_point: EmbeddedCurvePoint, transaction_fee: Field) -> (Field, Field) {
+    fn complete_refund(incomplete_fee_payer_point: Point, incomplete_user_point: Point, transaction_fee: Field) -> (Field, Field) {
         // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
         let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
 
         // 2. We compute the fee point as `G ^ transaction_fee`
-        let fee_point_raw = multi_scalar_mul(
+        let fee_point = multi_scalar_mul(
             [G1],
-            [EmbeddedCurveScalar {
+            [Scalar {
                 lo: transaction_fee_lo,
                 hi: transaction_fee_hi,
             }]
         );
-        let fee_point = EmbeddedCurvePoint {
-            x: fee_point_raw[0],
-            y: fee_point_raw[1],
-            is_infinite: fee_point_raw[2] == 1
-        };
 
         // 3. Now we leverage homomorphism to privately add the fee to fee payer point and subtract it from
         // the sponsored user point in public.
