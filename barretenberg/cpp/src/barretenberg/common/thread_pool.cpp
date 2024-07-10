@@ -1,4 +1,6 @@
 
+#ifndef NO_MULTITHREADING
+
 #include "thread_pool.hpp"
 #include "barretenberg/common/log.hpp"
 namespace bb {
@@ -71,3 +73,5 @@ void ThreadPool::worker_loop(size_t /*unused*/)
     // info("worker exit ", worker_num);
 }
 } // namespace bb
+
+#endif

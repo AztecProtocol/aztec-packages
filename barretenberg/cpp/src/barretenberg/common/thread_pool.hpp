@@ -1,5 +1,8 @@
-
 #pragma once
+
+#ifndef NO_MULTITHREADING
+
+#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
@@ -33,3 +36,5 @@ class ThreadPool {
     void worker_loop(size_t thread_index);
 };
 } // namespace bb
+
+#endif

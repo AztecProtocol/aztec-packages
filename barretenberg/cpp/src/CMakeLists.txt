@@ -21,6 +21,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(STATUS "Compiling with memory checks.")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
+
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
@@ -90,7 +91,6 @@ add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
 add_subdirectory(barretenberg/world_state_service)
 
-
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
 endif()
@@ -123,7 +123,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-     $<TARGET_OBJECTS:eccvm_recursion_objects>
+    $<TARGET_OBJECTS:eccvm_recursion_objects>
     $<TARGET_OBJECTS:execution_trace_objects>
     $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
@@ -141,7 +141,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
