@@ -64,6 +64,11 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
                          bool includeUncommitted,
                          const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
+    void find_leaf_index_from(const LeafValueType& leaf,
+                              index_t start_index,
+                              bool includeUncommitted,
+                              const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
+
     void find_low_leaf(const LeafValueType& leaf, bool includeUncommitted, const LeafCallback& on_completion) const;
 
     using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
@@ -218,11 +223,22 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index(
     bool includeUncommitted,
     const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
+    find_leaf_index_from(leaf, 0, includeUncommitted, on_completion);
+}
+
+template <typename Store, typename HashingPolicy>
+void IndexedTree<Store, HashingPolicy>::find_leaf_index_from(
+    const LeafValueType& leaf,
+    index_t start_index,
+    bool includeUncommitted,
+    const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
+{
     auto job = [=, this]() -> void {
         ExecuteAndReport<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
-                std::optional<index_t> leaf_index = store_.find_leaf_index(leaf, *tx, includeUncommitted);
+                std::optional<index_t> leaf_index =
+                    store_.find_leaf_index_from(leaf, start_index, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
