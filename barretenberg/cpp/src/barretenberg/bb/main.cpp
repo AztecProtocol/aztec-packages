@@ -1071,7 +1071,7 @@ void proof_as_fields_honk(const std::string& proof_path, const std::string& outp
 }
 
 /**
- * @brief Converts a verification key from a byte array into a list of field elements
+ * @brief Converts a verification key from a byte array into a list of field elements.
  *
  * Why is this needed?
  * This follows the same rationale as `proofAsFields`.

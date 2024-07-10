@@ -85,7 +85,7 @@ verification-key:
 
     # this needs to be exported as an env var for RUN to pick it up
     ENV CIRCUIT=$circuit
-    RUN --entrypoint write-vk-ultra-honk -c $CIRCUIT
+    RUN --entrypoint write-vk -c $CIRCUIT
 
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
