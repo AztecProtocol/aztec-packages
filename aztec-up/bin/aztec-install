@@ -40,11 +40,9 @@ function title() {
     echo -e "${r}"
   fi
   echo -e "This will install the following scripts and update your PATH if necessary:"
-  echo -e "  ${bold}${g}aztec${r}         - launches various infrastructure subsystems (node, sequencer, prover, pxe, etc)."
+  echo -e "  ${bold}${g}aztec${r}         - a collection of tools to interact with the aztec network, including launching various infrastructure subsystems (node, sequencer, prover, pxe, etc)."
   echo -e "  ${bold}${g}aztec-nargo${r}   - aztec's build of nargo, the noir compiler toolchain."
-  echo -e "  ${bold}${g}aztec-sandbox${r} - a wrapper around docker-compose that launches services needed for sandbox testing."
   echo -e "  ${bold}${g}aztec-up${r}      - a tool to upgrade the aztec toolchain to the latest, or specific versions."
-  echo -e "  ${bold}${g}aztec-cli${r} - a collection of tools to interact with the aztec network."
   echo
   read -p "Do you wish to continue? (y/n)" -n 1 -r
   echo
@@ -107,7 +105,6 @@ if [ -z "${SKIP_PULL:-}" ]; then
   info "Pulling aztec version $VERSION..."
   pull_container aztec-nargo
   pull_container aztec
-  pull_container aztec-cli
 fi
 
 # Download the Docker Compose file. Used by aztec.
