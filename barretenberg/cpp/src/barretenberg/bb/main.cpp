@@ -689,9 +689,9 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-void write_vk_ultra_honk(const std::string& bytecodePath, const std::string& outputPath)
+void write_vk_ultra_honk(const std::string& bytecodePath, const std::string& outputPath, bool honk_recursion)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, true);
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
@@ -1313,7 +1313,7 @@ int main(int argc, char* argv[])
             contract(output_path, vk_path);
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_ultra_honk(bytecode_path, output_path);
+            write_vk_ultra_honk(bytecode_path, output_path, honk_recursion);
         } else if (command == "write_pk") {
             std::string output_path = get_option(args, "-o", "./target/pk");
             write_pk(bytecode_path, output_path);
