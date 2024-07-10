@@ -2,7 +2,8 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, scalar::Scalar, hash::poseidon2_hash},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
-    keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
+    keys::getters::get_nsk_app, note::note_getter_options::PropertySelector,
+    generators::G1,
 };
 use dep::std::field::bn254::decompose;
 use dep::std::embedded_curve_ops::multi_scalar_mul;
@@ -32,8 +33,6 @@ trait PrivatelyRefundable {
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
-// Grumpkin generator point. 
-global G1 = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
 #[aztec(note)]
 struct TokenNote {
