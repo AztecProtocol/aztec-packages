@@ -702,8 +702,7 @@ impl<'context> Elaborator<'context> {
 
         let direct_generics = func.def.generics.iter();
         let direct_generics = direct_generics
-            .filter_map(|generic| self.find_generic(&generic.ident().0.contents))
-            .map(|ResolvedGeneric { name, type_var, .. }| (name.clone(), type_var.clone()))
+            .filter_map(|generic| self.find_generic(&generic.ident().0.contents).cloned())
             .collect();
 
         let statements = std::mem::take(&mut func.def.body.statements);
@@ -1454,7 +1453,7 @@ impl<'context> Elaborator<'context> {
                 let trait_name = trait_impl.trait_path.last_segment();
 
                 let referenced = ReferenceId::Trait(trait_id);
-                let reference = ReferenceId::Variable(
+                let reference = ReferenceId::Reference(
                     Location::new(trait_name.span(), trait_impl.file_id),
                     trait_name.is_self_type_name(),
                 );
