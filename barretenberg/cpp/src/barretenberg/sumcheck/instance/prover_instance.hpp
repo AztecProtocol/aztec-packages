@@ -49,12 +49,16 @@ template <class Flavor> class ProverInstance_ {
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
 
-        bool is_structured = (trace_structure != TraceStructure::NONE);
+        // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
+        const bool is_structured = (trace_structure != TraceStructure::NONE);
 
-        // If using a structured trace, ensure that no block exceeds the fixed size
+        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
-            circuit.blocks.set_fixed_block_sizes(trace_structure);
-            circuit.blocks.check_within_fixed_sizes();
+            circuit.blocks.set_fixed_block_sizes(trace_structure); // set the fixed sizes for each block
+            circuit.blocks.check_within_fixed_sizes();             // ensure that no block exceeds its fixed size
+            dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
+        } else {
+            dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
@@ -62,12 +66,6 @@ template <class Flavor> class ProverInstance_ {
         // failure once https://github.com/AztecProtocol/barretenberg/issues/746 is resolved.
         if constexpr (IsGoblinFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
-        }
-
-        if (is_structured) { // Compute dyadic size based on a structured trace with fixed block size
-            dyadic_circuit_size = compute_structured_dyadic_size(circuit);
-        } else { // Otherwise, compute conventional dyadic circuit size
-            dyadic_circuit_size = compute_dyadic_size(circuit);
         }
 
         proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());

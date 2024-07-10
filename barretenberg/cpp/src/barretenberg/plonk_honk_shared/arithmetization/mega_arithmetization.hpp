@@ -58,7 +58,7 @@ template <typename FF_> class MegaArith {
         }
     };
 
-    // A minimal structuring specificaly tailored to the medium complexity transaction in the ClientIvc benchmark
+    // A minimal structuring specifically tailored to the medium complexity transaction for the ClientIvc benchmark
     struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         ClientIvcBenchStructuredBlockSizes()
         {
@@ -75,7 +75,7 @@ template <typename FF_> class MegaArith {
         }
     };
 
-    // Structuring tailored to the full e2e TS test
+    // Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
     struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         E2eStructuredBlockSizes()
         {
