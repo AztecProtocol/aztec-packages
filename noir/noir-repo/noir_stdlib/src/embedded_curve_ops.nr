@@ -95,16 +95,10 @@ pub fn multi_scalar_mul<let N: u32>(
 }
 
 #[foreign(multi_scalar_mul)]
-fn multi_scalar_mul_array_return<let N: u32>(
-    points: [EmbeddedCurvePoint; N],
-    scalars: [EmbeddedCurveScalar; N]
-) -> [Field; 3]
-{}
+fn multi_scalar_mul_array_return<let N: u32>(points: [EmbeddedCurvePoint; N], scalars: [EmbeddedCurveScalar; N]) -> [Field; 3] {}
 
 // docs:start:fixed_base_scalar_mul
-pub fn fixed_base_scalar_mul(
-    scalar: EmbeddedCurveScalar,
-) -> EmbeddedCurvePoint
+pub fn fixed_base_scalar_mul(scalar: EmbeddedCurveScalar) -> EmbeddedCurvePoint
 // docs:end:fixed_base_scalar_mul
 {
     let g1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
