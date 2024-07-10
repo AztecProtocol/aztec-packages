@@ -689,11 +689,7 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-<<<<<<< HEAD
-void write_vk_ultra_honk(const std::string& bytecodePath, const std::string& outputPath, bool honk_recursion)
-=======
-void write_vk(const std::string& bytecodePath, const std::string& outputPath)
->>>>>>> parent of 64b2032944 (try write_vk_ultra_honk)
+void write_vk(const std::string& bytecodePath, const std::string& outputPath, bool honk_recursion)
 {
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
