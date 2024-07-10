@@ -500,4 +500,5 @@
     [[maybe_unused]] auto slice_sel_cd_cpy_shift = View(new_term.slice_sel_cd_cpy_shift);                              \
     [[maybe_unused]] auto slice_sel_mem_active_shift = View(new_term.slice_sel_mem_active_shift);                      \
     [[maybe_unused]] auto slice_sel_return_shift = View(new_term.slice_sel_return_shift);                              \
+    [[maybe_unused]] auto slice_sel_start_shift = View(new_term.slice_sel_start_shift);                                \
     [[maybe_unused]] auto slice_space_id_shift = View(new_term.slice_space_id_shift);

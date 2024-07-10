@@ -51,6 +51,16 @@ namespace slice(256);
     #[SAME_SEL_CD_CPY]
     sel_mem_active * sel_mem_active' * (sel_cd_cpy - sel_cd_cpy') = 0;
 
+    #[SEL_MEM_INACTIVE]
+    (1 - sel_mem_active) * sel_mem_active' * (1 - sel_start') = 0;
+
+    // The above relation is crucial to prevent a malicious prover of adding extra active rows
+    // after the row with cnt == 0 unless another operation starts (sel_start == 1). This relation
+    // implies that whenever sel_mem_active == 0 and sel_start' != 1, sel_mem_active' == 0.
+    // Note that the malicious prover can fill other columns such as clk or even sel_cd_cpy
+    // but as long sel_mem_active == 0, it does not lead to any memory operations. The latter
+    // is guarded by sel_mem_active in #[PERM_SLICE_MEM] below.
+
     #[LOOKUP_CD_VALUE]
     sel_cd_cpy {col_offset, val} in main.sel_calldata {main.clk, main.calldata};
 

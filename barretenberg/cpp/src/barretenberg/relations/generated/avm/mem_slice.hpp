@@ -22,6 +22,7 @@ template <typename FF> struct MemSliceRow {
     FF slice_sel_mem_active_shift{};
     FF slice_sel_return{};
     FF slice_sel_return_shift{};
+    FF slice_sel_start_shift{};
     FF slice_space_id{};
     FF slice_space_id_shift{};
 };
@@ -47,6 +48,8 @@ inline std::string get_relation_label_mem_slice(int index)
         return "SAME_SEL_RETURN";
     case 9:
         return "SAME_SEL_CD_CPY";
+    case 10:
+        return "SEL_MEM_INACTIVE";
     }
     return std::to_string(index);
 }
@@ -55,7 +58,7 @@ template <typename FF_> class mem_sliceImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 2, 3, 3, 3, 3, 3, 3, 3, 4, 4 };
+    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -134,6 +137,14 @@ template <typename FF_> class mem_sliceImpl {
                 ((slice_sel_mem_active * slice_sel_mem_active_shift) * (slice_sel_cd_cpy - slice_sel_cd_cpy_shift));
             tmp *= scaling_factor;
             std::get<9>(evals) += tmp;
+        }
+        // Contribution 10
+        {
+            Avm_DECLARE_VIEWS(10);
+            auto tmp =
+                (((-slice_sel_mem_active + FF(1)) * slice_sel_mem_active_shift) * (-slice_sel_start_shift + FF(1)));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += tmp;
         }
     }
 };

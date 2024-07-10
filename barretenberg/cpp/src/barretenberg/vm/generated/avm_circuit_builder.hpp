@@ -30,7 +30,7 @@ class AvmCircuitBuilder {
     using ProverPolynomials = Flavor::ProverPolynomials;
 
     static constexpr size_t num_fixed_columns = 411;
-    static constexpr size_t num_polys = 411 + 73;
+    static constexpr size_t num_polys = 411 + 74;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -480,6 +480,7 @@ class AvmCircuitBuilder {
         polys.slice_sel_cd_cpy_shift = Polynomial(polys.slice_sel_cd_cpy.shifted());
         polys.slice_sel_mem_active_shift = Polynomial(polys.slice_sel_mem_active.shifted());
         polys.slice_sel_return_shift = Polynomial(polys.slice_sel_return.shifted());
+        polys.slice_sel_start_shift = Polynomial(polys.slice_sel_start.shifted());
         polys.slice_space_id_shift = Polynomial(polys.slice_space_id.shifted());
 
         return polys;

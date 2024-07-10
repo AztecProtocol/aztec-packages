@@ -654,11 +654,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
             break;
         }
-        case OpCode::REVERT:
-            trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)));
+        case OpCode::REVERT: {
+            auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
+            returndata.insert(returndata.end(), ret.begin(), ret.end());
+
             break;
+        }
 
             // Misc
         case OpCode::DEBUGLOG:

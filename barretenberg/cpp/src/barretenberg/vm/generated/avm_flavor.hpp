@@ -116,7 +116,7 @@ class AvmFlavor {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 484;
+    static constexpr size_t NUM_ALL_ENTITIES = 485;
 
     using MainRelations = std::tuple<
         // Relations
@@ -720,6 +720,7 @@ class AvmFlavor {
                               slice_sel_cd_cpy_shift,
                               slice_sel_mem_active_shift,
                               slice_sel_return_shift,
+                              slice_sel_start_shift,
                               slice_space_id_shift)
     };
 
@@ -798,6 +799,7 @@ class AvmFlavor {
                          entities.slice_sel_cd_cpy,
                          entities.slice_sel_mem_active,
                          entities.slice_sel_return,
+                         entities.slice_sel_start,
                          entities.slice_space_id };
     }
 
@@ -907,6 +909,7 @@ class AvmFlavor {
                      slice_sel_cd_cpy,
                      slice_sel_mem_active,
                      slice_sel_return,
+                     slice_sel_start,
                      slice_space_id };
         }
     };
