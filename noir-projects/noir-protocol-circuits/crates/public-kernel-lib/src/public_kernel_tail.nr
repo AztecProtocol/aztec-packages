@@ -630,14 +630,11 @@ mod tests {
 
         let _res = builder.execute();
     }
-
     // TODO(#7410) we need the tube vk to reinstate this
     // #[test(should_fail_with="Invalid vk index")]
     // fn invalid_previous_kernel() {
     //     let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-
     //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
     //     let _res = builder.execute();
     // }
 }
