@@ -39,7 +39,6 @@ export const getBBConfig = async (
         return Promise.resolve();
       }
       return Promise.resolve();
-
     };
 
     return { bbBinaryPath, bbWorkingDirectory, cleanup };

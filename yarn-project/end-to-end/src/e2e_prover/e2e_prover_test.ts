@@ -11,8 +11,7 @@ import {
   type PXE,
   type TxHash,
   computeSecretHash,
-  createDebugLogger,
-  // TODO(#7373): Deploy honk solidity verifier
+  createDebugLogger, // TODO(#7373): Deploy honk solidity verifier
   // deployL1Contract,
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
@@ -24,7 +23,6 @@ import { type PXEService } from '@aztec/pxe';
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 // import solc from 'solc';
 // import { getContract } from 'viem';
-
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';

@@ -1,5 +1,5 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { PublicFeePaymentMethod, sleep, TxStatus } from '@aztec/aztec.js';
+import { PublicFeePaymentMethod, TxStatus, sleep } from '@aztec/aztec.js';
 import { type AccountWallet } from '@aztec/aztec.js/wallet';
 import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
 import { FPCContract, GasTokenContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
