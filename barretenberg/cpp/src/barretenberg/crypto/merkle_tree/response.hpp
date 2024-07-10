@@ -6,6 +6,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <exception>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -26,9 +27,16 @@ struct GetSiblingPathResponse {
     fr_sibling_path path;
 };
 
-struct AddIndexedDataResponse {
+template <typename LeafType> struct LowLeafWitnessData {
+    IndexedLeaf<LeafType> leaf;
+    index_t index;
+    fr_sibling_path path;
+};
+
+template <typename LeafValueType> struct AddIndexedDataResponse {
     AddDataResponse add_data_result;
-    std::shared_ptr<std::vector<fr_sibling_path>> paths;
+    std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> sorted_leaves;
+    std::shared_ptr<std::vector<LowLeafWitnessData<LeafValueType>>> low_leaf_witness_data;
 };
 
 struct FindLeafIndexResponse {

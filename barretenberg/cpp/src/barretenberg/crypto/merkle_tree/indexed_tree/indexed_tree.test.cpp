@@ -187,7 +187,9 @@ void add_value(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2H
                const LeafValueType& value)
 {
     Signal signal;
-    auto completion = [&](const TypedResponse<AddIndexedDataResponse>&) -> void { signal.signal_level(); };
+    auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>&) -> void {
+        signal.signal_level();
+    };
 
     tree.add_or_update_value(value, completion);
     signal.wait_for_level();
@@ -198,7 +200,9 @@ void add_values(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2
                 const std::vector<NullifierLeafValue>& values)
 {
     Signal signal;
-    auto completion = [&](const TypedResponse<AddIndexedDataResponse>&) -> void { signal.signal_level(); };
+    auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>&) -> void {
+        signal.signal_level();
+    };
 
     tree.add_or_update_values(values, completion);
     signal.wait_for_level();
@@ -277,7 +281,7 @@ TEST_F(PersistedIndexedTreeTest, reports_an_error_if_tree_is_overfilled)
     add_values(tree, values);
 
     Signal signal;
-    auto add_completion = [&](const TypedResponse<AddIndexedDataResponse>& response) {
+    auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
         EXPECT_EQ(response.success, false);
         EXPECT_EQ(response.message, "Tree is full");
         signal.signal_level();
@@ -482,23 +486,25 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
             fr_sibling_path path = memdb.update_element(batch[j].value);
             memory_tree_sibling_paths.push_back(path);
         }
-        std::shared_ptr<std::vector<fr_sibling_path>> tree1_sibling_paths;
-        std::shared_ptr<std::vector<fr_sibling_path>> tree2_sibling_paths;
+        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
         {
             Signal signal;
-            CompletionCallback completion = [&](const TypedResponse<AddIndexedDataResponse>& response) {
-                tree1_sibling_paths = response.inner.paths;
-                signal.signal_level();
-            };
+            CompletionCallback completion =
+                [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
+                    tree1_low_leaf_witness_data = response.inner.low_leaf_witness_data;
+                    signal.signal_level();
+                };
             tree1.add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
         {
             Signal signal;
-            CompletionCallback completion = [&](const TypedResponse<AddIndexedDataResponse>& response) {
-                tree2_sibling_paths = response.inner.paths;
-                signal.signal_level();
-            };
+            CompletionCallback completion =
+                [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
+                    tree2_low_leaf_witness_data = response.inner.low_leaf_witness_data;
+                    signal.signal_level();
+                };
             tree2.add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
@@ -512,7 +518,9 @@ TEST_F(PersistedIndexedTreeTest, test_batch_insert)
         check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
 
         for (uint32_t j = 0; j < batch_size; j++) {
-            EXPECT_EQ(tree1_sibling_paths->at(j), tree2_sibling_paths->at(j));
+            EXPECT_EQ(tree1_low_leaf_witness_data->at(j).leaf, tree2_low_leaf_witness_data->at(j).leaf);
+            EXPECT_EQ(tree1_low_leaf_witness_data->at(j).index, tree2_low_leaf_witness_data->at(j).index);
+            EXPECT_EQ(tree1_low_leaf_witness_data->at(j).path, tree2_low_leaf_witness_data->at(j).path);
         }
     }
 }
@@ -534,7 +542,7 @@ TEST_F(PersistedIndexedTreeTest, reports_an_error_if_batch_contains_duplicate)
     values[8] = values[0];
 
     Signal signal;
-    auto add_completion = [&](const TypedResponse<AddIndexedDataResponse>& response) {
+    auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
         EXPECT_EQ(response.success, false);
         EXPECT_EQ(response.message, "Duplicate key not allowed in same batch");
         signal.signal_level();
@@ -808,7 +816,7 @@ TEST_F(PersistedIndexedTreeTest, can_add_single_whilst_reading)
 
         Signal signal(2);
 
-        auto add_completion = [&](const TypedResponse<AddIndexedDataResponse>&) {
+        auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>&) {
             signal.signal_level(1);
             auto commit_completion = [&](const Response&) { signal.signal_level(); };
             tree.commit(commit_completion);
