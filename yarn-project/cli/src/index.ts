@@ -90,7 +90,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async options => {
       const { deployL1Contracts } = await import('./cmds/deploy_l1_contracts.js');
-      await deployL1Contracts(options.rpcUrl, options.chainId, options.privateKey, options.mnemonic, log, debugLogger);
+      await deployL1Contracts(options.rpcUrl, +options.chainId, options.privateKey, options.mnemonic, log, debugLogger);
     });
 
   program
@@ -160,7 +160,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         recipient,
         options.rpcUrl,
         options.l1RpcUrl,
-        options.chainId,
+        +options.chainId,
         options.mnemonic,
         log,
         debugLogger,
@@ -180,7 +180,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(pxeOption)
     .action(async (who, options) => {
       const { getL1Balance } = await import('./cmds/get_l1_balance.js');
-      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.chainId, log, debugLogger);
+      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, +options.chainId, log, debugLogger);
     });
 
   program
@@ -670,7 +670,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         mnemonic: options.mnemonic,
         rpcUrl: options.rpcUrl,
         l1RpcUrl: options.l1RpcUrl,
-        chainId: options.chainId,
+        chainId: +options.chainId,
         blockNumber: options.blockNumber,
         log,
         debugLogger,
