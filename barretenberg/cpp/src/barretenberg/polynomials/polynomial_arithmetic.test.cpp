@@ -999,8 +999,6 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation)
         EXPECT_EQ(src[i], poly[i]);
     }
 }
-<<<<<<< HEAD
-=======
 // Test efficient Lagrange interpolation when interpolation points contain 0
 TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
 {
@@ -1053,7 +1051,6 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
         EXPECT_EQ(src[i], poly[i]);
     }
 }
->>>>>>> 2b46301b74 (WIP: 812fc71d08 applied stashed changes + resolved conflicts)
 
 TYPED_TEST(PolynomialTests, interpolation_constructor_single)
 {
