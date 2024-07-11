@@ -5,6 +5,7 @@ import { type BatchInsertionResult } from '@aztec/merkle-tree';
 
 import { type MerkleTreeDb } from './merkle_tree_db.js';
 import {
+  AppendOnlyTreeId,
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
   type MerkleTreeLeafType,
@@ -50,7 +51,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param leaves - The set of leaves to be appended.
    * @returns The tree info of the specified tree.
    */
-  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
+  appendLeaves<ID extends AppendOnlyTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     return this.trees.appendLeaves(treeId, leaves);
   }
 

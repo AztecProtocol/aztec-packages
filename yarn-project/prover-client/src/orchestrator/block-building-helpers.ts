@@ -47,7 +47,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { MerkleTreeLeafType, type MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Type representing the names of the trees for the base rollup.
@@ -108,7 +108,7 @@ export async function buildBaseRollupInput(
   const {
     lowLeavesWitnessData: nullifierWitnessLeaves,
     newSubtreeSiblingPath: nullifiersSubtreeSiblingPath,
-    sortedNewLeaves: sortednullifiers,
+    sortedNewLeaves: sortedNullifiers,
     sortedNewLeavesIndexes,
   } = await db.batchInsert(
     MerkleTreeId.NULLIFIER_TREE,
@@ -144,7 +144,7 @@ export async function buildBaseRollupInput(
         ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
         : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
     ),
-    sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
+    sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNullifiers[i])),
     sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
     noteHashSubtreeSiblingPath,
     nullifierSubtreeSiblingPath,
@@ -391,18 +391,18 @@ export async function getSubtreeSiblingPath(
 }
 
 // Scan a tree searching for a specific value and return a membership witness proof for it
-export async function getMembershipWitnessFor<N extends number>(
-  value: Fr,
-  treeId: MerkleTreeId,
+export async function getMembershipWitnessFor<N extends number, ID extends MerkleTreeId>(
+  value: MerkleTreeLeafType<ID>,
+  treeId: ID,
   height: N,
   db: MerkleTreeOperations,
 ): Promise<MembershipWitness<N>> {
   // If this is an empty tx, then just return zeroes
-  if (value.isZero()) {
+  if (value.isEmpty()) {
     return makeEmptyMembershipWitness(height);
   }
 
-  const index = await db.findLeafIndex(treeId, value.toBuffer());
+  const index = await db.findLeafIndex(treeId, value);
   if (index === undefined) {
     throw new Error(`Leaf with value ${value} not found in tree ${MerkleTreeId[treeId]}`);
   }
@@ -435,8 +435,7 @@ export function validateSimulatedTree(
   }
   if (simulatedTree.nextAvailableLeafIndex !== localTree.nextAvailableLeafIndex) {
     throw new Error(
-      `${label ?? name} tree next available leaf index mismatch (local ${localTree.nextAvailableLeafIndex}, simulated ${
-        simulatedTree.nextAvailableLeafIndex
+      `${label ?? name} tree next available leaf index mismatch (local ${localTree.nextAvailableLeafIndex}, simulated ${simulatedTree.nextAvailableLeafIndex
       })`,
     );
   }

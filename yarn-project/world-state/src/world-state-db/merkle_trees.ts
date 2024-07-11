@@ -48,6 +48,8 @@ import {
   type TreeSnapshots,
 } from './merkle_tree_db.js';
 import {
+  AppendOnlyTreeId,
+  LeafValueDeserializer,
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
   type MerkleTreeLeafType,
@@ -268,7 +270,10 @@ export class MerkleTrees implements MerkleTreeDb {
     index: bigint,
     includeUncommitted: boolean,
   ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
-    return await this.synchronize(() => Promise.resolve(this.trees[treeId].getLeafValue(index, includeUncommitted)));
+    return await this.synchronize(() => {
+      const value = this.trees[treeId].getLeafValue(index, includeUncommitted);
+      return Buffer.isBuffer(value) ? LeafValueDeserializer[treeId](value) : value;
+    });
   }
 
   /**
@@ -292,7 +297,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaves - The leaves to append.
    * @returns Empty promise.
    */
-  public async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
+  public async appendLeaves<ID extends AppendOnlyTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     return await this.synchronize(() => this.#appendLeaves(treeId, leaves));
   }
 
@@ -372,8 +377,7 @@ export class MerkleTrees implements MerkleTreeDb {
   ): Promise<bigint | undefined> {
     return await this.synchronize(() => {
       const tree = this.trees[treeId];
-      // TODO #5448 fix "as any"
-      return Promise.resolve(tree.findLeafIndex(value as any, includeUncommitted));
+      return Promise.resolve(tree.findLeafIndex(value.toBuffer(), includeUncommitted));
     });
   }
 
@@ -435,7 +439,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param fn - The function to execute.
    * @returns Promise containing the result of the function.
    */
-  private async synchronize<T>(fn: () => Promise<T>): Promise<T> {
+  private async synchronize<T>(fn: () => T | Promise<T>): Promise<T> {
     return await this.jobQueue.put(fn);
   }
 
@@ -483,13 +487,12 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaves - Leaves to append.
    * @returns Empty promise.
    */
-  async #appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<typeof treeId>[]): Promise<void> {
+  async #appendLeaves<ID extends AppendOnlyTreeId>(treeId: ID, leaves: MerkleTreeLeafType<typeof treeId>[]): Promise<void> {
     const tree = this.trees[treeId];
     if (!('appendLeaves' in tree)) {
       throw new Error('Tree does not support `appendLeaves` method');
     }
-    // TODO #5448 fix "as any"
-    return await tree.appendLeaves(leaves as any[]);
+    return await tree.appendLeaves(leaves);
   }
 
   /**
@@ -585,8 +588,8 @@ export class MerkleTrees implements MerkleTreeDb {
         const nullifiersPadded = paddedTxEffects.flatMap(txEffect =>
           padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
         );
-        await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
-          nullifiersPadded.map(nullifier => nullifier.toBuffer()),
+        await (this.trees[MerkleTreeId.NULLIFIER_TREE]).batchInsert(
+          nullifiersPadded.map(nullifier => new NullifierLeaf(nullifier).toBuffer()),
           NULLIFIER_SUBTREE_HEIGHT,
         );
 

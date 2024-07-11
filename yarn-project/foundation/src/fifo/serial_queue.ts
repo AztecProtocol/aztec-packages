@@ -1,3 +1,4 @@
+import { isPromise } from '../promise/utils.js';
 import { MemoryFifo } from './memory_fifo.js';
 
 /**
@@ -56,11 +57,14 @@ export class SerialQueue {
    * @param fn - The function to enqueue.
    * @returns A resolution promise. Rejects if the function does, or if the function could not be enqueued.
    */
-  public put<T>(fn: () => Promise<T>): Promise<T> {
+  public put<T>(fn: () => T | Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       const accepted = this.queue.put(async () => {
         try {
-          const res = await fn();
+          let res = fn();
+          if (isPromise(res)) {
+            res = await res;
+          }
           resolve(res);
         } catch (e) {
           reject(e);
@@ -76,6 +80,6 @@ export class SerialQueue {
    * Awaiting this ensures the queue is empty before resuming.
    */
   public async syncPoint() {
-    await this.put(async () => {});
+    await this.put(async () => { });
   }
 }

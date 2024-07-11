@@ -21,12 +21,13 @@ import {
   buildPublicDataHints,
   buildPublicDataReadRequestHints,
   buildSiloedNullifierReadRequestHints,
+  NullifierLeaf,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type IndexedTreeId, type MerkleTreeOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
-  constructor(private db: MerkleTreeOperations) {}
+  constructor(private db: MerkleTreeOperations) { }
 
   async getNullifierReadRequestHints(
     nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -71,7 +72,7 @@ export class HintsBuilder {
   }
 
   async getNullifierMembershipWitness(nullifier: Fr) {
-    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, new NullifierLeaf(nullifier));
     if (index === undefined) {
       throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
     }

@@ -27,3 +27,11 @@ export function promiseWithResolvers<T>(): PromiseWithResolvers<T> {
     reject,
   };
 }
+
+/**
+ * Checks if the given object is a Promise.
+ * A weaker version of Node's util.types.isPromise that works in the browser.
+ */
+export function isPromise(obj: any): obj is PromiseLike<any> {
+  return obj && typeof obj.then === 'function';
+}

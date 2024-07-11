@@ -1,5 +1,5 @@
-import { type L2Block, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
-import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
+import { MerkleTreeId, type L2Block, type SiblingPath } from '@aztec/circuit-types';
+import { Fr, NullifierLeaf, NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage, type Header, type StateReference } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AppendOnlyTree, type BatchInsertionResult, type IndexedTree } from '@aztec/merkle-tree';
@@ -8,6 +8,7 @@ import { type AppendOnlyTree, type BatchInsertionResult, type IndexedTree } from
  * Type alias for the nullifier tree ID.
  */
 export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE;
+export type AppendOnlyTreeId = Exclude<MerkleTreeId, IndexedTreeId>;
 
 /**
  *  Defines tree information.
@@ -41,14 +42,22 @@ export type MerkleTreeMap = {
 };
 
 type LeafTypes = {
-  [MerkleTreeId.NULLIFIER_TREE]: Buffer;
+  [MerkleTreeId.NULLIFIER_TREE]: NullifierLeaf;
   [MerkleTreeId.NOTE_HASH_TREE]: Fr;
-  [MerkleTreeId.PUBLIC_DATA_TREE]: Buffer;
+  [MerkleTreeId.PUBLIC_DATA_TREE]: PublicDataTreeLeaf;
   [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
   [MerkleTreeId.ARCHIVE]: Fr;
 };
 
 export type MerkleTreeLeafType<ID extends MerkleTreeId> = LeafTypes[ID];
+
+export const LeafValueDeserializer = {
+  [MerkleTreeId.NULLIFIER_TREE]: (buf: Buffer) => NullifierLeafPreimage.fromBuffer(buf).asLeaf(),
+  [MerkleTreeId.NOTE_HASH_TREE]: Fr.fromBuffer,
+  [MerkleTreeId.PUBLIC_DATA_TREE]: (buf: Buffer) => PublicDataTreeLeafPreimage.fromBuffer(buf).asLeaf(),
+  [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr.fromBuffer,
+  [MerkleTreeId.ARCHIVE]: Fr.fromBuffer,
+}
 
 /**
  * Defines the interface for operations on a set of Merkle Trees.
@@ -59,7 +68,7 @@ export interface MerkleTreeOperations {
    * @param treeId - The tree to be updated.
    * @param leaves - The set of leaves to be appended.
    */
-  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void>;
+  appendLeaves<ID extends AppendOnlyTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void>;
 
   /**
    * Returns information about the given tree.
@@ -197,7 +206,7 @@ export async function inspectTree(
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];
   for (let i = 0; i < info.size; i++) {
     output.push(
-      ` Leaf ${i}: ${await db.getLeafValue(treeId, BigInt(i)).then(x => x?.toString('hex') ?? '[undefined]')}`,
+      ` Leaf ${i}: ${await db.getLeafValue(treeId, BigInt(i)).then(x => x?.toBuffer().toString('hex') ?? '[undefined]')}`,
     );
   }
   log.info(output.join('\n'));

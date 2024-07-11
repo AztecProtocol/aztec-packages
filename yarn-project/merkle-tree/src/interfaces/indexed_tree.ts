@@ -81,8 +81,8 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
  */
 export interface IndexedTree
   extends MerkleTree<Buffer>,
-    TreeSnapshotBuilder<IndexedTreeSnapshot>,
-    Omit<AppendOnlyTree<Buffer>, keyof TreeSnapshotBuilder<TreeSnapshot<Buffer>>> {
+  TreeSnapshotBuilder<IndexedTreeSnapshot>,
+  Omit<AppendOnlyTree<Buffer>, keyof TreeSnapshotBuilder<TreeSnapshot<Buffer>>> {
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
@@ -94,15 +94,15 @@ export interface IndexedTree
     includeUncommitted: boolean,
   ):
     | {
-        /**
-         * The index of the found leaf.
-         */
-        index: bigint;
-        /**
-         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-         */
-        alreadyPresent: boolean;
-      }
+      /**
+       * The index of the found leaf.
+       */
+      index: bigint;
+      /**
+       * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+       */
+      alreadyPresent: boolean;
+    }
     | undefined;
 
   /**
@@ -122,6 +122,5 @@ export interface IndexedTree
   batchInsert<TreeHeight extends number, SubtreeHeight extends number, SubtreeSiblingPathHeight extends number>(
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-    includeUncommitted: boolean,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 }

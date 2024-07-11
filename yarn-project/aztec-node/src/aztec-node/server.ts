@@ -42,6 +42,7 @@ import {
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
   type PublicDataTreeLeafPreimage,
+  NullifierLeaf,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -181,13 +182,13 @@ export class AztecNodeService implements AztecNode {
     const prover = config.disableProver
       ? undefined
       : await TxProver.new(
-          config,
-          worldStateSynchronizer,
-          telemetry,
-          await archiver
-            .getBlock(-1)
-            .then(b => b?.header ?? worldStateSynchronizer.getCommitted().buildInitialHeader()),
-        );
+        config,
+        worldStateSynchronizer,
+        telemetry,
+        await archiver
+          .getBlock(-1)
+          .then(b => b?.header ?? worldStateSynchronizer.getCommitted().buildInitialHeader()),
+      );
 
     if (!prover && !config.disableSequencer) {
       throw new Error("Can't start a sequencer without a prover");
@@ -197,16 +198,16 @@ export class AztecNodeService implements AztecNode {
     const sequencer = config.disableSequencer
       ? undefined
       : await SequencerClient.new(
-          config,
-          p2pClient,
-          worldStateSynchronizer,
-          archiver,
-          archiver,
-          archiver,
-          prover!,
-          simulationProvider,
-          telemetry,
-        );
+        config,
+        p2pClient,
+        worldStateSynchronizer,
+        archiver,
+        archiver,
+        archiver,
+        prover!,
+        simulationProvider,
+        telemetry,
+      );
 
     return new AztecNodeService(
       config,
@@ -423,7 +424,7 @@ export class AztecNodeService implements AztecNode {
     leafValue: Fr,
   ): Promise<bigint | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return committedDb.findLeafIndex(treeId, leafValue.toBuffer());
+    return committedDb.findLeafIndex(treeId, leafValue);
   }
 
   /**
@@ -611,7 +612,7 @@ export class AztecNodeService implements AztecNode {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const db = await this.#getWorldState(blockNumber);
-    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, new NullifierLeaf(nullifier));
     if (!index) {
       return undefined;
     }

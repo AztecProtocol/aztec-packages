@@ -347,7 +347,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  abstract findLeafIndex(value: T, includeUncommitted: boolean): bigint | undefined;
+  abstract findLeafIndex(value: Buffer, includeUncommitted: boolean): bigint | undefined;
 
   /**
    * Returns the first index containing a leaf value after `startIndex`.
@@ -356,5 +356,5 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  abstract findLeafIndexAfter(leaf: T, startIndex: bigint, includeUncommitted: boolean): bigint | undefined;
+  abstract findLeafIndexAfter(leaf: Buffer, startIndex: bigint, includeUncommitted: boolean): bigint | undefined;
 }

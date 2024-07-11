@@ -43,15 +43,14 @@ export class StandardTree<T extends Bufferable = Buffer> extends TreeBase<T> imp
     return this.#snapshotBuilder.getSnapshot(blockNumber);
   }
 
-  public findLeafIndex(value: T, includeUncommitted: boolean): bigint | undefined {
+  public findLeafIndex(value: Buffer, includeUncommitted: boolean): bigint | undefined {
     return this.findLeafIndexAfter(value, 0n, includeUncommitted);
   }
 
-  public findLeafIndexAfter(value: T, startIndex: bigint, includeUncommitted: boolean): bigint | undefined {
-    const buffer = serializeToBuffer(value);
+  public findLeafIndexAfter(value: Buffer, startIndex: bigint, includeUncommitted: boolean): bigint | undefined {
     for (let i = startIndex; i < this.getNumLeaves(includeUncommitted); i++) {
-      const currentValue = this.getLeafValue(i, includeUncommitted);
-      if (currentValue && serializeToBuffer(currentValue).equals(buffer)) {
+      const leaf = this.getLeafBuffer(i, includeUncommitted);
+      if (leaf && leaf.equals(value)) {
         return i;
       }
     }

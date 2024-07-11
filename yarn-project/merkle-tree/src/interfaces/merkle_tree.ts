@@ -57,7 +57,7 @@ export interface MerkleTree<T extends Bufferable = Buffer> extends SiblingPathSo
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  findLeafIndex(leaf: T, includeUncommitted: boolean): bigint | undefined;
+  findLeafIndex(leaf: Buffer, includeUncommitted: boolean): bigint | undefined;
 
   /**
    * Returns the first index containing a leaf value after `startIndex`.
@@ -66,5 +66,5 @@ export interface MerkleTree<T extends Bufferable = Buffer> extends SiblingPathSo
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  findLeafIndexAfter(leaf: T, startIndex: bigint, includeUncommitted: boolean): bigint | undefined;
+  findLeafIndexAfter(leaf: Buffer, startIndex: bigint, includeUncommitted: boolean): bigint | undefined;
 }

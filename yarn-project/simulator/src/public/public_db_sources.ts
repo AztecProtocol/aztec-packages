@@ -10,6 +10,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PublicDataTreeLeafPreimage,
+  NullifierLeaf,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -38,7 +39,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 
   private log = createDebugLogger('aztec:sequencer:contracts-data-source');
 
-  constructor(private db: ContractDataSource) {}
+  constructor(private db: ContractDataSource) { }
 
   /**
    * Add new contracts from a transaction
@@ -122,7 +123,7 @@ export class WorldStatePublicDB implements PublicStateDB {
   private checkpointedWriteCache: Map<bigint, Fr> = new Map();
   private uncommittedWriteCache: Map<bigint, Fr> = new Map();
 
-  constructor(private db: MerkleTreeOperations) {}
+  constructor(private db: MerkleTreeOperations) { }
 
   /**
    * Reads a value from public storage, returning zero if none.
@@ -216,13 +217,13 @@ export class WorldStatePublicDB implements PublicStateDB {
 export class WorldStateDB implements CommitmentsDB {
   private log = createDebugLogger('aztec:sequencer:world-state-db');
 
-  constructor(private db: MerkleTreeOperations) {}
+  constructor(private db: MerkleTreeOperations) { }
 
   public async getNullifierMembershipWitnessAtLatestBlock(
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const timer = new Timer();
-    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, new NullifierLeaf(nullifier));
     if (!index) {
       return undefined;
     }
@@ -310,7 +311,7 @@ export class WorldStateDB implements CommitmentsDB {
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
-    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, new NullifierLeaf(nullifier));
     this.log.debug(`[DB] Fetched nullifier index`, {
       eventName: 'public-db-access',
       duration: timer.ms(),

@@ -46,11 +46,11 @@ export class SparseTree<T extends Bufferable> extends TreeBase<T> implements Upd
     return this.#snapshotBuilder.getSnapshot(block);
   }
 
-  public findLeafIndex(_value: T, _includeUncommitted: boolean): bigint | undefined {
+  public findLeafIndex(_value: Buffer, _includeUncommitted: boolean): bigint | undefined {
     throw new Error('Finding leaf index is not supported for sparse trees');
   }
 
-  public findLeafIndexAfter(_value: T, _startIndex: bigint, _includeUncommitted: boolean): bigint | undefined {
+  public findLeafIndexAfter(_value: Buffer, _startIndex: bigint, _includeUncommitted: boolean): bigint | undefined {
     throw new Error('Finding leaf index is not supported for sparse trees');
   }
 }

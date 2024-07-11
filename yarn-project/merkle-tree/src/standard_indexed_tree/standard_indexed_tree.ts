@@ -136,15 +136,15 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     includeUncommitted: boolean,
   ):
     | {
-        /**
-         * The index of the found leaf.
-         */
-        index: bigint;
-        /**
-         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-         */
-        alreadyPresent: boolean;
-      }
+      /**
+       * The index of the found leaf.
+       */
+      index: bigint;
+      /**
+       * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+       */
+      alreadyPresent: boolean;
+    }
     | undefined {
     let lowLeafIndex = this.getDbLowLeafIndex(newKey);
     let lowLeafPreimage = lowLeafIndex !== undefined ? this.getDbPreimage(lowLeafIndex) : undefined;
