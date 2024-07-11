@@ -376,8 +376,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
-    bool verified = ivc.verify(proof, { ivc.verifier_accumulator, last_instance });
-    vinfo("ensure valid proof: ", verified);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
@@ -1333,6 +1332,10 @@ int main(int argc, char* argv[])
                        ? 0
                        : 1;
         }
+        if (command == "fold_and_verify_program") {
+            return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
+        }
+
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path);
