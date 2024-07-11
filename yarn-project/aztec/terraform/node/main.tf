@@ -57,7 +57,7 @@ locals {
   publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
   node_count             = length(local.publisher_private_keys)
-  data_dir               = "/usr/src/yarn-project/aztec/data"
+  data_dir               = "/usr/src/yarn-project/aztec"
 }
 
 output "node_count" {
@@ -142,190 +142,209 @@ resource "aws_ecs_task_definition" "aztec-node" {
   volume {
     name = "efs-data-store"
     efs_volume_configuration {
+      root_directory = "/"
       file_system_id = aws_efs_file_system.node_data_store.id
-      root_directory = "/node-${count.index + 1}"
     }
   }
 
-  container_definitions = jsonencode([{
-    name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
-    command           = ["start", "--node", "--archiver", "--sequencer", "--prover"]
-    essential         = true
-    memoryReservation = 3776
-    portMappings = [
-      {
-        containerPort = 80
-      },
-      {
-        containerPort = var.NODE_P2P_TCP_PORT + count.index
-        protocol      = "tcp"
-      },
-      {
-        containerPort = var.NODE_P2P_UDP_PORT + count.index
-        protocol      = "udp"
+  container_definitions = jsonencode([
+    {
+      name      = "init-container"
+      image     = "amazonlinux:latest"
+      essential = false
+      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}"]
+      mountPoints = [
+        {
+          containerPath = local.data_dir
+          sourceVolume  = "efs-data-store"
+        }
+      ]
+    },
+    {
+      name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+      image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
+      command           = ["start", "--node", "--archiver", "--sequencer", "--prover"]
+      essential         = true
+      memoryReservation = 3776
+      portMappings = [
+        {
+          containerPort = 80
+        },
+        {
+          containerPort = var.NODE_P2P_TCP_PORT + count.index
+          protocol      = "tcp"
+        },
+        {
+          containerPort = var.NODE_P2P_UDP_PORT + count.index
+          protocol      = "udp"
+        }
+      ]
+      environment = [
+        {
+          name  = "NODE_ENV"
+          value = "production"
+        },
+        {
+          name  = "DEPLOY_TAG"
+          value = var.DEPLOY_TAG
+        },
+        {
+          name  = "DEPLOY_AZTEC_CONTRACTS"
+          value = "false"
+        },
+        {
+          name  = "AZTEC_PORT"
+          value = "80"
+        },
+        {
+          name  = "DEBUG"
+          value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
+        },
+        {
+          name  = "ETHEREUM_HOST"
+          value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+        },
+        {
+          name  = "DATA_DIRECTORY"
+          value = "${local.data_dir}_${count.index + 1}"
+        },
+        {
+          name  = "ARCHIVER_POLLING_INTERVAL"
+          value = "10000"
+        },
+        {
+          name  = "SEQ_RETRY_INTERVAL"
+          value = "10000"
+        },
+        {
+          name  = "SEQ_MAX_TX_PER_BLOCK"
+          value = var.SEQ_MAX_TX_PER_BLOCK
+        },
+        {
+          name  = "SEQ_MIN_TX_PER_BLOCK"
+          value = var.SEQ_MIN_TX_PER_BLOCK
+        },
+        {
+          name  = "SEQ_PUBLISHER_PRIVATE_KEY"
+          value = local.publisher_private_keys[count.index]
+        },
+        {
+          name  = "ROLLUP_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address
+        },
+        {
+          name  = "INBOX_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address
+        },
+        {
+          name  = "OUTBOX_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address
+        },
+        {
+          name  = "REGISTRY_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address
+        },
+        {
+          name  = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address
+        },
+        {
+          name  = "GAS_TOKEN_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address
+        },
+        {
+          name  = "GAS_PORTAL_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address
+        },
+        {
+          name  = "API_KEY"
+          value = var.API_KEY
+        },
+        {
+          name  = "API_PREFIX"
+          value = "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}"
+        },
+        {
+          name  = "P2P_TCP_LISTEN_ADDR"
+          value = "0.0.0.0:${var.NODE_P2P_TCP_PORT + count.index}"
+        },
+        {
+          name  = "P2P_UDP_LISTEN_ADDR"
+          value = "0.0.0.0:${var.NODE_P2P_UDP_PORT + count.index}"
+        },
+        {
+          name  = "P2P_TCP_ANNOUNCE_ADDR"
+          value = ":${var.NODE_P2P_TCP_PORT + count.index}"
+        },
+        {
+          name  = "P2P_UDP_ANNOUNCE_ADDR"
+          value = ":${var.NODE_P2P_UDP_PORT + count.index}"
+        },
+        {
+          name  = "P2P_QUERY_FOR_IP"
+          value = "true"
+        },
+        {
+          name  = "BOOTSTRAP_NODES"
+          value = "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
+        },
+        {
+          name  = "P2P_ENABLED"
+          value = tostring(var.P2P_ENABLED)
+        },
+        {
+          name  = "CHAIN_ID"
+          value = var.CHAIN_ID
+        },
+        {
+          name  = "PEER_ID_PRIVATE_KEY"
+          value = local.node_p2p_private_keys[count.index]
+        },
+        {
+          name  = "P2P_MIN_PEERS"
+          value = var.P2P_MIN_PEERS
+        },
+        {
+          name  = "P2P_MAX_PEERS"
+          value = var.P2P_MAX_PEERS
+        },
+        {
+          name  = "P2P_BLOCK_CHECK_INTERVAL_MS"
+          value = "1000"
+        },
+        {
+          name  = "P2P_PEER_CHECK_INTERVAL_MS"
+          value = "2000"
+        },
+        {
+          name  = "PROVER_AGENTS"
+          value = "0"
+        },
+        {
+          name  = "PROVER_REAL_PROOFS"
+          value = tostring(var.PROVING_ENABLED)
+        }
+      ]
+      mountPoints = [
+        {
+          containerPath = "${local.data_dir}/node_${count.index + 1}"
+          sourceVolume  = "efs-data-store"
+        }
+      ]
+      dependsOn = [
+        {
+          containerName = "init-container"
+          condition     = "COMPLETE"
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/fargate/service/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
+          "awslogs-region"        = "eu-west-2"
+          "awslogs-stream-prefix" = "ecs"
+        }
       }
-    ]
-    environment = [
-      {
-        name  = "NODE_ENV"
-        value = "production"
-      },
-      {
-        name  = "DEPLOY_TAG"
-        value = var.DEPLOY_TAG
-      },
-      {
-        name  = "DEPLOY_AZTEC_CONTRACTS"
-        value = "false"
-      },
-      {
-        name  = "AZTEC_PORT"
-        value = "80"
-      },
-      {
-        name  = "DEBUG"
-        value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
-      },
-      {
-        name  = "ETHEREUM_HOST"
-        value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
-      },
-      {
-        name  = "DATA_DIRECTORY"
-        value = local.data_dir
-      },
-      {
-        name  = "ARCHIVER_POLLING_INTERVAL"
-        value = "10000"
-      },
-      {
-        name  = "SEQ_RETRY_INTERVAL"
-        value = "10000"
-      },
-      {
-        name  = "SEQ_MAX_TX_PER_BLOCK"
-        value = var.SEQ_MAX_TX_PER_BLOCK
-      },
-      {
-        name  = "SEQ_MIN_TX_PER_BLOCK"
-        value = var.SEQ_MIN_TX_PER_BLOCK
-      },
-      {
-        name  = "SEQ_PUBLISHER_PRIVATE_KEY"
-        value = local.publisher_private_keys[count.index]
-      },
-      {
-        name  = "ROLLUP_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address
-      },
-      {
-        name  = "INBOX_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address
-      },
-      {
-        name  = "OUTBOX_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address
-      },
-      {
-        name  = "REGISTRY_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address
-      },
-      {
-        name  = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address
-      },
-      {
-        name  = "GAS_TOKEN_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address
-      },
-      {
-        name  = "GAS_PORTAL_CONTRACT_ADDRESS"
-        value = data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address
-      },
-      {
-        name  = "API_KEY"
-        value = var.API_KEY
-      },
-      {
-        name  = "API_PREFIX"
-        value = "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}"
-      },
-      {
-        name  = "P2P_TCP_LISTEN_ADDR"
-        value = "0.0.0.0:${var.NODE_P2P_TCP_PORT + count.index}"
-      },
-      {
-        name  = "P2P_UDP_LISTEN_ADDR"
-        value = "0.0.0.0:${var.NODE_P2P_UDP_PORT + count.index}"
-      },
-      {
-        name  = "P2P_TCP_ANNOUNCE_ADDR"
-        value = ":${var.NODE_P2P_TCP_PORT + count.index}"
-      },
-      {
-        name  = "P2P_UDP_ANNOUNCE_ADDR"
-        value = ":${var.NODE_P2P_UDP_PORT + count.index}"
-      },
-      {
-        name  = "P2P_QUERY_FOR_IP"
-        value = "true"
-      },
-      {
-        name  = "BOOTSTRAP_NODES"
-        value = "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
-      },
-      {
-        name  = "P2P_ENABLED"
-        value = tostring(var.P2P_ENABLED)
-      },
-      {
-        name  = "CHAIN_ID"
-        value = var.CHAIN_ID
-      },
-      {
-        name  = "PEER_ID_PRIVATE_KEY"
-        value = local.node_p2p_private_keys[count.index]
-      },
-      {
-        name  = "P2P_MIN_PEERS"
-        value = var.P2P_MIN_PEERS
-      },
-      {
-        name  = "P2P_MAX_PEERS"
-        value = var.P2P_MAX_PEERS
-      },
-      {
-        name  = "P2P_BLOCK_CHECK_INTERVAL_MS"
-        value = "1000"
-      },
-      {
-        name  = "P2P_PEER_CHECK_INTERVAL_MS"
-        value = "2000"
-      },
-      {
-        name  = "PROVER_AGENTS"
-        value = "0"
-      },
-      {
-        name  = "PROVER_REAL_PROOFS"
-        value = tostring(var.PROVING_ENABLED)
-      }
-    ]
-    mountPoints = [
-      {
-        containerPath = local.data_dir
-        sourceVolume  = "efs-data-store"
-      }
-    ]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = "/fargate/service/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
-        "awslogs-region"        = "eu-west-2"
-        "awslogs-stream-prefix" = "ecs"
-      }
-    }
   }])
 }
 
