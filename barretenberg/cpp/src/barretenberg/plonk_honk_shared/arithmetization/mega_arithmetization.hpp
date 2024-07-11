@@ -81,7 +81,7 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 30000;
-            this->arithmetic = 755000;
+            this->arithmetic = 600000;
             this->delta_range = 140000;
             this->elliptic = 600000;
             this->aux = 1400000;
