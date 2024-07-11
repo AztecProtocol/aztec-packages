@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720669955690,
+  "lastUpdate": 1720670815154,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -78008,6 +78008,78 @@ window.BENCHMARK_DATA = {
             "value": 160936820,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160936820 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5cbdc549f0ab137ab4fa601e20d80699871faaf4",
+          "message": "feat: MSM sorting (#7351)\n\nImplements logic for reducing MSM inputs by first summing points which\r\nshare a scalar. See description in `sorted_msm.hpp` for details of the\r\napproach. This is useful when the `scalars` input for an MSM contains\r\nmany repeated values because point addition is much cheaper than scalar\r\nmultiplication. For example, when using the structured trace, the\r\npermutation grand product polynomial is non-zero but constant over\r\n'dead' regions between blocks.\r\n\r\nNote: For now this work is not integrated into the proving systems. That\r\nwill be done in a follow on. At that time, considerations will be made\r\nfor memory consumption (e.g. perhaps memory allocated in\r\npippenger_runtime_state can be repurposed for the MSM sorting logic\r\netc.)\r\n\r\n---------\r\n\r\nCo-authored-by: zac-williamson <blorktronics@gmail.com>",
+          "timestamp": "2024-07-11T03:57:20Z",
+          "tree_id": "22e5455d33e3a72fa34dd6b066b34ab7c8f41ac1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5cbdc549f0ab137ab4fa601e20d80699871faaf4"
+        },
+        "date": 1720670809559,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13713.687052000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9247.098014000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4738.086533000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4333.403614 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41340.790327999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41340791000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14558.773541999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14558773000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4147970214,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4147970214 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 193877773,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 193877773 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3438969839,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3438969839 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161441004,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161441004 ns\nthreads: 1"
           }
         ]
       }
