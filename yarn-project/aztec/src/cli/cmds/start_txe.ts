@@ -1,11 +1,11 @@
-import { DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { createTXERpcServer } from '@aztec/txe';
 
 import http from 'http';
 
 const { TXE_PORT = 8081 } = process.env;
 
-export const startTXE = async (options: any, debugLogger: DebugLogger) => {
+export const startTXE = (options: any, debugLogger: DebugLogger) => {
   debugLogger.info(`Setting up TXE...`);
   const txeServer = createTXERpcServer(debugLogger);
   const app = txeServer.getApp();

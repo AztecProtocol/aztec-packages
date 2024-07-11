@@ -5,7 +5,6 @@ import { getProgram as getCLIProgram } from '@aztec/cli';
 import { type ServerList, createNamespacedJsonRpcServer, createStatusRouter } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { createPXERpcServer } from '@aztec/pxe';
-import { createTXERpcServer } from '@aztec/txe';
 
 import { readFileSync } from 'fs';
 import http from 'http';
@@ -95,7 +94,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
           services = await startProver(options, signalHandlers, userLog);
         } else if (options.txe) {
           const { startTXE } = await import('./cmds/start_txe.js');
-          await startTXE(options, debugLogger);
+          startTXE(options, debugLogger);
         }
       }
       installSignalHandlers(debugLogger.info, signalHandlers);

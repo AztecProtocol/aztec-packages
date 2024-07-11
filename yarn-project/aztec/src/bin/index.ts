@@ -5,8 +5,6 @@ import { getProgram } from '../cli/index.js';
 const userLog = createConsoleLogger();
 const debugLogger = createDebugLogger('aztec:cli');
 
-const {} = process.env;
-
 /** CLI & full node main entrypoint */
 async function main() {
   const cliProgram = getProgram(userLog, debugLogger);
