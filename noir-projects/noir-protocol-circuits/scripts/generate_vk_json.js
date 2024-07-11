@@ -30,6 +30,9 @@ async function getBytecodeHash(artifactPath) {
 }
 
 function getBarretenbergHash() {
+  if (process.env.BB_HASH) {
+    return Promise.resolve(process.env.BB_HASH);
+  }
   return new Promise((res, rej) => {
     const hash = crypto.createHash("md5");
 
@@ -116,9 +119,8 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} write_vk -b "${artifactPath}" -o "${binaryVkPath}"`;
-
-  const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+  const writeVkCommand = `${BB_BIN_PATH} write_vk_ultra_honk -h -b "${artifactPath}" -o "${binaryVkPath}"`;
+  const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields_ultra_honk -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {
@@ -184,18 +186,22 @@ async function readVKFromS3(artifactName, artifactHash) {
   if (process.env.DISABLE_VK_S3_CACHE) {
     return;
   }
+  const key = `${PREFIX}/${artifactName}-${artifactHash}.json`;
 
   try {
     const s3 = generateS3Client();
     const { Body: response } = await s3.getObject({
       Bucket: BUCKET_NAME,
-      Key: `${PREFIX}/${artifactName}-${artifactHash}.json`,
+      Key: key,
     });
 
     const result = JSON.parse(await response.transformToString());
     return result;
   } catch (err) {
-    console.warn("Could not read VK from remote cache", err.message);
+    console.warn(
+      `Could not read VK from remote cache at s3://${BUCKET_NAME}/${key}`,
+      err.message
+    );
     return undefined;
   }
 }

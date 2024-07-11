@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.2...aztec-package-v0.46.3) (2024-07-11)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.1...aztec-package-v0.46.2) (2024-07-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.0...aztec-package-v0.46.1) (2024-07-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.1...aztec-package-v0.46.0) (2024-07-09)
+
+
+### Features
+
+* VK tree ([#6914](https://github.com/AztecProtocol/aztec-packages/issues/6914)) ([8631237](https://github.com/AztecProtocol/aztec-packages/commit/863123729fed0f4a150e634f52da06ac6b581162))
+
 ## [0.45.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.0...aztec-package-v0.45.1) (2024-07-04)
 
 

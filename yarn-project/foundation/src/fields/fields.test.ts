@@ -4,8 +4,8 @@ describe('GrumpkinScalar Serialization', () => {
   // Test case for GrumpkinScalar.fromHighLow
   it('fromHighLow should serialize and deserialize correctly', () => {
     const original = GrumpkinScalar.random();
-    const high = original.high;
-    const low = original.low;
+    const high = original.hi;
+    const low = original.lo;
 
     const deserialized = GrumpkinScalar.fromHighLow(high, low);
 
@@ -31,6 +31,18 @@ describe('GrumpkinScalar Serialization', () => {
 
     // Check if the deserialized instance is equal to the original
     expect(deserialized).toEqual(original);
+
+    // Note odd number of digits
+    const arbitraryString = '123';
+    const arbitraryHexString = '0x123';
+    const expectedBigInt = 291n;
+
+    expect(GrumpkinScalar.fromString(arbitraryString).toBigInt()).toEqual(expectedBigInt);
+    expect(GrumpkinScalar.fromString(arbitraryHexString).toBigInt()).toEqual(expectedBigInt);
+
+    const incorrectlyFormattedString = '12xx34xx45';
+
+    expect(() => GrumpkinScalar.fromString(incorrectlyFormattedString).toBigInt()).toThrow();
   });
 
   // Test case for GrumpkinScalar.toBuffer
