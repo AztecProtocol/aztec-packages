@@ -127,9 +127,9 @@ jobs:
         run: |
           docker pull aztecprotocol/cli:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/cli:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
-            -p ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
-            -u https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
-            -c ${{ env.CHAIN_ID }} \
+            --private-key ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
+            --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
+            --chain-id ${{ env.CHAIN_ID }} \
             | tee ${{ env.FILE_PATH }}
           ./.github/scripts/extract_l1_addresses.sh ${{ env.FILE_PATH }}
 
