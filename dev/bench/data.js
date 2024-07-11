@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720716647146,
+  "lastUpdate": 1720718018243,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -79864,6 +79864,78 @@ window.BENCHMARK_DATA = {
             "value": 160769440,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160769440 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "598c91cfc3ce279a5d556d27c4a885b80c6fd37d",
+          "message": "chore(master): Release 0.46.4 (#7441)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.46.4</summary>\r\n\r\n##\r\n[0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.3...aztec-package-v0.46.4)\r\n(2024-07-11)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **aztec-package:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.46.4</summary>\r\n\r\n##\r\n[0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.3...barretenberg.js-v0.46.4)\r\n(2024-07-11)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.46.4</summary>\r\n\r\n##\r\n[0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.46.3...aztec-packages-v0.46.4)\r\n(2024-07-11)\r\n\r\n\r\n### Features\r\n\r\n* Configure world-state to follow the proven chain only\r\n([#7430](https://github.com/AztecProtocol/aztec-packages/issues/7430))\r\n([2e41ac7](https://github.com/AztecProtocol/aztec-packages/commit/2e41ac7d6b3c0e9e0bf02a8687f9c3d7446a08c6))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Missing secrets in docs publish\r\n([#7445](https://github.com/AztecProtocol/aztec-packages/issues/7445))\r\n([840a4b9](https://github.com/AztecProtocol/aztec-packages/commit/840a4b987f363626667b48febd46787f13a0f917))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Apply where statement to impls instead of fns\r\n([#7433](https://github.com/AztecProtocol/aztec-packages/issues/7433))\r\n([bb201f2](https://github.com/AztecProtocol/aztec-packages/commit/bb201f2fc8543cf752e2b5d5ec7ec15d3e7cdac5))\r\n* **avm:** Codegen cleanup\r\n([#7439](https://github.com/AztecProtocol/aztec-packages/issues/7439))\r\n([e31887e](https://github.com/AztecProtocol/aztec-packages/commit/e31887e0091e31fcec59b8c792ec6af36d835f04))\r\n* **proving:** Post honk branch fixes\r\n([#7435](https://github.com/AztecProtocol/aztec-packages/issues/7435))\r\n([86eafa0](https://github.com/AztecProtocol/aztec-packages/commit/86eafa0ca43645252852d1aa4def33de86156ff6))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.46.4</summary>\r\n\r\n##\r\n[0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.46.3...barretenberg-v0.46.4)\r\n(2024-07-11)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **avm:** Codegen cleanup\r\n([#7439](https://github.com/AztecProtocol/aztec-packages/issues/7439))\r\n([e31887e](https://github.com/AztecProtocol/aztec-packages/commit/e31887e0091e31fcec59b8c792ec6af36d835f04))\r\n* **proving:** Post honk branch fixes\r\n([#7435](https://github.com/AztecProtocol/aztec-packages/issues/7435))\r\n([86eafa0](https://github.com/AztecProtocol/aztec-packages/commit/86eafa0ca43645252852d1aa4def33de86156ff6))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-07-11T17:03:43Z",
+          "tree_id": "ce0282916434bda0090c1d4803597da3157ff310",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/598c91cfc3ce279a5d556d27c4a885b80c6fd37d"
+        },
+        "date": 1720718011691,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13773.736515000024,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9439.018078000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4774.408174000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4334.610576 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41347.31271,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41347312000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14549.025334000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14549026000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4248497947,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4248497947 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201210045,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201210045 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3499798023,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3499798023 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163949783,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163949783 ns\nthreads: 1"
           }
         ]
       }
