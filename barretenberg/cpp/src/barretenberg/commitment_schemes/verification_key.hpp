@@ -89,7 +89,6 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
     VerifierCommitmentKey(size_t num_points)
         : pippenger_runtime_state(num_points)
     {
-        info("initializing grumpkin crs factory from srs_db");
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
     }
