@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720721209404,
+  "lastUpdate": 1720721233652,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -80140,6 +80140,78 @@ window.BENCHMARK_DATA = {
             "value": 161209635,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161209635 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4abe1d9cd577304d56efff5969cdaa7542dccfd",
+          "message": "feat: multiple trace structuring configurations  (#7408)\n\nAdds more flexibility in setting the fixed block sizes in the execution\r\ntrace when using the structured trace option.\r\n\r\nWhen using ClientIvc, a structured trace is generally always needed\r\nsince we cannot fold circuits of different size. Previously, we could\r\nonly specify a single set of fixed block sizes per arithmetization\r\n(Ultra/Mega). This is inconvenient since things like the full e2e test\r\nrequire massive block sizes, and we'd like to be able to accommodate\r\nthis without making simple tests expensive and throwing off our\r\nClientIvc benchmarks. Eventually this mechanism (or something similar)\r\ncould be used to define optimal structuring for specific Aztec\r\napplications.\r\n\r\nNote: As part of this PR I've separated the arithmetizations for\r\nStandard/Ultra/Mega (previously all in `arithmetization.hpp`) into their\r\nown files to improve clarity. This accounts for the bulk of the large\r\ndiff.",
+          "timestamp": "2024-07-11T17:55:41Z",
+          "tree_id": "96b49046e078bf603c9c43bbfddb9d58cc8a942e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e4abe1d9cd577304d56efff5969cdaa7542dccfd"
+        },
+        "date": 1720721227619,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13799.13548799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9237.126968 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4761.016130000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4386.02839 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41904.911606,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41904912000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14625.650635,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14625650000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4257485045,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4257485045 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196099413,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 196099413 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3494550628,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3494550628 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161694510,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161694510 ns\nthreads: 1"
           }
         ]
       }
