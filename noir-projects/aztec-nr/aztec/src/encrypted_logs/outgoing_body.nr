@@ -2,7 +2,6 @@ use dep::protocol_types::{
     address::AztecAddress, scalar::Scalar, point::Point, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
     hash::poseidon2_hash
 };
-
 use std::aes128::aes128_encrypt;
 
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
@@ -65,6 +64,7 @@ mod test {
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         scalar::Scalar, point::Point, hash::poseidon2_hash
     };
+    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     use crate::context::PrivateContext;
 
@@ -83,8 +83,8 @@ mod test {
             0x00000000000000000000000000000000089c6887cb1446d86c64e81afc78048b
         );
 
-        let eph_pk = eph_sk.derive_public_key();
-        let recipient_ivpk_app = recipient_ivsk_app.derive_public_key();
+        let eph_pk = derive_public_key(eph_sk);
+        let recipient_ivpk_app = derive_public_key(recipient_ivsk_app);
 
         let recipient = AztecAddress::from_field(0xdeadbeef);
 
