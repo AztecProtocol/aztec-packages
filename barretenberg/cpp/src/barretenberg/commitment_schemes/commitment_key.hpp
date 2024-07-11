@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <ranges>
 #include <string_view>
 
 namespace bb {
@@ -34,6 +35,13 @@ template <class Curve> class CommitmentKey {
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
+    using G1 = typename Curve::AffineElement;
+
+    using IndicesView = std::ranges::iota_view<size_t>;
+    using EvenIndicesView = std::ranges::filter_view<IndicesView, std::function<bool(size_t)>>;
+    using SrsViewType = std::ranges::transform_view<EvenIndicesView, std::function<G1(size_t)>>;
+
+    SrsViewType srs_view;
 
   public:
     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
@@ -75,6 +83,26 @@ template <class Curve> class CommitmentKey {
         return scalar_multiplication::pippenger_unsafe<Curve>(
             const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);
     };
+
+    auto get_srs_view()
+    {
+        size_t point_table_size = 2 * srs->get_monomial_size();
+        G1* point_table = srs->get_monomial_points();
+
+        auto srs_view =
+            std::views::iota(static_cast<size_t>(0), point_table_size) | // generate view of indices 0, ..., n-1
+            std::views::filter([](int i) { return i % 2 == 0; }) |       // create a view of the even indices only
+            std::views::transform([point_table](size_t i) { return point_table[i]; }); // extract even srs
+
+        info("Internal points:");
+        for (auto element : srs_view) {
+            info(element);
+        }
+
+        return srs_view;
+    }
+
+    // SrsViewType get_srs_view() const { return srs_view; }
 };
 
 } // namespace bb
