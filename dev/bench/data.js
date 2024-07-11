@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720686889589,
+  "lastUpdate": 1720687998768,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -78488,6 +78488,78 @@ window.BENCHMARK_DATA = {
             "value": 160954505,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160954505 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a7494baec4396b9fa62f0a9c240b4b02f23fb1d",
+          "message": "fix(avm): fixes AVM full tests and decrease timeout to 35 minutes (#7438)\n\nFixes failure in:\r\nhttps://github.com/AztecProtocol/aztec-packages/actions/runs/9885438673\r\nTimeout decrease for the AVM full tests action to 35 minutes.",
+          "timestamp": "2024-07-11T08:43:45Z",
+          "tree_id": "cfdbcd48a1d1cebb95805b59ccc803d3f95d56f3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2a7494baec4396b9fa62f0a9c240b4b02f23fb1d"
+        },
+        "date": 1720687993533,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13768.230019000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9249.461845000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4743.315833999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4392.261861000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41246.853486,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41246855000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14490.469713999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14490469000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4179371003,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4179371003 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194745577,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194745577 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3435570538,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3435570538 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160787391,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160787391 ns\nthreads: 1"
           }
         ]
       }
