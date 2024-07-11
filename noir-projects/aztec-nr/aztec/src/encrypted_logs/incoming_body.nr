@@ -60,7 +60,9 @@ mod test {
     global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
 
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
-        fn compute_note_content_hash(_self: Self) -> Field {1}
+        fn compute_note_content_hash(self) -> Point {
+            crate::generators::Ga1
+        }
 
         fn get_note_type_id() -> Field {
             1

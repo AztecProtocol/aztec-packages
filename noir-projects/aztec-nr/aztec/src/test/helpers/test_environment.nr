@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize, point::Point
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
@@ -210,7 +210,7 @@ impl TestEnvironment {
     pub fn store_note_in_cache<Note, let N: u32, let M: u32>(
         _self: Self,
         note: &mut Note,
-        storage_slot: Field,
+        storage_slot: Point,
         contract_address: AztecAddress
     ) where Note: NoteInterface<N, M> {
         let original_contract_address = get_contract_address();

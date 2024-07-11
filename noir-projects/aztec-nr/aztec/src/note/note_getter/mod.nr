@@ -1,4 +1,4 @@
-use dep::protocol_types::{constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTES_ORACLE_RETURN_LENGTH}};
+use dep::protocol_types::{constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTES_ORACLE_RETURN_LENGTH}, point::Point};
 use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
@@ -33,7 +33,7 @@ fn extract_property_value_from_selector<let N: u32>(
 
 fn check_note_header<Note, let N: u32, let M: u32>(
     context: PrivateContext,
-    storage_slot: Field,
+    storage_slot: Point,
     note: Note
 ) where Note: NoteInterface<N, M> {
     let header = note.get_header();
@@ -91,7 +91,7 @@ fn check_notes_order<let N: u32>(
 
 pub fn get_note<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
-    storage_slot: Field
+    storage_slot: Point
 ) -> Note where Note: NoteInterface<N, M> {
     let note = get_note_internal(storage_slot);
 
@@ -157,7 +157,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, FILTER_ARGS>(
     notes
 }
 
-unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: Field) -> Note where Note: NoteInterface<N, M> {
+unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: Point) -> Note where Note: NoteInterface<N, M> {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];

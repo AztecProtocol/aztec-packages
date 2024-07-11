@@ -1,10 +1,11 @@
-use dep::protocol_types::address::AztecAddress;
-use dep::protocol_types::traits::{Empty, Eq, Serialize};
+use dep::protocol_types::{address::AztecAddress, traits::{Empty, Eq, Serialize}, point::Point};
+
+global NOTE_HEADER_LENGTH: Field = 6;
 
 struct NoteHeader {
     contract_address: AztecAddress,
     nonce: Field,
-    storage_slot: Field,
+    storage_slot: Point,
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // Check the nonce to see whether a note is transient or not.
     note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
@@ -12,7 +13,7 @@ struct NoteHeader {
 
 impl Empty for NoteHeader {
     fn empty() -> Self {
-        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, note_hash_counter: 0 }
+        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: Point::empty(), note_hash_counter: 0 }
     }
 }
 
@@ -26,13 +27,13 @@ impl Eq for NoteHeader {
 }
 
 impl NoteHeader {
-    pub fn new(contract_address: AztecAddress, nonce: Field, storage_slot: Field) -> Self {
+    pub fn new(contract_address: AztecAddress, nonce: Field, storage_slot: Point) -> Self {
         NoteHeader { contract_address, nonce, storage_slot, note_hash_counter: 0 }
     }
 }
 
-impl Serialize<4> for NoteHeader {
-    fn serialize(self) -> [Field; 4] {
-        [self.contract_address.to_field(), self.nonce, self.storage_slot, self.note_hash_counter as Field]
+impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
+    fn serialize(self) -> [Field; NOTE_HEADER_LENGTH] {
+        [self.contract_address.to_field(), self.nonce, self.storage_slot.x, self.storage_slot.y, self.storage_slot.is_infinite as Field, self.note_hash_counter as Field]
     }
 }

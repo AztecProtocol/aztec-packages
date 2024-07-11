@@ -1,10 +1,10 @@
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 
-use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
+use dep::protocol_types::{address::AztecAddress, point::Point, utils::arr_copy_slice};
 
 #[oracle(notifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
-    _storage_slot: Field,
+    _storage_slot: Point,
     _note_type_id: Field,
     _serialized_note: [Field; N],
     _inner_note_hash: Field,
@@ -12,7 +12,7 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
 ) -> Field {}
 
 unconstrained pub fn notify_created_note<let N: u32>(
-    storage_slot: Field,
+    storage_slot: Point,
     note_type_id: Field,
     serialized_note: [Field; N],
     inner_note_hash: Field,
@@ -97,7 +97,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
 }
 
 unconstrained pub fn get_notes<Note, let N: u32, let NB: u32, let M: u32, let S: u32, let NS: u32>(
-    storage_slot: Field,
+    storage_slot: Point,
     num_selects: u8,
     select_by_indexes: [u8; M],
     select_by_offsets: [u8; M],

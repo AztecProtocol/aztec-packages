@@ -505,8 +505,8 @@ fn generate_compute_note_content_hash(
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
-        fn compute_note_content_hash(self: {}) -> Field {{
-            aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
+        fn compute_note_content_hash(self: {}) -> aztec::protocol_types::point::Point {{
+            aztec::hash::pedersen_commitment(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
         }}
         ",
         note_type

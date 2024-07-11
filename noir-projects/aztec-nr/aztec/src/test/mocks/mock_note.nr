@@ -1,6 +1,6 @@
 use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface}};
 
-use dep::protocol_types::{address::AztecAddress, traits::Eq};
+use dep::protocol_types::{address::AztecAddress, point::Point, traits::Eq};
 
 global MOCK_NOTE_LENGTH = 1;
 // MOCK_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
@@ -23,8 +23,8 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
       }
     }
 
-    fn compute_note_content_hash(_self: Self) -> Field {
-      0
+    fn compute_note_content_hash(_self: Self) -> Point {
+      crate::generators::Ga1
     }
 
     fn get_header(self) -> NoteHeader {
@@ -80,7 +80,7 @@ impl Eq for MockNote {
 struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
-    storage_slot: Option<Field>,
+    storage_slot: Option<Point>,
 }
 
 impl MockNoteBuilder {
@@ -93,7 +93,7 @@ impl MockNoteBuilder {
         self
     }
 
-    fn storage_slot(&mut self, storage_slot: Field) -> &mut Self {
+    fn storage_slot(&mut self, storage_slot: Point) -> &mut Self {
         self.storage_slot = Option::some(storage_slot);
         self
     }

@@ -11,7 +11,7 @@ use crate::{
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     merkle_tree::root::root_from_sibling_path, messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    recursion::verification_key::VerificationKey, traits::is_empty,
+    point::Point, recursion::verification_key::VerificationKey, traits::is_empty,
     utils::field::field_from_bytes_32_trunc
 };
 use std::hash::{pedersen_hash_with_separator, sha256};
@@ -251,6 +251,11 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
+
+pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
+    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
+}
+
 
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)

@@ -71,7 +71,7 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
 
 
 
-    fn compute_note_content_hash(self) -> Field {
+    fn compute_note_content_hash(self) -> Point {
         let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
         let (random_lo, random_hi) = decompose(self.randomness);
         // We compute the note content hash as an x-coordinate of `G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness` instead
@@ -91,7 +91,7 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
                 lo: random_lo,
                 hi: random_hi,
             }]
-        ).x
+        )
     }
 }
 
