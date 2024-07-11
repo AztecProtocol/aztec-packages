@@ -13,7 +13,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 const {
   FAUCET_PORT = 8082,
   API_PREFIX = '',
-  API_KEY = '',
   RPC_URL = '',
   CHAIN_ID = '',
   PRIVATE_KEY = '',
@@ -24,7 +23,6 @@ const {
 const logger = createDebugLogger('aztec:faucet');
 
 const rpcUrl = RPC_URL;
-const apiKey = API_KEY;
 const chainId = +CHAIN_ID;
 const privateKey: Hex = PRIVATE_KEY ? createHex(PRIVATE_KEY) : NULL_KEY;
 const interval = +INTERVAL;

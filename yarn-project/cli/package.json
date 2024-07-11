@@ -20,7 +20,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "start": "yarn build && node --no-warnings ./dest/bin/index.js",
+    "start": "node --no-warnings ./dest/bin/index.js",
     "start:debug": "node ${NODE_ARGS:-} --inspect-brk=0.0.0.0:9221 ./dest/bin/index.js"
   },
   "inherits": [
