@@ -182,7 +182,7 @@ export class Sequencer {
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get txs to build the new block
-      const pendingTxs = await this.p2pClient.getTxs();
+      const pendingTxs = this.p2pClient.getTxs('pending');
       if (pendingTxs.length < this.minTxsPerBLock) {
         return;
       }
