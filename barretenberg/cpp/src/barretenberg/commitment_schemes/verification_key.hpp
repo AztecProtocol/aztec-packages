@@ -36,7 +36,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
 
     VerifierCommitmentKey()
     {
-        srs::init_crs_factory("../../../cpp/srs_db/ignition");
+        srs::init_crs_factory("../srs_db/ignition");
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
     };
 
@@ -90,7 +90,7 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
         : pippenger_runtime_state(num_points)
     {
         info("initializing grumpkin crs factory from srs_db");
-        srs::init_grumpkin_crs_factory("../../../cpp/srs_db/grumpkin"); // WORKTODO: revert
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
     }
 
