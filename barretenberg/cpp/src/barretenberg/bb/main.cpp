@@ -417,7 +417,6 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
                        const std::filesystem::path& eccvm_vk_path,
                        const std::filesystem::path& translator_vk_path)
 {
-    info("CRS path is ", CRS_PATH);
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 14);
 
@@ -431,6 +430,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
     eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
     const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
+    translator_vk->pcs_verification_key = std::make_shared<BN254Vk>();
 
     const bool verified = ClientIVC::verify(
         proof, accumulator, std::make_shared<ClientIVC::VerifierInstance>(final_vk), eccvm_vk, translator_vk);
