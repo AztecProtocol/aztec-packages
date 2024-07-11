@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720706695243,
+  "lastUpdate": 1720708812343,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -79384,6 +79384,78 @@ window.BENCHMARK_DATA = {
             "value": 160379543,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 160379543 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "86eafa0ca43645252852d1aa4def33de86156ff6",
+          "message": "chore(proving): post honk branch fixes (#7435)\n\nThe original PR\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/6971 was too much\r\nto delay, these are the straggler fixups post merge",
+          "timestamp": "2024-07-11T14:28:11Z",
+          "tree_id": "77ad74a3b53cd431ddcde68639fe7b35488f9364",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/86eafa0ca43645252852d1aa4def33de86156ff6"
+        },
+        "date": 1720708806837,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13755.827410999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9226.297281 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4785.623230999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4382.689259999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41397.961517,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41397963000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14584.72252,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14584722000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4125395678,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4125395678 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 194884973,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 194884973 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3440479219,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3440479219 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161029890,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161029890 ns\nthreads: 1"
           }
         ]
       }
