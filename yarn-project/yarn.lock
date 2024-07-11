@@ -264,7 +264,7 @@ __metadata:
   resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     comlink: ^4.4.1
-    commander: ^12.1.0
+    commander: ^10.0.1
     debug: ^4.3.4
     tslib: ^2.4.0
   bin:
