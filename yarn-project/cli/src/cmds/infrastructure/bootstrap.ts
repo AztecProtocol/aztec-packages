@@ -10,7 +10,6 @@ const waitOpts: WaitOpts = {
 };
 
 export async function bootstrap(rpcUrl: string, log: LogFn) {
-  // @ts-expect-error
   const { GasTokenContract, KeyRegistryContract } = await import('@aztec/noir-contracts.js');
 
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));

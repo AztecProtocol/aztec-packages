@@ -22,7 +22,7 @@ export async function deployUltraVerifier(
   if (!bbBinaryPath || !bbWorkingDirectory) {
     throw new InvalidOptionArgumentError('Missing path to bb binary and working directory');
   }
-  // @ts-expect-error
+
   const { BBCircuitVerifier } = await import('@aztec/bb-prover');
 
   const circuitVerifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });

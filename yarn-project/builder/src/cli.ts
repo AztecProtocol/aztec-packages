@@ -4,11 +4,11 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
-const program = new Command();
 const log = createConsoleLogger('aztec:builder');
 
 const main = async () => {
-  program.name('aztec-builder');
+  const program = new Command('aztec-builder');
+
   await injectBuilderCommands(program, log);
   await program.parseAsync(process.argv);
   // I force exit here because spawnSync in npm.ts just blocks the process from exiting. Spent a bit of time debugging

@@ -97,7 +97,6 @@ export async function deployAztecContracts(
       contractBytecode: GasPortalBytecode,
     },
   };
-  // @ts-expect-error
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
 
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
@@ -111,7 +110,6 @@ export async function deployAztecContracts(
  * @returns The contract ABIs.
  */
 export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
-  // @ts-expect-error
   const imports = await import('@aztec/noir-contracts.js');
   return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }
