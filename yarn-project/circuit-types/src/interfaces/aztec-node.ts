@@ -281,7 +281,7 @@ export interface AztecNode {
    * @param txHash - The transaction hash to return.
    * @returns The pending tx if it exists.
    */
-  getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.

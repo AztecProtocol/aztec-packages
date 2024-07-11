@@ -257,7 +257,7 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, logger);
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
-  aztecNodeConfig.l1BlockPublishRetryIntervalMS = 100;
+  aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
