@@ -170,10 +170,10 @@ global FIXED_L2_GAS: u32 = 512;
 global FIXED_AVM_STARTUP_L2_GAS = 1024;
 // pays for hashing/validating logs
 global L2_GAS_PER_LOG_BYTE = 4;
-// pays for tree insertions. 
+// pays for tree insertions.
 global L2_GAS_PER_NOTE_HASH = 32;
 // nullifiers are more expensive to insert/validate:
-// they are inserted into an indexed tree and must be checked for duplicates 
+// they are inserted into an indexed tree and must be checked for duplicates
 global L2_GAS_PER_NULLIFIER = 64;
 
 // CANONICAL CONTRACT ADDRESSES
@@ -202,7 +202,7 @@ global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 global L2_TO_L1_MESSAGE_LENGTH: u32 = 3;
 global SCOPED_L2_TO_L1_MESSAGE_LENGTH = L2_TO_L1_MESSAGE_LENGTH + 1;
 global MAX_BLOCK_NUMBER_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
-global KEY_VALIDATION_REQUEST_LENGTH = 3;
+global KEY_VALIDATION_REQUEST_LENGTH = 4;
 global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH = KEY_VALIDATION_REQUEST_LENGTH + 1;
 global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH = KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH + 1;
 global PARTIAL_STATE_REFERENCE_LENGTH: u32 = 6;
@@ -270,11 +270,13 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 93;
-global NESTED_RECURSIVE_PROOF_LENGTH = 109;
+global RECURSIVE_PROOF_LENGTH = 393;
+global NESTED_RECURSIVE_PROOF_LENGTH = 393;
+global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.

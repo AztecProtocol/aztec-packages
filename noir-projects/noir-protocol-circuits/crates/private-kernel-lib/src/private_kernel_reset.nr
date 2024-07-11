@@ -42,9 +42,8 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
 
         // Validate inputs.
         if !std::runtime::is_unconstrained() {
-            // verify/aggregate the previous kernel
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let previous_public_inputs = self.previous_kernel.public_inputs;
@@ -113,9 +112,9 @@ mod tests {
         max_block_number::MaxBlockNumber, note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier}, log_hash::NoteLogHash, read_request::ScopedReadRequest
     },
-        address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-        tests::{fixture_builder::FixtureBuilder}, utils::{arrays::{array_eq, array_length}},
-        traits::{Empty, is_empty, is_empty_array}, grumpkin_point::GrumpkinPoint
+        address::AztecAddress, scalar::Scalar, tests::{fixture_builder::FixtureBuilder},
+        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array},
+        point::Point
     };
 
     struct PrivateKernelResetInputsBuilder {
@@ -291,7 +290,7 @@ mod tests {
         let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
 
-        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27, GENERATOR_INDEX__OVSK_M);
+        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(Point::new(1, 2, false), 27, GENERATOR_INDEX__OVSK_M);
         let key_validation = builder.previous_kernel.scoped_key_validation_requests_and_generators.storage[key_validation_index];
 
         // Check that they have been propagated to the next kernel
@@ -445,13 +444,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PrivateKernelResetInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PrivateKernelResetInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }
