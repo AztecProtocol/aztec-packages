@@ -575,8 +575,7 @@ void prove_tube(const std::string& output_path)
     ClientIVC verifier{ builder, input };
 
     verifier.verify(proof);
-    info("num gates: ", builder->get_num_gates());
-    info("generating proof");
+    info("num gates in tube circuit: ", builder->get_num_gates());
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
@@ -1347,10 +1346,10 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target");
             client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
-            std::string output_path = get_option(args, "-o", "./proofs");
+            std::string output_path = get_option(args, "-o", "./target");
             prove_tube(output_path);
         } else if (command == "verify_tube") {
-            std::string output_path = get_option(args, "-o", "./proofs");
+            std::string output_path = get_option(args, "-o", "./target");
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;

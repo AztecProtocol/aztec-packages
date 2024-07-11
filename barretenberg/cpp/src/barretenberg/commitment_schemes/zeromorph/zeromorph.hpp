@@ -695,7 +695,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
     {
         std::vector<Commitment> points;
         std::vector<FF> scalars;
-        size_t idx = 0;
         for (auto [point, scalar] : zip_view(_points, _scalars)) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/866) Special handling of point at infinity here
             // due to incorrect serialization.
@@ -703,10 +702,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 points.emplace_back(point);
                 scalars.emplace_back(scalar);
             }
-            if (point.is_point_at_infinity() || point.y.is_zero()) {
-                info(idx, "\n", point);
-            }
-            idx++;
         }
 
         if (points.empty()) {
