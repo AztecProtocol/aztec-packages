@@ -38,18 +38,23 @@ std::vector<typename Curve::AffineElement> extract_srs(std::shared_ptr<Commitmen
     return monomials;
 }
 
-constexpr size_t MAX_LOG_NUM_POINTS = 14;
+constexpr size_t MAX_LOG_NUM_POINTS = 18;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
 
-auto key = create_commitment_key<curve::BN254>(MAX_NUM_POINTS);
+// auto key = create_commitment_key<curve::BN254>(MAX_NUM_POINTS);
+
+auto key()
+{
+    return create_commitment_key<curve::BN254>(MAX_NUM_POINTS);
+}
 
 template <typename Curve> void bench_commit_zero(::benchmark::State& state)
 {
     const size_t num_points = 1 << state.range(0);
     const auto polynomial = Polynomial<typename Curve::ScalarField>(num_points);
     for (auto _ : state) {
-        key->commit(polynomial);
-        // benchmark::DoNotOptimize(key->commit(polynomial));
+        key()->commit(polynomial);
+        // benchmark::DoNotOptimize(key()->commit(polynomial));
     }
 }
 
@@ -61,8 +66,8 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     polynomial[25] = 1;
     polynomial[22] = 1;
     for (auto _ : state) {
-        key->commit(polynomial);
-        // benchmark::DoNotOptimize(key->commit(polynomial));
+        key()->commit(polynomial);
+        // benchmark::DoNotOptimize(key()->commit(polynomial));
     }
 }
 
@@ -75,7 +80,7 @@ template <typename Curve> void bench_commit_sparse_processed(::benchmark::State&
     polynomial[25] = 1;
     polynomial[22] = 1;
 
-    auto srs = extract_srs(key, num_points);
+    auto srs = extract_srs(key(), num_points);
 
     ASSERT(polynomial.size() == srs.size());
 
@@ -94,7 +99,7 @@ template <typename Curve> void bench_commit_sparse_processed(::benchmark::State&
     info(scalars.size());
 
     for (auto _ : state) {
-        benchmark::DoNotOptimize(key->commit(polynomial));
+        benchmark::DoNotOptimize(key()->commit(polynomial));
     }
 }
 
@@ -105,9 +110,10 @@ template <typename Curve> void bench_commit_sparse_random(::benchmark::State& st
     auto polynomial = Polynomial<Fr>(num_points);
     polynomial[25] = Fr::random_element();
     polynomial[22] = Fr::random_element();
+    polynomial[21] = Fr::random_element();
     for (auto _ : state) {
-        key->commit(polynomial);
-        // benchmark::DoNotOptimize(key->commit(polynomial));
+        key()->commit(polynomial);
+        // benchmark::DoNotOptimize(key()->commit(polynomial));
     }
 }
 
@@ -120,8 +126,8 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
         coeff = Fr::random_element();
     }
     for (auto _ : state) {
-        key->commit(polynomial);
-        // benchmark::DoNotOptimize(key->commit(polynomial));
+        key()->commit(polynomial);
+        // benchmark::DoNotOptimize(key()->commit(polynomial));
     }
 }
 
