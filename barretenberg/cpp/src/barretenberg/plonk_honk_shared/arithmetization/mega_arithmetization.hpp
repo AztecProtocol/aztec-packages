@@ -80,15 +80,15 @@ template <typename FF_> class MegaArith {
         E2eStructuredBlockSizes()
         {
             this->ecc_op = 1 << 10;
-            this->pub_inputs = 1 << 7;
-            this->arithmetic = 1 << 16;
-            this->delta_range = 1 << 15;
-            this->elliptic = 1 << 14;
-            this->aux = 1 << 16;
-            this->lookup = 1 << 15;
+            this->pub_inputs = 30000;
+            this->arithmetic = 755000;
+            this->delta_range = 140000;
+            this->elliptic = 600000;
+            this->aux = 1400000;
+            this->lookup = 460000;
             this->busread = 1 << 7;
-            this->poseidon_external = 1 << 11;
-            this->poseidon_internal = 1 << 14;
+            this->poseidon_external = 15000;
+            this->poseidon_internal = 85000;
         }
     };
 
