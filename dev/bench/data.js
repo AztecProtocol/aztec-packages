@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720702332270,
+  "lastUpdate": 1720703020959,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -79036,6 +79036,78 @@ window.BENCHMARK_DATA = {
             "value": 161068223,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161068223 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c92cf589efd49cd276ee9d7287957a1b91c1fdba",
+          "message": "chore(master): Release 0.46.3 (#7423)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.46.3</summary>\r\n\r\n##\r\n[0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.2...aztec-package-v0.46.3)\r\n(2024-07-11)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **aztec-package:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.46.3</summary>\r\n\r\n##\r\n[0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.2...barretenberg.js-v0.46.3)\r\n(2024-07-11)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.46.3</summary>\r\n\r\n##\r\n[0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.46.2...aztec-packages-v0.46.3)\r\n(2024-07-11)\r\n\r\n\r\n### Features\r\n\r\n* Add CLI argument for debugging comptime blocks\r\n(https://github.com/noir-lang/noir/pull/5192)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Add reset tiny and optimize tail\r\n([#7422](https://github.com/AztecProtocol/aztec-packages/issues/7422))\r\n([399917b](https://github.com/AztecProtocol/aztec-packages/commit/399917b3e6916805bb55596b47183e44700fe8f5))\r\n* **avm:** Calldatacopy and return gadget\r\n([#7415](https://github.com/AztecProtocol/aztec-packages/issues/7415))\r\n([ec39e4e](https://github.com/AztecProtocol/aztec-packages/commit/ec39e4e2ffecb6d6e355eb3963008b710cc11d2c)),\r\ncloses\r\n[#7381](https://github.com/AztecProtocol/aztec-packages/issues/7381)\r\n[#7211](https://github.com/AztecProtocol/aztec-packages/issues/7211)\r\n* **avm:** Make ProverPolynomials::get_row return references\r\n([#7419](https://github.com/AztecProtocol/aztec-packages/issues/7419))\r\n([108fc5f](https://github.com/AztecProtocol/aztec-packages/commit/108fc5f92e44b027b38fa31614e14f2b7a9f650a))\r\n* Integrate new proving systems in e2e\r\n([#6971](https://github.com/AztecProtocol/aztec-packages/issues/6971))\r\n([723a0c1](https://github.com/AztecProtocol/aztec-packages/commit/723a0c10c9010f3869f103c77f71950efbf7106c))\r\n* Lsp rename/find-all-references for struct members\r\n(https://github.com/noir-lang/noir/pull/5443)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* MSM sorting\r\n([#7351](https://github.com/AztecProtocol/aztec-packages/issues/7351))\r\n([5cbdc54](https://github.com/AztecProtocol/aztec-packages/commit/5cbdc549f0ab137ab4fa601e20d80699871faaf4))\r\n* **optimization:** Deduplicate more instructions\r\n(https://github.com/noir-lang/noir/pull/5457)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Prefix operator overload trait dispatch\r\n(https://github.com/noir-lang/noir/pull/5423)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Remove proof from L1 Rollup process\r\n([#7347](https://github.com/AztecProtocol/aztec-packages/issues/7347))\r\n([2645eab](https://github.com/AztecProtocol/aztec-packages/commit/2645eab19bac030835c959eb01f8f3af27f89adf)),\r\ncloses\r\n[#7346](https://github.com/AztecProtocol/aztec-packages/issues/7346)\r\n* Remove ram tables in note_getter\r\n([#7434](https://github.com/AztecProtocol/aztec-packages/issues/7434))\r\n([fd67da3](https://github.com/AztecProtocol/aztec-packages/commit/fd67da35da3949bf112392d7cf1d512c5eed23eb))\r\n* Sync from aztec-packages (https://github.com/noir-lang/noir/pull/5467)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Typing return values of embedded_curve_ops\r\n([#7413](https://github.com/AztecProtocol/aztec-packages/issues/7413))\r\n([db96077](https://github.com/AztecProtocol/aztec-packages/commit/db960772abfead018e4f6da55ae259c6b3d574ef))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* **avm:** Fixes AVM full tests and decrease timeout to 35 minutes\r\n([#7438](https://github.com/AztecProtocol/aztec-packages/issues/7438))\r\n([2a7494b](https://github.com/AztecProtocol/aztec-packages/commit/2a7494baec4396b9fa62f0a9c240b4b02f23fb1d))\r\n* Memory init with no other ops gate counting\r\n([#7427](https://github.com/AztecProtocol/aztec-packages/issues/7427))\r\n([e7177ba](https://github.com/AztecProtocol/aztec-packages/commit/e7177ba0f96c1da3edbcdffdaaf88c128bbdd719))\r\n* Pass secrets to ci-arm.yml\r\n([#7436](https://github.com/AztecProtocol/aztec-packages/issues/7436))\r\n([619501d](https://github.com/AztecProtocol/aztec-packages/commit/619501df5aa4c544cd8607dae5d4e20595109b2f))\r\n* Remove compile-time error for invalid indices\r\n(https://github.com/noir-lang/noir/pull/5466)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Using different generators in private refund\r\n([#7414](https://github.com/AztecProtocol/aztec-packages/issues/7414))\r\n([59b92ca](https://github.com/AztecProtocol/aztec-packages/commit/59b92ca0f72ca3705dd6933b304897c91edc81c3)),\r\ncloses\r\n[#7320](https://github.com/AztecProtocol/aztec-packages/issues/7320)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **bb:** Fix double increment\r\n([#7428](https://github.com/AztecProtocol/aztec-packages/issues/7428))\r\n([7870a58](https://github.com/AztecProtocol/aztec-packages/commit/7870a5815dc759aed7097dc9eb5ab8e10b3a1865))\r\n* **boxes:** Adding an init command for an empty project\r\n([#7398](https://github.com/AztecProtocol/aztec-packages/issues/7398))\r\n([a6a605d](https://github.com/AztecProtocol/aztec-packages/commit/a6a605d3cd83b2f4b8e47722ff262382a7a2ea1d))\r\n* Bump bb to 0.45.1 (https://github.com/noir-lang/noir/pull/5469)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Disable flaky cheat code test\r\n([7b8c2ba](https://github.com/AztecProtocol/aztec-packages/commit/7b8c2ba14600f4e51896bec15c6e7f3286885050))\r\n* Document EmbeddedCurvePoint\r\n(https://github.com/noir-lang/noir/pull/5468)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n* Minimize usage of get_row in inverse computation\r\n([#7431](https://github.com/AztecProtocol/aztec-packages/issues/7431))\r\n([f177887](https://github.com/AztecProtocol/aztec-packages/commit/f1778876eac8ef65edd06c49d1ddf2429d6583e5))\r\n* Private refund cleanup\r\n([#7403](https://github.com/AztecProtocol/aztec-packages/issues/7403))\r\n([ebec8ff](https://github.com/AztecProtocol/aztec-packages/commit/ebec8ff48900b48be3fce6bc9a52bcb566c79a7f))\r\n* Replace relative paths to noir-protocol-circuits\r\n([842f6d1](https://github.com/AztecProtocol/aztec-packages/commit/842f6d1978aaeba9d39e3433f06f2f402145b754))\r\n* Unbundle `check_array_is_initialized`\r\n(https://github.com/noir-lang/noir/pull/5451)\r\n([97ecff5](https://github.com/AztecProtocol/aztec-packages/commit/97ecff5ea76a0da878bdccc453b121147f726ec4))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.46.3</summary>\r\n\r\n##\r\n[0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.46.2...barretenberg-v0.46.3)\r\n(2024-07-11)\r\n\r\n\r\n### Features\r\n\r\n* **avm:** Calldatacopy and return gadget\r\n([#7415](https://github.com/AztecProtocol/aztec-packages/issues/7415))\r\n([ec39e4e](https://github.com/AztecProtocol/aztec-packages/commit/ec39e4e2ffecb6d6e355eb3963008b710cc11d2c)),\r\ncloses\r\n[#7381](https://github.com/AztecProtocol/aztec-packages/issues/7381)\r\n[#7211](https://github.com/AztecProtocol/aztec-packages/issues/7211)\r\n* **avm:** Make ProverPolynomials::get_row return references\r\n([#7419](https://github.com/AztecProtocol/aztec-packages/issues/7419))\r\n([108fc5f](https://github.com/AztecProtocol/aztec-packages/commit/108fc5f92e44b027b38fa31614e14f2b7a9f650a))\r\n* Integrate new proving systems in e2e\r\n([#6971](https://github.com/AztecProtocol/aztec-packages/issues/6971))\r\n([723a0c1](https://github.com/AztecProtocol/aztec-packages/commit/723a0c10c9010f3869f103c77f71950efbf7106c))\r\n* MSM sorting\r\n([#7351](https://github.com/AztecProtocol/aztec-packages/issues/7351))\r\n([5cbdc54](https://github.com/AztecProtocol/aztec-packages/commit/5cbdc549f0ab137ab4fa601e20d80699871faaf4))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* **avm:** Fixes AVM full tests and decrease timeout to 35 minutes\r\n([#7438](https://github.com/AztecProtocol/aztec-packages/issues/7438))\r\n([2a7494b](https://github.com/AztecProtocol/aztec-packages/commit/2a7494baec4396b9fa62f0a9c240b4b02f23fb1d))\r\n* Memory init with no other ops gate counting\r\n([#7427](https://github.com/AztecProtocol/aztec-packages/issues/7427))\r\n([e7177ba](https://github.com/AztecProtocol/aztec-packages/commit/e7177ba0f96c1da3edbcdffdaaf88c128bbdd719))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **bb:** Fix double increment\r\n([#7428](https://github.com/AztecProtocol/aztec-packages/issues/7428))\r\n([7870a58](https://github.com/AztecProtocol/aztec-packages/commit/7870a5815dc759aed7097dc9eb5ab8e10b3a1865))\r\n* Minimize usage of get_row in inverse computation\r\n([#7431](https://github.com/AztecProtocol/aztec-packages/issues/7431))\r\n([f177887](https://github.com/AztecProtocol/aztec-packages/commit/f1778876eac8ef65edd06c49d1ddf2429d6583e5))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-07-11T13:52:18+01:00",
+          "tree_id": "30bb9fcf3d71180a0bb1d49e14610573e0736061",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c92cf589efd49cd276ee9d7287957a1b91c1fdba"
+        },
+        "date": 1720703012277,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13765.698981000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9111.347877000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4720.57550300002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4375.260719 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41268.819918999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41268821000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14499.492655,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14499492000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4233836554,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4233836554 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196451920,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 196451920 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3485999766,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3485999766 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 160991328,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 160991328 ns\nthreads: 1"
           }
         ]
       }
