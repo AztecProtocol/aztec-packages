@@ -46,7 +46,7 @@ This will be improved in the future with a dedicated command.
 
 By default, TXE runs at `http://localhost:8080`. Using `aztec-nargo`, contract tests can be run with:
 
-`aztec-nargo test --use-legacy --silence-warnings --oracle-resolver http://host.docker.internal:8080`
+`aztec-nargo test --silence-warnings --oracle-resolver http://host.docker.internal:8080`
 
 :::warning
 Since TXE tests are written in Noir and executed with `aztec-nargo`, they all run in parallel. This also means every test creates their own isolated environment, so state modifications are local to each one of them.
