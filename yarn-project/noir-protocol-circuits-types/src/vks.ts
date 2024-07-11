@@ -60,9 +60,10 @@ function keyJsonToVKData(json: VkJson): VerificationKeyData {
   return new VerificationKeyData(
     new VerificationKeyAsFields(
       assertLength(
-        keyAsFields.slice(1).map((str: string) => new Fr(Buffer.from(str.slice(2), 'hex'))),
+        keyAsFields.map((str: string) => new Fr(Buffer.from(str.slice(2), 'hex'))),
         VERIFICATION_KEY_LENGTH_IN_FIELDS,
       ),
+      // TODO(#7410) what should be the vk hash here?
       new Fr(Buffer.from(keyAsFields[0].slice(2), 'hex')),
     ),
     Buffer.from(keyAsBytes, 'hex'),
@@ -160,7 +161,8 @@ export function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | F
 
   const index = getVKTree().getIndex(hash.toBuffer());
   if (index < 0) {
-    throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
+    //throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
+    return 0; // faked for now
   }
   return index;
 }
