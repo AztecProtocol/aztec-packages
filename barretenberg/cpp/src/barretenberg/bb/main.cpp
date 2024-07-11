@@ -371,12 +371,6 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     std::string translatorVkPath = outputDir + "/translator_vk";
     std::string eccVkPath = outputDir + "/ecc_vk";
 
-    vinfo("output vkPath: ", vkPath);
-    vinfo("output accPath: ", accPath);
-    vinfo("output proofPath: ", proofPath);
-    vinfo("output translatorVkPath: ", translatorVkPath);
-    vinfo("output eccVkPath: ", eccVkPath);
-
     auto proof = ivc.prove();
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
@@ -384,14 +378,13 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
     bool verified = ivc.verify(proof, { ivc.verifier_accumulator, last_instance });
     vinfo("ensure valid proof: ", verified);
-    if (verified) {
-        vinfo("write proof and vk data to files..");
-        write_file(proofPath, to_buffer(proof));
-        write_file(vkPath, to_buffer(ivc.instance_vk));
-        write_file(accPath, to_buffer(ivc.verifier_accumulator));
-        write_file(translatorVkPath, to_buffer(translator_vk));
-        write_file(eccVkPath, to_buffer(eccvm_vk));
-    }
+
+    vinfo("write proof and vk data to files..");
+    write_file(proofPath, to_buffer(proof));
+    write_file(vkPath, to_buffer(ivc.instance_vk));
+    write_file(accPath, to_buffer(ivc.verifier_accumulator));
+    write_file(translatorVkPath, to_buffer(translator_vk));
+    write_file(eccVkPath, to_buffer(eccvm_vk));
 }
 
 template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesystem::path& path)
@@ -420,17 +413,15 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 14);
 
-    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
-    using BN254Vk = bb::VerifierCommitmentKey<curve::BN254>;
-    /* WORKTODO const */ auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    // Read the proof  and verification data from given files
+    const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
     const auto accumulator = read_to_shared_ptr<ClientIVC::VerifierInstance>(accumulator_path);
-    accumulator->verification_key->pcs_verification_key = std::make_shared<BN254Vk>();
+    accumulator->verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(final_vk_path);
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
-    eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
+    eccvm_vk->pcs_verification_key =
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
     const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
-    translator_vk->pcs_verification_key = std::make_shared<BN254Vk>();
+    translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const bool verified = ClientIVC::verify(
         proof, accumulator, std::make_shared<ClientIVC::VerifierInstance>(final_vk), eccvm_vk, translator_vk);

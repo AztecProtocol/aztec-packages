@@ -1,7 +1,6 @@
 #pragma once
 #include <barretenberg/common/log.hpp>
 #include <cstdint>
-#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <vector>
@@ -46,7 +45,6 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
 {
     std::ofstream file(filename, std::ios::binary);
     if (!file) {
-        info("current path: ", std::filesystem::current_path());
         throw std::runtime_error("Failed to open data file for writing: " + filename);
     }
     file.write((char*)data.data(), (std::streamsize)data.size());

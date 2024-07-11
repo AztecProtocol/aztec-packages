@@ -147,15 +147,4 @@
             "console": "internalConsole",
         }    
     },
-    "launch": {
-        "version": "0.2.0",
-        "configurations": [
-        {
-            "type": "lldb",
-            "request": "attach",
-            "name": "Attach to running lldb process",
-            "pid": "${command:pickMyProcess}" // use ${command:pickProcess} to pick other users' processes
-        }
-        ]
-    },
 }
