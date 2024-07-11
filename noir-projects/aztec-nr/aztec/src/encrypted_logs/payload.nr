@@ -142,10 +142,10 @@ fn fr_to_fq(r: Field) -> Scalar {
         low_bytes[16 + i] = r_bytes[i + 16];
     }
 
-    let low = bytes32_to_field(low_bytes);
-    let high = bytes32_to_field(high_bytes);
+    let lo = bytes32_to_field(low_bytes);
+    let hi = bytes32_to_field(high_bytes);
 
-    Scalar::new(low, high)
+    Scalar { lo, hi }
 }
 
 fn compute_ivpk_app(ivpk: Point, contract_address: AztecAddress) -> Point {
