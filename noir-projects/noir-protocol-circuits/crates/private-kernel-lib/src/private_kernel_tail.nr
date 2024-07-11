@@ -6,7 +6,8 @@ use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
     constants::{
     PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX
+    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX
 }
 };
 
@@ -17,6 +18,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_BIG_INDEX,
     PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
     PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
 struct PrivateKernelTailCircuitPrivateInputs {
@@ -332,7 +334,11 @@ mod tests {
     #[test(should_fail_with="Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_key_validation(Point::new(1, 2, false), 27, GENERATOR_INDEX__IVSK_M);
+        let _void = builder.previous_kernel.add_request_for_key_validation(
+            Point { x: 1, y: 2, is_infinite: false },
+            27,
+            GENERATOR_INDEX__IVSK_M
+        );
         builder.failed();
     }
 
