@@ -111,7 +111,7 @@ describe('Private Execution test suite', () => {
   const runSimulator = ({
     artifact,
     args = [],
-    msgSender = AztecAddress.fromField(new Fr(Fr.MODULUS - 1n)),
+    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     contractAddress = defaultContractAddress,
     txContext = {},
   }: {

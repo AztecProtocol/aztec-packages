@@ -34,7 +34,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const functionSelector = FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = computeInnerAuthWitHash([
-      new Fr(Fr.MODULUS - 1n),
+      Fr.MAX_FIELD_VALUE,
       functionSelector.toField(),
       entrypointPackedArgs.hash,
     ]);

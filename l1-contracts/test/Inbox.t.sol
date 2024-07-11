@@ -51,11 +51,12 @@ contract InboxTest is Test {
     // fix message.sender
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
-    _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
+    _message.recipient.actor =
+      bytes32(uint256(_message.recipient.actor) % Constants.MAX_FIELD_VALUE + 1);
     // ensure content fits in a field
-    _message.content = bytes32(uint256(_message.content) % Constants.P);
+    _message.content = bytes32(uint256(_message.content) % Constants.MAX_FIELD_VALUE + 1);
     // ensure secret hash fits in a field
-    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
+    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.MAX_FIELD_VALUE + 1);
     // update version
     _message.recipient.version = version;
 
