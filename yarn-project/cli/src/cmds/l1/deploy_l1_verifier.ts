@@ -1,7 +1,5 @@
-import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
-import { MockVerifierAbi, MockVerifierBytecode, RollupAbi } from '@aztec/l1-artifacts';
 
 import { InvalidOptionArgumentError } from 'commander';
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
@@ -24,6 +22,9 @@ export async function deployUltraVerifier(
   if (!bbBinaryPath || !bbWorkingDirectory) {
     throw new InvalidOptionArgumentError('Missing path to bb binary and working directory');
   }
+  // @ts-expect-error
+  const { BBCircuitVerifier } = await import('@aztec/bb-prover');
+
   const circuitVerifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });
   const contractSrc = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraVerifier.sol');
   log('Generated UltraVerifier contract');
@@ -67,6 +68,8 @@ export async function deployUltraVerifier(
   const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
   const { l1ContractAddresses } = await pxe.getNodeInfo();
 
+  const { RollupAbi } = await import('@aztec/l1-artifacts');
+
   const rollup = getContract({
     abi: RollupAbi,
     address: l1ContractAddresses.rollupAddress.toString(),
@@ -89,6 +92,7 @@ export async function deployMockVerifier(
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const { publicClient, walletClient } = createL1Clients(ethRpcUrl, account);
+  const { MockVerifierAbi, MockVerifierBytecode, RollupAbi } = await import('@aztec/l1-artifacts');
 
   const mockVerifierAddress = await deployL1Contract(walletClient, publicClient, MockVerifierAbi, MockVerifierBytecode);
   log(`Deployed MockVerifier at ${mockVerifierAddress.toString()}`);

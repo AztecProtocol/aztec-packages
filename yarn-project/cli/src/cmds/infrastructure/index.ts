@@ -1,6 +1,8 @@
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
-import { API_KEY, Command, ETHEREUM_HOST, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
+import { Command } from 'commander';
+
+import { API_KEY, ETHEREUM_HOST, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   program

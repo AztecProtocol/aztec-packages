@@ -1,7 +1,6 @@
 import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type LogFn } from '@aztec/foundation/log';
-import { GasTokenContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 
@@ -11,6 +10,9 @@ const waitOpts: WaitOpts = {
 };
 
 export async function bootstrap(rpcUrl: string, log: LogFn) {
+  // @ts-expect-error
+  const { GasTokenContract, KeyRegistryContract } = await import('@aztec/noir-contracts.js');
+
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(31337, 1));
 

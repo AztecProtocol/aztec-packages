@@ -1,4 +1,3 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { ContractDeployer, type DeployMethod, Fr } from '@aztec/aztec.js';
 import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { getInitializer } from '@aztec/foundation/abi';
@@ -41,6 +40,7 @@ export async function deploy(
       `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
     );
   }
+  const { getSchnorrAccount } = await import('@aztec/accounts/schnorr');
 
   const wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);

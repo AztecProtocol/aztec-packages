@@ -2,15 +2,6 @@ import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } fr
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
-  GasPortalAbi,
-  GasPortalBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
-} from '@aztec/l1-artifacts';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import TOML from '@iarna/toml';
@@ -62,6 +53,12 @@ export async function deployAztecContracts(
     RegistryBytecode,
     RollupAbi,
     RollupBytecode,
+    AvailabilityOracleAbi,
+    AvailabilityOracleBytecode,
+    GasPortalAbi,
+    GasPortalBytecode,
+    PortalERC20Abi,
+    PortalERC20Bytecode,
   } = await import('@aztec/l1-artifacts');
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
@@ -100,6 +97,9 @@ export async function deployAztecContracts(
       contractBytecode: GasPortalBytecode,
     },
   };
+  // @ts-expect-error
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
+
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
     l2GasTokenAddress: GasTokenAddress,
     vkTreeRoot: getVKTreeRoot(),
@@ -111,6 +111,7 @@ export async function deployAztecContracts(
  * @returns The contract ABIs.
  */
 export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
+  // @ts-expect-error
   const imports = await import('@aztec/noir-contracts.js');
   return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }

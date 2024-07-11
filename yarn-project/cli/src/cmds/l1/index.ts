@@ -1,8 +1,9 @@
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
+import { Command } from 'commander';
+
 import {
   API_KEY,
-  Command,
   ETHEREUM_HOST,
   PRIVATE_KEY,
   parseAztecAddress,

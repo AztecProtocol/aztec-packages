@@ -1,9 +1,11 @@
 import { Fr, PublicKeys } from '@aztec/circuits.js';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
+import { Command } from 'commander';
+
 import { FeeOpts } from '../../fees.js';
 import {
-  Command,
+  addOptions,
   createPrivateKeyOption,
   logJson,
   parseAztecAddress,
@@ -21,7 +23,7 @@ import {
 } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
-  program
+  const createAccountCommand = program
     .command('create-account')
     .description(
       'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
@@ -33,8 +35,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
     .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
-    .addOption(pxeOption)
-    .addOptions(FeeOpts.getOptions())
+    .addOption(pxeOption);
+
+  addOptions(createAccountCommand, FeeOpts.getOptions())
     .option(
       '--register-only',
       'Just register the account on the PXE. Do not deploy or initialize the account contract.',
@@ -58,7 +61,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       );
     });
 
-  program
+  const deployCommand = program
     .command('deploy')
     .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
@@ -88,43 +91,42 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--class-registration', 'Register the contract class. Only has to be done once')
     .option('--no-class-registration', 'Skip registering the contract class')
     .option('--public-deployment', 'Deploy the public bytecode of contract')
-    .option('--no-public-deployment', "Skip deploying the contract's public bytecode")
-    .addOptions(FeeOpts.getOptions())
-    .action(async (artifactPath, opts) => {
-      const { deploy } = await import('./deploy.js');
-      const {
-        json,
-        rpcUrl,
-        publicKey,
-        args: rawArgs,
-        salt,
-        wait,
-        privateKey,
-        classRegistration,
-        initialize,
-        publicDeployment,
-        universal,
-      } = opts;
-      await deploy(
-        artifactPath,
-        json,
-        rpcUrl,
-        publicKey ? PublicKeys.fromString(publicKey) : undefined,
-        rawArgs,
-        salt,
-        privateKey,
-        typeof initialize === 'string' ? initialize : undefined,
-        !publicDeployment,
-        !classRegistration,
-        typeof initialize === 'string' ? false : initialize,
-        universal,
-        wait,
-        FeeOpts.fromCli(opts, log),
-        debugLogger,
-        log,
-        logJson(log),
-      );
-    });
+    .option('--no-public-deployment', "Skip deploying the contract's public bytecode");
+  addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPath, opts) => {
+    const { deploy } = await import('./deploy.js');
+    const {
+      json,
+      rpcUrl,
+      publicKey,
+      args: rawArgs,
+      salt,
+      wait,
+      privateKey,
+      classRegistration,
+      initialize,
+      publicDeployment,
+      universal,
+    } = opts;
+    await deploy(
+      artifactPath,
+      json,
+      rpcUrl,
+      publicKey ? PublicKeys.fromString(publicKey) : undefined,
+      rawArgs,
+      salt,
+      privateKey,
+      typeof initialize === 'string' ? initialize : undefined,
+      !publicDeployment,
+      !classRegistration,
+      typeof initialize === 'string' ? false : initialize,
+      universal,
+      wait,
+      FeeOpts.fromCli(opts, log),
+      debugLogger,
+      log,
+      logJson(log),
+    );
+  });
 
   program
     .command('add-contract')
@@ -263,7 +265,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       await getRecipient(address, options.rpcUrl, debugLogger, log);
     });
 
-  program
+  const sendCommand = program
     .command('send')
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to execute')
@@ -275,23 +277,22 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
     .addOption(createPrivateKeyOption("The sender's private key.", true))
     .addOption(pxeOption)
-    .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
-    .addOptions(FeeOpts.getOptions())
-    .action(async (functionName, options) => {
-      const { send } = await import('./send.js');
-      await send(
-        functionName,
-        options.args,
-        options.contractArtifact,
-        options.contractAddress,
-        options.privateKey,
-        options.rpcUrl,
-        !options.noWait,
-        FeeOpts.fromCli(options, log),
-        debugLogger,
-        log,
-      );
-    });
+    .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
+  addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, options) => {
+    const { send } = await import('./send.js');
+    await send(
+      functionName,
+      options.args,
+      options.contractArtifact,
+      options.contractAddress,
+      options.privateKey,
+      options.rpcUrl,
+      !options.noWait,
+      FeeOpts.fromCli(options, log),
+      debugLogger,
+      log,
+    );
+  });
 
   program
     .command('call')

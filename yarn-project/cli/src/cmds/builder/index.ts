@@ -1,10 +1,9 @@
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { LogFn } from '@aztec/foundation/log';
 
+import { Command } from 'commander';
 import { dirname } from 'path';
 
-import { Command } from '../../utils/commands.js';
-
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn) {
   program
     .command('codegen')
     .argument('<noir-abi-path>', 'Path to the Noir ABI or project dir.')

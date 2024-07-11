@@ -1,6 +1,6 @@
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
-import { Command } from '../../utils/commands.js';
+import { Command } from 'commander';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   program

@@ -5,7 +5,8 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { format } from 'util';
 
 import { createCompatibleClient } from '../../client.js';
-import { getFunctionArtifact, getTxSender, prepTx } from '../../utils/aztec.js';
+import { getFunctionArtifact, prepTx } from '../../utils/aztec.js';
+import { getTxSender } from '../../utils/commands.js';
 
 export async function call(
   functionName: string,

@@ -25,6 +25,7 @@
     "aztec-faucet",
     "aztec-node",
     "bb-prover",
+    "builder",
     "pxe",
     "aztec",
     "aztec.js",

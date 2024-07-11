@@ -1,4 +1,3 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type DeployAccountOptions } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -22,6 +21,7 @@ export async function createAccount(
   const printPK = typeof privateKey === 'undefined';
   privateKey ??= Fr.random();
   const salt = Fr.ZERO;
+  const { getSchnorrAccount } = await import('@aztec/accounts/schnorr');
 
   const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();

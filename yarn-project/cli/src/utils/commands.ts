@@ -8,7 +8,7 @@ import { PXE } from '@aztec/circuit-types';
 import { PublicKeys } from '@aztec/circuits.js';
 import { LogFn, Logger } from '@aztec/foundation/log';
 
-import { Command as CommanderCommand, CommanderError, InvalidArgumentError, Option } from 'commander';
+import { Command, Command as CommanderCommand, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { rename, writeFile } from 'fs/promises';
 
@@ -24,15 +24,9 @@ export const getLocalhost = () =>
 export const LOCALHOST = await getLocalhost();
 export const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
 
-export class Command extends CommanderCommand {
-  addOptions(options: Option[]) {
-    options.forEach(option => this.addOption(option));
-    return this;
-  }
-
-  override createCommand(name?: string): Command {
-    return new Command(name);
-  }
+export function addOptions(program: Command, options: Option[]) {
+  options.forEach(option => program.addOption(option));
+  return program;
 }
 
 export const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')

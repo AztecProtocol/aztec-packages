@@ -1,14 +1,11 @@
 import { deployInitialTestAccounts } from '@aztec/accounts/testing';
 import { createAztecNodeRpcServer } from '@aztec/aztec-node';
-import { fileURLToPath } from '@aztec/aztec.js';
-import { getProgram as getCLIProgram } from '@aztec/cli';
 import { type ServerList, createNamespacedJsonRpcServer, createStatusRouter } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { createPXERpcServer } from '@aztec/pxe';
 
-import { readFileSync } from 'fs';
+import { Command } from 'commander';
 import http from 'http';
-import { dirname, resolve } from 'path';
 
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
@@ -22,14 +19,7 @@ const { AZTEC_PORT = '8080', API_PREFIX = '', TEST_ACCOUNTS = 'true', ENABLE_GAS
  * @param userLog - log function for logging user output.
  * @param debugLogger - logger for logging debug messages.
  */
-export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
-  const program = getCLIProgram(userLog, debugLogger);
-
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
-
-  program.name('aztec').description('Aztec command line interface').version(cliVersion);
-
+export function injectAztecCommands(program: Command, userLog: LogFn, debugLogger: DebugLogger) {
   // Start Aztec modules with options
   program
     .command('start')
@@ -53,7 +43,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger) {
       if (options.sandbox) {
         // If no CLI arguments were provided, run aztec full node for sandbox usage.
         userLog(`${splash}\n${github}\n\n`);
-        userLog(`Setting up Aztec Sandbox v${cliVersion}, please stand by...`);
+        userLog(`Setting up Aztec Sandbox, please stand by...`);
         const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
           enableGas: ['true', '1'].includes(ENABLE_GAS),
         });

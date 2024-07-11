@@ -216,7 +216,7 @@ __metadata:
     "@types/jest": ^29.5.0
     "@types/koa": ^2.13.6
     abitype: ^0.8.11
-    commander: ^11.1.0
+    commander: ^12.1.0
     jest: ^29.5.0
     koa: ^2.14.2
     koa-router: ^12.0.0
@@ -247,7 +247,7 @@ __metadata:
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     "@types/source-map-support": ^0.5.10
-    commander: ^9.0.0
+    commander: ^12.1.0
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
     source-map-support: ^0.5.21
@@ -264,7 +264,7 @@ __metadata:
   resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     comlink: ^4.4.1
-    commander: ^10.0.1
+    commander: ^12.1.0
     debug: ^4.3.4
     tslib: ^2.4.0
   bin:
@@ -276,31 +276,14 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/builder@workspace:builder"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/types": "workspace:^"
-    "@iarna/toml": ^2.2.5
+    "@aztec/cli": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
-    "@types/lodash.camelcase": ^4.3.7
-    "@types/lodash.capitalize": ^4.2.7
     "@types/node": ^18.7.23
-    "@types/pako": ^2.0.0
-    "@types/semver": ^7.5.4
-    base64-js: ^1.5.1
-    commander: ^9.0.0
-    fs-extra: ^11.1.1
+    commander: ^12.1.0
     jest: ^29.5.0
-    lodash.camelcase: ^4.3.0
-    lodash.capitalize: ^4.2.1
-    memfs: ^4.6.0
-    pako: ^2.1.0
-    semver: ^7.5.4
     ts-node: ^10.9.1
-    tslib: ^2.4.0
     typescript: ^5.0.4
-    unzipit: ^1.4.3
   bin:
     aztec-builder: dest/cli.js
   languageName: unknown
@@ -359,15 +342,11 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/bb-prover": "workspace:^"
-    "@aztec/builder": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/noir-contracts.js": "workspace:^"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@iarna/toml": ^2.2.5
@@ -379,7 +358,7 @@ __metadata:
     "@types/semver": ^7.5.2
     "@types/source-map-support": ^0.5.10
     axios: ^1.7.2
-    commander: ^9.0.0
+    commander: ^12.1.0
     jest: ^29.5.0
     jest-mock-extended: ^3.0.5
     semver: ^7.5.4
@@ -390,8 +369,14 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     viem: ^2.7.15
-  bin:
-    aztec-cli: ./dest/bin/index.js
+  peerDependencies:
+    "@aztec/accounts": "workspace:^"
+    "@aztec/bb-prover": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
   languageName: unknown
   linkType: soft
 
@@ -789,7 +774,7 @@ __metadata:
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     "@types/source-map-support": ^0.5.10
-    commander: ^9.0.0
+    commander: ^12.1.0
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
     lodash.chunk: ^4.2.0
@@ -2225,38 +2210,6 @@ __metadata:
     "@jridgewell/resolve-uri": ^3.1.0
     "@jridgewell/sourcemap-codec": ^1.4.14
   checksum: 9d3c40d225e139987b50c48988f8717a54a8c994d8a948ee42e1412e08988761d0754d7d10b803061cc3aebf35f92a5dbbab493bd0e1a9ef9e89a2130e83ba34
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/base64@npm:^1.1.1":
-  version: 1.1.2
-  resolution: "@jsonjoy.com/base64@npm:1.1.2"
-  peerDependencies:
-    tslib: 2
-  checksum: 00dbf9cbc6ecb3af0e58288a305cc4ee3dfca9efa24443d98061756e8f6de4d6d2d3764bdfde07f2b03e6ce56db27c8a59b490bd134bf3d8122b4c6b394c7010
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/json-pack@npm:^1.0.3":
-  version: 1.0.4
-  resolution: "@jsonjoy.com/json-pack@npm:1.0.4"
-  dependencies:
-    "@jsonjoy.com/base64": ^1.1.1
-    "@jsonjoy.com/util": ^1.1.2
-    hyperdyperid: ^1.2.0
-    thingies: ^1.20.0
-  peerDependencies:
-    tslib: 2
-  checksum: 21e5166d5b5f4856791c2c7019dfba0e8313d2501937543691cdffd5fbe1f9680548a456d2c8aa78929aa69b2ac4c787ca8dbc7cf8e4926330decedcd0d9b8ea
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/util@npm:^1.1.2":
-  version: 1.1.3
-  resolution: "@jsonjoy.com/util@npm:1.1.3"
-  peerDependencies:
-    tslib: 2
-  checksum: 144df56aafcae8984d43ebf0f2a11cecb69052286c83522758823710fbf2caabbe93946bdf5c343d3b50073bb0a1c332fea0e797eb8b4df35db480a75b0946ac
   languageName: node
   linkType: hard
 
@@ -3834,7 +3787,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/fs-extra@npm:^11.0.1, @types/fs-extra@npm:^11.0.2":
+"@types/fs-extra@npm:^11.0.2":
   version: 11.0.4
   resolution: "@types/fs-extra@npm:11.0.4"
   dependencies:
@@ -4050,24 +4003,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash.camelcase@npm:^4.3.7":
-  version: 4.3.9
-  resolution: "@types/lodash.camelcase@npm:4.3.9"
-  dependencies:
-    "@types/lodash": "*"
-  checksum: f54132d38ffa72b25bce2111e4d28f339599f6d4fcfc1248a89d1d96445512d7a431f0b0e74f6e6c8d6bc09fe53cf94d9426e188d8feacb3ffe04cd9c3a602e7
-  languageName: node
-  linkType: hard
-
-"@types/lodash.capitalize@npm:^4.2.7":
-  version: 4.2.9
-  resolution: "@types/lodash.capitalize@npm:4.2.9"
-  dependencies:
-    "@types/lodash": "*"
-  checksum: 54a9154b2084392986646335d5ed4902a89c24ce675cf8b8cfcd022f6a0eed71c30c2f8cc4b2682cfc5c55a5e1fdad2340609ba58db451dfdd41d82b14c88995
-  languageName: node
-  linkType: hard
-
 "@types/lodash.chunk@npm:^4.2.7, @types/lodash.chunk@npm:^4.2.9":
   version: 4.2.9
   resolution: "@types/lodash.chunk@npm:4.2.9"
@@ -4273,7 +4208,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/semver@npm:^7.5.0, @types/semver@npm:^7.5.2, @types/semver@npm:^7.5.4":
+"@types/semver@npm:^7.5.0, @types/semver@npm:^7.5.2":
   version: 7.5.8
   resolution: "@types/semver@npm:7.5.8"
   checksum: ea6f5276f5b84c55921785a3a27a3cd37afee0111dfe2bcb3e03c31819c197c782598f17f0b150a69d453c9584cd14c4c4d7b9a55d2c5e6cacd4d66fdb3b3663
@@ -5413,7 +5348,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
+"base64-js@npm:^1.3.1":
   version: 1.5.1
   resolution: "base64-js@npm:1.5.1"
   checksum: 669632eb3745404c2f822a18fc3a0122d2f9a7a13f7fb8b5823ee19d1d2ff9ee5b52c53367176ea4ad093c332fd5ab4bd0ebae5a8e27917a4105a4cfc86b1005
@@ -6045,10 +5980,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^11.1.0":
-  version: 11.1.0
-  resolution: "commander@npm:11.1.0"
-  checksum: fd1a8557c6b5b622c89ecdfde703242ab7db3b628ea5d1755784c79b8e7cb0d74d65b4a262289b533359cd58e1bfc0bf50245dfbcd2954682a6f367c828b79ef
+"commander@npm:^12.1.0":
+  version: 12.1.0
+  resolution: "commander@npm:12.1.0"
+  checksum: 68e9818b00fc1ed9cdab9eb16905551c2b768a317ae69a5e3c43924c2b20ac9bb65b27e1cab36aeda7b6496376d4da908996ba2c0b5d79463e0fb1e77935d514
   languageName: node
   linkType: hard
 
@@ -6073,7 +6008,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^9.0.0, commander@npm:^9.5.0":
+"commander@npm:^9.5.0":
   version: 9.5.0
   resolution: "commander@npm:9.5.0"
   checksum: c7a3e27aa59e913b54a1bafd366b88650bc41d6651f0cbe258d4ff09d43d6a7394232a4dadd0bf518b3e696fdf595db1028a0d82c785b88bd61f8a440cecfade
@@ -8577,13 +8512,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hyperdyperid@npm:^1.2.0":
-  version: 1.2.0
-  resolution: "hyperdyperid@npm:1.2.0"
-  checksum: 210029d1c86926f09109f6317d143f8b056fc38e8dd11b0c3e3205fc6c6ff8429fb55b4b9c2bce065462719ed9d34366eced387aaa0035d93eb76b306a8547ef
-  languageName: node
-  linkType: hard
-
 "iconv-lite@npm:0.4.24":
   version: 0.4.24
   resolution: "iconv-lite@npm:0.4.24"
@@ -10402,13 +10330,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash.capitalize@npm:^4.2.1":
-  version: 4.2.1
-  resolution: "lodash.capitalize@npm:4.2.1"
-  checksum: d9195f31d48c105206f1099946d8bbc8ab71435bc1c8708296992a31a992bb901baf120fdcadd773098ac96e62a79e6b023ee7d26a2deb0d6c6aada930e6ad0a
-  languageName: node
-  linkType: hard
-
 "lodash.chunk@npm:^4.2.0":
   version: 4.2.0
   resolution: "lodash.chunk@npm:4.2.0"
@@ -10717,18 +10638,6 @@ __metadata:
     inherits: ^2.0.1
     ltgt: ^2.2.0
   checksum: a8c418620781a396e650834ab18022c1ae13060b3ca47dc80152eff45caf0e4780598610fd0f9b5a50ebdf195e686ed53fadbae1272addfafad98d598a165a4b
-  languageName: node
-  linkType: hard
-
-"memfs@npm:^4.6.0":
-  version: 4.9.2
-  resolution: "memfs@npm:4.9.2"
-  dependencies:
-    "@jsonjoy.com/json-pack": ^1.0.3
-    "@jsonjoy.com/util": ^1.1.2
-    sonic-forest: ^1.0.0
-    tslib: ^2.0.0
-  checksum: 72850691d37b4e67fb78fceced7294e381caf7a614b22b81fa643c03ac6c13270d52e2ac96d8ed95edab715fd0fba2db1bf604a815cbd6d53ecb3f56c038a583
   languageName: node
   linkType: hard
 
@@ -12985,17 +12894,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sonic-forest@npm:^1.0.0":
-  version: 1.0.3
-  resolution: "sonic-forest@npm:1.0.3"
-  dependencies:
-    tree-dump: ^1.0.0
-  peerDependencies:
-    tslib: 2
-  checksum: d328735d527ad9e27b3ed9a1599abf33a1e2df139b3689c6515c3c1fa09f19d0a9ddccdc1a43759fa43462259a962308cb18214bed761c1b7ea75a7611e31b11
-  languageName: node
-  linkType: hard
-
 "source-map-js@npm:^1.2.0":
   version: 1.2.0
   resolution: "source-map-js@npm:1.2.0"
@@ -13589,15 +13487,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"thingies@npm:^1.20.0":
-  version: 1.21.0
-  resolution: "thingies@npm:1.21.0"
-  peerDependencies:
-    tslib: ^2
-  checksum: 283a2785e513dc892822dd0bbadaa79e873a7fc90b84798164717bf7cf837553e0b4518d8027b2307d8f6fc6caab088fa717112cd9196c6222763cc3cc1b7e79
-  languageName: node
-  linkType: hard
-
 "through@npm:2, through@npm:^2.3.8, through@npm:~2.3, through@npm:~2.3.1":
   version: 2.3.8
   resolution: "through@npm:2.3.8"
@@ -13641,15 +13530,6 @@ __metadata:
   version: 1.0.1
   resolution: "toidentifier@npm:1.0.1"
   checksum: 952c29e2a85d7123239b5cfdd889a0dde47ab0497f0913d70588f19c53f7e0b5327c95f4651e413c74b785147f9637b17410ac8c846d5d4a20a5a33eb6dc3a45
-  languageName: node
-  linkType: hard
-
-"tree-dump@npm:^1.0.0":
-  version: 1.0.1
-  resolution: "tree-dump@npm:1.0.1"
-  peerDependencies:
-    tslib: 2
-  checksum: 256f2e066ab8743672795822731410d9b9036ef449499f528df1a638ad99af45f345bfbddeaf1cc46b7b9279db3b5f83e1a4cb21bc086ef25ce6add975a3c490
   languageName: node
   linkType: hard
 
@@ -13850,7 +13730,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.0.0, tslib@npm:^2.0.1, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.5.0, tslib@npm:^2.6.1":
+"tslib@npm:^2.0.1, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.5.0, tslib@npm:^2.6.1":
   version: 2.6.2
   resolution: "tslib@npm:2.6.2"
   checksum: 329ea56123005922f39642318e3d1f0f8265d1e7fcb92c633e0809521da75eeaca28d2cf96d7248229deb40e5c19adf408259f4b9640afd20d13aecc1430f3ad
@@ -14183,15 +14063,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"unzipit@npm:^1.4.3":
-  version: 1.4.3
-  resolution: "unzipit@npm:1.4.3"
-  dependencies:
-    uzip-module: ^1.0.2
-  checksum: ce29348edab7b5fb5b7b4d43437f48e35812ac8b3cc2d76efd1acfcad6dd1b96b4f96bfd03250a724b87ba99dd531d7727ad24b590acf727dde79f54f5e779ed
-  languageName: node
-  linkType: hard
-
 "upath@npm:^2.0.1":
   version: 2.0.1
   resolution: "upath@npm:2.0.1"
@@ -14246,13 +14117,6 @@ __metadata:
     is-typed-array: ^1.1.3
     which-typed-array: ^1.1.2
   checksum: 705e51f0de5b446f4edec10739752ac25856541e0254ea1e7e45e5b9f9b0cb105bc4bd415736a6210edc68245a7f903bf085ffb08dd7deb8a0e847f60538a38a
-  languageName: node
-  linkType: hard
-
-"uzip-module@npm:^1.0.2":
-  version: 1.0.3
-  resolution: "uzip-module@npm:1.0.3"
-  checksum: fc286c44a04d75055577fae8293d3fee499d1e850f87e88c158b1e3657f4794a3a40ca2d34f73474ff82917176dd5ca9d1c0d1e375a083714e11afabd3afa423
   languageName: node
   linkType: hard
 
