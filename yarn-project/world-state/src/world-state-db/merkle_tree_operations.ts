@@ -94,15 +94,15 @@ export interface MerkleTreeOperations {
     value: bigint,
   ): Promise<
     | {
-        /**
-         * The index of the found leaf.
-         */
-        index: bigint;
-        /**
-         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-         */
-        alreadyPresent: boolean;
-      }
+      /**
+       * The index of the found leaf.
+       */
+      index: bigint;
+      /**
+       * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+       */
+      alreadyPresent: boolean;
+    }
     | undefined
   >;
 
@@ -112,14 +112,6 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf required.
    */
   getLeafPreimage<ID extends IndexedTreeId>(treeId: ID, index: bigint): Promise<IndexedTreeLeafPreimage | undefined>;
-
-  /**
-   * Update the leaf data at the given index.
-   * @param treeId - The tree for which leaf data should be edited.
-   * @param leaf - The updated leaf value.
-   * @param index - The index of the leaf to be updated.
-   */
-  updateLeaf<ID extends IndexedTreeId>(treeId: ID, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
 
   /**
    * Returns the index containing a leaf value.

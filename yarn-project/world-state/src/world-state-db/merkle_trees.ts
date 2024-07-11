@@ -35,7 +35,6 @@ import {
   Pedersen,
   StandardIndexedTree,
   StandardTree,
-  type UpdateOnlyTree,
   getTreeMeta,
   loadTree,
   newTree,
@@ -100,7 +99,7 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: MerkleTreeMap = null as any;
   private jobQueue = new SerialQueue();
 
-  private constructor(private store: AztecKVStore, private log: DebugLogger) {}
+  private constructor(private store: AztecKVStore, private log: DebugLogger) { }
 
   /**
    * Method to asynchronously create and initialize a MerkleTrees instance.
@@ -326,15 +325,15 @@ export class MerkleTrees implements MerkleTreeDb {
     includeUncommitted: boolean,
   ): Promise<
     | {
-        /**
-         * The index of the found leaf.
-         */
-        index: bigint;
-        /**
-         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-         */
-        alreadyPresent: boolean;
-      }
+      /**
+       * The index of the found leaf.
+       */
+      index: bigint;
+      /**
+       * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+       */
+      alreadyPresent: boolean;
+    }
     | undefined
   > {
     return await this.synchronize(() =>
@@ -396,17 +395,6 @@ export class MerkleTrees implements MerkleTreeDb {
       // TODO #5448 fix "as any"
       return Promise.resolve(tree.findLeafIndexAfter(value as any, startIndex, includeUncommitted));
     });
-  }
-
-  /**
-   * Updates a leaf in a tree at a given index.
-   * @param treeId - The ID of the tree.
-   * @param leaf - The new leaf value.
-   * @param index - The index to insert into.
-   * @returns Empty promise.
-   */
-  public async updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
-    return await this.synchronize(() => this.#updateLeaf(treeId, leaf, index));
   }
 
   /**
@@ -502,14 +490,6 @@ export class MerkleTrees implements MerkleTreeDb {
     }
     // TODO #5448 fix "as any"
     return await tree.appendLeaves(leaves as any[]);
-  }
-
-  async #updateLeaf(treeId: IndexedTreeId, leaf: MerkleTreeLeafType<typeof treeId>, index: bigint): Promise<void> {
-    const tree = this.trees[treeId];
-    if (!('updateLeaf' in tree)) {
-      throw new Error('Tree does not support `updateLeaf` method');
-    }
-    return await (tree as UpdateOnlyTree<typeof leaf>).updateLeaf(leaf, index);
   }
 
   /**

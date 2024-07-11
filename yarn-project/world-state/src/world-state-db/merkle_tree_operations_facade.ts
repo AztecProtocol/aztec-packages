@@ -16,7 +16,7 @@ import {
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
  */
 export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
-  constructor(private trees: MerkleTreeDb, private includeUncommitted: boolean) {}
+  constructor(private trees: MerkleTreeDb, private includeUncommitted: boolean) { }
 
   /**
    * Returns the tree info for the specified tree id.
@@ -77,29 +77,18 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
     value: bigint,
   ): Promise<
     | {
-        /**
-         * The index of the found leaf.
-         */
-        index: bigint;
-        /**
-         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-         */
-        alreadyPresent: boolean;
-      }
+      /**
+       * The index of the found leaf.
+       */
+      index: bigint;
+      /**
+       * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+       */
+      alreadyPresent: boolean;
+    }
     | undefined
   > {
     return this.trees.getPreviousValueIndex(treeId, value, this.includeUncommitted);
-  }
-
-  /**
-   * Updates a leaf in a tree at a given index.
-   * @param treeId - The ID of the tree.
-   * @param leaf - The new leaf value.
-   * @param index - The index to insert into.
-   * @returns Empty promise.
-   */
-  updateLeaf<ID extends IndexedTreeId>(treeId: ID, leaf: NullifierLeafPreimage, index: bigint): Promise<void> {
-    return this.trees.updateLeaf(treeId, leaf, index);
   }
 
   /**

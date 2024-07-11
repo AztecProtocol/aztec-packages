@@ -35,7 +35,6 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
  */
 type MerkleTreeSetters =
   | 'appendLeaves'
-  | 'updateLeaf'
   | 'commit'
   | 'rollback'
   | 'handleL2BlockAndMessages'
@@ -57,9 +56,9 @@ export type MerkleTreeDb = {
     MerkleTreeOperations[Property]
   >;
 } & Pick<MerkleTreeOperations, MerkleTreeSetters> & {
-    /**
-     * Returns a snapshot of the current state of the trees.
-     * @param block - The block number to take the snapshot at.
-     */
-    getSnapshot(block: number): Promise<TreeSnapshots>;
-  };
+  /**
+   * Returns a snapshot of the current state of the trees.
+   * @param block - The block number to take the snapshot at.
+   */
+  getSnapshot(block: number): Promise<TreeSnapshots>;
+};
