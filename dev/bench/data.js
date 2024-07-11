@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720654040284,
+  "lastUpdate": 1720656504546,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -77596,6 +77596,78 @@ window.BENCHMARK_DATA = {
             "value": 162024759,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 162024759 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "723a0c10c9010f3869f103c77f71950efbf7106c",
+          "message": "feat: Integrate new proving systems in e2e (#6971)\n\n**THE AWESOME:**\r\nPXE uses ClientIVC. Public kernels, rollup, and parity circuits use\r\nvanilla recursion-based IVC using UltraHonk. 🎉\r\nLinear time proofs without FFTs, better constraint counts for poseidon\r\n(eventually) and no recursion in the private kernel circuits\r\n\r\n**THE CAVEATS:**\r\nThis merges with many TODOs to reinstate functionality, improve security\r\nand performance.\r\n\r\n- If you are lead to believe honk proofs are constant-sized, you have\r\nbeen fed lies\r\n\r\nWe are rounding up to a proof size that allows 2**28 gates. Please take\r\neffort to NOT rely on this assumption, as it is just a stop-gap. It is\r\nOK to temporarily rely on this to simplify kernel development in\r\nparticular, but we should not hard-code this assumption into e.g.\r\ntypescript in the future\r\n- Things are a bit slower now, not faster\r\n\r\nWe prioritized correctness and any slowdowns will be investigated soon.\r\nSome of it comes from the larger constant size proof. As well, we will\r\nsoon be able to drop constraint count in poisedon with UH\r\n\r\n- Transcript hashing is not yet in place\r\n- #7410\r\n\r\nAlvaro's recent work with the VK tree had to be partially undone (aka\r\nthe parts that made it really validate in kernels, so most of it for\r\nnow) because our tube VK currently cannot be written ahead of time.\r\nWhat's more, correctly handling log-sized proofs will mean many tube and\r\nkernel VKs in the future. This will need a pass.\r\n\r\n- #7374\r\n\r\nThis test used a lot of mocking and was stubbed out in the interest of\r\ntime. It's not necessarily hard to bring back.\r\n\r\n- #7373\r\n\r\nWe need one soon. The relevant deploying functionality has been\r\ncommented out for now with this issue linked.\r\n\r\n- #7372\r\n\r\nThis needs to be double-checked for current kernel proof, but we will do\r\nthis post-merge with a pass on observability\r\n\r\n- #7371 \r\n\r\nWe need to figure out how to get this program stack bincode-encoded in\r\nthe future\r\n\r\n- #7370\r\n\r\nRight now redundant VKs are serialized with the client ivc proofs\r\n\r\n- #7369\r\n\r\nRelated to #7410, currently tube proving is too unlike the rest of the\r\npattern\r\n\r\n- #7368\r\n\r\nIt's currently a bit of a mess of grabbing bytecode artifacts with\r\nad-hoc logic\r\n\r\n- https://github.com/AztecProtocol/barretenberg/issues/1048\r\n\r\nInputs should be passed to the tube circuit correctly, but they are NOT\r\ncurrently used. Fixing this should be contained within bb\r\n\r\n---------\r\n\r\nCo-authored-by: codygunton <codygunton@gmail.com>\r\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>\r\nCo-authored-by: maramihali <mara@aztecprotocol.com>",
+          "timestamp": "2024-07-10T20:01:46-04:00",
+          "tree_id": "e284dc8e1ae9c2ec20655557b560aff27091386c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/723a0c10c9010f3869f103c77f71950efbf7106c"
+        },
+        "date": 1720656499317,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14003.008569000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9400.629354 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5015.516276999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4531.683688 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42071.218141,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42071218000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14775.947053,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14775948000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4265572739,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4265572739 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199172208,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199172208 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3508563051,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3508563051 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 162874578,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 162874578 ns\nthreads: 1"
           }
         ]
       }
