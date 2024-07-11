@@ -76,6 +76,7 @@ library Constants {
   uint256 internal constant PRIVATE_KERNEL_RESET_BIG_INDEX = 3;
   uint256 internal constant PRIVATE_KERNEL_RESET_MEDIUM_INDEX = 4;
   uint256 internal constant PRIVATE_KERNEL_RESET_SMALL_INDEX = 5;
+  uint256 internal constant PRIVATE_KERNEL_RESET_TINY_INDEX = 6;
   uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 10;
   uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 11;
   uint256 internal constant EMPTY_NESTED_INDEX = 12;
@@ -204,9 +205,10 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 93;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 109;
-  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 393;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 393;
+  uint256 internal constant TUBE_PROOF_LENGTH = 393;
+  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;
