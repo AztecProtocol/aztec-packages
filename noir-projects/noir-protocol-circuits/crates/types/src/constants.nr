@@ -104,6 +104,7 @@ global PRIVATE_KERNEL_RESET_FULL_INDEX: u32 = 2;
 global PRIVATE_KERNEL_RESET_BIG_INDEX: u32 = 3;
 global PRIVATE_KERNEL_RESET_MEDIUM_INDEX: u32 = 4;
 global PRIVATE_KERNEL_RESET_SMALL_INDEX: u32 = 5;
+global PRIVATE_KERNEL_RESET_TINY_INDEX: u32 = 6;
 global PRIVATE_KERNEL_TAIL_INDEX: u32 = 10;
 global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 11;
 global EMPTY_NESTED_INDEX: u32 = 12;
@@ -170,10 +171,10 @@ global FIXED_L2_GAS: u32 = 512;
 global FIXED_AVM_STARTUP_L2_GAS = 1024;
 // pays for hashing/validating logs
 global L2_GAS_PER_LOG_BYTE = 4;
-// pays for tree insertions. 
+// pays for tree insertions.
 global L2_GAS_PER_NOTE_HASH = 32;
 // nullifiers are more expensive to insert/validate:
-// they are inserted into an indexed tree and must be checked for duplicates 
+// they are inserted into an indexed tree and must be checked for duplicates
 global L2_GAS_PER_NULLIFIER = 64;
 
 // CANONICAL CONTRACT ADDRESSES
@@ -270,11 +271,13 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 93;
-global NESTED_RECURSIVE_PROOF_LENGTH = 109;
+global RECURSIVE_PROOF_LENGTH = 393;
+global NESTED_RECURSIVE_PROOF_LENGTH = 393;
+global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
