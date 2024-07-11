@@ -203,6 +203,9 @@ TYPED_TEST(SortedMsmTests, GenerateAdditionSequences)
     EXPECT_EQ(msm_result, expected_msm_result);
 }
 
+// Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced set
+// of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the reduced
+// inputs yields the same result as with the original inputs
 TYPED_TEST(SortedMsmTests, ReduceMsmInputsSimple)
 {
     using Curve = TypeParam;
@@ -225,6 +228,9 @@ TYPED_TEST(SortedMsmTests, ReduceMsmInputsSimple)
     EXPECT_EQ(msm_result, expected_msm_result);
 }
 
+// Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced set
+// of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the reduced
+// inputs yields the same result as with the original inputs
 TYPED_TEST(SortedMsmTests, ReduceMsmInputs)
 {
     using Curve = TypeParam;
