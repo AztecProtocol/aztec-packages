@@ -19,4 +19,7 @@ ENV_VARS="
   WAIT_FOR_RUNNERS=$WAIT_FOR_RUNNERS
 "
 
-ssh -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$ENV_VARS $@"
+# Format the environment variables for the SSH command
+ENV_EXPORTS=$(printf 'export %s; ' $ENV_VARS)
+
+ssh -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$ENV_EXPORTS $@"
