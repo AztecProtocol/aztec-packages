@@ -87,11 +87,14 @@ jobs:
 
   build-images:
     needs: [setup, changes]
+    # Note we don't but the 'if' here as that would also apply to dependent jobs, instead we just copy it into each step
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
+        if: ${{ needs.changes.outputs.build-images }}
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
+        if: ${{ needs.changes.outputs.build-images }}
         with:
           concurrency_key: build-images-x86
       - name: "Push Build Images If Changed"
