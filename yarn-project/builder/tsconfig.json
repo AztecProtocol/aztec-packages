@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../cli"
+    },
+    {
+      "path": "../foundation"
     }
   ],
   "include": ["src", "src/*.json"]
