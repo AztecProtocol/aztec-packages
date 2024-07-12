@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720802159084,
+  "lastUpdate": 1720802191444,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -81308,6 +81308,78 @@ window.BENCHMARK_DATA = {
             "value": 155093244,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 155093244 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76bcd726d4e5b0c1a2a2bf44b51081142e4ae30a",
+          "message": "fix: lagrange interpolation (#7440)\n\nFixed a bug in the method compute_efficient_interpolation, that is used,\r\nfor example, in a constructor for objects in Polynomial class.\r\nThe case when interpolation domain contains 0 is now handled correctly.\r\nAdded several tests that capture this behaviour.",
+          "timestamp": "2024-07-12T16:22:38Z",
+          "tree_id": "5dff51d44208951b67eab836de89f22a77363014",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76bcd726d4e5b0c1a2a2bf44b51081142e4ae30a"
+        },
+        "date": 1720802185300,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 12287.424619000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 8397.804952000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4393.437438999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3971.9410430000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38608.500464000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38608500000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15818.412498999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15818413000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4654893554,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4654893554 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203158179,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203158179 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3375468936,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3375468936 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153306251,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153306251 ns\nthreads: 1"
           }
         ]
       }
