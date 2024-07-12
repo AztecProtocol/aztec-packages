@@ -5,6 +5,7 @@ pragma solidity >=0.8.18;
 // Libraries
 import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
+import {Constants} from "../libraries/ConstantsGen.sol";
 import {MerkleLib} from "../libraries/MerkleLib.sol";
 import {Hash} from "../libraries/Hash.sol";
 import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
@@ -21,7 +22,7 @@ contract Outbox is IOutbox {
   struct RootData {
     // This is the outhash specified by header.globalvariables.outHash of any given block.
     bytes32 root;
-    uint256 height;
+    uint256 minHeight;
     mapping(uint256 => bool) nullified;
   }
 
@@ -39,9 +40,9 @@ contract Outbox is IOutbox {
    * @dev Emits `RootAdded` upon inserting the root successfully
    * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
-   * @param _height - The height of the merkle tree that the root corresponds to
+   * @param _minHeight - The min height of the merkle tree that the root corresponds to
    */
-  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height)
+  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight)
     external
     override(IOutbox)
   {
@@ -58,9 +59,9 @@ contract Outbox is IOutbox {
     }
 
     roots[_l2BlockNumber].root = _root;
-    roots[_l2BlockNumber].height = _height;
+    roots[_l2BlockNumber].minHeight = _minHeight;
 
-    emit RootAdded(_l2BlockNumber, _root, _height);
+    emit RootAdded(_l2BlockNumber, _root, _minHeight);
   }
 
   /**
@@ -99,11 +100,14 @@ contract Outbox is IOutbox {
     if (rootData.nullified[_leafIndex]) {
       revert Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex);
     }
+    // TODO(#7218): We will eventually move back to a balanced tree and constrain the path length
+    // to be equal to height - for now we just check the min
 
-    uint256 treeHeight = rootData.height;
-
-    if (treeHeight != _path.length) {
-      revert Errors.Outbox__InvalidPathLength(treeHeight, _path.length);
+    // Min height = height of rollup layers
+    // The smallest num of messages will require a subtree of height 1
+    uint256 minHeight = rootData.minHeight;
+    if (minHeight > _path.length) {
+      revert Errors.Outbox__InvalidPathLength(minHeight, _path.length);
     }
 
     bytes32 messageHash = _message.sha256ToField();

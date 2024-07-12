@@ -35,7 +35,7 @@ sequenceDiagram
     TokenNote->>Utils: note_hash = H(amount, to, randomness)
     Utils->>NoteHash: compute_inner_hash(derived_slot, note_hash)
     NoteHash->>LifeCycle: inner_note_hash = H(derived_slot, note_hash)
-    LifeCycle->>Context: push_new_note_hash(inner_note_hash)
+    LifeCycle->>Context: push_note_hash(inner_note_hash)
     end
     Context->>Kernel: siloed_note_hash = H(contract_address, inner_note_hash)
 ```
@@ -58,4 +58,3 @@ Beware that this hash computation is what the aztec.nr library is doing, and not
 With this note structure, the contract can require that only notes sitting at specific storage slots can be used by specific operations, e.g., if transferring funds from `from` to `to`, the notes to destroy should be linked to `H(map_slot, from)` and the new notes (except the change-note) should be linked to `H(map_slot, to)`.
 
 That way, we can have logical storage slots, without them really existing. This means that knowing the storage slot for a note is not enough to actually figure out what is in there (whereas it would be for looking up public state).
-

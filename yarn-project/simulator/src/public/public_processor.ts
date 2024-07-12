@@ -3,6 +3,7 @@ import {
   type FailedTx,
   NestedProcessReturnValues,
   type ProcessedTx,
+  PublicKernelType,
   type PublicProvingRequest,
   type SimulationError,
   Tx,
@@ -22,6 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 import {
   PublicExecutor,
   type PublicStateDB,
@@ -29,14 +31,11 @@ import {
   computeFeePayerBalanceLeafSlot,
   computeFeePayerBalanceStorageSlot,
 } from '@aztec/simulator';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import {
-  type AbstractPhaseManager,
-  PublicKernelPhase,
-  publicKernelPhaseToKernelType,
-} from './abstract_phase_manager.js';
+import { type AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
@@ -50,6 +49,7 @@ export class PublicProcessorFactory {
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private simulator: SimulationProvider,
+    private telemetryClient: TelemetryClient,
   ) {}
 
   /**
@@ -77,6 +77,7 @@ export class PublicProcessorFactory {
       historicalHeader,
       publicContractsDB,
       worldStatePublicDB,
+      this.telemetryClient,
     );
   }
 }
@@ -86,6 +87,7 @@ export class PublicProcessorFactory {
  * any public function calls in them. Txs with private calls only are unaffected.
  */
 export class PublicProcessor {
+  public readonly tracer: Tracer;
   constructor(
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
@@ -94,9 +96,11 @@ export class PublicProcessor {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-
+    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
-  ) {}
+  ) {
+    this.tracer = telemetryClient.getTracer('PublicProcessor');
+  }
 
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
@@ -122,7 +126,7 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof, [])]
+          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), [])]
           : await this.processTxWithPublicCalls(tx);
 
         // Set fee payment update request into the processed tx
@@ -211,6 +215,9 @@ export class PublicProcessor {
     return finalPublicDataUpdateRequests;
   }
 
+  @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     let returnValues: NestedProcessReturnValues[] = [];
     const publicProvingRequests: PublicProvingRequest[] = [];
@@ -226,17 +233,19 @@ export class PublicProcessor {
     );
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
+    let lastKernelArtifact: ProtocolArtifact = 'PrivateKernelTailToPublicArtifact'; // All txs with public calls must carry tail to public proofs
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
-      const output = await phase.handle(tx, publicKernelPublicInput);
-      gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
-      if (phase.phase === PublicKernelPhase.APP_LOGIC) {
+      const output = await phase.handle(tx, publicKernelPublicInput, lastKernelArtifact);
+      gasUsed[phase.phase] = output.gasUsed;
+      if (phase.phase === PublicKernelType.APP_LOGIC) {
         returnValues = output.returnValues;
       }
       publicProvingRequests.push(...output.publicProvingRequests);
       publicKernelPublicInput = output.publicKernelOutput;
+      lastKernelArtifact = output.lastKernelArtifact;
       finalKernelOutput = output.finalKernelOutput;
       revertReason ??= output.revertReason;
       phase = PhaseManagerFactory.phaseFromOutput(
@@ -256,7 +265,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicProvingRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }
 }

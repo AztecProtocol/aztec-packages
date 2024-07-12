@@ -2,43 +2,98 @@
 title: Quickstart
 ---
 
-The easiest way to start developing on Aztec is simply to click on one of these buttons:
+You can get started with an Aztec development environment (A.K.A. Sandbox) in less than 5 minutes.
 
-[![One-Click React Starter](/img/codespaces_badges/react_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Freact%2Fdevcontainer.json) [![One-Click HTML/TS Starter](/img/codespaces_badges/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json) [![One-Click Token Starter](/img/codespaces_badges/token_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Ftoken%2Fdevcontainer.json)
-
-That's it!
-
-This creates a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (sandbox). 
-- You can develop directly on the codespace, push it to a repo, make yourself at home.
-- You can also just use the sandbox that comes with it. The URL will be logged, you just need to use it as your `PXE_URL`.
-
-## Develop Locally
-
-The above method uses Aztec boxes to install the sandbox and clone the repo. You can use it too to get started on your own machine and use your own IDE.
-
-You can also [install the sandbox manually](/reference/sandbox_reference).
+The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet.
 
 ### Prerequisites
+
+You need two global dependencies in your machine:
 
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
 - Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
-### Run the `npx` script
+### Install the sandbox
 
-With the node installation, you now should have `npm` and be able to run `npx` scripts. You can do that by running:
+Run:
 
 ```bash
-npx create-aztec-app
+bash -i <(curl -s install.aztec.network)
 ```
 
-And follow the instructions. If all goes well, you should now have a development environment running locally on your machine.
+This will install the following tools:
 
-You can run `npx create-aztec-app sandbox -h` to start, stop, update and output logs from the sandbox. 
+- **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
+- **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-sandbox** - a wrapper around docker-compose that launches services needed for sandbox testing.
+- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+- **aztec-builder** - A useful tool for projects to generate ABIs and update their dependencies.
+
+Once these have been installed, to start the sandbox, run:
+
+```bash
+aztec-sandbox
+```
+
+### Have fun
+
+**Congratulations, you have just installed and run the Aztec Sandbox!**
+
+```bash
+     /\        | |
+    /  \    ___| |_ ___  ___
+   / /\ \  |_  / __/ _ \/ __|
+  / ____ \  / /| ||  __/ (__
+ /_/___ \_\/___|\__\___|\___|
+
+```
+
+In the terminal, you will see some logs:
+
+1. Sandbox version
+2. Contract addresses of rollup contracts
+3. PXE (private execution environment) setup logs
+4. Initial accounts that are shipped with the sandbox and can be used in tests
+
+## Running Aztec PXE / Node / P2P-Bootstrap node
+
+If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
+
+```bash
+aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
+```
+
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](./aztec/concepts/pxe/index.md)/
+
+## Update the sandbox
+
+To update the sandbox, you can just run:
+
+```bash
+aztec-up
+```
+
+
+## Install Noir LSP (recommended)
+
+Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
+
+Once the extension is installed, check your nargo binary by hovering over `Nargo` in the status bar on the bottom right of the application window. Click to choose the path to `aztec-nargo` (or regular `nargo`, if you have that installed).
+
+You can print the path of your `aztec-nargo` executable by running:
+
+```bash
+which aztec-nargo
+```
+
+To specify a custom nargo executable, go to the VSCode settings and search for "noir", or click extension settings on the `noir-lang` LSP plugin.
+Update the `Noir: Nargo Path` field to point to your desired `aztec-nargo` executable.
 
 ## What's next?
 
-To deploy a smart contract to your sandbox and interact with it using Aztec.js, go to the [next page](getting_started/aztecjs-getting-started.md).
+Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
 
-To skip this and write your first smart contract, go to the [Aztec.nr getting started page](getting_started/aztecnr-getting-started.md).
+To follow the series of tutorials, start with the private voting contract [here](./tutorials/contract_tutorials/private_voting_contract.md).
 
+If you want to just keep learning, you can read about the high level architecture on the [Core Components page](./aztec/concepts/state_model/index.md) and [the lifecycle of a transaction](./aztec/concepts/transactions.md).
 

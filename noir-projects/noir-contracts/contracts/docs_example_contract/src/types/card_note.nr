@@ -1,10 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext};
 use dep::aztec::{
     note::{utils::compute_note_hash_for_consumption}, keys::getters::get_nsk_app,
-    protocol_types::{
-    traits::{Empty, Serialize}, grumpkin_point::GrumpkinPoint,
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash
-}
+    protocol_types::{traits::{Empty, Eq, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash}
 };
 
 // Shows how to create a custom note
@@ -30,41 +27,39 @@ impl CardNote {
 }
 
 impl NoteInterface<CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN> for CardNote {
-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
-    }
-
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
-        context.encrypt_and_emit_note(
-            (*context).this_address(),
-            slot,
-            Self::get_note_type_id(),
-            ovpk_m,
-            ivpk_m,
-            self,
-        );
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 }
 
 impl Serialize<3> for CardNote {
     fn serialize(self) -> [Field; 3] {
         [ self.points.to_field(), self.randomness, self.npk_m_hash.to_field() ]
+    }
+}
+
+impl Eq for CardNote {
+    fn eq(self, other: Self) -> bool {
+        (self.points == other.points) &
+        (self.npk_m_hash == other.npk_m_hash) &
+        (self.randomness == other.randomness)
     }
 }

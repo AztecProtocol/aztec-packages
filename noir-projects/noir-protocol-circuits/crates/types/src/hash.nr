@@ -10,12 +10,11 @@ use crate::{
     GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
-    contract_class_id::ContractClassId, merkle_tree::root::root_from_sibling_path,
-    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    recursion::verification_key::VerificationKey, traits::{Hash, is_empty},
-    utils::{uint256::U256, field::field_from_bytes_32_trunc}
+    merkle_tree::root::root_from_sibling_path, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    recursion::verification_key::VerificationKey, traits::is_empty,
+    utils::field::field_from_bytes_32_trunc
 };
-use dep::std::hash::{pedersen_hash_with_separator, sha256};
+use std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
@@ -35,50 +34,46 @@ pub fn private_functions_root_from_siblings(
     root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path)
 }
 
-fn compute_note_hash_nonce(first_nullifier: Field, note_hash_index: u64) -> Field {
+fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
+    // Hashing tx hash with note index in tx is guaranteed to be unique
     pedersen_hash(
         [
-        first_nullifier,
-        note_hash_index as Field
+        tx_hash,
+        note_index_in_tx as Field
     ],
         GENERATOR_INDEX__NOTE_HASH_NONCE
     )
 }
 
-fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
-    pedersen_hash(
-        [
-        nonce,
-        note_hash
-    ],
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH
-    )
+pub fn compute_unique_note_hash(nonce: Field, inner_note_hash: Field) -> Field {
+    let inputs = [nonce, inner_note_hash];
+    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
-pub fn compute_siloed_note_hash(address: AztecAddress, unique_note_hash: Field) -> Field {
+pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
     pedersen_hash(
         [
-        address.to_field(),
+        app.to_field(),
         unique_note_hash
     ],
         GENERATOR_INDEX__SILOED_NOTE_HASH
     )
 }
 
-pub fn silo_note_hash(note_hash: ScopedNoteHash, first_nullifier: Field, index: u64) -> Field {
+pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_tx: u32) -> Field {
     if note_hash.contract_address.is_zero() {
         0
     } else {
-        let nonce = compute_note_hash_nonce(first_nullifier, index);
+        let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
         let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
         compute_siloed_note_hash(note_hash.contract_address, unique_note_hash)
     }
 }
 
-pub fn compute_siloed_nullifier(address: AztecAddress, nullifier: Field) -> Field {
+pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
     pedersen_hash(
         [
-        address.to_field(),
+        app.to_field(),
         nullifier
     ],
         GENERATOR_INDEX__OUTER_NULLIFIER
@@ -188,9 +183,9 @@ pub fn silo_l2_to_l1_message(msg: ScopedL2ToL1Message, rollup_version_id: Field,
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
-    // 4 Field elements when converted to bytes will usually 
+    // 4 Field elements when converted to bytes will usually
     // occupy 4 * 32 = 128 bytes.
-    // However, this function is making the assumption that each Field 
+    // However, this function is making the assumption that each Field
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
@@ -210,7 +205,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 
 // Computes the final logs hash for a tx.
 // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-// to avoid doubling code, since we can't define the byte len to be 32*N directly. 
+// to avoid doubling code, since we can't define the byte len to be 32*N directly.
 pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
@@ -254,11 +249,11 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
 }
 
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
-    dep::std::hash::pedersen_hash_with_separator(inputs, hash_index)
+    std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
 pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
-    dep::std::hash::poseidon2::Poseidon2::hash(inputs, N)
+    std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 
 #[test]

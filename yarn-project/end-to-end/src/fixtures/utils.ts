@@ -14,6 +14,7 @@ import {
   EthCheatCodes,
   type L1ContractArtifactsForDeployment,
   LogType,
+  NoFeePaymentMethod,
   type PXE,
   type SentTx,
   SignerlessWallet,
@@ -27,12 +28,16 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { type BBNativeProofCreator } from '@aztec/bb-prover';
+import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import {
+  CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
+  GasSettings,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
@@ -50,13 +55,16 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { KeyRegistryContract } from '@aztec/noir-contracts.js';
+import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
+import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import getPort from 'get-port';
@@ -82,6 +90,13 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const { PXE_URL = '' } = process.env;
+
+const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+if (typeof afterAll === 'function') {
+  afterAll(async () => {
+    await telemetry.stop();
+  });
+}
 
 const getAztecUrl = () => {
   return PXE_URL;
@@ -125,6 +140,7 @@ export const setupL1Contracts = async (
 
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
     l2GasTokenAddress: GasTokenAddress,
+    vkTreeRoot: getVKTreeRoot(),
   });
 
   return l1Data;
@@ -145,7 +161,7 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativeProofCreator,
+  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -223,6 +239,9 @@ async function setupWithRemoteEnvironment(
   // the following deploying functions are idempotent
   await deployCanonicalKeyRegistry(
     new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+  );
+  await deployCanonicalAuthRegistry(
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
   );
 
   if (enableGas) {
@@ -360,7 +379,7 @@ export async function setup(
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1BlockPublishRetryIntervalMS = 100;
-  const aztecNode = await AztecNodeService.createAndSync(config);
+  const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
   const prover = aztecNode.getProver();
 
@@ -370,6 +389,11 @@ export async function setup(
 
   logger.verbose('Deploying key registry...');
   await deployCanonicalKeyRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+  );
+
+  logger.verbose('Deploying auth registry...');
+  await deployCanonicalAuthRegistry(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
   );
 
@@ -591,27 +615,41 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 /**
  * Deploy the protocol contracts to a running instance.
  */
-export async function deployCanonicalGasToken(deployer: Wallet) {
+export async function deployCanonicalGasToken(pxe: PXE) {
   // "deploy" the Gas token as it contains public functions
-  const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
+  const gasPortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
   const canonicalGasToken = getCanonicalGasToken();
 
-  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+  if (await pxe.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
     getLogger().debug('Gas token already deployed');
-    await expect(deployer.isContractPubliclyDeployed(canonicalGasToken.address)).resolves.toBe(true);
+    await expect(pxe.isContractPubliclyDeployed(canonicalGasToken.address)).resolves.toBe(true);
     return;
   }
 
-  const gasToken = await GasTokenContract.deploy(deployer)
-    .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
-    .deployed();
-  await gasToken.methods.set_portal(gasPortalAddress).send().wait();
+  // Capsules will die soon, patience!
+  const publicBytecode = canonicalGasToken.contractClass.packedBytecode;
+  const encodedBytecode = bufferAsFields(publicBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  await pxe.addCapsule(encodedBytecode);
+
+  await pxe.registerContract(canonicalGasToken);
+  const wallet = new SignerlessWallet(pxe);
+  const gasToken = await GasTokenContract.at(canonicalGasToken.address, wallet);
+
+  await gasToken.methods
+    .deploy(
+      canonicalGasToken.contractClass.artifactHash,
+      canonicalGasToken.contractClass.privateFunctionsRoot,
+      canonicalGasToken.contractClass.publicBytecodeCommitment,
+      gasPortalAddress,
+    )
+    .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
+    .wait();
 
   getLogger().info(`Gas token publicly deployed at ${gasToken.address}`);
 
-  await expect(deployer.isContractClassPubliclyRegistered(gasToken.instance.contractClassId)).resolves.toBe(true);
-  await expect(deployer.getContractInstance(gasToken.address)).resolves.toBeDefined();
-  await expect(deployer.isContractPubliclyDeployed(gasToken.address)).resolves.toBe(true);
+  await expect(pxe.isContractClassPubliclyRegistered(gasToken.instance.contractClassId)).resolves.toBe(true);
+  await expect(pxe.getContractInstance(gasToken.address)).resolves.toBeDefined();
+  await expect(pxe.isContractPubliclyDeployed(gasToken.address)).resolves.toBe(true);
 }
 
 export async function deployCanonicalKeyRegistry(deployer: Wallet) {
@@ -645,4 +683,37 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet) {
   expect(getContractClassFromArtifact(keyRegistry.artifact).id).toEqual(keyRegistry.instance.contractClassId);
   await expect(deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalKeyRegistry.instance.address)).resolves.toBeDefined();
+}
+
+export async function deployCanonicalAuthRegistry(deployer: Wallet) {
+  const canonicalAuthRegistry = getCanonicalAuthRegistry();
+
+  // We check to see if there exists a contract at the canonical Auth Registry address with the same contract class id as we expect. This means that
+  // the auth registry has already been deployed to the correct address.
+  if (
+    (await deployer.getContractInstance(canonicalAuthRegistry.address))?.contractClassId.equals(
+      canonicalAuthRegistry.contractClass.id,
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id))
+  ) {
+    return;
+  }
+
+  const authRegistry = await AuthRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalAuthRegistry.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (
+    !authRegistry.address.equals(canonicalAuthRegistry.address) ||
+    !authRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_AUTH_REGISTRY_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Auth Registry address ${authRegistry.address} does not match expected address ${canonicalAuthRegistry.address}, or they both do not equal CANONICAL_AUTH_REGISTRY_ADDRESS`,
+    );
+  }
+
+  expect(computeContractAddressFromInstance(authRegistry.instance)).toEqual(authRegistry.address);
+  expect(getContractClassFromArtifact(authRegistry.artifact).id).toEqual(authRegistry.instance.contractClassId);
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalAuthRegistry.instance.address)).resolves.toBeDefined();
 }

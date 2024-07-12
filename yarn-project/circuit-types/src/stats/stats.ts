@@ -26,10 +26,8 @@ export type L2BlockStats = {
   unencryptedLogSize?: number;
 };
 
-/** Stats logged for each L1 rollup publish tx.*/
+/** Stats logged for each L1 publish tx.*/
 export type L1PublishStats = {
-  /** Name of the event for metrics purposes */
-  eventName: 'rollup-published-to-l1';
   /** Effective gas price of the tx. */
   gasPrice: bigint;
   /** Effective gas used in the tx. */
@@ -40,7 +38,20 @@ export type L1PublishStats = {
   calldataGas: number;
   /** Size in bytes of the calldata. */
   calldataSize: number;
-} & L2BlockStats;
+};
+
+/** Stats logged for each L1 rollup publish tx.*/
+export type L1PublishBlockStats = {
+  /** Name of the event for metrics purposes */
+  eventName: 'rollup-published-to-l1';
+} & L1PublishStats &
+  L2BlockStats;
+
+/** Stats logged for each L1 rollup publish tx.*/
+export type L1PublishProofStats = {
+  /** Name of the event for metrics purposes */
+  eventName: 'proof-published-to-l1';
+} & L1PublishStats;
 
 /** Stats logged for synching node chain history.  */
 export type NodeSyncedChainHistoryStats = {
@@ -72,6 +83,7 @@ export type CircuitName =
   | 'private-kernel-reset-big'
   | 'private-kernel-reset-medium'
   | 'private-kernel-reset-small'
+  | 'private-kernel-reset-tiny'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
   | 'app-circuit'
@@ -97,6 +109,23 @@ export type CircuitSimulationStats = {
   inputSize: number;
   /** Size in bytes of circuit outputs (aka public inputs). */
   outputSize: number;
+};
+
+export type PublicDBAccessStats = {
+  eventName: 'public-db-access';
+  duration: number;
+  operation: string;
+};
+
+export type AvmSimulationStats = {
+  /** name of the event. */
+  eventName: 'avm-simulation';
+  /** Name of the circuit. */
+  appCircuitName: string;
+  /** Duration in ms. */
+  duration: number;
+  /** Uncompressed bytecode size. */
+  bytecodeSize: number;
 };
 
 /** Stats for witness generation. */
@@ -174,7 +203,9 @@ export type NoteProcessorStats = {
   /** How many notes have been seen and trial-decrypted. */
   seen: number;
   /** How many notes had decryption deferred due to a missing contract */
-  deferred: number;
+  deferredIncoming: number;
+  /** How many notes had decryption deferred due to a missing contract */
+  deferredOutgoing: number;
   /** How many incoming notes were successfully decrypted. */
   decryptedIncoming: number;
   /** How many outgoing notes were successfully decrypted. */
@@ -247,17 +278,20 @@ export type TxAddedToPoolStats = {
 
 /** Stats emitted in structured logs with an `eventName` for tracking. */
 export type Stats =
-  | ProofConstructed
-  | L1PublishStats
-  | NodeSyncedChainHistoryStats
-  | CircuitSimulationStats
+  | AvmSimulationStats
   | CircuitProvingStats
+  | CircuitSimulationStats
   | CircuitWitnessGenerationStats
+  | PublicDBAccessStats
+  | L1PublishBlockStats
+  | L1PublishProofStats
   | L2BlockBuiltStats
   | L2BlockHandledStats
+  | NodeSyncedChainHistoryStats
   | NoteProcessorCaughtUpStats
-  | TxAddedToPoolStats
-  | TreeInsertionStats;
+  | ProofConstructed
+  | TreeInsertionStats
+  | TxAddedToPoolStats;
 
 /** Set of event names across emitted stats. */
 export type StatsEventName = Stats['eventName'];

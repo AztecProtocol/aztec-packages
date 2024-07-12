@@ -7,6 +7,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include <algorithm>
 
 namespace bb {
 
@@ -46,19 +47,52 @@ class ClientIVC {
         HonkProof decider_proof;
         GoblinProof goblin_proof;
 
-        std::vector<FF> to_buffer() const
-        {
-            size_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();
+        size_t size() const { return folding_proof.size() + decider_proof.size() + goblin_proof.size(); }
 
-            std::vector<FF> result;
-            result.reserve(proof_size);
-            const auto insert = [&result](const std::vector<FF>& buf) {
-                result.insert(result.end(), buf.begin(), buf.end());
-            };
-            insert(folding_proof);
-            insert(decider_proof);
-            insert(goblin_proof.to_buffer());
-            return result;
+        MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
+    };
+
+    // A debugging utility for tracking the max size of each block over all circuits in the IVC
+    struct MaxBlockSizes {
+        size_t ecc_op{ 0 };
+        size_t pub_inputs{ 0 };
+        size_t arithmetic{ 0 };
+        size_t delta_range{ 0 };
+        size_t elliptic{ 0 };
+        size_t aux{ 0 };
+        size_t lookup{ 0 };
+        size_t busread{ 0 };
+        size_t poseidon_external{ 0 };
+        size_t poseidon_internal{ 0 };
+
+        void update(ClientCircuit& circuit)
+        {
+            ecc_op = std::max(circuit.blocks.ecc_op.size(), ecc_op);
+            pub_inputs = std::max(circuit.public_inputs.size(), pub_inputs);
+            arithmetic = std::max(circuit.blocks.arithmetic.size(), arithmetic);
+            delta_range = std::max(circuit.blocks.delta_range.size(), delta_range);
+            elliptic = std::max(circuit.blocks.elliptic.size(), elliptic);
+            aux = std::max(circuit.blocks.aux.size(), aux);
+            lookup = std::max(circuit.blocks.lookup.size(), lookup);
+            busread = std::max(circuit.blocks.busread.size(), busread);
+            poseidon_external = std::max(circuit.blocks.poseidon_external.size(), poseidon_external);
+            poseidon_internal = std::max(circuit.blocks.poseidon_internal.size(), poseidon_internal);
+        }
+
+        void print()
+        {
+            info("Minimum required block sizes for structured trace: ");
+            info("goblin ecc op :\t", ecc_op);
+            info("pub inputs    :\t", pub_inputs);
+            info("arithmetic    :\t", arithmetic);
+            info("delta range   :\t", delta_range);
+            info("elliptic      :\t", elliptic);
+            info("auxiliary     :\t", aux);
+            info("lookups       :\t", lookup);
+            info("busread       :\t", busread);
+            info("poseidon ext  :\t", poseidon_external);
+            info("poseidon int  :\t", poseidon_internal);
+            info("");
         }
     };
 
@@ -78,7 +112,7 @@ class ClientIVC {
     std::shared_ptr<VerificationKey> instance_vk;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
-    bool structured_flag = false;
+    TraceStructure trace_structure = TraceStructure::NONE;
 
     // A flag indicating whether the IVC has been initialized with an initial instance
     bool initialized = false;
@@ -87,6 +121,12 @@ class ClientIVC {
 
     Proof prove();
 
+    static bool verify(const Proof& proof,
+                       const std::shared_ptr<VerifierInstance>& accumulator,
+                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
+                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
+
     bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
 
     bool prove_and_verify();
@@ -94,5 +134,7 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
+
+    MaxBlockSizes max_block_sizes; // for tracking minimum block size requirements across an IVC
 };
 } // namespace bb

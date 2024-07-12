@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acir"
-version = "0.46.0"
+version = "0.47.0"
 dependencies = [
  "acir_field",
  "base64 0.21.7",
@@ -18,7 +18,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "0.46.0"
+version = "0.47.0"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -30,20 +30,21 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "0.46.0"
+version = "0.47.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
  "brillig_vm",
  "indexmap 1.9.3",
  "num-bigint",
+ "serde",
  "thiserror",
  "tracing",
 ]
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "0.46.0"
+version = "0.47.0"
 dependencies = [
  "acir",
  "blake2",
@@ -380,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "0.46.0"
+version = "0.47.0"
 dependencies = [
  "acir_field",
  "serde",
@@ -388,7 +389,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "0.46.0"
+version = "0.47.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -690,9 +691,10 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "codespan-reporting",
+ "iter-extended",
  "serde",
 ]
 
@@ -838,7 +840,7 @@ dependencies = [
 
 [[package]]
 name = "iter-extended"
-version = "0.30.0"
+version = "0.31.0"
 
 [[package]]
 name = "itertools"
@@ -943,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_errors"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "acvm",
  "base64 0.21.7",
@@ -961,7 +963,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "acvm",
  "iter-extended",

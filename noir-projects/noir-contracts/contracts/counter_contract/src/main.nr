@@ -37,4 +37,51 @@ contract Counter {
         balance_utils::get_balance(counters.at(owner).set)
     }
     // docs:end:get_counter
+
+    // docs:start:test_imports
+    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
+    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    // docs:end:test_imports
+
+    // docs:start:txe_test_increment
+    #[test]
+    fn test_increment() {
+        // Setup env, generate keys
+        let mut env = TestEnvironment::new();
+        let owner = env.create_account();
+        let outgoing_viewer = env.create_account();
+        let initial_value: Field = 5;
+        env.impersonate(owner);
+
+        // Deploy contract and initialize 
+        let initializer = Counter::interface().initialize(initial_value as u64, owner, outgoing_viewer);
+        let counter_contract = env.deploy("@aztec/noir-contracts.js/Counter").with_private_initializer(initializer);
+        let contract_address = counter_contract.to_address();
+
+        // docs:start:txe_test_read_notes
+        // Read the stored value in the note
+        env.impersonate(contract_address);
+        let counter_slot = Counter::storage().counters.slot;
+        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
+        let mut options = NoteViewerOptions::new();
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let initial_note_value = notes.get(0).value;
+        assert(
+            initial_note_value == initial_value, f"Expected {initial_value} but got {initial_note_value}"
+        );
+        // docs:end:txe_test_read_notes
+
+        // Increment the counter
+        let increment_call_interface = Counter::at(contract_address).increment(owner, outgoing_viewer);
+        env.call_private_void(increment_call_interface);
+        // get_counter is an unconstrained function, so we call it directly (we're in the same module)
+        let current_value_for_owner = get_counter(owner);
+        let expected_current_value = initial_value + 1;
+        assert(
+            expected_current_value == current_value_for_owner, f"Expected {expected_current_value} but got {current_value_for_owner}"
+        );
+    }
+    // docs:end:txe_test_increment
 }

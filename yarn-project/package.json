@@ -51,7 +51,9 @@
     "sequencer-client",
     "scripts",
     "types",
-    "world-state"
+    "txe",
+    "world-state",
+    "telemetry-client"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {

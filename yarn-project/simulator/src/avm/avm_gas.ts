@@ -76,7 +76,7 @@ const BaseGasCosts: Record<Opcode, Gas> = {
   [Opcode.FEEPERL2GAS]: DefaultBaseGasCost,
   [Opcode.FEEPERDAGAS]: DefaultBaseGasCost,
   [Opcode.TRANSACTIONFEE]: DefaultBaseGasCost,
-  [Opcode.CONTRACTCALLDEPTH]: DefaultBaseGasCost,
+  [Opcode.FUNCTIONSELECTOR]: DefaultBaseGasCost,
   [Opcode.CHAINID]: DefaultBaseGasCost,
   [Opcode.VERSION]: DefaultBaseGasCost,
   [Opcode.BLOCKNUMBER]: DefaultBaseGasCost,
@@ -122,6 +122,8 @@ const BaseGasCosts: Record<Opcode, Gas> = {
   [Opcode.POSEIDON2]: DefaultBaseGasCost,
   [Opcode.SHA256]: DefaultBaseGasCost,
   [Opcode.PEDERSEN]: DefaultBaseGasCost,
+  [Opcode.ECADD]: DefaultBaseGasCost,
+  [Opcode.MSM]: DefaultBaseGasCost,
   // Conversions
   [Opcode.TORADIXLE]: DefaultBaseGasCost,
 };

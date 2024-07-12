@@ -12,7 +12,7 @@
 namespace bb::avm_trace {
 
 AvmKernelTraceBuilder::AvmKernelTraceBuilder(VmPublicInputs public_inputs)
-    : public_inputs(public_inputs)
+    : public_inputs(std::move(public_inputs))
 {}
 
 void AvmKernelTraceBuilder::reset()
@@ -49,11 +49,6 @@ void AvmKernelTraceBuilder::perform_kernel_output_lookup(uint32_t write_offset,
 // We want to be able to get the return value from the public inputs column
 // Get the return value, this will be places in ia
 // We read from the public inputs that were provided to the kernel
-FF AvmKernelTraceBuilder::op_sender()
-{
-    return perform_kernel_input_lookup(SENDER_SELECTOR);
-}
-
 FF AvmKernelTraceBuilder::op_address()
 {
     return perform_kernel_input_lookup(ADDRESS_SELECTOR);
@@ -63,14 +58,14 @@ FF AvmKernelTraceBuilder::op_storage_address()
     return perform_kernel_input_lookup(STORAGE_ADDRESS_SELECTOR);
 }
 
-FF AvmKernelTraceBuilder::op_fee_per_da_gas()
+FF AvmKernelTraceBuilder::op_sender()
 {
-    return perform_kernel_input_lookup(FEE_PER_DA_GAS_SELECTOR);
+    return perform_kernel_input_lookup(SENDER_SELECTOR);
 }
 
-FF AvmKernelTraceBuilder::op_fee_per_l2_gas()
+FF AvmKernelTraceBuilder::op_function_selector()
 {
-    return perform_kernel_input_lookup(FEE_PER_L2_GAS_SELECTOR);
+    return perform_kernel_input_lookup(FUNCTION_SELECTOR_SELECTOR);
 }
 
 FF AvmKernelTraceBuilder::op_transaction_fee()
@@ -101,6 +96,16 @@ FF AvmKernelTraceBuilder::op_coinbase()
 FF AvmKernelTraceBuilder::op_timestamp()
 {
     return perform_kernel_input_lookup(TIMESTAMP_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_fee_per_da_gas()
+{
+    return perform_kernel_input_lookup(FEE_PER_DA_GAS_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_fee_per_l2_gas()
+{
+    return perform_kernel_input_lookup(FEE_PER_L2_GAS_SELECTOR);
 }
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
@@ -220,7 +225,7 @@ void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk,
                                                  const FF& l2_to_l1_msg,
                                                  const FF& recipient)
 {
-    uint32_t offset = START_L2_TO_L1_MSG_WRITE_OFFSET + emit_l2_to_l1_msg_offset;
+    uint32_t offset = START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET + emit_l2_to_l1_msg_offset;
     perform_kernel_output_lookup(offset, side_effect_counter, l2_to_l1_msg, recipient);
     emit_l2_to_l1_msg_offset++;
 

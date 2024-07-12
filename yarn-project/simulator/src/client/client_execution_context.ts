@@ -3,10 +3,12 @@ import {
   type AztecNode,
   EncryptedL2Log,
   EncryptedL2NoteLog,
+  Event,
+  L1EventPayload,
   L1NotePayload,
   Note,
   type NoteStatus,
-  TaggedNote,
+  TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -19,8 +21,14 @@ import {
   type TxContext,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import {
+  EventSelector,
+  type FunctionAbi,
+  type FunctionArtifact,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
@@ -286,7 +294,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override notifyCreatedNote(
     storageSlot: Fr,
-    noteTypeId: Fr,
+    noteTypeId: NoteSelector,
     noteItems: Fr[],
     innerNoteHash: Fr,
     counter: number,
@@ -330,13 +338,15 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Emit encrypted data
-   * @param encryptedNote - The encrypted data.
+   * @param contractAddress - The contract emitting the encrypted event.
+   * @param randomness - A value used to mask the contract address we are siloing with.
+   * @param encryptedEvent - The encrypted event data.
    * @param counter - The effects counter.
    */
-  public override emitEncryptedLog(
+  public override emitEncryptedEventLog(
     contractAddress: AztecAddress,
     randomness: Fr,
-    encryptedData: Buffer,
+    encryptedEvent: Buffer,
     counter: number,
   ) {
     // In some cases, we actually want to reveal the contract address we are siloing with:
@@ -345,7 +355,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const maskedContractAddress = randomness.isZero()
       ? contractAddress.toField()
       : pedersenHash([contractAddress, randomness], 0);
-    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedData, maskedContractAddress), counter);
+    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);
   }
 
@@ -361,6 +371,34 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
+   * Encrypt an event
+   * @param contractAddress - The contract emitting the encrypted event.
+   * @param randomness - A value used to mask the contract address we are siloing with.
+   * @param eventTypeId - The type ID of the event (function selector).
+   * @param ovKeys - The outgoing viewing keys to use to encrypt.
+   * @param ivpkM - The master incoming viewing public key.
+   * @param preimage - The event preimage.
+   */
+  public override computeEncryptedEventLog(
+    contractAddress: AztecAddress,
+    randomness: Fr,
+    eventTypeId: Fr,
+    ovKeys: KeyValidationRequest,
+    ivpkM: Point,
+    preimage: Fr[],
+  ) {
+    const event = new Event(preimage);
+    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, EventSelector.fromField(eventTypeId));
+    const taggedEvent = new TaggedLog(l1EventPayload);
+
+    const ephSk = GrumpkinScalar.random();
+
+    const recipient = AztecAddress.random();
+
+    return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
+  }
+
+  /**
    * Encrypt a note
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
@@ -369,20 +407,23 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param ivpkM - The master incoming viewing public key.
    * @param preimage - The note preimage.
    */
-  public override computeEncryptedLog(
+  public override computeEncryptedNoteLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    noteTypeId: Fr,
+    noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
     preimage: Fr[],
   ) {
     const note = new Note(preimage);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedNote(l1NotePayload);
+    const taggedNote = new TaggedLog(l1NotePayload);
 
     const ephSk = GrumpkinScalar.random();
 
+    // @todo This should be populated properly.
+    // Note that this encryption function SHOULD not be used, but is currently used
+    // as oracle for encrypted event logs.
     const recipient = AztecAddress.random();
 
     return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
@@ -418,9 +459,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
     if (
-      childExecutionResult.callStackItem.publicInputs.newNoteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
     ) {
@@ -459,7 +500,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideEffectCounter,
       isDelegateCall,
       isStaticCall,
     );
@@ -518,7 +558,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideEffectCounter,
       isDelegateCall,
       isStaticCall,
     );
@@ -538,6 +577,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       parentCallContext: this.callContext,
       functionSelector,
       contractAddress: targetContractAddress,
+      sideEffectCounter,
     });
   }
 
@@ -613,7 +653,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Derives the call context for a nested execution.
    * @param targetContractAddress - The address of the contract being called.
    * @param targetArtifact - The artifact of the function being called.
-   * @param startSideEffectCounter - The side effect counter at the start of the call.
    * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
@@ -621,7 +660,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   private deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
-    startSideEffectCounter: number,
     isDelegateCall = false,
     isStaticCall = false,
   ) {
@@ -631,30 +669,31 @@ export class ClientExecutionContext extends ViewDataOracle {
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isDelegateCall,
       isStaticCall,
-      startSideEffectCounter,
     );
   }
 
   /**
    * Read the public storage data.
+   * @param contractAddress - The address to read storage from.
    * @param startStorageSlot - The starting storage slot.
+   * @param blockNumber - The block number to read storage at.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public override async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
-    // TODO(#4320): This is a hack to work around not having directly access to the public data tree but
-    // still having access to the witnesses
-    const bn = await this.db.getBlockNumber();
-
+  public override async storageRead(
+    contractAddress: Fr,
+    startStorageSlot: Fr,
+    blockNumber: number,
+    numberOfElements: number,
+  ): Promise<Fr[]> {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const leafSlot = computePublicDataTreeLeafSlot(this.callContext.storageContractAddress, storageSlot);
-      const witness = await this.db.getPublicDataTreeWitness(bn, leafSlot);
-      if (!witness) {
-        throw new Error(`No witness for slot ${storageSlot.toString()}`);
-      }
-      const value = witness.leafPreimage.value;
-      this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+
+      const value = await this.aztecNode.getPublicStorageAt(contractAddress, storageSlot, blockNumber);
+      this.log.debug(
+        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
+      );
+
       values.push(value);
     }
     return values;

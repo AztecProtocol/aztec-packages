@@ -7,6 +7,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import {
@@ -219,6 +220,13 @@ export interface AztecNode {
   getProtocolContractAddresses(): Promise<ProtocolContractAddresses>;
 
   /**
+   * Method to add a contract artifact to the database.
+   * @param aztecAddress
+   * @param artifact
+   */
+  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The maximum number of logs to return.
@@ -283,9 +291,10 @@ export interface AztecNode {
    *
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
+   * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
+  getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr>;
 
   /**
    * Returns the currently committed block header.

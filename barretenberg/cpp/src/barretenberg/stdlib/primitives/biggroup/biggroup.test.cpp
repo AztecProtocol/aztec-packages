@@ -443,6 +443,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_batch_mul()
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1043): this test will fail with num_points is 1
+        // (and this case gets hit sometimes when handling points at infinity).
         const size_t num_points = 5;
         Builder builder;
         std::vector<affine_element> points;
@@ -1278,11 +1280,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set1)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set2)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        TestFixture::test_batch_mul_edge_case_set2();
-    } else {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1000";
-    };
+    TestFixture::test_batch_mul_edge_case_set2();
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {

@@ -4,6 +4,7 @@ mod ecdsa_public_key_note;
 // The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, PrivateImmutable};
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 
     use dep::aztec::protocol_types::abis::call_context::CallContext;
     use dep::std;
@@ -20,8 +21,6 @@ contract EcdsaAccount {
         public_key: PrivateImmutable<EcdsaPublicKeyNote>,
     }
 
-    global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
-
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[aztec(private)]
     #[aztec(initializer)]
@@ -32,44 +31,24 @@ contract EcdsaAccount {
         // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
         // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
         // important.
-        let this_ovpk_m = header.get_ovpk_m(&mut context, this);
-        let this_ivpk_m = header.get_ivpk_m(&mut context, this);
 
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
-        storage.public_key.initialize(&mut pub_key_note, this_ovpk_m, this_ivpk_m);
+        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this, this));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
-        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.spend_private_authwit(inner_hash)
-    }
-
-    #[aztec(public)]
-    fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.spend_public_authwit(inner_hash)
-    }
-
-    #[aztec(private)]
-    #[aztec(internal)]
-    fn cancel_authwit(outer_hash: Field) {
-        context.push_new_nullifier(outer_hash, 0);
-    }
-
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.approve_public_authwit(outer_hash)
+    #[aztec(view)]
+    fn verify_private_authwit(inner_hash: Field) -> Field {
+        let actions = AccountActions::init(&mut context, is_valid_impl);
+        actions.verify_private_authwit(inner_hash)
     }
 
     #[contract_library_method]

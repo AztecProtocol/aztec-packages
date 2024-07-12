@@ -46,6 +46,9 @@ E2E_TEST:
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   RUN docker run -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
 
+e2e-p2p:
+  DO +E2E_TEST --test=./src/e2e_p2p_network.test.ts
+
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
@@ -139,6 +142,9 @@ e2e-private-voting-contract:
 e2e-fees-private-payments:
   DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
 
+e2e-fees-private-refunds:
+  DO +E2E_TEST --test=./src/e2e_fees/private_refunds.test.ts
+
 e2e-fees-gas-estimation:
   DO +E2E_TEST --test=./src/e2e_fees/gas_estimation.test.ts
 
@@ -162,6 +168,9 @@ e2e-public-to-private-messaging:
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts
+
+e2e-logs:
+  DO +E2E_TEST --test=./src/e2e_event_logs.test.ts
 
 e2e-static-calls:
   DO +E2E_TEST --test=./src/e2e_static_calls.test.ts

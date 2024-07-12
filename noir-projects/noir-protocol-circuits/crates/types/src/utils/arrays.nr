@@ -1,14 +1,20 @@
 mod assert_sorted_array;
 mod assert_sorted_transformed_value_array;
+mod assert_split_sorted_transformed_value_arrays;
 mod sort_by_counters;
 mod sort_get_order_hints;
+mod sort_get_sorted_hints;
 mod sort_get_sorted_tuple;
+mod sort_get_split_order_hints;
 
 // Re-exports.
 use assert_sorted_array::assert_sorted_array;
+use assert_split_sorted_transformed_value_arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc};
 use assert_sorted_transformed_value_array::assert_sorted_transformed_value_array;
 use sort_by_counters::{sort_by_counters_asc, sort_by_counters_desc};
-use sort_get_order_hints::{OrderHint, sort_get_order_hints_asc};
+use sort_get_order_hints::{OrderHint, sort_get_order_hints_asc, sort_get_order_hints_desc};
+use sort_get_sorted_hints::sort_get_sorted_hints;
+use sort_get_split_order_hints::{sort_get_split_order_hints_asc, sort_get_split_order_hints_desc, SplitOrderHints};
 
 use crate::traits::{Empty, is_empty};
 use crate::abis::side_effect::{Positioned, Ordered};
@@ -49,10 +55,20 @@ pub fn filter_array_to_bounded_vec<T, N>(arr: [T; N], should_propagate: [bool; N
     vec_hint
 }
 
+unconstrained pub fn find_index_hint<T, N>(array: [T; N], find: T) -> u32 where T: Eq {
+    let mut index = 0;
+    for i in 0..array.len() {
+        if array[i] == find {
+            index = i;
+        }
+    }
+    index
+}
+
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
-pub fn validate_array<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+pub fn validate_array<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let mut seen_empty = false;
     let mut length = 0;
     for i in 0..N {
@@ -66,7 +82,7 @@ pub fn validate_array<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
     length
 }
 
-unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let mut length = 0;
     let mut seen_empty = false;
     for elem in array {
@@ -81,7 +97,7 @@ unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u64 where T: E
 
 // Helper function to count the number of non-empty elements in a validated array.
 // Important: Only use it for validated arrays: validate_array(array) should be true.
-pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+pub fn array_length<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let length = count_non_empty_elements(array);
     if length != 0 {
         assert(!is_empty(array[length - 1]));
@@ -103,7 +119,7 @@ pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: Empty
     eq
 }
 
-pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u64 {
+pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
     let mut index = N;
     for i in 0..N {
         if (index == N) & find(array[i]) {
@@ -154,7 +170,7 @@ pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empt
 pub fn check_permutation<T, N>(
     original_array: [T; N],
     permuted_array: [T; N],
-    original_indexes: [u64; N]
+    original_indexes: [u32; N]
 ) where T: Eq + Empty {
     let mut seen_value = [false; N];
     for i in 0..N {
@@ -169,7 +185,7 @@ pub fn check_permutation<T, N>(
 pub fn assert_deduped_array<T, N, Env>(
     original_array: [T; N],
     deduped_array: [T; N],
-    run_lengths: [u64; N]
+    run_lengths: [u32; N]
 ) where T: Positioned + Ordered + Empty + Eq {
     /*
     The original_array here needs to be sorted based on the `position` field of the container,

@@ -17,7 +17,6 @@ import {
   parseOptionalAztecAddress,
   parseOptionalInteger,
   parseOptionalLogId,
-  parseOptionalSelector,
   parseOptionalTxHash,
   parsePartialAddress,
   parsePrivateKey,
@@ -220,6 +219,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
+    .option(
+      '--skip-initialization',
+      'Skip initializing the account contract. Useful for publicly deploying an existing account.',
+    )
+    .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
     .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
     .addOption(pxeOption)
     .addOptions(FeeOpts.getOptions())
@@ -232,8 +236,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(async args => {
       const { createAccount } = await import('./cmds/create_account.js');
-      const { rpcUrl, privateKey, wait, registerOnly } = args;
-      await createAccount(rpcUrl, privateKey, registerOnly, wait, FeeOpts.fromCli(args, log), debugLogger, log);
+      const { rpcUrl, privateKey, wait, registerOnly, skipInitialization, publicDeploy } = args;
+      await createAccount(
+        rpcUrl,
+        privateKey,
+        registerOnly,
+        skipInitialization,
+        publicDeploy,
+        wait,
+        FeeOpts.fromCli(args, log),
+        debugLogger,
+        log,
+      );
     });
 
   program
@@ -314,20 +328,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('check-deploy')
-    .description('Checks if a contract is deployed to the specified Aztec address.')
-    .requiredOption(
-      '-ca, --contract-address <address>',
-      'An Aztec address to check if contract has been deployed to.',
-      parseAztecAddress,
-    )
-    .addOption(pxeOption)
-    .action(async options => {
-      const { checkDeploy } = await import('./cmds/check_deploy.js');
-      await checkDeploy(options.rpcUrl, options.contractAddress, debugLogger, log);
-    });
-
-  program
     .command('add-contract')
     .description(
       'Adds an existing contract to the PXE. This is useful if you have deployed a contract outside of the PXE and want to use it with the PXE.',
@@ -402,12 +402,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
     .option('-al --after-log <logId>', 'ID of a log after which to fetch the logs.', parseOptionalLogId)
     .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
-    .option('-s, --selector <hex string>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
     .option('--follow', 'If set, will keep polling for new logs until interrupted.')
-    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, selector, rpcUrl, follow }) => {
+    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, rpcUrl, follow }) => {
       const { getLogs } = await import('./cmds/get_logs.js');
-      await getLogs(txHash, fromBlock, toBlock, afterLog, contractAddress, selector, rpcUrl, follow, debugLogger, log);
+      await getLogs(txHash, fromBlock, toBlock, afterLog, contractAddress, rpcUrl, follow, debugLogger, log);
     });
 
   program

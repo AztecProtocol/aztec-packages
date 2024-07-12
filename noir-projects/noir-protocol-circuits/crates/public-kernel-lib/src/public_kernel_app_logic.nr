@@ -3,7 +3,14 @@ use dep::types::abis::public_kernel_data::PublicKernelData;
 use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
+use dep::types::constants::{PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX};
 use crate::common;
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+    PUBLIC_KERNEL_SETUP_INDEX,
+    PUBLIC_KERNEL_APP_LOGIC_INDEX,
+];
 
 struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -39,9 +46,10 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
     }
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
-        // verify the previous kernel proof
-        self.previous_kernel.verify();
-
+        if !dep::std::runtime::is_unconstrained() {
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
 
@@ -76,14 +84,14 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
             let reverted_call_request = remaining_calls.pop();
             // even though we reverted, we still need to make sure the correct call was made
-            // but don't do the full `validate_call_against_request` because 
+            // but don't do the full `validate_call_against_request` because
             // that makes a bunch of assertions that we don't want to make
             // e.g. that msg_sender is self in the case of internal.
             // We don't want to make those checks because we already know we reverted,
             // and we aren't updating the public end values, so we want this kernel circuit to solve.
             // So just check that the call request is the same as the one we expected.
             assert(
-                reverted_call_request.hash == self.public_call.call_stack_item.hash(), "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack"
+                reverted_call_request.hash == self.public_call.call_stack_item.get_compressed().hash(), "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack"
             );
         }
 
@@ -93,7 +101,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
 mod tests {
     use crate::{
-        public_kernel_app_logic::PublicKernelAppLogicCircuitPrivateInputs,
+        public_kernel_app_logic::{PublicKernelAppLogicCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS},
         utils::{
         assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
         compute_public_data_reads, compute_public_data_update_requests
@@ -115,7 +123,10 @@ mod tests {
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::arrays::{array_eq, array_length}, traits::is_empty
     };
-    use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
+    use dep::types::constants::{
+        MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX
+    };
 
     struct PublicKernelAppLogicCircuitPrivateInputsBuilder {
         previous_kernel: FixtureBuilder,
@@ -124,7 +135,7 @@ mod tests {
 
     impl PublicKernelAppLogicCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new().as_parent_contract();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
             let public_call = PublicCallDataBuilder::new();
 
             PublicKernelAppLogicCircuitPrivateInputsBuilder { previous_kernel, public_call }
@@ -150,7 +161,7 @@ mod tests {
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
-            let hash = public_call.call_stack_item.hash();
+            let hash = public_call.call_stack_item.get_compressed().hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
             self.previous_kernel.push_public_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.to_public_kernel_data(true);
@@ -193,12 +204,12 @@ mod tests {
     #[test(should_fail_with="Cannot run unnecessary app logic circuit")]
     fn public_previous_kernel_private_previous_kernel_should_fail() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = FixtureBuilder::new();
+        builder.previous_kernel = FixtureBuilder::new().in_vk_tree(PUBLIC_KERNEL_APP_LOGIC_INDEX);
         let public_call = builder.public_call.finish();
 
         // the key difference in this test versus those that use builder.execute()
         // is that we do not add a public call request to the previous kernel.
-        // this means that when we call `to_public_kernel_data` below, 
+        // this means that when we call `to_public_kernel_data` below,
         // it will say needs_app_logic is false
 
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(true);
@@ -213,27 +224,28 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
         // Setup 2 new note hashes and logs on the previous kernel.
-        builder.previous_kernel.append_new_note_hashes_with_logs(2);
-        let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
+        builder.previous_kernel.append_note_hashes_with_logs(2);
+        let previous = builder.previous_kernel.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
+        let prev_data = builder.previous_kernel.to_public_accumulated_data();
+        let prev_note_logs = prev_data.note_encrypted_logs_hashes;
         // Setup 2 new note hashes on the current public inputs.
         let current = [
             NoteHash { value: previous[1].value + 1, counter: 5 },
             NoteHash { value: previous[1].value + 2, counter: 6 }
         ];
-        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
-        builder.public_call.public_inputs.new_note_hashes.extend_from_array(current);
+        builder.public_call.public_inputs.note_hashes.extend_from_array(current);
         let siloed = current.map(|c: NoteHash| compute_siloed_note_hash(contract_address, c.value));
-        let new_note_hashes = [
+        let note_hashes = [
             previous[0], previous[1], NoteHash { value: siloed[0], counter: 5 }, NoteHash { value: siloed[1], counter: 6 }
         ];
 
         let public_inputs = builder.execute();
 
-        assert(array_eq(public_inputs.end.new_note_hashes, new_note_hashes));
+        assert(array_eq(public_inputs.end.note_hashes, note_hashes));
         assert(
             array_eq(
                 public_inputs.end.note_encrypted_logs_hashes,
-                [note_logs[0].expose_to_public(), note_logs[1].expose_to_public()]
+                [prev_note_logs[0], prev_note_logs[1]]
             )
         );
     }
@@ -281,27 +293,27 @@ mod tests {
         let contract_address = builder.public_call.contract_address;
 
         // Setup 2 new nullifiers on the previous kernel.
-        builder.previous_kernel.append_new_nullifiers(2);
-        let previous = builder.previous_kernel.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier);
+        builder.previous_kernel.append_nullifiers(2);
+        let previous = builder.previous_kernel.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier);
         // Setup 2 new note hashes on the current public inputs.
 
         let current = [
             Nullifier { value: previous[1].value + 1, note_hash: 0, counter: 4 }, Nullifier { value: previous[1].value + 2, note_hash: 0, counter: 5 }
         ];
-        builder.public_call.public_inputs.new_nullifiers.extend_from_array(current);
+        builder.public_call.public_inputs.nullifiers.extend_from_array(current);
 
         let siloed = current.map(
-            |current: Nullifier| 
+            |current: Nullifier|
         Nullifier { value: compute_siloed_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
         );
 
         // There are 2 revertible nullifiers in the previous kernel.
         // The tx nullifier is part of the non-revertible nullifiers.
-        let new_nullifiers = [previous[0], previous[1], siloed[0], siloed[1]];
+        let nullifiers = [previous[0], previous[1], siloed[0], siloed[1]];
 
         let public_inputs = builder.execute();
 
-        assert(array_eq(public_inputs.end.new_nullifiers, new_nullifiers));
+        assert(array_eq(public_inputs.end.nullifiers, nullifiers));
     }
 
     #[test]
@@ -316,17 +328,17 @@ mod tests {
         builder.previous_kernel.add_l2_to_l1_message(previous[0], portal_contract_address);
         // Setup 1 new l2 to l1 message on the current public inputs.
         let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890, counter: 0 }];
-        builder.public_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(current);
+        builder.public_call.public_inputs.l2_to_l1_msgs.extend_from_array(current);
         let tx_context = builder.previous_kernel.tx_context;
         let version = tx_context.version;
         let chain_id = tx_context.chain_id;
         let siloed = current.map(
             |c: L2ToL1Message| compute_l2_to_l1_hash(contract_address, c.recipient, c.content, version, chain_id)
         );
-        let new_l2_to_l1_msgs = [previous[0], siloed[0]];
+        let l2_to_l1_msgs = [previous[0], siloed[0]];
 
         let public_inputs = builder.execute();
-        assert(array_eq(public_inputs.end.new_l2_to_l1_msgs, new_l2_to_l1_msgs));
+        assert(array_eq(public_inputs.end.l2_to_l1_msgs, l2_to_l1_msgs));
     }
     // TODO: Break up this test into smaller tests.
     #[test]
@@ -347,14 +359,15 @@ mod tests {
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
+        let prev_data = builder.previous_kernel.to_public_accumulated_data();
 
         let mut expected_unencrypted_logs = [
-            builder.previous_kernel.unencrypted_logs_hashes.storage[0].log_hash, builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+            prev_data.unencrypted_logs_hashes[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
         ];
         // silo the new log hash
         expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
-        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
+        let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
 
         let public_inputs = builder.execute();
 
@@ -390,20 +403,20 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_note_hashes must be empty for static calls")]
-    fn public_kernel_fails_creating_new_note_hashes_on_static_call() {
+    #[test(should_fail_with="note_hashes must be empty for static calls")]
+    fn public_kernel_fails_creating_note_hashes_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
-        builder.public_call.public_inputs.new_note_hashes.push(NoteHash { value: 1, counter: 0 });
+        builder.public_call.public_inputs.note_hashes.push(NoteHash { value: 1, counter: 0 });
 
         builder.failed();
     }
 
-    #[test(should_fail_with="new_nullifiers must be empty for static calls")]
-    fn public_kernel_fails_creating_new_nullifiers_on_static_call() {
+    #[test(should_fail_with="nullifiers must be empty for static calls")]
+    fn public_kernel_fails_creating_nullifiers_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
-        builder.public_call.public_inputs.new_nullifiers.push(Nullifier { value: 1, note_hash: 0, counter: 0 });
+        builder.public_call.public_inputs.nullifiers.push(Nullifier { value: 1, note_hash: 0, counter: 0 });
 
         builder.failed();
     }
@@ -596,7 +609,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 1;
         let public_call = builder.public_call.finish();
-        let hash = public_call.call_stack_item.hash();
+        let hash = public_call.call_stack_item.get_compressed().hash();
 
         builder.previous_kernel.push_public_call_request(hash, false);
         builder.previous_kernel.push_public_call_request(hash, false);
@@ -612,4 +625,21 @@ mod tests {
         assert_eq(array_length(public_inputs.end.public_call_stack), 0);
         assert_eq(array_length(public_inputs.public_teardown_call_stack), 2);
     }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

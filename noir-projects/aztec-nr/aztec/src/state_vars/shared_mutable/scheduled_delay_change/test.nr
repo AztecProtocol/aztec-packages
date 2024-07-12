@@ -7,6 +7,7 @@ fn assert_equal_after_conversion(original: ScheduledDelayChange<TEST_INITIAL_DEL
     // TODO: improve syntax once https://github.com/noir-lang/noir/issues/4710 is implemented.
     let converted: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::deserialize((original).serialize());
 
+    assert_eq(original, converted); // This also tests the Eq impl
     assert_eq(original.pre, converted.pre);
     assert_eq(original.post, converted.post);
     assert_eq(original.block_of_change, converted.block_of_change);
@@ -26,7 +27,7 @@ fn test_serde() {
 
 #[test]
 fn test_serde_large_values() {
-    let max_u32 = (1 << 32) - 1;
+    let max_u32: u64 = (1 << 32) - 1;
 
     let pre = max_u32 as u32;
     let post = (max_u32 - 1) as u32;

@@ -41,23 +41,25 @@ export {
   CheatCodes,
   EthAddressLike,
   EthCheatCodes,
+  EventSelectorLike,
   FieldLike,
   FunctionSelectorLike,
   WrappedFieldLike,
   computeAuthWitMessageHash,
+  computeInnerAuthWitHashFromAction,
   computeInnerAuthWitHash,
-  computeOuterAuthWitHash,
   generatePublicKey,
   waitForAccountSynch,
   waitForPXE,
 } from './utils/index.js';
+export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createPXEClient } from './rpc_clients/index.js';
 
 export { AuthWitnessProvider } from './account/index.js';
 
 export { AccountContract } from './account/index.js';
-export { AccountManager } from './account_manager/index.js';
+export { AccountManager, DeployAccountOptions } from './account_manager/index.js';
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, Wallet } from './wallet/index.js';
 
@@ -95,11 +97,11 @@ export {
   CompleteAddress,
   EncryptedL2BlockL2Logs,
   EncryptedLogHeader,
-  EncryptedLogIncomingBody,
+  EncryptedNoteLogIncomingBody,
   EncryptedLogOutgoingBody,
+  EventType,
   ExtendedNote,
   FunctionCall,
-  GrumpkinPrivateKey,
   L1Actor,
   L1ToL2Message,
   L2Actor,
@@ -127,6 +129,9 @@ export {
   createAztecNodeClient,
   merkleTreeIds,
   mockTx,
+  TaggedLog,
+  L1NotePayload,
+  L1EventPayload,
 } from '@aztec/circuit-types';
 export { NodeInfo } from '@aztec/types/interfaces';
 
