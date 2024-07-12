@@ -138,8 +138,8 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
         }
         if (
           scopedLogHashes.findIndex(
-            slh => slh.contractAddress === log.contractAddress && slh.value.equals(Fr.fromBuffer(log.hash())),
-          )
+            slh => slh.contractAddress.equals(log.contractAddress) && slh.value.equals(Fr.fromBuffer(log.hash())),
+          ) != -1
         ) {
           include = true;
         }
