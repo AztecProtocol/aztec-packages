@@ -377,7 +377,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs: self.unencrypted_logs_hashes.storage,
+            unencrypted_logs: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
@@ -751,13 +751,6 @@ impl FixtureBuilder {
     pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
         self.unencrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
-        self.unencrypted_log_preimages_length += length;
-    }
-
-    pub fn add_siloed_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let mut log_hash = LogHash { value: hash, counter: self.next_counter(), length }.scope(self.storage_contract_address);
-        log_hash.log_hash.value = silo_unencrypted_log_hash(log_hash);
-        self.unencrypted_logs_hashes.push(log_hash);
         self.unencrypted_log_preimages_length += length;
     }
 

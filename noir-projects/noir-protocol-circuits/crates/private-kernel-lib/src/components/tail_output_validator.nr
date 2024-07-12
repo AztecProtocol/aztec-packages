@@ -146,7 +146,7 @@ impl TailOutputValidator {
         );
 
         assert_eq(
-            hints.sorted_unencrypted_log_hashes, self.output.end.unencrypted_logs, "mismatch unencrypted_logs"
+            hints.sorted_unencrypted_log_hashes.map(|log: ScopedLogHash| log.expose_to_public()), self.output.end.unencrypted_logs, "mismatch unencrypted_logs"
         );
     }
 

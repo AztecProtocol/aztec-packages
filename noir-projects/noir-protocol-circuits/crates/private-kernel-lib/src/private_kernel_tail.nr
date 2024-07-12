@@ -60,7 +60,8 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas,
+        log_hash::ScopedLogHash
     },
         address::{AztecAddress, EthAddress}, scalar::Scalar,
         hash::{sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash},
@@ -173,7 +174,9 @@ mod tests {
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
-        assert_eq(public_inputs.end.unencrypted_logs, builder.previous_kernel.unencrypted_logs_hashes.storage);
+        assert_eq(
+            public_inputs.end.unencrypted_logs, builder.previous_kernel.unencrypted_logs_hashes.storage.map(|log: ScopedLogHash| log.expose_to_public())
+        );
     }
 
     unconstrained fn compute_hash_bytes(
