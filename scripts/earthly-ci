@@ -16,7 +16,6 @@ ATTEMPT_COUNT=0
 
 # earthly settings
 export EARTHLY_ALLOW_PRIVILEGED=true
-export EARTHLY_USE_INLINE_CACHE=true
 export EARTHLY_NO_BUILDKIT_UPDATE=true
 # make sure earthly gives annotations that github picks up
 export GITHUB_ACTIONS=true
