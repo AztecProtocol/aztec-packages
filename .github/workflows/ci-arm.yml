@@ -66,6 +66,8 @@ jobs:
     needs: [build-images]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-arm
     steps:
+      # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
+      - run: sudo chown -R $USER:$USER /home/github/actions-runner/_work/
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
