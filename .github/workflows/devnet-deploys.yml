@@ -58,13 +58,6 @@ jobs:
             const fileChanged = changedFiles.includes('l1-contracts/REDEPLOY');
             return fileChanged
 
-      - name: "Build & Push cli image"
-        if: steps.check_changes_build.outputs.result == 'true'
-        timeout-minutes: 40
-        # Run the build steps for each image with version and arch, push to dockerhub
-        run: |
-          earthly-ci --no-output --push ./yarn-project+export-cli --DIST_TAG=${{ env.DEPLOY_TAG }}
-
   terraform_deploy:
     runs-on: ubuntu-latest
     needs: build
