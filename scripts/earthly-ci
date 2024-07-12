@@ -33,10 +33,6 @@ function wipe_non_cache_docker_state {
 }
 
 EARTHLY_ARGS="--secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-}"
-if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ] ; then
-  echo "Trying earthly build with no cache, this will take longer but is very unlikely to not hit the graph edge bug."
-  EARTHLY_ARGS="--no-cache $EARTHLY_ARGS"
-fi
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
@@ -52,6 +48,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
       if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ]; then
         echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Starting again with no cache."
+        EARTHLY_ARGS="--no-cache $EARTHLY_ARGS"
       else
         echo "Got 'inconsistent graph state' or 'failed to get state for index'. Retrying once."
         sleep 20
