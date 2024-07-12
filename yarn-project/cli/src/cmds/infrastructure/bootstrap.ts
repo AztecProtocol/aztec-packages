@@ -10,7 +10,8 @@ const waitOpts: WaitOpts = {
 };
 
 export async function bootstrap(rpcUrl: string, log: LogFn) {
-  // @ts-expect-error - Importing noir-contracts.js even in devDeps results in a circular dependency error
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { GasTokenContract, KeyRegistryContract } = await import('@aztec/noir-contracts.js');
 
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));

@@ -4,7 +4,11 @@
   "type": "module",
   "exports": {
     "./builder": "./dest/cmds/builder/index.js",
-    "./infrastructure": "./dest/cmds/infrastructure/index.js"
+    "./contracts": "./dest/cmds/contracts/index.js",
+    "./infrastructure": "./dest/cmds/infrastructure/index.js",
+    "./l1": "./dest/cmds/l1/index.js",
+    "./pxe": "./dest/cmds/pxe/index.js",
+    "./utils": "./dest/cmds/utils/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

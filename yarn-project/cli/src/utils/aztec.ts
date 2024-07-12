@@ -110,7 +110,8 @@ export async function deployAztecContracts(
  * @returns The contract ABIs.
  */
 export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
-  // @ts-expect-error - Importing noir-contracts.js even in devDeps results in a circular dependency error
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const imports = await import('@aztec/noir-contracts.js');
   return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }
