@@ -233,10 +233,7 @@ jobs:
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
         run: |
-          earthly-ci -P \
-            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            +bench-aggregate
+          earthly-ci -P +bench-aggregate
       - name: "Download base benchmark and package into earthly"
         if: ${{ github.event_name == 'pull_request' }}
         run: |
@@ -254,11 +251,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: ./yarn-project/scripts
         run: |
-          earthly-ci -P \
-            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-            +bench-comment
+          earthly-ci -P +bench-comment
 
   bb-gcc:
     needs: [build-images, changes]
@@ -390,10 +383,7 @@ jobs:
         working-directory: ./noir-projects/
         timeout-minutes: 40
         run: |
-          earthly-ci --no-output \
-          --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-          --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-          ./+format
+          earthly-ci --no-output ./+format
 
   noir-test:
     needs: [build-images, changes]
