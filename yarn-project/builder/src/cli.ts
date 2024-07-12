@@ -9,7 +9,7 @@ const log = createConsoleLogger('aztec:builder');
 const main = async () => {
   const program = new Command('aztec-builder');
 
-  await injectBuilderCommands(program, log);
+  injectBuilderCommands(program, log);
   await program.parseAsync(process.argv);
   // I force exit here because spawnSync in npm.ts just blocks the process from exiting. Spent a bit of time debugging
   // it without success and I think it doesn't make sense to invest more time in this.

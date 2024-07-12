@@ -1,6 +1,6 @@
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { Command } from 'commander';
+import { type Command } from 'commander';
 
 import {
   API_KEY,

@@ -4,11 +4,11 @@ import { EthAddress } from '@aztec/aztec.js/eth_address';
 import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
-import { PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types';
 import { PublicKeys } from '@aztec/circuits.js';
-import { LogFn, Logger } from '@aztec/foundation/log';
+import { type LogFn, Logger } from '@aztec/foundation/log';
 
-import { Command, Command as CommanderCommand, CommanderError, InvalidArgumentError, Option } from 'commander';
+import { type Command, Command as CommanderCommand, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { rename, writeFile } from 'fs/promises';
 

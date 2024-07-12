@@ -278,6 +278,7 @@ __metadata:
   resolution: "@aztec/builder@workspace:builder"
   dependencies:
     "@aztec/cli": "workspace:^"
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23

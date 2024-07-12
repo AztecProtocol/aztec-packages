@@ -4,7 +4,7 @@ import { type ServerList, createNamespacedJsonRpcServer, createStatusRouter } fr
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { createPXERpcServer } from '@aztec/pxe';
 
-import { Command } from 'commander';
+import { type Command } from 'commander';
 import http from 'http';
 
 import { createSandbox } from '../sandbox.js';

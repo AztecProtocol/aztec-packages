@@ -1,7 +1,7 @@
 import { Fr, PublicKeys } from '@aztec/circuits.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { Command } from 'commander';
+import { type Command } from 'commander';
 
 import { FeeOpts } from '../../fees.js';
 import {
