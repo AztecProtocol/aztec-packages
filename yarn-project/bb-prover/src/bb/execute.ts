@@ -4,9 +4,12 @@ import { type LogFn, currentLevel as currentLogLevel } from '@aztec/foundation/l
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
+
+
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 import { basename, dirname, join } from 'path';
+
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -455,10 +458,14 @@ export async function generateTubeProof(
     const logFunction = (message: string) => {
       log(`TubeCircuit (prove) BB out - ${message}`);
     };
+    const verifyResult = await executeBB(pathToBB, 'verify_client_ivc', args, logFunction);
+    if (verifyResult.status !== BB_RESULT.SUCCESS) {
+      return { status: BB_RESULT.FAILURE, reason: `Failed to verify client IVC at ${workingDirectory}` };
+    }
     const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
     const durationMs = timer.ms();
 
-    if (result.status == BB_RESULT.SUCCESS) {
+    if (result.status === BB_RESULT.SUCCESS) {
       return {
         status: BB_RESULT.SUCCESS,
         durationMs,
