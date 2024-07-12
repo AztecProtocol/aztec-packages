@@ -34,7 +34,7 @@ function wipe_non_cache_docker_state {
 }
 
 EARTHLY_ARGS="--secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-}"
-if "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ; then
+if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ] ; then
   echo "Trying earthly build with no cache, this will take longer but is very unlikely to not hit the graph edge bug."
   export EARTHLY_NO_CACHE=1
 fi
