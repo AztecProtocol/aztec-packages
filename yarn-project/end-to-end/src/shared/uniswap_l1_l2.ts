@@ -1,20 +1,34 @@
-import { type AccountWallet, AztecAddress, type AztecNode, type DebugLogger, EthAddress, Fr, type PXE, computeAuthWitMessageHash } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  AztecAddress,
+  type AztecNode,
+  type DebugLogger,
+  EthAddress,
+  Fr,
+  type PXE,
+  computeAuthWitMessageHash,
+} from '@aztec/aztec.js';
 import { deployL1Contract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
-
-
 import { jest } from '@jest/globals';
-import { strict as assert } from 'assert';
-import { type Account, type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, type WalletClient, decodeEventLog, getContract, parseEther, toFunctionSelector } from 'viem';
-
-
+import {
+  type Account,
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  decodeEventLog,
+  getContract,
+  parseEther,
+  toFunctionSelector,
+} from 'viem';
 
 import { publicDeployAccounts } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
-
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
 // don't need to burn through RPC requests.
@@ -90,7 +104,7 @@ export const uniswapL1L2TestSuite = (
       }
 
       ownerAddress = ownerWallet.getAddress();
-      sponsorAddress = sponsorWallet.getAddress();
+      // sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
       await publicDeployAccounts(ownerWallet, [ownerWallet, sponsorWallet]);
