@@ -4,6 +4,7 @@ import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 
@@ -278,6 +279,13 @@ export class Fr extends BaseField {
     }
 
     return new Fr(this.toBigInt() / rhs.toBigInt());
+  }
+
+  sqrt() {
+    const wasm = BarretenbergSync.getSingleton().getWasm();
+    wasm.writeMemory(0, this.toBuffer());
+    wasm.call('grumpkin_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
+    return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES * 2)));
   }
 
   toJSON() {

@@ -79,6 +79,37 @@ export class Point {
   }
 
   /**
+   * Uses the x coordinate and isPositive flag (+/-) to reconstruct the point.
+   * @dev The y coordinate can be derived from the x coordinate and the sign flag by solving the grumpkin curve
+   * equation for y.
+   * @param x - The x coordinate of the point
+   * @param sign - The sign of the y coordinate
+   * @returns The point as an array of 2 fields
+   */
+  static fromXAndSign(x: Fr, sign: boolean) {
+    // Define the constant A for the Grumpkin curve equation (y^2 = x^3 - A)
+    const A = new Fr(17);
+
+    // Calculate y^2 = x^3 - 17
+    const ySquared = x.square().mul(x).sub(A)
+
+    // Calculate the square root of ySquared
+    const y = ySquared.sqrt();
+
+    // If y is null, the x-coordinate is not on the curve
+    if (y === null) {
+      throw new Error('The given x-coordinate is not on the Grumpkin curve');
+    }
+
+    // Choose the positive or negative root based on isPositive
+    // const finalY = sign ? y : y.neg();
+    const finalY = y;
+
+    // Create and return the new Point
+    return new this(x, finalY, false);
+  }
+
+  /**
    * Returns the contents of the point as BigInts.
    * @returns The point as BigInts
    */
