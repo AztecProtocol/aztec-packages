@@ -22,13 +22,13 @@ async function main() {
   const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
   let program = new Command('aztec');
   program.description('Aztec command line interface').version(cliVersion);
-  program = await injectAztecCommands(program, userLog, debugLogger);
-  program = await injectBuilderCommands(program, userLog);
-  program = await injectContractCommands(program, userLog, debugLogger);
-  program = await injectInfrastructureCommands(program, userLog, debugLogger);
-  program = await injectL1Commands(program, userLog, debugLogger);
-  program = await injectPXECommands(program, userLog, debugLogger);
-  program = await injectUtilsCommands(program, userLog);
+  program = injectAztecCommands(program, userLog, debugLogger);
+  program = injectBuilderCommands(program, userLog);
+  program = injectContractCommands(program, userLog, debugLogger);
+  program = injectInfrastructureCommands(program, userLog, debugLogger);
+  program = injectL1Commands(program, userLog, debugLogger);
+  program = injectPXECommands(program, userLog, debugLogger);
+  program = injectUtilsCommands(program, userLog);
 
   await program.parseAsync(process.argv);
 }

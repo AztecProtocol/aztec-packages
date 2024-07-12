@@ -1,4 +1,4 @@
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
