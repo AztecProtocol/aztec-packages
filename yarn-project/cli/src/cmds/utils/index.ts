@@ -2,7 +2,7 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn) {
   program
     .command('generate-keys')
     .summary('Generates encryption and signing private keys.')

@@ -6,9 +6,9 @@ import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 import { type PXE } from '@aztec/circuit-types';
 import { PublicKeys } from '@aztec/circuits.js';
-import { type LogFn, Logger } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 
-import { type Command, Command as CommanderCommand, CommanderError, InvalidArgumentError, Option } from 'commander';
+import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { rename, writeFile } from 'fs/promises';
 
