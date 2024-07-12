@@ -27,6 +27,7 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
+  ClientIvcProof,
   CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -37,7 +38,6 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -130,6 +130,7 @@ import {
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
+  TUBE_PROOF_LENGTH,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -572,15 +573,15 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1));
+  return new Point(fr(seed), fr(seed + 1), false);
 }
 
 /**
- * Creates an arbitrary grumpkin private key.
+ * Creates an arbitrary grumpkin scalar.
  * @param seed - Seed to generate the values.
- * @returns A GrumpkinPrivateKey.
+ * @returns A GrumpkinScalar.
  */
-export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+export function makeGrumpkinScalar(seed = 1): GrumpkinScalar {
   return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
@@ -609,7 +610,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
     VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
@@ -695,7 +696,11 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
+  return new PublicKernelCircuitPrivateInputs(
+    makePublicKernelData(seed),
+    ClientIvcProof.empty(),
+    makePublicCallData(seed + 0x1000),
+  );
 }
 
 export function makeCombineHints(seed = 1): CombineHints {
@@ -749,7 +754,7 @@ export function makePublicKernelInputsWithTweak(
   const kernelCircuitPublicInputs = makePublicKernelCircuitPublicInputs(seed, false);
   const previousKernel = makePublicKernelData(seed, kernelCircuitPublicInputs);
   const publicCall = makePublicCallData(seed + 0x1000);
-  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);
+  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, ClientIvcProof.empty(), publicCall);
   if (tweak) {
     tweak(publicKernelInputs);
   }
