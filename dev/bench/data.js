@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720800364201,
+  "lastUpdate": 1720801863951,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -81100,6 +81100,78 @@ window.BENCHMARK_DATA = {
             "value": 153459318,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 153459318 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "abced575d43d062ed936445e7e60f017efb1de4e",
+          "message": "feat: added barrett_reduction implementation into uintx (#6768)\n\nThis PR adds a `barrett_reduction` method into `unitx`, a fast division\r\nalgorithm when the divisor is known ahead of time such that precomputed\r\nfactors can be determined.\r\n\r\n`barrett_reduction` is used to speed up `divmod` for some important\r\nhardcoded moduli. Or particular relevance is the prime field associated\r\nwith BN254 curve arithmetic, as expensive 1024-bit `divmod` operations\r\nare performed when computing witnesses within `stdlib::bitfield` -\r\ncommonly used to perform non-native BN254 curve arithmetic.\r\n\r\nSpeeds up biggroup batch_mul 4x\r\n\r\n---------\r\n\r\nCo-authored-by: Rumata888 <isennovskiy@gmail.com>",
+          "timestamp": "2024-07-12T16:08:45Z",
+          "tree_id": "c4e6b89636c73f4ead32a06dcae8114e99b69159",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/abced575d43d062ed936445e7e60f017efb1de4e"
+        },
+        "date": 1720801858341,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 12171.699227000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 8345.068000999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4358.404922000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3972.785932 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38682.913435,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38682913000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15708.400929,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15708400000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4621113915,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4621113915 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201630223,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201630223 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3359529147,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3359529147 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152813353,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152813353 ns\nthreads: 1"
           }
         ]
       }
