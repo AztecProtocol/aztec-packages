@@ -137,7 +137,6 @@ impl TailOutputValidator {
 
         // unencrypted_log_hashes
 
-        // TODO(Alvaro) probably better performance by adding a specialized function here?
         assert_sorted_transformed_value_array(
             self.previous_kernel.end.unencrypted_logs_hashes,
             self.previous_kernel.end.unencrypted_logs_hashes,

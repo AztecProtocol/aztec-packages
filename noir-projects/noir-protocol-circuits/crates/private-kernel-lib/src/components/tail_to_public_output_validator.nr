@@ -149,7 +149,6 @@ impl TailToPublicOutputValidator {
 
         // unencrypted_logs_hashes
 
-        // TODO(Alvaro) might be more efficient to create a specific function for this case?
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.unencrypted_logs_hashes,
             prev_data.unencrypted_logs_hashes,
