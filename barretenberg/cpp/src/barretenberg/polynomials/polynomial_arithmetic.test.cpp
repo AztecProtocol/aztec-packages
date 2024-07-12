@@ -983,7 +983,7 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation)
 {
     using FF = TypeParam;
     constexpr size_t n = 250;
-    FF src[n], poly[n], x[n];
+    std::array<FF, n> src, poly, x;
 
     for (size_t i = 0; i < n; ++i) {
         poly[i] = FF::random_element();
@@ -991,9 +991,9 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation)
 
     for (size_t i = 0; i < n; ++i) {
         x[i] = FF::random_element();
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
     }
-    polynomial_arithmetic::compute_efficient_interpolation(src, src, x, n);
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
 
     for (size_t i = 0; i < n; ++i) {
         EXPECT_EQ(src[i], poly[i]);
@@ -1004,7 +1004,7 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
 {
     using FF = TypeParam;
     constexpr size_t n = 15;
-    FF src[n], poly[n], x[n];
+    std::array<FF, n> src, poly, x;
 
     for (size_t i = 0; i < n; ++i) {
         poly[i] = FF(i + 1);
@@ -1012,9 +1012,9 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
 
     for (size_t i = 0; i < n; ++i) {
         x[i] = FF(i);
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
     }
-    polynomial_arithmetic::compute_efficient_interpolation(src, src, x, n);
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
 
     for (size_t i = 0; i < n; ++i) {
         EXPECT_EQ(src[i], poly[i]);
@@ -1027,9 +1027,9 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
 
     for (size_t i = 0; i < n; ++i) {
         x[i] = FF(i - n / 2);
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
     }
-    polynomial_arithmetic::compute_efficient_interpolation(src, src, x, n);
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
 
     for (size_t i = 0; i < n; ++i) {
         EXPECT_EQ(src[i], poly[i]);
@@ -1043,9 +1043,9 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
 
     for (size_t i = 0; i < n; ++i) {
         x[i] = FF(i - (n - 1));
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
     }
-    polynomial_arithmetic::compute_efficient_interpolation(src, src, x, n);
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
 
     for (size_t i = 0; i < n; ++i) {
         EXPECT_EQ(src[i], poly[i]);
