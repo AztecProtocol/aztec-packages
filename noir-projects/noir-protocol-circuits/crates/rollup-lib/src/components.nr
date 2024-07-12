@@ -113,13 +113,15 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
 }
 
 fn scope_and_hash_unencrypted_logs(unencrypted_logs: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
-    let scoped_logs = unencrypted_logs.map(|log: ScopedLogHash| {
+    let scoped_logs = unencrypted_logs.map(
+        |log: ScopedLogHash| {
         LogHash {
             value: silo_unencrypted_log_hash(log),
             counter: log.log_hash.counter,
             length: log.log_hash.length
         }
-    });
+    }
+    );
     compute_tx_logs_hash(scoped_logs)
 }
 
