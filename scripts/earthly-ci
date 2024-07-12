@@ -34,6 +34,10 @@ function wipe_non_cache_docker_state {
 }
 
 EARTHLY_ARGS="--secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-}"
+if "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ; then
+  echo "Trying earthly build with no cache, this will take longer but is very unlikely to not hit the graph edge bug."
+  export EARTHLY_NO_CACHE=1
+fi
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
@@ -48,11 +52,10 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
     if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
       INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
       if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ]; then
-        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Trying 'earthly prune' and starting again."
-        earthly prune
+        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Starting again with no cache."
       else
         echo "Got 'inconsistent graph state' or 'failed to get state for index'. Retrying once."
-        sleep 5
+        sleep 20
       fi
     elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null; then
       echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker. If this persists, try 'systemctl restart docker' on the spot instance."

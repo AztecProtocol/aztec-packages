@@ -587,7 +587,7 @@ jobs:
           concurrency_key: boxes-${{ github.event.pull_request.user.login || github.actor }}-build
       - name: Build
         working-directory: ./boxes
-        timeout-minutes: 20
+        timeout-minutes: 40
         run: earthly-ci +export-boxes
 
   boxes-test:
@@ -609,7 +609,7 @@ jobs:
           concurrency_key: boxes-${{ github.event.pull_request.user.login || github.actor }}-x86-${{ matrix.box }}-${{ matrix.browser }}
       - name: Box test
         working-directory: ./boxes
-        timeout-minutes: 10
+        timeout-minutes: 40
         run: earthly-ci -P --no-output +test --box=${{ matrix.box }} --browser=${{ matrix.browser }} --mode=cache
 
   protocol-circuits-gates-report:
