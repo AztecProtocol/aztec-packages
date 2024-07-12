@@ -1,10 +1,11 @@
+import { BarretenbergSync } from '@aztec/bb.js';
+
 import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
-import { BarretenbergSync } from '@aztec/bb.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 

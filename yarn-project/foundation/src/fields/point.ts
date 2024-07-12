@@ -91,7 +91,7 @@ export class Point {
     const A = new Fr(17);
 
     // Calculate y^2 = x^3 - 17
-    const ySquared = x.square().mul(x).sub(A)
+    const ySquared = x.square().mul(x).sub(A);
 
     // Calculate the square root of ySquared
     const y = ySquared.sqrt();
@@ -101,12 +101,23 @@ export class Point {
       throw new Error('The given x-coordinate is not on the Grumpkin curve');
     }
 
+    const yPositiveBigInt = y.toBigInt() > (Fr.MODULUS - 1n) / 2n ? Fr.MODULUS - y.toBigInt() : y.toBigInt();
+    const yNegativeBigInt = Fr.MODULUS - yPositiveBigInt;
+
     // Choose the positive or negative root based on isPositive
-    // const finalY = sign ? y : y.neg();
-    const finalY = y;
+    const finalY = sign ? new Fr(yPositiveBigInt) : new Fr(yNegativeBigInt);
 
     // Create and return the new Point
     return new this(x, finalY, false);
+  }
+
+  /**
+   * Returns the x coordinate and the sign of the y coordinate.
+   * @dev The y sign can be determined by checking if the y coordinate is greater than half of the modulus.
+   * @returns The x coordinate and the sign of the y coordinate.
+   */
+  toXAndSign(): [Fr, boolean] {
+    return [this.x, this.y.toBigInt() <= (Fr.MODULUS - 1n) / 2n];
   }
 
   /**
