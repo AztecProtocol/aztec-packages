@@ -12,7 +12,7 @@ use dep::types::{
 },
     hash::{
     compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
-    silo_note_hash, silo_nullifier, silo_unencrypted_log_hash
+    silo_note_hash, silo_nullifier
 },
     traits::is_empty, utils::arrays::assert_sorted_transformed_value_array
 };
@@ -136,21 +136,18 @@ impl TailOutputValidator {
         assert_eq(hash, self.output.end.encrypted_logs_hash, "mismatch encrypted_logs_hash");
 
         // unencrypted_log_hashes
-        validate_value_transformation(
-            self.previous_kernel.end.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_log_hashes,
-            |slh: ScopedLogHash, lh: LogHash| (lh.value == silo_unencrypted_log_hash(slh)) & (lh.length == slh.log_hash.length)
-        );
 
+        // TODO(Alvaro) probably better performance by adding a specialized function here?
         assert_sorted_transformed_value_array(
             self.previous_kernel.end.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_log_hashes,
-            hints.sorted_siloed_unencrypted_log_hashes,
+            self.previous_kernel.end.unencrypted_logs_hashes,
+            hints.sorted_unencrypted_log_hashes,
             hints.sorted_unencrypted_log_hash_hints
         );
 
-        let hash = compute_tx_logs_hash(hints.sorted_siloed_unencrypted_log_hashes);
-        assert_eq(hash, self.output.end.unencrypted_logs_hash, "mismatch unencrypted_logs_hash");
+        assert_eq(
+            hints.sorted_unencrypted_log_hashes, self.output.end.unencrypted_logs, "mismatch unencrypted_logs"
+        );
     }
 
     fn validate_gas_limits(self) {

@@ -1,4 +1,4 @@
-import { Fr, Point } from '@aztec/circuits.js';
+import { AztecAddress, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
 
 /**
