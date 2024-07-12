@@ -329,3 +329,20 @@ TEST(grumpkin, BadPoints)
     }
     EXPECT_TRUE(res);
 }
+
+TEST(fr, GrumpkinSqrtRandom)
+{
+    // instantiate grumpkin::fr with value 9
+    grumpkin::fr input(9);
+
+    // calculate the square root of 9
+    auto [is_sqr, root] = input.sqrt();
+
+    std::cout << is_sqr << std::endl;
+    std::cout << root << std::endl;
+    std::cout << input << std::endl;
+
+    // check if the square root is correct
+    EXPECT_EQ(is_sqr, true);
+    EXPECT_EQ(root, grumpkin::fr(3));
+}
