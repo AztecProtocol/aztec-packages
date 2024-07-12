@@ -377,6 +377,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
   languageName: unknown
   linkType: soft
@@ -645,7 +646,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-protocol-circuits-types@workspace:noir-protocol-circuits-types"
   dependencies:
-    "@aztec/builder": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"

@@ -22,7 +22,7 @@ export async function deployUltraVerifier(
   if (!bbBinaryPath || !bbWorkingDirectory) {
     throw new InvalidOptionArgumentError('Missing path to bb binary and working directory');
   }
-
+  // @ts-ignore - Importing bb-prover even in devDeps results in a circular dependency error through @aztec/simulator
   const { BBCircuitVerifier } = await import('@aztec/bb-prover');
 
   const circuitVerifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });

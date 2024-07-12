@@ -110,6 +110,7 @@ export async function deployAztecContracts(
  * @returns The contract ABIs.
  */
 export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error
   const imports = await import('@aztec/noir-contracts.js');
   return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }
