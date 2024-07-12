@@ -418,7 +418,9 @@ mod tests {
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
-        assert_eq(public_inputs.end.unencrypted_logs, builder.previous_kernel.unencrypted_logs_hashes.storage);
+        assert_eq(
+            public_inputs.end.unencrypted_logs, builder.previous_revertible.unencrypted_logs_hashes.storage
+        );
     }
 
     #[test]
