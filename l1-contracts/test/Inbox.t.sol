@@ -51,12 +51,11 @@ contract InboxTest is Test {
     // fix message.sender
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
-    _message.recipient.actor =
-      bytes32(uint256(_message.recipient.actor) % Constants.MAX_FIELD_VALUE + 1);
+    _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
     // ensure content fits in a field
-    _message.content = bytes32(uint256(_message.content) % Constants.MAX_FIELD_VALUE + 1);
+    _message.content = bytes32(uint256(_message.content) % Constants.P);
     // ensure secret hash fits in a field
-    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.MAX_FIELD_VALUE + 1);
+    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
     // update version
     _message.recipient.version = version;
 
@@ -106,7 +105,7 @@ contract InboxTest is Test {
 
   function testRevertIfActorTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.recipient.actor = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    message.recipient.actor = bytes32(Constants.P);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
     );
@@ -115,14 +114,14 @@ contract InboxTest is Test {
 
   function testRevertIfContentTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    message.content = bytes32(Constants.P);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
   function testRevertIfSecretHashTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.secretHash = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    message.secretHash = bytes32(Constants.P);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
     );

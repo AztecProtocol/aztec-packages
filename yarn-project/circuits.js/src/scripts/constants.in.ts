@@ -260,6 +260,9 @@ pragma solidity >=0.8.18;
  * @notice Library that contains constants used throughout the Aztec protocol
  */
 library Constants {
+  // Prime field modulus
+  uint256 internal constant P =
+    21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
 ${processConstantsSolidity(constants)}
 }\n`;
