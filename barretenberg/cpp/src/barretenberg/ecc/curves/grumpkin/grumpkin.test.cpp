@@ -330,7 +330,7 @@ TEST(grumpkin, BadPoints)
     EXPECT_TRUE(res);
 }
 
-TEST(fr, GrumpkinSqrtRandom)
+TEST(fr, GrumpkinSqrtBug)
 {
     // instantiate grumpkin::fr with value 9
     grumpkin::fr input(9);
