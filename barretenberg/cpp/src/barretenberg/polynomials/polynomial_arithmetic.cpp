@@ -1337,7 +1337,7 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 
         - if 0 is in the domain at index i_0, the constant term of N(X) is 0 and the division algorithm computing
         q_{x_i} for i != i_0 is initialized with the constant term of N(X)/X. Note that its coefficients are given
-        by numerator_polynommial[j] for j=1,...,n. The monomial coefficients of q_{x_i} are then accumuluated in
+        by numerator_polynomial[j] for j=1,...,n. The monomial coefficients of q_{x_i} are then accumuluated in
         dest[j] for j=1,..., n-1. Whereas the coefficients of
         q_{0} = N(X)/X * f(0) * (d_{i_0})^{-1}
         are added to dest[j] for j=0,..., n-1. Note that these coefficients do not require performing the division
