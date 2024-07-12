@@ -8,6 +8,7 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
+import { type NoteSelector } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm/index.js';
@@ -21,7 +22,7 @@ export interface NoteAndSlot {
   /** The storage slot of the note. */
   storageSlot: Fr;
   /** The note type identifier. */
-  noteTypeId: Fr;
+  noteTypeId: NoteSelector;
 }
 
 export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> implements IsEmpty {
@@ -171,7 +172,7 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
   return [
     ...execResult.enqueuedPublicFunctionCalls,
     ...execResult.nestedExecutions.flatMap(collectEnqueuedPublicFunctionCalls),
-  ].sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter);
+  ].sort((a, b) => b.sideEffectCounter - a.sideEffectCounter);
 }
 
 export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicCallRequest {

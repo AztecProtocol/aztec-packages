@@ -6,10 +6,10 @@ contract SchnorrAccount {
     use dep::std;
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
-        auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_outer_authwit_hash}
+        auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_authwit_message_hash}
     };
     use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
@@ -36,7 +36,7 @@ contract SchnorrAccount {
 
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
-        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt(&mut context, this, this));
+        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this, this));
         // docs:end:initialize
     }
 
@@ -92,7 +92,7 @@ contract SchnorrAccount {
     unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> pub bool {
         let public_key = storage.signing_public_key.view_note();
 
-        let message_hash = compute_outer_authwit_hash(consumer, context.chain_id(), context.version(), inner_hash);
+        let message_hash = compute_authwit_message_hash(consumer, context.chain_id(), context.version(), inner_hash);
 
         let witness: [Field; 64] = get_auth_witness(message_hash);
         let mut signature: [u8; 64] = [0; 64];

@@ -46,7 +46,7 @@ unconstrained fn get_sqrt(number: Field) -> Field {
 }
 ```
 
-In this example, we're wrapping our oracle function in a unconstrained method, and decorating it with `oracle(getSqrt)`. We can then call the unconstrained function as we would call any other function:
+In this example, we're wrapping our oracle function in an unconstrained method, and decorating it with `oracle(getSqrt)`. We can then call the unconstrained function as we would call any other function:
 
 ```rust
 fn main(input: Field) {
@@ -141,10 +141,10 @@ server.addMethod("resolve_function_call", async (params) => {
   if params.function !== "getSqrt" {
     throw Error("Unexpected foreign call")
   };
-  const values = params.inputs[0].map((field) => {
+  const values = params.inputs[0].Array.map((field) => {
     return `${Math.sqrt(parseInt(field, 16))}`;
   });
-  return { values };
+  return { values: [{ Array: values }] };
 });
 ```
 
@@ -165,6 +165,10 @@ interface ForeignCallResult {
   values: ForeignCallParam[],
 }
 ```
+
+::: Multidimensional Arrays
+
+If the Oracle function is returning an array containing other arrays, such as `[['1','2],['3','4']]`, you need to provide the values in json as flattened values. In the previous example, it would be `['1', '2', '3', '4']`. In the noir program, the Oracle signature can use a nested type, the flattened values will be automatically converted to the nested type.
 
 :::
 
@@ -230,7 +234,7 @@ const client = new JSONRPCClient((jsonRPCRequest) => {
 // declaring a function that takes the name of the foreign call (getSqrt) and the inputs
 const foreignCallHandler = async (name, input) => {
     // notice that the "inputs" parameter contains *all* the inputs
-    // in this case we to make the RPC request with the first parameter "numbers", which would be input[0]
+    // in this case we make the RPC request with the first parameter "numbers", which would be input[0]
     const oracleReturn = await client.request(name, [
       input[0].map((i) => i.toString("hex")),
     ]);

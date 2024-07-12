@@ -8,7 +8,7 @@ import {
   type DeployL1Contracts,
   EthCheatCodes,
   Fr,
-  GrumpkinPrivateKey,
+  GrumpkinScalar,
   SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -20,6 +20,7 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -270,8 +271,9 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
+  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
   logger.verbose('Creating and synching an aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -318,7 +320,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const ethereumHostPort = await getPort();
-  aztecNodeConfig.rpcUrl = `http://localhost:${ethereumHostPort}`;
+  aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
   const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
   await anvil.start();
   // Load anvil state.
@@ -343,7 +345,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, mnemonicToAccount(MNEMONIC));
 
   logger.verbose('Creating aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -373,9 +376,9 @@ export const addAccounts =
   (numberOfAccounts: number, logger: DebugLogger) =>
   async ({ pxe }: SubsystemsContext) => {
     // Generate account keys.
-    const accountKeys: [Fr, GrumpkinPrivateKey][] = Array.from({ length: numberOfAccounts }).map(_ => [
+    const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
       Fr.random(),
-      GrumpkinPrivateKey.random(),
+      GrumpkinScalar.random(),
     ]);
 
     logger.verbose('Simulating account deployment...');

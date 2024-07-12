@@ -1,9 +1,10 @@
 import {
   AztecAddress,
   CallRequest,
+  ClientIvcProof,
   GasSettings,
   LogHash,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
@@ -12,14 +13,13 @@ import {
   PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import {
   makeCombinedAccumulatedData,
   makeCombinedConstantData,
   makePublicCallRequest,
 } from '@aztec/circuits.js/testing';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -58,7 +58,7 @@ export const mockTx = (
     );
   }
 
-  const isForPublic = totalPublicCallRequests > 0;
+  const isForPublic = totalPublicCallRequests > 0 || publicTeardownCallRequest.isEmpty() === false;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
@@ -72,17 +72,17 @@ export const mockTx = (
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
     publicCallRequests = publicCallRequests.length
-      ? publicCallRequests.slice().sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter)
+      ? publicCallRequests.slice().sort((a, b) => b.sideEffectCounter - a.sideEffectCounter)
       : times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x100 + i));
 
     const revertibleBuilder = new PublicAccumulatedDataBuilder();
     const nonRevertibleBuilder = new PublicAccumulatedDataBuilder();
 
-    const nonRevertibleNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty);
+    const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
     nonRevertibleNullifiers[0] = firstNullifier;
 
     data.forPublic.endNonRevertibleData = nonRevertibleBuilder
-      .withNewNullifiers(nonRevertibleNullifiers)
+      .withNullifiers(nonRevertibleNullifiers)
       .withPublicCallStack(
         makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, i =>
           i < numberOfNonRevertiblePublicCallRequests
@@ -154,7 +154,7 @@ export const mockTx = (
       });
     }
   } else {
-    data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
     data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash());
     data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
     data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
@@ -162,7 +162,7 @@ export const mockTx = (
 
   const tx = new Tx(
     data,
-    makeEmptyProof(),
+    ClientIvcProof.empty(),
     noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,
@@ -203,8 +203,10 @@ export const randomContractArtifact = (): ContractArtifact => ({
   notes: {},
 });
 
-export const randomContractInstanceWithAddress = (opts: { contractClassId?: Fr } = {}): ContractInstanceWithAddress =>
-  SerializableContractInstance.random(opts).withAddress(AztecAddress.random());
+export const randomContractInstanceWithAddress = (
+  opts: { contractClassId?: Fr } = {},
+  address: AztecAddress = AztecAddress.random(),
+): ContractInstanceWithAddress => SerializableContractInstance.random(opts).withAddress(address);
 
 export const randomDeployedContract = () => {
   const artifact = randomContractArtifact();
@@ -218,7 +220,7 @@ export const randomExtendedNote = ({
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = Fr.random(),
+  noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
 };

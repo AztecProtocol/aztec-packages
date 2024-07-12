@@ -1,5 +1,5 @@
 import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
-import { type Proof, type VerificationKeyData, type VerificationKeys } from '@aztec/circuits.js';
+import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -128,29 +128,19 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     return fs.readFile(result.contractPath!, 'utf-8');
   }
 
-  async verifyProof(tx: Tx): Promise<boolean> {
-    const { proof, enqueuedPublicFunctionCalls } = tx;
-    const expectedCircuit: ClientProtocolArtifact =
-      enqueuedPublicFunctionCalls.length > 0 ? 'PrivateKernelTailToPublicArtifact' : 'PrivateKernelTailArtifact';
+  verifyProof(tx: Tx): Promise<boolean> {
+    const expectedCircuit: ClientProtocolArtifact = tx.data.forPublic
+      ? 'PrivateKernelTailToPublicArtifact'
+      : 'PrivateKernelTailArtifact';
 
     try {
-      await this.verifyProofForCircuit(expectedCircuit, proof);
-      return true;
+      // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a proper verify flow for clientIvcProof
+      // For now we handle only the trivial blank data case
+      // await this.verifyProofForCircuit(expectedCircuit, proof);
+      return Promise.resolve(!tx.clientIvcProof.isEmpty());
     } catch (err) {
       this.logger.warn(`Failed to verify ${expectedCircuit} proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
-      return false;
+      return Promise.resolve(false);
     }
-  }
-
-  async getVerificationKeys(): Promise<VerificationKeys> {
-    const [privateKernelCircuit, privateKernelToPublicCircuit] = await Promise.all([
-      this.getVerificationKeyData('PrivateKernelTailArtifact'),
-      this.getVerificationKeyData('PrivateKernelTailToPublicArtifact'),
-    ]);
-
-    return {
-      privateKernelCircuit,
-      privateKernelToPublicCircuit,
-    };
   }
 }

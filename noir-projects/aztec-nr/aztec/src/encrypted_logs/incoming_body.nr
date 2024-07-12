@@ -1,8 +1,8 @@
 use crate::note::note_interface::NoteInterface;
 use crate::event::event_interface::EventInterface;
-use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{scalar::Scalar, point::Point};
 
-use dep::std::aes128::aes128_encrypt;
+use std::aes128::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
 struct EncryptedLogIncomingBody<M> {
@@ -20,7 +20,7 @@ impl<M> EncryptedLogIncomingBody<M> {
         EncryptedLogIncomingBody { plaintext }
     }
 
-    pub fn compute_ciphertext(self, eph_sk: GrumpkinPrivateKey, ivpk_app: GrumpkinPoint) -> [u8] {
+    pub fn compute_ciphertext(self, eph_sk: Scalar, ivpk_app: Point) -> [u8] {
         let full_key = point_to_symmetric_key(eph_sk, ivpk_app);
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -37,8 +37,7 @@ mod test {
     use crate::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, traits::Serialize,
-        abis::event_selector::EventSelector
+        scalar::Scalar, point::Point, traits::Serialize, abis::event_selector::EventSelector
     };
 
     use crate::{
@@ -60,7 +59,9 @@ mod test {
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
         fn compute_note_content_hash(self) -> Field {1}
 
-        fn get_note_type_id() -> Field {1}
+        fn get_note_type_id() -> Field {
+            1
+        }
 
         fn get_header(self) -> NoteHeader { self.header}
 
@@ -117,14 +118,15 @@ mod test {
 
         let storage_slot = 2;
 
-        let eph_sk = GrumpkinPrivateKey::new(
-            0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
-            0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
-        );
-        let ivpk_app = GrumpkinPoint::new(
-            0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
-            0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e
-        );
+        let eph_sk = Scalar {
+            lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
+            hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
+        };
+        let ivpk_app = Point {
+            x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
+            y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
+            is_infinite: false
+        };
 
         let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
 
@@ -205,21 +207,26 @@ mod test {
 
              buffer
         }
+
+        fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {
+            _emit(self);
+        }
     }
 
     #[test]
     fn test_encrypted_log_event_incoming_body() {
         let test_event = TestEvent { value0: 1, value1: 2, value2: 3 };
 
-        let eph_sk = GrumpkinPrivateKey::new(
-            0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
-            0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
-        );
+        let eph_sk = Scalar {
+            lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
+            hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
+        };
 
-        let ivpk_app = GrumpkinPoint::new(
-            0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
-            0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e
-        );
+        let ivpk_app = Point {
+            x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
+            y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
+            is_infinite: false
+        };
 
         let randomness = 2;
 

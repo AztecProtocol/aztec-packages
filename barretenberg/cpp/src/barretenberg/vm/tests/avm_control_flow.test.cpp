@@ -38,20 +38,15 @@ void validate_internal_return(Row const& row, uint32_t current_pc, uint32_t retu
 
 class AvmControlFlowTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
-
-  protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+    AvmControlFlowTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
 };
 
 /******************************************************************************
@@ -68,7 +63,7 @@ TEST_F(AvmControlFlowTests, simpleCall)
     // pc   opcode
     // 0    INTERNAL_CALL(pc=4)
     // 4    HALT
-    trace_builder.internal_call(CALL_PC);
+    trace_builder.op_internal_call(CALL_PC);
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
@@ -92,7 +87,7 @@ TEST_F(AvmControlFlowTests, simpleCall)
         EXPECT_EQ(halt_row->main_pc, FF(CALL_PC));
         EXPECT_EQ(halt_row->main_internal_return_ptr, FF(1));
     }
-    validate_trace(std::move(trace), public_inputs, true);
+    validate_trace(std::move(trace), public_inputs, {}, {}, true);
 }
 
 TEST_F(AvmControlFlowTests, simpleJump)
@@ -103,7 +98,7 @@ TEST_F(AvmControlFlowTests, simpleJump)
     // pc   opcode
     // 0    JUMP(pc=4)
     // 4    HALT
-    trace_builder.jump(JUMP_PC);
+    trace_builder.op_jump(JUMP_PC);
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
@@ -137,8 +132,8 @@ TEST_F(AvmControlFlowTests, simpleCallAndReturn)
     // 0    INTERNAL_CALL(pc=20)
     // 20   INTERNAL_RETURN
     // 1    HALT
-    trace_builder.internal_call(CALL_PC);
-    trace_builder.internal_return();
+    trace_builder.op_internal_call(CALL_PC);
+    trace_builder.op_internal_return();
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
@@ -196,15 +191,15 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
     // 22    INTERNAL_RETURN
     // 421   INTERNAL_RETURN
     // 1     HALT
-    trace_builder.internal_call(CALL_PC_1);
-    trace_builder.internal_call(CALL_PC_2);
-    trace_builder.internal_call(CALL_PC_3);
-    trace_builder.internal_return();
-    trace_builder.internal_call(CALL_PC_4);
-    trace_builder.internal_return();
-    trace_builder.jump(JUMP_PC_1);
-    trace_builder.internal_return();
-    trace_builder.internal_return();
+    trace_builder.op_internal_call(CALL_PC_1);
+    trace_builder.op_internal_call(CALL_PC_2);
+    trace_builder.op_internal_call(CALL_PC_3);
+    trace_builder.op_internal_return();
+    trace_builder.op_internal_call(CALL_PC_4);
+    trace_builder.op_internal_return();
+    trace_builder.op_jump(JUMP_PC_1);
+    trace_builder.op_internal_return();
+    trace_builder.op_internal_return();
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();

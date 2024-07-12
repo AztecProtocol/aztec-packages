@@ -3,18 +3,17 @@ mod dapp_payload;
 
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
-    use dep::{
-        aztec::{
+
+    use aztec::{
         prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
     },
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt,
-        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
-    },
-        authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
-        gas_token::GasToken, token::Token
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
     };
+    use authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
+    use gas_token::GasToken;
+    use token::Token;
 
     #[aztec(storage)]
     struct Storage {
@@ -45,7 +44,7 @@ contract AppSubscription {
 
         // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
         // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
-        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt(&mut context, user_address, user_address));
+        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(&mut context, user_address, user_address));
 
         context.set_as_fee_payer();
 
@@ -116,7 +115,7 @@ contract AppSubscription {
         let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note).emit(encode_and_encrypt(&mut context, context.msg_sender(), subscriber_address));
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), subscriber_address));
     }
 
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {

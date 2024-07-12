@@ -42,15 +42,15 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim = ZeroMorph::prove(accumulator->proving_key.polynomials.get_unshifted(),
+    auto prover_opening_claim = ZeroMorph::prove(accumulator->proving_key.circuit_size,
+                                                 accumulator->proving_key.polynomials.get_unshifted(),
                                                  accumulator->proving_key.polynomials.get_to_be_shifted(),
                                                  sumcheck_output.claimed_evaluations.get_unshifted(),
                                                  sumcheck_output.claimed_evaluations.get_shifted(),
                                                  sumcheck_output.challenge,
                                                  commitment_key,
                                                  transcript);
-    PCS::compute_opening_proof(
-        commitment_key, prover_opening_claim.opening_pair, prover_opening_claim.polynomial, transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()

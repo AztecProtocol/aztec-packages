@@ -52,6 +52,7 @@ export {
   waitForAccountSynch,
   waitForPXE,
 } from './utils/index.js';
+export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createPXEClient } from './rpc_clients/index.js';
 
@@ -98,9 +99,9 @@ export {
   EncryptedLogHeader,
   EncryptedNoteLogIncomingBody,
   EncryptedLogOutgoingBody,
+  EventType,
   ExtendedNote,
   FunctionCall,
-  GrumpkinPrivateKey,
   L1Actor,
   L1ToL2Message,
   L2Actor,

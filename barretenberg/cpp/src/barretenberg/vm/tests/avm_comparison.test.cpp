@@ -80,23 +80,20 @@ std::vector<ThreeOpParam> positive_op_lte_test_values = {
 std::vector<AvmMemoryTag> mem_tag_arr{
     { AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
 };
+
 class AvmCmpTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
-
-  protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+    AvmCmpTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
 };
+
 class AvmCmpTestsLT : public AvmCmpTests, public testing::WithParamInterface<ThreeOpParamRow> {};
 class AvmCmpTestsLTE : public AvmCmpTests, public testing::WithParamInterface<ThreeOpParamRow> {};
 
@@ -109,14 +106,18 @@ TEST_P(AvmCmpTestsLT, ParamTest)
 {
     const auto [params, mem_tag] = GetParam();
     const auto [a, b, c] = params;
+    std::vector<FF> calldata{};
+
     if (mem_tag == AvmMemoryTag::FF) {
-        trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ a, b });
+        calldata = { a, b };
+        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+        trace_builder.op_calldata_copy(0, 0, 2, 0);
     } else {
         trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
         trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     }
     trace_builder.op_lt(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Get the row in the avm with the LT selector set
@@ -131,7 +132,7 @@ TEST_P(AvmCmpTestsLT, ParamTest)
     ASSERT_TRUE(alu_row != trace.end());
     common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), mem_tag);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 INSTANTIATE_TEST_SUITE_P(AvmCmpTests,
                          AvmCmpTestsLT,
@@ -141,14 +142,18 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
 {
     const auto [params, mem_tag] = GetParam();
     const auto [a, b, c] = params;
+    std::vector<FF> calldata{};
+
     if (mem_tag == AvmMemoryTag::FF) {
-        trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ a, b });
+        calldata = { a, b };
+        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+        trace_builder.op_calldata_copy(0, 0, 2, 0);
     } else {
         trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
         trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     }
     trace_builder.op_lte(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_lte == FF(1); });
 
@@ -160,7 +165,7 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
     ASSERT_TRUE(row != trace.end());
     ASSERT_TRUE(alu_row != trace.end());
     common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata);
 }
 INSTANTIATE_TEST_SUITE_P(AvmCmpTests,
                          AvmCmpTestsLTE,
@@ -312,9 +317,11 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
     const auto [failure, params] = GetParam();
     const auto [failure_string, failure_mode] = failure;
     const auto [a, b, output] = params;
-    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
+
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ a, b, output });
+    trace_builder.op_calldata_copy(0, 0, 3, 0);
     trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)> select_row = [](Row r) { return r.main_sel_op_lt == FF(1); };
     trace = gen_mutated_trace_cmp(trace, select_row, output, failure_mode, false);
@@ -330,9 +337,10 @@ TEST_P(AvmCmpNegativeTestsLTE, ParamTest)
     const auto [failure, params] = GetParam();
     const auto [failure_string, failure_mode] = failure;
     const auto [a, b, output] = params;
-    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ a, b, output });
+    trace_builder.op_calldata_copy(0, 0, 3, 0);
     trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)> select_row = [](Row r) { return r.main_sel_op_lte == FF(1); };
     trace = gen_mutated_trace_cmp(trace, select_row, output, failure_mode, true);

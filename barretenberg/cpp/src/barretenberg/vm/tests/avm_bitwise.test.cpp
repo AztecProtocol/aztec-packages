@@ -346,20 +346,15 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
 
 class AvmBitwiseTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
-
-  protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+    AvmBitwiseTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
 
     std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
     {
@@ -474,7 +469,7 @@ TEST_P(AvmBitwiseTestsNot, ParamTest)
     const auto [a, output] = operands;
     trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_not(0, 0, 1, mem_tag); // [1,254,0,0,....]
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     FF ff_a = FF(uint256_t::from_uint128(a));
     FF ff_output = FF(uint256_t::from_uint128(output));
@@ -493,11 +488,11 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_and(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
 
     auto trace = trace_builder.finalize();
     common_validate_bit_op(trace, 0, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs, true);
+    validate_trace(std::move(trace), public_inputs, {}, { output }, true);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsAnd,
@@ -510,11 +505,11 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_or(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 1, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsOr,
@@ -527,11 +522,11 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_xor(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 2, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -545,10 +540,10 @@ TEST_P(AvmBitwiseTestsShr, AllShrTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_shr(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, true);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -562,11 +557,11 @@ TEST_P(AvmBitwiseTestsShl, AllShlTest)
     trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
     trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
     trace_builder.op_shl(0, 0, 1, 2, mem_tag);
-    trace_builder.return_op(0, 2, 1);
+    trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
 
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, false);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -724,7 +719,7 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     trace_builder.op_not(0, 0, 1, AvmMemoryTag::U8);
     // Finally, we will have a write in row 3 of the mem_trace to copy the result
     // from the op_not operation.
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     // Manually update the memory tags in the relevant trace;
     auto trace = trace_builder.finalize();
     // TODO(ilyas): When the SET opcodes applies relational constraints, this will fail
