@@ -112,7 +112,7 @@ class ClientIVC {
     std::shared_ptr<VerificationKey> instance_vk;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
-    bool structured_flag = false;
+    TraceStructure trace_structure = TraceStructure::NONE;
 
     // A flag indicating whether the IVC has been initialized with an initial instance
     bool initialized = false;
@@ -120,6 +120,12 @@ class ClientIVC {
     void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
 
     Proof prove();
+
+    static bool verify(const Proof& proof,
+                       const std::shared_ptr<VerifierInstance>& accumulator,
+                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
+                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 
     bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
 
