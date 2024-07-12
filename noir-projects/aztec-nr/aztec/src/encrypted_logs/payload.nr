@@ -71,7 +71,7 @@ pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>
 
 pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     contract_address: AztecAddress,
-    storage_slot: Field,
+    storage_slot: Point,
     ovsk_app: Field,
     ovpk: Point,
     ivpk: Point,

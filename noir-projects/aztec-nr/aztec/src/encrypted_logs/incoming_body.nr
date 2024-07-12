@@ -10,7 +10,7 @@ struct EncryptedLogIncomingBody<let M: u32> {
 }
 
 impl<let M: u32> EncryptedLogIncomingBody<M> {
-    pub fn from_note<T, let N: u32>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
+    pub fn from_note<T, let N: u32>(note: T, storage_slot: Point) -> Self where T: NoteInterface<N, M> {
         let mut plaintext = note.to_be_bytes(storage_slot);
         EncryptedLogIncomingBody { plaintext }
     }
@@ -84,7 +84,7 @@ mod test {
             AddressNote { address: AztecAddress::from_field(fields[0]), owner: AztecAddress::from_field(fields[1]), randomness: fields[2], header: NoteHeader::empty() }
         }
 
-        fn to_be_bytes(self, storage_slot: Field) -> [u8; ADDRESS_NOTE_BYTES_LEN] {
+        fn to_be_bytes(self, storage_slot: Point) -> [u8; ADDRESS_NOTE_BYTES_LEN] {
             let serialized_note = self.serialize_content();
 
             let mut buffer: [u8; ADDRESS_NOTE_BYTES_LEN] = [0; ADDRESS_NOTE_BYTES_LEN];

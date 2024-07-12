@@ -9,7 +9,7 @@ use dep::protocol_types::{
 
 unconstrained fn compute_unconstrained<Note, let N: u32, let NB: u32, let M: u32>(
     contract_address: AztecAddress,
-    storage_slot: Field,
+    storage_slot: Point,
     ovsk_app: Field,
     ovpk: Point,
     ivpk: Point,
@@ -29,7 +29,7 @@ unconstrained fn compute_unconstrained<Note, let N: u32, let NB: u32, let M: u32
 
 fn compute<Note, let N: u32, let NB: u32, let M: u32>(
     contract_address: AztecAddress,
-    storage_slot: Field,
+    storage_slot: Point,
     ovsk_app: Field,
     ovpk: Point,
     ivpk: Point,

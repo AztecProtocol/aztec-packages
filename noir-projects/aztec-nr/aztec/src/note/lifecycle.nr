@@ -7,7 +7,7 @@ use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
 pub fn create_note<Note, N, M>(
     context: &mut PrivateContext,
-    storage_slot: Field,
+    storage_slot: Point,
     note: &mut Note
 ) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
     let contract_address = (*context).this_address();
@@ -36,7 +36,7 @@ pub fn create_note<Note, N, M>(
 
 pub fn create_note_hash_from_public<Note, N, M>(
     context: &mut PublicContext,
-    storage_slot: Field,
+    storage_slot: Point,
     note: &mut Note
 ) where Note: NoteInterface<N, M> {
     let contract_address = (*context).this_address();
