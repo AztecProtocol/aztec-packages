@@ -47,7 +47,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
     # Check the output for specific errors
     if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
       INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
-      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 2 ]; then
+      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ]; then
         echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Trying 'earthly prune' and starting again."
         earthly prune
       else
