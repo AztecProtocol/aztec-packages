@@ -87,11 +87,8 @@ export class Point {
    * @returns The point as an array of 2 fields
    */
   static fromXAndSign(x: Fr, sign: boolean) {
-    // Define the constant A for the Grumpkin curve equation (y^2 = x^3 - A)
-    const A = new Fr(17);
-
     // Calculate y^2 = x^3 - 17
-    const ySquared = x.square().mul(x).sub(A);
+    const ySquared = x.square().mul(x).sub(new Fr(17));
 
     // Calculate the square root of ySquared
     const y = ySquared.sqrt();

@@ -284,16 +284,17 @@ export class Fr extends BaseField {
 
   /**
    * Computes the square root of the field element.
-   * @returns The square root of the field element if it exists (undefined if not).
+   * @returns The square root of the field element (null if it does not exist).
    */
-  sqrt(): Fr | undefined {
+  sqrt(): Fr | null {
     const wasm = BarretenbergSync.getSingleton().getWasm();
     wasm.writeMemory(0, this.toBuffer());
     wasm.call('grumpkin_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
     const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
     const isSqrt = isSqrtBuf[0] === 1;
     if (!isSqrt) {
-      return undefined;
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
     }
 
     const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1))
