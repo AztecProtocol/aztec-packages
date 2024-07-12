@@ -124,7 +124,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
 
   /**
    * Filter the logs from functions from this TxL2Logs that
-   * appear in the provided logHashes
+   * appear in the provided scopedLogHashes
    * @param logHashes hashes we want to keep
    * @param output our aggregation
    * @returns our aggregation
@@ -217,6 +217,11 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
     return UnencryptedTxL2Logs.hashSiloedLogs(unrolledLogs.map(log => log.getSiloedHash()));
   }
 
+  /**
+   * Hashes siloed unencrypted logs as in the same way as the base rollup would.
+   * @param siloedLogHashes - The siloed log hashes
+   * @returns The hash of the logs.
+   */
   public static hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
     if (siloedLogHashes.length == 0) {
       return Buffer.alloc(32);
