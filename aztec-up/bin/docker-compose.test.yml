@@ -10,7 +10,6 @@ services:
       
   aztec-nargo:
     image: "aztecprotocol/aztec-nargo"
-    entrypoint: /usr/bin/nargo
     environment:
       HOME: # Loaded from the user shell
       NARGO_FOREIGN_CALL_TIMEOUT: 300000 # To avoid timeouts when many tests run at once
