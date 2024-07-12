@@ -5,7 +5,10 @@ mod validate_propagated_sorted_siloed_values;
 mod validate_propagated_values;
 
 use crate::components::{tail_output_composer::meter_gas_used::meter_gas_used, tail_output_validator::TailOutputValidator};
-use dep::types::{abis::{gas_settings::GasSettings, kernel_circuit_public_inputs::KernelCircuitPublicInputs}, tests::fixture_builder::FixtureBuilder};
+use dep::types::{
+    abis::{gas_settings::GasSettings, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
+    tests::fixture_builder::FixtureBuilder
+};
 
 struct TailOutputValidatorBuilder {
     output: FixtureBuilder,
