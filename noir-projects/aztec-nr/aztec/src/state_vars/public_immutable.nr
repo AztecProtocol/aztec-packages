@@ -51,6 +51,6 @@ impl <T, T_SERIALIZED_LEN> PublicImmutable<T, &mut PublicContext> where T: Seria
 
 impl<T, T_SERIALIZED_LEN> PublicImmutable<T, UnconstrainedContext>where T: Deserialize<T_SERIALIZED_LEN> {
     unconstrained pub fn read(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        self.context.storage_read(self.context.this_address(), self.storage_slot)
     }
 }

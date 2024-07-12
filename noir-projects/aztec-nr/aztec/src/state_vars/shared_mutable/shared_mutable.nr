@@ -171,6 +171,28 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where
         self.read_delay_change().get_scheduled()
     }
 
+    // The AVM currently does not support reading from other contract addresses
+    // pub fn get_current_value_in_public_other(context: &mut PublicContext, address: AztecAddress, storage_slot: Field) -> T {
+    //     let block_number = context.block_number() as u32;
+
+    //     let dummy = SharedMutable::new(context, storage_slot);
+
+    //     dummy.read_value_change().get_current_at(block_number)
+    // }
+
+    // pub fn get_current_delay_in_public_other(context: &mut PublicContext, address: AztecAddress, storage_slot: Field) -> u32 {
+    //     let block_number = context.block_number() as u32;
+    //     self.read_delay_change().get_current(block_number)
+    // }
+
+    // pub fn get_scheduled_value_in_public_other(context: &mut PublicContext, address: AztecAddress, storage_slot: Field) -> (T, u32) {
+    //     self.read_value_change().get_scheduled()
+    // }
+
+    // pub fn get_scheduled_delay_in_public_other(context: &mut PublicContext, address: AztecAddress, storage_slot: Field) -> (u32, u32) {
+    //     self.read_delay_change().get_scheduled()
+    // }
+
     fn read_value_change(self) -> ScheduledValueChange<T> {
         self.context.storage_read(self.get_value_change_storage_slot())
     }
@@ -199,14 +221,23 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where
     }
 }
 
-impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> where T: ToField + FromField + Eq {
-    pub fn get_current_value_in_private(self) -> T {
+impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
+    pub fn get_current_value_in_private(self) -> T where T: ToField + FromField + Eq {
+        SharedMutable::get_current_value_in_private_other::<T, INITIAL_DELAY>(self.context, self.context.this_address(), self.storage_slot)
+    }
+
+    pub fn get_current_value_in_private_other<T_OTHER, INITIAL_DELAY_OTHER>(
+        context: &mut PrivateContext,
+        address: AztecAddress,
+        storage_slot: Field
+    ) -> T_OTHER where T_OTHER: FromField + ToField + Eq {
         // When reading the current value in private we construct a historical state proof for the public value.
         // However, since this value might change, we must constrain the maximum transaction block number as this proof
         // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
+        let dummy: SharedMutable<T_OTHER, INITIAL_DELAY_OTHER, ()> = SharedMutable::new((), storage_slot);
 
-        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage(self.context.get_header(), self.context.this_address());
+        let (value_change, delay_change, historical_block_number): (ScheduledValueChange<T_OTHER>, ScheduledDelayChange<INITIAL_DELAY_OTHER>, u32) = dummy.historical_read_from_public_storage(context.get_header(), address);
 
         // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
         // takes into consideration any scheduled delay changes.
@@ -220,15 +251,30 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> wher
 
         // We prevent this transaction from being included in any block after the block horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
-        self.context.set_tx_max_block_number(block_horizon);
+        context.set_tx_max_block_number(block_horizon);
         value_change.get_current_at(historical_block_number)
     }
 }
 
 impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
     unconstrained pub fn get_current_value_in_unconstrained(self) -> T {
-        let block_number = self.context.block_number() as u32;
-        self.read_value_change().get_current_at(block_number)
+        SharedMutable::get_current_value_in_unconstrained_other(self.context, self.context.this_address(), self.storage_slot)
+    }
+
+    unconstrained pub fn get_current_value_in_unconstrained_other(
+        context: UnconstrainedContext,
+        address: AztecAddress,
+        storage_slot: Field
+    ) -> T {
+        let block_number = context.block_number() as u32;
+
+        let dummy = SharedMutable::new(context, storage_slot);
+
+        dummy.read_value_change(address).get_current_at(block_number)
+    }
+
+    fn read_value_change(self, address: AztecAddress) -> ScheduledValueChange<T> {
+        self.context.storage_read(address, self.get_value_change_storage_slot())
     }
 }
 
