@@ -162,13 +162,15 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             std::vector<fr> inner_public_input_values(
                 proof_witnesses.begin() + static_cast<std::ptrdiff_t>(inner_public_input_offset),
                 proof_witnesses.begin() +
-                    static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs));
+                    static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs -
+                                                RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
             // We want to make sure that we do not remove the nested aggregation object.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             proof_witnesses.erase(proof_witnesses.begin() + static_cast<std::ptrdiff_t>(inner_public_input_offset),
                                   proof_witnesses.begin() +
-                                      static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs));
+                                      static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs -
+                                                                  RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
 
@@ -179,9 +181,9 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             const uint32_t public_input_start_idx =
                 static_cast<uint32_t>(inner_public_input_offset + witness_offset); // points to public_input_0
             const uint32_t proof_indices_start_idx =
-                static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs);
+                static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs -
+                                      RecursionConstraint::AGGREGATION_OBJECT_SIZE); // points to agg_obj_0
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-            //  - RecursionConstraint::AGGREGATION_OBJECT_SIZE); // points to agg_obj_0
             const uint32_t key_indices_start_idx =
                 static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size() -
                                       inner_public_input_offset); // would point to vkey_3 without the -
@@ -205,7 +207,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             // thus we do not explicitly have to keep the public inputs while setting up the initial recursion
             // constraint. They will later be attached as public inputs when creating the circuit.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+            for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
 
@@ -245,7 +247,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             // We once again have to check whether we have a nested proof, because if we do have one
             // then we could get a segmentation fault as `inner_public_inputs` was never filled with values.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+            for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 witness[inner_public_inputs[i]] = inner_public_input_values[i];
             }
 
