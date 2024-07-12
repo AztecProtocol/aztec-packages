@@ -576,7 +576,7 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
 
   boxes:
-    needs: setup
+    needs: build-images
     runs-on: ticktock-tester-x86
     steps:
       - uses: actions/checkout@v4
