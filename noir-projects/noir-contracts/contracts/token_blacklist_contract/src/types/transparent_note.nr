@@ -2,7 +2,7 @@
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash}
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
@@ -41,8 +41,8 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
     }
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): Ensure nullifier collisions are prevented
-    fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
-        self.compute_nullifier_without_context()
+    fn compute_note_hash_and_nullifier(self, _context: &mut PrivateContext) -> (Field, Field) {
+        self.compute_note_hash_and_nullifier_without_context()
     }
 
     // Computing a nullifier in a transparent note is not guarded by making secret a part of the nullifier preimage (as
@@ -53,16 +53,13 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
     //      3) the "get_notes" oracle constrains that the secret hash in the returned note matches the one computed in
     //         circuit. 
     // This achieves that the note can only be spent by the party that knows the secret.
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
-    }
-
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
-        assert(false, "TransparentNote does not support broadcast");
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 }
 
@@ -79,6 +76,12 @@ impl TransparentNote {
             amount: PropertySelector { index: 0, offset: 0, length: 32 },
             secret_hash: PropertySelector { index: 1, offset: 0, length: 32 }
         }
+    }
+}
+
+impl Eq for TransparentNote {
+    fn eq(self, other: Self) -> bool {
+        (self.amount == other.amount) & (self.secret_hash == other.secret_hash)
     }
 }
 // docs:end:token_types_all

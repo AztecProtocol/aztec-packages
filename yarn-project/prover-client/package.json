@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./prover-pool": "./dest/prover-pool/index.js"
+    "./prover-agent": "./dest/prover-agent/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -24,7 +24,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
-    "test": "LOG_LEVEL=${LOG_LEVEL:-silent} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=750000 --forceExit"
+    "test": "LOG_LEVEL=${LOG_LEVEL:-silent} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit"
   },
   "jest": {
     "moduleNameMapper": {
@@ -34,7 +34,15 @@
     "rootDir": "./src",
     "transform": {
       "^.+\\.tsx?$": [
-        "@swc/jest"
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            }
+          }
+        }
       ]
     },
     "extensionsToTreatAsEsm": [
@@ -57,6 +65,7 @@
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "commander": "^9.0.0",

@@ -14,14 +14,14 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallets, blacklisted } = t);
-  });
+  }, 600_000);
 
   afterAll(async () => {
     await t.teardown();
   });
 
   afterEach(async () => {
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
   });
 
   it('on behalf of self', async () => {
@@ -113,10 +113,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
         .withWallet(wallets[2])
         .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
       const expectedMessageHash = computeAuthWitMessageHash(
-        wallets[2].getAddress(),
-        wallets[0].getChainId(),
-        wallets[0].getVersion(),
-        action.request(),
+        { caller: wallets[2].getAddress(), action: action.request() },
+        { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly

@@ -4,7 +4,8 @@ contract StaticChild {
 
     use dep::aztec::{
         context::{PublicContext, gas::GasOpts}, protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -32,7 +33,6 @@ contract StaticChild {
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
         context.emit_unencrypted_log(new_value);
-
         new_value
     }
 
@@ -42,10 +42,8 @@ contract StaticChild {
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_private_value.insert(&mut note, true, msg_sender_ovpk_m, owner_ivpk_m);
+        storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
         new_value
     }
 
@@ -58,10 +56,8 @@ contract StaticChild {
     ) -> Field {
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_private_value.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
+        storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
         new_value
     }
 
@@ -77,7 +73,7 @@ contract StaticChild {
             Option::none()
         ).set_limit(1);
         let notes = storage.a_private_value.get_notes(options);
-        notes[0].unwrap_unchecked().value
+        notes.get_unchecked(0).value
     }
 
     // Increments `current_value` by `new_value`
@@ -86,7 +82,6 @@ contract StaticChild {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         context.emit_unencrypted_log(new_value);
-
         new_value
     }
 
@@ -97,7 +92,6 @@ contract StaticChild {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         context.emit_unencrypted_log(new_value);
-
         new_value
     }
 }

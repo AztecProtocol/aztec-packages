@@ -6,8 +6,12 @@ import {
 import { NULL_KEY } from '@aztec/ethereum';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { createProvingJobSourceServer } from '@aztec/prover-client/prover-pool';
+import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
 import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import {
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryClientConfig,
+} from '@aztec/telemetry-client/start';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -81,14 +85,15 @@ export const startNode = async (
   }
 
   // Create and start Aztec Node.
-  const node = await createAztecNode(nodeConfig);
+  const telemetryClient = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const node = await createAztecNode(telemetryClient, nodeConfig);
   const nodeServer = createAztecNodeRpcServer(node);
 
   // Add node to services list
   services.push({ node: nodeServer });
 
   if (!nodeConfig.disableProver) {
-    const provingJobSource = createProvingJobSourceServer(node.getProver().getProvingJobSource());
+    const provingJobSource = createProvingJobSourceServer(node.getProver()!.getProvingJobSource());
     services.push({ provingJobSource });
   }
 

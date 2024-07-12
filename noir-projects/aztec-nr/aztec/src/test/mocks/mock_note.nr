@@ -1,6 +1,6 @@
 use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface}};
 
-use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{address::AztecAddress, traits::Eq};
 
 global MOCK_NOTE_LENGTH = 1;
 // MOCK_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
@@ -39,18 +39,12 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
       0
     }
 
-    fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
-      0
+    fn compute_note_hash_and_nullifier(self, _context: &mut PrivateContext) -> (Field, Field) {
+      (0, 0)
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
-      0
-    }
-
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
-      assert(
-        false, "MockNote does not support broadcast."
-      );
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
+      (0, 0)
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
@@ -73,6 +67,13 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
             }
         }
         buffer
+    }
+}
+
+impl Eq for MockNote {
+    fn eq(self, other: Self) -> bool {
+      (self.header == other.header) & 
+      (self.value == other.value)
     }
 }
 

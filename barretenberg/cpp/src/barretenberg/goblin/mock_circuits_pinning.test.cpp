@@ -20,7 +20,7 @@ class MegaMockCircuitsPinning : public ::testing::Test {
 TEST_F(MegaMockCircuitsPinning, FunctionSizes)
 {
     const auto run_test = [](bool large) {
-        Goblin goblin;
+        GoblinProver goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
         info("num gates: ", app_circuit.get_num_gates());
@@ -31,33 +31,6 @@ TEST_F(MegaMockCircuitsPinning, FunctionSizes)
         } else {
             EXPECT_EQ(instance->proving_key.log_circuit_size, 17);
         };
-    };
-    run_test(true);
-    run_test(false);
-}
-
-TEST_F(MegaMockCircuitsPinning, RecursionKernelSizes)
-{
-    const auto run_test = [](bool large) {
-        {
-            Goblin goblin;
-            Goblin::AccumulationOutput kernel_accum;
-            MegaCircuitBuilder app_circuit{ goblin.op_queue };
-            GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
-            auto function_accum = goblin.accumulate(app_circuit);
-            MegaCircuitBuilder kernel_circuit{ goblin.op_queue };
-            GoblinMockCircuits::construct_mock_recursion_kernel_circuit(
-                kernel_circuit,
-                { function_accum.proof, function_accum.verification_key },
-                { kernel_accum.proof, kernel_accum.verification_key });
-
-            auto instance = std::make_shared<ProverInstance>(kernel_circuit);
-            if (large) {
-                EXPECT_EQ(instance->proving_key.log_circuit_size, 17);
-            } else {
-                EXPECT_EQ(instance->proving_key.log_circuit_size, 17);
-            };
-        }
     };
     run_test(true);
     run_test(false);

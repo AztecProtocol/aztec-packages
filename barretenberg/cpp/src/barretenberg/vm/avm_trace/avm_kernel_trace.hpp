@@ -1,33 +1,13 @@
 #pragma once
 
-#include "avm_common.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 #include "constants.hpp"
+
 #include <cstdint>
 #include <unordered_map>
-
-inline const uint32_t SENDER_SELECTOR = 0;
-inline const uint32_t ADDRESS_SELECTOR = 1;
-
-inline const uint32_t START_GLOBAL_VARIABLES = CALL_CONTEXT_LENGTH + HEADER_LENGTH;
-
-inline const uint32_t CHAIN_ID_SELECTOR = START_GLOBAL_VARIABLES;
-inline const uint32_t VERSION_SELECTOR = START_GLOBAL_VARIABLES + 1;
-inline const uint32_t BLOCK_NUMBER_SELECTOR = START_GLOBAL_VARIABLES + 2;
-inline const uint32_t TIMESTAMP_SELECTOR = START_GLOBAL_VARIABLES + 3;
-inline const uint32_t COINBASE_SELECTOR = START_GLOBAL_VARIABLES + 4;
-
-inline const uint32_t END_GLOBAL_VARIABLES = START_GLOBAL_VARIABLES + GLOBAL_VARIABLES_LENGTH;
-inline const uint32_t START_SIDE_EFFECT_COUNTER = END_GLOBAL_VARIABLES;
-
-inline const uint32_t FEE_PER_DA_GAS_SELECTOR = START_SIDE_EFFECT_COUNTER + 1;
-inline const uint32_t FEE_PER_L2_GAS_SELECTOR = FEE_PER_DA_GAS_SELECTOR + 1;
-inline const uint32_t TRANSACTION_FEE_SELECTOR = FEE_PER_L2_GAS_SELECTOR + 1;
-
-const std::array<uint32_t, 11> KERNEL_INPUTS_SELECTORS = {
-    SENDER_SELECTOR,   ADDRESS_SELECTOR, FEE_PER_DA_GAS_SELECTOR, FEE_PER_L2_GAS_SELECTOR, TRANSACTION_FEE_SELECTOR,
-    CHAIN_ID_SELECTOR, VERSION_SELECTOR, BLOCK_NUMBER_SELECTOR,   COINBASE_SELECTOR,       TIMESTAMP_SELECTOR
-};
+#include <vector>
 
 namespace bb::avm_trace {
 
@@ -53,7 +33,7 @@ class AvmKernelTraceBuilder {
         bool op_sstore = false;
     };
 
-    VmPublicInputs public_inputs{};
+    VmPublicInputs public_inputs;
 
     // Counts the number of accesses into each SELECTOR for the environment selector lookups;
     std::unordered_map<uint32_t, uint32_t> kernel_input_selector_counter;
@@ -69,12 +49,10 @@ class AvmKernelTraceBuilder {
     std::vector<KernelTraceEntry> finalize();
 
     // Context
-    FF op_sender();
     FF op_address();
-
-    // Fees
-    FF op_fee_per_da_gas();
-    FF op_fee_per_l2_gas();
+    FF op_storage_address();
+    FF op_sender();
+    FF op_function_selector();
     FF op_transaction_fee();
 
     // Globals
@@ -83,43 +61,30 @@ class AvmKernelTraceBuilder {
     FF op_block_number();
     FF op_coinbase();
     FF op_timestamp();
+    // Globals - Gas
+    FF op_fee_per_da_gas();
+    FF op_fee_per_l2_gas();
 
     // Outputs
     // Each returns the selector that was used
-    void op_note_hash_exists(uint32_t clk, const FF& note_hash, uint32_t result);
-    void op_emit_note_hash(uint32_t clk, const FF& note_hash);
-    void op_nullifier_exists(uint32_t clk, const FF& nullifier, uint32_t result);
-    void op_emit_nullifier(uint32_t clk, const FF& nullifier);
-    void op_l1_to_l2_msg_exists(uint32_t clk, const FF& message, uint32_t result);
-    void op_emit_unencrypted_log(uint32_t clk, const FF& log_hash);
-    void op_emit_l2_to_l1_msg(uint32_t clk, const FF& message);
-
-    void op_sload(uint32_t clk, const FF& slot, const FF& value);
-    void op_sstore(uint32_t clk, const FF& slot, const FF& value);
-
-    // Temp: these are temporary offsets
-    static const uint32_t START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
-    static const uint32_t START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
-    static const uint32_t START_NULLIFIER_EXISTS_OFFSET = 8;
-    static const uint32_t START_EMIT_NULLIFIER_WRITE_OFFSET = 12;
-    static const uint32_t START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 16;
-    static const uint32_t START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 20;
-    static const uint32_t START_L2_TO_L1_MSG_WRITE_OFFSET = 24;
-
-    static const uint32_t START_SLOAD_WRITE_OFFSET = 28;
-    static const uint32_t START_SSTORE_WRITE_OFFSET = 32;
+    void op_sload(uint32_t clk, uint32_t side_effect_counter, const FF& slot, const FF& value);
+    void op_sstore(uint32_t clk, uint32_t side_effect_counter, const FF& slot, const FF& value);
+    void op_note_hash_exists(uint32_t clk, uint32_t side_effect_counter, const FF& note_hash, uint32_t result);
+    void op_emit_note_hash(uint32_t clk, uint32_t side_effect_counter, const FF& note_hash);
+    void op_nullifier_exists(uint32_t clk, uint32_t side_effect_counter, const FF& nullifier, uint32_t result);
+    void op_emit_nullifier(uint32_t clk, uint32_t side_effect_counter, const FF& nullifier);
+    void op_l1_to_l2_msg_exists(uint32_t clk, uint32_t side_effect_counter, const FF& message, uint32_t result);
+    void op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash);
+    void op_emit_l2_to_l1_msg(uint32_t clk, uint32_t side_effect_counter, const FF& l2_to_l1_msg, const FF& recipient);
 
   private:
     std::vector<KernelTraceEntry> kernel_trace;
-
-    // Side effect counter will incremenent when any state writing values are
-    // encountered
-    uint32_t side_effect_counter = 0;
 
     // Output index counters
     uint32_t note_hash_exists_offset = 0;
     uint32_t emit_note_hash_offset = 0;
     uint32_t nullifier_exists_offset = 0;
+    uint32_t nullifier_non_exists_offset = 0;
     uint32_t emit_nullifier_offset = 0;
     uint32_t l1_to_l2_msg_exists_offset = 0;
     uint32_t emit_unencrypted_log_offset = 0;
@@ -129,6 +94,9 @@ class AvmKernelTraceBuilder {
     uint32_t sstore_write_offset = 0;
 
     FF perform_kernel_input_lookup(uint32_t selector);
-    void perform_kernel_output_lookup(uint32_t write_offset, const FF& value, const FF& metadata);
+    void perform_kernel_output_lookup(uint32_t write_offset,
+                                      uint32_t side_effect_counter,
+                                      const FF& value,
+                                      const FF& metadata);
 };
 } // namespace bb::avm_trace

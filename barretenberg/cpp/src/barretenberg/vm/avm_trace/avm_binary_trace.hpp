@@ -1,10 +1,12 @@
 #pragma once
 
-#include "avm_common.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+
 #include <unordered_map>
 
 namespace bb::avm_trace {
+
 class AvmBinaryTraceBuilder {
   public:
     struct BinaryTraceEntry {
@@ -29,7 +31,7 @@ class AvmBinaryTraceBuilder {
     std::unordered_map<uint32_t, uint32_t> byte_operation_counter;
     std::unordered_map<uint32_t, uint32_t> byte_length_counter;
 
-    AvmBinaryTraceBuilder();
+    AvmBinaryTraceBuilder() = default;
     void reset();
     // Finalize the trace
     std::vector<BinaryTraceEntry> finalize();
@@ -48,4 +50,5 @@ class AvmBinaryTraceBuilder {
                        uint32_t clk,
                        uint8_t op_id);
 };
+
 } // namespace bb::avm_trace

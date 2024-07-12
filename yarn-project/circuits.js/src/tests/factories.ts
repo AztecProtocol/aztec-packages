@@ -2,6 +2,7 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Bufferable } from '@aztec/foundation/serialize';
 import {
   type ContractClassPublic,
   type ExecutablePrivateFunctionWithMembershipProof,
@@ -15,12 +16,18 @@ import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
   AppendOnlyTreeSnapshot,
+  AvmCircuitInputs,
+  AvmContractInstanceHint,
+  AvmExecutionHints,
+  AvmExternalCallHint,
+  AvmKeyValueHint,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
   CallContext,
   CallRequest,
   CallerContext,
+  ClientIvcProof,
   CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -31,7 +38,6 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -42,16 +48,17 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_CALL,
+  MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -112,7 +119,6 @@ import {
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
-  ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   RevertCode,
   RollupTypes,
@@ -124,9 +130,11 @@ import {
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
+  TUBE_PROOF_LENGTH,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
+  Vector,
   VerificationKey,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -187,7 +195,12 @@ export function makeTxContext(seed: number = 1): TxContext {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGlobalVariables(seed + 5));
+  return new CombinedConstantData(
+    makeHeader(seed, undefined),
+    makeTxContext(seed + 4),
+    new Fr(seed + 1),
+    makeGlobalVariables(seed + 5),
+  );
 }
 
 /**
@@ -293,7 +306,7 @@ export function makeContractStorageUpdateRequest(seed = 1): ContractStorageUpdat
  * @returns A contract storage read.
  */
 export function makeContractStorageRead(seed = 1): ContractStorageRead {
-  return new ContractStorageRead(fr(seed), fr(seed + 1));
+  return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
 export function makeValidationRequests(seed = 1) {
@@ -312,7 +325,12 @@ export function makeRollupValidationRequests(seed = 1) {
 }
 
 export function makeCombinedConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed), makeTxContext(seed + 0x100), makeGlobalVariables(seed + 0x200));
+  return new CombinedConstantData(
+    makeHeader(seed),
+    makeTxContext(seed + 0x100),
+    new Fr(seed + 0x200),
+    makeGlobalVariables(seed + 0x300),
+  );
 }
 
 /**
@@ -324,9 +342,9 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new CombinedAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
+    tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
+    tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // note encrypted logs hash
     fr(seed + 0x800), // encrypted logs hash
     fr(seed + 0x900), // unencrypted logs hash
@@ -356,9 +374,9 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PublicAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x120, NoteHash.empty),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
+    tupleGenerator(MAX_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x120, NoteHash.empty),
+    tupleGenerator(MAX_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty), // note encrypted logs hashes
     tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x900, LogHash.empty), // unencrypted logs hashes
@@ -386,7 +404,6 @@ export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContex
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    sideEffectCounter: 0,
     ...overrides,
   });
 }
@@ -408,8 +425,10 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, { storageContractAddress: storageContractAddress ?? makeAztecAddress(seed) }),
     fr(seed + 0x100),
     fr(seed + 0x200),
+    tupleGenerator(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
+    tupleGenerator(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x440, ReadRequest.empty),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,
@@ -418,9 +437,9 @@ export function makePublicCircuitPublicInputs(
     ),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.empty),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600, Fr.zero),
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x700, NoteHash.empty),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x800, Nullifier.empty),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
+    tupleGenerator(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x700, NoteHash.empty),
+    tupleGenerator(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x800, Nullifier.empty),
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
     fr(seed + 0xa00),
     fr(seed + 0xa01),
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x901, LogHash.empty),
@@ -517,6 +536,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     makeSelector(seed + 0x1),
     childCallContext,
     parentCallContext,
+    seed + 0x4,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -553,15 +573,15 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1));
+  return new Point(fr(seed), fr(seed + 1), false);
 }
 
 /**
- * Creates an arbitrary grumpkin private key.
+ * Creates an arbitrary grumpkin scalar.
  * @param seed - Seed to generate the values.
- * @returns A GrumpkinPrivateKey.
+ * @returns A GrumpkinScalar.
  */
-export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+export function makeGrumpkinScalar(seed = 1): GrumpkinScalar {
   return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
@@ -590,7 +610,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
     VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
@@ -625,7 +645,16 @@ export function makeCallRequest(seed = 1): CallRequest {
 }
 
 function makePrivateCallRequest(seed = 1): PrivateCallRequest {
-  return new PrivateCallRequest(fr(seed), makeCallerContext(seed + 0x2), seed + 0x10, seed + 0x11);
+  return new PrivateCallRequest(
+    makeAztecAddress(seed),
+    makeCallContext(seed + 0x1),
+    new FunctionData(makeSelector(seed + 0x2), /*isPrivate=*/ true),
+    fr(seed + 0x3),
+    fr(seed + 0x4),
+    makeCallerContext(seed + 0x5),
+    seed + 0x10,
+    seed + 0x11,
+  );
 }
 
 /**
@@ -667,13 +696,17 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
+  return new PublicKernelCircuitPrivateInputs(
+    makePublicKernelData(seed),
+    ClientIvcProof.empty(),
+    makePublicCallData(seed + 0x1000),
+  );
 }
 
 export function makeCombineHints(seed = 1): CombineHints {
   return CombineHints.from({
-    sortedNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x100),
-    sortedNoteHashesIndexes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
+    sortedNoteHashes: makeTuple(MAX_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x100),
+    sortedNoteHashesIndexes: makeTuple(MAX_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
     sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x300),
     sortedUnencryptedLogsHashesIndexes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, i => i, seed + 0x400),
     sortedPublicDataUpdateRequests: makeTuple(
@@ -682,6 +715,12 @@ export function makeCombineHints(seed = 1): CombineHints {
       seed + 0x300,
     ),
     sortedPublicDataUpdateRequestsIndexes: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x400),
+    dedupedPublicDataUpdateRequests: makeTuple(
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      makePublicDataUpdateRequest,
+      seed + 0x500,
+    ),
+    dedupedPublicDataUpdateRequestsRuns: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x600),
   });
 }
 
@@ -715,14 +754,14 @@ export function makePublicKernelInputsWithTweak(
   const kernelCircuitPublicInputs = makePublicKernelCircuitPublicInputs(seed, false);
   const previousKernel = makePublicKernelData(seed, kernelCircuitPublicInputs);
   const publicCall = makePublicCallData(seed + 0x1000);
-  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);
+  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, ClientIvcProof.empty(), publicCall);
   if (tweak) {
     tweak(publicKernelInputs);
   }
   // Set the call stack item for this circuit iteration at the top of the call stack
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
     new CallRequest(
-      publicCall.callStackItem.hash(),
+      publicCall.callStackItem.getCompressed().hash(),
       publicCall.callStackItem.publicInputs.callContext.msgSender,
       makeCallerContext(seed + 0x100),
       Fr.ZERO,
@@ -777,12 +816,12 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       makeKeyValidationRequestAndGenerators,
       seed + 0x320,
     ),
-    newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
-    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
+    noteHashes: makeTuple(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
+    nullifiers: makeTuple(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
     publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     publicTeardownFunctionHash: fr(seed + 0x800),
-    newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
+    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     noteEncryptedLogsHashes: makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, makeNoteLogHash, seed + 0x875),
@@ -840,11 +879,8 @@ export function makeConstantBaseRollupData(
 ): ConstantRollupData {
   return ConstantRollupData.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
-    privateKernelVkTreeRoot: fr(seed + 0x401),
-    publicKernelVkTreeRoot: fr(seed + 0x402),
-    baseRollupVkHash: fr(seed + 0x403),
-    mergeRollupVkHash: fr(seed + 0x404),
-    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x405),
+    vkTreeRoot: fr(seed + 0x401),
+    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x402),
   });
 }
 
@@ -906,7 +942,7 @@ export function makeBaseOrMergeRollupPublicInputs(
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
-    new Fr(0n),
+    1,
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
@@ -930,8 +966,7 @@ export function makePreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
     VerificationKeyAsFields.makeFake(),
-    seed + 0x110,
-    makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
+    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }
 
@@ -960,16 +995,21 @@ export function makeRootParityInput<PROOF_LENGTH extends number>(
   return new RootParityInput<PROOF_LENGTH>(
     makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
     VerificationKeyAsFields.makeFake(seed + 0x100),
-    makeParityPublicInputs(seed + 0x200),
+    makeTuple(VK_TREE_HEIGHT, fr, 0x200),
+    makeParityPublicInputs(seed + 0x300),
   );
 }
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
-  return new ParityPublicInputs(new Fr(BigInt(seed + 0x200)), new Fr(BigInt(seed + 0x300)));
+  return new ParityPublicInputs(
+    new Fr(BigInt(seed + 0x200)),
+    new Fr(BigInt(seed + 0x300)),
+    new Fr(BigInt(seed + 0x400)),
+  );
 }
 
 export function makeBaseParityInputs(seed = 0): BaseParityInputs {
-  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000));
+  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
 }
 
 export function makeRootParityInputs(seed = 0): RootParityInputs {
@@ -995,6 +1035,7 @@ export function makeRootRollupPublicInputs(
   return RootRollupPublicInputs.from({
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     header: makeHeader(seed + 0x200, blockNumber),
+    vkTreeRoot: fr(seed + 0x300),
   });
 }
 
@@ -1095,20 +1136,20 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
  */
 export function makeStateDiffHints(seed = 1): StateDiffHints {
   const nullifierPredecessorPreimages = makeTuple(
-    MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NULLIFIERS_PER_TX,
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
     seed + 0x1000,
   );
 
   const nullifierPredecessorMembershipWitnesses = makeTuple(
-    MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NULLIFIERS_PER_TX,
     x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
     seed + 0x2000,
   );
 
-  const sortedNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x3000);
+  const sortedNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x3000);
 
-  const sortedNullifierIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
+  const sortedNullifierIndexes = makeTuple(MAX_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
 
   const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
@@ -1240,6 +1281,94 @@ function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     vkHash: fr(seed + 2),
   };
+}
+
+export function makeArray<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+  return Array.from({ length }, (_: any, i: number) => fn(i + offset));
+}
+
+export function makeVector<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+  return new Vector(makeArray(length, fn, offset));
+}
+
+/**
+ * Makes arbitrary AvmKeyValueHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmKeyValueHint.
+ */
+export function makeAvmKeyValueHint(seed = 0): AvmKeyValueHint {
+  return new AvmKeyValueHint(new Fr(seed), new Fr(seed + 1));
+}
+
+/**
+ * Makes arbitrary AvmExternalCallHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmExternalCallHint.
+ */
+export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
+  return new AvmExternalCallHint(
+    new Fr(seed % 2),
+    makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
+    new Gas(seed + 0x200, seed),
+    new Fr(seed + 0x300),
+  );
+}
+
+/**
+ * Makes arbitrary AvmContractInstanceHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmContractInstanceHint.
+ */
+export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
+  return new AvmContractInstanceHint(
+    new Fr(seed),
+    new Fr(seed + 0x1),
+    new Fr(seed + 0x2),
+    new Fr(seed + 0x3),
+    new Fr(seed + 0x4),
+    new Fr(seed + 0x5),
+    new Fr(seed + 0x6),
+  );
+}
+
+/**
+ * Creates arbitrary AvmExecutionHints.
+ * @param seed - The seed to use for generating the hints.
+ * @returns the execution hints.
+ */
+export function makeAvmExecutionHints(
+  seed = 0,
+  overrides: Partial<FieldsOf<AvmExecutionHints>> = {},
+): AvmExecutionHints {
+  const lengthOffset = 10;
+  const lengthSeedMod = 10;
+  const baseLength = lengthOffset + (seed % lengthSeedMod);
+
+  return AvmExecutionHints.from({
+    storageValues: makeVector(baseLength, makeAvmKeyValueHint, seed + 0x4200),
+    noteHashExists: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4300),
+    nullifierExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4400),
+    l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
+    externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
+    contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    ...overrides,
+  });
+}
+
+/**
+ * Creates arbitrary AvmCircuitInputs.
+ * @param seed - The seed to use for generating the hints.
+ * @returns the execution hints.
+ */
+export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
+  return AvmCircuitInputs.from({
+    functionName: `function${seed}`,
+    bytecode: makeBytes((seed % 100) + 100, seed),
+    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
+    publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
+    avmHints: makeAvmExecutionHints(seed + 0x3000),
+    ...overrides,
+  });
 }
 
 /**

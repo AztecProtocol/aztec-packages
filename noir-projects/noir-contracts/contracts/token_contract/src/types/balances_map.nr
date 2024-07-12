@@ -1,12 +1,13 @@
-use dep::aztec::prelude::{
-    AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateContext,
-    PrivateSet, Map
-};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map};
 use dep::aztec::{
-    hash::pedersen_hash, protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder}
+    context::{PrivateContext, UnconstrainedContext}, hash::pedersen_hash,
+    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    note::{
+    note_getter::view_notes, note_getter_options::SortOrder,
+    note_emission::{NoteEmission, OuterNoteEmission}
+}
 };
-use crate::types::token_note::{TokenNote, OwnedNote};
+use crate::types::{token_note::{TokenNote, OwnedNote}};
 
 struct BalancesMap<T, Context> {
     map: Map<AztecAddress, PrivateSet<T, Context>, Context>
@@ -25,7 +26,7 @@ impl<T, Context> BalancesMap<T, Context> {
     }
 }
 
-impl<T> BalancesMap<T, ()> {
+impl<T> BalancesMap<T, UnconstrainedContext> {
     unconstrained pub fn balance_of<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress
@@ -41,16 +42,15 @@ impl<T> BalancesMap<T, ()> {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
-        let opt_notes = self.map.at(owner).view_notes(options.set_offset(offset));
+        let notes = self.map.at(owner).view_notes(options.set_offset(offset));
         // docs:end:view_notes
-        let len = opt_notes.len();
-        for i in 0..len {
-            if opt_notes[i].is_some() {
-                balance = balance + opt_notes[i].unwrap_unchecked().get_amount();
+        for i in 0..options.limit {
+            if i < notes.len() {
+                balance = balance + notes.get_unchecked(i).get_amount();
             }
         }
-        if (opt_notes[len - 1].is_some()) {
-            balance = balance + self.balance_of_with_offset(owner, offset + opt_notes.len() as u32);
+        if (notes.len() == options.limit) {
+            balance = balance + self.balance_of_with_offset(owner, offset + options.limit);
         }
 
         balance
@@ -60,38 +60,39 @@ impl<T> BalancesMap<T, ()> {
 impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
-        outgoing_viewer: AztecAddress,
         owner: AztecAddress,
         addend: U128
-    ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
-        let context = self.map.context;
-        let header = context.get_header();
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(context, owner);
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
+        if addend == U128::from_integer(0) {
+            OuterNoteEmission::new(Option::none())
+        } else {
+            let context = self.map.context;
+            let header = context.get_header();
 
-        // We fetch the nullifier public key hash from the registry / from our PXE
-        let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
-        let mut addend_note = T::new(addend, owner_npk_m_hash);
+            // We fetch the nullifier public key hash from the registry / from our PXE
+            let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
+            let mut addend_note = T::new(addend, owner_npk_m_hash);
 
-        // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
-        // docs:end:insert
+            // docs:start:insert
+            OuterNoteEmission::new(Option::some(self.map.at(owner).insert(&mut addend_note)))
+            // docs:end:insert
+        }
     }
 
     pub fn sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress,
         subtrahend: U128
-    ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
-        let maybe_notes = self.map.at(owner).get_notes(options);
+        let notes = self.map.at(owner).get_notes(options);
         // docs:end:get_notes
 
         let mut minuend: U128 = U128::from_integer(0);
-        for i in 0..maybe_notes.len() {
-            if maybe_notes[i].is_some() {
-                let note = maybe_notes[i].unwrap_unchecked();
+        for i in 0..options.limit {
+            if i < notes.len() {
+                let note = notes.get_unchecked(i);
 
                 // Removes the note from the owner's set of notes.
                 // This will call the the `compute_nullifer` function of the `token_note`
@@ -110,7 +111,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         // without the == true, it includes 'minuend.ge(subtrahend)' as part of the error.
         assert(minuend >= subtrahend, "Balance too low");
 
-        self.add(owner, owner, minuend - subtrahend);
+        self.add(owner, minuend - subtrahend)
     }
 }
 

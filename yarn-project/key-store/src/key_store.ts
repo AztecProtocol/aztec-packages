@@ -5,7 +5,6 @@ import {
   Fq,
   Fr,
   GeneratorIndex,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   KEY_PREFIXES,
   type KeyPrefix,
@@ -139,7 +138,7 @@ export class KeyStore {
     }
 
     // Now we find the secret key for the public key
-    let skM: GrumpkinPrivateKey | undefined;
+    let skM: GrumpkinScalar | undefined;
     {
       const skMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
       if (!skMsBuffer) {
@@ -232,12 +231,7 @@ export class KeyStore {
     const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2Hash([
-        masterIncomingViewingSecretKey.high,
-        masterIncomingViewingSecretKey.low,
-        app,
-        GeneratorIndex.IVSK_M,
-      ]),
+      poseidon2Hash([masterIncomingViewingSecretKey.hi, masterIncomingViewingSecretKey.lo, app, GeneratorIndex.IVSK_M]),
     );
   }
 
@@ -258,12 +252,7 @@ export class KeyStore {
     const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2Hash([
-        masterOutgoingViewingSecretKey.high,
-        masterOutgoingViewingSecretKey.low,
-        app,
-        GeneratorIndex.OVSK_M,
-      ]),
+      poseidon2Hash([masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app, GeneratorIndex.OVSK_M]),
     );
   }
 
@@ -274,7 +263,7 @@ export class KeyStore {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinPrivateKey> {
+  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
     const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkM);
 
     // We get the secret keys buffer and iterate over the values in the buffer to find the one that matches pkM
@@ -304,36 +293,6 @@ export class KeyStore {
     }
 
     return Promise.resolve(skM);
-  }
-
-  /**
-   * Retrieves the master incoming viewing secret key (ivsk_m) corresponding to the specified master incoming viewing
-   * public key (Ivpk_m).
-   * @throws If the provided public key is not associated with any of the registered accounts.
-   * @param masterIncomingViewingPublicKey - The master nullifier public key to get secret key for.
-   * @returns A Promise that resolves to the master nullifier secret key.
-   * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
-   */
-  public getMasterIncomingViewingSecretKeyForPublicKey(
-    masterIncomingViewingPublicKey: PublicKey,
-  ): Promise<GrumpkinPrivateKey> {
-    // We iterate over the map keys to find the account address that corresponds to the provided public key
-    for (const [key, value] of this.#keys.entries()) {
-      if (value.equals(masterIncomingViewingPublicKey.toBuffer())) {
-        // We extract the account address from the map key
-        const account = key.split('-')[0];
-        // We fetch the secret key and return it
-        const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
-        if (!masterIncomingViewingSecretKeyBuffer) {
-          throw new Error(`Could not find master incoming viewing secret key for account ${account.toString()}`);
-        }
-        return Promise.resolve(GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer));
-      }
-    }
-
-    throw new Error(
-      `Could not find master incoming viewing secret key for public key ${masterIncomingViewingPublicKey.toString()}`,
-    );
   }
 
   /**

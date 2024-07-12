@@ -6,8 +6,9 @@ contract PendingNoteHashes {
     // Libs
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet};
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
-    use dep::aztec::protocol_types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL};
+    use dep::aztec::protocol_types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL};
+    use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
+    use dep::aztec::note::note_emission::NoteEmission;
 
     #[aztec(storage)]
     struct Storage {
@@ -30,21 +31,19 @@ contract PendingNoteHashes {
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
         // Insert note
-        owner_balance.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
-        let maybe_notes = owner_balance.get_notes(options);
+        let notes = owner_balance.get_notes(options);
 
-        let note0 = maybe_notes[0].unwrap();
+        let note0 = notes.get(0);
         assert(note.value == note0.value);
-        assert(maybe_notes[1].is_none());
+        assert(notes.len() == 1);
 
         owner_balance.remove(note0);
 
@@ -58,19 +57,20 @@ contract PendingNoteHashes {
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note (note inserted at bottom of function shouldn't exist yet)
-        let maybe_notes = owner_balance.get_notes(options);
+        let notes = owner_balance.get_notes(options);
 
-        assert(maybe_notes[0].is_none());
-        assert(maybe_notes[1].is_none());
+        // TODO https://github.com/AztecProtocol/aztec-packages/issues/7059: clean this test up - we won't actually hit 
+        // this assert because the same one exists in get_notes (we always return at least one note), so all lines after 
+        // this one are effectively dead code. We should find a different way to test what this function attempts to 
+        // test.
+        assert(notes.len() == 0);
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         // Insert note
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
-        owner_balance.insert(&mut note, true, msg_sender_ovpk_m, owner_ivpk_m);
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
 
         0
     }
@@ -86,13 +86,52 @@ contract PendingNoteHashes {
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
         // Insert note
-        owner_balance.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
+    }
+
+    // Nested/inner function to create and insert a note
+    // TESTING: inserts a static randomness value to test notes with
+    // the same inner note hash are dealt with correctly
+    #[aztec(private)]
+    fn insert_note_static_randomness(
+        amount: Field,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress
+    ) {
+        let mut owner_balance = storage.balances.at(owner);
+
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+        note.randomness = 2;
+
+        // Insert note
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
+    }
+
+    // Nested/inner function to create and insert a note
+    // then emit another note log for the same note
+    #[aztec(private)]
+    fn insert_note_extra_emit(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+        let mut owner_balance = storage.balances.at(owner);
+
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+
+        // Insert note
+        let emission = owner_balance.insert(&mut note);
+
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
+
+        // Emit note again
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -102,7 +141,7 @@ contract PendingNoteHashes {
 
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let note = owner_balance.get_notes(options)[0].unwrap();
+        let note = owner_balance.get_notes(options).get(0);
 
         assert(expected_value == note.value);
 
@@ -117,10 +156,11 @@ contract PendingNoteHashes {
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::new();
-        let maybe_notes = owner_balance.get_notes(options);
+        let notes = owner_balance.get_notes(options);
 
-        assert(maybe_notes[0].is_none());
-        assert(maybe_notes[1].is_none());
+        // TODO https://github.com/AztecProtocol/aztec-packages/issues/7059: review what this test aimed to test, as 
+        // it's now superfluous: get_notes never returns 0 notes.
+        assert(notes.len() == 0);
     }
 
     // Test pending note hashes with note insertion done in a nested call
@@ -297,6 +337,31 @@ contract PendingNoteHashes {
         }
     }
 
+    // TESTING: Forces the private context to accept a note log for a non-existent note
+    // by using an existing note's counter via its header. This is used to check that
+    // the pxe rejects the note log later.
+    #[aztec(private)]
+    fn test_emit_bad_note_log(owner: AztecAddress, outgoing_viewer: AztecAddress) {
+        let owner_balance = storage.balances.at(owner);
+
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
+        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+        let mut good_note = ValueNote::new(10, owner_npk_m_hash);
+        // Insert good note with real log
+        owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
+
+        // We will emit a note log with an incorrect preimage to ensure the pxe throws
+        // This note has not been inserted...
+        let mut bad_note = ValueNote::new(5, owner_npk_m_hash);
+        // ...but we need a 'good' note header to get the context to add the note log
+        let existing_note_header = good_note.get_header();
+        bad_note.set_header(existing_note_header);
+
+        NoteEmission::new(bad_note).emit(encode_and_encrypt_note_with_keys(&mut context, outgoing_viewer_ovpk_m, owner_ivpk_m));
+    }
+
     #[contract_library_method]
     fn create_max_notes(
         owner: AztecAddress,
@@ -312,7 +377,7 @@ contract PendingNoteHashes {
 
         for i in 0..max_notes_per_call() {
             let mut note = ValueNote::new(i as Field, owner_npk_m_hash);
-            owner_balance.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
+            owner_balance.insert(&mut note).emit(encode_and_encrypt_note_with_keys(context, outgoing_viewer_ovpk_m, owner_ivpk_m));
         }
     }
 
@@ -322,17 +387,17 @@ contract PendingNoteHashes {
         let notes = owner_balance.get_notes(NoteGetterOptions::new());
 
         for i in 0..max_notes_per_call() {
-            let note = notes[i].unwrap();
+            let note = notes.get(i);
             owner_balance.remove(note);
         }
     }
 
     #[contract_library_method]
-    fn max_notes_per_call() -> u64 {
-        if MAX_NEW_NOTE_HASHES_PER_CALL > MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+    fn max_notes_per_call() -> u32 {
+        if MAX_NOTE_HASHES_PER_CALL > MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
             MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
         } else {
-            MAX_NEW_NOTE_HASHES_PER_CALL
+            MAX_NOTE_HASHES_PER_CALL
         }
     }
 }

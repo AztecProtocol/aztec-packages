@@ -1,23 +1,36 @@
+import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
-import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
+import {
+  type ClientProtocolArtifact,
+  type ProtocolArtifact,
+  ProtocolCircuitArtifacts,
+} from '@aztec/noir-protocol-circuits-types';
 
 import * as fs from 'fs/promises';
+import * as path from 'path';
 
-import { BB_RESULT, generateContractForCircuit, generateKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
-import { type BBProverConfig } from '../prover/bb_prover.js';
+import {
+  BB_RESULT,
+  PROOF_FILENAME,
+  VK_FILENAME,
+  generateContractForCircuit,
+  generateKeyForNoirCircuit,
+  verifyProof,
+} from '../bb/execute.js';
+import { type BBConfig } from '../config.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
-export class BBCircuitVerifier {
+export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
-    private config: BBProverConfig,
+    private config: BBConfig,
     private verificationKeys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>(),
     private logger: DebugLogger,
   ) {}
 
   public static async new(
-    config: BBProverConfig,
+    config: BBConfig,
     initialCircuits: ProtocolArtifact[] = [],
     logger = createDebugLogger('aztec:bb-verifier'),
   ) {
@@ -73,11 +86,11 @@ export class BBCircuitVerifier {
 
   public async verifyProofForCircuit(circuit: ProtocolArtifact, proof: Proof) {
     const operation = async (bbWorkingDirectory: string) => {
-      const proofFileName = `${bbWorkingDirectory}/proof`;
-      const verificationKeyPath = `${bbWorkingDirectory}/vk`;
+      const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
+      const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
       const verificationKey = await this.getVerificationKeyData(circuit);
 
-      this.logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
+      this.logger.debug(`${circuit} Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
@@ -92,6 +105,8 @@ export class BBCircuitVerifier {
         const errorMessage = `Failed to verify ${circuit} proof!`;
         throw new Error(errorMessage);
       }
+
+      this.logger.debug(`${circuit} verification successful`);
     };
     await runInDirectory(this.config.bbWorkingDirectory, operation);
   }
@@ -111,5 +126,21 @@ export class BBCircuitVerifier {
     }
 
     return fs.readFile(result.contractPath!, 'utf-8');
+  }
+
+  verifyProof(tx: Tx): Promise<boolean> {
+    const expectedCircuit: ClientProtocolArtifact = tx.data.forPublic
+      ? 'PrivateKernelTailToPublicArtifact'
+      : 'PrivateKernelTailArtifact';
+
+    try {
+      // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a proper verify flow for clientIvcProof
+      // For now we handle only the trivial blank data case
+      // await this.verifyProofForCircuit(expectedCircuit, proof);
+      return Promise.resolve(!tx.clientIvcProof.isEmpty());
+    } catch (err) {
+      this.logger.warn(`Failed to verify ${expectedCircuit} proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
+      return Promise.resolve(false);
+    }
   }
 }

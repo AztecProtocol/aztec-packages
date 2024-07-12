@@ -1,6 +1,8 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
 #include "barretenberg/bb/exec_pipe.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 
@@ -9,6 +11,7 @@
 
 // #define LOG_SIZES
 
+using namespace bb;
 class AcirIntegrationTest : public ::testing::Test {
   public:
     static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
@@ -32,18 +35,20 @@ class AcirIntegrationTest : public ::testing::Test {
         return file.good();
     }
 
-    acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name)
+    acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name,
+                                                                        bool honk_recursion = false)
     {
         std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
         std::string witness_path = base_path + "/witness.gz";
 
-        return acir_format::get_acir_program_stack(bytecode_path, witness_path);
+        return acir_format::get_acir_program_stack(bytecode_path, witness_path, honk_recursion);
     }
 
-    acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
+    acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name,
+                                                             bool honk_recursion = false)
     {
-        auto program_stack = get_program_stack_data_from_test_file(test_program_name);
+        auto program_stack = get_program_stack_data_from_test_file(test_program_name, honk_recursion);
         ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
 
         return program_stack.back();
@@ -142,7 +147,10 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 
     std::string test_name = GetParam();
     info("Test: ", test_name);
-    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file(
+        test_name,
+        /*honk_recursion=*/
+        false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
@@ -369,7 +377,9 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
     std::string test_name = GetParam();
     info("Test: ", test_name);
 
-    auto program_stack = get_program_stack_data_from_test_file(test_name);
+    auto program_stack = get_program_stack_data_from_test_file(
+        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                                              // Assumes Flavor is not UltraHonk
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();
@@ -390,10 +400,12 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
-    auto program_stack = get_program_stack_data_from_test_file(test_name);
+    auto program_stack = get_program_stack_data_from_test_file(
+        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                                              // Assumes Flavor is not UltraHonk
 
     ClientIVC ivc;
-    ivc.structured_flag = true;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();
@@ -418,6 +430,29 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                          testing::Values("fold_basic", "fold_basic_nested_call"));
 
 /**
+ *@brief A basic test of a circuit generated in noir that makes use of the databus
+ *
+ */
+TEST_F(AcirIntegrationTest, DISABLED_Databus)
+{
+    using Flavor = MegaFlavor;
+    using Builder = Flavor::CircuitBuilder;
+
+    std::string test_name = "databus";
+    info("Test: ", test_name);
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
+
+    // Construct a bberg circuit from the acir representation
+    Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+
+    // This prints a summary of the types of gates in the circuit
+    builder.blocks.summarize();
+
+    // Construct and verify Honk proof
+    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+}
+
+/**
  * @brief Ensure that adding gates post-facto to a circuit generated from acir still results in a valid circuit
  * @details This is a pattern required by e.g. ClientIvc which appends recursive verifiers to acir-generated circuits
  *
@@ -428,7 +463,9 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "6_array"; // arbitrary program with RAM gates
-    auto acir_program = get_program_data_from_test_file(test_name);
+    auto acir_program = get_program_data_from_test_file(
+        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                                              // Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
     auto circuit = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);

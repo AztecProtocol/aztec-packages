@@ -40,7 +40,7 @@ contract RollupTest is DecoderBase {
     registry = new Registry();
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)));
+    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
@@ -85,7 +85,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 0x420, 31337));
-    rollup.process(header, archive, bytes(""), bytes(""));
+    rollup.process(header, archive);
   }
 
   function testRevertInvalidVersion() public {
@@ -101,7 +101,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 0x420, 1));
-    rollup.process(header, archive, bytes(""), bytes(""));
+    rollup.process(header, archive);
   }
 
   function testRevertTimestampInFuture() public {
@@ -118,7 +118,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampInFuture.selector));
-    rollup.process(header, archive, bytes(""), bytes(""));
+    rollup.process(header, archive);
   }
 
   function testRevertTimestampTooOld() public {
@@ -133,7 +133,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampTooOld.selector));
-    rollup.process(header, archive, bytes(""), bytes(""));
+    rollup.process(header, archive);
   }
 
   function _testBlock(string memory name) public {
@@ -153,16 +153,26 @@ contract RollupTest is DecoderBase {
     uint256 toConsume = inbox.toConsume();
 
     vm.record();
-    rollup.process(header, archive, bytes(""), bytes(""));
+    rollup.process(header, archive);
 
     assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
     bytes32 l2ToL1MessageTreeRoot;
     {
-      uint256 numTxsWithPadding = txsHelper.computeNumTxEffectsToPad(numTxs) + numTxs;
-      uint256 numMessagesWithPadding = numTxsWithPadding * Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX;
+      // NB: The below works with full blocks because we require the largest possible subtrees
+      // for L2 to L1 messages - usually we make variable height subtrees, the roots of which
+      // form a balanced tree
 
-      uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(numMessagesWithPadding);
+      // The below is a little janky - we know that this test deals with full txs with equal numbers
+      // of msgs or txs with no messages, so the division works
+      // TODO edit full.messages to include information about msgs per tx?
+      uint256 subTreeHeight = merkleTestUtil.calculateTreeHeightFromSize(
+        full.messages.l2ToL1Messages.length == 0 ? 0 : full.messages.l2ToL1Messages.length / numTxs
+      );
+      uint256 outHashTreeHeight = merkleTestUtil.calculateTreeHeightFromSize(numTxs);
+      uint256 numMessagesWithPadding = numTxs * Constants.MAX_L2_TO_L1_MSGS_PER_TX;
+
+      uint256 treeHeight = subTreeHeight + outHashTreeHeight;
       NaiveMerkle tree = new NaiveMerkle(treeHeight);
       for (uint256 i = 0; i < numMessagesWithPadding; i++) {
         if (i < full.messages.l2ToL1Messages.length) {

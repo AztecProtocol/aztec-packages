@@ -1,14 +1,8 @@
-#include "avm_poseidon2.hpp"
-#include "../avm_common.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
-
-AvmPoseidon2TraceBuilder::AvmPoseidon2TraceBuilder()
-{
-    poseidon2_trace.reserve(AVM_TRACE_SIZE);
-}
 
 std::vector<AvmPoseidon2TraceBuilder::Poseidon2TraceEntry> AvmPoseidon2TraceBuilder::finalize()
 {
@@ -29,4 +23,5 @@ std::array<FF, 4> AvmPoseidon2TraceBuilder::poseidon2_permutation(const std::arr
 
     return output;
 }
+
 } // namespace bb::avm_trace

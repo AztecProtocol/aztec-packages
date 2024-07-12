@@ -56,6 +56,7 @@ add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
+add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
 add_subdirectory(barretenberg/crypto)
 add_subdirectory(barretenberg/dsl)
@@ -154,7 +155,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_recursion_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT WASM)
+if(NOT DISABLE_AZTEC_VM)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
 endif()
@@ -188,4 +189,16 @@ if(WASM)
         -nostartfiles -Wl,--no-entry,--export-dynamic
     )
 
+    if(CHECK_CIRCUIT_STACKTRACES)
+        target_link_libraries(
+            barretenberg.wasm
+            PUBLIC
+            Backward::Interface
+        )
+        target_link_options(
+            barretenberg.wasm
+            PRIVATE
+            -ldw -lelf
+        )
+    endif()
 endif()

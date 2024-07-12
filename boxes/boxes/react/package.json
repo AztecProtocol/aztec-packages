@@ -6,7 +6,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
+    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --use-legacy --silence-warnings",
     "codegen": "${AZTEC_BUILDER:-aztec-builder} codegen src/contracts/target -o artifacts",
     "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
@@ -76,7 +76,6 @@
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
-    "tty-browserify": "^0.0.1",
     "typescript": "^5.0.4",
     "util": "^0.12.5",
     "webpack": "^5.88.2",

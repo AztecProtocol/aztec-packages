@@ -1,4 +1,6 @@
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
@@ -95,7 +97,7 @@ export interface L1ContractArtifactsForDeployment {
  */
 export function createL1Clients(
   rpcUrl: string,
-  mnemonicOrHdAccount: string | HDAccount,
+  mnemonicOrHdAccount: string | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
 ): { publicClient: PublicClient<HttpTransport, Chain>; walletClient: WalletClient<HttpTransport, Chain, Account> } {
   const hdAccount =
@@ -115,12 +117,13 @@ export function createL1Clients(
 }
 
 /**
- * Deploys the aztec L1 contracts; Rollup, Contract Deployment Emitter & (optionally) Decoder Helper.
+ * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
  * @param rpcUrl - URL of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
  * @param contractsToDeploy - The set of L1 artifacts to be deployed
+ * @param args - Arguments for initialization of L1 contracts
  * @returns A list of ETH addresses of the deployed contracts.
  */
 export const deployL1Contracts = async (
@@ -129,6 +132,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
+  args: { l2GasTokenAddress: AztecAddress; vkTreeRoot: Fr },
 ): Promise<DeployL1Contracts> => {
   logger.debug('Deploying contracts...');
 
@@ -176,6 +180,7 @@ export const deployL1Contracts = async (
       getAddress(registryAddress.toString()),
       getAddress(availabilityOracleAddress.toString()),
       getAddress(gasTokenAddress.toString()),
+      args.vkTreeRoot.toString(),
     ],
   );
   logger.info(`Deployed Rollup at ${rollupAddress}`);
@@ -223,6 +228,24 @@ export const deployL1Contracts = async (
   );
 
   logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
+
+  const gasPortal = getContract({
+    address: gasPortalAddress.toString(),
+    abi: contractsToDeploy.gasPortal.contractAbi,
+    client: walletClient,
+  });
+
+  await publicClient.waitForTransactionReceipt({
+    hash: await gasPortal.write.initialize([
+      registryAddress.toString(),
+      gasTokenAddress.toString(),
+      args.l2GasTokenAddress.toString(),
+    ]),
+  });
+
+  logger.info(
+    `Initialized Gas Portal at ${gasPortalAddress} to bridge between L1 ${gasTokenAddress} to L2 ${args.l2GasTokenAddress}`,
+  );
 
   // fund the rollup contract with gas tokens
   const gasToken = getContract({

@@ -29,13 +29,13 @@ sequenceDiagram
     BalanceSet->>BalanceSet: note = TokenNote::new(amount, to)
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
-    LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, is_transient: true }
+    LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
     LifeCycle->>Utils: compute_inner_note_hash(note)
     Utils->>TokenNote: note.compute_note_content_hash()
     TokenNote->>Utils: note_hash = H(amount, to, randomness)
     Utils->>NoteHash: compute_inner_hash(derived_slot, note_hash)
     NoteHash->>LifeCycle: inner_note_hash = H(derived_slot, note_hash)
-    LifeCycle->>Context: push_new_note_hash(inner_note_hash)
+    LifeCycle->>Context: push_note_hash(inner_note_hash)
     end
     Context->>Kernel: siloed_note_hash = H(contract_address, inner_note_hash)
 ```
@@ -58,4 +58,3 @@ Beware that this hash computation is what the aztec.nr library is doing, and not
 With this note structure, the contract can require that only notes sitting at specific storage slots can be used by specific operations, e.g., if transferring funds from `from` to `to`, the notes to destroy should be linked to `H(map_slot, from)` and the new notes (except the change-note) should be linked to `H(map_slot, to)`.
 
 That way, we can have logical storage slots, without them really existing. This means that knowing the storage slot for a note is not enough to actually figure out what is in there (whereas it would be for looking up public state).
-

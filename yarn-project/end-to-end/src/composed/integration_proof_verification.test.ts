@@ -63,8 +63,6 @@ describe('proof_verification', () => {
     const acvm = await getACVMConfig(logger);
 
     circuitVerifier = await BBCircuitVerifier.new({
-      acvmBinaryPath: acvm!.acvmBinaryPath,
-      acvmWorkingDirectory: acvm!.acvmWorkingDirectory,
       bbBinaryPath: bb!.bbBinaryPath,
       bbWorkingDirectory: bb!.bbWorkingDirectory,
     });
@@ -85,6 +83,7 @@ describe('proof_verification', () => {
           enabled: true,
           runs: 200,
         },
+        evmVersion: 'paris',
         outputSelection: {
           '*': {
             '*': ['evm.bytecode.object', 'abi'],
@@ -188,7 +187,7 @@ describe('proof_verification', () => {
         `0x${proof.withoutPublicInputs().toString('hex')}`,
       ] as const;
 
-      await expect(rollupContract.write.process(args)).resolves.toBeDefined();
+      await expect(rollupContract.write.submitProof(args)).resolves.toBeDefined();
     });
   });
 });

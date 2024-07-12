@@ -4,26 +4,19 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::{
-        abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
-        grumpkin_point::GrumpkinPoint
-    },
+        protocol_types::address::AztecAddress,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
+    use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
     // docs:end:all-deps
 
     #[aztec(event)]
     struct WithdrawalProcessed {
-        who: AztecAddress,
-        amount: u64,
-    }
-
-    impl Serialize<2> for WithdrawalProcessed {
-        fn serialize(self: Self) -> [Field; 2] {
-            [self.who.to_field(), self.amount as Field]
-        }
+        who: Field,
+        amount: Field,
     }
 
     // docs:start:storage
@@ -78,17 +71,15 @@ contract Crowdfunding {
         // docs:start:do-transfer
         // 2) Transfer the donation tokens from donor to this contract
         let donor = context.msg_sender();
-        Token::at(storage.donation_token.read_private()).transfer(donor, context.this_address(), amount as Field, 0).call(&mut context);
+        Token::at(storage.donation_token.read_private()).transfer_from(donor, context.this_address(), amount as Field, 0).call(&mut context);
         // docs:end:do-transfer
 
         let header = context.get_header();
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
         let donor_npk_m_hash = header.get_npk_m_hash(&mut context, donor);
-        let donor_ovpk_m = header.get_ovpk_m(&mut context, donor);
-        let donor_ivpk_m = header.get_ivpk_m(&mut context, donor);
         let mut note = ValueNote::new(amount as Field, donor_npk_m_hash);
-        storage.donation_receipts.insert(&mut note, true, donor_ovpk_m, donor_ivpk_m);
+        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(&mut context, donor, donor));
     }
     // docs:end:donate
 
@@ -101,11 +92,15 @@ contract Crowdfunding {
         assert(context.msg_sender() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
-        Token::at(storage.donation_token.read_private()).transfer(context.this_address(), operator_address, amount as Field, 0).call(&mut context);
-
+        Token::at(storage.donation_token.read_private()).transfer(operator_address, amount as Field).call(&mut context);
         // 3) Emit an unencrypted event so that anyone can audit how much the operator has withdrawn
-        let event = WithdrawalProcessed { amount, who: operator_address };
-        context.emit_unencrypted_log(event.serialize());
+        Crowdfunding::at(context.this_address())._publish_donation_receipts(amount, operator_address).enqueue(&mut context);
     }
     // docs:end:operator-withdrawals
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn _publish_donation_receipts(amount: u64, to: AztecAddress) {
+        WithdrawalProcessed { amount: amount as Field, who: to.to_field() }.emit(encode_event(&mut context));
+    }
 }

@@ -5,17 +5,16 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInput,
-  getMockVerificationKeys,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables, makeRootParityInput } from '@aztec/circuits.js/testing';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 describe('prover/orchestrator', () => {
@@ -26,7 +25,7 @@ describe('prover/orchestrator', () => {
     beforeEach(async () => {
       actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
       mockProver = mock<ServerCircuitProver>();
-      orchestrator = new ProvingOrchestrator(actualDb, mockProver);
+      orchestrator = new ProvingOrchestrator(actualDb, mockProver, new NoopTelemetryClient());
     });
 
     it('calls root parity circuit only when ready', async () => {
@@ -47,13 +46,7 @@ describe('prover/orchestrator', () => {
         }
       });
 
-      await orchestrator.startNewBlock(
-        2,
-        makeGlobalVariables(1),
-        [message],
-        await makeEmptyProcessedTestTx(actualDb),
-        getMockVerificationKeys(),
-      );
+      await orchestrator.startNewBlock(2, makeGlobalVariables(1), [message]);
 
       await sleep(10);
       expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);

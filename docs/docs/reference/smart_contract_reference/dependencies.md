@@ -1,9 +1,9 @@
 ---
-title: Dependencies
-sidebar_position: 4
+title: Importing Aztec.nr
+sidebar_position: 5
 ---
 
-On this page you will find information about Aztec.nr dependencies and up-to-date paths for use in your `Nargo.toml`.
+On this page you will find information about Aztec.nr libraries and up-to-date paths for use in your `Nargo.toml`.
 
 ## Aztec
 

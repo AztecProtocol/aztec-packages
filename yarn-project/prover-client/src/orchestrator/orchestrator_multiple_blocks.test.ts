@@ -1,8 +1,8 @@
 import { PROVING_STATUS } from '@aztec/circuit-types';
-import { getMockVerificationKeys } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
-import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, makeGlobals } from '../mocks/fixtures.js';
+import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 const logger = createDebugLogger('aztec:orchestrator-multi-blocks');
@@ -25,22 +25,15 @@ describe('prover/orchestrator/multi-block', () => {
 
       for (let i = 0; i < numBlocks; i++) {
         const tx = await makeBloatedProcessedTx(context.actualDb, i + 1);
-        const emptyTx = await makeEmptyProcessedTestTx(context.actualDb);
         tx.data.constants.historicalHeader = header;
-        emptyTx.data.constants.historicalHeader = header;
+        tx.data.constants.vkTreeRoot = getVKTreeRoot();
 
         const blockNum = i + 1000;
 
         const globals = makeGlobals(blockNum);
 
         // This will need to be a 2 tx block
-        const blockTicket = await context.orchestrator.startNewBlock(
-          2,
-          globals,
-          [],
-          emptyTx,
-          getMockVerificationKeys(),
-        );
+        const blockTicket = await context.orchestrator.startNewBlock(2, globals, []);
 
         await context.orchestrator.addNewTx(tx);
 

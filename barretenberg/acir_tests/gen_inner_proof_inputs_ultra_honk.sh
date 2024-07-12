@@ -28,18 +28,15 @@ VFLAG=${VERBOSE:+-v}
 RFLAG=${RECURSIVE:+-r}
 
 echo "Write VK to file for assert_statement..."
-$BIN write_vk_ultra_honk $VFLAG -c $CRS_PATH -o ./target/vk
+$BIN write_vk_ultra_honk $VFLAG -c $CRS_PATH -o ./target/honk_vk
 
 echo "Write VK as fields for recursion..."
-$BIN vk_as_fields_ultra_honk $VFLAG -c $CRS_PATH -k ./target/vk -o ./target/vk_fields.json
+$BIN vk_as_fields_ultra_honk $VFLAG -c $CRS_PATH -k ./target/honk_vk -o ./target/honk_vk_fields.json
 
 echo "Generate proof to file..."
 [ -d "$PROOF_DIR" ] || mkdir $PWD/proofs
 [ -e "$PROOF_PATH" ] || touch $PROOF_PATH
-$BIN prove_ultra_honk $VFLAG -c $CRS_PATH -b ./target/program.json -o "./proofs/$PROOF_NAME"
+$BIN prove_ultra_honk $VFLAG -c $CRS_PATH -b ./target/program.json -o "./proofs/honk_$PROOF_NAME"
 
 echo "Write proof as fields for recursion..."
-$BIN proof_as_fields_honk $VFLAG -c $CRS_PATH -p "./proofs/$PROOF_NAME" -o "./proofs/${PROOF_NAME}_fields.json"
-
-cat ./proofs/${PROOF_NAME}_fields.json
-echo
+$BIN proof_as_fields_honk $VFLAG -c $CRS_PATH -p "./proofs/honk_$PROOF_NAME" -o "./proofs/honk_${PROOF_NAME}_fields.json"

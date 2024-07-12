@@ -1,7 +1,7 @@
-
-#include "avm_binary_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_binary_trace.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -9,11 +9,6 @@
 #include <cstdint>
 
 namespace bb::avm_trace {
-
-AvmBinaryTraceBuilder::AvmBinaryTraceBuilder()
-{
-    binary_trace.reserve(AVM_TRACE_SIZE);
-}
 
 std::vector<AvmBinaryTraceBuilder::BinaryTraceEntry> AvmBinaryTraceBuilder::finalize()
 {

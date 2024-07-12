@@ -1,3 +1,5 @@
+import { sleep } from '@aztec/foundation/sleep';
+
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { SemVer } from 'semver';
@@ -8,7 +10,7 @@ import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
-  const timeout = 5_000;
+  const timeout = 7_000;
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
@@ -28,15 +30,15 @@ describe('Discv5Service', () => {
 
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
-  let port = 7890;
+  let basePort = 7890;
   const baseConfig = {
-    announceHostname: '/ip4/127.0.0.1',
-    announcePort: port,
-    tcpListenPort: port,
-    udpListenIp: '0.0.0.0',
-    udpListenPort: port,
+    tcpAnnounceAddress: `127.0.0.1:${basePort}`,
+    udpAnnounceAddress: `127.0.0.1:${basePort}`,
+    tcpListenAddress: `0.0.0.0:${basePort}`,
+    udpListenAddress: `0.0.0.0:${basePort}`,
     minPeerCount: 1,
     maxPeerCount: 100,
+    queryForIp: false,
   };
 
   beforeEach(async () => {
@@ -50,8 +52,8 @@ describe('Discv5Service', () => {
   });
 
   it('should initialize with default values', async () => {
-    port++;
-    const node = await createNode(port);
+    basePort++;
+    const node = await createNode(basePort);
     expect(node.getStatus()).toEqual(PeerDiscoveryState.STOPPED); // not started yet
     await node.start();
     expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
@@ -61,13 +63,23 @@ describe('Discv5Service', () => {
   });
 
   it('should discover & add a peer', async () => {
-    port++;
-    const node1 = await createNode(port);
-    port++;
-    const node2 = await createNode(port);
+    basePort++;
+    const node1 = await createNode(basePort);
+    basePort++;
+    const node2 = await createNode(basePort);
     await node1.start();
     await node2.start();
-    await waitForPeers(node2, 2);
+    await Promise.all([
+      waitForPeers(node2, 2),
+      (async () => {
+        await sleep(2000); // wait for peer discovery to be able to start
+        for (let i = 0; i < 5; i++) {
+          await node1.runRandomNodesQuery();
+          await node2.runRandomNodesQuery();
+          await sleep(100);
+        }
+      })(),
+    ]);
 
     const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
@@ -84,10 +96,10 @@ describe('Discv5Service', () => {
   // Test is flakey, so skipping for now.
   // TODO: Investigate: #6246
   it.skip('should persist peers without bootnode', async () => {
-    port++;
-    const node1 = await createNode(port);
-    port++;
-    const node2 = await createNode(port);
+    basePort++;
+    const node1 = await createNode(basePort);
+    basePort++;
+    const node2 = await createNode(basePort);
     await node1.start();
     await node2.start();
     await waitForPeers(node2, 2);
@@ -108,14 +120,15 @@ describe('Discv5Service', () => {
   });
 
   const createNode = async (port: number) => {
+    const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createLibP2PPeerId();
     const config = {
       ...baseConfig,
-      tcpListenIp: '0.0.0.0',
-      bootstrapNodes: [bootNode.getENR().encodeTxt()],
-      tcpListenPort: port,
-      udpListenPort: port,
-      announcePort: port,
+      tcpListenAddress: `0.0.0.0:${port}`,
+      udpListenAddress: `0.0.0.0:${port}`,
+      tcpAnnounceAddress: `127.0.0.1:${port}`,
+      udpAnnounceAddress: `127.0.0.1:${port}`,
+      bootstrapNodes: [bootnodeAddr],
       p2pBlockCheckIntervalMS: 50,
       p2pPeerCheckIntervalMS: 50,
       transactionProtocol: 'aztec/1.0.0',

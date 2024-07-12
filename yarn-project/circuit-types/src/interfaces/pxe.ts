@@ -1,13 +1,25 @@
-import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fq,
+  type Fr,
+  type PartialAddress,
+  type Point,
+} from '@aztec/circuits.js';
+import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
+import {
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  type ProtocolContractAddresses,
+} from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
-import { type ExtendedNote } from '../notes/index.js';
-import { type NoteFilter } from '../notes/note_filter.js';
+import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
+import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
+import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
+import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
@@ -212,11 +224,18 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
-   * Gets notes of accounts registered in this PXE based on the provided filter.
+   * Gets incoming notes of accounts registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]>;
 
   /**
    * Finds the nonce(s) for a given note.
@@ -233,6 +252,16 @@ export interface PXE {
    * @param note - The note to add.
    */
   addNote(note: ExtendedNote): Promise<void>;
+
+  /**
+   * Adds a nullified note to the database.
+   * @throws If the note hash of the note doesn't exist in the tree.
+   * @param note - The note to add.
+   * @dev We are not deriving a nullifier in this function since that would require having the nullifier secret key
+   * which is undesirable. Instead, we are just adding the note to the database as nullified and the nullifier is set
+   * to 0 in the db.
+   */
+  addNullifiedNote(note: ExtendedNote): Promise<void>;
 
   /**
    * Get the given block.
@@ -276,6 +305,11 @@ export interface PXE {
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
+   * Returns information about this PXE.
+   */
+  getPXEInfo(): Promise<PXEInfo>;
+
+  /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
    * @returns True if there are no outstanding blocks to be synched.
    * @remarks This indicates that blocks and transactions are synched even if notes are not. Compares local block number with the block number from aztec node.
@@ -303,6 +337,12 @@ export interface PXE {
   getSyncStatus(): Promise<SyncStatus>;
 
   /**
+   * Returns the note processor stats.
+   * @returns The note processor stats for notes for each public key being tracked.
+   */
+  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
+
+  /**
    * Returns a Contact Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
@@ -319,6 +359,12 @@ export interface PXE {
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined>;
 
   /**
+   * Returns the contract artifact associated to a contract class.
+   * @param id - Identifier of the class.
+   */
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined>;
+
+  /**
    * Queries the node to check whether the contract class with the given id has been publicly registered.
    * TODO(@spalladino): This method is strictly needed to decide whether to publicly register a class or not
    * during a public deployment. We probably want a nicer and more general API for this, but it'll have to
@@ -333,5 +379,53 @@ export interface PXE {
    * TODO(@spalladino): Same notes as above.
    */
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
+
+  /**
+   * Returns the events of a specified type given search parameters.
+   * @param type - The type of the event to search for—Encrypted, or Unencrypted.
+   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param from - The block number to search from.
+   * @param limit - The amount of blocks to search.
+   * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
+   * @returns - The deserialized events.
+   */
+  getEvents<T>(
+    type: EventType,
+    eventMetadata: EventMetadata<T>,
+    from: number,
+    limit: number,
+    vpks: Point[],
+  ): Promise<T[]>;
 }
 // docs:end:pxe-interface
+
+/**
+ * The shape of the event generated on the Contract.
+ */
+export interface EventMetadata<T> {
+  decode(payload: L1EventPayload): T | undefined;
+  eventSelector: EventSelector;
+  fieldNames: string[];
+}
+
+/**
+ * This is used in getting events via the filter
+ */
+export enum EventType {
+  Encrypted = 'Encrypted',
+  Unencrypted = 'Unencrypted',
+}
+
+/**
+ * Provides basic information about the running PXE.
+ */
+export interface PXEInfo {
+  /**
+   * Version as tracked in the aztec-packages repository.
+   */
+  pxeVersion: string;
+  /**
+   * Protocol contract addresses
+   */
+  protocolContractAddresses: ProtocolContractAddresses;
+}

@@ -1,3 +1,4 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -7,6 +8,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
+import { ClientIvcProof } from '../client_ivc_proof.js';
 import { GlobalVariables } from '../global_variables.js';
 import { KernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
@@ -26,21 +28,9 @@ export class ConstantRollupData {
     public lastArchive: AppendOnlyTreeSnapshot,
 
     /**
-     * Root of the private kernel verification key tree.
+     * Root of the verification key tree.
      */
-    public privateKernelVkTreeRoot: Fr,
-    /**
-     * Root of the public kernel circuit verification key tree.
-     */
-    public publicKernelVkTreeRoot: Fr,
-    /**
-     * Hash of the base rollup circuit verification key.
-     */
-    public baseRollupVkHash: Fr,
-    /**
-     * Hash of the merge rollup circuit verification key.
-     */
-    public mergeRollupVkHash: Fr,
+    public vkTreeRoot: Fr,
     /**
      * Global variables for the block
      */
@@ -56,22 +46,16 @@ export class ConstantRollupData {
     return new ConstantRollupData(
       reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
     );
   }
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
-    return [
-      fields.lastArchive,
-      fields.privateKernelVkTreeRoot,
-      fields.publicKernelVkTreeRoot,
-      fields.baseRollupVkHash,
-      fields.mergeRollupVkHash,
-      fields.globalVariables,
-    ] as const;
+    return [fields.lastArchive, fields.vkTreeRoot, fields.globalVariables] as const;
+  }
+
+  static empty() {
+    return new ConstantRollupData(AppendOnlyTreeSnapshot.zero(), Fr.ZERO, GlobalVariables.empty());
   }
 
   toBuffer() {
@@ -194,5 +178,74 @@ export class BaseRollupInputs {
    */
   static fromString(str: string) {
     return BaseRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new BaseRollupInputs(
+      KernelData.empty(),
+      PartialStateReference.empty(),
+      StateDiffHints.empty(),
+      PublicDataHint.empty(),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataTreeLeaf.empty),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => 0),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataTreeLeafPreimage.empty),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT)),
+      MembershipWitness.empty(ARCHIVE_HEIGHT),
+      ConstantRollupData.empty(),
+    );
+  }
+}
+
+export class TubeInputs {
+  constructor(public clientIVCData: ClientIvcProof) {}
+
+  static from(fields: FieldsOf<TubeInputs>): TubeInputs {
+    return new TubeInputs(...TubeInputs.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<TubeInputs>) {
+    return [fields.clientIVCData] as const;
+  }
+
+  /**
+   * Serializes the inputs to a buffer.
+   * @returns The inputs serialized to a buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(...TubeInputs.getFields(this));
+  }
+
+  /**
+   * Serializes the inputs to a hex string.
+   * @returns The instance serialized to a hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes the inputs from a buffer.
+   * @param buffer - The buffer to deserialize from.
+   * @returns A new TubeInputs instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TubeInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new TubeInputs(reader.readObject(ClientIvcProof));
+  }
+
+  isEmpty(): boolean {
+    return this.clientIVCData.isEmpty();
+  }
+  /**
+   * Deserializes the inputs from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new TubeInputs instance.
+   */
+  static fromString(str: string) {
+    return TubeInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new TubeInputs(ClientIvcProof.empty());
   }
 }

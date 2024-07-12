@@ -3,30 +3,34 @@ use crate::{
     abis::{
     accumulated_data::public_accumulated_data::PublicAccumulatedData, note_hash::NoteHash,
     nullifier::Nullifier, public_data_update_request::PublicDataUpdateRequest,
-    log_hash::{LogHash, NoteLogHash}, gas::Gas, side_effect::Ordered
+    log_hash::{LogHash, NoteLogHash}, gas::Gas, side_effect::{Ordered, Positioned}
 },
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
     MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{arrays::{array_merge, assert_sorted_array}, reader::Reader},
+    utils::{arrays::{array_merge, assert_sorted_array, assert_deduped_array, check_permutation}, reader::Reader},
     traits::{Empty, Serialize, Deserialize}
 };
 
 struct CombineHints {
-    sorted_note_hashes: [NoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_TX],
+    sorted_note_hashes_indexes: [u32; MAX_NOTE_HASHES_PER_TX],
     sorted_unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_logs_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_logs_hashes_indexes: [u32; MAX_UNENCRYPTED_LOGS_PER_TX],
+    // the public data update requests are sorted by their leaf index AND counter
     sorted_public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_update_requests_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_update_requests_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    // THEN deduplicated based on their leaf slot
+    deduped_public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    deduped_public_data_update_requests_runs: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
 struct CombinedAccumulatedData {
-    new_note_hashes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+    note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
 
     note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
@@ -53,7 +57,7 @@ impl CombinedAccumulatedData {
         revertible: PublicAccumulatedData,
         combine_hints: CombineHints
     ) -> Self {
-        let merged_note_hashes = array_merge(non_revertible.new_note_hashes, revertible.new_note_hashes);
+        let merged_note_hashes = array_merge(non_revertible.note_hashes, revertible.note_hashes);
         assert_sorted_array(
             merged_note_hashes,
             combine_hints.sorted_note_hashes,
@@ -65,11 +69,18 @@ impl CombinedAccumulatedData {
             non_revertible.public_data_update_requests,
             revertible.public_data_update_requests
         );
-        assert_sorted_array(
+
+        // Just check a permutation here...
+        check_permutation(
             merged_public_data_update_requests,
             combine_hints.sorted_public_data_update_requests,
-            combine_hints.sorted_public_data_update_requests_indexes,
-            asc_sort_by_counters
+            combine_hints.sorted_public_data_update_requests_indexes
+        );
+        // ...because the ordering checks are done here.
+        assert_deduped_array(
+            combine_hints.sorted_public_data_update_requests,
+            combine_hints.deduped_public_data_update_requests,
+            combine_hints.deduped_public_data_update_requests_runs
         );
 
         // TODO(Miranda): Hash here or elsewhere?
@@ -105,19 +116,16 @@ impl CombinedAccumulatedData {
         let unencrypted_log_preimages_length = non_revertible.unencrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
             + revertible.unencrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
         CombinedAccumulatedData {
-            new_note_hashes: combine_hints.sorted_note_hashes.map(|n: NoteHash| n.value),
-            new_nullifiers: array_merge(non_revertible.new_nullifiers, revertible.new_nullifiers).map(|n: Nullifier| n.value),
-            new_l2_to_l1_msgs: array_merge(
-                non_revertible.new_l2_to_l1_msgs,
-                revertible.new_l2_to_l1_msgs
-            ),
+            note_hashes: combine_hints.sorted_note_hashes.map(|n: NoteHash| n.value),
+            nullifiers: array_merge(non_revertible.nullifiers, revertible.nullifiers).map(|n: Nullifier| n.value),
+            l2_to_l1_msgs: array_merge(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs),
             note_encrypted_logs_hash,
             encrypted_logs_hash,
             unencrypted_logs_hash,
             note_encrypted_log_preimages_length,
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
-            public_data_update_requests: combine_hints.sorted_public_data_update_requests,
+            public_data_update_requests: combine_hints.deduped_public_data_update_requests,
             gas_used: revertible.gas_used + non_revertible.gas_used
         }
     }
@@ -126,9 +134,9 @@ impl CombinedAccumulatedData {
 impl Empty for CombinedAccumulatedData {
     fn empty() -> Self {
         CombinedAccumulatedData {
-            new_note_hashes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
-            new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_TX],
-            new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+            note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
+            nullifiers: [0; MAX_NULLIFIERS_PER_TX],
+            l2_to_l1_msgs: [0; MAX_L2_TO_L1_MSGS_PER_TX],
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
@@ -145,9 +153,9 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
   fn serialize(self) -> [Field; COMBINED_ACCUMULATED_DATA_LENGTH] {
     let mut fields: BoundedVec<Field, COMBINED_ACCUMULATED_DATA_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array(self.new_note_hashes);
-    fields.extend_from_array(self.new_nullifiers);
-    fields.extend_from_array(self.new_l2_to_l1_msgs);
+    fields.extend_from_array(self.note_hashes);
+    fields.extend_from_array(self.nullifiers);
+    fields.extend_from_array(self.l2_to_l1_msgs);
     fields.push(self.note_encrypted_logs_hash);
     fields.push(self.encrypted_logs_hash);
     fields.push(self.unencrypted_logs_hash);
@@ -172,9 +180,9 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
     let mut reader = Reader::new(fields);
 
     let item = CombinedAccumulatedData {
-        new_note_hashes: reader.read_array([0; MAX_NEW_NOTE_HASHES_PER_TX]),
-        new_nullifiers: reader.read_array([0; MAX_NEW_NULLIFIERS_PER_TX]),
-        new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_TX]),
+        note_hashes: reader.read_array([0; MAX_NOTE_HASHES_PER_TX]),
+        nullifiers: reader.read_array([0; MAX_NULLIFIERS_PER_TX]),
+        l2_to_l1_msgs: reader.read_array([0; MAX_L2_TO_L1_MSGS_PER_TX]),
         note_encrypted_logs_hash: reader.read(),
         encrypted_logs_hash: reader.read(),
         unencrypted_logs_hash: reader.read(),
@@ -191,9 +199,9 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
 
 impl Eq for CombinedAccumulatedData {
   fn eq(self, other: Self) -> bool {
-    (self.new_note_hashes == other.new_note_hashes) &
-    (self.new_nullifiers == other.new_nullifiers) &
-    (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+    (self.note_hashes == other.note_hashes) &
+    (self.nullifiers == other.nullifiers) &
+    (self.l2_to_l1_msgs == other.l2_to_l1_msgs) &
     (self.note_encrypted_logs_hash == other.note_encrypted_logs_hash) &
     (self.encrypted_logs_hash == other.encrypted_logs_hash) &
     (self.unencrypted_logs_hash == other.unencrypted_logs_hash) &

@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
@@ -34,6 +35,15 @@ export class PartialPrivateTailPublicInputsForPublic {
      */
     public publicTeardownCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
   ) {}
+
+  getSize() {
+    return (
+      this.validationRequests.getSize() +
+      this.endNonRevertibleData.getSize() +
+      this.end.getSize() +
+      arraySerializedSizeOfNonEmpty(this.publicTeardownCallStack)
+    );
+  }
 
   get needsSetup() {
     return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
@@ -87,6 +97,10 @@ export class PartialPrivateTailPublicInputsForRollup {
     );
   }
 
+  getSize() {
+    return this.rollupValidationRequests.getSize() + this.end.getSize();
+  }
+
   toBuffer() {
     return serializeToBuffer(this.rollupValidationRequests, this.end);
   }
@@ -131,6 +145,16 @@ export class PrivateKernelTailCircuitPublicInputs {
     return (this.forPublic ?? this.forRollup)!;
   }
 
+  getSize() {
+    return (
+      (this.forPublic?.getSize() ?? 0) +
+      (this.forRollup?.getSize() ?? 0) +
+      this.constants.getSize() +
+      this.revertCode.getSerializedLength() +
+      this.feePayer.size
+    );
+  }
+
   toPublicKernelCircuitPublicInputs() {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
@@ -163,25 +187,26 @@ export class PrivateKernelTailCircuitPublicInputs {
   numberOfPublicCallRequests() {
     return this.forPublic
       ? countAccumulatedItems(this.forPublic.endNonRevertibleData.publicCallStack) +
-          countAccumulatedItems(this.forPublic.end.publicCallStack)
+          countAccumulatedItems(this.forPublic.end.publicCallStack) +
+          countAccumulatedItems(this.forPublic.publicTeardownCallStack)
       : 0;
   }
 
   getNonEmptyNoteHashes() {
     const noteHashes = this.forPublic
-      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.newNoteHashes, this.forPublic.end.newNoteHashes).map(
+      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.noteHashes, this.forPublic.end.noteHashes).map(
           n => n.value,
         )
-      : this.forRollup!.end.newNoteHashes;
+      : this.forRollup!.end.noteHashes;
     return noteHashes.filter(n => !n.isZero());
   }
 
   getNonEmptyNullifiers() {
     const nullifiers = this.forPublic
-      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.newNullifiers, this.forPublic.end.newNullifiers).map(
+      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.nullifiers, this.forPublic.end.nullifiers).map(
           n => n.value,
         )
-      : this.forRollup!.end.newNullifiers;
+      : this.forRollup!.end.nullifiers;
     return nullifiers.filter(n => !n.isZero());
   }
 

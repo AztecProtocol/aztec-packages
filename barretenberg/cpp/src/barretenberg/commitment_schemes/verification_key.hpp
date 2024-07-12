@@ -29,18 +29,18 @@ template <class Curve> class VerifierCommitmentKey;
  * @tparam curve::BN254
  */
 template <> class VerifierCommitmentKey<curve::BN254> {
+  public:
     using Curve = curve::BN254;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
-  public:
     VerifierCommitmentKey()
     {
         srs::init_crs_factory("../srs_db/ignition");
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
     };
 
-    Commitment get_first_g1() { return srs->get_first_g1(); }
+    Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
     /**
      * @brief verifies a pairing equation over 2 points using the verifier SRS
@@ -69,11 +69,11 @@ template <> class VerifierCommitmentKey<curve::BN254> {
  * @tparam curve::Grumpkin
  */
 template <> class VerifierCommitmentKey<curve::Grumpkin> {
+  public:
     using Curve = curve::Grumpkin;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
-  public:
     /**
      * @brief Construct a new IPA Verification Key object from existing SRS
      *
@@ -93,7 +93,7 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
     }
 
-    Commitment get_first_g1() { return srs->get_first_g1(); }
+    Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
     Commitment* get_monomial_points() { return srs->get_monomial_points(); }
 

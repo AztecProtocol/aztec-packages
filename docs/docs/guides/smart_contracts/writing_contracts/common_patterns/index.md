@@ -31,7 +31,7 @@ E.g. you don't want a user to subscribe once they have subscribed already. Or yo
 
 Emit a nullifier in your function. By adding this nullifier into the tree, you prevent another nullifier from being added again. This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval.
 
-#include_code spend_private_authwit /noir-projects/aztec-nr/authwit/src/account.nr rust
+#include_code verify_private_authwit /noir-projects/aztec-nr/authwit/src/account.nr rust
 
 Note be careful to ensure that the nullifier is not deterministic and that no one could do a preimage analysis attack. More in [the anti pattern section on deterministic nullifiers](#deterministic-nullifiers)
 
@@ -88,7 +88,7 @@ This pattern is discussed in detail in [writing a token contract section in the 
 
 ### Discovering my notes
 
-When you send someone a note, the note hash gets added to the [note hash tree](../../../../aztec/concepts/storage/trees/index.md#note-hash-tree). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
+When you send someone a note, the note hash gets added to the [note hash tree](../../../../protocol-specs/state/note-hash-tree.md). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
 1. When sending someone a note, use `encrypt_and_emit_note` (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
 2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public.
@@ -117,7 +117,7 @@ Hence, it's necessary to add a "randomness" field to your note to prevent such a
 
 ### L1 -- L2 interactions
 
-Refer to [Token Portal tutorial on bridging tokens between L1 and L2](../../../../tutorials/contract_tutorials/advanced/token_bridge/index.md). This example shows how to:
+Refer to [Token Portal tutorial on bridging tokens between L1 and L2](../../../../tutorials/contract_tutorials/advanced/token_bridge/index.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../reference/smart_contract_reference/examples/uniswap/index.md). Both examples show how to:
 
 1. L1 -> L2 message flow
 2. L2 -> L1 message flow
@@ -131,7 +131,7 @@ To send a note to someone, they need to have a key which we can encrypt the note
 There are several patterns here:
 
 1. Give the contract a key and share it amongst all participants. This leaks privacy, as anyone can see all the notes in the contract.
-2. `Unshield` funds into the contract. This works like ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
+2. `Unshield` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../../reference/smart_contract_reference/examples/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
 
 There are several other designs we are discussing through [in this discourse post](https://discourse.aztec.network/t/how-to-handle-private-escrows-between-two-parties/2440) but they need some changes in the protocol or in our demo contract. If you are interested in this discussion, please participate in the discourse post!
 

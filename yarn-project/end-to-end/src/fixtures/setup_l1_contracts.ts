@@ -1,9 +1,4 @@
-import {
-  type DebugLogger,
-  type DeployL1Contracts,
-  type L1ContractArtifactsForDeployment,
-  deployL1Contracts,
-} from '@aztec/aztec.js';
+import { type DebugLogger, type L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/aztec.js';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -20,9 +15,10 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { type HDAccount, type PrivateKeyAccount, getContract } from 'viem';
+import { type HDAccount, type PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
@@ -63,25 +59,10 @@ export const setupL1Contracts = async (
     },
   };
 
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
-  await initGasBridge(l1Data);
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
+    l2GasTokenAddress: GasTokenAddress,
+    vkTreeRoot: getVKTreeRoot(),
+  });
 
   return l1Data;
 };
-
-async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Contracts) {
-  const gasPortal = getContract({
-    address: l1ContractAddresses.gasPortalAddress.toString(),
-    abi: GasPortalAbi,
-    client: walletClient,
-  });
-
-  await gasPortal.write.initialize(
-    [
-      l1ContractAddresses.registryAddress.toString(),
-      l1ContractAddresses.gasTokenAddress.toString(),
-      GasTokenAddress.toString(),
-    ],
-    {} as any,
-  );
-}

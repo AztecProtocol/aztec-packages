@@ -1,4 +1,4 @@
-use dep::std::option::Option;
+use std::option::Option;
 use crate::note::note_getter_options::{PropertySelector, Select, Sort, Comparator, NoteStatus};
 use dep::protocol_types::traits::ToField;
 use crate::note::note_interface::NoteInterface;
@@ -54,6 +54,10 @@ impl<Note, N, M> NoteViewerOptions<Note, N, M> {
 
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_NOTES_PER_PAGE as u32);
+        // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it, reducing
+        // gate counts when a limit has been set. This isn't required in unconstrained code, but we still keep this
+        // requirement here for API consistency.
+        assert_constant(limit);
         self.limit = limit;
         *self
     }

@@ -1,11 +1,18 @@
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "recursion_constraint.hpp"
 
 namespace acir_format {
 
 using namespace bb;
-using namespace bb::stdlib::recursion::honk;
+using field_ct = stdlib::field_t<Builder>;
+using bn254 = stdlib::bn254<Builder>;
+using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
 std::array<bn254::Group, 2> agg_points_from_witness_indicies(
     Builder& builder, const std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE>& obj_witness_indices)
@@ -46,47 +53,48 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
 {
     using Flavor = UltraRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
-    using RecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
+    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    // Ignore the case of invalid witness assignments for now.
-    static_cast<void>(has_valid_witness_assignments);
-
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044) reinstate aggregation
+    static_cast<void>(input_aggregation_object);
+    static_cast<void>(nested_aggregation_object);
     // Construct aggregation points from the nested aggregation witness indices
-    std::array<bn254::Group, 2> nested_aggregation_points =
-        agg_points_from_witness_indicies(builder, nested_aggregation_object);
+    // std::array<bn254::Group, 2> nested_aggregation_points =
+    //     agg_points_from_witness_indicies(builder, nested_aggregation_object);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    const auto& aggregation_input = input_aggregation_object;
-    aggregation_state_ct cur_aggregation_object;
-    cur_aggregation_object.P0 = nested_aggregation_points[0];
-    cur_aggregation_object.P1 = nested_aggregation_points[1];
-    cur_aggregation_object.has_data = true; // the nested aggregation object always exists
+    // const auto& aggregation_input = input_aggregation_object;
+    // aggregation_state_ct cur_aggregation_object;
+    // cur_aggregation_object.P0 = nested_aggregation_points[0];
+    // cur_aggregation_object.P1 = nested_aggregation_points[1];
+    // cur_aggregation_object.has_data = true; // the nested aggregation object always exists
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-    field_ct recursion_separator = bb::stdlib::witness_t<Builder>(&builder, 2);
+    // field_ct recursion_separator = bb::stdlib::witness_t<Builder>(&builder, 2);
 
     // If we have previously recursively verified proofs, `previous_aggregation_object_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
-    bool previous_aggregation_indices_all_zero = true;
-    for (const auto& idx : aggregation_input) {
-        previous_aggregation_indices_all_zero &= (idx == 0);
-    }
+    // bool previous_aggregation_indices_all_zero = true;
+    // for (const auto& idx : aggregation_input) {
+    //     previous_aggregation_indices_all_zero &= (idx == 0);
+    // }
 
-    // Aggregate the aggregation object if it exists. It exists if we have previously verified proofs, i.e. if this is
-    // not the first recursion constraint.
-    if (!previous_aggregation_indices_all_zero) {
-        std::array<bn254::Group, 2> inner_agg_points = agg_points_from_witness_indicies(builder, aggregation_input);
-        // If we have a previous aggregation object, aggregate it into the current aggregation object.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): Verify that using challenge and challenge
-        // squared is safe.
-        cur_aggregation_object.P0 += inner_agg_points[0] * recursion_separator;
-        cur_aggregation_object.P1 += inner_agg_points[1] * recursion_separator;
-        recursion_separator =
-            recursion_separator *
-            recursion_separator; // update the challenge to be challenge squared for the next aggregation
-    }
+    // // Aggregate the aggregation object if it exists. It exists if we have previously verified proofs, i.e. if this
+    // is
+    // // not the first recursion constraint.
+    // if (!previous_aggregation_indices_all_zero) {
+    //     std::array<bn254::Group, 2> inner_agg_points = agg_points_from_witness_indicies(builder, aggregation_input);
+    //     // If we have a previous aggregation object, aggregate it into the current aggregation object.
+    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): Verify that using challenge and challenge
+    //     // squared is safe.
+    //     cur_aggregation_object.P0 += inner_agg_points[0] * recursion_separator;
+    //     cur_aggregation_object.P1 += inner_agg_points[1] * recursion_separator;
+    //     recursion_separator =
+    //         recursion_separator *
+    //         recursion_separator; // update the challenge to be challenge squared for the next aggregation
+    // }
 
     std::vector<field_ct> key_fields;
     key_fields.reserve(input.key.size());
@@ -113,14 +121,103 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         }
     }
 
+    if (!has_valid_witness_assignments) {
+        // Set vkey->circuit_size correctly based on the proof size
+        size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
+        size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
+        assert((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
+                UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
+                2 * num_frs_comm) %
+                   (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
+               0);
+        // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
+        auto log_circuit_size = (input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
+                                 UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+                                 UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+                                (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+        builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
+        builder.assert_equal(builder.add_variable(input.public_inputs.size()), key_fields[1].witness_index);
+        builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
+        uint32_t offset = 3;
+
+        for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), key_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), key_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), key_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), key_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+
+        offset = HonkRecursionConstraint::inner_public_input_offset;
+        // first 3 things
+        builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
+        builder.assert_equal(builder.add_variable(input.public_inputs.size()), proof_fields[1].witness_index);
+        builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
+
+        // the public inputs
+        for (size_t i = 0; i < input.public_inputs.size(); i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+
+        // first 7 commitments
+        for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+
+        // now the univariates, which can just be 0s (7*CONST_PROOF_SIZE_LOG_N Frs)
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+
+        // now the sumcheck evalutions, which is just 43 0s
+        for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+
+        // now the zeromorph commitments, which are CONST_PROOF_SIZE_LOG_N comms
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+
+        // lastly the 2 commitments
+        for (size_t i = 0; i < 2; i++) {
+            auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
+            builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+            offset += 4;
+        }
+        ASSERT(offset == input.proof.size() + input.public_inputs.size());
+    }
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
     std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
 
     // Aggregate the current aggregation object with these pairing points from verify_proof
-    cur_aggregation_object.P0 += pairing_points[0] * recursion_separator;
-    cur_aggregation_object.P1 += pairing_points[1] * recursion_separator;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
+    aggregation_state_ct cur_aggregation_object;
+    cur_aggregation_object.P0 = pairing_points[0]; // * recursion_separator;
+    cur_aggregation_object.P1 = pairing_points[1]; // * recursion_separator;
 
     std::vector<uint32_t> proof_witness_indices = {
         cur_aggregation_object.P0.x.binary_basis_limbs[0].element.normalize().witness_index,

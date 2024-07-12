@@ -7,8 +7,8 @@ import {
   GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -171,13 +171,14 @@ export class MerkleTrees implements MerkleTreeDb {
     if (!fromDb) {
       // We are not initializing from db so we need to populate the first leaf of the archive tree which is a hash of
       // the initial header.
-      const initialHeder = await this.buildInitialHeader(true);
-      await this.#updateArchive(initialHeder, true);
+      const initialHeader = await this.buildInitialHeader(true);
+      await this.#updateArchive(initialHeader, true);
     }
 
     await this.#commit();
   }
 
+  // REFACTOR: Make this private. It only makes sense if called at the beginning of the lifecycle of the object.
   public async buildInitialHeader(includeUncommitted: boolean): Promise<Header> {
     const state = await this.getStateReference(includeUncommitted);
     return new Header(
@@ -591,7 +592,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // Sync the append only trees
       {
         const noteHashesPadded = paddedTxEffects.flatMap(txEffect =>
-          padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NEW_NOTE_HASHES_PER_TX),
+          padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
         );
         await this.#appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
 
@@ -602,7 +603,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // Sync the indexed trees
       {
         const nullifiersPadded = paddedTxEffects.flatMap(txEffect =>
-          padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_TX),
+          padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
         );
         await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
           nullifiersPadded.map(nullifier => nullifier.toBuffer()),

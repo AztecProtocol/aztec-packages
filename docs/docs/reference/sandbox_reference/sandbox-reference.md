@@ -8,67 +8,6 @@ For a quick start, follow the [guide](../../getting_started.md) to install the s
 
 :::
 
-## Manual Install
-
-You can manually install the sandbox via the underlying script used in the [Aztec Boxes](getting_started.md#run-the-npx-script).
-
-### Prerequisites
-
-- Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
-- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
-
-### Install the sandbox
-
-To install the latest Sandbox version, run:
-
-```bash
-bash -i <(curl -s install.aztec.network)
-```
-
-This will install the following tools:
-
-- **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
-- **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
-- **aztec-sandbox** - a wrapper around docker-compose that launches services needed for sandbox testing.
-- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
-- **aztec-builder** - A useful tool for projects to generate ABIs and update their dependencies.
-
-Once these have been installed, to start the sandbox, run:
-
-```bash
-aztec-sandbox
-```
-
-### Have fun!
-
-**Congratulations, you have just installed and run the Aztec Sandbox!**
-
-```bash
-     /\        | |
-    /  \    ___| |_ ___  ___
-   / /\ \  |_  / __/ _ \/ __|
-  / ____ \  / /| ||  __/ (__
- /_/___ \_\/___|\__\___|\___|
-
-```
-
-In the terminal, you will see some logs:
-
-1. Sandbox version
-2. Contract addresses of rollup contracts
-3. PXE (private execution environment) setup logs
-4. Initial accounts that are shipped with the sandbox and can be used in tests
-
-## Running Aztec PXE / Node / P2P-Bootstrap node
-
-If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
-
-```bash
-aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
-```
-
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](../../aztec/concepts/pxe/index.md)/
-
 ## Environment Variables
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
@@ -112,11 +51,12 @@ P2P_ENABLED='false' # A flag to enable P2P networking for this node. (default: f
 P2P_BLOCK_CHECK_INTERVAL_MS=100 # The frequency in which to check for new L2 blocks.
 P2P_PEER_CHECK_INTERVAL_MS=1000 # The frequency in which to check for peers.
 P2P_L2_BLOCK_QUEUE_SIZE=1000 # Size of queue of L2 blocks to store.
-P2P_TCP_LISTEN_PORT=40400 # The tcp port on which the P2P service should listen for connections.
-P2P_TCP_LISTEN_IP= #The tcp IP on which the P2P service should listen for connections.
+P2P_TCP_LISTEN_ADDR=0.0.0.0:40400 # The tcp address on which the P2P service should listen for connections.(default: 0.0.0.0:40400)
+P2P_UDP_LISTEN_ADDR=0.0.0.0:40400 # The udp address on which the P2P service should listen for peer discovery requests.(default: 0.0.0.0:40400)
 PEER_ID_PRIVATE_KEY='' # An optional peer id private key. If blank, will generate a random key.
 BOOTSTRAP_NODES='' # A list of bootstrap peers to connect to, separated by commas
-P2P_ANNOUNCE_HOSTNAME='' # Hostname to announce to the p2p network
+P2P_TCP_ANNOUNCE_ADDR='' # TCP Address to announce to the p2p network. Format: <address>:<port>
+P2P_UDP_ANNOUNCE_ADDR='' # UDP Hostname to announce to the p2p network (used for peer discovery). Uses TCP announce addr if not provided
 P2P_ANNOUNCE_PORT='' # Port to announce to the p2p network
 P2P_NAT_ENABLED='false' # Whether to enable NAT from libp2p
 P2P_MIN_PEERS=10 # The minimum number of peers (a peer count below this will cause the node to look for more peers)
@@ -152,11 +92,10 @@ PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
 The P2P Bootstrap node is a standalone app whose purpose is to assist new P2P network participants in acquiring peers.
 
 ```sh
-P2P_TCP_LISTEN_IP='0.0.0.0' # The IP Address on which to listen for connections.
-P2P_TCP_LISTEN_PORT=40400 # The port on which to listen for connections.
+P2P_UDP_LISTEN_ADDR=0.0.0.0:40400 # The udp address on which the P2P service should listen for peer discovery requests. (default: 0.0.0.0:40400)
 PEER_ID_PRIVATE_KEY='' # The private key to be used by the peer for secure communications with other peers. This key will also be used to derive the Peer ID.
-P2P_ANNOUNCE_HOSTNAME='' # The IPAddress/Hostname that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_IP if e.g. the node is behind a NAT.
-P2P_ANNOUNCE_PORT='' # The port that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_PORT if e.g. the node is behind a NAT.
+P2P_UDP_ANNOUNCE_ADDR='' # The IPAddress/Hostname that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_ADDR if e.g. the node is behind a NAT.
+P2P_ANNOUNCE_PORT='' # The port that other peers should use to connect to this node, this may be different to P2P_UDP_LISTEN_ADDR if e.g. the node is behind a NAT.
 ```
 
 ## Cheat Codes
