@@ -282,11 +282,22 @@ export class Fr extends BaseField {
     return new Fr(this.toBigInt() / rhs.toBigInt());
   }
 
-  sqrt() {
+  /**
+   * Computes the square root of the field element.
+   * @returns The square root of the field element if it exists (undefined if not).
+   */
+  sqrt(): Fr | undefined {
     const wasm = BarretenbergSync.getSingleton().getWasm();
     wasm.writeMemory(0, this.toBuffer());
     wasm.call('grumpkin_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
-    return Fr.fromBuffer(Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES * 2)));
+    const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
+    const isSqrt = isSqrtBuf[0] === 1;
+    if (!isSqrt) {
+      return undefined;
+    }
+
+    const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1))
+    return Fr.fromBuffer(rootBuf);
   }
 
   toJSON() {

@@ -109,7 +109,7 @@ describe('Bn254 arithmetic', () => {
       expect(actual).toEqual(expected);
     });
 
-    it('High Bonudary', () => {
+    it('High Boundary', () => {
       // -1 - (-1) = 0
       const a = new Fr(Fr.MODULUS - 1n);
       const b = new Fr(Fr.MODULUS - 1n);
@@ -181,6 +181,16 @@ describe('Bn254 arithmetic', () => {
       const b = Fr.ZERO;
 
       expect(() => a.div(b)).toThrow();
+    });
+  });
+
+  describe('Square root', () => {
+    it('Should return the correct square root', () => {
+      const a = new Fr(16);
+      const expected = new Fr(4);
+
+      const actual = a.sqrt();
+      expect(actual).toEqual(expected);
     });
   });
 
