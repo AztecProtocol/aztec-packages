@@ -64,10 +64,9 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
             OuterNoteEmission::new(Option::none())
         } else {
             let context = self.map.context;
-            let header = context.get_header();
 
             // We fetch the nullifier public key hash from the registry / from our PXE
-            let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
+            let owner_npk_m_hash = context.get_npk_m_hash(owner);
             let mut addend_note = T::new(addend, owner_npk_m_hash);
 
             // docs:start:insert

@@ -74,10 +74,9 @@ contract Crowdfunding {
         Token::at(storage.donation_token.read_private()).transfer_from(donor, context.this_address(), amount as Field, 0).call(&mut context);
         // docs:end:do-transfer
 
-        let header = context.get_header();
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let donor_npk_m_hash = header.get_npk_m_hash(&mut context, donor);
+        let donor_npk_m_hash = context.get_npk_m_hash(donor);
         let mut note = ValueNote::new(amount as Field, donor_npk_m_hash);
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(&mut context, donor, donor));
     }

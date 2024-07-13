@@ -32,8 +32,7 @@ contract InclusionProofs {
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = context.get_npk_m_hash(owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
         owner_private_values.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
@@ -75,8 +74,7 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the note exists
     ) {
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = context.get_npk_m_hash(owner);
         let mut note = ValueNote::new(1, owner_npk_m_hash);
 
         let header = if (use_block_number) {

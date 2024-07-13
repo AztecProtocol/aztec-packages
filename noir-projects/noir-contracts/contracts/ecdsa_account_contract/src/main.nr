@@ -26,8 +26,8 @@ contract EcdsaAccount {
     #[aztec(initializer)]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
-        let header = context.get_header();
-        let this_npk_m_hash = header.get_npk_m_hash(&mut context, this);
+
+        let this_npk_m_hash = context.get_npk_m_hash(this);
         // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
         // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
         // important.

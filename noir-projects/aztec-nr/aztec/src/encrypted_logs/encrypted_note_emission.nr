@@ -64,9 +64,8 @@ pub fn encode_and_encrypt_note<Note, N, NB, M>(
     iv: AztecAddress
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
-        let header = context.get_header();
-        let ovpk = header.get_ovpk_m(context, ov);
-        let ivpk = header.get_ivpk_m(context, iv);
+        let ovpk = context.get_ovpk_m(ov);
+        let ivpk = context.get_ivpk_m(iv);
         emit_with_keys(context, e.note, ovpk, ivpk, compute);
     }
 }
@@ -77,9 +76,8 @@ pub fn encode_and_encrypt_note_unconstrained<Note, N, NB, M>(
     iv: AztecAddress
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
-        let header = context.get_header();
-        let ovpk = header.get_ovpk_m(context, ov);
-        let ivpk = header.get_ivpk_m(context, iv);
+        let ovpk = context.get_ovpk_m(ov);
+        let ivpk = context.get_ivpk_m(iv);
         emit_with_keys(context, e.note, ovpk, ivpk, compute_unconstrained);
     }
 }

@@ -23,8 +23,7 @@ impl<Context> EasyPrivateUint<Context> {
 impl<Context> EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let header = self.context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(self.context, owner);
+        let owner_npk_m_hash = self.context.get_npk_m_hash(owner);
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_hash);
 
@@ -36,8 +35,7 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let header = self.context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(self.context, owner);
+        let owner_npk_m_hash = self.context.get_npk_m_hash(owner);
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);

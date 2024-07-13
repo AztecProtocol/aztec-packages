@@ -103,10 +103,10 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let header = self.set.context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(self.set.context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(self.set.context, self.set.context.msg_sender());
-        let owner_ivpk_m = header.get_ivpk_m(self.set.context, owner);
+        let context = self.set.context;
+        let owner_npk_m_hash = context.get_npk_m_hash(owner);
+        let msg_sender_ovpk_m = context.get_ovpk_m(context.msg_sender());
+        let owner_ivpk_m = context.get_ivpk_m(owner);
 
         let mut inserted_cards = &[];
         for card in cards {
@@ -182,8 +182,7 @@ pub fn get_pack_cards(
     owner: AztecAddress,
     context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
-    let header = context.get_header();
-    let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
+    let owner_npk_m_hash = context.get_npk_m_hash(owner);
 
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nsk_app(owner_npk_m_hash);

@@ -49,9 +49,8 @@ pub fn encode_and_encrypt_event<Event, NB, MB, OB>(
     iv: AztecAddress
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
-        let header = context.get_header();
-        let ovpk = header.get_ovpk_m(context, ov);
-        let ivpk = header.get_ivpk_m(context, iv);
+        let ovpk = context.get_ovpk_m(ov);
+        let ivpk = context.get_ivpk_m(iv);
         let randomness = unsafe_rand();
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute);
     }
@@ -63,9 +62,8 @@ pub fn encode_and_encrypt_event_unconstrained<Event, NB, MB, OB>(
     iv: AztecAddress
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
-        let header = context.get_header();
-        let ovpk = header.get_ovpk_m(context, ov);
-        let ivpk = header.get_ivpk_m(context, iv);
+        let ovpk = context.get_ovpk_m(ov);
+        let ivpk = context.get_ivpk_m(iv);
         let randomness = unsafe_rand();
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute_unconstrained);
     }
@@ -78,9 +76,8 @@ pub fn encode_and_encrypt_event_with_randomness<Event, NB, MB, OB>(
     iv: AztecAddress
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress, Field)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
-        let header = context.get_header();
-        let ovpk = header.get_ovpk_m(context, ov);
-        let ivpk = header.get_ivpk_m(context, iv);
+        let ovpk = context.get_ovpk_m(ov);
+        let ivpk = context.get_ivpk_m(iv);
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute);
     }
 }
@@ -92,9 +89,8 @@ pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, NB, MB, OB>
     iv: AztecAddress
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress, Field)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
     | e: Event | {
-        let header = context.get_header();
-        let ovpk = header.get_ovpk_m(context, ov);
-        let ivpk = header.get_ivpk_m(context, iv);
+        let ovpk = context.get_ovpk_m(ov);
+        let ivpk = context.get_ivpk_m(iv);
         emit_with_keys(context, randomness, e, ovpk, ivpk, compute_unconstrained);
     }
 }

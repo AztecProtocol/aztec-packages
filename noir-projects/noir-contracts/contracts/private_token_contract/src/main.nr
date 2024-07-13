@@ -94,8 +94,7 @@ contract PrivateToken {
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
-        let header = context.get_header();
-        let caller_npk_m_hash = header.get_npk_m_hash(&mut context, caller);
+        let caller_npk_m_hash = context.get_npk_m_hash(caller);
         storage.balances.add(caller_npk_m_hash, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, caller));
         PrivateToken::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
@@ -115,12 +114,11 @@ contract PrivateToken {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let header = context.get_header();
-        let from_ovpk = header.get_ovpk_m(&mut context, from);
-        let from_ivpk = header.get_ivpk_m(&mut context, from);
-        let from_npk_m_hash = header.get_npk_m_hash(&mut context, from);
-        let to_ivpk = header.get_ivpk_m(&mut context, to);
-        let to_npk_m_hash = header.get_npk_m_hash(&mut context, to);
+        let from_ovpk = context.get_ovpk_m(from);
+        let from_ivpk = context.get_ivpk_m(from);
+        let from_npk_m_hash = context.get_npk_m_hash(from);
+        let to_ivpk = context.get_ivpk_m(to);
+        let to_npk_m_hash = context.get_npk_m_hash(to);
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
@@ -130,12 +128,11 @@ contract PrivateToken {
     #[aztec(private)]
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        let header = context.get_header();
-        let from_ovpk = header.get_ovpk_m(&mut context, from);
-        let from_ivpk = header.get_ivpk_m(&mut context, from);
-        let from_npk_m_hash = header.get_npk_m_hash(&mut context, from);
-        let to_ivpk = header.get_ivpk_m(&mut context, to);
-        let to_npk_m_hash = header.get_npk_m_hash(&mut context, to);
+        let from_ovpk = context.get_ovpk_m(from);
+        let from_ivpk = context.get_ivpk_m(from);
+        let from_npk_m_hash = context.get_npk_m_hash(from);
+        let to_ivpk = context.get_ivpk_m(to);
+        let to_npk_m_hash = context.get_npk_m_hash(to);
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
@@ -144,8 +141,7 @@ contract PrivateToken {
 
     #[aztec(private)]
     fn balance_of_private(owner: AztecAddress) -> pub Field {
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = context.get_npk_m_hash(owner);
         storage.balances.to_unconstrained().balance_of(owner_npk_m_hash).to_integer()
     }
 
@@ -171,10 +167,9 @@ contract PrivateToken {
         assert_current_call_valid_authwit(&mut context, user);
 
         // 2. Get all the relevant user keys
-        let header = context.get_header();
-        let user_npk_m_hash = header.get_npk_m_hash(&mut context, user);
-        let user_ovpk = header.get_ovpk_m(&mut context, user);
-        let user_ivpk = header.get_ivpk_m(&mut context, user);
+        let user_npk_m_hash = context.get_npk_m_hash(user);
+        let user_ovpk = context.get_ovpk_m(user);
+        let user_ivpk = context.get_ivpk_m(user);
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
         // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
