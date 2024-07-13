@@ -212,9 +212,21 @@ void UltraCircuitChecker::populate_values(
         }
     };
 
+    auto memory_record_is_non_sorted_RAM_gate = [&block, &idx]() {
+        return block.q_m()[idx] == 1 && block.q_4()[idx] == 1;
+    };
+
+    auto compute_RAM_memory_record_term =
+        [](const FF& w_1, const FF& q_c, const FF& w_3, const FF& eta, const FF& eta_two, FF& eta_three) {
+            return (w_3 * eta_three + q_c * eta_two + w_1 * eta);
+        };
+
     // A lambda function for computing a memory record term of the form w3 * eta_three + w2 * eta_two + w1 * eta
     auto compute_memory_record_term =
-        [](const FF& w_1, const FF& w_2, const FF& w_3, const FF& eta, const FF& eta_two, FF& eta_three) {
+        [&](const FF& w_1, const FF& w_2, const FF& w_3, const FF& eta, const FF& eta_two, FF& eta_three) {
+            if (memory_record_is_non_sorted_RAM_gate()) {
+                return compute_RAM_memory_record_term(w_1, block.q_c()[idx], w_3, eta, eta_two, eta_three);
+            }
             return (w_3 * eta_three + w_2 * eta_two + w_1 * eta);
         };
 

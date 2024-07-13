@@ -1211,7 +1211,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
  * @param type
  */
 template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECTORS type)
+void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECTORS type, const uint32_t ram_timestamp)
 {
     auto& block = blocks.aux;
     block.q_aux().emplace_back(type == AUX_SELECTORS::NONE ? 0 : 1);
@@ -1363,12 +1363,12 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        block.q_1().emplace_back(1);
+        block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_m().emplace_back(1); // validate record witness is correctly computed
-        block.q_c().emplace_back(0); // read/write flag stored in q_c
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(1);             // validate record witness is correctly computed
+        block.q_c().emplace_back(ram_timestamp); // read/write flag stored in q_c
         block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
             block.pad_additional();
@@ -1380,12 +1380,12 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // Memory read gate for writing memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        block.q_1().emplace_back(1);
+        block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_m().emplace_back(1); // validate record witness is correctly computed
-        block.q_c().emplace_back(1); // read/write flag stored in q_c
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(1);             // validate record witness is correctly computed
+        block.q_c().emplace_back(ram_timestamp); // read/write flag stored in q_c
         block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
             block.pad_additional();
@@ -2127,9 +2127,10 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // Later on during proof construction we will compute the record wire value + assign it
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(record.access_type == RamRecord::AccessType::READ ? AUX_SELECTORS::RAM_READ
-                                                                          : AUX_SELECTORS::RAM_WRITE);
-    blocks.aux.populate_wires(
-        record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+                                                                          : AUX_SELECTORS::RAM_WRITE,
+                        record.timestamp);
+
+    blocks.aux.populate_wires(record.index_witness, record.access_witness, record.value_witness, record.record_witness);
 
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size() - 1;
@@ -2170,13 +2171,14 @@ void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamReco
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size(); // no -1 since we havent added the gate yet
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
-    // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
-    // consistency check on the value in wire 1. These two purposes have been split into a dummy gate and a simplified
-    // arithmetic gate, respectively. This allows both purposes to be served even after arithmetic gates are sorted out
-    // of sequence with the RAM gates.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic
+    // gate with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
+    // consistency check on the value in wire 1. These two purposes have been split into a dummy gate and a
+    // simplified arithmetic gate, respectively. This allows both purposes to be served even after arithmetic gates
+    // are sorted out of sequence with the RAM gates.
 
-    // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via shifted wires
+    // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via shifted
+    // wires
     create_dummy_gate(
         blocks.aux, record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
@@ -2233,7 +2235,8 @@ void UltraCircuitBuilder_<Arithmetization>::init_RAM_element(const size_t ram_id
     ASSERT(ram_array.state.size() > index_value);
     ASSERT(ram_array.state[index_value] == UNINITIALIZED_MEMORY_RECORD);
     RamRecord new_record{ .index_witness = index_witness,
-                          .timestamp_witness = put_constant_variable((uint64_t)ram_array.access_count),
+                          .timestamp_witness = 0,                     // not used, timestamp is circuit constant
+                          .access_witness = put_constant_variable(1), // 1 = write
                           .value_witness = value_witness,
                           .index = static_cast<uint32_t>(index_value), // TODO: size_t?
                           .timestamp = static_cast<uint32_t>(ram_array.access_count),
@@ -2249,6 +2252,7 @@ void UltraCircuitBuilder_<Arithmetization>::init_RAM_element(const size_t ram_id
 template <typename Arithmetization>
 uint32_t UltraCircuitBuilder_<Arithmetization>::read_RAM_array(const size_t ram_id, const uint32_t index_witness)
 {
+    // auto pre = this->num_gates;
     ASSERT(ram_arrays.size() > ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(this->get_variable(index_witness)));
@@ -2258,7 +2262,8 @@ uint32_t UltraCircuitBuilder_<Arithmetization>::read_RAM_array(const size_t ram_
     const uint32_t value_witness = this->add_variable(value);
 
     RamRecord new_record{ .index_witness = index_witness,
-                          .timestamp_witness = put_constant_variable((uint64_t)ram_array.access_count),
+                          .timestamp_witness = 0,                     // not used, timestamp is circuit constant
+                          .access_witness = put_constant_variable(0), // 0 = read
                           .value_witness = value_witness,
                           .index = index,
                           .timestamp = static_cast<uint32_t>(ram_array.access_count),
@@ -2287,7 +2292,8 @@ void UltraCircuitBuilder_<Arithmetization>::write_RAM_array(const size_t ram_id,
     ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
 
     RamRecord new_record{ .index_witness = index_witness,
-                          .timestamp_witness = put_constant_variable((uint64_t)ram_array.access_count),
+                          .timestamp_witness = 0,                     // not used, timestamp is circuit constant
+                          .access_witness = put_constant_variable(1), // 1 = write
                           .value_witness = value_witness,
                           .index = index,
                           .timestamp = static_cast<uint32_t>(ram_array.access_count),
@@ -2526,8 +2532,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = this->add_variable(max_index_value);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
-    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
-    // arithmetic gate to occur out of sequence.
+    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing
+    // the arithmetic gate to occur out of sequence.
     create_dummy_gate(blocks.aux, max_index, this->zero_idx, this->zero_idx, this->zero_idx);
     create_big_add_gate(
         {
@@ -2585,11 +2591,12 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         const auto index = record.index;
         const auto value = this->get_variable(record.value_witness);
         const auto index_witness = this->add_variable(FF((uint64_t)index));
-        const auto timestamp_witess = this->add_variable(record.timestamp);
+        const auto timestamp_witness = this->add_variable(record.timestamp);
         const auto value_witness = this->add_variable(value);
         RamRecord sorted_record{
             .index_witness = index_witness,
-            .timestamp_witness = timestamp_witess,
+            .timestamp_witness = timestamp_witness,
+            .access_witness = 0, // not used
             .value_witness = value_witness,
             .index = index,
             .timestamp = record.timestamp,
