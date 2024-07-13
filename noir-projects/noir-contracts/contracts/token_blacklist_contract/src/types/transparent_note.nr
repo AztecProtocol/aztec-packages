@@ -2,7 +2,7 @@
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash}
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
@@ -76,6 +76,12 @@ impl TransparentNote {
             amount: PropertySelector { index: 0, offset: 0, length: 32 },
             secret_hash: PropertySelector { index: 1, offset: 0, length: 32 }
         }
+    }
+}
+
+impl Eq for TransparentNote {
+    fn eq(self, other: Self) -> bool {
+        (self.amount == other.amount) & (self.secret_hash == other.secret_hash)
     }
 }
 // docs:end:token_types_all

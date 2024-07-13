@@ -29,7 +29,7 @@ fn on_goto_definition_inner(
     params: GotoDefinitionParams,
     return_type_location_instead: bool,
 ) -> Result<GotoDefinitionResult, ResponseError> {
-    process_request(state, params.text_document_position_params, |location, interner, files| {
+    process_request(state, params.text_document_position_params, |location, interner, files, _| {
         interner.get_definition_location_from(location, return_type_location_instead).and_then(
             |found_location| {
                 let file_id = found_location.file;
@@ -195,5 +195,10 @@ mod goto_definition_tests {
             },
         )
         .await;
+    }
+
+    #[test]
+    async fn goto_for_local_variable() {
+        expect_goto_for_all_references("local_variable", "some_var", 0).await;
     }
 }
