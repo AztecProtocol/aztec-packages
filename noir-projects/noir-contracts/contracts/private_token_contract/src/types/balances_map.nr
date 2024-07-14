@@ -70,7 +70,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         self: Self,
         owner_npk_m_hash: Field,
         addend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         let mut addend_note = T::new(addend, owner_npk_m_hash);
         OuterNoteEmission::new(Option::some(self.map.insert(&mut addend_note)))
     }
@@ -79,7 +79,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         self: Self,
         owner_npk_m_hash: Field,
         subtrahend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         let mut options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.get_notes(
             options.select(
