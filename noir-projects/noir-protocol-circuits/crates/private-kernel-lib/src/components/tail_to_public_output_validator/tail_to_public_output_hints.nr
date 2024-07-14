@@ -90,9 +90,7 @@ unconstrained pub fn generate_tail_to_public_output_hints(previous_kernel: Priva
     let sorted_unencrypted_log_hash_hints = sort_get_split_order_hints_asc(previous_kernel.end.unencrypted_logs_hashes, split_counter);
 
     // public_call_requests
-    // TODO: Hide the counter of a public call request.
-    // let public_call_requests = previous_kernel.end.public_call_stack.map(|cr: CallRequest| cr.expose_to_public());
-    let public_call_requests = previous_kernel.end.public_call_stack;
+    let public_call_requests = previous_kernel.end.public_call_stack.map(|cr: CallRequest| cr.expose_to_public());
     let sorted_public_call_request_hints = sort_get_split_order_hints_desc(previous_kernel.end.public_call_stack, split_counter);
 
     TailToPublicOutputHints {

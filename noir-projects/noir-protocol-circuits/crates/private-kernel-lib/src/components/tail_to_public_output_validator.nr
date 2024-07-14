@@ -166,8 +166,7 @@ impl TailToPublicOutputValidator {
             |cr: CallRequest, public_cr: CallRequest| (public_cr.hash == cr.hash)
                 & (public_cr.caller_contract_address == cr.caller_contract_address)
                 & (public_cr.caller_context == cr.caller_context)
-                // TODO: Hide the counter of a public call request.
-                // & (public_cr.start_side_effect_counter == 0)
+                & (public_cr.start_side_effect_counter == 0)
                 & (public_cr.end_side_effect_counter == 0)
         );
 
