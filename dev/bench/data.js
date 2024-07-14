@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720969231794,
+  "lastUpdate": 1720969544648,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -82060,6 +82060,78 @@ window.BENCHMARK_DATA = {
             "value": 161085990,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161085990 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f07200c110a9cce1a2bb4a7892063acd928e86cf",
+          "message": "feat: databus allows arbitrarily many reads per index (#6524)\n\nTLDR: Up until now we were limited to only 1 read per entry of a databus\r\ncolumn (see explanation of why below). This PR removes this limitation\r\nso that we can read from any row arbitrarily many times at the cost of\r\nadding one polynomial/commitment per databus column.\r\n\r\nNote: this PR also cleans up some of the handling of ecc op wires and\r\ndatabus polys in various places by making better use of Flavor style\r\ngetters.\r\n\r\nExplanation: The log derivative lookup relation involves a polynomial\r\nthat contains inverses, i.e. I_i = (read_term_i*write_term_i)^{-1}.\r\nThese inverses only need to be computed when the relation is \"active\",\r\ni.e. when the row in question either contains a databus read gate or\r\ndata that is being read. At all other rows, we simply set the value of\r\nthe inverse polynomial to 0. This allows a subrelation of the form:\r\n\r\n`read_term * write_term * inverses - inverse_exists`\r\n\r\nWhere `inverse_exists` is a polynomial that takes 1 if the relation is\r\nactive (or equivalently, if the inverse has been computed) and 0\r\notherwise. Therefore, if the inverse has been computed, we check that it\r\nis indeed equal to the inverse of `read_term * write_term`, otherwise,\r\nthe subrelation contribution is trivially 0. If we only allow a single\r\nread from each row of a bus column, the term `inverse_exists` can be\r\ncomputed as an algebraic OR of the form:\r\n\r\n`is_read_gate + read_counts - (is_read_gate * read_counts)`\r\n\r\nsince both `is_read_gate` and `read_counts` are both boolean. If\r\n`read_counts` is no longer boolean, no such algebraic expression exists.\r\nThe solution is to introduce a dedicated boolean polynomial `read_tag`\r\nwhose values are given by `min(1, read_counts)`, i.e. 1 if one or more\r\nreads have been performed at that row, and 0 otherwise.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/937",
+          "timestamp": "2024-07-14T14:50:24Z",
+          "tree_id": "4a385f863616db12c0c12c641dbf605955a5d661",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f07200c110a9cce1a2bb4a7892063acd928e86cf"
+        },
+        "date": 1720969538878,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13689.154826999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9627.03116 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4780.3803780000035,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4378.659363 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41131.715008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41131715000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14707.539353,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14707539000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4511729274,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4511729274 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200369107,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200369107 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3704241723,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3704241723 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164566281,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164566281 ns\nthreads: 1"
           }
         ]
       }
