@@ -1105,6 +1105,7 @@ impl<'a> Resolver<'a> {
             location,
             typ,
             direct_generics,
+            struct_id: None,
             trait_impl: self.current_trait_impl,
             parameters: parameters.into(),
             return_type: func.def.return_type.clone(),
@@ -1548,6 +1549,7 @@ impl<'a> Resolver<'a> {
             ExpressionKind::Prefix(prefix) => {
                 let operator = prefix.operator;
                 let rhs = self.resolve_expression(prefix.rhs);
+                let trait_method_id = self.interner.get_prefix_operator_trait_method(&operator);
 
                 if operator == UnaryOp::MutableReference {
                     if let Err(error) = verify_mutable_reference(self.interner, rhs) {
@@ -1555,7 +1557,7 @@ impl<'a> Resolver<'a> {
                     }
                 }
 
-                HirExpression::Prefix(HirPrefixExpression { operator, rhs })
+                HirExpression::Prefix(HirPrefixExpression { operator, rhs, trait_method_id })
             }
             ExpressionKind::Infix(infix) => {
                 let lhs = self.resolve_expression(infix.lhs);
